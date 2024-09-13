@@ -12,8 +12,6 @@ from pathlib import Path
 import aiohttp
 from tqdm.asyncio import tqdm
 
-MAX_FILES = None
-API_KEY = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
 
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file
@@ -75,7 +73,9 @@ async def download_file(
         print(f"Failed to download {path} after {MAX_RETRIES} attempts.")
 
 
-async def _download(dataset_name: str, output_path: Path) -> None:
+async def _download(
+    dataset_name: str, output_path: Path, api_key: str, limit: int | None
+) -> None:
     async with aiohttp.ClientSession() as session:
         # Get latest release's ID
         async with session.get(
@@ -87,7 +87,7 @@ async def _download(dataset_name: str, output_path: Path) -> None:
         # Get the download links for the s2orc dataset
         async with session.get(
             f"https://api.semanticscholar.org/datasets/v1/release/{release_id}/dataset/{dataset_name}/",
-            headers={"x-api-key": API_KEY},
+            headers={"x-api-key": api_key},
         ) as response:
             dataset = await response.json()
         Path("dataset.json").write_text(json.dumps(dataset, indent=2))
@@ -100,7 +100,7 @@ async def _download(dataset_name: str, output_path: Path) -> None:
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_DOWNLOADS)
         tasks: list[Coroutine[None, None, None]] = []
 
-        for url in dataset["files"][:MAX_FILES]:
+        for url in dataset["files"][:limit]:
             file_name = urllib.parse.urlparse(url).path.split("/")[-1]
             file_path = output_path / file_name
 
@@ -109,10 +109,15 @@ async def _download(dataset_name: str, output_path: Path) -> None:
         await tqdm.gather(*tasks, desc="Overall progress")
 
 
-def download_s2orc(dataset_name: str, output_path: Path) -> None:
+def download_s2orc(
+    dataset_name: str, output_path: Path, api_key: str | None, limit: int | None
+) -> None:
+    if api_key is None:
+        api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
+
     while True:
         try:
-            asyncio.run(_download(dataset_name, output_path))
+            asyncio.run(_download(dataset_name, output_path, api_key, limit))
             break  # If _main() completes without interruption, exit the loop
         except KeyboardInterrupt:
             choice = input("\n\nCtrl+C detected. Do you really want to exit? (y/n): ")
@@ -132,8 +137,19 @@ def main() -> None:
     parser.add_argument(
         "output_path", type=Path, help="Directory to save the downloaded files"
     )
+    parser.add_argument(
+        "--api-key",
+        type=str,
+        help="API key for the Semantic Scholar API. Defaults to the SEMANTIC_SCHOLAR_API_KEY environment variable.",
+    )
+    parser.add_argument(
+        "--limit",
+        "-n",
+        type=int,
+        help="Limit the number of files to download. Useful for testing.",
+    )
     args = parser.parse_args()
-    download_s2orc(args.dataset_name, args.output_path)
+    download_s2orc(args.dataset_name, args.output_path, args.api_key, args.limit)
 
 
 if __name__ == "__main__":

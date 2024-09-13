@@ -11,9 +11,6 @@ from pathlib import Path
 import aiohttp
 from tqdm.asyncio import tqdm
 
-MAX_FILES = None
-API_KEY = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
-
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 MAX_RETRIES = 3
@@ -53,7 +50,9 @@ def bytes_to_gib(bytes_size: int) -> float:
     return bytes_size / (1024 * 1024 * 1024)
 
 
-async def _get_filesizes(dataset_name: str, output_path: Path) -> None:
+async def _get_filesizes(
+    dataset_name: str, output_path: Path, api_key: str, limit: int | None
+) -> None:
     async with aiohttp.ClientSession() as session:
         # Get latest release's ID
         async with session.get(
@@ -65,7 +64,7 @@ async def _get_filesizes(dataset_name: str, output_path: Path) -> None:
         # Get the download links for the s2orc dataset
         async with session.get(
             f"https://api.semanticscholar.org/datasets/v1/release/{release_id}/dataset/{dataset_name}/",
-            headers={"x-api-key": API_KEY},
+            headers={"x-api-key": api_key},
         ) as response:
             dataset = await response.json()
         Path("dataset.json").write_text(json.dumps(dataset, indent=2))
@@ -78,23 +77,26 @@ async def _get_filesizes(dataset_name: str, output_path: Path) -> None:
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
         tasks = [
-            get_file_size(url, session, semaphore)
-            for url in dataset["files"][:MAX_FILES]
+            get_file_size(url, session, semaphore) for url in dataset["files"][:limit]
         ]
         file_sizes = await tqdm.gather(*tasks, desc="Getting file sizes")
 
         total_size_gb = sum(bytes_to_gib(size) for size in file_sizes)
 
         print("\nFile sizes:")
-        for url, size in zip(dataset["files"][:MAX_FILES], file_sizes):
+        for url, size in zip(dataset["files"][:limit], file_sizes):
             file_name = urllib.parse.urlparse(url).path.split("/")[-1]
             print(f"{file_name}: {bytes_to_gib(size):.2f} GiB")
 
         print(f"\nTotal size of all files: {total_size_gb:.2f} GiB")
 
 
-def get_filesizes(dataset_name: str, output_path: Path) -> None:
-    asyncio.run(_get_filesizes(dataset_name, output_path))
+def get_filesizes(
+    dataset_name: str, output_path: Path, api_key: str | None, limit: int | None
+) -> None:
+    if api_key is None:
+        api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
+    asyncio.run(_get_filesizes(dataset_name, output_path, api_key, limit))
 
 
 def main() -> None:
@@ -106,7 +108,18 @@ def main() -> None:
     )
     parser.add_argument("output_path", type=Path, help="Path to save the output.")
     args = parser.parse_args()
-    get_filesizes(args.dataset_name, args.output_path)
+    parser.add_argument(
+        "--api-key",
+        type=str,
+        help="API key for the Semantic Scholar API. Defaults to the SEMANTIC_SCHOLAR_API_KEY environment variable.",
+    )
+    parser.add_argument(
+        "--limit",
+        "-n",
+        type=int,
+        help="Limit the number of files to download. Useful for testing.",
+    )
+    get_filesizes(args.dataset_name, args.output_path, args.api_key, args.limit)
 
 
 if __name__ == "__main__":
