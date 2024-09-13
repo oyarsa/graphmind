@@ -5,7 +5,6 @@ import gzip
 import json
 from collections.abc import Iterator
 from pathlib import Path
-from typing import TextIO
 
 from tqdm import tqdm
 
@@ -23,8 +22,8 @@ def _match_papers(
                 break
 
 
-def match_papers(venues_file: TextIO, papers: list[Path], output_path: Path) -> None:
-    venues = [normalise_text(venue) for venue in venues_file]
+def match_papers(venues_file: Path, papers: list[Path], output_path: Path) -> None:
+    venues = [normalise_text(venue) for venue in venues_file.read_text().splitlines()]
     print(f"Loaded {len(venues)} venues.")
     output: list[dict[str, str]] = []
 
@@ -47,7 +46,7 @@ def main() -> None:
     )
     parser.add_argument(
         "venues_file",
-        type=argparse.FileType("r"),
+        type=Path,
         help="Input file containing venue names",
     )
     parser.add_argument(
