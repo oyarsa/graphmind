@@ -20,6 +20,9 @@ These are in separate scripts because they are long-running tasks. `download_s2o
 has to download 250 GB of data, and `process_s2orc.py` has to extract 1 TB of data to
 memory (one file at a time) and extract the relevant information from it.
 
+You can also run `preprocess.py` to run all the scripts in order, but I recommend running
+them separately.
+
 The scripts need an API key. You can obtain one from the [Semantic Scholar
 website](https://www.semanticscholar.org/product/api#api-key-form). The scripts require
 the key to either be in the `SEMANTIC_SCHOLAR_API_KEY` environment variable or passed
