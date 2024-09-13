@@ -12,7 +12,6 @@ from pathlib import Path
 import aiohttp
 from tqdm.asyncio import tqdm
 
-
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file
 MAX_RETRIES = 3
@@ -109,7 +108,7 @@ async def _download(
         await tqdm.gather(*tasks, desc="Overall progress")
 
 
-def download_s2orc(
+def download(
     dataset_name: str, output_path: Path, api_key: str | None, limit: int | None
 ) -> None:
     if api_key is None:
@@ -132,10 +131,13 @@ def main() -> None:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
-        "dataset_name", type=str, help="Name of the dataset to download"
+        "output_path", type=Path, help="Directory to save the downloaded files"
     )
     parser.add_argument(
-        "output_path", type=Path, help="Directory to save the downloaded files"
+        "--dataset-name",
+        type=str,
+        default="s2orc",
+        help="Name of the dataset to download",
     )
     parser.add_argument(
         "--api-key",
@@ -149,7 +151,7 @@ def main() -> None:
         help="Limit the number of files to download. Useful for testing.",
     )
     args = parser.parse_args()
-    download_s2orc(args.dataset_name, args.output_path, args.api_key, args.limit)
+    download(args.dataset_name, args.output_path, args.api_key, args.limit)
 
 
 if __name__ == "__main__":
