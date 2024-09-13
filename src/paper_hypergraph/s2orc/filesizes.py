@@ -51,7 +51,7 @@ def bytes_to_gib(bytes_size: int) -> float:
 
 
 async def _get_filesizes(
-    dataset_name: str, output_path: Path, api_key: str, limit: int | None
+    dataset_name: str, output_file: Path, api_key: str, limit: int | None
 ) -> None:
     async with aiohttp.ClientSession() as session:
         # Get latest release's ID
@@ -73,22 +73,27 @@ async def _get_filesizes(
             print("No files found.")
             sys.exit(1)
 
-        output_path.mkdir(exist_ok=True)
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
-        tasks = [
-            get_file_size(url, session, semaphore) for url in dataset["files"][:limit]
-        ]
+        files = dataset["files"][:limit]
+        tasks = [get_file_size(url, session, semaphore) for url in files]
         file_sizes = await tqdm.gather(*tasks, desc="Getting file sizes")
 
         total_size_gb = sum(bytes_to_gib(size) for size in file_sizes)
+        info: list[dict[str, str | float]] = []
 
         print("\nFile sizes:")
-        for url, size in zip(dataset["files"][:limit], file_sizes):
+        for url, size in zip(files, file_sizes):
             file_name = urllib.parse.urlparse(url).path.split("/")[-1]
-            print(f"{file_name}: {bytes_to_gib(size):.2f} GiB")
+            size_gb = bytes_to_gib(size)
+            print(f"{file_name}: {size_gb:.2f} GiB")
+
+            info.append({"url": url, "name": file_name, "size_gb": size_gb})
 
         print(f"\nTotal size of all files: {total_size_gb:.2f} GiB")
+
+        output_file.parent.mkdir(exist_ok=True)
+        output_file.write_text(json.dumps(info, indent=2))
 
 
 def get_filesizes(
@@ -106,8 +111,9 @@ def main() -> None:
     parser.add_argument(
         "dataset_name", type=str, help="Name of the dataset to get the file sizes for."
     )
-    parser.add_argument("output_path", type=Path, help="Path to save the output.")
-    args = parser.parse_args()
+    parser.add_argument(
+        "output_file", type=Path, help="Path to JSON file with file information."
+    )
     parser.add_argument(
         "--api-key",
         type=str,
@@ -119,7 +125,8 @@ def main() -> None:
         type=int,
         help="Limit the number of files to download. Useful for testing.",
     )
-    get_filesizes(args.dataset_name, args.output_path, args.api_key, args.limit)
+    args = parser.parse_args()
+    get_filesizes(args.dataset_name, args.output_file, args.api_key, args.limit)
 
 
 if __name__ == "__main__":
