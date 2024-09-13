@@ -13,22 +13,19 @@ from paper_hypergraph.s2orc.filter import filter_papers
 
 
 def pipeline(
-    api_key: str | None,
-    dataset_path: Path,
-    dataset_file_limit: int | None,
-    output_path: Path,
+    api_key: str | None, dataset_path: Path, file_limit: int | None, output_path: Path
 ) -> None:
     if not api_key:
         api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
 
-    print("==== Downloading S2ORC dataset ====")
-    download_dataset("s2orc", dataset_path, api_key, dataset_file_limit)
+    print(f"==== Downloading S2ORC dataset ({file_limit or "all"} files) ====")
+    download_dataset("s2orc", dataset_path, api_key, file_limit)
 
-    print("\n\n==== Extracting S2ORC dataset (same directory) ====")
+    print(f"\n\n==== Extracting S2ORC dataset to {dataset_path} ====")
     extract_data(dataset_path.glob("*.gz"))
 
-    print("\n\n==== Get papers matching ACL venues ====")
-    matched_papers_path = output_path / "matched_papers.json.gz"
+    matched_papers_path = output_path / "papers.json.gz"
+    print(f"\n\n==== Get papers matching ACL venues to {matched_papers_path} ====")
     filter_papers(dataset_path, matched_papers_path)
 
 
@@ -39,7 +36,7 @@ def main() -> None:
     parser.add_argument(
         "--api-key",
         type=str,
-        help="Semantic Scholar API key. If not provided, use the"
+        help="Semantic Scholar API key. If not provided, uses the"
         " 'SEMANTIC_SCHOLAR_API_KEY' environment variable.",
     )
     parser.add_argument(
