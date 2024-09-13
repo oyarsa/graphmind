@@ -7,11 +7,9 @@ import argparse
 import os
 from pathlib import Path
 
-from paper_hypergraph.s2orc.acl_papers import match_papers
 from paper_hypergraph.s2orc.download import download
 from paper_hypergraph.s2orc.extract import extract_data
-from paper_hypergraph.s2orc.match_venues import match_venues
-from paper_hypergraph.s2orc.unique_venues import get_unique_venues
+from paper_hypergraph.s2orc.filter import filter_papers
 
 
 def pipeline(
@@ -29,19 +27,9 @@ def pipeline(
     print("\n\n==== Extracting S2ORC dataset (same directory) ====")
     extract_data(dataset_path.glob("*.gz"))
 
-    print("\n\n==== Getting unique venues ====")
-    unique_venues_path = output_path / "unique_venues.txt"
-    get_unique_venues(dataset_path, unique_venues_path)
-
-    print("\n\n==== Matching venues ====")
-    matching_venues_path = output_path / "matching_venues.txt"
-    match_venues(unique_venues_path, matching_venues_path)
-
-    print("\n\n==== Get matching papers ====")
+    print("\n\n==== Get papers matching ACL venues ====")
     matched_papers_path = output_path / "matched_papers.json.gz"
-    match_papers(
-        matching_venues_path, list(dataset_path.glob("*.json.gz")), matched_papers_path
-    )
+    filter_papers(dataset_path, matched_papers_path)
 
 
 def main() -> None:
