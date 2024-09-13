@@ -30,7 +30,7 @@ def safe_load_json(file_path: Path) -> Any:
         return sanitize_value(json.load(f))
 
 
-def main(dirs: list[Path], output_path: Path) -> None:
+def merge_content_review(dirs: list[Path], output_path: Path) -> None:
     output: list[dict[str, Any]] = []
 
     for dir in dirs:
@@ -53,7 +53,7 @@ def main(dirs: list[Path], output_path: Path) -> None:
         json.dump(output, f, ensure_ascii=False, indent=2)
 
 
-if __name__ == "__main__":
+def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -62,4 +62,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("output", type=Path, help="Output JSON file")
     args = parser.parse_args()
-    main(args.dirs, args.output)
+    merge_content_review(args.dirs, args.output)
+
+
+if __name__ == "__main__":
+    main()
