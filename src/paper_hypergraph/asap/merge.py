@@ -4,6 +4,8 @@ Only keep those entries where all reviews have a rating.
 
 The original JSON files had some encoding issues, so this sanitises the text to be valid
 UTF-8.
+
+The files must be downloaded from Google Drive. See README.md for more information.
 """
 
 import argparse
@@ -67,11 +69,17 @@ def main() -> None:
     parser.add_argument(
         "path",
         nargs="?",
-        default=".",
+        default="data",
         type=Path,
-        help="Path to directories containing files to merge",
+        help="Path to directories containing files to merge (default: %(default)s)",
     )
-    parser.add_argument("output.json", type=Path, help="Output JSON file")
+    parser.add_argument(
+        "--output",
+        "-o",
+        default="output.json",
+        type=Path,
+        help="Output JSON file (default: %(default)s)",
+    )
     args = parser.parse_args()
     merge_content_review(args.dirs, args.output)
 

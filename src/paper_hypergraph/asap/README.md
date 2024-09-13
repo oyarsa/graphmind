@@ -13,6 +13,9 @@ merged data.
 $ python merge.py
 ```
 
+The paths can be changed via CLI arguments. See `merge.py --help` for more information
+on the options.
+
 In the ASAP-Review dataset, NIPS papers don't have ratings in their reviews, only the
 ICLR papers.
 
