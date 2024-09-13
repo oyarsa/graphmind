@@ -14,22 +14,22 @@ from pathlib import Path
 from typing import Any
 
 
-def sanitize_value(val: dict[str, Any] | list[Any] | str | Any) -> Any:
+def _sanitize_value(val: dict[str, Any] | list[Any] | str | Any) -> Any:
     """Sanitise strings to be valid UTF-8, replacing invalid characters with '?'"""
     if isinstance(val, dict):
-        return {sanitize_value(k): sanitize_value(v) for k, v in val.items()}
+        return {_sanitize_value(k): _sanitize_value(v) for k, v in val.items()}
     elif isinstance(val, list):
-        return [sanitize_value(v) for v in val]
+        return [_sanitize_value(v) for v in val]
     elif isinstance(val, str):
         return val.encode("utf-8", errors="replace").decode("utf-8")
     else:
         return val
 
 
-def safe_load_json(file_path: Path) -> Any:
+def _safe_load_json(file_path: Path) -> Any:
     """Load a JSON file, ensuring the text is valid UTF-8."""
     with file_path.open("r", encoding="utf-8", errors="replace") as f:
-        return sanitize_value(json.load(f))
+        return _sanitize_value(json.load(f))
 
 
 def merge_content_review(path: Path, output_path: Path) -> None:
@@ -50,8 +50,8 @@ def merge_content_review(path: Path, output_path: Path) -> None:
             if not review_file.exists():
                 continue
 
-            content = safe_load_json(content_file)["metadata"]
-            review = safe_load_json(review_file)["reviews"]
+            content = _safe_load_json(content_file)["metadata"]
+            review = _safe_load_json(review_file)["reviews"]
 
             # We only want entries that have ratings in their reviews and titles
             if all("rating" in r for r in review) and content.get("title"):
