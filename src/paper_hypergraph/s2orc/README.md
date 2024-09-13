@@ -20,10 +20,15 @@ These are in separate scripts because they are long-running tasks. `download_s2o
 has to download 250 GB of data, and `process_s2orc.py` has to extract 1 TB of data to
 memory (one file at a time) and extract the relevant information from it.
 
-All scripts read gzipped files to memory and save .json.gz because of storage
-limitations. This doesn't seem to impact write/read times significantly.
+The scripts need an API key. You can obtain one from the [Semantic Scholar
+website](https://www.semanticscholar.org/product/api#api-key-form). The scripts require
+the key to either be in the `SEMANTIC_SCHOLAR_API_KEY` environment variable or passed
+as a CLI argument (see the `--help` for each script).
 
 ### Dealing with JSON.GZ files
+
+All scripts read gzipped files to memory and save .json.gz because of storage
+limitations. This doesn't seem to impact write/read times significantly.
 
 - In Python, you can use the `gzip` module and the `gzip.open` from the standard library
   to open and read/write to the file as if it were a normal file, including using
