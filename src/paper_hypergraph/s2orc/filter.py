@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 # ACL conference keywords
 # fmt: off
-ACL_CONFERENCES = [
+_ACL_CONFERENCES = [
     "acl", "association for computational linguistics",
     "aacl", "asia-pacific chapter of the association for computational linguistics",
     "applied natural language processing",
@@ -49,12 +49,12 @@ ACL_CONFERENCES = [
 normalise_re = re.compile(r"[^a-z0-9\s]")
 
 
-def normalise_text(text: str) -> str:
+def _normalise_text(text: str) -> str:
     """Remove non-alphanumeric characters and convert to lowercase."""
     return normalise_re.sub("", text.lower()).strip()
 
 
-def get_unique_venues(files: list[Path]) -> set[str]:
+def _get_unique_venues(files: list[Path]) -> set[str]:
     """Extract unique ACL-related venues from gzipped JSON files."""
     all_venues: set[str] = set()
 
@@ -73,8 +73,8 @@ def get_unique_venues(files: list[Path]) -> set[str]:
     return all_venues
 
 
-def get_acl_venues(venues: set[str]) -> set[str]:
-    venues_candidate_normalised = {normalise_text(conf) for conf in ACL_CONFERENCES}
+def _get_acl_venues(venues: set[str]) -> set[str]:
+    venues_candidate_normalised = {_normalise_text(conf) for conf in _ACL_CONFERENCES}
     venues_candidate_regex = [
         re.compile(
             r"\b" + r"\s+".join(re.escape(word) for word in venue_norm.split()) + r"\b"
@@ -84,7 +84,7 @@ def get_acl_venues(venues: set[str]) -> set[str]:
     acl_venues: set[str] = set()
 
     for venue in venues:
-        normalised_venue = normalise_text(venue)
+        normalised_venue = _normalise_text(venue)
         for venue_regex in venues_candidate_regex:
             if venue_regex.search(normalised_venue):
                 acl_venues.add(venue)
@@ -93,7 +93,9 @@ def get_acl_venues(venues: set[str]) -> set[str]:
     return acl_venues
 
 
-def extract_acl_papers(files: list[Path], acl_venues: set[str]) -> list[dict[str, str]]:
+def _extract_acl_papers(
+    files: list[Path], acl_venues: set[str]
+) -> list[dict[str, str]]:
     """Extract papers from ACL-related venues."""
     papers: list[dict[str, str]] = []
 
@@ -115,9 +117,9 @@ def filter_papers(input_directory: Path, output_file: Path) -> None:
     if not input_files:
         raise ValueError(f"No .json.gz files found in {input_directory}")
 
-    all_venues = get_unique_venues(input_files)
-    acl_venues = get_acl_venues(all_venues)
-    acl_papers = extract_acl_papers(input_files, acl_venues)
+    all_venues = _get_unique_venues(input_files)
+    acl_venues = _get_acl_venues(all_venues)
+    acl_papers = _extract_acl_papers(input_files, acl_venues)
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with gzip.open(output_file, "wt") as outfile:

@@ -15,7 +15,7 @@ from typing import Any
 from tqdm import tqdm
 
 
-def extract_annotation(text: str, annotations: dict[str, str], key: str) -> str | None:
+def _extract_annotation(text: str, annotations: dict[str, str], key: str) -> str | None:
     annotation_idxs_str = annotations.get(key)
     if not annotation_idxs_str:
         return None
@@ -36,10 +36,10 @@ def extract_annotation(text: str, annotations: dict[str, str], key: str) -> str 
     return "\n".join(output)
 
 
-ANNOTATION_KEYS = ("abstract", "title", "venue")
+_ANNOTATION_KEYS = ("abstract", "title", "venue")
 
 
-def process_file(file_path: Path) -> list[dict[str, Any]]:
+def _process_file(file_path: Path) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
 
     with gzip.open(file_path, "rt") as f:
@@ -51,7 +51,7 @@ def process_file(file_path: Path) -> list[dict[str, Any]]:
                 or "text" not in data["content"]
                 or "annotations" not in data["content"]
                 or not all(
-                    data["content"]["annotations"].get(key) for key in ANNOTATION_KEYS
+                    data["content"]["annotations"].get(key) for key in _ANNOTATION_KEYS
                 )
             ):
                 continue
@@ -61,9 +61,9 @@ def process_file(file_path: Path) -> list[dict[str, Any]]:
 
             results.append(
                 {
-                    "abstract": extract_annotation(text, annotations, "abstract"),
-                    "title": extract_annotation(text, annotations, "title"),
-                    "venue": extract_annotation(text, annotations, "venue"),
+                    "abstract": _extract_annotation(text, annotations, "abstract"),
+                    "title": _extract_annotation(text, annotations, "title"),
+                    "venue": _extract_annotation(text, annotations, "venue"),
                     "text": text,
                 }
             )
@@ -74,7 +74,7 @@ def process_file(file_path: Path) -> list[dict[str, Any]]:
 def extract_data(files: Iterable[Path]) -> None:
     for file_path in tqdm(tuple(files)):
         try:
-            processed = process_file(file_path)
+            processed = _process_file(file_path)
         except Exception as e:
             print(f"ERROR | {file_path} | {e}")
         else:

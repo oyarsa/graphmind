@@ -17,7 +17,7 @@ MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds
 
 
-async def get_file_size(
+async def _get_file_size(
     url: str, session: aiohttp.ClientSession, semaphore: asyncio.Semaphore
 ) -> int:
     """Get the file size from the given URL."""
@@ -46,7 +46,7 @@ async def get_file_size(
         return 0
 
 
-def bytes_to_gib(bytes_size: int) -> float:
+def _bytes_to_gib(bytes_size: int) -> float:
     return bytes_size / (1024 * 1024 * 1024)
 
 
@@ -76,16 +76,16 @@ async def _get_filesizes(
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
         files = dataset["files"][:limit]
-        tasks = [get_file_size(url, session, semaphore) for url in files]
+        tasks = [_get_file_size(url, session, semaphore) for url in files]
         file_sizes = await tqdm.gather(*tasks, desc="Getting file sizes")
 
-        total_size_gb = sum(bytes_to_gib(size) for size in file_sizes)
+        total_size_gb = sum(_bytes_to_gib(size) for size in file_sizes)
         info: list[dict[str, str | float]] = []
 
         print("\nFile sizes:")
         for url, size in zip(files, file_sizes):
             file_name = urllib.parse.urlparse(url).path.split("/")[-1]
-            size_gb = bytes_to_gib(size)
+            size_gb = _bytes_to_gib(size)
             print(f"{file_name}: {size_gb:.2f} GiB")
 
             info.append({"url": url, "name": file_name, "size_gb": size_gb})

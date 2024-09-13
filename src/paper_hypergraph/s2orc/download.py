@@ -18,7 +18,7 @@ MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds
 
 
-async def _download_file(
+async def _try_download_file(
     url: str, session: aiohttp.ClientSession, display_path: Path, part_path: Path
 ) -> None:
     """Actually download the file in chunks and handle progress bar."""
@@ -42,7 +42,7 @@ async def _download_file(
                 progress_bar.update(size)
 
 
-async def download_file(
+async def _download_file(
     url: str, path: Path, session: aiohttp.ClientSession, semaphore: asyncio.Semaphore
 ) -> None:
     """Download a file from the given URL with a human-readable progress bar.
@@ -55,7 +55,7 @@ async def download_file(
 
         for attempt in range(MAX_RETRIES):
             try:
-                await _download_file(url, session, path, part_path)
+                await _try_download_file(url, session, path, part_path)
             except Exception as e:
                 print(
                     f"Error downloading {path}: {e}. Retrying..."
@@ -103,7 +103,7 @@ async def _download(
             file_name = urllib.parse.urlparse(url).path.split("/")[-1]
             file_path = output_path / file_name
 
-            tasks.append(download_file(url, file_path, session, semaphore))
+            tasks.append(_download_file(url, file_path, session, semaphore))
 
         await tqdm.gather(*tasks, desc="Overall progress")
 

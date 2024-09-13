@@ -7,7 +7,7 @@ import argparse
 
 from semanticscholar import SemanticScholar
 
-ACL_CONFERENCES = [
+_ACL_CONFERENCES = [
     "ACL",
     "AACL",
     "ANLP",
@@ -76,7 +76,7 @@ def main() -> None:
     parser.add_argument(
         "--conferences",
         nargs="+",
-        default=ACL_CONFERENCES,
+        default=_ACL_CONFERENCES,
         help="List of ACL conferences to search for",
     )
     parser.add_argument("--year", default="", help="Year to search for")
