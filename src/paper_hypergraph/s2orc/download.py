@@ -108,7 +108,7 @@ async def _download(
         await tqdm.gather(*tasks, desc="Overall progress")
 
 
-def download(
+def download_dataset(
     dataset_name: str, output_path: Path, api_key: str | None, limit: int | None
 ) -> None:
     if api_key is None:
@@ -151,7 +151,7 @@ def main() -> None:
         help="Limit the number of files to download. Useful for testing.",
     )
     args = parser.parse_args()
-    download(args.dataset_name, args.output_path, args.api_key, args.limit)
+    download_dataset(args.dataset_name, args.output_path, args.api_key, args.limit)
 
 
 if __name__ == "__main__":

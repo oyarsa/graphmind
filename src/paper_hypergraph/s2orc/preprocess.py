@@ -7,7 +7,7 @@ import argparse
 import os
 from pathlib import Path
 
-from paper_hypergraph.s2orc.download import download
+from paper_hypergraph.s2orc.download import download_dataset
 from paper_hypergraph.s2orc.extract import extract_data
 from paper_hypergraph.s2orc.filter import filter_papers
 
@@ -22,7 +22,7 @@ def pipeline(
         api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
 
     print("==== Downloading S2ORC dataset ====")
-    download("s2orc", dataset_path, api_key, dataset_file_limit)
+    download_dataset("s2orc", dataset_path, api_key, dataset_file_limit)
 
     print("\n\n==== Extracting S2ORC dataset (same directory) ====")
     extract_data(dataset_path.glob("*.gz"))
