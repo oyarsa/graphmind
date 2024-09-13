@@ -89,7 +89,7 @@ async def _download(
             headers={"x-api-key": api_key},
         ) as response:
             dataset = await response.json()
-        Path("dataset.json").write_text(json.dumps(dataset, indent=2))
+        (output_path / "dataset.json").write_text(json.dumps(dataset, indent=2))
 
         if "files" not in dataset or not dataset["files"]:
             print("No files found.")
