@@ -30,12 +30,18 @@ def safe_load_json(file_path: Path) -> Any:
         return sanitize_value(json.load(f))
 
 
-def merge_content_review(dirs: list[Path], output_path: Path) -> None:
+def merge_content_review(path: Path, output_path: Path) -> None:
     output: list[dict[str, Any]] = []
 
-    for dir in dirs:
-        contents = dir / (f"{dir.name}_content")
+    for dir in path.iterdir():
+        if not dir.is_dir():
+            continue
+
+        contents = dir / f"{dir.name}_content"
         reviews = dir / f"{dir.name}_review"
+
+        if not contents.exists() or not reviews.exists():
+            continue
 
         for content_file in contents.glob("*.json"):
             review_file = reviews / content_file.name.replace("_content", "_review")
@@ -49,8 +55,9 @@ def merge_content_review(dirs: list[Path], output_path: Path) -> None:
             if all("rating" in r for r in review) and content.get("title"):
                 output.append({"paper": content, "review": review, "source": dir.name})
 
-    with output_path.open("w", encoding="utf-8") as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
+    output_path.write_text(
+        json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 
 def main() -> None:
@@ -58,9 +65,13 @@ def main() -> None:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
-        "dirs", nargs="+", type=Path, help="Directories containing files to merge"
+        "path",
+        nargs="?",
+        default=".",
+        type=Path,
+        help="Path to directories containing files to merge",
     )
-    parser.add_argument("output", type=Path, help="Output JSON file")
+    parser.add_argument("output.json", type=Path, help="Output JSON file")
     args = parser.parse_args()
     merge_content_review(args.dirs, args.output)
 
