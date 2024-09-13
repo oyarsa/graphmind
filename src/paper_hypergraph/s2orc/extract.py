@@ -8,6 +8,7 @@ import argparse
 import contextlib
 import gzip
 import json
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -70,16 +71,12 @@ def process_file(file_path: Path) -> list[dict[str, Any]]:
     return results
 
 
-def process_files(files: list[Path], error_log_path: Path) -> None:
-    error_log_path.unlink(missing_ok=True)
-
-    for file_path in tqdm(files):
+def extract_data(files: Iterable[Path]) -> None:
+    for file_path in tqdm(tuple(files)):
         try:
             processed = process_file(file_path)
         except Exception as e:
             print(f"ERROR | {file_path} | {e}")
-            with open(error_log_path, "a") as f:
-                f.write(str(file_path) + "\n")
         else:
             output_path = file_path.with_suffix(".json.gz")
             with gzip.open(output_path, "wt") as f:
@@ -89,11 +86,8 @@ def process_files(files: list[Path], error_log_path: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("files", type=Path, nargs="+", help="Input gzipped files")
-    parser.add_argument(
-        "--error-log", type=Path, default="output/error.log", help="Error log file"
-    )
     args = parser.parse_args()
-    process_files(args.files, args.error_log)
+    extract_data(args.files)
 
 
 if __name__ == "__main__":
