@@ -81,7 +81,7 @@ def main() -> None:
         help="Output JSON file (default: %(default)s)",
     )
     args = parser.parse_args()
-    merge_content_review(args.dirs, args.output)
+    merge_content_review(args.path, args.output)
 
 
 if __name__ == "__main__":
