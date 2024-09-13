@@ -47,26 +47,7 @@ ACL_CONFERENCES = [
 ]
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument("--query", default="*", help="Query string to search for")
-    parser.add_argument(
-        "--conferences",
-        nargs="+",
-        default=ACL_CONFERENCES,
-        help="List of ACL conferences to search for",
-    )
-    parser.add_argument("--year", default="", help="Year to search for")
-    parser.add_argument("--n", type=int, default=10, help="Number of papers to display")
-
-    args = parser.parse_args()
-    query: str = args.query
-    conferences: list[str] = args.conferences
-    year: str = args.year
-    n: int = args.n
-
+def search_papers(query: str, conferences: list[str], year: str, n: int) -> None:
     sch = SemanticScholar()
 
     results = sch.search_paper(
@@ -85,6 +66,24 @@ def main() -> None:
             f"{i+1}. {item.title}\nYear: {item.year}\nVenue: {item.venue}"
             f"\nPDF: {item.openAccessPdf["url"]}\n"
         )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("--query", default="*", help="Query string to search for")
+    parser.add_argument(
+        "--conferences",
+        nargs="+",
+        default=ACL_CONFERENCES,
+        help="List of ACL conferences to search for",
+    )
+    parser.add_argument("--year", default="", help="Year to search for")
+    parser.add_argument("--n", type=int, default=10, help="Number of papers to display")
+
+    args = parser.parse_args()
+    search_papers(args.query, args.conferences, args.year, args.n)
 
 
 if __name__ == "__main__":

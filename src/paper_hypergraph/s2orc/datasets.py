@@ -1,7 +1,9 @@
+"""List datasets and descriptions for the Semantic Scholar datasets API."""
+
 import requests
 
 
-def main() -> None:
+def list_datasets() -> None:
     releases_response = requests.get(
         "https://api.semanticscholar.org/datasets/v1/release/latest"
     )
@@ -19,6 +21,10 @@ def main() -> None:
     for dataset in data["datasets"]:
         print(dataset["name"], "-", dataset["description"])
         print()
+
+
+def main() -> None:
+    list_datasets()
 
 
 if __name__ == "__main__":

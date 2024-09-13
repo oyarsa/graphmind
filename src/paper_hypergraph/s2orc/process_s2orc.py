@@ -70,7 +70,7 @@ def process_file(file_path: Path) -> list[dict[str, Any]]:
     return results
 
 
-def main(files: list[Path], error_log_path: Path) -> None:
+def process_files(files: list[Path], error_log_path: Path) -> None:
     error_log_path.unlink(missing_ok=True)
 
     for file_path in tqdm(files):
@@ -86,11 +86,15 @@ def main(files: list[Path], error_log_path: Path) -> None:
                 json.dump(processed, f)
 
 
-if __name__ == "__main__":
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("files", type=Path, nargs="+", help="Input gzipped files")
     parser.add_argument(
         "--error-log", type=Path, default="output/error.log", help="Error log file"
     )
     args = parser.parse_args()
-    main(args.files, args.error_log)
+    process_files(args.files, args.error_log)
+
+
+if __name__ == "__main__":
+    main()

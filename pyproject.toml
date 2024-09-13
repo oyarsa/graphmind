@@ -57,7 +57,6 @@ dev-dependencies = [
 ]
 
 [project.scripts]
-acl = "paper_hypergraph.s2orc.acl:main"
 
 [build-system]
 requires = ["hatchling"]

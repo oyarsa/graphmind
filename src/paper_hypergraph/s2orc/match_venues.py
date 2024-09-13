@@ -2,7 +2,7 @@
 
 import argparse
 import re
-from typing import TextIO
+from pathlib import Path
 
 # fmt: off
 ACL_CONFERENCES = [
@@ -48,36 +48,50 @@ def normalise_text(text: str) -> str:
     return normalise_re.sub("", text.lower()).strip()
 
 
-def main(infile: TextIO, outfile: TextIO) -> None:
-    normalized_conferences = {normalise_text(conf) for conf in ACL_CONFERENCES}
+def match_venues(input_path: Path, output_path: Path) -> None:
+    venues_candidate_normalised = {normalise_text(conf) for conf in ACL_CONFERENCES}
+    venues_candidate_regex = [
+        re.compile(
+            r"\b" + r"\s+".join(re.escape(word) for word in norm_conf.split()) + r"\b"
+        )
+        for norm_conf in venues_candidate_normalised
+    ]
 
-    for line in infile:
-        normalized_line = normalise_text(line.strip())
-        for norm_conf in normalized_conferences:
-            pattern = (
-                r"\b"
-                + r"\s+".join(re.escape(word) for word in norm_conf.split())
-                + r"\b"
-            )
-            if re.search(pattern, normalized_line):
-                outfile.write(line)
+    # Real venue names to match against the normalized ones
+    venues_real = (
+        venue
+        for line in input_path.read_text().splitlines()
+        if (venue := normalise_text(line))
+    )
+    venues_found: set[str] = set()
+
+    for venue in venues_real:
+        for venue_regex in venues_candidate_regex:
+            if venue_regex.search(venue):
+                venues_found.add(venue)
                 break
 
+    output_path.write_text("\n".join(sorted(venues_found)) + "\n")
 
-if __name__ == "__main__":
+
+def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
         "input_file",
-        type=argparse.FileType("r"),
-        help="Input file containing conference names",
+        type=Path,
+        help="Path to input file containing conference names",
     )
     parser.add_argument(
         "output_file",
-        type=argparse.FileType("w"),
-        help="Output file where matches will be written",
+        type=Path,
+        help="Path to output file where matches will be written",
     )
 
     args = parser.parse_args()
-    main(args.input_file, args.output_file)
+    match_venues(args.input_file, args.output_file)
+
+
+if __name__ == "__main__":
+    main()

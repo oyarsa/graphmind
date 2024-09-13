@@ -12,7 +12,7 @@ from tqdm import tqdm
 from paper_hypergraph.s2orc.match_venues import normalise_text
 
 
-def match_papers(
+def _match_papers(
     venues: list[str], papers: list[dict[str, str]]
 ) -> Iterator[dict[str, str]]:
     for paper in papers:
@@ -23,7 +23,7 @@ def match_papers(
                 break
 
 
-def main(venues_file: TextIO, papers: list[Path], output_path: Path) -> None:
+def match_papers(venues_file: TextIO, papers: list[Path], output_path: Path) -> None:
     venues = [normalise_text(venue) for venue in venues_file]
     print(f"Loaded {len(venues)} venues.")
     output: list[dict[str, str]] = []
@@ -32,7 +32,7 @@ def main(venues_file: TextIO, papers: list[Path], output_path: Path) -> None:
         for paper_file in pbar:
             with gzip.open(paper_file, "rt") as file:
                 data = json.load(file)
-                matched = match_papers(venues, data)
+                matched = _match_papers(venues, data)
                 output.extend(m | {"source": paper_file.stem} for m in matched)
                 pbar.set_postfix(matched=len(output))
 
@@ -41,7 +41,7 @@ def main(venues_file: TextIO, papers: list[Path], output_path: Path) -> None:
         json.dump(output, outfile, indent=2)
 
 
-if __name__ == "__main__":
+def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -62,4 +62,8 @@ if __name__ == "__main__":
         help="JSON.GZ files containing papers to be matched against venues",
     )
     args = parser.parse_args()
-    main(args.venues_file, args.papers, args.output_file)
+    match_papers(args.venues_file, args.papers, args.output_file)
+
+
+if __name__ == "__main__":
+    main()

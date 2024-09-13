@@ -1,5 +1,6 @@
 """Get the size of the files from the S2ORC from the Semantic Scholar API."""
 
+import argparse
 import asyncio
 import json
 import os
@@ -12,8 +13,6 @@ from tqdm.asyncio import tqdm
 
 MAX_FILES = None
 API_KEY = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
-DATASET_NAME = "s2orc"
-LOCAL_PATH = Path("./data")
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -54,7 +53,7 @@ def bytes_to_gib(bytes_size: int) -> float:
     return bytes_size / (1024 * 1024 * 1024)
 
 
-async def main() -> None:
+async def _get_filesizes(dataset_name: str, output_path: Path) -> None:
     async with aiohttp.ClientSession() as session:
         # Get latest release's ID
         async with session.get(
@@ -65,7 +64,7 @@ async def main() -> None:
 
         # Get the download links for the s2orc dataset
         async with session.get(
-            f"https://api.semanticscholar.org/datasets/v1/release/{release_id}/dataset/{DATASET_NAME}/",
+            f"https://api.semanticscholar.org/datasets/v1/release/{release_id}/dataset/{dataset_name}/",
             headers={"x-api-key": API_KEY},
         ) as response:
             dataset = await response.json()
@@ -75,7 +74,7 @@ async def main() -> None:
             print("No files found.")
             sys.exit(1)
 
-        LOCAL_PATH.mkdir(exist_ok=True)
+        output_path.mkdir(exist_ok=True)
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
         tasks = [
@@ -94,5 +93,21 @@ async def main() -> None:
         print(f"\nTotal size of all files: {total_size_gb:.2f} GiB")
 
 
+def get_filesizes(dataset_name: str, output_path: Path) -> None:
+    asyncio.run(_get_filesizes(dataset_name, output_path))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "dataset_name", type=str, help="Name of the dataset to get the file sizes for."
+    )
+    parser.add_argument("output_path", type=Path, help="Path to save the output.")
+    args = parser.parse_args()
+    get_filesizes(args.dataset_name, args.output_path)
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

@@ -10,7 +10,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-def main(directory: Path, output_file: Path) -> None:
+def get_unique_venues(directory: Path, output_file: Path) -> None:
     files = list(directory.rglob("*.json.gz"))
     venues: set[str] = set()
 
@@ -32,7 +32,7 @@ def main(directory: Path, output_file: Path) -> None:
     print(len(venues), "venues found.")
 
 
-if __name__ == "__main__":
+def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -41,4 +41,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("output_file", type=Path, help="File path to save the output.")
     args = parser.parse_args()
-    main(args.directory, args.output_file)
+    get_unique_venues(args.directory, args.output_file)
+
+
+if __name__ == "__main__":
+    main()
