@@ -1,0 +1,64 @@
+[project]
+name = "paper-hypergraph"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+license = {text = "GPL-3.0-or-later"}
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.10.5",
+    "ratelimit>=2.2.1",
+    "requests>=2.32.3",
+    "semanticscholar>=0.8.4",
+    "tqdm>=4.66.5",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = []
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "ISC",
+    "N",
+    "PL",
+    "RUF",
+    "SIM",
+    "TRY",
+    "UP",
+    "W",
+    "ERA"
+]
+ignore = [
+    "PLR0911",  # Too many return statements
+    "PLR0912",  # Too many branches
+    "PLR0913",  # Too many arguments
+    "PLR0915",  # Too many statements
+    "PLR2004",  # Magic value used in comparison
+    "E501",     # Line too long (let ruff format take care of this)
+    "TRY003",   # Long messages outside exception class
+    "SIM108",   # Use ternary operation instead of if-else block
+    "ISC001"    # Incompatible with the formatter
+]
+
+[tool.pyright]
+# Ruff also handles this, and it needs to be enabled there for fixAll to fix it,
+# so we disable it here to avoid duplicate errors
+reportUnusedImport = false
+typeCheckingMode = "basic"
+
+[tool.uv]
+dev-dependencies = [
+    "ipython>=8.27.0",
+    "pyright>=1.1.380",
+    "ruff>=0.6.4",
+]
+
+[project.scripts]
+acl = "paper_hypergraph.s2orc.acl:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
