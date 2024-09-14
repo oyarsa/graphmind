@@ -68,17 +68,13 @@ def main() -> None:
     )
     parser.add_argument(
         "path",
-        nargs="?",
-        default="data",
         type=Path,
-        help="Path to directories containing files to merge (default: %(default)s)",
+        help="Path to directories containing files to merge",
     )
     parser.add_argument(
-        "--output",
-        "-o",
-        default="output.json",
+        "output",
         type=Path,
-        help="Output JSON file (default: %(default)s)",
+        help="Output merged JSON file",
     )
     args = parser.parse_args()
     merge_content_review(args.path, args.output)
