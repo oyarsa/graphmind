@@ -14,22 +14,9 @@ from pathlib import Path
 from typing import Any
 
 
-def _sanitize_value(val: dict[str, Any] | list[Any] | str | Any) -> Any:
-    """Sanitise strings to be valid UTF-8, replacing invalid characters with '?'"""
-    if isinstance(val, dict):
-        return {_sanitize_value(k): _sanitize_value(v) for k, v in val.items()}
-    elif isinstance(val, list):
-        return [_sanitize_value(v) for v in val]
-    elif isinstance(val, str):
-        return val.encode("utf-8", errors="replace").decode("utf-8")
-    else:
-        return val
-
-
 def _safe_load_json(file_path: Path) -> Any:
-    """Load a JSON file, ensuring the text is valid UTF-8."""
-    with file_path.open("r", encoding="utf-8", errors="replace") as f:
-        return _sanitize_value(json.load(f))
+    """Load a JSON file, removing invalid UTF-8 characters."""
+    return json.loads(file_path.read_text(encoding="utf-8", errors="replace"))
 
 
 def merge_content_review(path: Path, output_path: Path) -> None:
