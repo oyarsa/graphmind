@@ -10,13 +10,22 @@ only entries that have ratings in their reviews will be used.
 - Run the merge script on the ICLR dataset. Saves a single `output.json` file with the
 merged data.
 ```bash
-$ python merge.py
+$ uv run merge.py data/asap output/asap_merged.json
+```
+- Run the extraction script to get the relevant information from the merged data.
+```bash
+$ uv run extract.py output/asap_merged.json output/asap_extracted.json
 ```
 
-The paths can be changed via CLI arguments. See `merge.py --help` for more information
-on the options.
+The paths can be changed via CLI arguments. See `merge.py --help` and `extract.py
+--help` for more information on the options.
+
+You can also run the scripts in a single command:
+```bash
+$ uv run preprocess.py data/asap output/asap_extracted.json
+```
 
 In the ASAP-Review dataset, NIPS papers don't have ratings in their reviews, only the
 ICLR papers.
 
-See README.original.md for the original README file for the dataset.
+See [`dataset.md`](dataset.md) for the original README file for the dataset.
