@@ -57,6 +57,7 @@ dev-dependencies = [
 ]
 
 [project.scripts]
+preprocess = "paper_hypergraph.preprocess:main"
 
 [build-system]
 requires = ["hatchling"]
