@@ -27,3 +27,7 @@ def pipeline(papers_path: Path, output_path: Path) -> None:
 def main() -> None:
     args = cli_parser().parse_args()
     pipeline(args.input, args.output)
+
+
+if __name__ == "__main__":
+    main()
