@@ -29,7 +29,7 @@ def pipeline(
     filter_papers(dataset_path, matched_papers_path)
 
 
-def main() -> None:
+def cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -57,7 +57,11 @@ def main() -> None:
         default="output",
         help="Path to save the output files",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = cli_parser().parse_args()
     pipeline(
         args.api_key,
         args.dataset_path,
