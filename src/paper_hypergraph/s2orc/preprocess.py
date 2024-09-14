@@ -13,7 +13,7 @@ from paper_hypergraph.s2orc.filter import filter_papers
 
 
 def pipeline(
-    api_key: str | None, dataset_path: Path, file_limit: int | None, output_path: Path
+    output_path: Path, api_key: str | None, dataset_path: Path, file_limit: int | None
 ) -> None:
     if not api_key:
         api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
@@ -34,6 +34,11 @@ def cli_parser() -> argparse.ArgumentParser:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
+        "output_path",
+        type=Path,
+        help="Path to save the output files",
+    )
+    parser.add_argument(
         "--api-key",
         type=str,
         help="Semantic Scholar API key. If not provided, uses the"
@@ -51,22 +56,16 @@ def cli_parser() -> argparse.ArgumentParser:
         default=None,
         help="Limit the number of files to download",
     )
-    parser.add_argument(
-        "--output-path",
-        type=Path,
-        default="output",
-        help="Path to save the output files",
-    )
     return parser
 
 
 def main() -> None:
     args = cli_parser().parse_args()
     pipeline(
+        args.output_path,
         args.api_key,
         args.dataset_path,
         args.file_limit,
-        args.output_path,
     )
 
 

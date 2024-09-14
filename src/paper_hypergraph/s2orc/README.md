@@ -12,6 +12,8 @@ This is the data pipeline:
 3. [`acl_papers.py`](acl_papers.py): get papers whose venue matches certain ACL
    conference keywords (e.g. "ACL", "Association for Computation Lingusitics", etc.)
 
+For information on how to run each script, run `uv run <script>.py --help`.
+
 These are in separate scripts because they are long-running tasks. `download.py`
 has to download 250 GB of data, and `extract.py` has to extract 1 TB of data to
 memory (one file at a time) and extract the relevant information from it.
