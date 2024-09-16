@@ -41,7 +41,7 @@ uv run preprocess --help
 This project is licensed under the GPL v3 or later:
 
     paper-hypergraph: evaluating paper novelty and feasibility
-    Copyright (C) 2024 Italo Luis da Silva
+    Copyright (C) 2024 The paper-hypergraph contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -56,4 +56,5 @@ This project is licensed under the GPL v3 or later:
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-See the [LICENSE](LICENSE) file for the full license text.
+See the [LICENSE](LICENSE) file for the full license text. See the
+[CONTRIBUTORS](CONTRIBUTORS) file for a list of contributors.
