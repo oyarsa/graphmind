@@ -60,7 +60,7 @@ def search_papers(query: str, conferences: list[str], year: str, n: int) -> None
 
     print("Top-10 by citationCount:\n")
 
-    items = [p for p in results.items if p.isOpenAccess]
+    items = [p for p in results.items if p.isOpenAccess and p.openAccessPdf is not None]
     for i, item in enumerate(items[:n]):
         print(
             f"{i+1}. {item.title}\nYear: {item.year}\nVenue: {item.venue}"
