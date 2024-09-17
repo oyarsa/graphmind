@@ -18,6 +18,9 @@ class Paper(BaseModel):
     abstract: str
     introduction: str
 
+    def __str__(self) -> str:
+        return f"Title: {self.title}\nAbstract: {self.abstract}\n"
+
 
 class Relationship(BaseModel):
     model_config = ConfigDict(frozen=True)
