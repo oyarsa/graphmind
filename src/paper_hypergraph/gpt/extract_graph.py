@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import os
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -114,7 +115,6 @@ def run_gpt_graph(
         seed=0,
         temperature=0,
     )
-    print(f"Usage: {completion.usage}\n")
 
     usage = completion.usage
     if usage is not None:
@@ -163,6 +163,21 @@ Output:
 """
 
 
+def run_data(client: OpenAI, data: list[Paper], model: str) -> None:
+    total_cost = 0
+    for example in data:
+        prompt = _USER_PROMPT.format(title=example.title, abstract=example.abstract)
+        result = run_gpt_graph(client, _SYSTEM_PROMPT, prompt, model)
+        total_cost += result.cost
+        print("Example:")
+        print(example)
+        print()
+        print("Graph:")
+        print(result.graph)
+        print()
+
+    print(f"\n\nTotal cost: ${total_cost:.10f}")
+
 
 def extract_graph(
     model: str, api_key: str | None, data_path: Path, limit: int | None
@@ -181,16 +196,27 @@ def extract_graph(
     client = OpenAI(api_key=api_key)
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_text())
-    print(f"Input papers: {len(data)}\n")
 
-    example = """
-    Alice and Bob are friends. Bob and Charlie are roommates. Charlile and Bob are also
-    coworkers.
-    """
-    result = run_gpt_graph(client, _SYSTEM_PROMPT, example, model)
+    time_start = time.perf_counter()
+    run_data(client, data[:limit], model)
+    time_elapsed = time.perf_counter() - time_start
+    print(f"Time elapsed: {_convert_time_elapsed(time_elapsed)}")
 
-    print(f"Cost: ${result.cost:.10f}\n")
-    print(result.graph)
+
+def _convert_time_elapsed(seconds: float) -> str:
+    """Convert a time duration from seconds to a human-readable format."""
+    units = [("d", 86400), ("h", 3600), ("m", 60)]
+    parts: list[str] = []
+
+    for name, count in units:
+        value, seconds = divmod(seconds, count)
+        if value >= 1:
+            parts.append(f"{int(value)}{name}")
+
+    if seconds > 0 or not parts:
+        parts.append(f"{seconds:.2f}s")
+
+    return " ".join(parts)
 
 
 def main() -> None:
