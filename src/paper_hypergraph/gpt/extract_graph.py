@@ -24,21 +24,45 @@ class Relationship(BaseModel):
     description: str
 
 
-class Graph(BaseModel):
-    concepts: list[str]
-    relationships: list[Relationship]
+class Entity(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    name: str
+    type: str
+
+
+class Graph(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    concepts: Sequence[Entity]
+    relationships: Sequence[Relationship]
+
     def __str__(self) -> str:
-        entities = ", ".join(self.concepts)
+        entities = "\n".join(
+            f"  {i}. {c.name} - {c.type}" for i, c in enumerate(self.concepts, 1)
+        )
+
         relationships = "\n".join(
-            f"  {r.source} - {r.description} - {r.target}"
-            for r in sorted(
-                self.relationships, key=lambda r: (r.source, r.target, r.description)
+            f" {i}. {r.source} - {r.description} - {r.target}"
+            for i, r in enumerate(
+                sorted(
+                    self.relationships,
+                    key=lambda r: (r.source, r.target, r.description),
+                ),
+                1,
             )
         )
-        return f"Concepts: {entities}\n\nRelationships:\n{relationships}"
 
+        return "\n".join(
+            [
+                "Entities:",
+                entities,
+                "",
+                "Relationships:",
+                relationships,
+                "",
+            ]
+        )
 
 SYSTEM_PROMPT = "Extract the entities from the text and the relationships between them."
 
