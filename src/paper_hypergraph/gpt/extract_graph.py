@@ -154,7 +154,7 @@ _USER_PROMPTS = {
 The following text contains information about a scientific paper. It includes the \
 paper's title and abstract.
 
-Your task is to extract the the top 5 key concepts mentioned in the abstract and the \
+Your task is to extract the top 5 key concepts mentioned in the abstract and the \
 relationships between them. Do not provide relatinshiops between concepts beyond the \
 top 5. If there are fewer than 5 concepts, use only those.
 
@@ -164,7 +164,7 @@ Title: {title}
 Abstract: {abstract}
 #####
 Output:
-"""
+""",
 }
 
 
