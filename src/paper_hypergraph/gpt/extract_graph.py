@@ -165,6 +165,27 @@ Abstract: {abstract}
 #####
 Output:
 """,
+    "introduction": """\
+The following text contains information about a scientific paper. It includes the \
+paper's title, abstract, and introduction.
+
+Your task is to extract the top 5 key concepts mentioned in the abstract. Then, look \
+for sentences in the introduction that mention these concepts and extract the \
+relationships between them.
+
+Always add the paper title as an concept, and relationships between the title and the \
+key concepts.
+
+Do not provide relationships between concepts beyond the top 5. If there are fewer than \
+5 concepts, use only those.
+
+#####
+-Data-
+Title: {title}
+Abstract: {abstract}
+#####
+Output:
+""",
 }
 
 
