@@ -74,6 +74,19 @@ _MODEL_SYNONYMS = {
 
 def run_gpt_structured[T](
     output_type: type[T],
+# Cost in $ per 1M tokens
+# From https://openai.com/api/pricing/
+_MODEL_COSTS = {
+    "gpt-4o-mini-2024-07-18": (0.15, 0.6),
+    "gpt-4o-2024-08-06": (2.5, 10),
+}
+
+
+def calc_cost(model: str, input_tokens: int, output_tokens: int) -> float:
+    input_cost, output_cost = _MODEL_COSTS[model]
+    return input_cost / 1e6 * input_tokens + output_cost / 1e6 * output_tokens
+
+
     client: OpenAI,
     system_prompt: str,
     user_prompt: str,
