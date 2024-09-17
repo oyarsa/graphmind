@@ -97,7 +97,7 @@ def extract_graph(model: str, api_key: str | None, data_path: Path) -> None:
     if not api_key:
         if "OPENAI_API_KEY" not in os.environ:
             raise ValueError(
-                "The OpenAI API key must be provided as env var or argument."
+                "The OPENAI_API_KEY must be provided as env var or argument."
             )
         api_key = os.environ["OPENAI_API_KEY"]
 
