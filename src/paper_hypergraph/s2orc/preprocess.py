@@ -7,6 +7,8 @@ import argparse
 import os
 from pathlib import Path
 
+import dotenv
+
 from paper_hypergraph.s2orc.download import download_dataset
 from paper_hypergraph.s2orc.extract import extract_data
 from paper_hypergraph.s2orc.filter import filter_papers
@@ -15,6 +17,7 @@ from paper_hypergraph.s2orc.filter import filter_papers
 def pipeline(
     output_path: Path, api_key: str | None, dataset_path: Path, file_limit: int | None
 ) -> None:
+    dotenv.load_dotenv()
     if not api_key:
         api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
 

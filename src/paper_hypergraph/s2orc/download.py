@@ -10,6 +10,7 @@ from collections.abc import Coroutine
 from pathlib import Path
 
 import aiohttp
+import dotenv
 from tqdm.asyncio import tqdm
 
 MAX_CONCURRENT_DOWNLOADS = 10
@@ -111,6 +112,7 @@ async def _download(
 def download_dataset(
     dataset_name: str, output_path: Path, api_key: str | None, limit: int | None
 ) -> None:
+    dotenv.load_dotenv()
     if api_key is None:
         api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
 

@@ -9,6 +9,7 @@ import urllib.parse
 from pathlib import Path
 
 import aiohttp
+import dotenv
 from tqdm.asyncio import tqdm
 
 MAX_CONCURRENT_REQUESTS = 10
@@ -99,6 +100,7 @@ async def _get_filesizes(
 def get_filesizes(
     dataset_name: str, output_path: Path, api_key: str | None, limit: int | None
 ) -> None:
+    dotenv.load_dotenv()
     if api_key is None:
         api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
     asyncio.run(_get_filesizes(dataset_name, output_path, api_key, limit))
