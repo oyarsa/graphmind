@@ -64,7 +64,6 @@ class Graph(BaseModel):
             ]
         )
 
-SYSTEM_PROMPT = "Extract the entities from the text and the relationships between them."
 
 
 def run_gpt_structured[T](
@@ -89,6 +88,9 @@ def run_gpt_structured[T](
     if not parsed:
         return output_type()
     return parsed
+_SYSTEM_PROMPT = (
+    "Extract the entities from the text and the relationships between them."
+)
 
 
 def extract_graph(model: str, api_key: str | None, data_path: Path) -> None:
