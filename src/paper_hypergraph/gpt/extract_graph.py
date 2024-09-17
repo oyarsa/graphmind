@@ -28,7 +28,6 @@ class Relationship(BaseModel):
 
     source: str
     target: str
-    description: str
 
 
 class Entity(BaseModel):
@@ -41,21 +40,18 @@ class Entity(BaseModel):
 class Graph(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    concepts: Sequence[Entity]
+    entities: Sequence[Entity]
     relationships: Sequence[Relationship]
 
     def __str__(self) -> str:
         entities = "\n".join(
-            f"  {i}. {c.name} - {c.type}" for i, c in enumerate(self.concepts, 1)
+            f"  {i}. {c.name} - {c.type}" for i, c in enumerate(self.entities, 1)
         )
 
         relationships = "\n".join(
-            f" {i}. {r.source} - {r.description} - {r.target}"
+            f" {i}. {r.source} - {r.target}"
             for i, r in enumerate(
-                sorted(
-                    self.relationships,
-                    key=lambda r: (r.source, r.target, r.description),
-                ),
+                sorted(self.relationships, key=lambda r: (r.source, r.target)),
                 1,
             )
         )
@@ -124,7 +120,7 @@ def run_gpt_graph(
 
     parsed = completion.choices[0].message.parsed
     if not parsed:
-        graph = Graph(concepts=[], relationships=[])
+        graph = Graph(entities=[], relationships=[])
     else:
         graph = parsed
 
@@ -169,15 +165,23 @@ Output:
 The following text contains information about a scientific paper. It includes the \
 paper's title, abstract, and introduction.
 
-Your task is to extract the top 5 key concepts mentioned in the abstract. Then, look \
-for sentences in the introduction that mention these concepts and extract the \
-relationships between them.
+Your task is to extract three types of entities:
+- title: the title of the paper
+- concepts: the top 5 key concepts mentioned in the abstract. If there are fewer than 5, \
+use only those.
+- supports: sentences in the introduction that mention the key concepts.
 
-Always add the paper title as an concept, and relationships between the title and the \
-key concepts.
+Then extract the relationships between these entities. The paper title is the main node, \
+connected to the key concepts. The key concepts are connected to the supporting sentences
+that mention them.
 
-Do not provide relationships between concepts beyond the top 5. If there are fewer than \
-5 concepts, use only those.
+Only provide sentences between the entities from the three types (title to concepts, \
+concetps to supports). Do not provide relationships between concepts or supports.
+
+The supporting sentences count as entities and should be return along with the title and
+the concepts.
+
+All entities (title, concepts and supports) should be mentioned in the output.
 
 #####
 -Data-
