@@ -191,12 +191,8 @@ def extract_graph(
     limit: int | None,
     user_prompt_key: str,
 ) -> None:
-    if not api_key:
-        if "OPENAI_API_KEY" not in os.environ:
-            raise ValueError(
-                "The OPENAI_API_KEY must be provided as env var or argument."
-            )
-        api_key = os.environ["OPENAI_API_KEY"]
+    if api_key:
+        os.environ["OPENAI_API_KEY"] = api_key
 
     model = _MODEL_SYNONYMS.get(model, model)
 
@@ -207,7 +203,7 @@ def extract_graph(
         user_prompt=user_prompt_key,
     )
 
-    client = OpenAI(api_key=api_key)
+    client = OpenAI()
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_text())
     user_prompt = _USER_PROMPTS[user_prompt_key]
