@@ -131,7 +131,9 @@ def run_gpt_graph(
     return ModelResult(graph=graph, cost=cost)
 
 
-def _log_config(*, model: str, data_path: Path, limit: int | None) -> None:
+def _log_config(
+    *, model: str, data_path: Path, limit: int | None, user_prompt: str
+) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
 
     print("CONFIG:")
@@ -139,6 +141,7 @@ def _log_config(*, model: str, data_path: Path, limit: int | None) -> None:
     print(f"  Data path: {data_path.resolve()}")
     print(f"  Data hash: {data_hash}")
     print(f"  Limit: {limit if limit is not None else 'All'}")
+    print(f"  User prompt: {user_prompt}")
     print()
 
 
@@ -146,7 +149,8 @@ _SYSTEM_PROMPT = (
     "Extract the entities from the text and the relationships between them."
 )
 
-_USER_PROMPT = """\
+_USER_PROMPTS = {
+    "abstract_only": """\
 The following text contains information about a scientific paper. It includes the \
 paper's title and abstract.
 
@@ -161,12 +165,13 @@ Abstract: {abstract}
 #####
 Output:
 """
+}
 
 
-def run_data(client: OpenAI, data: list[Paper], model: str) -> None:
+def run_data(client: OpenAI, data: list[Paper], model: str, user_prompt: str) -> None:
     total_cost = 0
     for example in data:
-        prompt = _USER_PROMPT.format(title=example.title, abstract=example.abstract)
+        prompt = user_prompt.format(title=example.title, abstract=example.abstract)
         result = run_gpt_graph(client, _SYSTEM_PROMPT, prompt, model)
         total_cost += result.cost
         print("Example:")
@@ -180,7 +185,11 @@ def run_data(client: OpenAI, data: list[Paper], model: str) -> None:
 
 
 def extract_graph(
-    model: str, api_key: str | None, data_path: Path, limit: int | None
+    model: str,
+    api_key: str | None,
+    data_path: Path,
+    limit: int | None,
+    user_prompt_key: str,
 ) -> None:
     if not api_key:
         if "OPENAI_API_KEY" not in os.environ:
@@ -191,14 +200,20 @@ def extract_graph(
 
     model = _MODEL_SYNONYMS.get(model, model)
 
-    _log_config(model=model, data_path=data_path, limit=limit)
+    _log_config(
+        model=model,
+        data_path=data_path,
+        limit=limit,
+        user_prompt=user_prompt_key,
+    )
 
     client = OpenAI(api_key=api_key)
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_text())
+    user_prompt = _USER_PROMPTS[user_prompt_key]
 
     time_start = time.perf_counter()
-    run_data(client, data[:limit], model)
+    run_data(client, data[:limit], model, user_prompt)
     time_elapsed = time.perf_counter() - time_start
     print(f"Time elapsed: {_convert_time_elapsed(time_elapsed)}")
 
@@ -249,9 +264,18 @@ def main() -> None:
         default=None,
         help="The number of papers to process. Defaults to all.",
     )
+    parser.add_argument(
+        "--user-prompt",
+        type=str,
+        choices=_USER_PROMPTS.keys(),
+        default="abstract_only",
+        help="The user prompt to use for the extraction. Defaults to 'abstract_only'.",
+    )
 
     args = parser.parse_args()
-    extract_graph(args.model, args.api_key, args.data_path, args.limit)
+    extract_graph(
+        args.model, args.api_key, args.data_path, args.limit, args.user_prompt
+    )
 
 
 if __name__ == "__main__":
