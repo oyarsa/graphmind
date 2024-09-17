@@ -11,6 +11,13 @@ uv run python example.py [..args]
 No need to set up a virtual environment or install dependencies. `uv run` will take care
 of that automatically.
 
+Actually, if you're running Python scripts or commands (e.g. see `preprocess` below),
+you can omit the `python`. Real example:
+
+```bash
+uv run src/paper_hypergraph/s2orc/acl.py
+```
+
 ## Components
 
 ### Datasets
