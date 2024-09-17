@@ -1,6 +1,7 @@
 """Extract the entities graph from a text using GPT-4."""
 
 import argparse
+import hashlib
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -110,7 +111,7 @@ def run_gpt_graph(
         seed=0,
         temperature=0,
     )
-    eprint(f"Usage: {completion.usage}\n")
+    print(f"Usage: {completion.usage}\n")
 
     usage = completion.usage
     if usage is not None:
@@ -125,6 +126,16 @@ def run_gpt_graph(
         graph = parsed
 
     return ModelResult(graph=graph, cost=cost)
+
+
+def _log_config(model: str, data_path: Path) -> None:
+    data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
+
+    print("CONFIG:")
+    print(f"  Model: {model}")
+    print(f"  Data path: {data_path.resolve()}")
+    print(f"  Data hash: {data_hash}")
+    print()
 
 
 _SYSTEM_PROMPT = (
@@ -142,18 +153,21 @@ def extract_graph(model: str, api_key: str | None, data_path: Path) -> None:
 
     model = _MODEL_SYNONYMS.get(model, model)
 
+    _log_config(model=model, data_path=data_path)
+
     client = OpenAI(api_key=api_key)
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_text())
-    print(len(data))
+    print(f"Input papers: {len(data)}\n")
 
     example = """
     Alice and Bob are friends. Bob and Charlie are roommates. Charlile and Bob are also
     coworkers.
     """
-    graph = run_gpt_structured(Graph, client, SYSTEM_PROMPT, example, model)
+    result = run_gpt_graph(client, _SYSTEM_PROMPT, example, model)
 
-    print(graph)
+    print(f"Cost: ${result.cost:.10f}\n")
+    print(result.graph)
 
 
 def main() -> None:
