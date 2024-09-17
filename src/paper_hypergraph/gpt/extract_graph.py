@@ -65,6 +65,12 @@ class Graph(BaseModel):
         )
 
 
+_MODEL_SYNONYMS = {
+    "4o-mini": "gpt-4o-mini-2024-07-18",
+    "gpt-4o-mini": "gpt-4o-mini-2024-07-18",
+    "4o": "gpt-4o-2024-08-06",
+    "gpt-4o": "gpt-4o-mini-2024-07-18",
+}
 
 def run_gpt_structured[T](
     output_type: type[T],
@@ -100,6 +106,8 @@ def extract_graph(model: str, api_key: str | None, data_path: Path) -> None:
                 "The OPENAI_API_KEY must be provided as env var or argument."
             )
         api_key = os.environ["OPENAI_API_KEY"]
+
+    model = _MODEL_SYNONYMS.get(model, model)
 
     client = OpenAI(api_key=api_key)
 
