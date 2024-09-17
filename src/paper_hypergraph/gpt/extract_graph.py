@@ -131,13 +131,14 @@ def run_gpt_graph(
     return ModelResult(graph=graph, cost=cost)
 
 
-def _log_config(model: str, data_path: Path) -> None:
+def _log_config(*, model: str, data_path: Path, limit: int | None) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
 
     print("CONFIG:")
     print(f"  Model: {model}")
     print(f"  Data path: {data_path.resolve()}")
     print(f"  Data hash: {data_hash}")
+    print(f"  Limit: {limit if limit is not None else 'All'}")
     print()
 
 
@@ -146,7 +147,9 @@ _SYSTEM_PROMPT = (
 )
 
 
-def extract_graph(model: str, api_key: str | None, data_path: Path) -> None:
+def extract_graph(
+    model: str, api_key: str | None, data_path: Path, limit: int | None
+) -> None:
     if not api_key:
         if "OPENAI_API_KEY" not in os.environ:
             raise ValueError(
@@ -156,7 +159,7 @@ def extract_graph(model: str, api_key: str | None, data_path: Path) -> None:
 
     model = _MODEL_SYNONYMS.get(model, model)
 
-    _log_config(model=model, data_path=data_path)
+    _log_config(model=model, data_path=data_path, limit=limit)
 
     client = OpenAI(api_key=api_key)
 
@@ -196,9 +199,16 @@ def main() -> None:
         help="The OpenAI API key to use for the extraction. Defaults to OPENAI_API_KEY"
         " env var.",
     )
+    parser.add_argument(
+        "--limit",
+        "-n",
+        type=int,
+        default=None,
+        help="The number of papers to process. Defaults to all.",
+    )
 
     args = parser.parse_args()
-    extract_graph(args.model, args.api_key, args.data_path)
+    extract_graph(args.model, args.api_key, args.data_path, args.limit)
 
 
 if __name__ == "__main__":
