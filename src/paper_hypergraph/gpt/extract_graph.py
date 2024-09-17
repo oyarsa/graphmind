@@ -3,11 +3,15 @@
 import argparse
 import hashlib
 import os
+import textwrap
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import networkx as nx
+from matplotlib.patches import Rectangle
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
@@ -205,6 +209,8 @@ def run_data(client: OpenAI, data: list[Paper], model: str, user_prompt: str) ->
         print("Graph:")
         print(result.graph)
         print()
+        dg = graph_to_networkx_dag(result.graph)
+        visualise_tree(dg)
 
     print(f"\n\nTotal cost: ${total_cost:.10f}")
 
@@ -237,6 +243,111 @@ def extract_graph(
     run_data(client, data[:limit], model, user_prompt)
     time_elapsed = time.perf_counter() - time_start
     print(f"Time elapsed: {_convert_time_elapsed(time_elapsed)}")
+
+
+def graph_to_networkx_dag(graph: Graph) -> nx.DiGraph:
+    g = nx.DiGraph()
+
+    for entity in graph.entities:
+        g.add_node(entity.name, type=entity.type)
+
+    for relationship in graph.relationships:
+        g.add_edge(relationship.source, relationship.target)
+
+    return g
+
+
+def visualise_tree(g: nx.DiGraph) -> None:
+    # Identify root nodes (nodes with in-degree 0)
+    roots: list[str] = [node for node, in_degree in g.in_degree() if in_degree == 0]
+
+    if not roots:
+        raise ValueError(
+            "The graph doesn't have any root nodes (nodes with in-degree 0)"
+        )
+
+    # Compute the depth of each node
+    def node_depth(node: str) -> int:
+        if g.in_degree(node) == 0:
+            return 0
+        return 1 + max(node_depth(parent) for parent in g.predecessors(node))
+
+    depths: dict[str, int] = {node: node_depth(node) for node in g.nodes()}
+    max_depth = max(depths.values())
+
+    # Create Hierarchical position mapping
+    pos: dict[str, tuple[float, float]] = {}
+    nodes_at_depth: dict[int, list[str]] = {d: [] for d in range(max_depth + 1)}
+
+    for node, depth in depths.items():
+        nodes_at_depth[depth].append(node)
+
+    for depth, nodes in nodes_at_depth.items():
+        width = len(nodes)
+        for i, node in enumerate(nodes):
+            pos[node] = ((i - (width - 1) / 2) / max(width - 1, 1), -depth)
+
+    plt.figure(figsize=(20, 12))
+
+    # Draw edges with arrows
+    nx.draw_networkx_edges(
+        g,
+        pos,
+        edge_color="gray",
+        arrows=True,
+        arrowsize=20,
+        arrowstyle="->",
+        connectionstyle="arc3,rad=0.1",
+    )
+
+    # Draw nodes and labels with wrapped text
+    for node, (x, y) in pos.items():
+        node_type = g.nodes[node].get("type", "")
+
+        # Wrap the text to fit in the box
+        wrapped_text = textwrap.wrap(node, width=20)
+
+        # Calculate box dimensions
+        box_width = 0.15
+        # Adjust height based on number of lines
+        box_height = 0.05 * (len(wrapped_text) + 1)
+
+        rect = Rectangle(
+            (x - box_width / 2, y - box_height / 2),
+            box_width,
+            box_height,
+            fill=True,
+            facecolor="lightblue",
+            edgecolor="black",
+        )
+        plt.gca().add_patch(rect)
+
+        # Add wrapped text
+        plt.text(
+            x,
+            y,
+            "\n".join(wrapped_text),
+            ha="center",
+            va="center",
+            wrap=True,
+            fontsize=8,
+        )
+
+        # Add node type
+        plt.text(
+            x,
+            y + box_height / 2 + 0.02,
+            node_type,
+            ha="center",
+            va="bottom",
+            color="red",
+            fontsize=8,
+        )
+
+    plt.title("Paper Hierarchical Graph")
+    plt.axis("off")
+    plt.tight_layout()
+    plt.show()
 
 
 def _convert_time_elapsed(seconds: float) -> str:
