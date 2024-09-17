@@ -5,16 +5,20 @@ import os
 from pathlib import Path
 
 from openai import OpenAI
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 
 class Paper(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     title: str
     abstract: str
     introduction: str
 
 
 class Relationship(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     source: str
     target: str
     description: str
@@ -23,6 +27,7 @@ class Relationship(BaseModel):
 class Graph(BaseModel):
     concepts: list[str]
     relationships: list[Relationship]
+    model_config = ConfigDict(frozen=True)
 
     def __str__(self) -> str:
         entities = ", ".join(self.concepts)
