@@ -146,6 +146,23 @@ _SYSTEM_PROMPT = (
     "Extract the entities from the text and the relationships between them."
 )
 
+_USER_PROMPT = """\
+The following text contains information about a scientific paper. It includes the \
+paper's title and abstract.
+
+Your task is to extract the the top 5 key concepts mentioned in the abstract and the \
+relationships between them. Do not provide relatinshiops between concepts beyond the \
+top 5. If there are fewer than 5 concepts, use only those.
+
+#####
+-Data-
+Title: {title}
+Abstract: {abstract}
+#####
+Output:
+"""
+
+
 
 def extract_graph(
     model: str, api_key: str | None, data_path: Path, limit: int | None
