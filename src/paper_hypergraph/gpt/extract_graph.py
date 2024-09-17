@@ -2,6 +2,8 @@
 
 import argparse
 import os
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from openai import OpenAI
@@ -72,8 +74,7 @@ _MODEL_SYNONYMS = {
     "gpt-4o": "gpt-4o-mini-2024-07-18",
 }
 
-def run_gpt_structured[T](
-    output_type: type[T],
+
 # Cost in $ per 1M tokens
 # From https://openai.com/api/pricing/
 _MODEL_COSTS = {
@@ -87,26 +88,45 @@ def calc_cost(model: str, input_tokens: int, output_tokens: int) -> float:
     return input_cost / 1e6 * input_tokens + output_cost / 1e6 * output_tokens
 
 
+@dataclass(frozen=True)
+class ModelResult:
+    graph: Graph
+    cost: float
+
+
+def run_gpt_graph(
     client: OpenAI,
     system_prompt: str,
     user_prompt: str,
     model: str,
-) -> T:
+) -> ModelResult:
     completion = client.beta.chat.completions.parse(
         model=model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        response_format=output_type,
+        response_format=Graph,
         seed=0,
         temperature=0,
     )
+    eprint(f"Usage: {completion.usage}\n")
+
+    usage = completion.usage
+    if usage is not None:
+        cost = calc_cost(model, usage.prompt_tokens, usage.completion_tokens)
+    else:
+        cost = 0
 
     parsed = completion.choices[0].message.parsed
     if not parsed:
-        return output_type()
-    return parsed
+        graph = Graph(concepts=[], relationships=[])
+    else:
+        graph = parsed
+
+    return ModelResult(graph=graph, cost=cost)
+
+
 _SYSTEM_PROMPT = (
     "Extract the entities from the text and the relationships between them."
 )
