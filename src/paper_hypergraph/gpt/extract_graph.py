@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+import dotenv
 import matplotlib.pyplot as plt
 import networkx as nx
 from matplotlib.patches import Rectangle
@@ -222,6 +223,7 @@ def extract_graph(
     limit: int | None,
     user_prompt_key: str,
 ) -> None:
+    dotenv.load_dotenv()
     if api_key:
         os.environ["OPENAI_API_KEY"] = api_key
 
