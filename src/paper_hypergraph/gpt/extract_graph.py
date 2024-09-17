@@ -181,6 +181,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--model",
+        "-m",
         type=str,
         default="gpt-4o-2024-08-06",
         help="The model to use for the extraction.",
@@ -189,7 +190,8 @@ def main() -> None:
         "--api-key",
         type=str,
         default=None,
-        help="The OpenAI API key to use for the extraction.",
+        help="The OpenAI API key to use for the extraction. Defaults to OPENAI_API_KEY"
+        " env var.",
     )
 
     args = parser.parse_args()
