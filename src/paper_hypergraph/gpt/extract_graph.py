@@ -17,7 +17,7 @@ import networkx as nx
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
-from paper_hypergraph.graph import visualise_hierarchy
+from paper_hypergraph.graph import save_graph, visualise_hierarchy
 
 logger = logging.getLogger("extract_graph")
 
@@ -155,7 +155,12 @@ def run_gpt_graph(
 
 
 def _log_config(
-    *, model: str, data_path: Path, limit: int | None, user_prompt: str
+    *,
+    model: str,
+    data_path: Path,
+    limit: int | None,
+    user_prompt: str,
+    output_dir: Path,
 ) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
     out: list[str] = []
@@ -164,6 +169,7 @@ def _log_config(
     out.append(f"  Model: {model}")
     out.append(f"  Data path: {data_path.resolve()}")
     out.append(f"  Data hash: {data_hash}")
+    out.append(f"  Output dir: {output_dir.resolve()}")
     out.append(f"  Limit: {limit if limit is not None else 'All'}")
     out.append(f"  User prompt: {user_prompt}")
     out.append("")
@@ -303,6 +309,7 @@ def extract_graph(
     limit: int | None,
     user_prompt_key: str,
     visualise: bool,
+    output_dir: Path,
 ) -> None:
     dotenv.load_dotenv()
     if api_key:
@@ -315,6 +322,7 @@ def extract_graph(
         data_path=data_path,
         limit=limit,
         user_prompt=user_prompt_key,
+        output_dir=output_dir,
     )
 
     client = OpenAI()
@@ -334,12 +342,16 @@ def extract_graph(
             dag = graph_to_networkx_dag(graph)
             visualise_hierarchy(dag)
 
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for paper, graph in zip(data[:limit], graphs):
+        save_graph(graph_to_networkx_dag(graph), output_dir / f"{paper.title}.graphml")
+
 
 def graph_to_networkx_dag(graph: Graph) -> nx.DiGraph:
     g = nx.DiGraph()
 
     for entity in graph.entities:
-        g.add_node(entity.name, type=entity.type)
+        g.add_node(entity.name, type=entity.type.value)
 
     for relationship in graph.relationships:
         g.add_edge(relationship.source, relationship.target)
@@ -371,6 +383,11 @@ def main() -> None:
         "data_path",
         type=Path,
         help="The path to the JSON file containing the papers data.",
+    )
+    parser.add_argument(
+        "output_dir",
+        type=Path,
+        help="The path to the output directory where files will be saved.",
     )
     parser.add_argument(
         "--model",
@@ -418,6 +435,7 @@ def main() -> None:
         args.limit,
         args.user_prompt,
         args.visualise,
+        args.output_dir,
     )
 
 
