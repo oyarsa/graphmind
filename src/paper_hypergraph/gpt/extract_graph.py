@@ -8,6 +8,7 @@ import textwrap
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Self, cast
 
@@ -40,11 +41,17 @@ class Relationship(BaseModel):
     target: str
 
 
+class EntityType(StrEnum):
+    TITLE = "title"
+    CONCEPT = "concept"
+    SUPPORT = "support"
+
+
 class Entity(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     name: str
-    type: str
+    type: EntityType
 
 
 class Graph(BaseModel):
