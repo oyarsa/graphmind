@@ -447,6 +447,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--user-prompt",
+        "-P",
         type=str,
         choices=_USER_PROMPTS.keys(),
         default="introduction",
@@ -454,6 +455,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--visualise",
+        "-V",
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Visualise the extracted graph.",
