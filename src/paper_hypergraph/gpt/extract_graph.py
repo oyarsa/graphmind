@@ -180,7 +180,7 @@ Abstract: {abstract}
 Output:
 """,
     "introduction": """\
-The following text contains information about a scientific paper. It includes the \
+The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and introduction.
 
 Your task is to extract three types of entities:
@@ -189,15 +189,16 @@ Your task is to extract three types of entities:
 use only those.
 - supports: sentences in the introduction that mention the key concepts.
 
-Then extract the relationships between these entities. The paper title is the main node, \
-connected to the key concepts. The key concepts are connected to the supporting sentences
+Extract the relationships between these entities. The paper title is the main node, \
+connected to the key concepts. The key concepts are connected to the supporting sentences \
 that mention them.
 
 Only provide sentences between the entities from the three types (title to concepts, \
-concetps to supports). Do not provide relationships between concepts or supports.
+concepts to supports). Do not provide relationships among concepts or supports.
 
-The supporting sentences count as entities and should be return along with the title and
-the concepts.
+The supporting sentences count as entities and should be returned along with the title \
+and the concepts. There can be multiple supports for a single concept, and a single \
+support can mention multiple concepts. There can be more than 5 supports.
 
 All entities (title, concepts and supports) should be mentioned in the output.
 
@@ -205,6 +206,10 @@ All entities (title, concepts and supports) should be mentioned in the output.
 -Data-
 Title: {title}
 Abstract: {abstract}
+
+Introduction:
+{introduction}
+
 #####
 Output:
 """,
@@ -218,7 +223,11 @@ def run_data(
     graphs: list[Graph] = []
 
     for example in data:
-        prompt = user_prompt.format(title=example.title, abstract=example.abstract)
+        prompt = user_prompt.format(
+            title=example.title,
+            abstract=example.abstract,
+            introduction=example.introduction,
+        )
         result = run_gpt_graph(client, _SYSTEM_PROMPT, prompt, model)
         total_cost += result.cost
 
