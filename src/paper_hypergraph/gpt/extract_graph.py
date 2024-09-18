@@ -8,7 +8,7 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Self, cast
 
 import dotenv
 import matplotlib.pyplot as plt
@@ -48,6 +48,10 @@ class Graph(BaseModel):
 
     entities: Sequence[Entity]
     relationships: Sequence[Relationship]
+
+    @classmethod
+    def empty(cls) -> Self:
+        return cls(entities=[], relationships=[])
 
     def __str__(self) -> str:
         entities = "\n".join(
@@ -102,21 +106,22 @@ class ModelResult:
 
 
 def run_gpt_graph(
-    client: OpenAI,
-    system_prompt: str,
-    user_prompt: str,
-    model: str,
+    client: OpenAI, system_prompt: str, user_prompt: str, model: str
 ) -> ModelResult:
-    completion = client.beta.chat.completions.parse(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        response_format=Graph,
-        seed=0,
-        temperature=0,
-    )
+    try:
+        completion = client.beta.chat.completions.parse(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format=Graph,
+            seed=0,
+            temperature=0,
+        )
+    except Exception as e:
+        print(f"Error making API request: {e}")
+        return ModelResult(graph=Graph.empty(), cost=float("nan"))
 
     usage = completion.usage
     if usage is not None:
@@ -126,7 +131,7 @@ def run_gpt_graph(
 
     parsed = completion.choices[0].message.parsed
     if not parsed:
-        graph = Graph(entities=[], relationships=[])
+        graph = Graph.empty()
     else:
         graph = parsed
 
