@@ -44,36 +44,12 @@ def visualise_hierarchy(
     for node, depth in depths.items():
         nodes_at_depth[depth].append(node)
 
-    # Increase vertical spacing between levels
-    vertical_spacing = 1.5
     for depth, nodes in nodes_at_depth.items():
         width = len(nodes)
         for i, node in enumerate(nodes):
-            pos[node] = (
-                (i - (width - 1) / 2) / max(width - 1, 1),
-                -depth * vertical_spacing,
-            )
+            pos[node] = ((i - (width - 1) / 2) / max(width - 1, 1), -depth)
 
-    # Increase figure size and set margins
-    plt.figure(figsize=(24, 18))
-    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
-
-    # Draw edges with arrows and curved paths
-    for edge in g.edges():
-        start = pos[edge[0]]
-        end = pos[edge[1]]
-        plt.annotate(
-            "",
-            xy=end,
-            xytext=start,
-            arrowprops=dict(
-                arrowstyle="->",
-                color="gray",
-                connectionstyle="arc3,rad=0.1",
-                alpha=0.6,
-                linewidth=1.5,
-            ),
-        )
+    plt.figure(figsize=(20, 12))
 
     # Draw nodes and labels with wrapped text
     for node, (x, y) in pos.items():
@@ -94,7 +70,7 @@ def visualise_hierarchy(
             fill=True,
             facecolor="lightblue",
             edgecolor="black",
-            zorder=10,  # Ensure nodes are drawn on top of edges
+            zorder=1,  # Nodes drawn first
         )
         plt.gca().add_patch(rect)
 
@@ -107,7 +83,7 @@ def visualise_hierarchy(
             va="center",
             wrap=True,
             fontsize=8,
-            zorder=11,  # Ensure text is drawn on top of nodes
+            zorder=3,  # Labels drawn above nodes and edges
         )
 
         # Add node type
@@ -119,8 +95,27 @@ def visualise_hierarchy(
             va="bottom",
             color="red",
             fontsize=8,
-            zorder=11,  # Ensure text is drawn on top of nodes
+            zorder=3,  # Labels drawn above nodes and edges
         )
+
+    # Draw edges with arrows
+    edge_collection = nx.draw_networkx_edges(
+        g,
+        pos,
+        edge_color="gray",
+        arrows=True,
+        arrowsize=20,
+        arrowstyle="->",
+        connectionstyle="arc3,rad=0.1",
+    )
+
+    # Set zorder for edges
+    if edge_collection:
+        if isinstance(edge_collection, list):
+            for col in edge_collection:
+                col.set_zorder(2)  # Edges drawn above nodes but below labels
+        else:
+            edge_collection.set_zorder(2)
 
     plt.title("Paper Hierarchical Graph")
     plt.axis("off")
