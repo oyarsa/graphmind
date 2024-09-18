@@ -24,6 +24,8 @@ The following are some guidelines to follow when contributing to this project.
   the feature or bug fix.
 - After a PR is merged, the branch should be deleted. New changes should be made in a
   new branch.
+- If you are not familiar with Git branches, I recommend [Learn Git
+  Branching](https://learngitbranching.js.org/).
 
 ### Commiting
 - Commits should aim to cover one idea and be self-contained. This means you shouldn't
