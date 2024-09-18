@@ -333,21 +333,24 @@ def extract_graph(
 
     time_start = time.perf_counter()
 
-    graphs = run_data(client, data[:limit], model, user_prompt)
+    papers = data[:limit]
+    graphs = run_data(client, papers, model, user_prompt)
 
     time_elapsed = time.perf_counter() - time_start
     logger.info(f"Time elapsed: {_convert_time_elapsed(time_elapsed)}")
 
-    if visualise:
-        for graph in graphs:
-            try:
-                visualise_hierarchy(graph_to_networkx_dag(graph))
-            except GraphError:
-                logger.exception("Error visualising graph")
-
     output_dir.mkdir(parents=True, exist_ok=True)
-    for paper, graph in zip(data[:limit], graphs):
-        save_graph(graph_to_networkx_dag(graph), output_dir / f"{paper.title}.graphml")
+
+    for paper, graph in zip(papers, graphs):
+        dag = graph_to_networkx_dag(graph)
+        save_graph(dag, output_dir / f"{paper.title}.graphml")
+
+        try:
+            visualise_hierarchy(
+                dag, show=visualise, img_path=output_dir / f"{paper.title}.png"
+            )
+        except GraphError:
+            logger.exception("Error visualising graph")
 
 
 def graph_to_networkx_dag(graph: Graph) -> nx.DiGraph:
