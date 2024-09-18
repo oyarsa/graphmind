@@ -409,7 +409,7 @@ def main() -> None:
         "--model",
         "-m",
         type=str,
-        default="gpt-4o-2024-08-06",
+        default="gpt-4o-mini",
         help="The model to use for the extraction.",
     )
     parser.add_argument(
@@ -417,21 +417,21 @@ def main() -> None:
         type=str,
         default=None,
         help="The OpenAI API key to use for the extraction. Defaults to OPENAI_API_KEY"
-        " env var.",
+        " env var. Can be read from the .env file.",
     )
     parser.add_argument(
         "--limit",
         "-n",
         type=int,
-        default=None,
-        help="The number of papers to process. Defaults to all.",
+        default=1,
+        help="The number of papers to process. Defaults to 1 example.",
     )
     parser.add_argument(
         "--user-prompt",
         type=str,
         choices=_USER_PROMPTS.keys(),
-        default="abstract_only",
-        help="The user prompt to use for the extraction. Defaults to 'abstract_only'.",
+        default="introduction",
+        help="The user prompt to use for the extraction. Defaults to %(default)s.",
     )
     parser.add_argument(
         "--visualise",
