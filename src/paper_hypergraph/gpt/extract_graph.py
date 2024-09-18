@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import logging
 import os
 import textwrap
 import time
@@ -10,12 +11,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Self, cast
 
+import colorlog
 import dotenv
 import matplotlib.pyplot as plt
 import networkx as nx
 from matplotlib.patches import Rectangle
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
+
+logger = logging.getLogger("extract_graph")
 
 
 class Paper(BaseModel):
@@ -119,8 +123,8 @@ def run_gpt_graph(
             seed=0,
             temperature=0,
         )
-    except Exception as e:
-        print(f"Error making API request: {e}")
+    except Exception:
+        logger.exception("Error making API request")
         return ModelResult(graph=Graph.empty(), cost=float("nan"))
 
     usage = completion.usage
@@ -142,14 +146,17 @@ def _log_config(
     *, model: str, data_path: Path, limit: int | None, user_prompt: str
 ) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
+    out: list[str] = []
 
-    print("CONFIG:")
-    print(f"  Model: {model}")
-    print(f"  Data path: {data_path.resolve()}")
-    print(f"  Data hash: {data_hash}")
-    print(f"  Limit: {limit if limit is not None else 'All'}")
-    print(f"  User prompt: {user_prompt}")
-    print()
+    out.append("CONFIG:")
+    out.append(f"  Model: {model}")
+    out.append(f"  Data path: {data_path.resolve()}")
+    out.append(f"  Data hash: {data_hash}")
+    out.append(f"  Limit: {limit if limit is not None else 'All'}")
+    out.append(f"  User prompt: {user_prompt}")
+    out.append("")
+
+    logger.info("\n".join(out))
 
 
 _SYSTEM_PROMPT = (
@@ -204,22 +211,29 @@ Output:
 }
 
 
-def run_data(client: OpenAI, data: list[Paper], model: str, user_prompt: str) -> None:
+def run_data(
+    client: OpenAI, data: list[Paper], model: str, user_prompt: str
+) -> list[Graph]:
     total_cost = 0
+    graphs: list[Graph] = []
+
     for example in data:
         prompt = user_prompt.format(title=example.title, abstract=example.abstract)
         result = run_gpt_graph(client, _SYSTEM_PROMPT, prompt, model)
         total_cost += result.cost
-        print("Example:")
-        print(example)
-        print()
-        print("Graph:")
-        print(result.graph)
-        print()
-        dg = graph_to_networkx_dag(result.graph)
-        visualise_tree(dg)
 
-    print(f"\n\nTotal cost: ${total_cost:.10f}")
+        out: list[str] = []
+        out.append("Example:")
+        out.append(str(example))
+        out.append("Graph:")
+        out.append(str(result.graph))
+        logger.debug("\n".join(out))
+
+        graphs.append(result.graph)
+
+    logger.info(f"Total cost: ${total_cost:.10f}")
+
+    return graphs
 
 
 def extract_graph(
@@ -228,6 +242,7 @@ def extract_graph(
     data_path: Path,
     limit: int | None,
     user_prompt_key: str,
+    visualise: bool,
 ) -> None:
     dotenv.load_dotenv()
     if api_key:
@@ -248,12 +263,18 @@ def extract_graph(
     user_prompt = _USER_PROMPTS[user_prompt_key]
 
     time_start = time.perf_counter()
-    run_data(client, data[:limit], model, user_prompt)
+
+    graphs = run_data(client, data[:limit], model, user_prompt)
+
     time_elapsed = time.perf_counter() - time_start
-    print(f"Time elapsed: {_convert_time_elapsed(time_elapsed)}")
+    logger.info(f"Time elapsed: {_convert_time_elapsed(time_elapsed)}")
+
+    if visualise:
+        for graph in graphs:
+            visualise_tree(graph_to_networkx_tree(graph))
 
 
-def graph_to_networkx_dag(graph: Graph) -> nx.DiGraph:
+def graph_to_networkx_tree(graph: Graph) -> nx.DiGraph:
     g = nx.DiGraph()
 
     for entity in graph.entities:
@@ -412,11 +433,35 @@ def main() -> None:
         default="abstract_only",
         help="The user prompt to use for the extraction. Defaults to 'abstract_only'.",
     )
-
-    args = parser.parse_args()
-    extract_graph(
-        args.model, args.api_key, args.data_path, args.limit, args.user_prompt
+    parser.add_argument(
+        "--visualise",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Visualise the extracted graph.",
     )
+    args = parser.parse_args()
+    setup_logging(logger)
+
+    extract_graph(
+        args.model,
+        args.api_key,
+        args.data_path,
+        args.limit,
+        args.user_prompt,
+        args.visualise,
+    )
+
+
+def setup_logging(logger: logging.Logger) -> None:
+    level = os.environ.get("LOG_LEVEL", "INFO").upper()
+    logger.setLevel(level)
+    handler = colorlog.StreamHandler()
+
+    fmt = "%(log_color)s%(asctime)s | %(levelname)s | %(name)s:%(lineno)d | %(message)s"
+    datefmt = "%Y-%m-%d %H:%M:%S"
+    handler.setFormatter(colorlog.ColoredFormatter(fmt=fmt, datefmt=datefmt))
+
+    logger.addHandler(handler)
 
 
 if __name__ == "__main__":
