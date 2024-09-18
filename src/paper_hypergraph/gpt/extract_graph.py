@@ -271,10 +271,10 @@ def extract_graph(
 
     if visualise:
         for graph in graphs:
-            visualise_tree(graph_to_networkx_tree(graph))
+            visualise_hierarchy(graph_to_networkx_dag(graph))
 
 
-def graph_to_networkx_tree(graph: Graph) -> nx.DiGraph:
+def graph_to_networkx_dag(graph: Graph) -> nx.DiGraph:
     g = nx.DiGraph()
 
     for entity in graph.entities:
@@ -286,7 +286,7 @@ def graph_to_networkx_tree(graph: Graph) -> nx.DiGraph:
     return g
 
 
-def visualise_tree(g: nx.DiGraph) -> None:
+def visualise_hierarchy(g: nx.DiGraph) -> None:
     # Identify root nodes (nodes with in-degree 0)
     in_degrees = cast(nx.classes.reportviews.DiDegreeView, g.in_degree())
     roots = [node for node, in_degree in in_degrees if in_degree == 0]

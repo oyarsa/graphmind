@@ -6,7 +6,7 @@ following hierarchy:
 - Intermediate nodes: the main concepts covered in the paper, from the abstract
 - Leaves: sentences from the introduction mentioning the main concepts
 
-This forms a hierarchical tree, as nodes only have edges to their children: the title node
+This forms a hierarchical DAG, as nodes only have edges to their children: the title node
 to the concepts, and the concepts to their sentences.
 
 *NOTE*: This is a proof of concept. The prompt and pipeline need to be refined.
