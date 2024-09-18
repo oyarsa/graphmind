@@ -229,7 +229,7 @@ Introduction:
 #####
 Output:
 """,
-    "introduction2": """\
+    "bullets": """\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and introduction.
 
