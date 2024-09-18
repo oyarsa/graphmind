@@ -1,3 +1,4 @@
+import argparse
 import textwrap
 from pathlib import Path
 from typing import cast
@@ -143,3 +144,25 @@ def load_graph(path: Path) -> nx.DiGraph:
     return nx.read_graphml(path, node_type=str)
 
 
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Visualise a hierarchical graph")
+    parser.add_argument("graph_file", type=Path, help="Path to the graph file")
+    parser.add_argument(
+        "--output",
+        "-o",
+        type=Path,
+        help="Path to save the image of the visualisation",
+    )
+    parser.add_argument(
+        "--show",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Don't display the visualisation in the GUI",
+    )
+    args = parser.parse_args()
+    graph = load_graph(args.graph_file)
+    visualise_hierarchy(graph, show=args.show, img_path=args.output)
+
+
+if __name__ == "__main__":
+    main()
