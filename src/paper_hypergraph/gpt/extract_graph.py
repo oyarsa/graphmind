@@ -8,6 +8,7 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import dotenv
 import matplotlib.pyplot as plt
@@ -261,7 +262,8 @@ def graph_to_networkx_dag(graph: Graph) -> nx.DiGraph:
 
 def visualise_tree(g: nx.DiGraph) -> None:
     # Identify root nodes (nodes with in-degree 0)
-    roots: list[str] = [node for node, in_degree in g.in_degree() if in_degree == 0]
+    in_degrees = cast(nx.classes.reportviews.DiDegreeView, g.in_degree())
+    roots = [node for node, in_degree in in_degrees if in_degree == 0]
 
     if not roots:
         raise ValueError(
