@@ -7,8 +7,16 @@ import networkx as nx
 from matplotlib.patches import Rectangle
 
 
-def visualise_hierarchy(g: nx.DiGraph, img_path: Path | None = None) -> None:
-    """Visualise a hierarchical graph with matplotlib."""
+def visualise_hierarchy(
+    g: nx.DiGraph, show: bool = True, img_path: Path | None = None
+) -> None:
+    """Visualise a hierarchical graph with matplotlib.
+
+    Args:
+        g: The graph to visualise.
+        show: Whether to display the plot in the GUI.
+        img_path: Path to save the image of the visualisation.
+    """
 
     # Identify root nodes (nodes with in-degree 0)
     in_degrees = cast(nx.classes.reportviews.DiDegreeView, g.in_degree())
@@ -119,4 +127,5 @@ def visualise_hierarchy(g: nx.DiGraph, img_path: Path | None = None) -> None:
 
     if img_path:
         plt.savefig(img_path)
-    plt.show()
+    if show:
+        plt.show()
