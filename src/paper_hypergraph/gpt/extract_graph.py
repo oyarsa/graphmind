@@ -82,7 +82,7 @@ _MODEL_SYNONYMS = {
 }
 
 
-# Cost in $ per 1M tokens
+# Cost in $ per 1M tokens: (input cost, output cost)
 # From https://openai.com/api/pricing/
 _MODEL_COSTS = {
     "gpt-4o-mini-2024-07-18": (0.15, 0.6),
@@ -90,9 +90,9 @@ _MODEL_COSTS = {
 }
 
 
-def calc_cost(model: str, input_tokens: int, output_tokens: int) -> float:
+def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     input_cost, output_cost = _MODEL_COSTS[model]
-    return input_cost / 1e6 * input_tokens + output_cost / 1e6 * output_tokens
+    return prompt_tokens / 1e6 * input_cost + completion_tokens / 1e6 * output_cost
 
 
 @dataclass(frozen=True)
