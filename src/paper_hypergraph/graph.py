@@ -1,4 +1,5 @@
 import textwrap
+from pathlib import Path
 from typing import cast
 
 import matplotlib.pyplot as plt
@@ -6,7 +7,7 @@ import networkx as nx
 from matplotlib.patches import Rectangle
 
 
-def visualise_hierarchy(g: nx.DiGraph) -> None:
+def visualise_hierarchy(g: nx.DiGraph, img_path: Path | None = None) -> None:
     """Visualise a hierarchical graph with matplotlib."""
 
     # Identify root nodes (nodes with in-degree 0)
@@ -114,4 +115,8 @@ def visualise_hierarchy(g: nx.DiGraph) -> None:
 
     plt.title("Paper Hierarchical Graph")
     plt.axis("off")
+    plt.tight_layout()
+
+    if img_path:
+        plt.savefig(img_path)
     plt.show()
