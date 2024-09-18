@@ -8,33 +8,49 @@ import networkx as nx
 from matplotlib.patches import Rectangle
 
 
+class GraphError(Exception):
+    pass
+
+
 def visualise_hierarchy(
-    g: nx.DiGraph, show: bool = True, img_path: Path | None = None
+    graph: nx.DiGraph, show: bool = True, img_path: Path | None = None
 ) -> None:
-    """Visualise a hierarchical graph with matplotlib.
+    """Visualise a hierarchical directed acyclical graph with matplotlib.
 
     Args:
-        g: The graph to visualise.
-        show: Whether to display the plot in the GUI.
-        img_path: Path to save the image of the visualisation.
+        graph: The graph to visualise.
+        show: Whether to display the plot in the GUI. By default, displays the plot.
+        img_path: Path to save the image of the visualisation. By default, does not save.
+
+    Raises:
+        GraphError: If the graph doesn't have any root nodes (nodes with degree 0), has
+            multiple root nodes, or a cycle.
     """
 
     # Identify root nodes (nodes with in-degree 0)
-    in_degrees = cast(nx.classes.reportviews.DiDegreeView, g.in_degree())
+    in_degrees = cast(nx.classes.reportviews.DiDegreeView, graph.in_degree())
     roots = [node for node, in_degree in in_degrees if in_degree == 0]
 
     if not roots:
-        raise ValueError(
+        raise GraphError(
             "The graph doesn't have any root nodes (nodes with in-degree 0)"
         )
+    if len(roots) > 1:
+        raise GraphError(
+            f"The graph has multiple root nodes. It should have only one."
+            f" Found {len(roots)}."
+        )
+    if not nx.is_directed_acyclic_graph(graph):
+        raise GraphError(
+            "The graph has a cycle. It should be a directed acyclic graph."
+        )
 
-    # Compute the depth of each node
     def node_depth(node: str) -> int:
-        if g.in_degree(node) == 0:
+        if graph.in_degree(node) == 0:
             return 0
-        return 1 + max(node_depth(parent) for parent in g.predecessors(node))
+        return 1 + max(node_depth(parent) for parent in graph.predecessors(node))
 
-    depths: dict[str, int] = {node: node_depth(node) for node in g.nodes()}
+    depths: dict[str, int] = {node: node_depth(node) for node in graph.nodes()}
     max_depth = max(depths.values())
 
     # Create Hierarchical position mapping
@@ -53,10 +69,10 @@ def visualise_hierarchy(
 
     # Draw nodes and labels with wrapped text
     for node, (x, y) in pos.items():
-        node_type = g.nodes[node].get("type", "")
+        node_type = graph.nodes[node].get("type", "")
 
         # Wrap the text to fit in the box
-        wrapped_text = textwrap.wrap(node, width=20)
+        wrapped_text = textwrap.wrap(node, width=25)
 
         # Calculate box dimensions
         box_width = 0.15
@@ -100,7 +116,7 @@ def visualise_hierarchy(
 
     # Draw edges with arrows
     edge_collection = nx.draw_networkx_edges(
-        g,
+        graph,
         pos,
         edge_color="gray",
         arrows=True,
