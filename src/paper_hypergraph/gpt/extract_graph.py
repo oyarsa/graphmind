@@ -17,7 +17,7 @@ import networkx as nx
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
-from paper_hypergraph.graph import save_graph, visualise_hierarchy
+from paper_hypergraph.graph import GraphError, save_graph, visualise_hierarchy
 
 logger = logging.getLogger("extract_graph")
 
@@ -340,8 +340,10 @@ def extract_graph(
 
     if visualise:
         for graph in graphs:
-            dag = graph_to_networkx_dag(graph)
-            visualise_hierarchy(dag)
+            try:
+                visualise_hierarchy(graph_to_networkx_dag(graph))
+            except GraphError:
+                logger.exception("Error visualising graph")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for paper, graph in zip(data[:limit], graphs):
