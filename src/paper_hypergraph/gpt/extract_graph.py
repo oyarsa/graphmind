@@ -66,7 +66,10 @@ class Graph(BaseModel):
 
     def __str__(self) -> str:
         entities = "\n".join(
-            f"  {i}. {c.name} - {c.type}" for i, c in enumerate(self.entities, 1)
+            f"  {i}. {c.type} - {c.name}"
+            for i, c in enumerate(
+                sorted(self.entities, key=lambda e: (e.type, e.name)), 1
+            )
         )
 
         relationships = "\n".join(
