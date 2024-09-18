@@ -215,10 +215,10 @@ Only provide connections between the entities from each of the three types (titl
 concepts, concepts to supporting sentences). Do not provide relationships among concepts \
 or supporting sentences.
 
-The supporting sentences count as entities and should be returned along with the title \
+The supporting sentences count as entities and must be returned along with the title \
 and the concepts. There can be multiple supporting sentences for a single concept, and a single \
 support sentence can connect to multiple concepts. There can be up to 10 supporting sentences. \
-Each concept must connect to at least one supporting sentence, and each supporting sentence must be \
+Each concept must be connected to at least one supporting sentence, and each supporting sentence must be \
 connected to at least one concept.
 
 All entities (title, concepts and supports) should be mentioned in the output.
@@ -240,30 +240,31 @@ paper's title, abstract, and introduction.
 
 Your task is to extract three types of entities and the relationships between them:
 - title: the title of the paper
-- concepts: the top 5 key concepts mentioned in the abstract. If there are fewer than 5, \
+- concept: the top 5 key concepts mentioned in the abstract. If there are fewer than 5, \
 use only those.
-- supports: supporting sentences from the introduction that mention the key concepts.
+- support: supporting sentences from the introduction that mention the key concepts.
 
 Extract these entities and the relationships between them as a graph. The paper title is \
-the main node, connected to the key concepts. The key concepts are connected to the \
+the only main node, connected to the key concepts. The key concepts are connected to the \
 supporting sentences that mention them.
 
 You MUST follow these rules:
 
+- There is only one main node (title) and it MUST be connected to all the key concepts.
 - Only provide connections from title to concepts and concepts to supporting sentences.
-- Do not provide relationships between concepts or supporting sentences.
+- Do NOT provide relationships between concepts or supporting sentences.
 - There can be multiple supporting sentences for a single concept, and a single \
 support sentence can connect to multiple concepts.
-- Each concept must connect to at least one supporting sentence.
-- Each supporting sentence must connect to at least one concept.
+- Each concept MUST connect to at least one supporting sentence.
+- Each supporting sentence MUST connect to at least one concept.
+- There MUST be twice as many supporting sentences as concepts.
 
-All entities (title, concepts and supports) should be mentioned in the output.
+All entities (title, concepts and supports) MUST be mentioned in the output.
 
 #####
 -Data-
 Title: {title}
 Abstract: {abstract}
-
 Introduction:
 {introduction}
 
