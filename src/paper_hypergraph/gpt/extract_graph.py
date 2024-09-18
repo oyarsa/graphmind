@@ -82,6 +82,9 @@ class Graph(BaseModel):
 
         return "\n".join(
             [
+                f"Nodes: {len(self.entities)}",
+                f"Edges: {len(self.relationships)}",
+                "",
                 "Entities:",
                 entities,
                 "",
@@ -329,7 +332,8 @@ def extract_graph(
 
     if visualise:
         for graph in graphs:
-            visualise_hierarchy(graph_to_networkx_dag(graph))
+            dag = graph_to_networkx_dag(graph)
+            visualise_hierarchy(dag)
 
 
 def graph_to_networkx_dag(graph: Graph) -> nx.DiGraph:
