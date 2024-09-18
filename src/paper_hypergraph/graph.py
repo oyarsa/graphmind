@@ -129,3 +129,17 @@ def visualise_hierarchy(
         plt.savefig(img_path)
     if show:
         plt.show()
+
+
+def save_graph(graph: nx.DiGraph, path: Path) -> None:
+    """Save a graph to a GraphML file."""
+    if path.suffix != ".graphml":
+        path = path.with_suffix(".graphml")
+    nx.write_graphml(graph, path)
+
+
+def load_graph(path: Path) -> nx.DiGraph:
+    """Load a graph from a GraphML file."""
+    return nx.read_graphml(path, node_type=str)
+
+
