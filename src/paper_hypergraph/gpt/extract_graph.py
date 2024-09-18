@@ -226,6 +226,28 @@ Introduction:
 #####
 Output:
 """,
+    "introduction2": """\
+The following data contains information about a scientific paper. It includes the \
+paper's title, abstract, and introduction.
+
+Your task is to extract three types of entities and the relationships between them:
+- title: the title of the paper
+- concepts: the top 5 key concepts mentioned in the abstract. If there are fewer than 5, \
+use only those.
+- supports: supporting sentences from the introduction that mention the key concepts.
+
+Extract these entities and the relationships between them as a graph. The paper title is \
+the main node, connected to the key concepts. The key concepts are connected to the \
+supporting sentences that mention them.
+
+You MUST follow these rules:
+
+- Only provide connections from title to concepts and concepts to supporting sentences.
+- Do not provide relationships between concepts or supporting sentences.
+- There can be multiple supporting sentences for a single concept, and a single \
+support sentence can connect to multiple concepts.
+- Each concept must connect to at least one supporting sentence.
+- Each supporting sentence must connect to at least one concept.
 
 All entities (title, concepts and supports) should be mentioned in the output.
 
