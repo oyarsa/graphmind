@@ -83,6 +83,9 @@ class Graph(BaseModel):
             [
                 f"Nodes: {len(self.entities)}",
                 f"Edges: {len(self.relationships)}",
+                f"Titles: {sum(e.type == EntityType.TITLE for e in self.entities)}",
+                f"Concepts: {sum(e.type == EntityType.CONCEPT for e in self.entities)}",
+                f"Supports: {sum(e.type == EntityType.SUPPORT for e in self.entities)}",
                 "",
                 "Entities:",
                 entities,
