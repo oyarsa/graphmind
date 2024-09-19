@@ -13,7 +13,10 @@ class GraphError(Exception):
 
 
 def visualise_hierarchy(
-    graph: nx.DiGraph, show: bool = True, img_path: Path | None = None
+    graph: nx.DiGraph,
+    show: bool = True,
+    img_path: Path | None = None,
+    description: str | None = None,
 ) -> None:
     """Visualise a hierarchical directed acyclical graph with matplotlib.
 
@@ -21,6 +24,7 @@ def visualise_hierarchy(
         graph: The graph to visualise.
         show: Whether to display the plot in the GUI. By default, displays the plot.
         img_path: Path to save the image of the visualisation. By default, does not save.
+        description: Description added to the plot title. By default, does not display.
 
     Raises:
         GraphError: If the graph doesn't have any root nodes (nodes with degree 0), has
@@ -133,7 +137,11 @@ def visualise_hierarchy(
         else:
             edge_collection.set_zorder(2)
 
-    plt.title("Paper Hierarchical Graph")
+    title = "Paper Hierarchical Graph"
+    if description:
+        title += f"\n{description}"
+    plt.title(title)
+
     plt.axis("off")
     plt.tight_layout()
 
