@@ -299,6 +299,9 @@ Introduction:
 #####
 Output:
 """,
+    # Unfortunately, the models don't always comply with the rules, especially the
+    # rule that each concept must connect to at least one supporting sentence. This
+    # version is currently the best at that.
     "bullets": """\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and introduction.
@@ -495,7 +498,7 @@ def main() -> None:
         "-P",
         type=str,
         choices=_USER_PROMPTS.keys(),
-        default="introduction",
+        default="bullets",
         help="The user prompt to use for the extraction. Defaults to %(default)s.",
     )
     parser.add_argument(
