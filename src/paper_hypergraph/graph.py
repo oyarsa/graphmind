@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import textwrap
 from pathlib import Path
@@ -13,7 +15,7 @@ class GraphError(Exception):
 
 
 def visualise_hierarchy(
-    graph: nx.DiGraph,
+    graph: nx.DiGraph[str],
     show: bool = True,
     img_path: Path | None = None,
     description: str | None = None,
@@ -151,7 +153,7 @@ def visualise_hierarchy(
         plt.show()
 
 
-def validate_hierarchy_graph(graph: nx.DiGraph) -> str | None:
+def validate_hierarchy_graph(graph: nx.DiGraph[str]) -> str | None:
     """Validate that the graph follows the hirarchical rules.
 
     Rules:
@@ -193,14 +195,14 @@ def validate_hierarchy_graph(graph: nx.DiGraph) -> str | None:
     return None
 
 
-def save_graph(graph: nx.DiGraph, path: Path) -> None:
+def save_graph(graph: nx.DiGraph[str], path: Path) -> None:
     """Save a graph to a GraphML file."""
     if path.suffix != ".graphml":
         path = path.with_suffix(".graphml")
     nx.write_graphml(graph, path)
 
 
-def load_graph(path: Path) -> nx.DiGraph:
+def load_graph(path: Path) -> nx.DiGraph[str]:
     """Load a graph from a GraphML file."""
     return nx.read_graphml(path, node_type=str)
 
