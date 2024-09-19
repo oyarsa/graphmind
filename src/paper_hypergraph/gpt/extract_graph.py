@@ -16,6 +16,7 @@ import dotenv
 import networkx as nx
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
+from tqdm import tqdm
 
 from paper_hypergraph.graph import GraphError, save_graph, visualise_hierarchy
 
@@ -283,7 +284,7 @@ def run_data(
     total_cost = 0
     graphs: list[Graph] = []
 
-    for example in data:
+    for example in tqdm(data):
         prompt = user_prompt.format(
             title=example.title,
             abstract=example.abstract,
