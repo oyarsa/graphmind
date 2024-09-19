@@ -2,6 +2,9 @@
 
 ## Getting started
 
+This repository has been tested on macOS and Ubuntu. It should work on other Linux
+systems, but it has not been tested on Windows.
+
 Requires [`uv`](https://docs.astral.sh/uv/). When running commads, use `uv run`:
 
 ```bash
@@ -11,12 +14,15 @@ uv run python example.py [..args]
 No need to set up a virtual environment or install dependencies. `uv run` will take care
 of that automatically.
 
-Actually, if you're running Python scripts or commands (e.g. see `preprocess` below),
-you can omit the `python`. Real example:
+If you're running Python scripts or commands (e.g. see `preprocess` below), you can omit
+the `python`. Real example:
 
 ```bash
 uv run src/paper_hypergraph/s2orc/acl.py
 ```
+
+See `./tasks.sh` for common development tasks. In special, use `./tasks.sh check` to run
+the linter, formatter and type checker.
 
 ## Components
 
