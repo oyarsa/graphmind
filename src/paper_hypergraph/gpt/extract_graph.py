@@ -242,18 +242,16 @@ def _log_config(
     output_dir: Path,
 ) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
-    out: list[str] = []
 
-    out.append("CONFIG:")
-    out.append(f"  Model: {model}")
-    out.append(f"  Data path: {data_path.resolve()}")
-    out.append(f"  Data hash: {data_hash}")
-    out.append(f"  Output dir: {output_dir.resolve()}")
-    out.append(f"  Limit: {limit if limit is not None else 'All'}")
-    out.append(f"  User prompt: {user_prompt}")
-    out.append("")
-
-    logger.info("\n".join(out))
+    logger.info(
+        "CONFIG:"
+        f"  Model: {model}\n"
+        f"  Data path: {data_path.resolve()}\n"
+        f"  Data hash: {data_hash}\n"
+        f"  Output dir: {output_dir.resolve()}\n"
+        f"  Limit: {limit if limit is not None else 'All'}\n"
+        f"  User prompt: {user_prompt}\n\n"
+    )
 
 
 _SYSTEM_PROMPT = (
@@ -375,17 +373,14 @@ def run_data(
         supports = (sum(e.type == EntityType.SUPPORT for e in graph.entities),)
         valid = validate_hierarchy_graph(graph_to_networkx_dag(graph))
 
-        out: list[str] = []
-        out.append("Example:")
-        out.append(str(example))
-        out.append("")
-        out.append("Graph:")
-        out.append(str(graph))
-        out.append("")
-        out.append(f"Number of supports: {supports}")
-        out.append(f"Graph validation: {valid or 'Valid'}")
-        out.append("")
-        logger.debug("\n".join(out))
+        logger.debug(
+            "Example:\n"
+            f"{example}\n\n"
+            "Graph:\n"
+            f"{graph}\n\n"
+            f"Number of supports: {supports}\n"
+            f"Graph validation: {valid or 'Valid'}\n"
+        )
 
         graphs.append(graph)
 
