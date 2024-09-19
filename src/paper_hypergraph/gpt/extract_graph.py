@@ -1,5 +1,7 @@
 """Extract the entities graph from a text using GPT-4."""
 
+from __future__ import annotations
+
 import argparse
 import hashlib
 import logging
@@ -430,8 +432,8 @@ def extract_graph(
             logger.exception("Error visualising graph")
 
 
-def graph_to_networkx_dag(graph: Graph) -> nx.DiGraph:
-    g = nx.DiGraph()
+def graph_to_networkx_dag(graph: Graph) -> nx.DiGraph[str]:
+    g: nx.DiGraph[str] = nx.DiGraph()
 
     for entity in graph.entities:
         g.add_node(entity.name, type=entity.type.value)
