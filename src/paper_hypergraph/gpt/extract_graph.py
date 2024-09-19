@@ -18,7 +18,12 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph.graph import GraphError, save_graph, visualise_hierarchy
+from paper_hypergraph.graph import (
+    GraphError,
+    save_graph,
+    validate_hierarchy_graph,
+    visualise_hierarchy,
+)
 
 logger = logging.getLogger("extract_graph")
 
@@ -34,17 +39,76 @@ class Paper(BaseModel):
         return f"Title: {self.title}\nAbstract: {self.abstract}\n"
 
 
-class Relationship(BaseModel):
+class GptRelationship(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    source: str
-    target: str
+    source_index: int
+    target_index: int
 
 
 class EntityType(StrEnum):
     TITLE = "title"
     CONCEPT = "concept"
     SUPPORT = "support"
+
+
+class GptEntity(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    index: int
+    name: str
+    type: EntityType
+
+
+class GptGraph(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    entities: Sequence[GptEntity]
+    relationships: Sequence[GptRelationship]
+
+    @classmethod
+    def empty(cls) -> Self:
+        return cls(entities=[], relationships=[])
+
+    def __str__(self) -> str:
+        entities = "\n".join(
+            f"  {e.index}. {e.type} - {e.name}"
+            for e in sorted(self.entities, key=lambda e: e.index)
+        )
+
+        relationships = "\n".join(
+            f" {i}. {r.source_index} - {r.target_index}"
+            for i, r in enumerate(
+                sorted(
+                    self.relationships, key=lambda r: (r.source_index, r.target_index)
+                ),
+                1,
+            )
+        )
+
+        return "\n".join(
+            [
+                f"Nodes: {len(self.entities)}",
+                f"Edges: {len(self.relationships)}",
+                f"Titles: {sum(e.type == EntityType.TITLE for e in self.entities)}",
+                f"Concepts: {sum(e.type == EntityType.CONCEPT for e in self.entities)}",
+                f"Supports: {sum(e.type == EntityType.SUPPORT for e in self.entities)}",
+                "",
+                "Entities:",
+                entities,
+                "",
+                "Relationships:",
+                relationships,
+                "",
+            ]
+        )
+
+
+class Relationship(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    source: str
+    target: str
 
 
 class Entity(BaseModel):
@@ -61,8 +125,19 @@ class Graph(BaseModel):
     relationships: Sequence[Relationship]
 
     @classmethod
-    def empty(cls) -> Self:
-        return cls(entities=[], relationships=[])
+    def from_gpt_graph(cls, gpt_graph: GptGraph) -> Self:
+        entities = [Entity(name=e.name, type=e.type) for e in gpt_graph.entities]
+
+        entity_index = {e.index: e for e in gpt_graph.entities}
+        relationships = [
+            Relationship(
+                source=entity_index[r.source_index].name,
+                target=entity_index[r.target_index].name,
+            )
+            for r in gpt_graph.relationships
+        ]
+
+        return cls(entities=entities, relationships=relationships)
 
     def __str__(self) -> str:
         entities = "\n".join(
@@ -121,7 +196,7 @@ def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
 
 @dataclass(frozen=True)
 class ModelResult:
-    graph: Graph
+    graph: GptGraph
     cost: float
 
 
@@ -135,13 +210,13 @@ def run_gpt_graph(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            response_format=Graph,
+            response_format=GptGraph,
             seed=0,
             temperature=0,
         )
     except Exception:
         logger.exception("Error making API request")
-        return ModelResult(graph=Graph.empty(), cost=float("nan"))
+        return ModelResult(graph=GptGraph.empty(), cost=float("nan"))
 
     usage = completion.usage
     if usage is not None:
@@ -151,7 +226,7 @@ def run_gpt_graph(
 
     parsed = completion.choices[0].message.parsed
     if not parsed:
-        graph = Graph.empty()
+        graph = GptGraph.empty()
     else:
         graph = parsed
 
@@ -214,6 +289,9 @@ use only those.
 Extract these entities and the relationships between them as a graph. The paper title is \
 the main node, connected to the key concepts. The key concepts are connected to the \
 supporting sentences that mention them.
+
+Each entity must have a unique index. You must use these indexes to represent the \
+relationships between the entities.
 
 Only provide connections between the entities from each of the three types (title to \
 concepts, concepts to supporting sentences). Do not provide relationships among concepts \
@@ -291,16 +369,25 @@ def run_data(
             introduction=example.introduction,
         )
         result = run_gpt_graph(client, _SYSTEM_PROMPT, prompt, model)
+        graph = Graph.from_gpt_graph(result.graph)
         total_cost += result.cost
+
+        supports = (sum(e.type == EntityType.SUPPORT for e in graph.entities),)
+        valid = validate_hierarchy_graph(graph_to_networkx_dag(graph))
 
         out: list[str] = []
         out.append("Example:")
         out.append(str(example))
+        out.append("")
         out.append("Graph:")
-        out.append(str(result.graph))
+        out.append(str(graph))
+        out.append("")
+        out.append(f"Number of supports: {supports}")
+        out.append(f"Graph validation: {valid or 'Valid'}")
+        out.append("")
         logger.debug("\n".join(out))
 
-        graphs.append(result.graph)
+        graphs.append(graph)
 
     logger.info(f"Total cost: ${total_cost:.10f}")
 
@@ -354,7 +441,7 @@ def extract_graph(
                 dag,
                 show=visualise,
                 img_path=output_dir / f"{paper.title}.png",
-                description=f"full - model: {model} - prompt: {user_prompt_key}",
+                description=f"index - model: {model} - prompt: {user_prompt_key}",
             )
         except GraphError:
             logger.exception("Error visualising graph")
