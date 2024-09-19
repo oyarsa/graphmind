@@ -351,7 +351,10 @@ def extract_graph(
 
         try:
             visualise_hierarchy(
-                dag, show=visualise, img_path=output_dir / f"{paper.title}.png"
+                dag,
+                show=visualise,
+                img_path=output_dir / f"{paper.title}.png",
+                description=f"full - model: {model} - prompt: {user_prompt_key}",
             )
         except GraphError:
             logger.exception("Error visualising graph")
