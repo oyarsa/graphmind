@@ -98,7 +98,7 @@ _MODEL_SYNONYMS = {
     "4o-mini": "gpt-4o-mini-2024-07-18",
     "gpt-4o-mini": "gpt-4o-mini-2024-07-18",
     "4o": "gpt-4o-2024-08-06",
-    "gpt-4o": "gpt-4o-mini-2024-07-18",
+    "gpt-4o": "gpt-4o-2024-08-06",
 }
 
 
