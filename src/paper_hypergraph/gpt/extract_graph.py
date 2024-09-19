@@ -250,7 +250,7 @@ def _log_config(
         f"  Data hash: {data_hash}\n"
         f"  Output dir: {output_dir.resolve()}\n"
         f"  Limit: {limit if limit is not None else 'All'}\n"
-        f"  User prompt: {user_prompt}\n\n"
+        f"  User prompt: {user_prompt}\n"
     )
 
 
