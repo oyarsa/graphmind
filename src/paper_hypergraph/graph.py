@@ -143,6 +143,48 @@ def visualise_hierarchy(
         plt.show()
 
 
+def validate_hierarchy_graph(graph: nx.DiGraph) -> str | None:
+    """Validate that the graph follows the hirarchical rules.
+
+    Rules:
+    - The graph must have a single root node (in-degree 0).
+    - The graph must be a directed acyclic graph (no cycles).
+    - Each concept node must connect to at least one supporting sentence (out-degree > 0).
+
+    Args:
+        graph: The graph to validate.
+
+    Returns:
+        None if the graph is valid, otherwise a message explaining the error.
+    """
+    roots = [node for node in graph.nodes if graph.in_degree(node) == 0]
+
+    if not roots:
+        return "The graph has no root node. It should have one."
+
+    if len(roots) > 1:
+        return (
+            f"The graph has multiple root nodes. It should have only one."
+            f" Found {len(roots)}."
+        )
+    if not nx.is_directed_acyclic_graph(graph):
+        return "The graph has a cycle. It should be a directed acyclic graph."
+
+    concepts = [
+        node for node, data in graph.nodes(data=True) if data.get("type") == "concept"
+    ]
+    concepts_unconnected = sum(
+        out_degree == 0 for _, out_degree in graph.out_degree(concepts)
+    )
+    if concepts_unconnected > 0:
+        return (
+            "Each concept must connect to at least one supporting sentence."
+            f" Found {concepts_unconnected} that don't."
+        )
+
+    return None
+
+
 def save_graph(graph: nx.DiGraph, path: Path) -> None:
     """Save a graph to a GraphML file."""
     if path.suffix != ".graphml":
