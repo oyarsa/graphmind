@@ -20,12 +20,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph.graph import (
-    GraphError,
-    save_graph,
-    validate_hierarchy_graph,
-    visualise_hierarchy,
-)
+from paper_hypergraph import graph as pgraph
 
 logger = logging.getLogger("extract_graph")
 
@@ -361,7 +356,7 @@ def run_data(
         total_cost += result.cost
 
         supports = (sum(e.type == EntityType.SUPPORT for e in graph.entities),)
-        valid = validate_hierarchy_graph(graph_to_networkx_dag(graph))
+        valid = pgraph.validate_hierarchy_graph(graph_to_dag(graph))
 
         logger.debug(
             "Example:\n"
@@ -418,30 +413,25 @@ def extract_graph(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     for paper, graph in zip(papers, graphs):
-        dag = graph_to_networkx_dag(graph)
-        save_graph(dag, output_dir / f"{paper.title}.graphml")
+        dag = graph_to_dag(graph)
+        pgraph.save_graph(dag, output_dir / f"{paper.title}.graphml")
 
         try:
-            visualise_hierarchy(
+            pgraph.visualise_hierarchy(
                 dag,
                 show=visualise,
                 img_path=output_dir / f"{paper.title}.png",
                 description=f"index - model: {model} - prompt: {user_prompt_key}",
             )
-        except GraphError:
+        except pgraph.GraphError:
             logger.exception("Error visualising graph")
 
 
-def graph_to_networkx_dag(graph: Graph) -> nx.DiGraph[str]:
-    g: nx.DiGraph[str] = nx.DiGraph()
-
-    for entity in graph.entities:
-        g.add_node(entity.name, type=entity.type.value)
-
-    for relationship in graph.relationships:
-        g.add_edge(relationship.source, relationship.target)
-
-    return g
+def graph_to_dag(graph: Graph) -> nx.DiGraph[str]:
+    return pgraph.graph_to_networkx_dag(
+        entities=[pgraph.Node(e.name, e.type.value) for e in graph.entities],
+        relationships=[pgraph.Edge(r.source, r.target) for r in graph.relationships],
+    )
 
 
 def _convert_time_elapsed(seconds: float) -> str:
