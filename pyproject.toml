@@ -48,7 +48,7 @@ ignore = [
 # Ruff also handles this, and it needs to be enabled there for fixAll to fix it,
 # so we disable it here to avoid duplicate errors
 reportUnusedImport = false
-typeCheckingMode = "basic"
+typeCheckingMode = "strict"
 
 [tool.uv]
 dev-dependencies = [
