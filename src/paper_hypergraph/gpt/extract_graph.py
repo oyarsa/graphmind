@@ -240,7 +240,7 @@ def _log_config(
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
 
     logger.info(
-        "CONFIG:"
+        "CONFIG:\n"
         f"  Model: {model}\n"
         f"  Data path: {data_path.resolve()}\n"
         f"  Data hash: {data_hash}\n"
