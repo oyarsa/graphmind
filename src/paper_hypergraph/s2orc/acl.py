@@ -2,6 +2,8 @@
 
 Does not include the full text of the papers.
 """
+# Because SemanticScholar is completely untyped, and it's not worth wrapping it
+# pyright: basic
 
 import argparse
 

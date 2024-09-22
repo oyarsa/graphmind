@@ -5,12 +5,12 @@ import asyncio
 import json
 import os
 import sys
-import urllib.parse
 from pathlib import Path
 
 import aiohttp
 import dotenv
-from tqdm.asyncio import tqdm
+
+from paper_hypergraph.s2orc.download import parse_url, progress_gather
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -78,14 +78,14 @@ async def _get_filesizes(
 
         files = dataset["files"][:limit]
         tasks = [_get_file_size(url, session, semaphore) for url in files]
-        file_sizes = await tqdm.gather(*tasks, desc="Getting file sizes")
+        file_sizes = await progress_gather(*tasks, desc="Getting file sizes")
 
         total_size_gb = sum(_bytes_to_gib(size) for size in file_sizes)
         info: list[dict[str, str | float]] = []
 
         print("\nFile sizes:")
         for url, size in zip(files, file_sizes):
-            file_name = urllib.parse.urlparse(url).path.split("/")[-1]
+            file_name = parse_url(url).path.split("/")[-1]
             size_gb = _bytes_to_gib(size)
             print(f"{file_name}: {size_gb:.2f} GiB")
 

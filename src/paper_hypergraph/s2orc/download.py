@@ -6,8 +6,9 @@ import json
 import os
 import sys
 import urllib.parse
-from collections.abc import Coroutine
+from collections.abc import Coroutine, Iterable
 from pathlib import Path
+from typing import Any
 
 import aiohttp
 import dotenv
@@ -73,6 +74,20 @@ async def _download_file(
         print(f"Failed to download {path} after {MAX_RETRIES} attempts.")
 
 
+def parse_url(url: str) -> urllib.parse.ParseResult:
+    """Wrapper around urllib.parse.urlparse for type-checking."""
+    return urllib.parse.urlparse(url)
+
+
+async def progress_gather(*awaitable: Any, **kwargs: Any) -> Iterable[Any]:
+    """Run asyncio.gather with tqdm progress bar.
+
+    Arguments are exactly the same as asyncio.gather.
+    """
+    # There's no safe way to type-check this function, so we ignore the type error
+    return await tqdm.gather(*awaitable, **kwargs)  # type: ignore
+
+
 async def _download(
     dataset_name: str, output_path: Path, api_key: str, limit: int | None
 ) -> None:
@@ -101,12 +116,12 @@ async def _download(
         tasks: list[Coroutine[None, None, None]] = []
 
         for url in dataset["files"][:limit]:
-            file_name = urllib.parse.urlparse(url).path.split("/")[-1]
+            file_name = parse_url(url).path.split("/")[-1]
             file_path = output_path / file_name
 
             tasks.append(_download_file(url, file_path, session, semaphore))
 
-        await tqdm.gather(*tasks, desc="Overall progress")
+        await tqdm.gather(*tasks, desc="Overall progress")  # type: ignore
 
 
 def download_dataset(
