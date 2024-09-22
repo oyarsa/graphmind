@@ -15,7 +15,6 @@ from typing import Self
 
 import colorlog
 import dotenv
-import networkx as nx
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
@@ -356,7 +355,7 @@ def run_data(
         total_cost += result.cost
 
         supports = (sum(e.type == EntityType.SUPPORT for e in graph.entities),)
-        valid = pgraph.validate_hierarchy_graph(graph_to_dag(graph))
+        valid = graph_to_dag(graph).validate_hierarchy()
 
         logger.debug(
             "Example:\n"
@@ -414,11 +413,10 @@ def extract_graph(
 
     for paper, graph in zip(papers, graphs):
         dag = graph_to_dag(graph)
-        pgraph.save_graph(dag, output_dir / f"{paper.title}.graphml")
+        dag.save(output_dir / f"{paper.title}.graphml")
 
         try:
-            pgraph.visualise_hierarchy(
-                dag,
+            dag.visualise_hierarchy(
                 show=visualise,
                 img_path=output_dir / f"{paper.title}.png",
                 description=f"index - model: {model} - prompt: {user_prompt_key}",
@@ -427,10 +425,10 @@ def extract_graph(
             logger.exception("Error visualising graph")
 
 
-def graph_to_dag(graph: Graph) -> nx.DiGraph[str]:
-    return pgraph.graph_to_networkx_dag(
-        entities=[pgraph.Node(e.name, e.type.value) for e in graph.entities],
-        relationships=[pgraph.Edge(r.source, r.target) for r in graph.relationships],
+def graph_to_dag(graph: Graph) -> pgraph.DiGraph:
+    return pgraph.DiGraph.from_elements(
+        nodes=[pgraph.Node(e.name, e.type.value) for e in graph.entities],
+        edges=[pgraph.Edge(r.source, r.target) for r in graph.relationships],
     )
 
 
