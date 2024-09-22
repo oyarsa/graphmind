@@ -1,7 +1,10 @@
+# pyright: basic
 from __future__ import annotations
 
 import argparse
 import textwrap
+from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
@@ -183,8 +186,9 @@ def validate_hierarchy_graph(graph: nx.DiGraph[str]) -> str | None:
     concepts = [
         node for node, data in graph.nodes(data=True) if data.get("type") == "concept"
     ]
+    out_degrees = cast(nx.classes.reportviews.OutDegreeView, graph.out_degree(concepts))
     concepts_unconnected = sum(
-        out_degree == 0 for _, out_degree in graph.out_degree(concepts)
+        out_degree == 0 for _, out_degree in out_degrees if out_degree == 0
     )
     if concepts_unconnected > 0:
         return (
@@ -205,6 +209,32 @@ def save_graph(graph: nx.DiGraph[str], path: Path) -> None:
 def load_graph(path: Path) -> nx.DiGraph[str]:
     """Load a graph from a GraphML file."""
     return nx.read_graphml(path, node_type=str)
+
+
+@dataclass(frozen=True)
+class Node:
+    name: str
+    type: str
+
+
+@dataclass(frozen=True)
+class Edge:
+    source: str
+    target: str
+
+
+def graph_to_networkx_dag(
+    *, entities: Iterable[Node], relationships: Iterable[Edge]
+) -> nx.DiGraph[str]:
+    g: nx.DiGraph[str] = nx.DiGraph()
+
+    for entity in entities:
+        g.add_node(entity.name, type=entity.type)
+
+    for relationship in relationships:
+        g.add_edge(relationship.source, relationship.target)
+
+    return g
 
 
 def main() -> None:
