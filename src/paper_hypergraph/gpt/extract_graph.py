@@ -243,7 +243,7 @@ def _log_config(
         "CONFIG:\n"
         f"  Model: {model}\n"
         f"  Data path: {data_path.resolve()}\n"
-        f"  Data hash: {data_hash}\n"
+        f"  Data hash (sha256): {data_hash}\n"
         f"  Output dir: {output_dir.resolve()}\n"
         f"  Limit: {limit if limit is not None else 'All'}\n"
         f"  User prompt: {user_prompt}\n"
