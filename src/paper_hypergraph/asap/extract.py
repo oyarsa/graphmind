@@ -32,6 +32,18 @@ def _get_introduction(sections: list[dict[str, Any]]) -> str | None:
     return "\n\n".join(texts)
 
 
+def _parse_rating(rating: str) -> int | None:
+    """Parse rating text into a number (e.g., "8: Accept" -> 8).
+
+    Returns:
+        The rating number or None if the rating text cannot be parsed.
+    """
+    try:
+        return int(rating.split(":")[0].strip())
+    except ValueError:
+        return None
+
+
 def extract_interesting(input_file: Path, output_file: Path) -> None:
     """Extract information from the input JSON file and write to the output JSON file.
 
@@ -39,7 +51,7 @@ def extract_interesting(input_file: Path, output_file: Path) -> None:
     """
     data = json.loads(input_file.read_text())
 
-    output: list[dict[str, str]] = []
+    output: list[dict[str, Any]] = []
 
     for item in data:
         paper = item["paper"]
@@ -48,11 +60,16 @@ def extract_interesting(input_file: Path, output_file: Path) -> None:
         if not introduction:
             continue
 
+        ratings = [
+            r for review in item["review"] if (r := _parse_rating(review["rating"]))
+        ]
+
         output.append(
             {
                 "title": paper["title"],
                 "abstract": paper["abstractText"],
                 "introduction": introduction,
+                "ratings": ratings,
             }
         )
 
