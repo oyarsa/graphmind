@@ -10,7 +10,7 @@ help() {
 	echo
 	echo "Available tasks:"
 	echo "  check   Run ruff check, ruff format, and pyright"
-	echo "  help   Show this help message"
+	echo "  help    Show this help message"
 }
 
 check() {
