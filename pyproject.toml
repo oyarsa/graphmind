@@ -19,8 +19,8 @@ dependencies = [
     "tqdm>=4.66.5",
 ]
 
-[tool.ruff.lint.isort]
-known-first-party = []
+[tool.ruff]
+extend-exclude = ["tmp"]
 
 [tool.ruff.lint]
 select = [
