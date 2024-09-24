@@ -74,7 +74,7 @@ def extract_interesting(input_file: Path, output_file: Path) -> None:
         )
 
     print("no.  input papers:", len(data))
-    print("no. output papers:", len(output))
+    print("no. output papers:", len(output), f"({len(output) / len(data):.2%})")
 
     output_file.write_text(json.dumps(output, indent=2))
 
