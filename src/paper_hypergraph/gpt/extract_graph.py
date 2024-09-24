@@ -23,6 +23,26 @@ from paper_hypergraph import graph as pgraph
 
 logger = logging.getLogger("extract_graph")
 
+RATING_APPROVAL_THRESHOLD = 5
+"""A rating is an approval if it's greater of equal than this."""
+
+
+class RatingEvaluationStrategy(StrEnum):
+    MEAN = "mean"
+    """Mean rating is higher than the threshold."""
+    MAJORITY = "majority"
+    """Majority of ratings are higher than the threshold."""
+    DEFAULT = MEAN
+
+    def is_approved(self, ratings: Sequence[int]) -> bool:
+        match self:
+            case RatingEvaluationStrategy.MEAN:
+                mean = sum(ratings) / len(ratings)
+                return mean >= RATING_APPROVAL_THRESHOLD
+            case RatingEvaluationStrategy.MAJORITY:
+                approvals = [r >= RATING_APPROVAL_THRESHOLD for r in ratings]
+                return sum(approvals) >= len(approvals) / 2
+
 
 class Paper(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -30,9 +50,17 @@ class Paper(BaseModel):
     title: str
     abstract: str
     introduction: str
+    ratings: list[int]
+
+    def is_approved(
+        self, evaluation: RatingEvaluationStrategy = RatingEvaluationStrategy.DEFAULT
+    ) -> bool:
+        return evaluation.is_approved(self.ratings)
 
     def __str__(self) -> str:
-        return f"Title: {self.title}\nAbstract: {self.abstract}\n"
+        return (
+            f"Title: {self.title}\nAbstract: {self.abstract}\nRatings: {self.ratings}\n"
+        )
 
 
 class GptRelationship(BaseModel):
