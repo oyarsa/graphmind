@@ -7,6 +7,7 @@ license = {text = "GPL-3.0-or-later"}
 requires-python = ">=3.12"
 dependencies = [
     "aiohttp>=3.10.5",
+    "pydantic>=2.9.2",
     "python-dotenv>=1.0.1",
     "ratelimit>=2.2.1",
     "requests>=2.32.3",
@@ -49,6 +50,7 @@ ignore = [
 # so we disable it here to avoid duplicate errors
 reportUnusedImport = false
 typeCheckingMode = "strict"
+exclude = [".venv", "tmp"]
 
 [tool.uv]
 dev-dependencies = [
