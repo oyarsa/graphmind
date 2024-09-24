@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 from paper_hypergraph.asap.extract import extract_interesting
+from paper_hypergraph.asap.filter import filter_ratings
 from paper_hypergraph.asap.merge import merge_content_review
 
 
@@ -22,6 +23,9 @@ def pipeline(papers_path: Path, output_path: Path) -> None:
 
     interesting_path = output_path / "asap_extracted.json"
     extract_interesting(merged_path, interesting_path)
+
+    filtere_path = output_path / "asap_filtered.json"
+    filter_ratings(interesting_path, filtere_path)
 
 
 def main() -> None:
