@@ -19,7 +19,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph import graph as pgraph
+from paper_hypergraph import hierarchical_graph
 
 logger = logging.getLogger("extract_graph")
 
@@ -449,14 +449,16 @@ def extract_graph(
                 img_path=output_dir / f"{paper.title}.png",
                 description=f"index - model: {model} - prompt: {user_prompt_key}",
             )
-        except pgraph.GraphError:
+        except hierarchical_graph.GraphError:
             logger.exception("Error visualising graph")
 
 
-def graph_to_dag(graph: Graph) -> pgraph.DiGraph:
-    return pgraph.DiGraph.from_elements(
-        nodes=[pgraph.Node(e.name, e.type.value) for e in graph.entities],
-        edges=[pgraph.Edge(r.source, r.target) for r in graph.relationships],
+def graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
+    return hierarchical_graph.DiGraph.from_elements(
+        nodes=[hierarchical_graph.Node(e.name, e.type.value) for e in graph.entities],
+        edges=[
+            hierarchical_graph.Edge(r.source, r.target) for r in graph.relationships
+        ],
     )
 
 
