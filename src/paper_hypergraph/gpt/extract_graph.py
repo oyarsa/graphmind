@@ -19,7 +19,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph import hierarchical_graph
+from paper_hypergraph import evaluation_metrics, hierarchical_graph
 
 logger = logging.getLogger("extract_graph")
 
@@ -61,6 +61,11 @@ class Paper(BaseModel):
         return (
             f"Title: {self.title}\nAbstract: {self.abstract}\nRatings: {self.ratings}\n"
         )
+
+
+class PaperResult(Paper):
+    y_true: bool
+    y_pred: bool
 
 
 class GptRelationship(BaseModel):
@@ -218,15 +223,29 @@ def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     return prompt_tokens / 1e6 * input_cost + completion_tokens / 1e6 * output_cost
 
 
+_CLASSIFY_SYSTEM_PROMPT = (
+    "Approve or reject the scientific paper based on the extracted entities."
+)
+_CLASSIFY_USER_PROMPTS = {
+    "simple": """\
+The following data contains information about a scientific paper. It includes the \
+paper's title, abstract, and a graph representation of the paper and its network.
+
+Based on the extracted entities graph, approve or reject the paper. First, generate the \
+rationale for your decision, then give the final decision.
+"""
+}
+
+
 @dataclass(frozen=True)
-class ModelResult:
-    graph: GptGraph
+class GptResult[T]:
+    result: T
     cost: float
 
 
 def run_gpt_graph(
     client: OpenAI, system_prompt: str, user_prompt: str, model: str
-) -> ModelResult:
+) -> GptResult[GptGraph]:
     try:
         completion = client.beta.chat.completions.parse(
             model=model,
@@ -240,7 +259,7 @@ def run_gpt_graph(
         )
     except Exception:
         logger.exception("Error making API request")
-        return ModelResult(graph=GptGraph.empty(), cost=float("nan"))
+        return GptResult(result=GptGraph.empty(), cost=float("nan"))
 
     usage = completion.usage
     if usage is not None:
@@ -249,12 +268,50 @@ def run_gpt_graph(
         cost = 0
 
     parsed = completion.choices[0].message.parsed
-    if not parsed:
-        graph = GptGraph.empty()
-    else:
-        graph = parsed
+    result = parsed if parsed else GptGraph.empty()
 
-    return ModelResult(graph=graph, cost=cost)
+    return GptResult(result=result, cost=cost)
+
+
+class GptClassify(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    rationale: str
+    approved: bool
+
+    @classmethod
+    def empty(cls) -> Self:
+        return cls(rationale="", approved=False)
+
+
+def run_gpt_classify(
+    client: OpenAI, system_prompt: str, user_prompt: str, model: str
+) -> GptResult[GptClassify]:
+    try:
+        completion = client.beta.chat.completions.parse(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format=GptClassify,
+            seed=0,
+            temperature=0,
+        )
+    except Exception:
+        logger.exception("Error making API request")
+        return GptResult(result=GptClassify.empty(), cost=float("nan"))
+
+    usage = completion.usage
+    if usage is not None:
+        cost = calc_cost(model, usage.prompt_tokens, usage.completion_tokens)
+    else:
+        cost = 0
+
+    parsed = completion.choices[0].message.parsed
+    result = parsed if parsed else GptClassify.empty()
+
+    return GptResult(result=result, cost=cost)
 
 
 def _log_config(
@@ -278,11 +335,11 @@ def _log_config(
     )
 
 
-_SYSTEM_PROMPT = (
+_GRAPH_SYSTEM_PROMPT = (
     "Extract the entities from the text and the relationships between them."
 )
 
-_USER_PROMPTS = {
+_GRAPH_USER_PROMPTS = {
     "introduction": """\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and introduction.
@@ -366,20 +423,20 @@ Output:
 }
 
 
-def run_data(
+def generate_graphs(
     client: OpenAI, data: list[Paper], model: str, user_prompt: str
 ) -> list[Graph]:
     total_cost = 0
     graphs: list[Graph] = []
 
-    for example in tqdm(data):
+    for example in tqdm(data, desc="Extracting graphs"):
         prompt = user_prompt.format(
             title=example.title,
             abstract=example.abstract,
             introduction=example.introduction,
         )
-        result = run_gpt_graph(client, _SYSTEM_PROMPT, prompt, model)
-        graph = Graph.from_gpt_graph(result.graph)
+        result = run_gpt_graph(client, _GRAPH_SYSTEM_PROMPT, prompt, model)
+        graph = Graph.from_gpt_graph(result.result)
         total_cost += result.cost
 
         supports = (sum(e.type == EntityType.SUPPORT for e in graph.entities),)
@@ -401,14 +458,60 @@ def run_data(
     return graphs
 
 
+def graph_to_str(graph: Graph) -> str:
+    return graph.model_dump_json()
+
+
+def classify_papers(
+    client: OpenAI,
+    model: str,
+    user_prompt_template: str,
+    papers: Sequence[Paper],
+    graphs: Sequence[Graph],
+) -> list[PaperResult]:
+    outputs: list[PaperResult] = []
+
+    for paper, graph in tqdm(
+        zip(papers, graphs), desc="Classifying papers", total=len(papers)
+    ):
+        user_prompt = user_prompt_template.format(
+            title=paper.title,
+            abstract=paper.abstract,
+            graph=graph_to_str(graph),
+        )
+        classified = run_gpt_classify(
+            client, _CLASSIFY_SYSTEM_PROMPT, user_prompt, model
+        )
+        outputs.append(
+            PaperResult(
+                title=paper.title,
+                abstract=paper.abstract,
+                introduction=paper.introduction,
+                ratings=paper.ratings,
+                y_true=paper.is_approved(),
+                y_pred=classified.result.approved,
+            )
+        )
+
+    return outputs
+
+
+def _calculate_metrics(papers: Sequence[PaperResult]) -> evaluation_metrics.Metrics:
+    return evaluation_metrics.calculate_metrics(
+        [p.y_true for p in papers], [p.y_pred for p in papers]
+    )
+
+
 def extract_graph(
     model: str,
     api_key: str | None,
     data_path: Path,
     limit: int | None,
-    user_prompt_key: str,
+    graph_user_prompt_key: str,
+    classify_user_prompt_key: str,
     visualise: bool,
     output_dir: Path,
+    classify: bool,
 ) -> None:
     dotenv.load_dotenv()
     if api_key:
@@ -420,19 +523,18 @@ def extract_graph(
         model=model,
         data_path=data_path,
         limit=limit,
-        user_prompt=user_prompt_key,
+        user_prompt=graph_user_prompt_key,
         output_dir=output_dir,
     )
 
     client = OpenAI()
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_text())
-    user_prompt = _USER_PROMPTS[user_prompt_key]
-
     time_start = time.perf_counter()
 
     papers = data[:limit]
-    graphs = run_data(client, papers, model, user_prompt)
+    graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]
+    graphs = generate_graphs(client, papers, model, graph_user_prompt)
 
     time_elapsed = time.perf_counter() - time_start
     logger.info(f"Time elapsed: {_convert_time_elapsed(time_elapsed)}")
@@ -447,10 +549,24 @@ def extract_graph(
             dag.visualise_hierarchy(
                 show=visualise,
                 img_path=output_dir / f"{paper.title}.png",
-                description=f"index - model: {model} - prompt: {user_prompt_key}",
+                description=f"index - model: {model} - prompt: {graph_user_prompt_key}",
             )
         except hierarchical_graph.GraphError:
             logger.exception("Error visualising graph")
+
+    if classify:
+        classify_user_prompt = _CLASSIFY_USER_PROMPTS[classify_user_prompt_key]
+        results = classify_papers(client, model, classify_user_prompt, papers, graphs)
+        metrics = _calculate_metrics(results)
+        logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
+
+        classification_dir = output_dir / "classification"
+        (classification_dir / "metrics.json").write_text(
+            metrics.model_dump_json(indent=2)
+        )
+        (classification_dir / "result.json").write_text(
+            TypeAdapter(list[PaperResult]).dump_json(results, indent=2).decode()
+        )
 
 
 def graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
@@ -482,64 +598,133 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument(
+
+    # Create subparsers for 'run' and 'prompts' subcommands
+    subparsers = parser.add_subparsers(
+        title="subcommands",
+        description="Valid subcommands",
+        dest="subcommand",
+        help="Additional help",
+        required=True,
+    )
+
+    # 'run' subcommand parser
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run the main extraction process",
+        description="Run the main extraction process with the provided arguments.",
+    )
+
+    # Add original arguments to the 'run' subcommand
+    run_parser.add_argument(
         "data_path",
         type=Path,
         help="The path to the JSON file containing the papers data.",
     )
-    parser.add_argument(
+    run_parser.add_argument(
         "output_dir",
         type=Path,
         help="The path to the output directory where files will be saved.",
     )
-    parser.add_argument(
+    run_parser.add_argument(
         "--model",
         "-m",
         type=str,
         default="gpt-4o-mini",
         help="The model to use for the extraction.",
     )
-    parser.add_argument(
+    run_parser.add_argument(
         "--api-key",
         type=str,
         default=None,
-        help="The OpenAI API key to use for the extraction. Defaults to OPENAI_API_KEY"
-        " env var. Can be read from the .env file.",
+        help=(
+            "The OpenAI API key to use for the extraction. Defaults to OPENAI_API_KEY"
+            " env var. Can be read from the .env file."
+        ),
     )
-    parser.add_argument(
+    run_parser.add_argument(
         "--limit",
         "-n",
         type=int,
         default=1,
         help="The number of papers to process. Defaults to 1 example.",
     )
-    parser.add_argument(
-        "--user-prompt",
-        "-P",
+    run_parser.add_argument(
+        "--graph-user-prompt",
         type=str,
-        choices=_USER_PROMPTS.keys(),
+        choices=_GRAPH_USER_PROMPTS.keys(),
         default="bullets",
-        help="The user prompt to use for the extraction. Defaults to %(default)s.",
+        help="The user prompt to use for the graph extraction. Defaults to %(default)s.",
     )
-    parser.add_argument(
+    run_parser.add_argument(
+        "--classify-user-prompt",
+        type=str,
+        choices=_GRAPH_USER_PROMPTS.keys(),
+        default="simple",
+        help="The user prompt to use for paper classification. Defaults to %(default)s.",
+    )
+    run_parser.add_argument(
         "--visualise",
         "-V",
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Visualise the extracted graph.",
     )
-    args = parser.parse_args()
-    setup_logging(logger)
-
-    extract_graph(
-        args.model,
-        args.api_key,
-        args.data_path,
-        args.limit,
-        args.user_prompt,
-        args.visualise,
-        args.output_dir,
+    run_parser.add_argument(
+        "--classify",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Classify the papers based on the extracted entities.",
     )
+
+    # 'prompts' subcommand parser
+    prompts_parser = subparsers.add_parser(
+        "prompts",
+        help="List available prompts",
+        description="List available prompts. Use --detail for more information.",
+    )
+    prompts_parser.add_argument(
+        "--detail",
+        action="store_true",
+        help="Provide detailed descriptions of the prompts.",
+    )
+
+    args = parser.parse_args()
+    setup_logging(logging.getLogger("extract_graph"))
+
+    if args.subcommand == "prompts":
+        list_prompts(detail=args.detail)
+    elif args.subcommand == "run":
+        extract_graph(
+            args.model,
+            args.api_key,
+            args.data_path,
+            args.limit,
+            args.graph_user_prompt,
+            args.classify_user_prompt,
+            args.visualise,
+            args.output_dir,
+            args.classify,
+        )
+
+
+def list_prompts(detail: bool) -> None:
+    items = [
+        ("GRAPH EXTRACTION PROMPTS", _GRAPH_USER_PROMPTS),
+        ("CLASSIFICATION PROMPTS", _CLASSIFY_USER_PROMPTS),
+    ]
+    for title, prompts in items:
+        print()
+        if detail:
+            print(">>>", title)
+        else:
+            print(title)
+        for key, prompt in prompts.items():
+            if detail:
+                sep = "-" * 80
+                print(f"{sep}\n{key}\n{sep}\n{prompt}")
+            else:
+                print(f"- {key}")
 
 
 def setup_logging(logger: logging.Logger) -> None:
