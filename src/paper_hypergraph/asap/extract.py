@@ -6,8 +6,11 @@ be added as needed.
 
 import argparse
 import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+
+from paper_hypergraph.asap import process_sections
 
 
 def _get_introduction(sections: list[dict[str, Any]]) -> str | None:
@@ -60,6 +63,10 @@ def extract_interesting(input_file: Path, output_file: Path) -> None:
         if not introduction:
             continue
 
+        sections = process_sections.group_sections(paper["sections"])
+        if not sections:
+            continue
+
         ratings = [
             r for review in item["review"] if (r := _parse_rating(review["rating"]))
         ]
@@ -70,6 +77,7 @@ def extract_interesting(input_file: Path, output_file: Path) -> None:
                 "abstract": paper["abstractText"],
                 "introduction": introduction,
                 "ratings": ratings,
+                "sections": [asdict(section) for section in sections],
             }
         )
 
