@@ -55,8 +55,8 @@ class Paper(BaseModel):
     title: str
     abstract: str
     introduction: str
-    ratings: list[int]
-    sections: list[PaperSection]
+    ratings: Sequence[int]
+    sections: Sequence[PaperSection]
 
     def is_approved(
         self, evaluation: RatingEvaluationStrategy = RatingEvaluationStrategy.DEFAULT
