@@ -44,6 +44,11 @@ class RatingEvaluationStrategy(StrEnum):
                 return sum(approvals) >= len(approvals) / 2
 
 
+class PaperSection(BaseModel):
+    title: str
+    text: str
+
+
 class Paper(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -51,6 +56,7 @@ class Paper(BaseModel):
     abstract: str
     introduction: str
     ratings: list[int]
+    sections: list[PaperSection]
 
     def is_approved(
         self, evaluation: RatingEvaluationStrategy = RatingEvaluationStrategy.DEFAULT
@@ -488,6 +494,7 @@ def classify_papers(
                 abstract=paper.abstract,
                 introduction=paper.introduction,
                 ratings=paper.ratings,
+                sections=paper.sections,
                 y_true=paper.is_approved(),
                 y_pred=classified.result.approved,
             )
