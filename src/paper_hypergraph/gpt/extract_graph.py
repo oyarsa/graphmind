@@ -7,7 +7,7 @@ import hashlib
 import logging
 import os
 import time
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -25,53 +25,6 @@ logger = logging.getLogger("extract_graph")
 
 RATING_APPROVAL_THRESHOLD = 5
 """A rating is an approval if it's greater of equal than this."""
-
-
-class RatingEvaluationStrategy(StrEnum):
-    MEAN = "mean"
-    """Mean rating is higher than the threshold."""
-    MAJORITY = "majority"
-    """Majority of ratings are higher than the threshold."""
-    DEFAULT = MEAN
-
-    def is_approved(self, ratings: Sequence[int]) -> bool:
-        match self:
-            case RatingEvaluationStrategy.MEAN:
-                mean = sum(ratings) / len(ratings)
-                return mean >= RATING_APPROVAL_THRESHOLD
-            case RatingEvaluationStrategy.MAJORITY:
-                approvals = [r >= RATING_APPROVAL_THRESHOLD for r in ratings]
-                return sum(approvals) >= len(approvals) / 2
-
-
-class PaperSection(BaseModel):
-    heading: str
-    text: str
-
-
-class Paper(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    title: str
-    abstract: str
-    introduction: str
-    ratings: Sequence[int]
-    sections: Sequence[PaperSection]
-
-    def is_approved(
-        self, evaluation: RatingEvaluationStrategy = RatingEvaluationStrategy.DEFAULT
-    ) -> bool:
-        return evaluation.is_approved(self.ratings)
-
-    def __str__(self) -> str:
-        return (
-            f"Title: {self.title}\nAbstract: {self.abstract}\nRatings: {self.ratings}\n"
-        )
-
-
-class PaperResult(Paper):
-    y_true: bool
-    y_pred: bool
 
 
 class GptRelationship(BaseModel):
@@ -429,13 +382,133 @@ Output:
 }
 
 
-def generate_graphs(
-    client: OpenAI, data: list[Paper], model: str, user_prompt: str
+class RatingEvaluationStrategy(StrEnum):
+    MEAN = "mean"
+    """Mean rating is higher than the threshold."""
+    MAJORITY = "majority"
+    """Majority of ratings are higher than the threshold."""
+    DEFAULT = MEAN
+
+    def is_approved(self, ratings: Sequence[int]) -> bool:
+        match self:
+            case RatingEvaluationStrategy.MEAN:
+                mean = sum(ratings) / len(ratings)
+                return mean >= RATING_APPROVAL_THRESHOLD
+            case RatingEvaluationStrategy.MAJORITY:
+                approvals = [r >= RATING_APPROVAL_THRESHOLD for r in ratings]
+                return sum(approvals) >= len(approvals) / 2
+
+
+class PaperSection(BaseModel):
+    heading: str
+    text: str
+
+
+class Paper(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    title: str
+    abstract: str
+    introduction: str
+    ratings: Sequence[int]
+    sections: Sequence[PaperSection]
+
+    def is_approved(
+        self, evaluation: RatingEvaluationStrategy = RatingEvaluationStrategy.DEFAULT
+    ) -> bool:
+        return evaluation.is_approved(self.ratings)
+
+    def __str__(self) -> str:
+        return (
+            f"Title: {self.title}\nAbstract: {self.abstract}\nRatings: {self.ratings}\n"
+        )
+
+
+class PaperResult(Paper):
+    y_true: bool
+    y_pred: bool
+
+
+def _calculate_metrics(papers: Sequence[PaperResult]) -> evaluation_metrics.Metrics:
+    return evaluation_metrics.calculate_metrics(
+        [p.y_true for p in papers], [p.y_pred for p in papers]
+    )
+
+
+def _classify_papers(
+    client: OpenAI,
+    model: str,
+    user_prompt_template: str,
+    papers: Sequence[Paper],
+    graphs: Sequence[Graph],
+    output_dir: Path,
+) -> None:
+    results: list[PaperResult] = []
+
+    for paper, graph in tqdm(
+        zip(papers, graphs), desc="Classifying papers", total=len(papers)
+    ):
+        user_prompt = user_prompt_template.format(
+            title=paper.title, abstract=paper.abstract, graph=graph.model_dump_json()
+        )
+        classified = run_gpt_classify(
+            client, _CLASSIFY_SYSTEM_PROMPT, user_prompt, model
+        )
+        results.append(
+            PaperResult(
+                title=paper.title,
+                abstract=paper.abstract,
+                introduction=paper.introduction,
+                ratings=paper.ratings,
+                sections=paper.sections,
+                y_true=paper.is_approved(),
+                y_pred=classified.result.approved,
+            )
+        )
+
+    metrics = _calculate_metrics(results)
+    logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
+
+    classification_dir = output_dir / "classification"
+    classification_dir.mkdir(parents=True, exist_ok=True)
+
+    (classification_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
+    (classification_dir / "result.json").write_bytes(
+        TypeAdapter(list[PaperResult]).dump_json(results, indent=2)
+    )
+
+
+def _display_graphs(
+    model: str,
+    graph_user_prompt_key: str,
+    papers: Iterable[Paper],
+    graphs: Iterable[Graph],
+    output_dir: Path,
+    visualise: bool,
+) -> None:
+    for paper, graph in zip(papers, graphs):
+        dag = graph_to_dag(graph)
+        dag.save(output_dir / f"{paper.title}.graphml")
+
+        try:
+            dag.visualise_hierarchy(
+                show=visualise,
+                img_path=output_dir / f"{paper.title}.png",
+                description=f"index - model: {model} - prompt: {graph_user_prompt_key}",
+            )
+        except hierarchical_graph.GraphError:
+            logger.exception("Error visualising graph")
+
+
+def _generate_graphs(
+    client: OpenAI, papers: Sequence[Paper], model: str, user_prompt: str
 ) -> list[Graph]:
+    time_start = time.perf_counter()
+
     total_cost = 0
     graphs: list[Graph] = []
 
-    for example in tqdm(data, desc="Extracting graphs"):
+    for example in tqdm(papers, desc="Extracting graphs"):
         prompt = user_prompt.format(
             title=example.title,
             abstract=example.abstract,
@@ -461,52 +534,10 @@ def generate_graphs(
 
     logger.info(f"Total cost: ${total_cost:.10f}")
 
+    time_elapsed = time.perf_counter() - time_start
+    logger.info(f"Time elapsed: {_convert_time_elapsed(time_elapsed)}")
+
     return graphs
-
-
-def graph_to_str(graph: Graph) -> str:
-    return graph.model_dump_json()
-
-
-def classify_papers(
-    client: OpenAI,
-    model: str,
-    user_prompt_template: str,
-    papers: Sequence[Paper],
-    graphs: Sequence[Graph],
-) -> list[PaperResult]:
-    outputs: list[PaperResult] = []
-
-    for paper, graph in tqdm(
-        zip(papers, graphs), desc="Classifying papers", total=len(papers)
-    ):
-        user_prompt = user_prompt_template.format(
-            title=paper.title,
-            abstract=paper.abstract,
-            graph=graph_to_str(graph),
-        )
-        classified = run_gpt_classify(
-            client, _CLASSIFY_SYSTEM_PROMPT, user_prompt, model
-        )
-        outputs.append(
-            PaperResult(
-                title=paper.title,
-                abstract=paper.abstract,
-                introduction=paper.introduction,
-                ratings=paper.ratings,
-                sections=paper.sections,
-                y_true=paper.is_approved(),
-                y_pred=classified.result.approved,
-            )
-        )
-
-    return outputs
-
-
-def _calculate_metrics(papers: Sequence[PaperResult]) -> evaluation_metrics.Metrics:
-    return evaluation_metrics.calculate_metrics(
-        [p.y_true for p in papers], [p.y_pred for p in papers]
-    )
 
 
 def extract_graph(
@@ -537,42 +568,24 @@ def extract_graph(
     client = OpenAI()
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_text())
-    time_start = time.perf_counter()
-
     papers = data[:limit]
-    graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]
-    graphs = generate_graphs(client, papers, model, graph_user_prompt)
 
-    time_elapsed = time.perf_counter() - time_start
-    logger.info(f"Time elapsed: {_convert_time_elapsed(time_elapsed)}")
+    graphs = _generate_graphs(
+        client, papers, model, _GRAPH_USER_PROMPTS[graph_user_prompt_key]
+    )
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    for paper, graph in zip(papers, graphs):
-        dag = graph_to_dag(graph)
-        dag.save(output_dir / f"{paper.title}.graphml")
-
-        try:
-            dag.visualise_hierarchy(
-                show=visualise,
-                img_path=output_dir / f"{paper.title}.png",
-                description=f"index - model: {model} - prompt: {graph_user_prompt_key}",
-            )
-        except hierarchical_graph.GraphError:
-            logger.exception("Error visualising graph")
+    _display_graphs(model, graph_user_prompt_key, papers, graphs, output_dir, visualise)
 
     if classify:
-        classify_user_prompt = _CLASSIFY_USER_PROMPTS[classify_user_prompt_key]
-        results = classify_papers(client, model, classify_user_prompt, papers, graphs)
-        metrics = _calculate_metrics(results)
-        logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
-
-        classification_dir = output_dir / "classification"
-        (classification_dir / "metrics.json").write_text(
-            metrics.model_dump_json(indent=2)
-        )
-        (classification_dir / "result.json").write_text(
-            TypeAdapter(list[PaperResult]).dump_json(results, indent=2).decode()
+        _classify_papers(
+            client,
+            model,
+            _CLASSIFY_USER_PROMPTS[classify_user_prompt_key],
+            papers,
+            graphs,
+            output_dir,
         )
 
 
