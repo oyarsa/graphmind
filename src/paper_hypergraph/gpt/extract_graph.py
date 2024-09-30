@@ -168,6 +168,93 @@ class Graph(BaseModel):
             ]
         )
 
+    def _find_entity(self, name: str) -> Entity:
+        """Locate entity object in Graph by its name.
+
+        If the name doesn't exist, raise a ValueError.
+        """
+        try:
+            return next(e for e in self.entities if e.name == name)
+        except StopIteration:
+            raise ValueError(f"Entity {name!r} not found in graph")
+
+    def validate_rules(self) -> str | None:
+        """Check if graph rules hold. Returns error message if invalid, or None if valid.
+
+        Rules:
+        1. There must be exactly one Title node
+        2. The Title node cannot have incoming edges
+        3. The Title node can only have outgoing edges to Concepts, and these edges must
+           be of type Support
+        4. Concepts must have exactly one incoming edge each, and it must be the Title
+        5. All outgoing edges from Concepts must be Sentences
+        6. Sentences must not have outgoing edges
+
+        Note: this doesn't throw an exception if the graph is invalid, it just returns
+        the error message. The graph is allowed to be invalid, but it's useful to know
+        why it's invalid.
+
+        Returns:
+            Error message describing the rule violated if the graph is invalid.
+            None if the graph is follows all rules.
+        """
+        # 1. There must be exactly one Title node
+        titles = [e for e in self.entities if e.type is EntityType.TITLE]
+        if not titles:
+            return "No title nodes found"
+        if len(titles) > 1:
+            return f"Multiple title nodes found: {len(titles)}"
+        title = titles[0]
+
+        # 2. Title node cannot have incoming edges
+        title_incoming_edges = sum(r.target == title.name for r in self.relationships)
+        if title_incoming_edges > 0:
+            return (
+                f"Found {title_incoming_edges} incoming edges to title node. Should"
+                " be 0"
+            )
+
+        # 3. Titles only has support edges to concepts
+        title_outgoing_edges = [r for r in self.relationships if r.source == title.name]
+        for edge in title_outgoing_edges:
+            target = self._find_entity(edge.target)
+            if target.type is not EntityType.CONCEPT:
+                return f"Edge target from Title to {edge.target!r} is not Concept"
+            if edge.type is not RelationType.SUPPORT:
+                return f"Edge between Title and concept {edge.target!r} is not Support"
+
+        # 4. Concepts have exactly one incoming edge each, and it must be Title
+        concepts = [e for e in self.entities if e.type is EntityType.CONCEPT]
+        for concept in concepts:
+            incoming_edges = [r for r in self.relationships if r.target == concept.name]
+            if not incoming_edges:
+                return f"Concept {concept.name!r} has no incoming edges"
+            if len(incoming_edges) > 1:
+                return (
+                    f"Concept {concept.name!r} has more than {len(incoming_edges)}"
+                    "incoming edges"
+                )
+            incoming_entity = self._find_entity(incoming_edges[0].source)
+            if incoming_entity.type is not EntityType.TITLE:
+                return f"Incoming edge to {concept.name!r} is not Title"
+
+        # 5. All outgoing edges from Concepts must be Sentences
+        for concept in concepts:
+            outgoing_edges = [r for r in self.relationships if r.source == concept.name]
+            for outgoing_edge in outgoing_edges:
+                outgoing_entity = self._find_entity(outgoing_edge.target)
+                if outgoing_entity.type is not EntityType.SENTENCE:
+                    return f"Concept {concept.name!r} has link to non-sentence node"
+
+        # 6. Sentences must not have outgoing edges
+        sentences = [e for e in self.entities if e.type is EntityType.SENTENCE]
+        for sentence in sentences:
+            outgoing_edges = sum(r.source == sentence.name for r in self.relationships)
+            if outgoing_edges != 0:
+                return f"Sentence has {outgoing_edges} outgoing edges"
+
+        return None
+
 
 _MODEL_SYNONYMS = {
     "4o-mini": "gpt-4o-mini-2024-07-18",
@@ -544,16 +631,18 @@ def _generate_graphs(
         graph = Graph.from_gpt_graph(result.result)
         total_cost += result.cost
 
-        valid = graph_to_dag(graph).validate_hierarchy()
         sentences = (sum(e.type == EntityType.SENTENCE for e in graph.entities),)
+        hierarchy_valid = graph_to_dag(graph).validate_hierarchy()
+        properties_valid = graph.validate_rules()
 
         logger.debug(
             "Example:\n"
             f"{example}\n\n"
             "Graph:\n"
             f"{graph}\n\n"
-            f"Graph validation: {valid or 'Valid'}\n"
             f"Number of sentences: {sentences}\n"
+            f"Graph validation - DAG/Hierarchy: {hierarchy_valid or 'Valid'}\n"
+            f"Graph validation - Properties: {properties_valid or 'Valid'}\n"
         )
 
         graphs.append(graph)
