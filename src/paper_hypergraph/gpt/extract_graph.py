@@ -27,11 +27,17 @@ RATING_APPROVAL_THRESHOLD = 5
 """A rating is an approval if it's greater of equal than this."""
 
 
+class RelationType(StrEnum):
+    SUPPORT = "support"
+    CONTRAST = "contrast"
+
+
 class GptRelationship(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     source_index: int
     target_index: int
+    type: RelationType
 
 
 class EntityType(StrEnum):
@@ -97,6 +103,7 @@ class Relationship(BaseModel):
 
     source: str
     target: str
+    type: RelationType
 
 
 class Entity(BaseModel):
@@ -121,6 +128,7 @@ class Graph(BaseModel):
             Relationship(
                 source=entity_index[r.source_index].name,
                 target=entity_index[r.target_index].name,
+                type=r.type,
             )
             for r in gpt_graph.relationships
         ]
@@ -136,7 +144,7 @@ class Graph(BaseModel):
         )
 
         relationships = "\n".join(
-            f" {i}. {r.source} - {r.target}"
+            f" {i}. {r.source} - {r.type} - {r.target}"
             for i, r in enumerate(
                 sorted(self.relationships, key=lambda r: (r.source, r.target)),
                 1,
@@ -593,7 +601,8 @@ def graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
     return hierarchical_graph.DiGraph.from_elements(
         nodes=[hierarchical_graph.Node(e.name, e.type.value) for e in graph.entities],
         edges=[
-            hierarchical_graph.Edge(r.source, r.target) for r in graph.relationships
+            hierarchical_graph.Edge(r.source, r.target, r.type.value)
+            for r in graph.relationships
         ],
     )
 
