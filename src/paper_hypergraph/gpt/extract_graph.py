@@ -45,7 +45,7 @@ class RatingEvaluationStrategy(StrEnum):
 
 
 class PaperSection(BaseModel):
-    title: str
+    heading: str
     text: str
 
 
