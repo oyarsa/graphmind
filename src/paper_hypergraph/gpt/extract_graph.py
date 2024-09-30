@@ -43,7 +43,7 @@ class GptRelationship(BaseModel):
 class EntityType(StrEnum):
     TITLE = "title"
     CONCEPT = "concept"
-    SUPPORT = "support"
+    SENTENCE = "sentence"
 
 
 class GptEntity(BaseModel):
@@ -86,7 +86,7 @@ class GptGraph(BaseModel):
                 f"Edges: {len(self.relationships)}",
                 f"Titles: {sum(e.type == EntityType.TITLE for e in self.entities)}",
                 f"Concepts: {sum(e.type == EntityType.CONCEPT for e in self.entities)}",
-                f"Supports: {sum(e.type == EntityType.SUPPORT for e in self.entities)}",
+                f"Sentences: {sum(e.type == EntityType.SENTENCE for e in self.entities)}",
                 "",
                 "Entities:",
                 entities,
@@ -157,7 +157,7 @@ class Graph(BaseModel):
                 f"Edges: {len(self.relationships)}",
                 f"Titles: {sum(e.type == EntityType.TITLE for e in self.entities)}",
                 f"Concepts: {sum(e.type == EntityType.CONCEPT for e in self.entities)}",
-                f"Supports: {sum(e.type == EntityType.SUPPORT for e in self.entities)}",
+                f"Sentences: {sum(e.type == EntityType.SENTENCE for e in self.entities)}",
                 "",
                 "Entities:",
                 entities,
@@ -315,26 +315,35 @@ Your task is to extract three types of entities:
 - title: the title of the paper
 - concepts: the top 5 key concepts mentioned in the abstract. If there are fewer than 5, \
 use only those.
-- supports: supporting sentences from the introduction that mention the key concepts.
+- sentences: sentences from the introduction that mention the key concepts.
 
 Extract these entities and the relationships between them as a graph. The paper title is \
 the main node, connected to the key concepts. The key concepts are connected to the \
-supporting sentences that mention them.
+sentences that mention them.
 
 Each entity must have a unique index. You must use these indexes to represent the \
 relationships between the entities.
 
 Only provide connections between the entities from each of the three types (title to \
-concepts, concepts to supporting sentences). Do not provide relationships among concepts \
-or supporting sentences.
+concepts, concepts to sentences). Do not provide relationships among concepts \
+or sentences.
 
-The supporting sentences count as entities and must be returned along with the title \
-and the concepts. There can be multiple supporting sentences for a single concept, and a single \
-support sentence can connect to multiple concepts. There can be up to 10 supporting sentences. \
-Each concept must be connected to at least one supporting sentence, and each supporting sentence must be \
+The sentences count as entities and must be returned along with the title \
+and the concepts. There can be multiple sentences for a single concept, and a single \
+sentence can connect to multiple concepts. There can be up to 10 sentences. \
+Each concept must be connected to at least one sentence, and each sentence must be \
 connected to at least one concept.
 
-All entities (title, concepts and supports) should be mentioned in the output.
+Relations can be of two types: supporting or contrasting. Supporting relations \
+support the key concepts, provide evidence of why they might be true, or explain \
+them. For example, they can be supporting sentences from citations, explanations from \
+methodology or discussion sections. Constrasting relations oppose the main \
+concepts. For example, they can be limitations from other works, negative results, or \
+citations to other papers that did something differently.
+
+Note that the relation between title and concepts is always supporting.
+
+All entities (title, concepts and sentences) should be mentioned in the output.
 
 #####
 -Data-
@@ -358,24 +367,33 @@ Your task is to extract three types of entities and the relationships between th
 - title: the title of the paper
 - concept: the top 5 key concepts mentioned in the abstract. If there are fewer than 5, \
 use only those.
-- support: supporting sentences from the introduction that mention the key concepts.
+- sentences: sentences from the introduction that mention the key concepts.
 
 Extract these entities and the relationships between them as a graph. The paper title is \
 the only main node, connected to the key concepts. The key concepts are connected to the \
-supporting sentences that mention them.
+sentences that mention them.
 
 You MUST follow these rules:
 
 - There is only one main node (title) and it MUST be connected to all the key concepts.
-- Only provide connections from title to concepts and concepts to supporting sentences.
-- Do NOT provide relationships between concepts or supporting sentences.
-- There can be multiple supporting sentences for a single concept, and a single \
-support sentence can connect to multiple concepts.
-- Each concept MUST connect to at least one supporting sentence.
-- Each supporting sentence MUST connect to at least one concept.
-- There MUST be twice as many supporting sentences as concepts.
+- Only provide connections from title to concepts and concepts to sentences.
+- Do NOT provide relationships between concepts to concepts or sentences to sentences.
+- There can be multiple sentences for a single concept, and a single \
+sentence can connect to multiple concepts.
+- Each concept MUST connect to at least one sentence.
+- Each sentence MUST connect to at least one concept.
+- There MUST be twice as many sentences as concepts.
+- Relations can be of two types: supporting or contrasting.
+- Supporting relations support the key concepts, provide evidence of why they might be \
+  true, or explain them. For example, they can be supporting sentences from citations, \
+  explanations from methodology or discussion sections. They are used to convince the \
+  reader that the key concepts are valid.
+- Constrasting relations oppose the main concepts. For example, they can be descriptions \
+  of limitations from other works, negative results, or citations to other papers that \
+  did something differently. They are used to convince the reader that the authors are \
+  aware of different perspectives and have considered them.
 
-All entities (title, concepts and supports) MUST be mentioned in the output.
+All entities (title, concepts and sentences) MUST be mentioned in the output.
 
 #####
 -Data-
@@ -526,16 +544,16 @@ def _generate_graphs(
         graph = Graph.from_gpt_graph(result.result)
         total_cost += result.cost
 
-        supports = (sum(e.type == EntityType.SUPPORT for e in graph.entities),)
         valid = graph_to_dag(graph).validate_hierarchy()
+        sentences = (sum(e.type == EntityType.SENTENCE for e in graph.entities),)
 
         logger.debug(
             "Example:\n"
             f"{example}\n\n"
             "Graph:\n"
             f"{graph}\n\n"
-            f"Number of supports: {supports}\n"
             f"Graph validation: {valid or 'Valid'}\n"
+            f"Number of sentences: {sentences}\n"
         )
 
         graphs.append(graph)
