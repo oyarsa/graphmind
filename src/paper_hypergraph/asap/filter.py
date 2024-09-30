@@ -11,6 +11,11 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 
+class PaperSection(BaseModel):
+    heading: str
+    text: str
+
+
 class Paper(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -18,6 +23,7 @@ class Paper(BaseModel):
     abstract: str
     introduction: str
     ratings: Sequence[int]
+    sections: Sequence[PaperSection]
 
 
 DatasetAdapter = TypeAdapter(list[Paper])
