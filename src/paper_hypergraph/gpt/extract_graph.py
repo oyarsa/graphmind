@@ -6,8 +6,9 @@ import argparse
 import hashlib
 import logging
 import os
+import textwrap
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -636,18 +637,39 @@ def _generate_graphs(
         graph = Graph.from_gpt_graph(result.result)
         total_cost += result.cost
 
-        sentences = (sum(e.type == EntityType.SENTENCE for e in graph.entities),)
+        concept_relations_count = Counter(
+            r.type
+            for r in graph.relationships
+            if next(e for e in graph.entities if e.name == r.source).type
+            is EntityType.CONCEPT
+        )
+        concept_relations_display = ", ".join(
+            f"{type} - {count}"
+            for type, count in sorted(
+                concept_relations_count.items(), key=lambda x: x[0]
+            )
+        )
+
+        sentences = sum(e.type is EntityType.SENTENCE for e in graph.entities)
         hierarchy_valid = graph_to_dag(graph).validate_hierarchy()
         properties_valid = validate_rules(graph)
 
+        hierarchy_display = (
+            "Valid" if hierarchy_valid is None else _wrap_and_indent(hierarchy_valid)
+        )
+        properties_display = (
+            "Valid" if properties_valid is None else _wrap_and_indent(properties_valid)
+        )
+
         logger.debug(
             "Example:\n"
-            f"{example}\n\n"
+            f"{example}\n"
             "Graph:\n"
-            f"{graph}\n\n"
+            f"{graph}\n"
             f"Number of sentences: {sentences}\n"
-            f"Graph validation - DAG/Hierarchy: {hierarchy_valid or 'Valid'}\n"
-            f"Graph validation - Properties: {properties_valid or 'Valid'}\n"
+            f"Sentence relation types: {concept_relations_display}\n"
+            f"Graph validation - Hierarchy: {hierarchy_display or 'Valid'}\n"
+            f"Graph validation - Properties: {properties_display or 'Valid'}\n"
         )
 
         graphs.append(graph)
@@ -658,6 +680,11 @@ def _generate_graphs(
     logger.info(f"Time elapsed: {_convert_time_elapsed(time_elapsed)}")
 
     return graphs
+
+
+def _wrap_and_indent(text: str, width: int = 90, indent: int = 2) -> str:
+    wrapped = textwrap.wrap(text, width=width)
+    return "\n".join([wrapped[0]] + [" " * indent + line for line in wrapped[1:]])
 
 
 def extract_graph(
