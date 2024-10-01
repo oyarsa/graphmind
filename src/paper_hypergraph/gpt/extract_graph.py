@@ -35,7 +35,7 @@ class RelationType(StrEnum):
     CONTRAST = "contrast"
 
 
-class GptRelationship(BaseModel):
+class GPTRelationship(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     source_index: int
@@ -49,7 +49,7 @@ class EntityType(StrEnum):
     SENTENCE = "sentence"
 
 
-class GptEntity(BaseModel):
+class GPTEntity(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     index: int
@@ -57,11 +57,11 @@ class GptEntity(BaseModel):
     type: EntityType
 
 
-class GptGraph(BaseModel):
+class GPTGraph(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    entities: Sequence[GptEntity]
-    relationships: Sequence[GptRelationship]
+    entities: Sequence[GPTEntity]
+    relationships: Sequence[GPTRelationship]
 
     @classmethod
     def empty(cls) -> Self:
@@ -123,7 +123,7 @@ class Graph(BaseModel):
     relationships: Sequence[Relationship]
 
     @classmethod
-    def from_gpt_graph(cls, gpt_graph: GptGraph) -> Self:
+    def from_gpt_graph(cls, gpt_graph: GPTGraph) -> Self:
         """Builds a graph from the GPT output.
 
         Assumes that the entities are all valid, and that the source/target indices for
@@ -291,14 +291,14 @@ rationale for your decision, then give the final decision.
 
 
 @dataclass(frozen=True)
-class GptResult[T]:
+class GPTResult[T]:
     result: T
     cost: float
 
 
 def run_gpt_graph(
     client: OpenAI, system_prompt: str, user_prompt: str, model: str
-) -> GptResult[GptGraph]:
+) -> GPTResult[GPTGraph]:
     """Run prompt to generate a graph from the paper.
 
     The user prompt is passed complete, i.e. the variables (e.g. title, abstract,
@@ -312,13 +312,13 @@ def run_gpt_graph(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            response_format=GptGraph,
+            response_format=GPTGraph,
             seed=0,
             temperature=0,
         )
     except Exception:
         logger.exception("Error making API request")
-        return GptResult(result=GptGraph.empty(), cost=float("nan"))
+        return GPTResult(result=GPTGraph.empty(), cost=float("nan"))
 
     usage = completion.usage
     if usage is not None:
@@ -327,12 +327,12 @@ def run_gpt_graph(
         cost = 0
 
     parsed = completion.choices[0].message.parsed
-    result = parsed if parsed else GptGraph.empty()
+    result = parsed if parsed else GPTGraph.empty()
 
-    return GptResult(result=result, cost=cost)
+    return GPTResult(result=result, cost=cost)
 
 
-class GptClassify(BaseModel):
+class GPTClassify(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     rationale: str
@@ -345,7 +345,7 @@ class GptClassify(BaseModel):
 
 def run_gpt_classify(
     client: OpenAI, system_prompt: str, user_prompt: str, model: str
-) -> GptResult[GptClassify]:
+) -> GPTResult[GPTClassify]:
     """Run prompt to classify a paper based on the generated graph.
 
     The user prompt is passed complete, i.e. the variables (e.g. title, abstract,
@@ -358,13 +358,13 @@ def run_gpt_classify(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            response_format=GptClassify,
+            response_format=GPTClassify,
             seed=0,
             temperature=0,
         )
     except Exception:
         logger.exception("Error making API request")
-        return GptResult(result=GptClassify.empty(), cost=float("nan"))
+        return GPTResult(result=GPTClassify.empty(), cost=float("nan"))
 
     usage = completion.usage
     if usage is not None:
@@ -373,9 +373,9 @@ def run_gpt_classify(
         cost = 0
 
     parsed = completion.choices[0].message.parsed
-    result = parsed if parsed else GptClassify.empty()
+    result = parsed if parsed else GPTClassify.empty()
 
-    return GptResult(result=result, cost=cost)
+    return GPTResult(result=result, cost=cost)
 
 
 def _log_config(
