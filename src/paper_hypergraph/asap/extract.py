@@ -15,28 +15,6 @@ from typing import Any, NamedTuple
 from paper_hypergraph.asap import process_sections
 
 
-def _get_introduction(sections: list[dict[str, Any]]) -> str | None:
-    """Combine the main introduction and sub-sections into a single introduction.
-
-    Sometimes, the introduction is split into sub-sections, so we need to combine them.
-    Assumes that introduction sections start with "1", which seems to almost be the case.
-
-    Returns:
-        Combined introduction sections.
-        None if no sections starting with "1" are found.
-    """
-    texts = [
-        section["text"].strip()
-        for section in sections
-        if section["heading"] and section["heading"].startswith("1")
-    ]
-
-    if not texts:
-        return None
-
-    return "\n\n".join(texts)
-
-
 def _parse_rating(rating: str) -> int | None:
     """Parse rating text into a number (e.g., "8: Accept" -> 8).
 
@@ -99,10 +77,6 @@ def extract_interesting(input_file: Path, output_file: Path) -> None:
 
     for item in data:
         paper = item["paper"]
-
-        introduction = _get_introduction(paper["sections"])
-        if not introduction:
-            continue
 
         sections = process_sections.group_sections(paper["sections"])
         if not sections:

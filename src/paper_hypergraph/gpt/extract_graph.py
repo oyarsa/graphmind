@@ -3,7 +3,6 @@
 The graphs represent the collection of concepts and arguments in the paper.
 Can also classify a paper into approved/not-approved using the generated graph.
 """
-# TODO: Remove direct introduction and just use the full text instead
 
 from __future__ import annotations
 
@@ -421,6 +420,7 @@ _GRAPH_SYSTEM_PROMPT = (
 )
 
 _GRAPH_USER_PROMPTS = {
+    # FIX: Update variables to match the actual data
     "introduction": """\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and introduction.
@@ -475,13 +475,14 @@ Output:
     # version is currently the best at that.
     "bullets": """\
 The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, introduction and the main text for all sections of the paper.
+paper's title, abstract, the main text from the paper.
 
 Your task is to extract three types of entities and the relationships between them:
 - title: the title of the paper
 - concept: the top 5 key concepts mentioned in the abstract. If there are fewer than 5, \
 use only those.
-- sentences: sentences from the introduction and main text that mention the key concepts.
+- sentences: sentences from the main text and especially the introduction that mention \
+the key concepts.
 
 Extract these entities and the relationships between them as a graph. The paper title is \
 the only main node, connected to the key concepts. The key concepts are connected to the \
@@ -515,11 +516,8 @@ All entities (title, concepts and sentences) MUST be mentioned in the output.
 Title: {title}
 Abstract: {abstract}
 
-Introduction:
-{introduction}
-
-Full text:
-{full_text}
+Main text:
+{main_text}
 
 
 #####
@@ -566,7 +564,6 @@ class Paper(BaseModel):
 
     title: str
     abstract: str
-    introduction: str
     ratings: Sequence[int]
     sections: Sequence[PaperSection]
 
@@ -575,16 +572,15 @@ class Paper(BaseModel):
     ) -> bool:
         return strategy.is_approved(self.ratings)
 
-    def full_text(self) -> str:
-        # return "\n".join(f"{s.heading}\n{s.text}" for s in self.sections)
+    def main_text(self) -> str:
         return "\n".join(s.text for s in self.sections)
 
     def __str__(self) -> str:
-        full_text_words_num = len(self.full_text().split())
+        main_text_words_num = len(self.main_text().split())
         return (
             f"Title: {self.title}\n"
             f"Abstract: {self.abstract}\n"
-            f"Full text: {full_text_words_num} words.\n"
+            f"Main text: {main_text_words_num} words.\n"
             f"Ratings: {self.ratings}\n"
         )
 
@@ -643,7 +639,6 @@ def _classify_papers(
             PaperResult(
                 title=paper.title,
                 abstract=paper.abstract,
-                introduction=paper.introduction,
                 ratings=paper.ratings,
                 sections=paper.sections,
                 y_true=paper.is_approved(),
@@ -736,8 +731,7 @@ def _generate_graphs(
         user_prompt = user_prompt_template.format(
             title=example.title,
             abstract=example.abstract,
-            introduction=example.introduction,
-            full_text=example.full_text(),
+            main_text=example.main_text(),
         )
 
         result = run_gpt_graph(client, _GRAPH_SYSTEM_PROMPT, user_prompt, model)
