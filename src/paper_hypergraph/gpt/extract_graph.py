@@ -438,13 +438,13 @@ Output:
     # version is currently the best at that.
     "bullets": """\
 The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, and introduction.
+paper's title, abstract, introduction and the main text for all sections of the paper.
 
 Your task is to extract three types of entities and the relationships between them:
 - title: the title of the paper
 - concept: the top 5 key concepts mentioned in the abstract. If there are fewer than 5, \
 use only those.
-- sentences: sentences from the introduction that mention the key concepts.
+- sentences: sentences from the introduction and main text that mention the key concepts.
 
 Extract these entities and the relationships between them as a graph. The paper title is \
 the only main node, connected to the key concepts. The key concepts are connected to the \
@@ -455,20 +455,21 @@ You MUST follow these rules:
 - There is only one main node (title) and it MUST be connected to all the key concepts.
 - Only provide connections from title to concepts and concepts to sentences.
 - Do NOT provide relationships between concepts to concepts or sentences to sentences.
-- There can be multiple sentences for a single concept, and a single \
-sentence can connect to multiple concepts.
+- There can be multiple sentences for a single concept, and a single sentence can \
+connect to multiple concepts.
 - Each concept MUST connect to at least one sentence.
 - Each sentence MUST connect to at least one concept.
 - There MUST be twice as many sentences as concepts.
 - Relations can be of two types: supporting or contrasting.
+- There MUST be at least two sentences of each type.
 - Supporting relations support the key concepts, provide evidence of why they might be \
-  true, or explain them. For example, they can be supporting sentences from citations, \
-  explanations from methodology or discussion sections. They are used to convince the \
-  reader that the key concepts are valid.
+true or explain them. For example, they can be supporting sentences from citations, \
+explanations from methodology or discussion sections. They are used to convince the \
+reader that the key concepts are valid.
 - Constrasting relations oppose the main concepts. For example, they can be descriptions \
-  of limitations from other works, negative results, or citations to other papers that \
-  did something differently. They are used to convince the reader that the authors are \
-  aware of different perspectives and have considered them.
+of limitations from other works, negative results, or citations to other papers that \
+did something differently. They are used to convince the reader that the authors are \
+aware of different perspectives and have considered them.
 
 All entities (title, concepts and sentences) MUST be mentioned in the output.
 
@@ -476,8 +477,13 @@ All entities (title, concepts and sentences) MUST be mentioned in the output.
 -Data-
 Title: {title}
 Abstract: {abstract}
+
 Introduction:
 {introduction}
+
+Full text:
+{full_text}
+
 
 #####
 Output:
@@ -521,9 +527,16 @@ class Paper(BaseModel):
     ) -> bool:
         return evaluation.is_approved(self.ratings)
 
+    def full_text(self) -> str:
+        return "\n".join(f"{s.heading}\n{s.text}" for s in self.sections)
+
     def __str__(self) -> str:
+        full_text_words_num = len(self.full_text().split())
         return (
-            f"Title: {self.title}\nAbstract: {self.abstract}\nRatings: {self.ratings}\n"
+            f"Title: {self.title}\n"
+            f"Abstract: {self.abstract}\n"
+            f"Full text: {full_text_words_num} words.\n"
+            f"Ratings: {self.ratings}\n"
         )
 
 
@@ -604,7 +617,7 @@ def _display_graphs(
 
 
 def _generate_graphs(
-    client: OpenAI, papers: Sequence[Paper], model: str, user_prompt: str
+    client: OpenAI, papers: Sequence[Paper], model: str, user_prompt_template: str
 ) -> list[Graph]:
     time_start = time.perf_counter()
 
@@ -612,12 +625,14 @@ def _generate_graphs(
     graphs: list[Graph] = []
 
     for example in tqdm(papers, desc="Extracting graphs"):
-        prompt = user_prompt.format(
+        user_prompt = user_prompt_template.format(
             title=example.title,
             abstract=example.abstract,
             introduction=example.introduction,
+            full_text=example.full_text(),
         )
-        result = run_gpt_graph(client, _GRAPH_SYSTEM_PROMPT, prompt, model)
+
+        result = run_gpt_graph(client, _GRAPH_SYSTEM_PROMPT, user_prompt, model)
         graph = Graph.from_gpt_graph(result.result)
         total_cost += result.cost
 
