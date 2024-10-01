@@ -1,3 +1,9 @@
+"""Represent a hierarchical graph with directed nodes and edges, each with a string type.
+
+Type-safe wrapper around networkx.DiGraph. Exposes a simplified interface to create,
+visualise, validate, load and save graphs.
+"""
+
 # pyright: basic
 from __future__ import annotations
 
@@ -31,6 +37,11 @@ class Edge:
 
 
 class DiGraph:
+    """Directed graph with nodes and edges. Nodes and edges have string types.
+
+    Wrapper around networkx.DiGraph to provide a type-safe interace.
+    """
+
     _nxgraph: nx.DiGraph[str]
 
     def __init__(self, nxgraph: nx.DiGraph[str]) -> None:
@@ -50,21 +61,23 @@ class DiGraph:
 
     def visualise_hierarchy(
         self,
-        show: bool = True,
-        img_path: Path | None = None,
+        img_path: Path,
+        display_gui: bool = True,
         description: str | None = None,
     ) -> None:
         """Visualise a hierarchical directed acyclical graph with matplotlib.
 
+        Saves the visualisation to a file. Optionally, can show the plot in the GUI.
+        Note: plotting to GUI suspends the calling thread until the plot is closed.
+
         Args:
-            graph: The graph to visualise.
-            show: Whether to display the plot in the GUI. By default, displays the plot.
-            img_path: Path to save the image of the visualisation. By default, does not save.
-            description: Description added to the plot title. By default, does not display.
+            img_path: Path to save the image of the visualisation.
+            display_gui: If True, display the plot in the GUI.
+            description: If present, add the description to the plot title.
 
         Raises:
-            GraphError: If the graph doesn't have any root nodes (nodes with degree 0), has
-                multiple root nodes, or a cycle.
+            GraphError: If the graph doesn't have any root nodes (nodes with degree 0),
+                has multiple root nodes, or a cycle.
         """
         nxgraph = self._nxgraph
 
@@ -91,7 +104,7 @@ class DiGraph:
                 return 0
             return 1 + max(node_depth(parent) for parent in nxgraph.predecessors(node))
 
-        depths: dict[str, int] = {node: node_depth(node) for node in nxgraph.nodes()}
+        depths = {node: node_depth(node) for node in nxgraph.nodes()}
         max_depth = max(depths.values())
 
         # Create Hierarchical position mapping
@@ -235,36 +248,32 @@ class DiGraph:
         plt.axis("off")
         plt.tight_layout()
 
-        if img_path:
-            plt.savefig(img_path)
-        if show:
+        plt.savefig(img_path)
+        if display_gui:
             plt.show()
 
     def validate_hierarchy(self) -> str | None:
         """Validate that the graph follows the hirarchical rules.
 
         Rules:
-        - The graph must have a single root node (in-degree 0).
-        - The graph must be a directed acyclic graph (no cycles).
-        - Each concept node must connect to at least one supporting sentence (out-degree > 0).
+        1. The graph must have a single root node (in-degree 0).
+        2. The graph must be a directed acyclic graph (no cycles).
+        3. Each concept node must connect to at least one supporting sentence (out-degree > 0).
 
         Args:
             graph: The graph to validate.
 
         Returns:
-            None if the graph is valid, otherwise a message explaining the error.
+            None if the graph is valid, otherwise a message explaining the violated rule.
         """
         nxgraph = self._nxgraph
         roots = [node for node in nxgraph.nodes if nxgraph.in_degree(node) == 0]
 
-        if not roots:
-            return "The graph has no root node. It should have one."
+        # 1. Single root node
+        if len(roots) != 1:
+            return f"The graph must have a single root node. Found {len(roots)}."
 
-        if len(roots) > 1:
-            return (
-                f"The graph has multiple root nodes. It should have only one."
-                f" Found {len(roots)}."
-            )
+        # 2. Must be a DAG
         if not nx.is_directed_acyclic_graph(nxgraph):
             return "The graph has a cycle. It should be a directed acyclic graph."
 
@@ -279,6 +288,7 @@ class DiGraph:
         concepts_unconnected = sum(
             out_degree == 0 for _, out_degree in out_degrees if out_degree == 0
         )
+        # 3. Each concept must connect to at least one supporting sentence
         if concepts_unconnected > 0:
             return (
                 "Each concept must connect to at least one supporting sentence."
@@ -316,7 +326,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     graph = DiGraph.load(args.graph_file)
-    graph.visualise_hierarchy(show=args.show, img_path=args.output)
+    graph.visualise_hierarchy(display_gui=args.show, img_path=args.output)
 
 
 if __name__ == "__main__":

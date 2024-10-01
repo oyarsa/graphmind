@@ -672,8 +672,8 @@ def _display_graphs(
 
         try:
             dag.visualise_hierarchy(
-                show=visualise,
                 img_path=output_dir / f"{paper.title}.png",
+                display_gui=visualise,
                 description=f"index - model: {model} - prompt: {graph_user_prompt_key}",
             )
         except hierarchical_graph.GraphError:
