@@ -1,4 +1,8 @@
-"""Extract the entities graph from a text using GPT-4."""
+"""Generate graphs from papers from the ASAP-Review dataset using OpenAI GPT.
+
+The graphs represent the collection of concepts and arguments in the paper.
+Can also classify a paper into approved/not-approved using the generated graph.
+"""
 
 from __future__ import annotations
 
@@ -24,9 +28,6 @@ from tqdm import tqdm
 from paper_hypergraph import evaluation_metrics, hierarchical_graph
 
 logger = logging.getLogger("extract_graph")
-
-RATING_APPROVAL_THRESHOLD = 5
-"""A rating is an approval if it's greater of equal than this."""
 
 
 class RelationType(StrEnum):
@@ -123,6 +124,11 @@ class Graph(BaseModel):
 
     @classmethod
     def from_gpt_graph(cls, gpt_graph: GptGraph) -> Self:
+        """Builds a graph from the GPT output.
+
+        Assumes that the entities are all valid, and that the source/target indices for
+        the relationships match the indices in the entities sequence.
+        """
         entities = [Entity(name=e.name, type=e.type) for e in gpt_graph.entities]
 
         entity_index = {e.index: e for e in gpt_graph.entities}
@@ -253,6 +259,8 @@ _MODEL_SYNONYMS = {
     "4o": "gpt-4o-2024-08-06",
     "gpt-4o": "gpt-4o-2024-08-06",
 }
+# Include the synonyms and their keys in the allowed models
+_MODELS_ALLOWED = sorted(_MODEL_SYNONYMS.keys() | _MODEL_SYNONYMS.values())
 
 
 # Cost in $ per 1M tokens: (input cost, output cost)
@@ -291,6 +299,12 @@ class GptResult[T]:
 def run_gpt_graph(
     client: OpenAI, system_prompt: str, user_prompt: str, model: str
 ) -> GptResult[GptGraph]:
+    """Run prompt to generate a graph from the paper.
+
+    The user prompt is passed complete, i.e. the variables (e.g. title, abstract,
+    sections) must have been filled. See `_GRAPH_USER_PROMPTS` for examples.
+    """
+
     try:
         completion = client.beta.chat.completions.parse(
             model=model,
@@ -332,6 +346,11 @@ class GptClassify(BaseModel):
 def run_gpt_classify(
     client: OpenAI, system_prompt: str, user_prompt: str, model: str
 ) -> GptResult[GptClassify]:
+    """Run prompt to classify a paper based on the generated graph.
+
+    The user prompt is passed complete, i.e. the variables (e.g. title, abstract,
+    sections) must have been filled. See `_CLASSIFY_USER_PROMPTS` for examples.
+    """
     try:
         completion = client.beta.chat.completions.parse(
             model=model,
@@ -492,12 +511,17 @@ Output:
 }
 
 
+RATING_APPROVAL_THRESHOLD = 5
+"""A rating is an approval if it's greater of equal than this."""
+
+
 class RatingEvaluationStrategy(StrEnum):
+    """Strategy used to convert a Sequence of integer ratings into a binary label."""
+
     MEAN = "mean"
     """Mean rating is higher than the threshold."""
     MAJORITY = "majority"
     """Majority of ratings are higher than the threshold."""
-    DEFAULT = MEAN
 
     def is_approved(self, ratings: Sequence[int]) -> bool:
         match self:
@@ -515,6 +539,12 @@ class PaperSection(BaseModel):
 
 
 class Paper(BaseModel):
+    """ASAP-Review paper with only currently useful fields.
+
+    Check the ASAP-Review dataset to see what else is available, and use
+    paper_hypergraph.asap.extract and asap.filter to add them to this dataset.
+    """
+
     model_config = ConfigDict(frozen=True)
 
     title: str
@@ -524,9 +554,9 @@ class Paper(BaseModel):
     sections: Sequence[PaperSection]
 
     def is_approved(
-        self, evaluation: RatingEvaluationStrategy = RatingEvaluationStrategy.DEFAULT
+        self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.MEAN
     ) -> bool:
-        return evaluation.is_approved(self.ratings)
+        return strategy.is_approved(self.ratings)
 
     def full_text(self) -> str:
         return "\n".join(f"{s.heading}\n{s.text}" for s in self.sections)
@@ -542,6 +572,8 @@ class Paper(BaseModel):
 
 
 class PaperResult(Paper):
+    """ASAP-Review dataset paper with added approval ground truth and GPT prediction."""
+
     y_true: bool
     y_pred: bool
 
@@ -560,13 +592,31 @@ def _classify_papers(
     graphs: Sequence[Graph],
     output_dir: Path,
 ) -> None:
+    """Classify Papers into approved/not approved using the generated graphs.
+
+    The output - input dataset information, predicted values and metrics - is written
+    to {output_dir}/classification.
+
+    Args:
+        client: OpenAI client to use GPT
+        model: GPT model code to use (must support Structured Outputs)
+        user_prompt_template: User prompt template to use for classification to be filled
+        papers: Papers from the ASAP-Review dataset to classify
+        graphs: Graphs generated from the papers
+        output_dir: Directory to save the classification results
+
+    Returns:
+        None. The outputs are saved to disk.
+    """
     results: list[PaperResult] = []
 
     for paper, graph in tqdm(
         zip(papers, graphs), desc="Classifying papers", total=len(papers)
     ):
         user_prompt = user_prompt_template.format(
-            title=paper.title, abstract=paper.abstract, graph=graph.model_dump_json()
+            title=paper.title,
+            abstract=paper.abstract,
+            graph=graph.model_dump_json(),
         )
         classified = run_gpt_classify(
             client, _CLASSIFY_SYSTEM_PROMPT, user_prompt, model
@@ -603,6 +653,19 @@ def _display_graphs(
     output_dir: Path,
     visualise: bool,
 ) -> None:
+    """Save generated graphs and plot them to PNG files and (optionally) the screen.
+
+    Args:
+        model: GPT model used to generate the Graph
+        graph_user_prompt: Key to the prompt used to generate the Graph
+        papers: Papers used to generate the graph
+        graphs: Graphs generated from the paper. Must match the respective paper in
+            `papers`
+        output_dir: Where the graph and image wll be persisted. The graph is saved as
+            GraphML and the image as PNG.
+        visualise: If True, show the graph on screen. This suspends the process until
+            the plot is closed.
+    """
     for paper, graph in zip(papers, graphs):
         dag = graph_to_dag(graph)
         dag.save(output_dir / f"{paper.title}.graphml")
@@ -620,6 +683,17 @@ def _display_graphs(
 def _generate_graphs(
     client: OpenAI, papers: Sequence[Paper], model: str, user_prompt_template: str
 ) -> list[Graph]:
+    """Generate graphs describing the structure and arguments of a scientific paper.
+
+    Args:
+        client: OpenAI client to use GPT
+        papers: Papers from the ASAP-Review dataset to classify
+        model: GPT model code to use (must support Structured Outputs)
+        user_prompt_template: User prompt template to use for classification to be filled
+
+    Returns:
+        List of Graphs generated from the papers
+    """
     time_start = time.perf_counter()
 
     total_cost = 0
@@ -650,7 +724,7 @@ def _generate_graphs(
             )
         )
 
-        sentences = sum(e.type is EntityType.SENTENCE for e in graph.entities)
+        sentences_num = sum(e.type is EntityType.SENTENCE for e in graph.entities)
         hierarchy_valid = graph_to_dag(graph).validate_hierarchy()
         properties_valid = validate_rules(graph)
 
@@ -666,7 +740,7 @@ def _generate_graphs(
             f"{example}\n"
             "Graph:\n"
             f"{graph}\n"
-            f"Number of sentences: {sentences}\n"
+            f"Number of sentences: {sentences_num}\n"
             f"Sentence relation types: {concept_relations_display}\n"
             f"Graph validation - Hierarchy: {hierarchy_display or 'Valid'}\n"
             f"Graph validation - Properties: {properties_display or 'Valid'}\n"
@@ -683,6 +757,7 @@ def _generate_graphs(
 
 
 def _wrap_and_indent(text: str, width: int = 90, indent: int = 2) -> str:
+    """Wrap text to a width and indent the extra lines if there are more than one."""
     wrapped = textwrap.wrap(text, width=width)
     return "\n".join([wrapped[0]] + [" " * indent + line for line in wrapped[1:]])
 
@@ -698,10 +773,42 @@ def extract_graph(
     output_dir: Path,
     classify: bool,
 ) -> None:
+    """Extract graphs from the papers in the dataset and (maybe) classify them.
+
+    The graphs follow a taxonomy based on paper title -> concepts -> sentences. The
+    relationships between nodes are either supporting or contrasting.
+
+    The papers should come from the ASAP-Review dataset as processed by the
+    paper_hypergraph.asap module.
+
+    The classification part is optional. It uses the generated graphs as input as saves
+    the results (metrics and predictions) to {output_dir}/classification.
+
+    Args:
+        model: GPT model code. Must support Structured Outputs.
+        api_key: OpenAI API key. Defaults to OPENAI_API_KEY env var.
+        data_path: Path to the JSON file containing the input papers data.
+        limit: Number of papers to process. Defaults to 1 example. If None, process all.
+        graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
+            `_GRAPH_USER_PROMPTS` for available options or `_display_prompts` for more.
+        classify_user_prompt_key: Key to the user prompt to use for graph extraction. See
+            `_CLASSIFY_USER_PROMPTS` for available options or `_display_prompts` for more.
+        visualise: If True, show each graph on screen. This suspends the process until
+            the plot is closed.
+        output_dir: Directory to save the output files: serialised graphs (GraphML),
+            plot images (PNG) and classification results (JSON), if classification is
+            enabled.
+        classify: If True, classify the papers based on the generated graph.
+
+    Returns:
+        None. The output is saved to disk.
+    """
     dotenv.load_dotenv()
     if api_key:
         os.environ["OPENAI_API_KEY"] = api_key
 
+    if model not in _MODELS_ALLOWED:
+        raise ValueError(f"Model {model} not in allowed models: {_MODELS_ALLOWED}")
     model = _MODEL_SYNONYMS.get(model, model)
 
     _log_config(
@@ -799,6 +906,7 @@ def main() -> None:
         "-m",
         type=str,
         default="gpt-4o-mini",
+        choices=_MODELS_ALLOWED,
         help="The model to use for the extraction.",
     )
     run_parser.add_argument(
@@ -858,10 +966,10 @@ def main() -> None:
     )
 
     args = parser.parse_args()
-    setup_logging(logging.getLogger("extract_graph"))
+    _setup_logging(logging.getLogger("extract_graph"))
 
     if args.subcommand == "prompts":
-        list_prompts(detail=args.detail)
+        _display_prompts(detail=args.detail)
     elif args.subcommand == "run":
         extract_graph(
             args.model,
@@ -876,7 +984,7 @@ def main() -> None:
         )
 
 
-def list_prompts(detail: bool) -> None:
+def _display_prompts(detail: bool) -> None:
     items = [
         ("GRAPH EXTRACTION PROMPTS", _GRAPH_USER_PROMPTS),
         ("CLASSIFICATION PROMPTS", _CLASSIFY_USER_PROMPTS),
@@ -895,7 +1003,7 @@ def list_prompts(detail: bool) -> None:
                 print(f"- {key}")
 
 
-def setup_logging(logger: logging.Logger) -> None:
+def _setup_logging(logger: logging.Logger) -> None:
     level = os.environ.get("LOG_LEVEL", "INFO").upper()
     logger.setLevel(level)
     handler = colorlog.StreamHandler()
