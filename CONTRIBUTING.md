@@ -43,6 +43,7 @@ The following are some guidelines to follow when contributing to this project.
 - If there is a body, it should be separated from the subject by a blank line.
 - The body should be descriptive and explain the changes made in the commit, especially
   the reasoning behind them.
+- Further reading: https://wiki.openstack.org/wiki/GitCommitMessages
 
 ### Pull Requests
 - Commit your changes to the new branch and create a new Pull Request when you're done.
