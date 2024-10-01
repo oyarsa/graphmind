@@ -150,16 +150,29 @@ class DiGraph:
                 node_type,
                 ha="center",
                 va="bottom",
-                color="red",
+                color="black",
                 fontsize=8,
                 zorder=3,  # Labels drawn above nodes and edges
             )
 
-        # Draw edges with arrows
+        # Collect edges and their colors
+        edges: list[tuple[str, str]] = list(nxgraph.edges())
+        edge_colors: list[str] = []
+        for edge in edges:
+            edge_type = nxgraph.edges[edge].get("type", "")
+            edge_colors.append(
+                {
+                    "support": "green",
+                    "contrast": "red",
+                }.get(edge_type, "grey")
+            )
+
+        # Draw edges with arrows and colors
         edge_collection = nx.draw_networkx_edges(
             nxgraph,
             pos,
-            edge_color="gray",
+            edgelist=edges,
+            edge_color=edge_colors,  # type: ignore
             arrows=True,
             arrowsize=20,
             arrowstyle="->",
@@ -173,6 +186,46 @@ class DiGraph:
                     col.set_zorder(2)  # Edges drawn above nodes but below labels
             else:
                 edge_collection.set_zorder(2)
+
+        # Collect edge labels separately based on edge type
+        edge_labels_support: dict[tuple[str, str], str] = {}
+        edge_labels_contrast: dict[tuple[str, str], str] = {}
+        for edge in edges:
+            edge_type = nxgraph.edges[edge].get("type", "")
+            if edge_type == "support":
+                edge_labels_support[edge] = edge_type
+            elif edge_type == "contrast":
+                edge_labels_contrast[edge] = edge_type
+
+        # Draw edge labels for 'support' edges in green
+        if edge_labels_support:
+            nx.draw_networkx_edge_labels(
+                nxgraph,
+                pos,
+                edge_labels=edge_labels_support,
+                label_pos=0.5,
+                font_size=8,
+                font_color="green",
+                bbox=dict(facecolor="white", edgecolor="none", pad=0.1),
+                verticalalignment="center",
+                horizontalalignment="center",
+                rotate=False,
+            )
+
+        # Draw edge labels for 'contrast' edges in red
+        if edge_labels_contrast:
+            nx.draw_networkx_edge_labels(
+                nxgraph,
+                pos,
+                edge_labels=edge_labels_contrast,
+                label_pos=0.5,
+                font_size=8,
+                font_color="red",
+                bbox=dict(facecolor="white", edgecolor="none", pad=0.1),
+                verticalalignment="center",
+                horizontalalignment="center",
+                rotate=False,
+            )
 
         title = "Paper Hierarchical Graph"
         if description:
