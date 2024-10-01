@@ -3,6 +3,7 @@
 The graphs represent the collection of concepts and arguments in the paper.
 Can also classify a paper into approved/not-approved using the generated graph.
 """
+# TODO: Remove direct introduction and just use the full text instead
 
 from __future__ import annotations
 
@@ -294,6 +295,8 @@ rationale for your decision, then give the final decision.
 class GPTResult[T]:
     result: T
     cost: float
+    system_prompt: str
+    user_prompt: str
 
 
 def run_gpt_graph(
@@ -318,7 +321,12 @@ def run_gpt_graph(
         )
     except Exception:
         logger.exception("Error making API request")
-        return GPTResult(result=GPTGraph.empty(), cost=float("nan"))
+        return GPTResult(
+            result=GPTGraph.empty(),
+            cost=float("nan"),
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        )
 
     usage = completion.usage
     if usage is not None:
@@ -329,7 +337,9 @@ def run_gpt_graph(
     parsed = completion.choices[0].message.parsed
     result = parsed if parsed else GPTGraph.empty()
 
-    return GPTResult(result=result, cost=cost)
+    return GPTResult(
+        result=result, cost=cost, system_prompt=system_prompt, user_prompt=user_prompt
+    )
 
 
 class GPTClassify(BaseModel):
@@ -364,7 +374,12 @@ def run_gpt_classify(
         )
     except Exception:
         logger.exception("Error making API request")
-        return GPTResult(result=GPTClassify.empty(), cost=float("nan"))
+        return GPTResult(
+            result=GPTClassify.empty(),
+            cost=float("nan"),
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        )
 
     usage = completion.usage
     if usage is not None:
@@ -375,7 +390,9 @@ def run_gpt_classify(
     parsed = completion.choices[0].message.parsed
     result = parsed if parsed else GPTClassify.empty()
 
-    return GPTResult(result=result, cost=cost)
+    return GPTResult(
+        result=result, cost=cost, system_prompt=system_prompt, user_prompt=user_prompt
+    )
 
 
 def _log_config(
@@ -559,7 +576,8 @@ class Paper(BaseModel):
         return strategy.is_approved(self.ratings)
 
     def full_text(self) -> str:
-        return "\n".join(f"{s.heading}\n{s.text}" for s in self.sections)
+        # return "\n".join(f"{s.heading}\n{s.text}" for s in self.sections)
+        return "\n".join(s.text for s in self.sections)
 
     def __str__(self) -> str:
         full_text_words_num = len(self.full_text().split())
@@ -680,9 +698,23 @@ def _display_graphs(
             logger.exception("Error visualising graph")
 
 
+class Prompt(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    system: str
+    user: str
+
+
+class GraphResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    graphs: Sequence[Graph]
+    prompts: Sequence[Prompt]
+
+
 def _generate_graphs(
     client: OpenAI, papers: Sequence[Paper], model: str, user_prompt_template: str
-) -> list[Graph]:
+) -> GraphResult:
     """Generate graphs describing the structure and arguments of a scientific paper.
 
     Args:
@@ -698,6 +730,7 @@ def _generate_graphs(
 
     total_cost = 0
     graphs: list[Graph] = []
+    prompts: list[Prompt] = []
 
     for example in tqdm(papers, desc="Extracting graphs"):
         user_prompt = user_prompt_template.format(
@@ -747,13 +780,14 @@ def _generate_graphs(
         )
 
         graphs.append(graph)
+        prompts.append(Prompt(system=result.system_prompt, user=result.user_prompt))
 
     logger.info(f"Total cost: ${total_cost:.10f}")
 
     time_elapsed = time.perf_counter() - time_start
     logger.info(f"Time elapsed: {_convert_time_elapsed(time_elapsed)}")
 
-    return graphs
+    return GraphResult(graphs=graphs, prompts=prompts)
 
 
 def _wrap_and_indent(text: str, width: int = 90, indent: int = 2) -> str:
@@ -824,13 +858,15 @@ def extract_graph(
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_text())
     papers = data[:limit]
 
-    graphs = _generate_graphs(
+    graph_result = _generate_graphs(
         client, papers, model, _GRAPH_USER_PROMPTS[graph_user_prompt_key]
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    _display_graphs(model, graph_user_prompt_key, papers, graphs, output_dir, visualise)
+    _save_graph_prompts(output_dir, papers, graph_result.prompts)
+    _display_graphs(
+        model, graph_user_prompt_key, papers, graph_result.graphs, output_dir, visualise
+    )
 
     if classify:
         _classify_papers(
@@ -838,9 +874,34 @@ def extract_graph(
             model,
             _CLASSIFY_USER_PROMPTS[classify_user_prompt_key],
             papers,
-            graphs,
+            graph_result.graphs,
             output_dir,
         )
+
+
+class PaperPrompt(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    paper: Paper
+    prompt: Prompt
+
+
+def _save_graph_prompts(
+    output_dir: Path, papers: Sequence[Paper], prompts: Sequence[Prompt]
+) -> None:
+    """Save the papers and prompts used to generate the graphs to disk.
+
+    Files will be saved to {output_dir}/prompts.json
+    """
+    (output_dir / "paper_prompts.json").write_bytes(
+        TypeAdapter(list[PaperPrompt]).dump_json(
+            [
+                PaperPrompt(paper=paper, prompt=prompt)
+                for paper, prompt in zip(papers, prompts)
+            ],
+            indent=2,
+        )
+    )
 
 
 def graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
