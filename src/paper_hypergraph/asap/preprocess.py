@@ -8,16 +8,18 @@ from paper_hypergraph.asap.filter import filter_ratings
 from paper_hypergraph.asap.merge import merge_content_review
 
 
-def cli_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument("input", type=Path, help="Path to input (filtered) JSON file")
-    parser.add_argument("output", type=Path, help="Path to output extracted JSON file")
-    return parser
-
-
 def pipeline(papers_path: Path, output_path: Path) -> None:
+    """Run the complete ASAP-Review preprocessing pipeline.
+
+    Steps:
+    1. Read all papers from the input paper directory and merge them a single JSON file.
+       Keeps the content and reviews of papers that have ratings.
+    2. Extract the interesting information from the merged JSON file.
+    3. Filter the extracted information to remove irrelevant papers.
+
+    Writes the output JSON files to the output directory. Intermediate files are also
+    saved there.
+    """
     merged_path = output_path / "asap_merged.json"
     merge_content_review(papers_path, merged_path)
 
@@ -26,6 +28,15 @@ def pipeline(papers_path: Path, output_path: Path) -> None:
 
     filtere_path = output_path / "asap_filtered.json"
     filter_ratings(interesting_path, filtere_path)
+
+
+def cli_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("input", type=Path, help="Path to input (filtered) JSON file")
+    parser.add_argument("output", type=Path, help="Path to output extracted JSON file")
+    return parser
 
 
 def main() -> None:
