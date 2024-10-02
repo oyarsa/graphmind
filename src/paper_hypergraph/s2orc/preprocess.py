@@ -17,6 +17,15 @@ from paper_hypergraph.s2orc.filter import filter_papers
 def pipeline(
     output_path: Path, api_key: str | None, dataset_path: Path, file_limit: int | None
 ) -> None:
+    """Run the complete S2ORC preprocessing pipeline.
+
+    Steps:
+    1. Download the entire S2ORC dataset to disk (all .gz files that contain JSON lines).
+    2. Extract the .gz files to JSON.GZ files. Only keep those that contain the title
+       and annotations (e.g. abstract, venue, text).
+    3. Filter the papers to only those that match the ACL venues.
+    """
+
     dotenv.load_dotenv()
     if not api_key:
         api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]

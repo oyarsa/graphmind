@@ -74,6 +74,7 @@ def _get_unique_venues(files: list[Path]) -> set[str]:
 
 
 def _get_acl_venues(venues: set[str]) -> set[str]:
+    """Find all matching ACL-related venue names from those that appear in the dataset."""
     venues_candidate_normalised = {_normalise_text(conf) for conf in _ACL_CONFERENCES}
     venues_candidate_regex = [
         re.compile(
@@ -113,6 +114,10 @@ def _extract_acl_papers(
 
 
 def filter_papers(input_directory: Path, output_file: Path) -> None:
+    """Keep only ACL-related papers from processed JSON.GZ files.
+
+    The input data is the output of the paper_hypergraph.s2orc.extract module.
+    """
     input_files = list(input_directory.rglob("*.json.gz"))
     if not input_files:
         raise ValueError(f"No .json.gz files found in {input_directory}")

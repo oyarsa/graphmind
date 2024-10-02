@@ -16,6 +16,7 @@ from tqdm import tqdm
 
 
 def _extract_annotation(text: str, annotations: dict[str, str], key: str) -> str | None:
+    """Extract annotation segment from text using start and end indices."""
     annotation_idxs_str = annotations.get(key)
     if not annotation_idxs_str:
         return None
@@ -40,6 +41,10 @@ _ANNOTATION_KEYS = ("abstract", "title", "venue")
 
 
 def _process_file(file_path: Path) -> list[dict[str, Any]]:
+    """Process a single file and return the extracted data.
+
+    Items that are missing the paper content, title or annotations are skipped.
+    """
     results: list[dict[str, Any]] = []
 
     with gzip.open(file_path, "rt") as f:
@@ -72,6 +77,10 @@ def _process_file(file_path: Path) -> list[dict[str, Any]]:
 
 
 def extract_data(files: Iterable[Path]) -> None:
+    """Extract the .gz JSON Lines files to JSON.GZ files.
+
+    Only keep those that contain the title and annotations (e.g. abstract, venue, text).
+    """
     for file_path in tqdm(tuple(files)):
         try:
             processed = _process_file(file_path)

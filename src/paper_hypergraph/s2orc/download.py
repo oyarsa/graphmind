@@ -20,10 +20,28 @@ MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds
 
 
+def parse_url(url: str) -> urllib.parse.ParseResult:
+    """Wrapper around urllib.parse.urlparse for type-checking."""
+    return urllib.parse.urlparse(url)
+
+
+async def progress_gather(*awaitable: Any, **kwargs: Any) -> Iterable[Any]:
+    """Run asyncio.gather with tqdm progress bar.
+
+    Arguments are exactly the same as asyncio.gather.
+    """
+    # There's no safe way to type-check this function, so we ignore the type error
+    return await tqdm.gather(*awaitable, **kwargs)  # type: ignore
+
+
 async def _try_download_file(
     url: str, session: aiohttp.ClientSession, display_path: Path, part_path: Path
 ) -> None:
-    """Actually download the file in chunks and handle progress bar."""
+    """Actually download the file in chunks and handle progress bar.
+
+    Handles timeouts, but not retries. This function should be called from a retry loop.
+    This will throw if something goes wrong (HTTP error, timeout, etc.)
+    """
     async with session.get(
         url, timeout=aiohttp.ClientTimeout(total=DOWNLOAD_TIMEOUT)
     ) as response:
@@ -74,23 +92,13 @@ async def _download_file(
         print(f"Failed to download {path} after {MAX_RETRIES} attempts.")
 
 
-def parse_url(url: str) -> urllib.parse.ParseResult:
-    """Wrapper around urllib.parse.urlparse for type-checking."""
-    return urllib.parse.urlparse(url)
-
-
-async def progress_gather(*awaitable: Any, **kwargs: Any) -> Iterable[Any]:
-    """Run asyncio.gather with tqdm progress bar.
-
-    Arguments are exactly the same as asyncio.gather.
-    """
-    # There's no safe way to type-check this function, so we ignore the type error
-    return await tqdm.gather(*awaitable, **kwargs)  # type: ignore
-
-
 async def _download(
     dataset_name: str, output_path: Path, api_key: str, limit: int | None
 ) -> None:
+    """Actually download dataset files from the Semantic Scholar API to the output path.
+
+    Handles the async calls, sessions and so on.
+    """
     async with aiohttp.ClientSession() as session:
         # Get latest release's ID
         async with session.get(
@@ -127,6 +135,11 @@ async def _download(
 def download_dataset(
     dataset_name: str, output_path: Path, api_key: str | None, limit: int | None
 ) -> None:
+    """Download dataset files from the Semantic Scholar API to the output path.
+
+    Prevents the user from accidentally exiting the script with Ctrl+C. Instead, it asks
+    for confirmation before exiting.
+    """
     dotenv.load_dotenv()
     if api_key is None:
         api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
@@ -134,13 +147,14 @@ def download_dataset(
     while True:
         try:
             asyncio.run(_download(dataset_name, output_path, api_key, limit))
-            break  # If _main() completes without interruption, exit the loop
+            break  # If _download completes without interruption, exit the loop
         except KeyboardInterrupt:
             choice = input("\n\nCtrl+C detected. Do you really want to exit? (y/n): ")
             if choice.lower() == "y":
                 sys.exit()
             else:
-                print("Continuing...\n")  # The loop will continue, restarting _main()
+                # The loop will continue, restarting _download
+                print("Continuing...\n")
 
 
 def main() -> None:
