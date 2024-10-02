@@ -21,7 +21,10 @@ RETRY_DELAY = 5  # seconds
 async def _get_file_size(
     url: str, session: aiohttp.ClientSession, semaphore: asyncio.Semaphore
 ) -> int:
-    """Get the file size from the given URL."""
+    """Get the file size from the given URL.
+
+    Respects `semaphore` to limit the number of concurrent requests.
+    """
     async with semaphore:
         for attempt in range(MAX_RETRIES):
             try:
@@ -100,6 +103,8 @@ async def _get_filesizes(
 def get_filesizes(
     dataset_name: str, output_path: Path, api_key: str | None, limit: int | None
 ) -> None:
+    """Get the size of the files from the dataset from the Semantic Scholar API."""
+
     dotenv.load_dotenv()
     if api_key is None:
         api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]

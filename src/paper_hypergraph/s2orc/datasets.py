@@ -4,6 +4,7 @@ import requests
 
 
 def list_datasets() -> None:
+    """List all datasets available from the Semantic Scholar datasets API."""
     releases_response = requests.get(
         "https://api.semanticscholar.org/datasets/v1/release/latest"
     )
