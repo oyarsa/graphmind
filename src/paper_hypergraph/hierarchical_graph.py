@@ -1,7 +1,7 @@
 """Represent a hierarchical graph with directed nodes and edges, each with a string type.
 
-Type-safe wrapper around networkx.DiGraph. Exposes a simplified interface to create,
-visualise, validate, load and save graphs.
+Create, validate, load and save hierarchical graphs, and visualise them as PNG files
+or in the GUI.
 """
 
 # pyright: basic
@@ -37,10 +37,7 @@ class Edge:
 
 
 class DiGraph:
-    """Directed graph with nodes and edges. Nodes and edges have string types.
-
-    Wrapper around networkx.DiGraph to provide a type-safe interace.
-    """
+    """Directed graph with nodes and edges. Nodes and edges have string types."""
 
     _nxgraph: nx.DiGraph[str]
 
@@ -49,6 +46,11 @@ class DiGraph:
 
     @classmethod
     def from_elements(cls, *, nodes: Iterable[Node], edges: Iterable[Edge]) -> Self:
+        """Create a new graph from nodes and edges.
+
+        Nodes are added first, and it's assumed that the edges will connect existing
+        nodes.
+        """
         nxgraph = nx.DiGraph()
 
         for node in nodes:
@@ -258,7 +260,8 @@ class DiGraph:
         Rules:
         1. The graph must have a single root node (in-degree 0).
         2. The graph must be a directed acyclic graph (no cycles).
-        3. Each concept node must connect to at least one supporting sentence (out-degree > 0).
+        3. Each concept node must connect to at least one supporting sentence
+           (out-degree > 0).
 
         Args:
             graph: The graph to validate.
