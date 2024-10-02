@@ -1,7 +1,7 @@
 """Extract the information we care about from the merged ASAP JSON file.
 
-We currently care about the title, abstract, and introduction of each paper. More will
-be added as needed.
+We currently care about the title, abstract, and the main body text of each paper. More
+will be added as needed.
 """
 
 import argparse

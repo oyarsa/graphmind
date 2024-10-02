@@ -2,7 +2,6 @@
 
 import argparse
 import json
-from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -73,9 +72,10 @@ def _groupby[T, K](
 
     Returns:
         Dictionary where keys are the result of applying the key function to the items,
-        and values are lists of items that share the same. Keeps the original order.
+        and values are lists of items that share the same. Keeps the original order of
+        items in each group. Keys are kept in the same order as they are first seen.
     """
-    groups: dict[K, list[T]] = defaultdict(list)
+    groups: dict[K, list[T]] = {}
 
     for item in iterable:
         k = key(item)
@@ -130,7 +130,14 @@ def group_sections(sections: Iterable[dict[str, str]]) -> list[Section]:
     ]
 
 
-def process_headings(infile: Path, outfile: Path, limit: int | None = None) -> None:
+def process_sections(infile: Path, outfile: Path, limit: int | None = None) -> None:
+    """Process sections from the input JSON file and write to the output JSON file.
+
+    Sections are grouped by heading number and merged into a single section. The output
+    is grouped by paper, but contains only the sections and nothing else.
+
+    The input file is the output of `paper_hypergraph.asap.merge`.
+    """
     data = json.loads(infile.read_text())
 
     all_outputs = [group_sections(item["paper"]["sections"]) for item in data[:limit]]
@@ -156,7 +163,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    process_headings(args.input, args.output, args.limit)
+    process_sections(args.input, args.output, args.limit)
 
 
 if __name__ == "__main__":

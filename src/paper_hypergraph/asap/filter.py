@@ -29,7 +29,7 @@ class Paper(BaseModel):
 DatasetAdapter = TypeAdapter(list[Paper])
 
 
-def keep_paper(paper: Paper) -> bool:
+def _keep_paper(paper: Paper) -> bool:
     """Paper is kept if the difference between min and max ratings is <= 3."""
     return max(paper.ratings) - min(paper.ratings) <= 3
 
@@ -41,7 +41,7 @@ def filter_ratings(input_file: Path, output_file: Path) -> None:
     the same format as the input.
     """
     data = DatasetAdapter.validate_json(input_file.read_text())
-    output = [p for p in data if keep_paper(p)]
+    output = [p for p in data if _keep_paper(p)]
 
     print("no.  input papers:", len(data))
     print("no. output papers:", len(output), f"({len(output) / len(data):.2%})")

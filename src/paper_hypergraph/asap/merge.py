@@ -20,6 +20,13 @@ def _safe_load_json(file_path: Path) -> Any:
 
 
 def merge_content_review(path: Path, output_path: Path) -> None:
+    """Read papers in `path`, extract content and reviews, and writes to `output_path`.
+
+    Only papers with titles and reviews with ratings are kept.
+
+    This also does some unicode sanitisation, as the original JSON files had some
+    encoding issues. This might lead to fallback characters in the output.
+    """
     output: list[dict[str, Any]] = []
 
     for dir in path.iterdir():
