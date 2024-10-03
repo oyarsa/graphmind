@@ -36,7 +36,7 @@ setup() {
 	echo "Installing pre-commit hooks..."
 	uv run pre-commit install
 
-	echo "Setup complete. Use \"uv run ...\" to run scripts, or activate the venv in .venv"
+	echo "Setup complete. See README.md and CONTRIBUTING.md for more information."
 }
 
 check() {
