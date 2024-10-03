@@ -5,7 +5,14 @@
 This repository has been tested on macOS and Ubuntu. It should work on other Linux
 systems, but it has not been tested on Windows.
 
-Requires [`uv`](https://docs.astral.sh/uv/). When running commads, use `uv run`:
+Requires [`uv`](https://docs.astral.sh/uv/). To automatically set-up the environment,
+run:
+
+```bash
+./tasks.sh setup
+```
+
+When running commads, use `uv run`:
 
 ```bash
 uv run python example.py [..args]
