@@ -24,6 +24,7 @@ class Paper(BaseModel):
     introduction: str
     ratings: Sequence[int]
     sections: Sequence[PaperSection]
+    approval: bool
 
 
 DatasetAdapter = TypeAdapter(list[Paper])

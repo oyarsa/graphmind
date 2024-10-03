@@ -35,21 +35,32 @@ def merge_content_review(path: Path, output_path: Path) -> None:
 
         contents = dir / f"{dir.name}_content"
         reviews = dir / f"{dir.name}_review"
+        papers = dir / f"{dir.name}_paper"
 
-        if not contents.exists() or not reviews.exists():
+        if not contents.exists() or not reviews.exists() or not papers.exists():
             continue
 
         for content_file in contents.glob("*.json"):
             review_file = reviews / content_file.name.replace("_content", "_review")
-            if not review_file.exists():
+            paper_file = papers / content_file.name.replace("_content", "_paper")
+
+            if not review_file.exists() or not paper_file.exists():
                 continue
 
             content = _safe_load_json(content_file)["metadata"]
             review = _safe_load_json(review_file)["reviews"]
+            approval = _safe_load_json(paper_file)["decision"]
 
             # We only want entries that have ratings in their reviews and titles
             if all("rating" in r for r in review) and content.get("title"):
-                output.append({"paper": content, "review": review, "source": dir.name})
+                output.append(
+                    {
+                        "paper": content,
+                        "review": review,
+                        "source": dir.name,
+                        "approval": approval,
+                    }
+                )
 
     output_path.write_text(
         json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8"

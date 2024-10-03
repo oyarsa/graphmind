@@ -47,6 +47,11 @@ def _parse_rating(rating: str) -> int | None:
         return None
 
 
+def _parse_approval(approval: str) -> bool:
+    """Parse approval text into a bool ("Reject" -> False, everything else -> True)."""
+    return approval.strip().lower() != "reject"
+
+
 def extract_interesting(input_file: Path, output_file: Path) -> None:
     """Extract information from the input JSON file and write to the output JSON file.
 
@@ -78,6 +83,7 @@ def extract_interesting(input_file: Path, output_file: Path) -> None:
                 "introduction": introduction,
                 "ratings": ratings,
                 "sections": [asdict(section) for section in sections],
+                "approval": _parse_approval(item["approval"]),
             }
         )
 
