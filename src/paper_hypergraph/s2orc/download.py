@@ -144,6 +144,8 @@ def download_dataset(
     if api_key is None:
         api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
 
+    output_path.mkdir(parents=True, exist_ok=True)
+
     while True:
         try:
             asyncio.run(_download(dataset_name, output_path, api_key, limit))
