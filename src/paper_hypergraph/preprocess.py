@@ -35,7 +35,7 @@ def main():
 
     if args.command == "s2orc":
         s2orc.pipeline(
-            args.api_key, args.dataset_path, args.file_limit, args.output_path
+            args.output_path, args.api_key, args.output_path, args.file_limit
         )
     elif args.command == "asap":
         asap.pipeline(args.input, args.output)
