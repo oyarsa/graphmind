@@ -2,15 +2,61 @@
 
 ## Getting started
 
-This repository has been tested on macOS and Ubuntu. It should work on other Linux
-systems, but it has not been tested on Windows.
+> [!NOTE]
+> This repository has been tested on macOS and Ubuntu. It should work on other Linux
+> systems, but it has not been tested on Windows. It should work on WSL.
 
-Requires [`uv`](https://docs.astral.sh/uv/). To automatically set-up the environment,
-run:
+To automatically set up the environment, run:
 
 ```bash
 ./tasks.sh setup
 ```
+
+See [Development Environment](#development-environment) and
+[CONTRIBUTING](/CONTRIBUTING.md) for more information.
+
+After this setup, you're reading to process the datasets. See [Datasets](#datasets)
+below.
+
+## Datasets
+
+- **S2ORC - Semantic Scholar Open Research Corpus**: dataset with the full paper content
+  from Semantic Scholar. See [s2orc README](/src/paper_hypergraph/s2orc/README.md) for
+  information.
+- **ASAP-Review**: dataset with full content and ratings for ICLR 2017-2022 papers.
+  See [asap README](/src/paper_hypergraph/asap/README.md) for more information.
+
+Use the `uv run preprocess` command to access to both the S2ORC and ASAP dataset
+preprocessing:
+
+```console
+# Create `data` and `output` directories
+$ mkdir data output
+
+# > Preprocess ASAP dataset
+# Download the dataset from Google Drive: https://drive.usercontent.google.com/download?id=1nJdljy468roUcKLbVwWUhMs7teirah75&export=download&authuser=0
+# Extract to `data/asap`.
+# Output will be saved to `output`. The final file is `output/asap_filtered.json`.
+$ uv run preprocess asap data/asap output
+
+# > Preprocess S2ORC dataset
+# Note: takes a long time, potentially hours.
+# This needs a Semantic Scholar API, which you can get from https://www.semanticscholar.org/product/api#api-key-form
+# Downloaded S2ORC data and intermediate files will be stored on `data/s2orc`
+# Output will be saved to `output/s2orc_papers.json.gz`
+$ uv run preprocess s2orc data/s2orc output --api-key YOUR_KEY
+
+# More information on the commands and options
+$ uv run preprocess s2orc --help
+$ uv run preprocess asap --help
+$ uv run preprocess --help
+```
+
+Both S2ORC and ASAP have multi-step pre-processing pipelines. The commands above will
+run all of them in sequence from scratch. To run individual commands (e.g. during
+testing), see the respective READMEs.
+
+## Development Environment
 
 When running commads, use `uv run`:
 
@@ -18,8 +64,8 @@ When running commads, use `uv run`:
 uv run python example.py [..args]
 ```
 
-No need to set up a virtual environment or install dependencies. `uv run` will take care
-of that automatically.
+You don't to set up a virtual environment or install dependencies. `uv run` will take
+care of that automatically.
 
 If you're running Python scripts or commands (e.g. see `preprocess` below), you can omit
 the `python`. Real example:
@@ -29,32 +75,19 @@ uv run src/paper_hypergraph/s2orc/acl.py
 ```
 
 See `./tasks.sh` for common development tasks. In special, use `./tasks.sh check` to run
-the linter, formatter and type checker.
+the linter, formatter and type checker. Run `./tasks.sh help` to see all tasks.
 
-## Components
+The `./tasks.sh setup` task sets up the full envionment:
 
-### Datasets
+- [`uv`](https://docs.astral.sh/uv/): manages the project, Python environment and
+  dependencies, including the development tools.
+- [`ruff`](https://docs.astral.sh/ruff/): the linter and formatter.
+- [`pyright`](https://microsoft.github.io/pyright): the type-checker.
+- [`pre-commit`](https://pre-commit.com/), which runs some basic checks before you
+  create a commit.
 
-- `./src/paper_hypergraph/s2orc`: download, extract and process data from the Semantic
-  Scholar Open Research Corpus (S2ORC) dataset. See the README and `preprocess.py` for
-  instructions on how to download and extract the data.
-- `./src/paper_hypergraph/asap`: filter and process papers from the ASAP-Review dataset.
-  See the README.md for instructions to download the data.
-
-In each case, see the README and `preprocess.py` for instructions on how to download and
-extract the data.
-
-You can also use the `preprocess` command to access to both the S2ORC and ASAP dataset
-preprocessing:
-
-```bash
-# Preprocess S2ORC dataset
-uv run preprocess s2orc
-# Preprocess ASAP dataset
-uv run preprocess asap
-# More information
-uv run preprocess --help
-```
+Please check the individual tool documentations for more information.
+See also [CONTRIBUTING](/CONTRIBUTING.md) for in-depth information.
 
 ## License
 
