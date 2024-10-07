@@ -30,15 +30,19 @@ def pipeline(
     if not api_key:
         api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
 
-    print(f"==== Downloading S2ORC dataset ({file_limit or "all"} files) ====")
+    print(
+        f"==== Downloading S2ORC dataset ({file_limit or "all"} files) -> {dataset_path}"
+    )
     download_dataset("s2orc", dataset_path, api_key, file_limit)
 
-    print(f"\n\n==== Extracting S2ORC dataset to {dataset_path} ====")
+    print(f"\n\n==== Extracting S2ORC dataset -> {dataset_path}")
     extract_data(dataset_path.glob("*.gz"))
 
-    matched_papers_path = output_path / "papers.json.gz"
-    print(f"\n\n==== Get papers matching ACL venues to {matched_papers_path} ====")
+    matched_papers_path = output_path / "s2orc_papers.json.gz"
+    print(f"\n==== Get papers matching ACL venues -> {matched_papers_path}")
     filter_papers(dataset_path, matched_papers_path)
+
+    print(f"\nFinal output file: {matched_papers_path}")
 
 
 def cli_parser() -> argparse.ArgumentParser:
@@ -46,9 +50,14 @@ def cli_parser() -> argparse.ArgumentParser:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
+        "dataset_path",
+        type=Path,
+        help="Path to save the downloaded dataset",
+    )
+    parser.add_argument(
         "output_path",
         type=Path,
-        help="Path to save the output files",
+        help="Path to save the output (processed) files",
     )
     parser.add_argument(
         "--api-key",
@@ -57,16 +66,10 @@ def cli_parser() -> argparse.ArgumentParser:
         " 'SEMANTIC_SCHOLAR_API_KEY' environment variable.",
     )
     parser.add_argument(
-        "--dataset-path",
-        type=Path,
-        default="data",
-        help="Path to save the downloaded dataset",
-    )
-    parser.add_argument(
         "--file-limit",
         type=int,
         default=None,
-        help="Limit the number of files to download",
+        help="Limit the number of files to download. If not provided, download all.",
     )
     return parser
 
