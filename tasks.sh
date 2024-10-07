@@ -20,6 +20,7 @@ setup() {
 	if ! command -v uv >/dev/null 2>&1; then
 		printf "uv is not installed. Installing...\n"
 		curl -LsSf https://astral.sh/uv/install.sh | sh
+		. "$HOME/.cargo/env"
 	else
 		# Check if uv is at least the minimum version, and upgrade if necessary
 		installed_version=$(uv --version | awk '{print $2}')
