@@ -21,13 +21,18 @@ def pipeline(papers_path: Path, output_path: Path) -> None:
     saved there.
     """
     merged_path = output_path / "asap_merged.json"
+    print(f"==== Merging data from multiple files -> {merged_path}")
     merge_content_review(papers_path, merged_path)
 
     interesting_path = output_path / "asap_extracted.json"
+    print(f"\n==== Extracting relevant information from papers -> {interesting_path}")
     extract_interesting(merged_path, interesting_path)
 
-    filtere_path = output_path / "asap_filtered.json"
-    filter_ratings(interesting_path, filtere_path)
+    filtered_path = output_path / "asap_filtered.json"
+    print(f"\n==== Removing papers with high variance ratings -> {filtered_path}")
+    filter_ratings(interesting_path, filtered_path)
+
+    print(f"\nFinal output file: {filtered_path}")
 
 
 def cli_parser() -> argparse.ArgumentParser:
