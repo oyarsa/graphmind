@@ -7,6 +7,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+import re
 
 from paper_hypergraph.asap import process_sections
 
@@ -58,31 +59,32 @@ def extract_references(input_file: Path, output_file: Path) -> None:
     data = json.loads(input_file.read_text())
 
     output: list[dict[str, Any]] = []
+    # citation_pattern = r"\(([^)]+? et al\.?)(?:,|\s*\()(\d{4})\)"
+    citation_pattern = r"\(([^()]+? et al\.?|[^()]+?),\s*(\d{4})\)"
 
     for item in data:
         paper = item["paper"]
 
-        # reference_mentions = paper["referenceMentions"]
+        reference_mentions = paper["referenceMentions"]
+            
+        #enumerate the mentions/context to extract (author, year)
+        reference_tuples = []
+        for ref_sample in reference_mentions:
+            ref_id = ref_sample["referenceID"]
+            print(ref_id)
+            context = ref_sample["context"]
+            citations = re.findall(citation_pattern, context)
+            for author, year in citations:
+                reference_tuples.append((author, year))
+        
+        #extract the titles of the references
         references = paper["references"]
-
         titles = []
         for ref in references:
-            titles.append(ref["title"])
-
-
-        # abbre_refs = []
-        # reference_id = []
-        # for ref_sample in reference_mentions:
-        #     ref_id = ref_sample["referenceID"]
-        #     print(ref_id)
-        #     # if the reference id is the same, 
-        #     if ref_id not in reference_id:
-        #         reference_id.append(ref_id)
-        #         start_id, end_id = ref_sample["startOffset"], ref_sample["endOffset"]
-        #         abbre_refs.append(ref_sample["context"][start_id:end_id])
-        #         print(ref_sample["context"][start_id:end_id])
-        #     else:
-        #         continue
+            cite_author = ref["shortCiteRegEx"]
+            cite_year = ref["year"]
+            title = ref["title"]
+            
             
 
         introduction = _get_introduction(paper["sections"])
