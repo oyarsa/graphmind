@@ -1,3 +1,10 @@
+"""Extract references for each paper in ASAP.
+
+This version uses fuzzy matching between the author and year in the context and the
+papers in the paper reference. Author and year are extracted from the context using
+a regex and the author is matched fuzzily, making this inherently noisy.
+"""
+
 import argparse
 import json
 import re
@@ -13,6 +20,15 @@ def _partial_fuzz_ratio(s1: str, s2: str) -> int:
 
 
 def extract_references(input_file: Path, output_file: Path) -> None:
+    """Extract references from merged ASAP file (see paper_hypergraph.asap.merge).
+
+    Extracts the author and year from the context using a regular expression, matches
+    against the papers in the references by fuzzy matching the author and comparing the
+    year.
+
+    The output uses the title from the reference, the author and year extracted from
+    the reference context, and the full context itself.
+    """
     data = json.loads(input_file.read_text())
     citation_regex = re.compile(r"([A-Za-z]+(?: et al\.)?),?\s*(\d{4})")
 
@@ -63,7 +79,7 @@ def extract_references(input_file: Path, output_file: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Extract references from papers and output as JSON."
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
         "input_file", type=Path, help="Path to input JSON file (asap_merged.json)"
