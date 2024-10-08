@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 
 def _get_papers(
-    cr: Crossref, title: str, author: str | None, fields: list[str], limit: int = 10
+    cr: Crossref, title: str, author: str | None, fields: list[str], limit: int
 ) -> dict[str, Any]:
     """Fetch top N papers using the title and author. Defaults to N=10.
 
@@ -62,6 +62,7 @@ def download(
     output_path: Path,
     fuzz_threshold: int,
     mailto: str | None,
+    paper_limit: int,
 ) -> None:
     cr = Crossref(mailto=mailto or "")
 
@@ -72,7 +73,7 @@ def download(
     output_best: list[dict[str, Any]] = []
 
     for paper in tqdm(papers):
-        result = _get_papers(cr, paper["title"], paper["author"], fields)
+        result = _get_papers(cr, paper["title"], paper["author"], fields, paper_limit)
         output_full.append(
             {"query": {"title": paper["title"], "author": paper["author"]}} | result
         )
@@ -112,12 +113,23 @@ def main() -> None:
         default=None,
         help="Email to add to request header. Increases reputation and rate limit.",
     )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        help="Maximum number of papers returned for each query",
+    )
     args = parser.parse_args()
 
     while True:
         try:
             download(
-                args.input_file, args.fields, args.output_path, args.ratio, args.mailto
+                args.input_file,
+                args.fields,
+                args.output_path,
+                args.ratio,
+                args.mailto,
+                args.limit,
             )
             break  # If _download completes without interruption, exit the loop
         except KeyboardInterrupt as e:
