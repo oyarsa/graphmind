@@ -1,6 +1,7 @@
-"""Extract the external paper nodes via different relations.
+"""Extract the external papers from reference_mentions (with context) and match them to paper meta information, e.g., titke.
     target paper: aspa
-    reference papers: from online api
+    context classification: (not yet finish)
+    reference papers: from online api (not yet finish)
 """
 import argparse
 import json
@@ -8,8 +9,10 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 import re
+import csv
+from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
 
-from paper_hypergraph.asap import process_sections
 
 
 def _get_introduction(sections: list[dict[str, Any]]) -> str | None:
@@ -60,61 +63,79 @@ def extract_references(input_file: Path, output_file: Path) -> None:
 
     output: list[dict[str, Any]] = []
     # citation_pattern = r"\(([^)]+? et al\.?)(?:,|\s*\()(\d{4})\)"
-    citation_pattern = r"\(([^()]+? et al\.?|[^()]+?),\s*(\d{4})\)"
+    # citation_pattern = r"\(([^()]+? et al\.?|[^()]+?),\s*(\d{4})\)"
+    # citation_pattern = r"\(([^()]+? et al\.?|[^()]+?),\s*(\d{4})(?:;|\))"
+    citation_pattern = r"([A-Za-z]+(?: et al\.)?),?\s*(\d{4})"
 
     for item in data:
         paper = item["paper"]
 
+        
+        #extract the titles of the references
+        references = paper["references"]
+        titles = []
+        paper_tuple = []
+        for ref in references:
+            cite_author = ref["shortCiteRegEx"]
+            cite_year = ref["year"]
+            title = ref["title"]
+            paper_tuple.append((cite_author,cite_year,title))
+            
+       #match the reference_mention to paper_meta/tile
         reference_mentions = paper["referenceMentions"]
             
         #enumerate the mentions/context to extract (author, year)
         reference_tuples = []
         for ref_sample in reference_mentions:
             ref_id = ref_sample["referenceID"]
-            print(ref_id)
+            # print(ref_id)
             context = ref_sample["context"]
             citations = re.findall(citation_pattern, context)
-            for author, year in citations:
-                reference_tuples.append((author, year))
-        
-        #extract the titles of the references
-        references = paper["references"]
-        titles = []
-        for ref in references:
-            cite_author = ref["shortCiteRegEx"]
-            cite_year = ref["year"]
-            title = ref["title"]
-            
-            
+            for author,year in citations:
+                title = None
+                try:
+                    author = author.split("et al")[0].strip()
+                except:
+                    author = author.strip()
+                # Check if there's a matching author-year pair in B
+                for author_meta, year_meta, title_meta in paper_tuple:
+                    author_meta = author_meta.split("et al")[0] if "et al" in author_meta else author_meta
+                    if fuzz.partial_ratio(author_meta, author)>0.85 and year == str(year_meta):
+                        title = title_meta  # Found the title, break the loop
+                        reference_tuples.append((author,year,context,title))
+                        break
+                
 
-        introduction = _get_introduction(paper["sections"])
-        if not introduction:
-            continue
+        paper_title = paper["title"].lower().replace(" ", "")
+        csv_file = f"{paper_title}.reference.csv"
+        with open(csv_file, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            # Write each tuple as a row in the CSV file
+            writer.writerows(reference_tuples)
+        # introduction = _get_introduction(paper["sections"])
+        # if not introduction:
+        #     continue
 
-        sections = process_sections.group_sections(paper["sections"])
-        if not sections:
-            continue
 
-        ratings = [
-            r for review in item["review"] if (r := _parse_rating(review["rating"]))
-        ]
+        # ratings = [
+        #     r for review in item["review"] if (r := _parse_rating(review["rating"]))
+        # ]
 
-        output.append(
-            {
-                "title": paper["title"],
-                "abstract": paper["abstractText"],
-                "introduction": introduction,
-                "ratings": ratings,
-                "sections": [asdict(section) for section in sections],
-                "approval": _parse_approval(item["approval"]),
-                "references_titles": titles,
-            }
-        )
+        # output.append(
+        #     {
+        #         "title": paper["title"],
+        #         "abstract": paper["abstractText"],
+        #         "introduction": introduction,
+        #         "ratings": ratings,
+        #         "approval": _parse_approval(item["approval"]),
+        #         "references_titles": titles,
+        #     }
+        # )
 
-    print("no.  input papers:", len(data))
-    print("no. output papers:", len(output), f"({len(output) / len(data):.2%})")
+    # print("no.  input papers:", len(data))
+    # print("no. output papers:", len(output), f"({len(output) / len(data):.2%})")
 
-    output_file.write_text(json.dumps(output, indent=2))
+    # output_file.write_text(json.dumps(output, indent=2))
 
 
 def main() -> None:
