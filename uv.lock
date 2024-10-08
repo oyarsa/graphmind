@@ -511,6 +511,19 @@ wheels = [
 ]
 
 [[package]]
+name = "habanero"
+version = "1.2.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3d/17/885ee33738a7ecb29d487ca42043378804d0c47945d24ee040cfaa35beeb/habanero-1.2.6.tar.gz", hash = "sha256:b206d49f44f41c2289f0ad731f259a50d4376c747d8ecbb219a73874d45309d4", size = 1547954 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/18/3b/a24c9533cd2557ebca717e1e2b2a5485982d69dc8b609b2199eae20a6e22/habanero-1.2.6-py2.py3-none-any.whl", hash = "sha256:ccc57e7dc9cc1850961b4e6f85fc7749896cba6ddcc06ea15297dbad9af2b62e", size = 30689 },
+]
+
+[[package]]
 name = "httpcore"
 version = "1.0.5"
 source = { registry = "https://pypi.org/simple" }
@@ -1240,6 +1253,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "colorlog" },
+    { name = "habanero" },
     { name = "matplotlib" },
     { name = "networkx" },
     { name = "openai" },
@@ -1265,6 +1279,7 @@ dev = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.10.5" },
     { name = "colorlog", specifier = ">=6.8.2" },
+    { name = "habanero", specifier = ">=1.2.6" },
     { name = "matplotlib", specifier = ">=3.9.2" },
     { name = "networkx", specifier = ">=3.3" },
     { name = "openai", specifier = ">=1.45.0" },
