@@ -21,15 +21,18 @@ RETRY_DELAY = 5  # Initial delay in seconds
 BACKOFF_FACTOR = 2  # Exponential backoff factor
 
 
+SEMANTIC_SCHOLAR_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
+
+
 async def _fetch_paper_info(
     session: aiohttp.ClientSession,
     api_key: str,
-    title: str,
+    paper: dict[str, str],
     fields: Sequence[str],
     semaphore: asyncio.Semaphore,
 ) -> dict[str, Any] | None:
     """Fetch paper information for a given title."""
-    url = "https://api.semanticscholar.org/graph/v1/paper/search"
+    title = paper["title"]
     params = {
         "query": title,
         "fields": ",".join(fields),
@@ -42,7 +45,9 @@ async def _fetch_paper_info(
         delay = RETRY_DELAY
         while attempt < MAX_RETRIES:
             try:
-                async with session.get(url, params=params, headers=headers) as response:
+                async with session.get(
+                    SEMANTIC_SCHOLAR_BASE_URL, params=params, headers=headers
+                ) as response:
                     if response.status == 200:
                         data = await response.json()
                         if data.get("data"):
@@ -92,28 +97,33 @@ async def _fetch_paper_info(
 
 
 async def _download_paper_info(
-    titles: Sequence[str], fields: Sequence[str], output_path: Path, api_key: str
+    input_file: Path, fields_str: str, output_path: Path, api_key: str
 ) -> None:
     """Download paper information for multiple titles."""
-    connector = aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS)
+    fields = [f for field in fields_str.split(",") if (f := field.strip())]
+    papers = json.loads(input_file.read_text())
+
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
-        connector=connector,
+        connector=aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS),
     ) as session:
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
         tasks = [
-            _fetch_paper_info(session, api_key, title, fields, semaphore)
-            for title in titles
+            _fetch_paper_info(session, api_key, paper, fields, semaphore)
+            for paper in papers
         ]
-        results = await progress_gather(*tasks, desc="Downloading paper info")
+        results = list(await progress_gather(*tasks, desc="Downloading paper info"))
 
+    print(len(results), "papers")
     valid_results = [result for result in results if result]
-    output_file = output_path / "paper_info.json"
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(valid_results, f, indent=2, ensure_ascii=False)
+    print(len(valid_results), "valid")
 
-    print(
-        f"Downloaded information for {len(valid_results)} papers. Saved to {output_file}"
+    output_path.mkdir(parents=True, exist_ok=True)
+    (output_path / "semantic_scholar_full.json").write_text(
+        json.dumps(results, indent=2)
+    )
+    (output_path / "semantic_scholar_best.json").write_text(
+        json.dumps(results, indent=2)
     )
 
 
@@ -150,18 +160,13 @@ def main() -> None:
         )
         sys.exit(1)
 
-    args.output_path.mkdir(parents=True, exist_ok=True)
-
-    titles = [
-        title
-        for line in args.input_file.read_text(encoding="utf-8").splitlines()
-        if (title := line.strip())
-    ]
-    fields = args.fields.split(",")
-
     while True:
         try:
-            asyncio.run(_download_paper_info(titles, fields, args.output_path, api_key))
+            asyncio.run(
+                _download_paper_info(
+                    args.input_file, args.fields, args.output_path, api_key
+                )
+            )
             break  # If _download completes without interruption, exit the loop
         except KeyboardInterrupt:
             choice = input("\n\nCtrl+C detected. Do you really want to exit? (y/n): ")
