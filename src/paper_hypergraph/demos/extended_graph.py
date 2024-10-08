@@ -2,10 +2,20 @@
 
 # pyright: basic
 import argparse
+import textwrap
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import networkx as nx
+
+# Lorem Ipsum text for details
+LOREM_SENTENCES = [
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+    "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+    "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat",
+    "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur",
+    "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum",
+]
 
 
 def main(output_path: Path | None) -> None:
@@ -72,6 +82,16 @@ def main(output_path: Path | None) -> None:
         "Result": "lightgray",
     }
 
+    # Assign two sentences to each node
+    node_details: dict[int, str] = {}
+    for i, node in enumerate(nodes):
+        if i == 0:  # Skip the Title node
+            continue
+        start_index = (i - 1) * 2 % len(LOREM_SENTENCES)
+        node_details[node] = (
+            ". ".join(LOREM_SENTENCES[start_index : start_index + 2]) + "."
+        )
+
     # Creating a node-to-type mapping from type-to-nodes
     node_colors: list[str] = []
     node_types: list[str] = []
@@ -127,7 +147,7 @@ def main(output_path: Path | None) -> None:
     labels = {node: label for node, label in nodes.items()}
     nx.draw_networkx_labels(graph, pos, labels=labels, font_size=10)
 
-    # Adding small text on each node showing the type
+    # Adding small text on each node showing the type and detail
     for node, (x, y) in pos.items():
         node_type = None
         for type_name, nodes_list in type_to_nodes.items():
@@ -144,6 +164,20 @@ def main(output_path: Path | None) -> None:
                 color="black",
                 style="italic",
             )
+            # Add detail property for all nodes except Title
+            if node_type != "Title":
+                detail_text = node_details[node]
+                wrapped_text = textwrap.fill(detail_text, width=40)
+                plt.text(
+                    x,
+                    y - 0.25,
+                    wrapped_text,
+                    fontsize=6,
+                    ha="center",
+                    va="top",
+                    color="black",
+                    wrap=True,
+                )
 
     plt.title("Paper Graph", fontsize=14)
 
