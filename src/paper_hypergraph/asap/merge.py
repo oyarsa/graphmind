@@ -33,6 +33,7 @@ def merge_content_review(path: Path, output_path: Path) -> None:
         if not dir.is_dir():
             continue
 
+        print(f"Processing {dir.name}...")
         contents = dir / f"{dir.name}_content"
         reviews = dir / f"{dir.name}_review"
         papers = dir / f"{dir.name}_paper"

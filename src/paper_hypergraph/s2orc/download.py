@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import aiohttp
+from pathlib import Path
 import dotenv
 from tqdm.asyncio import tqdm
 
@@ -163,9 +164,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument(
-        "output_path", type=Path, help="Directory to save the downloaded files"
-    )
+    # parser.add_argument(
+    #     "output_path", type=Path, help="Directory to save the downloaded files"
+    # )
     parser.add_argument(
         "--dataset-name",
         type=str,
@@ -175,6 +176,7 @@ def main() -> None:
     parser.add_argument(
         "--api-key",
         type=str,
+        # defult= "KfDpVSXUA94bQrIrKF8QJac4ryOAShDJK9aUM5hc",
         help="API key for the Semantic Scholar API. Defaults to the SEMANTIC_SCHOLAR_API_KEY environment variable.",
     )
     parser.add_argument(
@@ -184,7 +186,7 @@ def main() -> None:
         help="Limit the number of files to download. Useful for testing.",
     )
     args = parser.parse_args()
-    download_dataset(args.dataset_name, args.output_path, args.api_key, args.limit)
+    download_dataset(args.dataset_name, output_path=Path("/scratch/prj/cllm/hanqi/datasets/s2oc/"), api_key="KfDpVSXUA94bQrIrKF8QJac4ryOAShDJK9aUM5hc",limit=args.limit)
 
 
 if __name__ == "__main__":
