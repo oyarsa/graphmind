@@ -18,6 +18,7 @@ dependencies = [
     "semanticscholar>=0.8.4",
     "tqdm>=4.66.5",
     "habanero>=1.2.6",
+    "thefuzz>=0.22.1",
 ]
 
 [tool.ruff]
