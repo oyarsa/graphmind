@@ -51,7 +51,7 @@ async def _fetch_paper_info(
                     if response.status == 200:
                         data = await response.json()
                         if data.get("data"):
-                            return data["data"][0]
+                            return {"title_query": title} | data["data"][0]
                         else:
                             print(f"No results found for title: {title}")
                             return None
@@ -123,7 +123,7 @@ async def _download_paper_info(
         json.dumps(results, indent=2)
     )
     (output_path / "semantic_scholar_best.json").write_text(
-        json.dumps(results, indent=2)
+        json.dumps(valid_results, indent=2)
     )
 
 
