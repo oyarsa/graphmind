@@ -7,22 +7,30 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from habanero import Crossref  # type: ignore
+import habanero  # type: ignore
 from thefuzz import fuzz  # type: ignore
 from tqdm import tqdm
 
 
-def _get_papers(
-    cr: Crossref, title: str, author: str | None, fields: list[str], limit: int
-) -> dict[str, Any]:
-    """Fetch top N papers using the title and author. Defaults to N=10.
+class CrossrefClient:
+    def __init__(self, mailto: str | None = None) -> None:
+        self.cr = habanero.Crossref(mailto=mailto or "")  # type: ignore
 
-    The author is optional because not every paper in ASAP has an author. The API will
-    simply ignore the None value.
-    """
-    return cr.works(  # type: ignore
-        query_title=title, query_author=author, select=fields, limit=limit
-    )
+    def get_papers(
+        self,
+        title: str,
+        author: str | None,
+        fields: list[str],
+        limit: int,
+    ) -> dict[str, Any]:
+        """Fetch top N papers using the title and author. Defaults to N=10.
+
+        The author is optional because not every paper in ASAP has an author. The API will
+        simply ignore the None value.
+        """
+        return self.cr.works(  # type: ignore
+            query_title=title, query_author=author, select=fields, limit=limit
+        )
 
 
 def _fuzz_ratio(s1: str, s2: str) -> int:
@@ -64,7 +72,7 @@ def download(
     mailto: str | None,
     paper_limit: int,
 ) -> None:
-    cr = Crossref(mailto=mailto or "")
+    cr = CrossrefClient(mailto=mailto)  # type: ignore
 
     papers = json.loads(input_file.read_text())
     fields = [f for field in fields_str.split(",") if (f := field.lower().strip())]
@@ -73,7 +81,7 @@ def download(
     output_best: list[dict[str, Any]] = []
 
     for paper in tqdm(papers):
-        result = _get_papers(cr, paper["title"], paper["author"], fields, paper_limit)
+        result = cr.get_papers(paper["title"], paper["author"], fields, paper_limit)
         output_full.append(
             {"query": {"title": paper["title"], "author": paper["author"]}} | result
         )
