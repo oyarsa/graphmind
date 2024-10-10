@@ -21,9 +21,6 @@ dependencies = [
     "thefuzz>=0.22.1",
 ]
 
-[tool.ruff]
-extend-exclude = ["tmp"]
-
 [tool.ruff.lint]
 select = [
     "E",
@@ -56,7 +53,6 @@ ignore = [
 # so we disable it here to avoid duplicate errors
 reportUnusedImport = false
 typeCheckingMode = "strict"
-exclude = [".venv", "tmp"]
 
 [tool.uv]
 dev-dependencies = [
