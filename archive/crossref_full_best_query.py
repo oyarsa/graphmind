@@ -11,43 +11,12 @@ original script did.
 import argparse
 import json
 import sys
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from thefuzz import fuzz  # type: ignore
 from tqdm import tqdm
 
-
-def _fuzz_ratio(s1: str, s2: str) -> int:
-    """Type-safe wrapper around fuzzy.ratio."""
-    return fuzz.ratio(s1, s2)  # type: ignore
-
-
-def _get_best_paper(
-    title: str, papers: Iterable[dict[str, Any]], fuzz_threshold: int
-) -> dict[str, Any] | None:
-    """Find the best paper by title fuzzy ratio. Returns None if there are no matches.
-
-    Some paper entries don't have a title, and are obviously ignored. Also, we need
-    abstracts, so even if a paper matches, we ignore it if it doesn't have an abstract.
-    """
-    best_paper = None
-    best_ratio = fuzz_threshold
-
-    for paper in papers:
-        if (
-            (paper_titles := paper["title"])
-            and paper_titles
-            and (paper_title := paper_titles[0].strip())
-            and paper.get("abstract", "").strip()
-        ):
-            ratio = _fuzz_ratio(title, paper_title)
-            if ratio > best_ratio:
-                best_paper = paper
-                best_ratio = ratio
-
-    return best_paper
+from paper_hypergraph.s2orc.retrieve_papers_crossref import get_best_paper
 
 
 def download(
@@ -61,9 +30,7 @@ def download(
 
     for paper_full in tqdm(input_papers):
         if (papers := paper_full.get("message", {}).get("items")) and (
-            best := _get_best_paper(
-                paper_full["query"]["title"], papers, fuzz_threshold
-            )
+            best := get_best_paper(paper_full["query"]["title"], papers, fuzz_threshold)
         ):
             output_best.append(
                 {
