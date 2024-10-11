@@ -113,7 +113,7 @@ def main() -> None:
         help="Comma-separated list of fields to retrieve",
     )
     parser.add_argument(
-        "--ratio", type=float, default=0.9, help="Minimum ratio for fuzzy matching"
+        "--ratio", type=int, default=30, help="Minimum ratio for fuzzy matching"
     )
     parser.add_argument(
         "--mailto",
