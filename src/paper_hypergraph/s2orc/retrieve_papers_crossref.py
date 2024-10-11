@@ -38,7 +38,7 @@ def _fuzz_ratio(s1: str, s2: str) -> int:
     return fuzz.ratio(s1, s2)  # type: ignore
 
 
-def _get_best_paper(
+def get_best_paper(
     title: str, papers: Iterable[dict[str, Any]], fuzz_threshold: int
 ) -> dict[str, Any] | None:
     """Find the best paper by title fuzzy ratio. Returns None if there are no matches.
@@ -61,7 +61,10 @@ def _get_best_paper(
                 best_paper = paper
                 best_ratio = ratio
 
-    return best_paper
+    if best_paper:
+        return {"fuzz_ratio": best_ratio} | best_paper
+    else:
+        return None
 
 
 def download(
@@ -81,15 +84,14 @@ def download(
     output_best: list[dict[str, Any]] = []
 
     for paper in tqdm(papers):
+        meta = {"query": {"title": paper["title"], "author": paper["author"]}}
         result = cr.get_papers(paper["title"], paper["author"], fields, paper_limit)
-        output_full.append(
-            {"query": {"title": paper["title"], "author": paper["author"]}} | result
-        )
+        output_full.append(meta | result)
 
         if (papers := result.get("message", {}).get("items")) and (
-            best := _get_best_paper(paper["title"], papers, fuzz_threshold)
+            best := get_best_paper(paper["title"], papers, fuzz_threshold)
         ):
-            output_best.append(best)
+            output_best.append(meta | best)
 
     output_path.mkdir(parents=True, exist_ok=True)
     (output_path / "crossref_full.json").write_text(json.dumps(output_full))
@@ -113,7 +115,7 @@ def main() -> None:
         help="Comma-separated list of fields to retrieve",
     )
     parser.add_argument(
-        "--ratio", type=float, default=0.9, help="Minimum ratio for fuzzy matching"
+        "--ratio", type=int, default=30, help="Minimum ratio for fuzzy matching"
     )
     parser.add_argument(
         "--mailto",
