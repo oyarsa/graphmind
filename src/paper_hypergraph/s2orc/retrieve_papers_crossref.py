@@ -33,8 +33,11 @@ class CrossrefClient:
         )
 
 
-def _fuzz_ratio(s1: str, s2: str) -> int:
-    """Type-safe wrapper around fuzzy.ratio."""
+def fuzzy_ratio(s1: str, s2: str) -> int:
+    """Calculates the fuzzy matching ratio between s1 and s2 as integer in 0-100.
+
+    Type-safe wrapper around thefuzz.fuzz.ratio.
+    """
     return fuzz.ratio(s1, s2)  # type: ignore
 
 
@@ -56,7 +59,7 @@ def get_best_paper(
             and (paper_title := paper_titles[0].strip())
             and paper.get("abstract", "").strip()
         ):
-            ratio = _fuzz_ratio(title, paper_title)
+            ratio = fuzzy_ratio(title, paper_title)
             if ratio > best_ratio:
                 best_paper = paper
                 best_ratio = ratio
