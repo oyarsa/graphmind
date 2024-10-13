@@ -1,11 +1,16 @@
-"""Extract references for each paper in ASAP.
+"""Extract references from merged ASAP file (see paper_hypergraph.asap.merge).
 
-This version uses the "referenceID" key in each reference mention, and it seems to work.
-I'm not sure whether the "referenceID" is always correct, though.
+Uses the "referenceID" key in each reference mention to get the index to the paper's
+"references" list. Extracts the title, author and year information from there, and
+adds the context from the reference mention.
+
+Groups references with the same title/author/year into a single object with a sorted
+list of unique contexts.
 """
 
 import argparse
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -13,11 +18,9 @@ from tqdm import tqdm
 
 
 def extract_references_exact(input_file: Path, output_file: Path) -> None:
-    """Extract references from merged ASAP file (see paper_hypergraph.asap.merge).
+    """Extract reference mentions and contexts.
 
-    Uses the "referenceID" key in each reference mention to get the index to the paper's
-    "references" list. Extracts the title, author and year information from there, and
-    adds the context from the reference mention.
+    Groups mentions to the same paper from different contexts into a single entry.
     """
     data = json.loads(input_file.read_text())
 
@@ -27,7 +30,7 @@ def extract_references_exact(input_file: Path, output_file: Path) -> None:
         paper = item["paper"]
 
         references = paper["references"]
-        references_output: list[dict[str, str]] = []
+        references_output: dict[tuple[str, Sequence[str], int], dict[str, Any]] = {}
 
         for ref_mention in paper["referenceMentions"]:
             ref_context = ref_mention["context"]
@@ -37,19 +40,29 @@ def extract_references_exact(input_file: Path, output_file: Path) -> None:
                 continue
 
             ref_original = references[ref_id]
-            references_output.append(
-                {
-                    "title": ref_original["title"],
-                    "author": ref_original["author"],
-                    "year": ref_original["year"],
-                    "context": ref_context,
-                }
+            ref_author = sorted(ref_original["author"])
+            ref_key = (
+                ref_original["title"],
+                tuple(ref_author),
+                ref_original["year"],
             )
+
+            if ref_key not in references_output:
+                references_output[ref_key] = {
+                    "title": ref_original["title"],
+                    "author": ref_author,
+                    "year": ref_original["year"],
+                    "contexts": set(),
+                }
+            references_output[ref_key]["contexts"].add(ref_context)
 
         output.append(
             {
                 "paper_title": paper["title"],
-                "references": references_output,
+                "references": [
+                    {**ref, "contexts": list(ref["contexts"])}
+                    for ref in references_output.values()
+                ],
             }
         )
 
