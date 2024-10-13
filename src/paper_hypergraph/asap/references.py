@@ -57,12 +57,19 @@ def extract_references(input_file: Path, output_file: Path) -> None:
                     if _partial_fuzz_ratio(author_meta, author) > 85 and year == str(
                         ref_year
                     ):
+                        # Get "exact" direct reference mentions to compare with regex
+                        # and fuzzy approach.
+                        reference_exact_id = ref_sample["referenceID"]
+                        reference_exact = paper["references"][reference_exact_id]
+
                         references_output.append(
                             {
                                 "author": author,
                                 "year": year,
                                 "context": context,
                                 "title": ref_title,
+                                "reference_id": reference_exact_id,
+                                "title_other": reference_exact["title"],
                             }
                         )
                         break
