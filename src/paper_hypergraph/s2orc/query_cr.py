@@ -17,20 +17,10 @@ class CrossrefClient:
     def __init__(self, mailto: str | None = None) -> None:
         self.cr = habanero.Crossref(mailto=mailto or "")  # type: ignore
 
-    def get_papers(
-        self,
-        title: str,
-        author: str | None,
-        fields: list[str],
-        limit: int,
-    ) -> dict[str, Any]:
-        """Fetch top N papers using the title and author. Defaults to N=10.
-
-        The author is optional because not every paper in ASAP has an author. The API will
-        simply ignore the None value.
-        """
+    def get_papers(self, title: str, fields: list[str], limit: int) -> dict[str, Any]:
+        """Fetch top N papers using the title. Defaults to N=10."""
         return self.cr.works(  # type: ignore
-            query_title=title, query_author=author, select=fields, limit=limit
+            query_title=title, select=fields, limit=limit
         )
 
 
@@ -74,18 +64,21 @@ def download(
     cr = CrossrefClient(mailto=mailto)  # type: ignore
 
     papers = json.loads(input_file.read_text())
+    unique_titles: set[str] = {
+        reference["title"] for paper in papers for reference in paper["references"]
+    }
     fields = [f for field in fields_str.split(",") if (f := field.lower().strip())]
 
     output_full: list[dict[str, Any]] = []
     output_best: list[dict[str, Any]] = []
 
-    for paper in tqdm(papers):
-        meta = {"query": {"title": paper["title"], "author": paper["author"]}}
-        result = cr.get_papers(paper["title"], paper["author"], fields, paper_limit)
+    for title in tqdm(unique_titles):
+        meta = {"query": {"title": title}}
+        result = cr.get_papers(title, fields, paper_limit)
         output_full.append(meta | result)
 
         if (papers := result.get("message", {}).get("items")) and (
-            best := get_best_paper(paper["title"], papers, fuzz_threshold)
+            best := get_best_paper(title, papers, fuzz_threshold)
         ):
             output_best.append(meta | best)
 
@@ -98,9 +91,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument(
-        "input_file", type=Path, help="File containing paper titles, one per line"
-    )
+    parser.add_argument("input_file", type=Path, help="Input file (asap_filtered.json)")
     parser.add_argument(
         "output_path", type=Path, help="Directory to save the downloaded information"
     )
