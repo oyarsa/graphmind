@@ -61,6 +61,16 @@ from paper_hypergraph.util import fuzzy_ratio
 
 
 class S2Paper(BaseModel):
+    """Paper from the S2 API.
+
+    Attributes:
+        title_query: the original title used to query the API.
+        abstract: abstract text.
+
+    NB: We got more data from the API, but this is what's relevant here. See also
+    `paper_hypergraph.s2orc.query_s2`.
+    """
+
     model_config = ConfigDict(frozen=True)
 
     title_query: str
@@ -68,17 +78,13 @@ class S2Paper(BaseModel):
 
 
 class ReferenceWithAbstract(PaperReference):
-    """Standard ASAP reference with an added `abstract` field."""
+    """ASAP reference with an added `abstract` field."""
 
     abstract: str
 
 
 class PaperWithFullReference(BaseModel):
-    """Paper from ASAP where the references contain their abstract.
-
-    The abstract is retrieved by querying the S2 API with the reference title, then doing
-    fuzzy matching to ensure the returned paper is correct.
-    """
+    """Paper from ASAP where the references contain their abstract."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -129,6 +135,11 @@ def add_references(
     min_score: int,
     file_limit: int | None,
 ) -> None:
+    """For each paper, match references with S2 API results to get their abstract.
+
+    Matching is done by fuzzy matching, with a minimum fuzzy score. If no S2 papers
+    match a given reference, the reference is removed.
+    """
     source_papers = DatasetAdapter.validate_json(papers_file.read_text())[:file_limit]
     external_papers = TypeAdapter(list[S2Paper]).validate_json(
         external_files.read_bytes()
