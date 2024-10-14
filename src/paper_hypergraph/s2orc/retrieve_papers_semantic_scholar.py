@@ -98,7 +98,11 @@ async def _fetch_paper_info(
 
 
 async def _download_paper_info(
-    input_file: Path, fields_str: str, output_path: Path, api_key: str
+    input_file: Path,
+    fields_str: str,
+    output_path: Path,
+    api_key: str,
+    min_fuzzy: int | None,
 ) -> None:
     """Download paper information for multiple titles."""
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
@@ -132,6 +136,14 @@ async def _download_paper_info(
         json.dumps(results_valid, indent=2)
     )
 
+    if min_fuzzy:
+        filtered_data = [
+            paper for paper in results_valid if paper["fuzz_ratio"] >= min_fuzzy
+        ]
+        (output_path / "semantic_scholar_filtered.json").write_text(
+            json.dumps(filtered_data, indent=2)
+        )
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -155,6 +167,12 @@ def main() -> None:
         help="API key for the Semantic Scholar API. Defaults to the"
         " SEMANTIC_SCHOLAR_API_KEY environment variable.",
     )
+    parser.add_argument(
+        "--min-fuzzy",
+        type=int,
+        default=None,
+        help="Minimum fuzz ratio of titles to filter",
+    )
     args = parser.parse_args()
 
     dotenv.load_dotenv()
@@ -170,7 +188,11 @@ def main() -> None:
         try:
             asyncio.run(
                 _download_paper_info(
-                    args.input_file, args.fields, args.output_path, api_key
+                    args.input_file,
+                    args.fields,
+                    args.output_path,
+                    api_key,
+                    args.min_fuzzy,
                 )
             )
             break  # If _download completes without interruption, exit the loop
