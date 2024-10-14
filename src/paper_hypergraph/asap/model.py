@@ -24,7 +24,6 @@ class Paper(BaseModel):
 
     title: str
     abstract: str
-    introduction: str
     ratings: Sequence[int]
     sections: Sequence[PaperSection]
     approval: bool

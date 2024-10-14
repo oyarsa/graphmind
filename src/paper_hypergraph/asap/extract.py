@@ -116,7 +116,6 @@ def extract_interesting(input_file: Path, output_file: Path) -> None:
             {
                 "title": paper["title"],
                 "abstract": paper["abstractText"],
-                "introduction": introduction,
                 "ratings": ratings,
                 "sections": [asdict(section) for section in sections],
                 "approval": _parse_approval(item["approval"]),
