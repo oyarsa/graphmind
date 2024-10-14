@@ -1,4 +1,14 @@
-"""Download paper information from the Semantic Scholar API."""
+"""Download paper information from the Semantic Scholar API.
+
+The input file is a JSON file with an array of objects, each with a string field "title".
+These represents the unique references from the papers in ASAP[1].
+
+The script then queries the S2 API from the titles. S2 does their own paper title
+matching, so we just take the best match directly. We then save the entire output
+to a JSON file along with the original query title.
+
+[1] See paper_hypergraph.asap.unique_titles.
+"""
 
 import argparse
 import asyncio
@@ -32,7 +42,7 @@ async def _fetch_paper_info(
     fields: Sequence[str],
     semaphore: asyncio.Semaphore,
 ) -> dict[str, Any] | None:
-    """Fetch paper information for a given title."""
+    """Fetch paper information for a given title. Takes only the best title match."""
     title = paper["title"]
     params = {
         "query": title,
@@ -104,7 +114,14 @@ async def _download_paper_info(
     api_key: str,
     min_fuzzy: int | None,
 ) -> None:
-    """Download paper information for multiple titles."""
+    """Download paper information for multiple titles.
+
+    The input file is a JSON array with the "title" field. These should be the unique
+    papers cited from the ASAP papers.
+
+    The API allows us to specify the returned fields, so pass just the relevant ones
+    to minimise the bandwidth required.
+    """
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
     papers = json.loads(input_file.read_text())
 
