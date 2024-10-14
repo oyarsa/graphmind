@@ -1,4 +1,13 @@
-"""Download paper information from the CrossRef API."""
+"""Download paper information from the CrossRef API.
+
+Takes the processed output from the ASAP pipeline as input (asap_filtered.json), finds
+the unique reference titles and queries them on the Crossref API. This querying is done
+by title, where we get the top 10 matches, of which we find the best matching by fuzzy
+matching. There's a minimum fuzzy threshold (30 by default).
+
+NB: Crossref has very poor performance, so we focus on using query_s2 (Semantic Scholar
+API) instead. This script is likely to break in the future, as it won't be maintained.
+"""
 
 import argparse
 import json
@@ -8,34 +17,20 @@ from pathlib import Path
 from typing import Any
 
 import habanero  # type: ignore
-from thefuzz import fuzz  # type: ignore
 from tqdm import tqdm
+
+from paper_hypergraph.util import fuzzy_ratio
 
 
 class CrossrefClient:
     def __init__(self, mailto: str | None = None) -> None:
         self.cr = habanero.Crossref(mailto=mailto or "")  # type: ignore
 
-    def get_papers(
-        self,
-        title: str,
-        author: str | None,
-        fields: list[str],
-        limit: int,
-    ) -> dict[str, Any]:
-        """Fetch top N papers using the title and author. Defaults to N=10.
-
-        The author is optional because not every paper in ASAP has an author. The API will
-        simply ignore the None value.
-        """
+    def get_papers(self, title: str, fields: list[str], limit: int) -> dict[str, Any]:
+        """Fetch top N papers using the title. Defaults to N=10."""
         return self.cr.works(  # type: ignore
-            query_title=title, query_author=author, select=fields, limit=limit
+            query_title=title, select=fields, limit=limit
         )
-
-
-def _fuzz_ratio(s1: str, s2: str) -> int:
-    """Type-safe wrapper around fuzzy.ratio."""
-    return fuzz.ratio(s1, s2)  # type: ignore
 
 
 def get_best_paper(
@@ -56,7 +51,7 @@ def get_best_paper(
             and (paper_title := paper_titles[0].strip())
             and paper.get("abstract", "").strip()
         ):
-            ratio = _fuzz_ratio(title, paper_title)
+            ratio = fuzzy_ratio(title, paper_title)
             if ratio > best_ratio:
                 best_paper = paper
                 best_ratio = ratio
@@ -78,18 +73,21 @@ def download(
     cr = CrossrefClient(mailto=mailto)  # type: ignore
 
     papers = json.loads(input_file.read_text())
+    unique_titles: set[str] = {
+        reference["title"] for paper in papers for reference in paper["references"]
+    }
     fields = [f for field in fields_str.split(",") if (f := field.lower().strip())]
 
     output_full: list[dict[str, Any]] = []
     output_best: list[dict[str, Any]] = []
 
-    for paper in tqdm(papers):
-        meta = {"query": {"title": paper["title"], "author": paper["author"]}}
-        result = cr.get_papers(paper["title"], paper["author"], fields, paper_limit)
+    for title in tqdm(unique_titles):
+        meta = {"query": {"title": title}}
+        result = cr.get_papers(title, fields, paper_limit)
         output_full.append(meta | result)
 
         if (papers := result.get("message", {}).get("items")) and (
-            best := get_best_paper(paper["title"], papers, fuzz_threshold)
+            best := get_best_paper(title, papers, fuzz_threshold)
         ):
             output_best.append(meta | best)
 
@@ -102,9 +100,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument(
-        "input_file", type=Path, help="File containing paper titles, one per line"
-    )
+    parser.add_argument("input_file", type=Path, help="Input file (asap_filtered.json)")
     parser.add_argument(
         "output_path", type=Path, help="Directory to save the downloaded information"
     )

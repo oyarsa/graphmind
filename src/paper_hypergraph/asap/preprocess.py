@@ -39,8 +39,12 @@ def cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("input", type=Path, help="Path to input (filtered) JSON file")
-    parser.add_argument("output", type=Path, help="Path to output extracted JSON file")
+    parser.add_argument(
+        "input", type=Path, help="Path to input directory containing raw ASAP files"
+    )
+    parser.add_argument(
+        "output", type=Path, help="Path to output directory for processed files"
+    )
     return parser
 
 

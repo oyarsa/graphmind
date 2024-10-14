@@ -1,4 +1,13 @@
-"""Download paper information from the Semantic Scholar API."""
+"""Download paper information from the Semantic Scholar API.
+
+The input is the output of the ASAP pipeline[1], asap_filtered.json.
+
+The script then queries the S2 API from the titles. S2 does their own paper title
+matching, so we just take the best match directly. We then save the entire output
+to a JSON file along with the original query title.
+
+[1] See paper_hypergraph.asap.preprocess.
+"""
 
 import argparse
 import asyncio
@@ -13,6 +22,7 @@ import aiohttp
 import dotenv
 
 from paper_hypergraph.s2orc.download import progress_gather
+from paper_hypergraph.util import fuzzy_ratio
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -27,14 +37,13 @@ SEMANTIC_SCHOLAR_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/sear
 async def _fetch_paper_info(
     session: aiohttp.ClientSession,
     api_key: str,
-    paper: dict[str, str],
+    paper_title: str,
     fields: Sequence[str],
     semaphore: asyncio.Semaphore,
 ) -> dict[str, Any] | None:
-    """Fetch paper information for a given title."""
-    title = paper["title"]
+    """Fetch paper information for a given title. Takes only the best title match."""
     params = {
-        "query": title,
+        "query": paper_title,
         "fields": ",".join(fields),
         "limit": 1,  # We're only interested in the best match
     }
@@ -51,9 +60,9 @@ async def _fetch_paper_info(
                     if response.status == 200:
                         data = await response.json()
                         if data.get("data"):
-                            return {"title_query": title} | data["data"][0]
+                            return {"title_query": paper_title} | data["data"][0]
                         else:
-                            print(f"No results found for title: {title}")
+                            print(f"No results found for title: {paper_title}")
                             return None
                     elif response.status == 429:
                         retry_after = response.headers.get("Retry-After")
@@ -64,7 +73,7 @@ async def _fetch_paper_info(
                             wait_time = delay
                             wait_source = "Custom"
                         print(
-                            f"Rate limited (429) when fetching '{title}'. "
+                            f"Rate limited (429) when fetching '{paper_title}'. "
                             f"Retrying after {wait_time} ({wait_source}) seconds..."
                         )
                         await asyncio.sleep(wait_time)
@@ -72,19 +81,19 @@ async def _fetch_paper_info(
                     else:
                         error_text = await response.text()
                         print(
-                            f"Error fetching data for '{title}': HTTP {response.status} - {error_text}"
+                            f"Error fetching data for '{paper_title}': HTTP {response.status} - {error_text}"
                         )
                         return None
             except aiohttp.ClientError as e:
                 print(
-                    f"Network error fetching '{title}': {e}. Retrying..."
+                    f"Network error fetching '{paper_title}': {e}. Retrying..."
                     f" (Attempt {attempt + 1}/{MAX_RETRIES})"
                 )
                 await asyncio.sleep(delay)
                 delay *= BACKOFF_FACTOR
             except TimeoutError:
                 print(
-                    f"Timeout error fetching '{title}'. Retrying..."
+                    f"Timeout error fetching '{paper_title}'. Retrying..."
                     f" (Attempt {attempt + 1}/{MAX_RETRIES})"
                 )
                 await asyncio.sleep(delay)
@@ -92,16 +101,30 @@ async def _fetch_paper_info(
 
             attempt += 1
 
-        print(f"Failed to fetch data for '{title}' after {MAX_RETRIES} attempts.")
+        print(f"Failed to fetch data for '{paper_title}' after {MAX_RETRIES} attempts.")
         return None
 
 
 async def _download_paper_info(
-    input_file: Path, fields_str: str, output_path: Path, api_key: str
+    input_file: Path,
+    fields_str: str,
+    output_path: Path,
+    api_key: str,
+    min_fuzzy: int | None,
 ) -> None:
-    """Download paper information for multiple titles."""
+    """Download paper information for multiple titles.
+
+    The input file is a JSON array with the "title" field. These should be the unique
+    papers cited from the ASAP papers.
+
+    The API allows us to specify the returned fields, so pass just the relevant ones
+    to minimise the bandwidth required.
+    """
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
-    papers = json.loads(input_file.read_text())
+    papers: list[dict[str, Any]] = json.loads(input_file.read_text())
+    unique_titles: set[str] = {
+        reference["title"] for paper in papers for reference in paper["references"]
+    }
 
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
@@ -109,31 +132,44 @@ async def _download_paper_info(
     ) as session:
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
         tasks = [
-            _fetch_paper_info(session, api_key, paper, fields, semaphore)
-            for paper in papers
+            _fetch_paper_info(session, api_key, title, fields, semaphore)
+            for title in unique_titles
         ]
         results = list(await progress_gather(*tasks, desc="Downloading paper info"))
 
+    results = [
+        result | {"fuzz_ratio": fuzzy_ratio(result["title_query"], result["title"])}
+        for result in results
+    ]
+    results_valid = [result for result in results if result]
+
     print(len(results), "papers")
-    valid_results = [result for result in results if result]
-    print(len(valid_results), "valid")
+    print(len(results_valid), "valid")
 
     output_path.mkdir(parents=True, exist_ok=True)
     (output_path / "semantic_scholar_full.json").write_text(
         json.dumps(results, indent=2)
     )
     (output_path / "semantic_scholar_best.json").write_text(
-        json.dumps(valid_results, indent=2)
+        json.dumps(results_valid, indent=2)
     )
+
+    if min_fuzzy:
+        filtered_data = [
+            paper
+            for paper in results_valid
+            if paper["fuzz_ratio"] >= min_fuzzy and paper["abstract"]
+        ]
+        (output_path / "semantic_scholar_filtered.json").write_text(
+            json.dumps(filtered_data, indent=2)
+        )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument(
-        "input_file", type=Path, help="File containing paper titles, one per line"
-    )
+    parser.add_argument("input_file", type=Path, help="Input file (asap_filtered.json)")
     parser.add_argument(
         "output_path", type=Path, help="Directory to save the downloaded information"
     )
@@ -148,6 +184,12 @@ def main() -> None:
         type=str,
         help="API key for the Semantic Scholar API. Defaults to the"
         " SEMANTIC_SCHOLAR_API_KEY environment variable.",
+    )
+    parser.add_argument(
+        "--min-fuzzy",
+        type=int,
+        default=None,
+        help="Minimum fuzz ratio of titles to filter",
     )
     args = parser.parse_args()
 
@@ -164,7 +206,11 @@ def main() -> None:
         try:
             asyncio.run(
                 _download_paper_info(
-                    args.input_file, args.fields, args.output_path, api_key
+                    args.input_file,
+                    args.fields,
+                    args.output_path,
+                    api_key,
+                    args.min_fuzzy,
                 )
             )
             break  # If _download completes without interruption, exit the loop
