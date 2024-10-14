@@ -5,29 +5,9 @@ greater than 3, the paper is removed from the dataset.
 """
 
 import argparse
-from collections.abc import Sequence
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter
-
-
-class PaperSection(BaseModel):
-    heading: str
-    text: str
-
-
-class Paper(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    title: str
-    abstract: str
-    introduction: str
-    ratings: Sequence[int]
-    sections: Sequence[PaperSection]
-    approval: bool
-
-
-DatasetAdapter = TypeAdapter(list[Paper])
+from paper_hypergraph.asap.model import DatasetAdapter, Paper
 
 
 def _keep_paper(paper: Paper) -> bool:
