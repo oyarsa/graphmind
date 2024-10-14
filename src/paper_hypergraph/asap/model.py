@@ -10,6 +10,15 @@ class PaperSection(BaseModel):
     text: str
 
 
+class PaperReference(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    title: str
+    year: int
+    authors: Sequence[str]
+    contexts: Sequence[str]
+
+
 class Paper(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -19,6 +28,7 @@ class Paper(BaseModel):
     ratings: Sequence[int]
     sections: Sequence[PaperSection]
     approval: bool
+    references: Sequence[PaperReference]
 
 
 DatasetAdapter = TypeAdapter(list[Paper])

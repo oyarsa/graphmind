@@ -6,9 +6,11 @@ will be added as needed.
 
 import argparse
 import json
+from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from paper_hypergraph.asap import process_sections
 
@@ -52,6 +54,40 @@ def _parse_approval(approval: str) -> bool:
     return approval.strip().lower() != "reject"
 
 
+def _process_references(paper: dict[str, Any]) -> list[dict[str, Any]]:
+    class ReferenceKey(NamedTuple):
+        title: str
+        authors: Sequence[str]
+        year: int
+
+    references = paper["references"]
+    references_output: defaultdict[ReferenceKey, set[str]] = defaultdict(set)
+
+    for ref_mention in paper["referenceMentions"]:
+        ref_id = ref_mention["referenceID"]
+
+        if not (0 <= ref_id < len(references)):
+            continue
+
+        ref_original = references[ref_id]
+        ref_author = sorted(ref_original["author"])
+
+        ref_key = ReferenceKey(
+            ref_original["title"], tuple(ref_author), ref_original["year"]
+        )
+        references_output[ref_key].add(ref_mention["context"].strip())
+
+    return [
+        {
+            "title": ref.title,
+            "authors": ref.authors,
+            "year": ref.year,
+            "contexts": list(contexts),
+        }
+        for ref, contexts in references_output.items()
+    ]
+
+
 def extract_interesting(input_file: Path, output_file: Path) -> None:
     """Extract information from the input JSON file and write to the output JSON file.
 
@@ -84,6 +120,7 @@ def extract_interesting(input_file: Path, output_file: Path) -> None:
                 "ratings": ratings,
                 "sections": [asdict(section) for section in sections],
                 "approval": _parse_approval(item["approval"]),
+                "references": _process_references(paper),
             }
         )
 
