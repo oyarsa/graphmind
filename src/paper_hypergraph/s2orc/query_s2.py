@@ -1,13 +1,12 @@
 """Download paper information from the Semantic Scholar API.
 
-The input file is a JSON file with an array of objects, each with a string field "title".
-These represents the unique references from the papers in ASAP[1].
+The input is the output of the ASAP pipeline[1], asap_filtered.json.
 
 The script then queries the S2 API from the titles. S2 does their own paper title
 matching, so we just take the best match directly. We then save the entire output
 to a JSON file along with the original query title.
 
-[1] See paper_hypergraph.asap.unique_titles.
+[1] See paper_hypergraph.asap.preprocess.
 """
 
 import argparse
