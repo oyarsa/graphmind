@@ -36,10 +36,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "input_file", type=Path, help="Path to input file (asap_merged.json)"
     )
-    parser.add_argument(
-        "output_file",
-        type=Path,
-        help="Path to output file: text file with one paper title per line",
-    )
+    parser.add_argument("output_file", type=Path, help="Path to JSON output file")
     args = parser.parse_args()
     main(args.input_file, args.output_file)
