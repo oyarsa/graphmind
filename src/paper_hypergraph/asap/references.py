@@ -1,83 +1,65 @@
-"""Extract references for each paper in ASAP.
+"""Extract references from merged ASAP file (see paper_hypergraph.asap.merge).
 
-This version uses fuzzy matching between the author and year in the context and the
-papers in the paper reference. Author and year are extracted from the context using
-a regex and the author is matched fuzzily, making this inherently noisy.
+Uses the "referenceID" key in each reference mention to get the index to the paper's
+"references" list. Extracts the title, author and year information from there, and
+adds the context from the reference mention.
+
+Groups references with the same title/author/year into a single object with a sorted
+list of unique contexts.
 """
 
 import argparse
 import json
-import re
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from thefuzz import fuzz  # type: ignore
-from tqdm import tqdm
-
-
-def _partial_fuzz_ratio(s1: str, s2: str) -> int:
-    return fuzz.partial_ratio(s1, s2)  # type: ignore
-
 
 def extract_references(input_file: Path, output_file: Path) -> None:
-    """Extract references from merged ASAP file (see paper_hypergraph.asap.merge).
+    """Extract paper reference mentions and their contexts.
 
-    Extracts the author and year from the context using a regular expression, matches
-    against the papers in the references by fuzzy matching the author and comparing the
-    year.
-
-    The output uses the title from the reference, the author and year extracted from
-    the reference context, and the full context itself.
+    Groups mentions to the same paper from different contexts into a single entry.
     """
     data = json.loads(input_file.read_text())
-    citation_regex = re.compile(r"([A-Za-z]+(?: et al\.)?),?\s*(\d{4})")
 
     output: list[dict[str, Any]] = []
 
-    for item in tqdm(data):
+    for item in data:
         paper = item["paper"]
 
-        references = [
-            (ref["shortCiteRegEx"], ref["year"], ref["title"])
-            for ref in paper["references"]
-        ]
-        references_output: list[dict[str, str]] = []
+        references = paper["references"]
+        references_output: dict[tuple[str, Sequence[str], int], dict[str, Any]] = {}
 
-        for ref_sample in paper["referenceMentions"]:
-            context = ref_sample["context"]
-            citations = citation_regex.findall(context)
+        for ref_mention in paper["referenceMentions"]:
+            ref_id = ref_mention["referenceID"]
 
-            for author_, year in citations:
-                author = author_.split("et al")[0].strip()
-                for ref_author_, ref_year, ref_title in references:
-                    if not ref_author_:
-                        continue
+            if not (0 <= ref_id < len(references)):
+                continue
 
-                    author_meta = ref_author_.split("et al")[0].strip()
-                    if _partial_fuzz_ratio(author_meta, author) > 85 and year == str(
-                        ref_year
-                    ):
-                        # Get "exact" direct reference mentions to compare with regex
-                        # and fuzzy approach.
-                        reference_exact_id = ref_sample["referenceID"]
-                        reference_exact = paper["references"][reference_exact_id]
+            ref_original = references[ref_id]
+            ref_author = sorted(ref_original["author"])
+            ref_key = (
+                ref_original["title"],
+                tuple(ref_author),
+                ref_original["year"],
+            )
 
-                        references_output.append(
-                            {
-                                "author": author,
-                                "year": year,
-                                "context": context,
-                                "title": ref_title,
-                                "reference_id": reference_exact_id,
-                                "title_other": reference_exact["title"],
-                            }
-                        )
-                        break
+            if ref_key not in references_output:
+                references_output[ref_key] = {
+                    "title": ref_original["title"],
+                    "author": ref_author,
+                    "year": ref_original["year"],
+                    "contexts": set(),
+                }
+            references_output[ref_key]["contexts"].add(ref_mention["context"].strip())
 
         output.append(
             {
                 "paper_title": paper["title"],
-                "references": references_output,
+                "references": [
+                    ref | {"contexts": list(ref["contexts"])}
+                    for ref in references_output.values()
+                ],
             }
         )
 
