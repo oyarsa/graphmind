@@ -1,4 +1,13 @@
-"""Download paper information from the CrossRef API."""
+"""Download paper information from the CrossRef API.
+
+Takes the processed output from the ASAP pipeline as input (asap_filtered.json), finds
+the unique reference titles and queries them on the Crossref API. This querying is done
+by title, where we get the top 10 matches, of which we find the best matching by fuzzy
+matching. There's a minimum fuzzy threshold (30 by default).
+
+NB: Crossref has very poor performance, so we focus on using query_s2 (Semantic Scholar
+API) instead. This script is likely to break in the future, as it won't be maintained.
+"""
 
 import argparse
 import json
