@@ -9,49 +9,37 @@ default, we use a minimum fuzzy ratio of 80%, which includes 90% of the S2 match
 no papers from S2 clear that threshold for a given reference, the reference is removed.
 
 The ASAP papers used as input come from the ASAP preprocess pipeline, finishing with
-paper_hypergraph.asap.filter.
+paper_hypergraph.asap.filter (asap_filtered.json).
 
-The S2 results come from paper_hypergraph.s2orc.retrieve_papers_semantic_scholar. Note
-that the S2 script uses the result of paper_hypergraph.asap.unique_titles as input,
-which in turn uses the output of paper_hypergraph.asap.merge.
+The S2 results come from paper_hypergraph.s2orc.query_s2. Note that the S2 script also
+uses the result of the ASAP pipeline, asap_filtered.json.
 
 Since the S2 script takes a long time to run, it cannot be used in the middle of the
 pipeline, so this whole part needs to be run manually. The order is:
 
-- `uv run pipeline asap data/asap output`: generates output/asap_merged.json and
-  output/asap_filtered.json
-- `uv run src/paper_hypergraph/asap/unique_titles.py output/asap_merged.json
-  output/asap_titles.json`: uses `asap_merged.json` to generate `asap_titles.json`
-- `uv run src/paper_hypergraph/s2orc/retrieve_papers_semantic_scholar.py
-  output/asap_titles.json output`: uses `asap_titles.json` to generate, among others,
-  `semantic_scholar_filtered.json`
+- `uv run src/paper_hypergraph/asap/pipeline.py data/asap output`:
+    - generates output/asap_filtered.json
+- `uv run src/paper_hypergraph/s2orc/query_s2.py output/asap_filtered.json output`:
+    - uses `output/asap_filtered.json` to generate `semantic_scholar_filtered.json`
 - `uv run src/paper_hypergraph/asap/add_reference_abstracts.py output/asap_filtered.json
-  output/semantic_scholar_filtered.json output/asap_with_abstracts.json`: finally,
-  combines the whole thing to generate an ASAP data file including the reference
-  abstracts
+  output/semantic_scholar_filtered.json output/asap_with_abstracts.json`:
+    - combines the whole thing to generate an ASAP data file including the reference
+      abstracts
 
 Diagram for this pipeline:
 
-+--------------------------------+     +---------------------+     +---------------------+     +---------------------+
-| asap/pipeline.py data/asap out |---->| asap_merged.json    |---->| asap/unique_        |---->| asap_titles.json    |
-+--------------------------------+     +---------------------+     | titles.py           |     +---------------------+
-  |                                                                +---------------------+               |
-  |                                                                                                      |
-  |                                                                                                      |
-  |                                                                                                      v
-  |                                                                                     +---------------------+     +---------------------+
-  |                                                                                     | s2orc/query_s2.py   |---->| semantic_scholar_   |
-  |                                                                                     +---------------------+     | filtered.json       |
-  |                                                                                                                 +---------------------+
-  |                                                                                                                           |
-  |                                                                                                                           |
-  |     +---------------------+                                                                                               |
-  |---->| asap_filtered.json  |                                                                                               |
-        +---------------------+                                                                                               |
-          |                                                                                                                   |
-          |     +---------------------+                                                                                       |
-          |     | asap/add_reference_ |<--------------------------------------------------------------------------------------+
-          +---->| abstracts.py        |
++-----------------------------------+
+| asap/pipeline.py data/asap output |
++-----------------------------------+
+  |
+  |     +---------------------+     +---------------------+     +---------------------+
+  +---->| asap_filtered.json  |---->| s2orc/query_s2.py   |---->| semantic_scholar_   |
+        +---------------------+     +---------------------+     | filtered.json       |
+          |                                                     +---------------------+
+          |                                                               |
+          |     +---------------------+                                   |
+          |     | asap/add_reference_ |                                   |
+          +---->| abstracts.py        |<----------------------------------+
                 +---------------------+
                   |
                   v
