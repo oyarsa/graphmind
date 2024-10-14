@@ -138,7 +138,9 @@ async def _download_paper_info(
 
     if min_fuzzy:
         filtered_data = [
-            paper for paper in results_valid if paper["fuzz_ratio"] >= min_fuzzy
+            paper
+            for paper in results_valid
+            if paper["fuzz_ratio"] >= min_fuzzy and paper["abstract"]
         ]
         (output_path / "semantic_scholar_filtered.json").write_text(
             json.dumps(filtered_data, indent=2)

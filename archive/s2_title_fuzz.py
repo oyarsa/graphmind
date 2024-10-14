@@ -53,7 +53,9 @@ def main(
 
     if min_fuzzy:
         filtered_data = [
-            paper for paper in output_data if paper["fuzz_ratio"] >= min_fuzzy
+            paper
+            for paper in output_data
+            if paper["fuzz_ratio"] >= min_fuzzy and paper["abstract"]
         ]
         if not filtered_file:
             raise typer.Abort("--filtered-file is required with --min-fuzzy")
