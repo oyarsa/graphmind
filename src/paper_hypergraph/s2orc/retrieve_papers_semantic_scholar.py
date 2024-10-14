@@ -168,9 +168,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument(
-        "input_file", type=Path, help="File containing paper titles, one per line"
-    )
+    parser.add_argument("input_file", type=Path, help="JSON containing paper titles")
     parser.add_argument(
         "output_path", type=Path, help="Directory to save the downloaded information"
     )
