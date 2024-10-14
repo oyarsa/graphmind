@@ -13,6 +13,7 @@ import aiohttp
 import dotenv
 
 from paper_hypergraph.s2orc.download import progress_gather
+from paper_hypergraph.util import fuzzy_ratio
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -114,16 +115,21 @@ async def _download_paper_info(
         ]
         results = list(await progress_gather(*tasks, desc="Downloading paper info"))
 
+    results = [
+        result | {"fuzz_ratio": fuzzy_ratio(result["title_query"], result["title"])}
+        for result in results
+    ]
+    results_valid = [result for result in results if result]
+
     print(len(results), "papers")
-    valid_results = [result for result in results if result]
-    print(len(valid_results), "valid")
+    print(len(results_valid), "valid")
 
     output_path.mkdir(parents=True, exist_ok=True)
     (output_path / "semantic_scholar_full.json").write_text(
         json.dumps(results, indent=2)
     )
     (output_path / "semantic_scholar_best.json").write_text(
-        json.dumps(valid_results, indent=2)
+        json.dumps(results_valid, indent=2)
     )
 
 
