@@ -20,7 +20,7 @@ from typing import Annotated
 import typer
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
-from paper_hypergraph.s2orc.retrieve_papers_crossref import fuzzy_ratio
+from paper_hypergraph.util import fuzzy_ratio
 
 
 class Paper(BaseModel):
