@@ -29,6 +29,36 @@ pipeline, so this whole part needs to be run manually. The order is:
   output/semantic_scholar_filtered.json output/asap_with_abstracts.json`: finally,
   combines the whole thing to generate an ASAP data file including the reference
   abstracts
+
+Diagram for this pipeline:
+
++--------------------------------+     +---------------------+     +---------------------+     +---------------------+
+| asap/pipeline.py data/asap out |---->| asap_merged.json    |---->| asap/unique_        |---->| asap_titles.json    |
++--------------------------------+     +---------------------+     | titles.py           |     +---------------------+
+  |                                                                +---------------------+               |
+  |                                                                                                      |
+  |                                                                                                      |
+  |                                                                                                      v
+  |                                                                                     +---------------------+     +---------------------+
+  |                                                                                     | s2orc/query_s2.py   |---->| semantic_scholar_   |
+  |                                                                                     +---------------------+     | filtered.json       |
+  |                                                                                                                 +---------------------+
+  |                                                                                                                           |
+  |                                                                                                                           |
+  |     +---------------------+                                                                                               |
+  |---->| asap_filtered.json  |                                                                                               |
+        +---------------------+                                                                                               |
+          |                                                                                                                   |
+          |     +---------------------+                                                                                       |
+          |     | asap/add_reference_ |<--------------------------------------------------------------------------------------+
+          +---->| abstracts.py        |
+                +---------------------+
+                  |
+                  v
+        +---------------------+
+        | asap_with_          |
+        | abstracts.json      |
+        +---------------------+
 """
 
 import argparse
