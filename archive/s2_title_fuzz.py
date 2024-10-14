@@ -4,11 +4,11 @@ Takes as input the best matches from `paper_hypergraph.s2orc.retrieve_papers_sem
 and calculates the fuzzy ratio between the retrieved best paper title and the original
 title query (`title` vs `title_query`).
 
-The saved result is identical to the input with an extra `fuzz_ratio` field.
+The first saved result is identical to the input with an extra `fuzz_ratio` field.
 
 Also takes a parameter "min_fuzzy" that if present, creates an additional file with only
-entries with `fuzz_ratio` above that threshold. This file has the same name as the
-normal output file, but with `.filtered.json` as extension.
+entries with `fuzz_ratio` above that threshold. This file has the same structure as
+the other saved file.
 
 This isn't necessary for Crossref because it already does the fuzzy matching there, so
 the output already contains the `fuzzy_ratio` field. New versions of the Semantic Scholar
@@ -40,6 +40,9 @@ def main(
     min_fuzzy: Annotated[
         int | None, typer.Option(help="Minimum fuzzy ratio to filter")
     ],
+    filtered_file: Annotated[
+        Path | None, typer.Option(help="Path to output filtered JSON file.")
+    ],
 ) -> None:
     input_data = json.loads(input_file.read_text())
     output_data = [
@@ -52,7 +55,8 @@ def main(
         filtered_data = [
             paper for paper in output_data if paper["fuzz_ratio"] >= min_fuzzy
         ]
-        filtered_file = output_file.with_name(output_file.stem + ".filtered.json")
+        if not filtered_file:
+            raise typer.Abort("--filtered-file is required with --min-fuzzy")
         filtered_file.write_text(json.dumps(filtered_data, indent=2))
 
 
