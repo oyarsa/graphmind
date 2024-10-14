@@ -38,14 +38,13 @@ SEMANTIC_SCHOLAR_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/sear
 async def _fetch_paper_info(
     session: aiohttp.ClientSession,
     api_key: str,
-    paper: dict[str, str],
+    paper_title: str,
     fields: Sequence[str],
     semaphore: asyncio.Semaphore,
 ) -> dict[str, Any] | None:
     """Fetch paper information for a given title. Takes only the best title match."""
-    title = paper["title"]
     params = {
-        "query": title,
+        "query": paper_title,
         "fields": ",".join(fields),
         "limit": 1,  # We're only interested in the best match
     }
@@ -62,9 +61,9 @@ async def _fetch_paper_info(
                     if response.status == 200:
                         data = await response.json()
                         if data.get("data"):
-                            return {"title_query": title} | data["data"][0]
+                            return {"title_query": paper_title} | data["data"][0]
                         else:
-                            print(f"No results found for title: {title}")
+                            print(f"No results found for title: {paper_title}")
                             return None
                     elif response.status == 429:
                         retry_after = response.headers.get("Retry-After")
@@ -75,7 +74,7 @@ async def _fetch_paper_info(
                             wait_time = delay
                             wait_source = "Custom"
                         print(
-                            f"Rate limited (429) when fetching '{title}'. "
+                            f"Rate limited (429) when fetching '{paper_title}'. "
                             f"Retrying after {wait_time} ({wait_source}) seconds..."
                         )
                         await asyncio.sleep(wait_time)
@@ -83,19 +82,19 @@ async def _fetch_paper_info(
                     else:
                         error_text = await response.text()
                         print(
-                            f"Error fetching data for '{title}': HTTP {response.status} - {error_text}"
+                            f"Error fetching data for '{paper_title}': HTTP {response.status} - {error_text}"
                         )
                         return None
             except aiohttp.ClientError as e:
                 print(
-                    f"Network error fetching '{title}': {e}. Retrying..."
+                    f"Network error fetching '{paper_title}': {e}. Retrying..."
                     f" (Attempt {attempt + 1}/{MAX_RETRIES})"
                 )
                 await asyncio.sleep(delay)
                 delay *= BACKOFF_FACTOR
             except TimeoutError:
                 print(
-                    f"Timeout error fetching '{title}'. Retrying..."
+                    f"Timeout error fetching '{paper_title}'. Retrying..."
                     f" (Attempt {attempt + 1}/{MAX_RETRIES})"
                 )
                 await asyncio.sleep(delay)
@@ -103,7 +102,7 @@ async def _fetch_paper_info(
 
             attempt += 1
 
-        print(f"Failed to fetch data for '{title}' after {MAX_RETRIES} attempts.")
+        print(f"Failed to fetch data for '{paper_title}' after {MAX_RETRIES} attempts.")
         return None
 
 
@@ -123,7 +122,10 @@ async def _download_paper_info(
     to minimise the bandwidth required.
     """
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
-    papers = json.loads(input_file.read_text())
+    papers: list[dict[str, Any]] = json.loads(input_file.read_text())
+    unique_titles: set[str] = {
+        reference["title"] for paper in papers for reference in paper["references"]
+    }
 
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
@@ -131,8 +133,8 @@ async def _download_paper_info(
     ) as session:
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
         tasks = [
-            _fetch_paper_info(session, api_key, paper, fields, semaphore)
-            for paper in papers
+            _fetch_paper_info(session, api_key, title, fields, semaphore)
+            for title in unique_titles
         ]
         results = list(await progress_gather(*tasks, desc="Downloading paper info"))
 
@@ -168,7 +170,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("input_file", type=Path, help="JSON containing paper titles")
+    parser.add_argument("input_file", type=Path, help="Input file (asap_filtered.json)")
     parser.add_argument(
         "output_path", type=Path, help="Directory to save the downloaded information"
     )
