@@ -37,12 +37,14 @@ def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
 
 @dataclass(frozen=True)
 class GptResult[T]:
+    """Result of a GPT request and its full API cost."""
+
     result: T
     cost: float
 
 
 def run_gpt[T: BaseModel](
-    type_: type[T],
+    class_: type[T],
     client: OpenAI,
     system_prompt: str,
     user_prompt: str,
@@ -50,26 +52,28 @@ def run_gpt[T: BaseModel](
     seed: int = 0,
     temperature: float = 0,
 ) -> GptResult[T | None]:
-    """Run the GPT query and return a parsed object of `type_` using Structured Output.
+    """Run the GPT query and return a parsed object of `class_` using Structured Outputs.
+
+    See also: https://platform.openai.com/docs/guides/structured-outputs
 
     Args:
-        type_: The class to parse the Structured Output. Must be a Pydantic BaseModel.
+        class_: The class to parse the Structured Outputs. Must be a Pydantic BaseModel.
+            Note that this is the class (type) itself, not an instance.
         client: The OpenAI API client (e.g. openai.OpenAI or openai.AzureOpenAI).
-        system_prompt: Text for the system prompt (role: system). Sent verbatim.
-        user_prompt: Text for the user prompt (role: user). Sent verbatim.
-        model: GPT model code. See `MODELS_ALLOWED`.
-        seed: random seed for the request. Defaults to 0 (hopefully reproducible).
-        temperature: temperature for the model, between 0 and 2. Defaults to 0 to try
+        system_prompt: Text for the system prompt (role: system).
+        user_prompt: Text for the user prompt (role: user).
+        model: Full GPT model name. See `MODELS_ALLOWED`.
+        seed: Random seed for the request. Defaults to 0 to hopefully be reproducible.
+        temperature: Temperature for the model, between 0 and 2. Defaults to 0 to try
             to get consistent outputs from the model.
 
     Returns:
         Result with the cost for the request and the result object parsed. If there
-        was an error with the request, the object is None.
+        was an error with the request (mainly when making the request itself or parsing
+        the result), the object is None. The cost is provided either way.
 
     Raises:
         ValueError: if the `model` is invalid (see `MODELS_ALLOWED`).
-        Exception: any other exception that might happen during the request. See the
-            documentation of `OpenAI.beta.chat.completions.parse`.
     """
     if model not in MODELS_ALLOWED:
         raise ValueError(
@@ -83,7 +87,7 @@ def run_gpt[T: BaseModel](
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            response_format=type_,
+            response_format=class_,
             seed=seed,
             temperature=temperature,
         )
