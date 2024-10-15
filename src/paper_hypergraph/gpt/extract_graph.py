@@ -26,6 +26,7 @@ from tqdm import tqdm
 
 from paper_hypergraph import evaluation_metrics, hierarchical_graph
 from paper_hypergraph.gpt.run_gpt import GptResult, run_gpt
+from paper_hypergraph.util import BlockTimer
 
 logger = logging.getLogger("extract_graph")
 
@@ -639,7 +640,6 @@ def _generate_graphs(
     Returns:
         List of Graphs generated from the papers
     """
-    time_start = time.perf_counter()
 
     total_cost = 0
     graphs: list[Graph] = []
@@ -698,9 +698,6 @@ def _generate_graphs(
         graphs.append(graph)
 
     logger.info(f"Total cost: ${total_cost:.10f}")
-
-    time_elapsed = time.perf_counter() - time_start
-    logger.info(f"Time elapsed: {_convert_time_elapsed(time_elapsed)}")
 
     return GraphResult(graphs=graphs, prompts=prompts)
 
@@ -772,17 +769,18 @@ def extract_graph(
     client = OpenAI()
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_text())
-    papers = data[:limit]
 
-    graph_result = _generate_graphs(
-        client, papers, model, _GRAPH_USER_PROMPTS[graph_user_prompt_key]
-    )
+    papers = data[:limit]
+    graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]
+
+    with BlockTimer() as timer_gen:
+        graphs = generate_graphs(client, papers, model, graph_user_prompt)
+
+    logger.info(f"Graph generation time elapsed: {timer_gen.human}")
+    logger.info(f"Total graph generation cost: ${graphs.cost:.10f}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    _save_graph_prompts(output_dir, papers, graph_result.prompts)
-    _display_graphs(
-        model, graph_user_prompt_key, papers, graph_result.graphs, output_dir, visualise
-    )
+    _display_graphs(model, graph_user_prompt_key, papers, graphs.result)
 
     if classify:
         _classify_papers(
@@ -793,6 +791,18 @@ def extract_graph(
             graph_result.graphs,
             output_dir,
         )
+
+        classify_user_prompt = _CLASSIFY_USER_PROMPTS[classify_user_prompt_key]
+
+        with BlockTimer() as timer_class:
+            results = classify_papers(
+                client, model, classify_user_prompt, papers, graphs.result
+            )
+        metrics = _calculate_metrics(results.result)
+        logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
+
+        logger.info(f"Classification time elapsed: {timer_class.human}")
+        logger.info(f"Total classification cost: ${results.cost:.10f}")
 
 
 class PaperPrompt(BaseModel):
@@ -828,22 +838,6 @@ def graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
             for r in graph.relationships
         ],
     )
-
-
-def _convert_time_elapsed(seconds: float) -> str:
-    """Convert a time duration from seconds to a human-readable format."""
-    units = [("d", 86400), ("h", 3600), ("m", 60)]
-    parts: list[str] = []
-
-    for name, count in units:
-        value, seconds = divmod(seconds, count)
-        if value >= 1:
-            parts.append(f"{int(value)}{name}")
-
-    if seconds > 0 or not parts:
-        parts.append(f"{seconds:.2f}s")
-
-    return " ".join(parts)
 
 
 def main() -> None:
