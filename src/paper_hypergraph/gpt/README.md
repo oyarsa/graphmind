@@ -29,3 +29,15 @@ Change the level using the `LOG_LEVEL` environment variable.
 ```bash
 $ LOG_LEVEL=DEBUG uv run src/paper_hypergraph/gpt/extract_graph.py /path/to/asap_extracted.json
 ```
+
+## Context classification
+
+One of the key elements of the graph is classifying the relation between the main paper
+and its citations. Each citation has one or more accompanying contexts, which we can use
+to determine the citation polarity: whether it was positive (the cited paper supports
+the argument) or negative (the paper serves as contrast). We can also determine the
+citation type: whether it concerns the method, results, contributions, etc.
+
+For now, we explore this as a separate script, `classify_contexts.py`. Eventually, this
+would be added to the main `extract_graph.py` script to be performed along the other
+parts of the pipeline.
