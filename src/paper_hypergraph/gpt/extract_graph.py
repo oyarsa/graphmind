@@ -14,7 +14,6 @@ import textwrap
 import time
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from typing import Self
@@ -26,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
 from paper_hypergraph import evaluation_metrics, hierarchical_graph
+from paper_hypergraph.gpt.run_gpt import GptResult, run_gpt
 
 logger = logging.getLogger("extract_graph")
 
@@ -62,10 +62,6 @@ class GPTGraph(BaseModel):
 
     entities: Sequence[GPTEntity]
     relationships: Sequence[GPTRelationship]
-
-    @classmethod
-    def empty(cls) -> Self:
-        return cls(entities=[], relationships=[])
 
     def __str__(self) -> str:
         entities = "\n".join(
@@ -263,19 +259,6 @@ _MODEL_SYNONYMS = {
 _MODELS_ALLOWED = sorted(_MODEL_SYNONYMS.keys() | _MODEL_SYNONYMS.values())
 
 
-# Cost in $ per 1M tokens: (input cost, output cost)
-# From https://openai.com/api/pricing/
-_MODEL_COSTS = {
-    "gpt-4o-mini-2024-07-18": (0.15, 0.6),
-    "gpt-4o-2024-08-06": (2.5, 10),
-}
-
-
-def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
-    input_cost, output_cost = _MODEL_COSTS[model]
-    return prompt_tokens / 1e6 * input_cost + completion_tokens / 1e6 * output_cost
-
-
 _CLASSIFY_SYSTEM_PROMPT = (
     "Approve or reject the scientific paper based on the extracted entities."
 )
@@ -290,108 +273,11 @@ rationale for your decision, then give the final decision.
 }
 
 
-@dataclass(frozen=True)
-class GPTResult[T]:
-    result: T
-    cost: float
-    system_prompt: str
-    user_prompt: str
-
-
-def run_gpt_graph(
-    client: OpenAI, system_prompt: str, user_prompt: str, model: str
-) -> GPTResult[GPTGraph]:
-    """Run prompt to generate a graph from the paper.
-
-    The user prompt is passed complete, i.e. the variables (e.g. title, abstract,
-    sections) must have been filled. See `_GRAPH_USER_PROMPTS` for examples.
-    """
-
-    try:
-        completion = client.beta.chat.completions.parse(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format=GPTGraph,
-            seed=0,
-            temperature=0,
-        )
-    except Exception:
-        logger.exception("Error making API request")
-        return GPTResult(
-            result=GPTGraph.empty(),
-            cost=float("nan"),
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-        )
-
-    usage = completion.usage
-    if usage is not None:
-        cost = calc_cost(model, usage.prompt_tokens, usage.completion_tokens)
-    else:
-        cost = 0
-
-    parsed = completion.choices[0].message.parsed
-    result = parsed if parsed else GPTGraph.empty()
-
-    return GPTResult(
-        result=result, cost=cost, system_prompt=system_prompt, user_prompt=user_prompt
-    )
-
-
-class GPTClassify(BaseModel):
+class GptClassify(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     rationale: str
     approved: bool
-
-    @classmethod
-    def empty(cls) -> Self:
-        return cls(rationale="", approved=False)
-
-
-def run_gpt_classify(
-    client: OpenAI, system_prompt: str, user_prompt: str, model: str
-) -> GPTResult[GPTClassify]:
-    """Run prompt to classify a paper based on the generated graph.
-
-    The user prompt is passed complete, i.e. the variables (e.g. title, abstract,
-    sections) must have been filled. See `_CLASSIFY_USER_PROMPTS` for examples.
-    """
-    try:
-        completion = client.beta.chat.completions.parse(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format=GPTClassify,
-            seed=0,
-            temperature=0,
-        )
-    except Exception:
-        logger.exception("Error making API request")
-        return GPTResult(
-            result=GPTClassify.empty(),
-            cost=float("nan"),
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-        )
-
-    usage = completion.usage
-    if usage is not None:
-        cost = calc_cost(model, usage.prompt_tokens, usage.completion_tokens)
-    else:
-        cost = 0
-
-    parsed = completion.choices[0].message.parsed
-    result = parsed if parsed else GPTClassify.empty()
-
-    return GPTResult(
-        result=result, cost=cost, system_prompt=system_prompt, user_prompt=user_prompt
-    )
 
 
 def _log_config(
@@ -530,6 +416,30 @@ RATING_APPROVAL_THRESHOLD = 5
 """A rating is an approval if it's greater of equal than this."""
 
 
+def generate_graphs(
+    client: OpenAI, data: list[Paper], model: str, user_prompt: str
+) -> GptResult[list[Graph]]:
+    total_cost = 0
+    graphs: list[Graph] = []
+
+    for example in tqdm(data, desc="Extracting graphs"):
+        prompt = user_prompt.format(
+            title=example.title,
+            abstract=example.abstract,
+            main_text=example.main_text(),
+        )
+        result = run_gpt(GPTGraph, client, _GRAPH_SYSTEM_PROMPT, prompt, model)
+        graph = (
+            Graph.from_gpt_graph(result.result)
+            if result.result
+            else Graph(entities=[], relationships=[])
+        )
+        total_cost += result.cost
+        graphs.append(graph)
+
+    return GptResult(graphs, total_cost)
+
+
 class RatingEvaluationStrategy(StrEnum):
     """Strategy used to convert a Sequence of integer ratings into a binary label."""
 
@@ -605,7 +515,7 @@ def _classify_papers(
     papers: Sequence[Paper],
     graphs: Sequence[Graph],
     output_dir: Path,
-) -> None:
+) -> GptResult[list[PaperResult]]:
     """Classify Papers into approved/not approved using the generated graphs.
 
     The output - input dataset information, predicted values and metrics - is written
@@ -623,6 +533,7 @@ def _classify_papers(
         None. The outputs are saved to disk.
     """
     results: list[PaperResult] = []
+    total_cost = 0
 
     for paper, graph in tqdm(
         zip(papers, graphs), desc="Classifying papers", total=len(papers)
@@ -632,9 +543,12 @@ def _classify_papers(
             abstract=paper.abstract,
             graph=graph.model_dump_json(),
         )
-        classified = run_gpt_classify(
-            client, _CLASSIFY_SYSTEM_PROMPT, user_prompt, model
+        result = run_gpt(
+            GptClassify, client, _CLASSIFY_SYSTEM_PROMPT, user_prompt, model
         )
+        total_cost += result.cost
+        classified = result.result
+
         results.append(
             PaperResult(
                 title=paper.title,
@@ -642,12 +556,13 @@ def _classify_papers(
                 ratings=paper.ratings,
                 sections=paper.sections,
                 y_true=paper.is_approved(),
-                y_pred=classified.result.approved,
+                y_pred=classified.approved if classified else False,
             )
         )
 
     metrics = _calculate_metrics(results)
     logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
+    return GptResult(results, total_cost)
 
     classification_dir = output_dir / "classification"
     classification_dir.mkdir(parents=True, exist_ok=True)
@@ -734,8 +649,12 @@ def _generate_graphs(
             main_text=example.main_text(),
         )
 
-        result = run_gpt_graph(client, _GRAPH_SYSTEM_PROMPT, user_prompt, model)
-        graph = Graph.from_gpt_graph(result.result)
+        result = run_gpt(GPTGraph, client, _GRAPH_SYSTEM_PROMPT, user_prompt, model)
+        graph = (
+            Graph.from_gpt_graph(result.result)
+            if result.result
+            else Graph(entities=[], relationships=[])
+        )
         total_cost += result.cost
 
         concept_relations_count = Counter(
@@ -774,7 +693,6 @@ def _generate_graphs(
         )
 
         graphs.append(graph)
-        prompts.append(Prompt(system=result.system_prompt, user=result.user_prompt))
 
     logger.info(f"Total cost: ${total_cost:.10f}")
 
