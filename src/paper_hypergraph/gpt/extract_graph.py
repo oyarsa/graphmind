@@ -309,7 +309,8 @@ def _log_config(
     model: str,
     data_path: Path,
     limit: int | None,
-    user_prompt: str,
+    graph_user_prompt: str,
+    classify_user_prompt: str,
     output_dir: Path,
 ) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
@@ -321,7 +322,8 @@ def _log_config(
         f"  Data hash (sha256): {data_hash}\n"
         f"  Output dir: {output_dir.resolve()}\n"
         f"  Limit: {limit if limit is not None else 'All'}\n"
-        f"  User prompt: {user_prompt}\n"
+        f"  Graph prompt: {graph_user_prompt}\n"
+        f"  Classify prompt: {classify_user_prompt}\n"
     )
 
 
@@ -762,7 +764,8 @@ def extract_graph(
         model=model,
         data_path=data_path,
         limit=limit,
-        user_prompt=graph_user_prompt_key,
+        graph_user_prompt=graph_user_prompt_key,
+        classify_user_prompt=classify_user_prompt_key,
         output_dir=output_dir,
     )
 
