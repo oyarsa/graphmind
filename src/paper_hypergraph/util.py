@@ -1,8 +1,11 @@
 """Infamous utility module for stuff I can't place anywhere else."""
 
+import logging
+import os
 import time
 from typing import Any, Self
 
+import colorlog
 from thefuzz import fuzz  # type: ignore
 
 
@@ -12,22 +15,6 @@ def fuzzy_ratio(s1: str, s2: str) -> int:
     Type-safe wrapper around thefuzz.fuzz.ratio.
     """
     return fuzz.ratio(s1, s2)  # type: ignore
-
-
-def convert_time_elapsed(seconds: float) -> str:
-    """Convert a time duration from seconds to a human-readable format."""
-    units = [("d", 86400), ("h", 3600), ("m", 60)]
-    parts: list[str] = []
-
-    for name, count in units:
-        value, seconds = divmod(seconds, count)
-        if value >= 1:
-            parts.append(f"{int(value)}{name}")
-
-    if seconds > 0 or not parts:
-        parts.append(f"{seconds:.2f}s")
-
-    return " ".join(parts)
 
 
 class BlockTimer:
@@ -72,3 +59,15 @@ class BlockTimer:
             parts.append(f"{seconds:.2f}s")
 
         return " ".join(parts)
+
+
+def setup_logging(logger: logging.Logger) -> None:
+    level = os.environ.get("LOG_LEVEL", "INFO").upper()
+    logger.setLevel(level)
+    handler = colorlog.StreamHandler()
+
+    fmt = "%(log_color)s%(asctime)s | %(levelname)s | %(name)s:%(lineno)d | %(message)s"
+    datefmt = "%Y-%m-%d %H:%M:%S"
+    handler.setFormatter(colorlog.ColoredFormatter(fmt=fmt, datefmt=datefmt))
+
+    logger.addHandler(handler)

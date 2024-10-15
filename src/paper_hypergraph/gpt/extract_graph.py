@@ -10,15 +10,12 @@ import argparse
 import hashlib
 import logging
 import os
-import textwrap
-import time
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from enum import StrEnum
 from pathlib import Path
 from typing import Self
 
-import colorlog
 import dotenv
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
@@ -26,7 +23,7 @@ from tqdm import tqdm
 
 from paper_hypergraph import evaluation_metrics, hierarchical_graph
 from paper_hypergraph.gpt.run_gpt import GptResult, run_gpt
-from paper_hypergraph.util import BlockTimer
+from paper_hypergraph.util import BlockTimer, setup_logging
 
 logger = logging.getLogger("extract_graph")
 
@@ -626,88 +623,6 @@ class GraphResult(BaseModel):
     prompts: Sequence[Prompt]
 
 
-def _generate_graphs(
-    client: OpenAI, papers: Sequence[Paper], model: str, user_prompt_template: str
-) -> GraphResult:
-    """Generate graphs describing the structure and arguments of a scientific paper.
-
-    Args:
-        client: OpenAI client to use GPT
-        papers: Papers from the ASAP-Review dataset to classify
-        model: GPT model code to use (must support Structured Outputs)
-        user_prompt_template: User prompt template to use for classification to be filled
-
-    Returns:
-        List of Graphs generated from the papers
-    """
-
-    total_cost = 0
-    graphs: list[Graph] = []
-    prompts: list[Prompt] = []
-
-    for example in tqdm(papers, desc="Extracting graphs"):
-        user_prompt = user_prompt_template.format(
-            title=example.title,
-            abstract=example.abstract,
-            main_text=example.main_text(),
-        )
-
-        result = run_gpt(GPTGraph, client, _GRAPH_SYSTEM_PROMPT, user_prompt, model)
-        graph = (
-            Graph.from_gpt_graph(result.result)
-            if result.result
-            else Graph(entities=[], relationships=[])
-        )
-        total_cost += result.cost
-
-        concept_relations_count = Counter(
-            r.type
-            for r in graph.relationships
-            if next(e for e in graph.entities if e.name == r.source).type
-            is EntityType.CONCEPT
-        )
-        concept_relations_display = ", ".join(
-            f"{type} - {count}"
-            for type, count in sorted(
-                concept_relations_count.items(), key=lambda x: x[0]
-            )
-        )
-
-        sentences_num = sum(e.type is EntityType.SENTENCE for e in graph.entities)
-        hierarchy_valid = graph_to_dag(graph).validate_hierarchy()
-        properties_valid = validate_rules(graph)
-
-        hierarchy_display = (
-            "Valid" if hierarchy_valid is None else _wrap_and_indent(hierarchy_valid)
-        )
-        properties_display = (
-            "Valid" if properties_valid is None else _wrap_and_indent(properties_valid)
-        )
-
-        logger.debug(
-            "Example:\n"
-            f"{example}\n"
-            "Graph:\n"
-            f"{graph}\n"
-            f"Number of sentences: {sentences_num}\n"
-            f"Sentence relation types: {concept_relations_display}\n"
-            f"Graph validation - Hierarchy: {hierarchy_display or 'Valid'}\n"
-            f"Graph validation - Properties: {properties_display or 'Valid'}\n"
-        )
-
-        graphs.append(graph)
-
-    logger.info(f"Total cost: ${total_cost:.10f}")
-
-    return GraphResult(graphs=graphs, prompts=prompts)
-
-
-def _wrap_and_indent(text: str, width: int = 90, indent: int = 2) -> str:
-    """Wrap text to a width and indent the extra lines if there are more than one."""
-    wrapped = textwrap.wrap(text, width=width)
-    return "\n".join([wrapped[0]] + [" " * indent + line for line in wrapped[1:]])
-
-
 def extract_graph(
     model: str,
     api_key: str | None,
@@ -780,7 +695,9 @@ def extract_graph(
     logger.info(f"Total graph generation cost: ${graphs.cost:.10f}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    _display_graphs(model, graph_user_prompt_key, papers, graphs.result)
+    _display_graphs(
+        model, graph_user_prompt_key, papers, graphs.result, output_dir, visualise
+    )
 
     if classify:
         _classify_papers(
@@ -788,15 +705,15 @@ def extract_graph(
             model,
             _CLASSIFY_USER_PROMPTS[classify_user_prompt_key],
             papers,
-            graph_result.graphs,
+            graphs.result,
             output_dir,
         )
 
         classify_user_prompt = _CLASSIFY_USER_PROMPTS[classify_user_prompt_key]
 
         with BlockTimer() as timer_class:
-            results = classify_papers(
-                client, model, classify_user_prompt, papers, graphs.result
+            results = _classify_papers(
+                client, model, classify_user_prompt, papers, graphs.result, output_dir
             )
         metrics = _calculate_metrics(results.result)
         logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
@@ -810,24 +727,6 @@ class PaperPrompt(BaseModel):
 
     paper: Paper
     prompt: Prompt
-
-
-def _save_graph_prompts(
-    output_dir: Path, papers: Sequence[Paper], prompts: Sequence[Prompt]
-) -> None:
-    """Save the papers and prompts used to generate the graphs to disk.
-
-    Files will be saved to {output_dir}/prompts.json
-    """
-    (output_dir / "paper_prompts.json").write_bytes(
-        TypeAdapter(list[PaperPrompt]).dump_json(
-            [
-                PaperPrompt(paper=paper, prompt=prompt)
-                for paper, prompt in zip(papers, prompts)
-            ],
-            indent=2,
-        )
-    )
 
 
 def graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
@@ -937,7 +836,7 @@ def main() -> None:
     )
 
     args = parser.parse_args()
-    _setup_logging(logging.getLogger("extract_graph"))
+    setup_logging(logger)
 
     if args.subcommand == "prompts":
         _display_prompts(detail=args.detail)
@@ -972,18 +871,6 @@ def _display_prompts(detail: bool) -> None:
                 print(f"{sep}\n{key}\n{sep}\n{prompt}")
             else:
                 print(f"- {key}")
-
-
-def _setup_logging(logger: logging.Logger) -> None:
-    level = os.environ.get("LOG_LEVEL", "INFO").upper()
-    logger.setLevel(level)
-    handler = colorlog.StreamHandler()
-
-    fmt = "%(log_color)s%(asctime)s | %(levelname)s | %(name)s:%(lineno)d | %(message)s"
-    datefmt = "%Y-%m-%d %H:%M:%S"
-    handler.setFormatter(colorlog.ColoredFormatter(fmt=fmt, datefmt=datefmt))
-
-    logger.addHandler(handler)
 
 
 if __name__ == "__main__":
