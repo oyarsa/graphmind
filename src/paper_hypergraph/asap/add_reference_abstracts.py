@@ -55,53 +55,17 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph.asap.model import DatasetAdapter, PaperReference, PaperSection
+from paper_hypergraph.asap.model import (
+    ASAPDatasetAdapter,
+    PaperReference,
+    PaperWithFullReference,
+    ReferenceWithAbstract,
+    S2Paper,
+)
 from paper_hypergraph.util import fuzzy_ratio
-
-
-class S2Paper(BaseModel):
-    """Paper from the S2 API.
-
-    Attributes:
-        title_query: the original title used to query the API.
-        abstract: abstract text.
-
-    NB: We got more data from the API, but this is what's relevant here. See also
-    `paper_hypergraph.s2orc.query_s2`.
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    title_query: str
-    title: str
-    abstract: str
-
-
-class ReferenceWithAbstract(PaperReference):
-    """ASAP reference with the added abstract and the original S2 title.
-
-    `s2title` is the title in the S2 data for the best match. It can be used to match
-    back to the original S2 file if desired.
-    """
-
-    abstract: str
-    s2title: str
-
-
-class PaperWithFullReference(BaseModel):
-    """Paper from ASAP where the references contain their abstract."""
-
-    model_config = ConfigDict(frozen=True)
-
-    title: str
-    abstract: str
-    ratings: Sequence[int]
-    sections: Sequence[PaperSection]
-    approval: bool
-    references: Sequence[ReferenceWithAbstract]
 
 
 def _match_paper_external(
@@ -149,7 +113,9 @@ def add_references(
     Matching is done by fuzzy matching, with a minimum fuzzy score. If no S2 papers
     match a given reference, the reference is removed.
     """
-    source_papers = DatasetAdapter.validate_json(papers_file.read_text())[:file_limit]
+    source_papers = ASAPDatasetAdapter.validate_json(papers_file.read_text())[
+        :file_limit
+    ]
     external_papers = TypeAdapter(list[S2Paper]).validate_json(
         external_files.read_bytes()
     )
