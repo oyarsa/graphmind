@@ -74,13 +74,19 @@ class S2Paper(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     title_query: str
+    title: str
     abstract: str
 
 
 class ReferenceWithAbstract(PaperReference):
-    """ASAP reference with an added `abstract` field."""
+    """ASAP reference with the added abstract and the original S2 title.
+
+    `s2title` is the title in the S2 data for the best match. It can be used to match
+    back to the original S2 file if desired.
+    """
 
     abstract: str
+    s2title: str
 
 
 class PaperWithFullReference(BaseModel):
@@ -125,6 +131,7 @@ def _match_paper_external(
         authors=source.authors,
         contexts=source.contexts,
         abstract=best_external.abstract,
+        s2title=best_external.title,
     )
 
 
