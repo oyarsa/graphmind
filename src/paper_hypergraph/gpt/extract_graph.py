@@ -35,6 +35,30 @@ class RelationType(StrEnum):
     CONTRAST = "contrast"
 
 
+class RatingEvaluationStrategy(StrEnum):
+    MEAN = "mean"
+    """Mean rating is higher than the threshold."""
+    MAJORITY = "majority"
+    """Majority of ratings are higher than the threshold."""
+    DEFAULT = MEAN
+
+    def is_approved(self, ratings: Sequence[int]) -> bool:
+        match self:
+            case RatingEvaluationStrategy.MEAN:
+                mean = sum(ratings) / len(ratings)
+                return mean >= RATING_APPROVAL_THRESHOLD
+            case RatingEvaluationStrategy.MAJORITY:
+                approvals = [r >= RATING_APPROVAL_THRESHOLD for r in ratings]
+                return sum(approvals) >= len(approvals) / 2
+
+
+class PaperSection(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    heading: str
+    text: str
+
+
 class GPTRelationship(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -438,29 +462,6 @@ def generate_graphs(
         graphs.append(graph)
 
     return GptResult(graphs, total_cost)
-
-
-class RatingEvaluationStrategy(StrEnum):
-    """Strategy used to convert a Sequence of integer ratings into a binary label."""
-
-    MEAN = "mean"
-    """Mean rating is higher than the threshold."""
-    MAJORITY = "majority"
-    """Majority of ratings are higher than the threshold."""
-
-    def is_approved(self, ratings: Sequence[int]) -> bool:
-        match self:
-            case RatingEvaluationStrategy.MEAN:
-                mean = sum(ratings) / len(ratings)
-                return mean >= RATING_APPROVAL_THRESHOLD
-            case RatingEvaluationStrategy.MAJORITY:
-                approvals = [r >= RATING_APPROVAL_THRESHOLD for r in ratings]
-                return sum(approvals) >= len(approvals) / 2
-
-
-class PaperSection(BaseModel):
-    heading: str
-    text: str
 
 
 class Paper(BaseModel):
