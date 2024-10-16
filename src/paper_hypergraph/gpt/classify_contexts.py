@@ -280,8 +280,7 @@ def classify_contexts(
     logger.info(f"Total cost: ${results.cost:.10f}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    classification_dir = output_dir / "context"
-    (classification_dir / "result.json").write_text(
+    (output_dir / "result.json").write_text(
         TypeAdapter(list[PaperOutput]).dump_json(results.result, indent=2).decode()
     )
 
