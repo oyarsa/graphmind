@@ -133,7 +133,11 @@ class GptContext(BaseModel):
 
 
 def _classify_contexts(
-    client: OpenAI, model: str, user_prompt_template: str, papers: Sequence[PaperInput]
+    client: OpenAI,
+    model: str,
+    user_prompt_template: str,
+    papers: Sequence[PaperInput],
+    limit_references: int | None,
 ) -> GptResult[list[PaperOutput]]:
     """Classify the contexts for each papers' references by polarity and type.
 
@@ -151,7 +155,8 @@ def _classify_contexts(
     for paper in tqdm(papers, desc="Classifying contexts"):
         classified_references: list[Reference] = []
 
-        for reference in paper.references:
+        references = paper.references[:limit_references]
+        for reference in references:
             classified_contexts: list[ContextClassified] = []
 
             for context in reference.contexts:
@@ -189,7 +194,7 @@ def _classify_contexts(
 
         # Some references might have fewer contexts after classification, but all
         # references should be in the output.
-        assert len(classified_references) == len(paper.references)
+        assert len(classified_references) == len(references)
 
         paper_outputs.append(
             PaperOutput(
@@ -210,7 +215,8 @@ def _log_config(
     *,
     model: str,
     data_path: Path,
-    limit: int | None,
+    limit_papers: int | None,
+    limit_references: int | None,
     user_prompt: str,
     output_dir: Path,
 ) -> None:
@@ -222,7 +228,10 @@ def _log_config(
         f"  Data path: {data_path.resolve()}\n"
         f"  Data hash (sha256): {data_hash}\n"
         f"  Output dir: {output_dir.resolve()}\n"
-        f"  Limit: {limit if limit is not None else 'All'}\n"
+        f"  Limit papers: {limit_papers if limit_papers is not None else 'All'}\n"
+        f"  Limit references: {
+            limit_references if limit_references is not None else 'All'
+        }\n"
         f"  User prompt: {user_prompt}\n"
     )
 
@@ -231,9 +240,10 @@ def classify_contexts(
     model: str,
     api_key: str | None,
     data_path: Path,
-    limit: int | None,
+    limit_papers: int | None,
     user_prompt_key: str,
     output_dir: Path,
+    limit_references: int | None,
 ) -> None:
     """Classify reference citation contexts by polarity and type."""
 
@@ -248,7 +258,8 @@ def classify_contexts(
     _log_config(
         model=model,
         data_path=data_path,
-        limit=limit,
+        limit_papers=limit_papers,
+        limit_references=limit_references,
         user_prompt=user_prompt_key,
         output_dir=output_dir,
     )
@@ -257,11 +268,13 @@ def classify_contexts(
 
     data = TypeAdapter(list[PaperInput]).validate_json(data_path.read_text())
 
-    papers = data[:limit]
+    papers = data[:limit_papers]
     user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
 
     with BlockTimer() as timer:
-        results = _classify_contexts(client, model, user_prompt, papers)
+        results = _classify_contexts(
+            client, model, user_prompt, papers, limit_references
+        )
 
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${results.cost:.10f}")
@@ -326,14 +339,20 @@ def main() -> None:
         "-n",
         type=int,
         default=1,
-        help="The number of papers to process. Defaults to 1 example.",
+        help="The number of papers to process. Defaults to %(default)s example.",
     )
     run_parser.add_argument(
         "--user-prompt",
         type=str,
         choices=_CONTEXT_USER_PROMPTS.keys(),
-        default="bullets",
-        help="The user prompt to use for the graph extraction. Defaults to %(default)s.",
+        default="simple",
+        help="The user prompt to use for context classification. Defaults to %(default)s.",
+    )
+    run_parser.add_argument(
+        "--ref-limit",
+        type=int,
+        default=None,
+        help="The number of references per paper to process. Defaults to all.",
     )
 
     # 'prompts' subcommand parser
@@ -361,6 +380,7 @@ def main() -> None:
             args.limit,
             args.user_prompt,
             args.output_dir,
+            args.ref_limit,
         )
 
 
