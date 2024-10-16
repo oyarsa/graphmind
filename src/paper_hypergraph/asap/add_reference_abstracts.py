@@ -135,7 +135,9 @@ def add_references(
         )
         for paper in tqdm(source_papers)
     ]
-    output_file.write_bytes(TypeAdapter(list[PaperWithFullReference]).dump_json(output))
+    output_file.write_bytes(
+        TypeAdapter(list[PaperWithFullReference]).dump_json(output, indent=2)
+    )
 
 
 def main() -> None:

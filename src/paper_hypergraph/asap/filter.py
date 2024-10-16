@@ -27,7 +27,7 @@ def filter_ratings(input_file: Path, output_file: Path) -> None:
     print("no.  input papers:", len(data))
     print("no. output papers:", len(output), f"({len(output) / len(data):.2%})")
 
-    output_file.write_bytes(ASAPDatasetAdapter.dump_json(output))
+    output_file.write_bytes(ASAPDatasetAdapter.dump_json(output, indent=2))
 
 
 def main() -> None:
