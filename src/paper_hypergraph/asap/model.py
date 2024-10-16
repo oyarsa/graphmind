@@ -1,34 +1,38 @@
 from collections.abc import Sequence
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 
 # Models from the ASAP files after exctraction (e.g. asap_filtered.json)
 class PaperSection(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    heading: str
-    text: str
+    heading: str = Field(description="Section heading")
+    text: str = Field(description="Section full text")
 
 
 class PaperReference(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    title: str
-    year: int
-    authors: Sequence[str]
-    contexts: Sequence[str]
+    title: str = Field(description="Title of the citation in the paper references")
+    year: int = Field(description="Year of publication")
+    authors: Sequence[str] = Field(description="Author names")
+    contexts: Sequence[str] = Field(description="Citation contexts from this reference")
 
 
 class Paper(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    title: str
-    abstract: str
-    ratings: Sequence[int]
-    sections: Sequence[PaperSection]
-    approval: bool
-    references: Sequence[PaperReference]
+    title: str = Field(description="Paper title")
+    abstract: str = Field(description="Abstract text")
+    ratings: Sequence[int] = Field(description="Reviewer ratings (1 to 5)")
+    sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
+    approval: bool = Field(
+        description="Approval decision - whether the paper was approved"
+    )
+    references: Sequence[PaperReference] = Field(
+        description="References made in the paper"
+    )
 
 
 ASAPDatasetAdapter = TypeAdapter(list[Paper])
@@ -42,8 +46,8 @@ class ReferenceWithAbstract(PaperReference):
     back to the original S2 file if desired.
     """
 
-    abstract: str
-    s2title: str
+    abstract: str = Field(description="Abstract text")
+    s2title: str = Field(description="Title from the S2 data")
 
 
 class PaperWithFullReference(BaseModel):
@@ -51,12 +55,16 @@ class PaperWithFullReference(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    title: str
-    abstract: str
-    ratings: Sequence[int]
-    sections: Sequence[PaperSection]
-    approval: bool
-    references: Sequence[ReferenceWithAbstract]
+    title: str = Field(description="Paper title")
+    abstract: str = Field(description="Abstract text")
+    ratings: Sequence[int] = Field(description="Reviewer ratings (1 to 5)")
+    sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
+    approval: bool = Field(
+        description="Approval decision - whether the paper was approved"
+    )
+    references: Sequence[ReferenceWithAbstract] = Field(
+        description="References made in the paper with their abstracts"
+    )
 
 
 class S2Paper(BaseModel):
@@ -72,6 +80,6 @@ class S2Paper(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    title_query: str
-    title: str
-    abstract: str
+    title_query: str = Field(description="Title used in the API query (from ASAP)")
+    title: str = Field(description="Title from the S2 data")
+    abstract: str = Field(description="Abstract text")
