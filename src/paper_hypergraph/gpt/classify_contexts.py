@@ -109,7 +109,7 @@ Main paper abstract:
 
 Reference title: {reference_title}
 Reference abstract:
-{referece_abstract}
+{reference_abstract}
 
 Citation context: {context}
 """
