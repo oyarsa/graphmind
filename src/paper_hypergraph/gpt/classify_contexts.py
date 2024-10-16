@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import logging
 import os
+from collections import Counter
 from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
@@ -279,10 +280,37 @@ def classify_contexts(
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${results.cost:.10f}")
 
+    logger.info("Classification frequency\n" + show_classified_stats(results.result))
+
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "result.json").write_text(
         TypeAdapter(list[PaperOutput]).dump_json(results.result, indent=2).decode()
     )
+
+
+def show_classified_stats(input_data: Sequence[PaperOutput]) -> str:
+    context_polarity: list[str] = []
+    context_type: list[str] = []
+
+    for paper in input_data:
+        for reference in paper.references:
+            for context in reference.contexts:
+                context_polarity.append(context.polarity)
+                context_type.append(context.type)
+
+    counter_polarity = Counter(context_polarity)
+    counter_type = Counter(context_type)
+
+    output: list[str] = []
+    for member, counter in [("polarity", counter_polarity), ("type", counter_type)]:
+        output.append(f">>> {member}")
+
+        for key, count in counter.most_common():
+            output.append(f"  {key}: {count} ({count / counter.total():.2%})")
+
+        output.append("")
+
+    return "\n".join(output)
 
 
 def main() -> None:
