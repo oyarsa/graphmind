@@ -15,7 +15,7 @@ from pathlib import Path
 
 import dotenv
 from openai import OpenAI
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from tqdm import tqdm
 
 from paper_hypergraph.asap.model import PaperSection
@@ -43,9 +43,11 @@ class ContextClassified(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    text: str
-    polarity: ContextPolarity
-    type: ContextType
+    text: str = Field(description="Full text of the context mention")
+    polarity: ContextPolarity = Field(
+        description="Whether the citation context is positive or negative"
+    )
+    type: ContextType = Field(description="Type of the context mention")
 
 
 class Reference(BaseModel):
@@ -53,12 +55,14 @@ class Reference(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    title: str
-    s2title: str
-    year: int
-    authors: Sequence[str]
-    abstract: str
-    contexts: Sequence[ContextClassified]
+    title: str = Field(description="Title of the citation in the paper references")
+    s2title: str = Field(description="Title of the citation in the S2 data")
+    year: int = Field(description="Year of publication")
+    authors: Sequence[str] = Field(description="Author names")
+    abstract: str = Field(description="Abstract text")
+    contexts: Sequence[ContextClassified] = Field(
+        description="Citation contexts from this reference"
+    )
 
 
 class PaperOutput(BaseModel):
@@ -66,12 +70,14 @@ class PaperOutput(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    title: str
-    abstract: str
-    ratings: Sequence[int]
-    sections: Sequence[PaperSection]
-    approval: bool
-    references: Sequence[Reference]
+    title: str = Field(description="Paper title")
+    abstract: str = Field(description="Abstract text")
+    ratings: Sequence[int] = Field(description="Reviewer ratings (1 to 5)")
+    sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
+    approval: bool = Field(
+        description="Approval decision - whether the paper was approved"
+    )
+    references: Sequence[Reference] = Field(description="References made in the paper")
 
 
 _MODEL_SYNONYMS = {
@@ -119,9 +125,11 @@ class GptContext(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    text: str
-    polarity: ContextPolarity
-    type: ContextType
+    text: str = Field(description="Full text of the context mention")
+    polarity: ContextPolarity = Field(
+        description="Whether the citation context is positive or negative"
+    )
+    type: ContextType = Field(description="Type of the context mention")
 
 
 def _classify_contexts(
