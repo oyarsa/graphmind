@@ -137,11 +137,11 @@ async def _download_paper_info(
         ]
         results = list(await progress_gather(*tasks, desc="Downloading paper info"))
 
-    results = [
+    results_valid = [
         result | {"fuzz_ratio": fuzzy_ratio(result["title_query"], result["title"])}
         for result in results
+        if result
     ]
-    results_valid = [result for result in results if result]
 
     print(len(results), "papers")
     print(len(results_valid), "valid")
