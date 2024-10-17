@@ -1,8 +1,8 @@
-"""Classify paper citation contexts by polarity and type using GPT-4.
+"""Classify paper citation contexts by polarity using GPT-4.
 
 Each paper contains many references. These can appear in one or more citation contexts
 inside the text. Each citation context can be classified by polarity (positive vs
-negative) and type (result, method, etc.)
+negative).
 """
 
 import argparse
@@ -32,15 +32,8 @@ class ContextPolarity(StrEnum):
     NEGATIVE = "negative"
 
 
-class ContextType(StrEnum):
-    RESULT = "result"
-    METHOD = "method"
-    CONTRIBUTION = "contribution"
-    OTHER = "other"
-
-
 class ContextClassified(BaseModel):
-    """Context from a paper reference with its classified polarity and type."""
+    """Context from a paper reference with its classified polarity."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -48,11 +41,10 @@ class ContextClassified(BaseModel):
     polarity: ContextPolarity = Field(
         description="Whether the citation context is positive or negative"
     )
-    type: ContextType = Field(description="Type of the context mention")
 
 
 class Reference(BaseModel):
-    """Paper reference where its contexts are enriched with polarity and type."""
+    """Paper reference where its contexts are enriched with polarity."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -67,7 +59,7 @@ class Reference(BaseModel):
 
 
 class PaperOutput(BaseModel):
-    """Paper where its references have contexts with polarity and type."""
+    """Paper where its references have contexts with polarity."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -90,35 +82,35 @@ _MODEL_SYNONYMS = {
 
 
 _CONTEXT_SYSTEM_PROMPT = (
-    "Classify the context type and polarity between the main paper and its citation."
+    "Classify the context polarity between the main paper and its citation."
 )
 _CONTEXT_USER_PROMPTS = {
     "simple": """\
-You are given a main paper and a reference with a citation context. Based on the main
-paper's title and abstracts, the reference title and abstract, the citation context in
-which the main paper mentions the reference, your task is to determine:
+You are given a main paper and a reference with a citation context. Your task is to
+determine the polarity of the citation context as 'positive' or 'negative', given the
+main paper's title and abstract, the reference's title and abstract, and the citation
+context where the main paper mentions the reference.
 
-- The type of reference given by the citation context: one of 'result', 'method', \
-'contribution' or 'other'. This represents the setting where the reference was made.
-- The polarity: one of 'positive' or 'negative'. This represents whether the citation \
-context is supporting the paper's goals (positive), or if it's provided as a \
-counterpoint ('negative').
+The polarity represents whether the citation context is supporting the paper's goals \
+('positive'), or if it's provided as a counterpoint or criticism ('negative').
 
+#####
+-Data-
 Main paper title: {main_title}
-Main paper abstract:
-{main_abstract}
+Main paper abstract: {main_abstract}
 
 Reference title: {reference_title}
-Reference abstract:
-{reference_abstract}
+Reference abstract: {reference_abstract}
 
 Citation context: {context}
+#####
+Output:
 """
 }
 
 
 class GptContext(BaseModel):
-    """Context from a paper reference with GPT-classified polarity and type.
+    """Context from a paper reference with GPT-classified polarity.
 
     NB: This is currently identical to the main type (PaperContextClassified). They're
     separate on purpose.
@@ -130,7 +122,6 @@ class GptContext(BaseModel):
     polarity: ContextPolarity = Field(
         description="Whether the citation context is positive or negative"
     )
-    type: ContextType = Field(description="Type of the context mention")
 
 
 def _classify_contexts(
@@ -140,15 +131,14 @@ def _classify_contexts(
     papers: Sequence[PaperInput],
     limit_references: int | None,
 ) -> GptResult[list[PaperOutput]]:
-    """Classify the contexts for each papers' references by polarity and type.
+    """Classify the contexts for each papers' references by polarity.
 
     Polarity (ContextPolarity): positive (supports argument) or negative (counterpoint).
-    Types (ContextType): result, method, contribution, other.
 
     The returned object `PaperOutput` is very similar to the input `PaperInput`, but
     the references are different. Instead of the contexts being only strings, they
     are now `ContextClassified`, containing the original text plus the predicted
-    polarity and type.
+    polarity.
     """
     paper_outputs: list[PaperOutput] = []
     total_cost = 0
@@ -178,7 +168,6 @@ def _classify_contexts(
                         ContextClassified(
                             text=context.text,
                             polarity=context.polarity,
-                            type=context.type,
                         )
                     )
 
@@ -246,7 +235,7 @@ def classify_contexts(
     output_dir: Path,
     limit_references: int | None,
 ) -> None:
-    """Classify reference citation contexts by polarity and type."""
+    """Classify reference citation contexts by polarity."""
 
     dotenv.load_dotenv()
     if api_key:
@@ -290,25 +279,19 @@ def classify_contexts(
 
 def show_classified_stats(input_data: Sequence[PaperOutput]) -> str:
     context_polarity: list[str] = []
-    context_type: list[str] = []
 
     for paper in input_data:
         for reference in paper.references:
             for context in reference.contexts:
                 context_polarity.append(context.polarity)
-                context_type.append(context.type)
 
     counter_polarity = Counter(context_polarity)
-    counter_type = Counter(context_type)
 
     output: list[str] = []
-    for member, counter in [("polarity", counter_polarity), ("type", counter_type)]:
-        output.append(f">>> {member}")
-
-        for key, count in counter.most_common():
-            output.append(f"  {key}: {count} ({count / counter.total():.2%})")
-
-        output.append("")
+    output.append(">>> polarity")
+    for key, count in counter_polarity.most_common():
+        output.append(f"  {key}: {count} ({count / counter_polarity.total():.2%})")
+    output.append("")
 
     return "\n".join(output)
 
