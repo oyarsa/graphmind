@@ -176,7 +176,21 @@ def main() -> None:
     parser.add_argument(
         "--fields",
         type=str,
-        default="title,authors,year,abstract",
+        default=",".join(
+            (
+                "paperId",
+                "corpusId",
+                "url",
+                "title",
+                "authors",
+                "year",
+                "abstract",
+                "referenceCount",
+                "citationCount",
+                "influentialCitationCount",
+                "tldr",
+            )
+        ),
         help="Comma-separated list of fields to retrieve",
     )
     parser.add_argument(
