@@ -89,6 +89,12 @@ The `./tasks.sh setup` task sets up the full envionment:
 Please check the individual tool documentations for more information.
 See also [CONTRIBUTING](/CONTRIBUTING.md) for in-depth information.
 
+To view the project documentation in the browser (module, functions, class, etc.), run
+
+```bash
+./tasks.sh doc
+```
+
 ## License
 
 This project is licensed under the GPL v3 or later:

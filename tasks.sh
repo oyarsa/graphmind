@@ -14,6 +14,7 @@ help() {
 	printf "  setup   Set up the development environment\n"
 	printf "  check   Run ruff check, ruff format, and pyright\n"
 	printf "  help    Show this help message\n"
+	printf "  doc     Open the module documentation on the browser\n"
 }
 
 setup() {
@@ -52,13 +53,17 @@ check() {
 	uv run pyright .
 }
 
+doc() {
+	uv run pdoc paper_hypergraph --docformat google
+}
+
 if [ $# -eq 0 ]; then
 	usage
 	exit 1
 fi
 
 case "$1" in
-help | setup | check)
+help | setup | check | doc)
 	"$1"
 	;;
 *)

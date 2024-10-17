@@ -28,6 +28,7 @@ pipeline, so this whole part needs to be run manually. The order is:
 
 Diagram for this pipeline:
 
+```
 +-----------------------------------+
 | asap/pipeline.py data/asap output |
 +-----------------------------------+
@@ -47,6 +48,7 @@ Diagram for this pipeline:
         | asap_with_          |
         | abstracts.json      |
         +---------------------+
+```
 """
 
 import argparse
