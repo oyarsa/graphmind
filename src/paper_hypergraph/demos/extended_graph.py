@@ -10,77 +10,79 @@ import networkx as nx
 
 
 def main(output_path: Path | None) -> None:
-    # Creating a directed graph to represent the flowchart
-    graph = nx.DiGraph()
+    graph: nx.DiGraph[int] = nx.DiGraph()
 
-    # Adding nodes based on the structure in the image
     nodes = {
-        1: "Weak Reward Model Transforms Generative Models into Robust Causal Event"
-        " Extraction Systems",
+        1: "Weak Reward Model Transforms Generative Models into Robust Causal Event Extraction Systems",
         2: "Align Causal Event Extraction Model to human preference using RL",
         3: "Evaluating causal event extraction is not straightforward",
         4: "Train evaluator to align with human preferences",
         5: "Use RL to align extractor with human preferences",
-        6: "Train evaluator with human evaluation data",
-        7: "Use PPO to align extractor with human preferences",
-        8: "Weak-to-strong framework to train reward model",
-        9: "Extractor RL PPO training",
-        10: "Reward model finetuning",
-        11: "Weak supervision",
-        12: "High evaluation agreement",
-        13: "High performance with less data",
-        14: "Highly aligned extraction output",
+        6: "Primary Area: Natural Language Processing and Machine Learning",
+        7: "Keyword: Causal Event Extraction",
+        8: "Keyword: Reinforcement Learning",
+        9: "Keyword: Reward Modeling",
+        10: "Extractor RL PPO training",
+        11: "Reward model finetuning",
+        12: "Weak supervision for initial model training",
+        13: "Evaluation of human-AI agreement on extractions",
+        14: "Performance comparison with varying data sizes",
+        15: "Analysis of extraction alignment with human preferences",
     }
 
-    # Adding edges for the flow
     edges = [
         (1, 2),
+        (1, 6),
+        (1, 7),
+        (1, 8),
+        (1, 9),
         (2, 3),
         (2, 4),
         (2, 5),
-        (3, 6),
-        (4, 6),
-        (4, 7),
-        (5, 7),
-        (6, 8),
-        (6, 10),
-        (7, 9),
-        (8, 10),
-        (8, 11),
-        (9, 14),
-        (10, 12),
-        (10, 14),
+        (3, 11),
+        (3, 13),
+        (4, 11),
+        (4, 13),
+        (5, 10),
+        (5, 15),
+        (10, 15),
         (11, 13),
+        (11, 14),
+        (12, 14),
     ]
 
-    # Defining node types as per the notes (T), (B), etc.
     type_to_nodes = {
         "Title": [1],
-        "Problem": [2],
+        "TLDR": [2],
         "Claim": [3, 4, 5],
-        "Contribution": [6, 7, 8],
-        "Method": [9, 10, 11],
-        "Result": [12, 13, 14],
+        "Primary Area": [6],
+        "Keyword": [7, 8, 9],
+        "Method": [10, 11, 12],
+        "Experiment Design": [13, 14, 15],
     }
 
-    # Define colors for different node types
     color_map = {
         "Title": "lightblue",
-        "Problem": "lightgreen",
+        "TLDR": "lightgreen",
         "Claim": "lightcoral",
-        "Contribution": "lightyellow",
+        "Primary Area": "lightyellow",
+        "Keyword": "lightsalmon",
         "Method": "lightpink",
-        "Result": "lightgray",
+        "Experiment Design": "lightgray",
     }
 
-    # Assign two sentences to each node
-    node_details: dict[int, str] = {}
-    for i, node in enumerate(nodes):
-        if i == 0:  # Skip the Title node
-            continue
-        node_details[node] = f"Placeholder details #{i}"
+    node_details = {
+        3: "Existing metrics may not capture all aspects of causal event extraction quality",
+        4: "Human feedback is crucial for aligning the evaluator with human judgment",
+        5: "Reinforcement learning can help optimize the extractor for human preferences",
+        10: "Implements PPO algorithm to train the extractor using the reward model",
+        11: "Iteratively improves the reward model based on human feedback",
+        12: "Utilizes large amounts of unlabeled data for initial model training",
+        13: "Measures how well the model's extractions align with human judgments",
+        14: "Assesses model performance across different training data sizes",
+        15: "Evaluates the degree of alignment between extracted events and human expectations",
+    }
 
-    # Creating a node-to-type mapping from type-to-nodes
     node_colors: list[str] = []
     node_types: list[str] = []
     for node in nodes:
@@ -94,33 +96,33 @@ def main(output_path: Path | None) -> None:
 
     graph.add_edges_from(edges)
 
-    # Manually positioning nodes for hierarchical layout
     pos = {
         # Title
-        1: (0, 5),
-        # Problem
-        2: (0, 4),
+        1: (0, 6),
+        # TLDR
+        2: (0, 5),
         # Claims
-        3: (-1.5, 3),
-        4: (0, 3),
-        5: (1.5, 3),
-        # Contributions
-        6: (-2, 2),
-        7: (0, 2),
-        8: (2, 2),
+        3: (-1.5, 4),
+        4: (0, 4),
+        5: (1.5, 4),
+        # Primary Area
+        6: (-2, 5),
+        # Keywords
+        7: (2, 5.5),
+        8: (2, 5),
+        9: (2, 4.5),
         # Methods
-        9: (-1, 1),
-        10: (0, 1),
-        11: (1, 1),
-        # Results
-        12: (-1, 0),
-        13: (0, 0),
-        14: (1, 0),
+        10: (-1, 3),
+        11: (0, 3),
+        12: (1, 3),
+        # Experiment Design
+        13: (-1, 2),
+        14: (0, 2),
+        15: (1, 2),
     }
 
     plt.figure(figsize=(24, 13))
 
-    # Draw nodes (without showing node numbers) and arrows
     nx.draw(
         graph,
         pos,
@@ -131,41 +133,44 @@ def main(output_path: Path | None) -> None:
         arrows=True,
     )
 
-    # Adding only the labels (no numbers)
     labels = {node: label for node, label in nodes.items()}
     nx.draw_networkx_labels(graph, pos, labels=labels, font_size=10)
 
-    # Adding small text on each node showing the type and detail
     for node, (x, y) in pos.items():
         node_type = None
         for type_name, nodes_list in type_to_nodes.items():
             if node in nodes_list:
                 node_type = type_name
                 break
-        if node_type:
+
+        if not node_type:
+            continue
+
+        plt.text(
+            x,
+            y - 0.15,
+            node_type,
+            fontsize=8,
+            ha="center",
+            color="black",
+            style="italic",
+        )
+        if (
+            node_type in ["Claim", "Method", "Experiment Design"]
+            and node in node_details
+        ):
+            detail_text = node_details[node]
+            wrapped_text = textwrap.fill(detail_text, width=40)
             plt.text(
                 x,
-                y - 0.15,
-                node_type,
-                fontsize=8,
+                y - 0.25,
+                wrapped_text,
+                fontsize=6,
                 ha="center",
+                va="top",
                 color="black",
-                style="italic",
+                wrap=True,
             )
-            # Add detail property for all nodes except Title
-            if node_type != "Title":
-                detail_text = node_details[node]
-                wrapped_text = textwrap.fill(detail_text, width=40)
-                plt.text(
-                    x,
-                    y - 0.25,
-                    wrapped_text,
-                    fontsize=6,
-                    ha="center",
-                    va="top",
-                    color="black",
-                    wrap=True,
-                )
 
     plt.title("Paper Graph", fontsize=14)
 
