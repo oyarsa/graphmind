@@ -739,17 +739,12 @@ def graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
     )
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-
+def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     # Create subparsers for 'run' and 'prompts' subcommands
     subparsers = parser.add_subparsers(
         title="subcommands",
         description="Valid subcommands",
         dest="subcommand",
-        help="Additional help",
         required=True,
     )
 
@@ -834,6 +829,13 @@ def main() -> None:
         action="store_true",
         help="Provide detailed descriptions of the prompts.",
     )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    setup_cli_parser(parser)
 
     args = parser.parse_args()
     setup_logging(logger)

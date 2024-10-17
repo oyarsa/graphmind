@@ -73,7 +73,7 @@ dev-dependencies = [
 
 [project.scripts]
 preprocess = "paper_hypergraph.preprocess:main"
-graph-gpt = "paper_hypergraph.gpt.extract_graph:main"
+gpt = "paper_hypergraph.gpt.cli:main"
 
 [build-system]
 requires = ["hatchling"]
