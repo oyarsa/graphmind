@@ -55,22 +55,85 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
-from pydantic import TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph.asap.model import (
-    ASAPDatasetAdapter,
-    PaperReference,
-    PaperWithFullReference,
-    ReferenceWithAbstract,
-    S2Paper,
-)
+from paper_hypergraph.asap.model import ASAPDatasetAdapter, PaperReference, PaperSection
 from paper_hypergraph.util import fuzzy_ratio
+
+
+class TLDR(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    model: str
+    text: str | None
+
+
+class S2Paper(BaseModel):
+    """Paper from the S2 API.
+
+    Attributes:
+        title_query: The original title used to query the API.
+        title: Actual title of the paper in the API.
+        abstract: Full text of the paper abstract.
+        reference_count: How many references the current paper cites (outgoing).
+        citation_count: How many papers cite the current paper (incoming).
+        influential_citation_count: See https://www.semanticscholar.org/faq#influential-citations.
+        tldr: Machine-generated TLDR of the paper. Not available for everything.
+
+    NB: We got more data from the API, but this is what's relevant here. See also
+    `paper_hypergraph.s2orc.query_s2`.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    title_query: str
+    title: str
+    abstract: str
+    reference_count: int = Field(alias="referenceCount")
+    citation_count: int = Field(alias="citationCount")
+    influential_citation_count: int = Field(alias="influentialCitationCount")
+    tldr: TLDR | None
+
+
+class ReferenceEnriched(PaperReference):
+    """ASAP reference with the added data from the S2 API and the original S2 title.
+
+    Attributes:
+        abstract: Full text of the paper abstract.
+        s2title: the title for the reference in the S2 API. Could differ from the
+            reference title, so I keep this here in case we need to match back to the
+            S2 data again.
+        reference_count: How many references the current paper cites (outgoing)
+        citation_count: How many papers cite the current paper (incoming)
+        influential_citation_count: See https://www.semanticscholar.org/faq#influential-citations
+        tldr: Machine-generated TLDR of the paper. Not available for everything.
+    """
+
+    abstract: str
+    s2title: str
+    reference_count: int
+    citation_count: int
+    influential_citation_count: int
+    tldr: TLDR | None
+
+
+class PaperWithReferenceEnriched(BaseModel):
+    """Paper from ASAP where the references contain extra data from the S2 API."""
+
+    model_config = ConfigDict(frozen=True)
+
+    title: str
+    abstract: str
+    ratings: Sequence[int]
+    sections: Sequence[PaperSection]
+    approval: bool
+    references: Sequence[ReferenceEnriched]
 
 
 def _match_paper_external(
     source: PaperReference, external_papers: Sequence[S2Paper], min_score: int
-) -> ReferenceWithAbstract | None:
+) -> ReferenceEnriched | None:
     """Find the external paper whose title best matches the source paper.
 
     Match is done by fuzzy ratio. The highest ratio is chosen, as long as it's higher
@@ -91,13 +154,17 @@ def _match_paper_external(
     if best_external is None:
         return None
 
-    return ReferenceWithAbstract(
+    return ReferenceEnriched(
         title=source.title,
         year=source.year,
         authors=source.authors,
         contexts=source.contexts,
         abstract=best_external.abstract,
         s2title=best_external.title,
+        reference_count=best_external.reference_count,
+        citation_count=best_external.citation_count,
+        influential_citation_count=best_external.influential_citation_count,
+        tldr=best_external.tldr,
     )
 
 
@@ -121,7 +188,7 @@ def add_references(
     )
 
     output = [
-        PaperWithFullReference(
+        PaperWithReferenceEnriched(
             title=paper.title,
             abstract=paper.abstract,
             ratings=paper.ratings,
@@ -136,7 +203,7 @@ def add_references(
         for paper in tqdm(source_papers)
     ]
     output_file.write_bytes(
-        TypeAdapter(list[PaperWithFullReference]).dump_json(output, indent=2)
+        TypeAdapter(list[PaperWithReferenceEnriched]).dump_json(output, indent=2)
     )
 
 
