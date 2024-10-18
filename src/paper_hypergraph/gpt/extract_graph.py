@@ -515,7 +515,6 @@ def _classify_papers(
     user_prompt_template: str,
     papers: Sequence[Paper],
     graphs: Sequence[Graph],
-    output_dir: Path,
 ) -> GptResult[list[PaperResult]]:
     """Classify Papers into approved/not approved using the generated graphs.
 
@@ -561,17 +560,7 @@ def _classify_papers(
             )
         )
 
-    metrics = _calculate_metrics(results)
-    logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
     return GptResult(results, total_cost)
-
-    classification_dir = output_dir / "classification"
-    classification_dir.mkdir(parents=True, exist_ok=True)
-
-    (classification_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
-    (classification_dir / "result.json").write_bytes(
-        TypeAdapter(list[PaperResult]).dump_json(results, indent=2)
-    )
 
 
 def _display_graphs(
@@ -700,26 +689,27 @@ def extract_graph(
     )
 
     if classify:
-        _classify_papers(
-            client,
-            model,
-            _CLASSIFY_USER_PROMPTS[classify_user_prompt_key],
-            papers,
-            graphs.result,
-            output_dir,
-        )
-
         classify_user_prompt = _CLASSIFY_USER_PROMPTS[classify_user_prompt_key]
 
         with BlockTimer() as timer_class:
             results = _classify_papers(
-                client, model, classify_user_prompt, papers, graphs.result, output_dir
+                client, model, classify_user_prompt, papers, graphs.result
             )
         metrics = _calculate_metrics(results.result)
         logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
 
         logger.info(f"Classification time elapsed: {timer_class.human}")
         logger.info(f"Total classification cost: ${results.cost:.10f}")
+
+        classification_dir = output_dir / "classification"
+        classification_dir.mkdir(parents=True, exist_ok=True)
+
+        (classification_dir / "metrics.json").write_text(
+            metrics.model_dump_json(indent=2)
+        )
+        (classification_dir / "result.json").write_bytes(
+            TypeAdapter(list[PaperResult]).dump_json(results.result, indent=2)
+        )
 
 
 class PaperPrompt(BaseModel):
