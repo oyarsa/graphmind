@@ -38,7 +38,7 @@ def main():
             args.output_path, args.api_key, args.output_path, args.file_limit
         )
     elif args.command == "asap":
-        asap.pipeline(args.input, args.output)
+        asap.pipeline(args.input, args.output, args.context_sentences)
     else:
         parser.print_help()
 
