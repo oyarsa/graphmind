@@ -10,22 +10,20 @@ import argparse
 import hashlib
 import logging
 import os
-import textwrap
-import time
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from typing import Self
 
-import colorlog
 import dotenv
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
 from paper_hypergraph import evaluation_metrics, hierarchical_graph
+from paper_hypergraph.gpt.run_gpt import GptResult, run_gpt
+from paper_hypergraph.util import BlockTimer, setup_logging
 
 logger = logging.getLogger("extract_graph")
 
@@ -33,6 +31,30 @@ logger = logging.getLogger("extract_graph")
 class RelationType(StrEnum):
     SUPPORT = "support"
     CONTRAST = "contrast"
+
+
+class RatingEvaluationStrategy(StrEnum):
+    MEAN = "mean"
+    """Mean rating is higher than the threshold."""
+    MAJORITY = "majority"
+    """Majority of ratings are higher than the threshold."""
+    DEFAULT = MEAN
+
+    def is_approved(self, ratings: Sequence[int]) -> bool:
+        match self:
+            case RatingEvaluationStrategy.MEAN:
+                mean = sum(ratings) / len(ratings)
+                return mean >= RATING_APPROVAL_THRESHOLD
+            case RatingEvaluationStrategy.MAJORITY:
+                approvals = [r >= RATING_APPROVAL_THRESHOLD for r in ratings]
+                return sum(approvals) >= len(approvals) / 2
+
+
+class PaperSection(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    heading: str
+    text: str
 
 
 class GPTRelationship(BaseModel):
@@ -62,10 +84,6 @@ class GPTGraph(BaseModel):
 
     entities: Sequence[GPTEntity]
     relationships: Sequence[GPTRelationship]
-
-    @classmethod
-    def empty(cls) -> Self:
-        return cls(entities=[], relationships=[])
 
     def __str__(self) -> str:
         entities = "\n".join(
@@ -263,19 +281,6 @@ _MODEL_SYNONYMS = {
 _MODELS_ALLOWED = sorted(_MODEL_SYNONYMS.keys() | _MODEL_SYNONYMS.values())
 
 
-# Cost in $ per 1M tokens: (input cost, output cost)
-# From https://openai.com/api/pricing/
-_MODEL_COSTS = {
-    "gpt-4o-mini-2024-07-18": (0.15, 0.6),
-    "gpt-4o-2024-08-06": (2.5, 10),
-}
-
-
-def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
-    input_cost, output_cost = _MODEL_COSTS[model]
-    return prompt_tokens / 1e6 * input_cost + completion_tokens / 1e6 * output_cost
-
-
 _CLASSIFY_SYSTEM_PROMPT = (
     "Approve or reject the scientific paper based on the extracted entities."
 )
@@ -290,108 +295,11 @@ rationale for your decision, then give the final decision.
 }
 
 
-@dataclass(frozen=True)
-class GPTResult[T]:
-    result: T
-    cost: float
-    system_prompt: str
-    user_prompt: str
-
-
-def run_gpt_graph(
-    client: OpenAI, system_prompt: str, user_prompt: str, model: str
-) -> GPTResult[GPTGraph]:
-    """Run prompt to generate a graph from the paper.
-
-    The user prompt is passed complete, i.e. the variables (e.g. title, abstract,
-    sections) must have been filled. See `_GRAPH_USER_PROMPTS` for examples.
-    """
-
-    try:
-        completion = client.beta.chat.completions.parse(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format=GPTGraph,
-            seed=0,
-            temperature=0,
-        )
-    except Exception:
-        logger.exception("Error making API request")
-        return GPTResult(
-            result=GPTGraph.empty(),
-            cost=float("nan"),
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-        )
-
-    usage = completion.usage
-    if usage is not None:
-        cost = calc_cost(model, usage.prompt_tokens, usage.completion_tokens)
-    else:
-        cost = 0
-
-    parsed = completion.choices[0].message.parsed
-    result = parsed if parsed else GPTGraph.empty()
-
-    return GPTResult(
-        result=result, cost=cost, system_prompt=system_prompt, user_prompt=user_prompt
-    )
-
-
-class GPTClassify(BaseModel):
+class GptClassify(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     rationale: str
     approved: bool
-
-    @classmethod
-    def empty(cls) -> Self:
-        return cls(rationale="", approved=False)
-
-
-def run_gpt_classify(
-    client: OpenAI, system_prompt: str, user_prompt: str, model: str
-) -> GPTResult[GPTClassify]:
-    """Run prompt to classify a paper based on the generated graph.
-
-    The user prompt is passed complete, i.e. the variables (e.g. title, abstract,
-    sections) must have been filled. See `_CLASSIFY_USER_PROMPTS` for examples.
-    """
-    try:
-        completion = client.beta.chat.completions.parse(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format=GPTClassify,
-            seed=0,
-            temperature=0,
-        )
-    except Exception:
-        logger.exception("Error making API request")
-        return GPTResult(
-            result=GPTClassify.empty(),
-            cost=float("nan"),
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-        )
-
-    usage = completion.usage
-    if usage is not None:
-        cost = calc_cost(model, usage.prompt_tokens, usage.completion_tokens)
-    else:
-        cost = 0
-
-    parsed = completion.choices[0].message.parsed
-    result = parsed if parsed else GPTClassify.empty()
-
-    return GPTResult(
-        result=result, cost=cost, system_prompt=system_prompt, user_prompt=user_prompt
-    )
 
 
 def _log_config(
@@ -399,7 +307,8 @@ def _log_config(
     model: str,
     data_path: Path,
     limit: int | None,
-    user_prompt: str,
+    graph_user_prompt: str,
+    classify_user_prompt: str,
     output_dir: Path,
 ) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
@@ -411,7 +320,8 @@ def _log_config(
         f"  Data hash (sha256): {data_hash}\n"
         f"  Output dir: {output_dir.resolve()}\n"
         f"  Limit: {limit if limit is not None else 'All'}\n"
-        f"  User prompt: {user_prompt}\n"
+        f"  Graph prompt: {graph_user_prompt}\n"
+        f"  Classify prompt: {classify_user_prompt}\n"
     )
 
 
@@ -530,27 +440,28 @@ RATING_APPROVAL_THRESHOLD = 5
 """A rating is an approval if it's greater of equal than this."""
 
 
-class RatingEvaluationStrategy(StrEnum):
-    """Strategy used to convert a Sequence of integer ratings into a binary label."""
+def _generate_graphs(
+    client: OpenAI, data: list[Paper], model: str, user_prompt: str
+) -> GptResult[list[Graph]]:
+    total_cost = 0
+    graphs: list[Graph] = []
 
-    MEAN = "mean"
-    """Mean rating is higher than the threshold."""
-    MAJORITY = "majority"
-    """Majority of ratings are higher than the threshold."""
+    for example in tqdm(data, desc="Extracting graphs"):
+        prompt = user_prompt.format(
+            title=example.title,
+            abstract=example.abstract,
+            main_text=example.main_text(),
+        )
+        result = run_gpt(GPTGraph, client, _GRAPH_SYSTEM_PROMPT, prompt, model)
+        graph = (
+            Graph.from_gpt_graph(result.result)
+            if result.result
+            else Graph(entities=[], relationships=[])
+        )
+        total_cost += result.cost
+        graphs.append(graph)
 
-    def is_approved(self, ratings: Sequence[int]) -> bool:
-        match self:
-            case RatingEvaluationStrategy.MEAN:
-                mean = sum(ratings) / len(ratings)
-                return mean >= RATING_APPROVAL_THRESHOLD
-            case RatingEvaluationStrategy.MAJORITY:
-                approvals = [r >= RATING_APPROVAL_THRESHOLD for r in ratings]
-                return sum(approvals) >= len(approvals) / 2
-
-
-class PaperSection(BaseModel):
-    heading: str
-    text: str
+    return GptResult(graphs, total_cost)
 
 
 class Paper(BaseModel):
@@ -604,8 +515,7 @@ def _classify_papers(
     user_prompt_template: str,
     papers: Sequence[Paper],
     graphs: Sequence[Graph],
-    output_dir: Path,
-) -> None:
+) -> GptResult[list[PaperResult]]:
     """Classify Papers into approved/not approved using the generated graphs.
 
     The output - input dataset information, predicted values and metrics - is written
@@ -623,6 +533,7 @@ def _classify_papers(
         None. The outputs are saved to disk.
     """
     results: list[PaperResult] = []
+    total_cost = 0
 
     for paper, graph in tqdm(
         zip(papers, graphs), desc="Classifying papers", total=len(papers)
@@ -632,9 +543,12 @@ def _classify_papers(
             abstract=paper.abstract,
             graph=graph.model_dump_json(),
         )
-        classified = run_gpt_classify(
-            client, _CLASSIFY_SYSTEM_PROMPT, user_prompt, model
+        result = run_gpt(
+            GptClassify, client, _CLASSIFY_SYSTEM_PROMPT, user_prompt, model
         )
+        total_cost += result.cost
+        classified = result.result
+
         results.append(
             PaperResult(
                 title=paper.title,
@@ -642,20 +556,11 @@ def _classify_papers(
                 ratings=paper.ratings,
                 sections=paper.sections,
                 y_true=paper.is_approved(),
-                y_pred=classified.result.approved,
+                y_pred=classified.approved if classified else False,
             )
         )
 
-    metrics = _calculate_metrics(results)
-    logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
-
-    classification_dir = output_dir / "classification"
-    classification_dir.mkdir(parents=True, exist_ok=True)
-
-    (classification_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
-    (classification_dir / "result.json").write_bytes(
-        TypeAdapter(list[PaperResult]).dump_json(results, indent=2)
-    )
+    return GptResult(results, total_cost)
 
 
 def _display_graphs(
@@ -705,89 +610,6 @@ class GraphResult(BaseModel):
 
     graphs: Sequence[Graph]
     prompts: Sequence[Prompt]
-
-
-def _generate_graphs(
-    client: OpenAI, papers: Sequence[Paper], model: str, user_prompt_template: str
-) -> GraphResult:
-    """Generate graphs describing the structure and arguments of a scientific paper.
-
-    Args:
-        client: OpenAI client to use GPT
-        papers: Papers from the ASAP-Review dataset to classify
-        model: GPT model code to use (must support Structured Outputs)
-        user_prompt_template: User prompt template to use for classification to be filled
-
-    Returns:
-        List of Graphs generated from the papers
-    """
-    time_start = time.perf_counter()
-
-    total_cost = 0
-    graphs: list[Graph] = []
-    prompts: list[Prompt] = []
-
-    for example in tqdm(papers, desc="Extracting graphs"):
-        user_prompt = user_prompt_template.format(
-            title=example.title,
-            abstract=example.abstract,
-            main_text=example.main_text(),
-        )
-
-        result = run_gpt_graph(client, _GRAPH_SYSTEM_PROMPT, user_prompt, model)
-        graph = Graph.from_gpt_graph(result.result)
-        total_cost += result.cost
-
-        concept_relations_count = Counter(
-            r.type
-            for r in graph.relationships
-            if next(e for e in graph.entities if e.name == r.source).type
-            is EntityType.CONCEPT
-        )
-        concept_relations_display = ", ".join(
-            f"{type} - {count}"
-            for type, count in sorted(
-                concept_relations_count.items(), key=lambda x: x[0]
-            )
-        )
-
-        sentences_num = sum(e.type is EntityType.SENTENCE for e in graph.entities)
-        hierarchy_valid = graph_to_dag(graph).validate_hierarchy()
-        properties_valid = validate_rules(graph)
-
-        hierarchy_display = (
-            "Valid" if hierarchy_valid is None else _wrap_and_indent(hierarchy_valid)
-        )
-        properties_display = (
-            "Valid" if properties_valid is None else _wrap_and_indent(properties_valid)
-        )
-
-        logger.debug(
-            "Example:\n"
-            f"{example}\n"
-            "Graph:\n"
-            f"{graph}\n"
-            f"Number of sentences: {sentences_num}\n"
-            f"Sentence relation types: {concept_relations_display}\n"
-            f"Graph validation - Hierarchy: {hierarchy_display or 'Valid'}\n"
-            f"Graph validation - Properties: {properties_display or 'Valid'}\n"
-        )
-
-        graphs.append(graph)
-        prompts.append(Prompt(system=result.system_prompt, user=result.user_prompt))
-
-    logger.info(f"Total cost: ${total_cost:.10f}")
-
-    time_elapsed = time.perf_counter() - time_start
-    logger.info(f"Time elapsed: {_convert_time_elapsed(time_elapsed)}")
-
-    return GraphResult(graphs=graphs, prompts=prompts)
-
-
-def _wrap_and_indent(text: str, width: int = 90, indent: int = 2) -> str:
-    """Wrap text to a width and indent the extra lines if there are more than one."""
-    wrapped = textwrap.wrap(text, width=width)
-    return "\n".join([wrapped[0]] + [" " * indent + line for line in wrapped[1:]])
 
 
 def extract_graph(
@@ -843,33 +665,50 @@ def extract_graph(
         model=model,
         data_path=data_path,
         limit=limit,
-        user_prompt=graph_user_prompt_key,
+        graph_user_prompt=graph_user_prompt_key,
+        classify_user_prompt=classify_user_prompt_key,
         output_dir=output_dir,
     )
 
     client = OpenAI()
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_text())
-    papers = data[:limit]
 
-    graph_result = _generate_graphs(
-        client, papers, model, _GRAPH_USER_PROMPTS[graph_user_prompt_key]
-    )
+    papers = data[:limit]
+    graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]
+
+    with BlockTimer() as timer_gen:
+        graphs = _generate_graphs(client, papers, model, graph_user_prompt)
+
+    logger.info(f"Graph generation time elapsed: {timer_gen.human}")
+    logger.info(f"Total graph generation cost: ${graphs.cost:.10f}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    _save_graph_prompts(output_dir, papers, graph_result.prompts)
     _display_graphs(
-        model, graph_user_prompt_key, papers, graph_result.graphs, output_dir, visualise
+        model, graph_user_prompt_key, papers, graphs.result, output_dir, visualise
     )
 
     if classify:
-        _classify_papers(
-            client,
-            model,
-            _CLASSIFY_USER_PROMPTS[classify_user_prompt_key],
-            papers,
-            graph_result.graphs,
-            output_dir,
+        classify_user_prompt = _CLASSIFY_USER_PROMPTS[classify_user_prompt_key]
+
+        with BlockTimer() as timer_class:
+            results = _classify_papers(
+                client, model, classify_user_prompt, papers, graphs.result
+            )
+        metrics = _calculate_metrics(results.result)
+        logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
+
+        logger.info(f"Classification time elapsed: {timer_class.human}")
+        logger.info(f"Total classification cost: ${results.cost:.10f}")
+
+        classification_dir = output_dir / "classification"
+        classification_dir.mkdir(parents=True, exist_ok=True)
+
+        (classification_dir / "metrics.json").write_text(
+            metrics.model_dump_json(indent=2)
+        )
+        (classification_dir / "result.json").write_bytes(
+            TypeAdapter(list[PaperResult]).dump_json(results.result, indent=2)
         )
 
 
@@ -878,24 +717,6 @@ class PaperPrompt(BaseModel):
 
     paper: Paper
     prompt: Prompt
-
-
-def _save_graph_prompts(
-    output_dir: Path, papers: Sequence[Paper], prompts: Sequence[Prompt]
-) -> None:
-    """Save the papers and prompts used to generate the graphs to disk.
-
-    Files will be saved to {output_dir}/prompts.json
-    """
-    (output_dir / "paper_prompts.json").write_bytes(
-        TypeAdapter(list[PaperPrompt]).dump_json(
-            [
-                PaperPrompt(paper=paper, prompt=prompt)
-                for paper, prompt in zip(papers, prompts)
-            ],
-            indent=2,
-        )
-    )
 
 
 def graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
@@ -908,33 +729,12 @@ def graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
     )
 
 
-def _convert_time_elapsed(seconds: float) -> str:
-    """Convert a time duration from seconds to a human-readable format."""
-    units = [("d", 86400), ("h", 3600), ("m", 60)]
-    parts: list[str] = []
-
-    for name, count in units:
-        value, seconds = divmod(seconds, count)
-        if value >= 1:
-            parts.append(f"{int(value)}{name}")
-
-    if seconds > 0 or not parts:
-        parts.append(f"{seconds:.2f}s")
-
-    return " ".join(parts)
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-
+def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     # Create subparsers for 'run' and 'prompts' subcommands
     subparsers = parser.add_subparsers(
         title="subcommands",
         description="Valid subcommands",
         dest="subcommand",
-        help="Additional help",
         required=True,
     )
 
@@ -1020,11 +820,18 @@ def main() -> None:
         help="Provide detailed descriptions of the prompts.",
     )
 
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    setup_cli_parser(parser)
+
     args = parser.parse_args()
-    _setup_logging(logging.getLogger("extract_graph"))
+    setup_logging(logger)
 
     if args.subcommand == "prompts":
-        _display_prompts(detail=args.detail)
+        list_prompts(detail=args.detail)
     elif args.subcommand == "run":
         extract_graph(
             args.model,
@@ -1039,7 +846,7 @@ def main() -> None:
         )
 
 
-def _display_prompts(detail: bool) -> None:
+def list_prompts(detail: bool) -> None:
     items = [
         ("GRAPH EXTRACTION PROMPTS", _GRAPH_USER_PROMPTS),
         ("CLASSIFICATION PROMPTS", _CLASSIFY_USER_PROMPTS),
@@ -1056,18 +863,6 @@ def _display_prompts(detail: bool) -> None:
                 print(f"{sep}\n{key}\n{sep}\n{prompt}")
             else:
                 print(f"- {key}")
-
-
-def _setup_logging(logger: logging.Logger) -> None:
-    level = os.environ.get("LOG_LEVEL", "INFO").upper()
-    logger.setLevel(level)
-    handler = colorlog.StreamHandler()
-
-    fmt = "%(log_color)s%(asctime)s | %(levelname)s | %(name)s:%(lineno)d | %(message)s"
-    datefmt = "%Y-%m-%d %H:%M:%S"
-    handler.setFormatter(colorlog.ColoredFormatter(fmt=fmt, datefmt=datefmt))
-
-    logger.addHandler(handler)
 
 
 if __name__ == "__main__":
