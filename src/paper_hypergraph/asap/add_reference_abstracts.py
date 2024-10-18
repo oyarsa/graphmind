@@ -61,8 +61,8 @@ from tqdm import tqdm
 from paper_hypergraph.asap.model import (
     ASAPDatasetAdapter,
     PaperReference,
-    PaperWithFullReference,
-    ReferenceWithAbstract,
+    PaperWithReferenceEnriched,
+    ReferenceEnriched,
     S2Paper,
 )
 from paper_hypergraph.util import fuzzy_ratio
@@ -70,7 +70,7 @@ from paper_hypergraph.util import fuzzy_ratio
 
 def _match_paper_external(
     source: PaperReference, external_papers: Sequence[S2Paper], min_score: int
-) -> ReferenceWithAbstract | None:
+) -> ReferenceEnriched | None:
     """Find the external paper whose title best matches the source paper.
 
     Match is done by fuzzy ratio. The highest ratio is chosen, as long as it's higher
@@ -91,13 +91,17 @@ def _match_paper_external(
     if best_external is None:
         return None
 
-    return ReferenceWithAbstract(
+    return ReferenceEnriched(
         title=source.title,
         year=source.year,
         authors=source.authors,
         contexts=source.contexts,
         abstract=best_external.abstract,
         s2title=best_external.title,
+        reference_count=best_external.reference_count,
+        citation_count=best_external.citation_count,
+        influential_citation_count=best_external.influential_citation_count,
+        tldr=best_external.tldr,
     )
 
 
@@ -121,7 +125,7 @@ def add_references(
     )
 
     output = [
-        PaperWithFullReference(
+        PaperWithReferenceEnriched(
             title=paper.title,
             abstract=paper.abstract,
             ratings=paper.ratings,
@@ -136,7 +140,7 @@ def add_references(
         for paper in tqdm(source_papers)
     ]
     output_file.write_bytes(
-        TypeAdapter(list[PaperWithFullReference]).dump_json(output, indent=2)
+        TypeAdapter(list[PaperWithReferenceEnriched]).dump_json(output, indent=2)
     )
 
 

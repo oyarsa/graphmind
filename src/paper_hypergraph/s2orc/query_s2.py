@@ -6,6 +6,12 @@ The script then queries the S2 API from the titles. S2 does their own paper titl
 matching, so we just take the best match directly. We then save the entire output
 to a JSON file along with the original query title.
 
+The resulting files are:
+- semantic_scholar_full.json: the whole output from the S2 API
+- semantic_scholar_best.json: the valid (non-empty) results with fuzzy ratio
+- semantic_scholar_final.json: the valid results with a non-empty abstract
+  and fuzzy ratio above a minium (default: 80).
+
 [1] See paper_hypergraph.asap.preprocess.
 """
 
@@ -142,9 +148,18 @@ async def _download_paper_info(
         for result in results
         if result
     ]
+    results_filtered = [
+        paper
+        for paper in results_valid
+        if paper["fuzz_ratio"] >= min_fuzzy and paper["abstract"]
+    ]
 
     print(len(results), "papers")
     print(len(results_valid), "valid")
+    print(
+        len(results_filtered),
+        f"filtered (non-emtpy abstract and fuzz ratio >= {min_fuzzy})",
+    )
 
     output_path.mkdir(parents=True, exist_ok=True)
     (output_path / "semantic_scholar_full.json").write_text(
@@ -153,16 +168,9 @@ async def _download_paper_info(
     (output_path / "semantic_scholar_best.json").write_text(
         json.dumps(results_valid, indent=2)
     )
-
-    if min_fuzzy:
-        filtered_data = [
-            paper
-            for paper in results_valid
-            if paper["fuzz_ratio"] >= min_fuzzy and paper["abstract"]
-        ]
-        (output_path / "semantic_scholar_filtered.json").write_text(
-            json.dumps(filtered_data, indent=2)
-        )
+    (output_path / "semantic_scholar_final.json").write_text(
+        json.dumps(results_filtered, indent=2)
+    )
 
 
 def main() -> None:
@@ -176,7 +184,21 @@ def main() -> None:
     parser.add_argument(
         "--fields",
         type=str,
-        default="title,authors,year,abstract",
+        default=",".join(
+            (
+                "paperId",
+                "corpusId",
+                "url",
+                "title",
+                "authors",
+                "year",
+                "abstract",
+                "referenceCount",
+                "citationCount",
+                "influentialCitationCount",
+                "tldr",
+            )
+        ),
         help="Comma-separated list of fields to retrieve",
     )
     parser.add_argument(
@@ -188,7 +210,7 @@ def main() -> None:
     parser.add_argument(
         "--min-fuzzy",
         type=int,
-        default=None,
+        default=80,
         help="Minimum fuzz ratio of titles to filter",
     )
     args = parser.parse_args()
