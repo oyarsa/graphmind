@@ -67,12 +67,24 @@ class PaperWithFullReference(BaseModel):
     )
 
 
+class TLDR(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    model: str
+    text: str | None
+
+
 class S2Paper(BaseModel):
     """Paper from the S2 API.
 
     Attributes:
-        title_query: the original title used to query the API.
-        abstract: abstract text.
+        title_query: The original title used to query the API.
+        title: Actual title of the paper in the API.
+        abstract: Full text of the paper abstract.
+        reference_count: How many references the current paper cites (outgoing).
+        citation_count: How many papers cite the current paper (incoming).
+        influential_citation_count: See https://www.semanticscholar.org/faq#influential-citations.
+        tldr: Machine-generated TLDR of the paper. Not available for everything.
 
     NB: We got more data from the API, but this is what's relevant here. See also
     `paper_hypergraph.s2orc.query_s2`.
@@ -83,3 +95,49 @@ class S2Paper(BaseModel):
     title_query: str = Field(description="Title used in the API query (from ASAP)")
     title: str = Field(description="Title from the S2 data")
     abstract: str = Field(description="Abstract text")
+    reference_count: int = Field(
+        alias="referenceCount", description="Number of papers this paper references"
+    )
+    citation_count: int = Field(
+        alias="citationCount", description="Number of other papers that cite this paper"
+    )
+    influential_citation_count: int = Field(
+        alias="influentialCitationCount",
+        description="Number of influential papers (see docstring) that cite this paper",
+    )
+    tldr: TLDR | None = Field(description="Machine-generated summary of this paper")
+
+
+class ReferenceEnriched(PaperReference):
+    """ASAP reference with the added data from the S2 API and the original S2 title.
+
+    Attributes:
+        abstract: Full text of the paper abstract.
+        s2title: the title for the reference in the S2 API. Could differ from the
+            reference title, so I keep this here in case we need to match back to the
+            S2 data again.
+        reference_count: How many references the current paper cites (outgoing)
+        citation_count: How many papers cite the current paper (incoming)
+        influential_citation_count: See https://www.semanticscholar.org/faq#influential-citations
+        tldr: Machine-generated TLDR of the paper. Not available for everything.
+    """
+
+    abstract: str
+    s2title: str
+    reference_count: int
+    citation_count: int
+    influential_citation_count: int
+    tldr: TLDR | None
+
+
+class PaperWithReferenceEnriched(BaseModel):
+    """Paper from ASAP where the references contain extra data from the S2 API."""
+
+    model_config = ConfigDict(frozen=True)
+
+    title: str
+    abstract: str
+    ratings: Sequence[int]
+    sections: Sequence[PaperSection]
+    approval: bool
+    references: Sequence[ReferenceEnriched]
