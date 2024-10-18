@@ -44,7 +44,9 @@ $ uv run preprocess asap data/asap output
 # This needs a Semantic Scholar API, which you can get from https://www.semanticscholar.org/product/api#api-key-form
 # Downloaded S2ORC data and intermediate files will be stored on `data/s2orc`
 # Output will be saved to `output/s2orc_papers.json.gz`
-$ uv run preprocess s2orc data/s2orc output --api-key YOUR_KEY
+$ uv run preprocess s2orc data/s2orc output --api-key YOUR_SEMANTIC_SCHOLAR_KEY
+# You can also set the SEMANTIC_SCHOLAR_API_KEY envionment variable instead of using
+# `--api-key`.
 
 # More information on the commands and options
 $ uv run preprocess s2orc --help
@@ -56,12 +58,31 @@ Both S2ORC and ASAP have multi-step pre-processing pipelines. The commands above
 run all of them in sequence from scratch. To run individual commands (e.g. during
 testing), see the respective READMEs.
 
+## Graph Generation
+
+Once you have set up the environment and processed the datasets, you can run the graph
+generation tool:
+
+```console
+# Generate the graphs from ASAP papers
+$ uv run graph-gpt run output/asap_filtered output/graph --api-key YOUR_OPENAI_KEY
+# You can also set the OPENAI_API_KEY environment variable instead of using `--api-key`
+
+# See the available prompts
+$ uv run graph-gpt prompts
+
+# For more information on the available options
+$ uv run graph-gpt --help
+$ uv run graph-gpt run --help
+$ uv run graph-gpt prompts --help
+```
+
 ## Development Environment
 
 When running commads, use `uv run`:
 
 ```bash
-uv run python example.py [..args]
+uv run python example.py [...args]
 ```
 
 You don't to set up a virtual environment or install dependencies. `uv run` will take
@@ -81,9 +102,9 @@ The `./tasks.sh setup` task sets up the full envionment:
 
 - [`uv`](https://docs.astral.sh/uv/): manages the project, Python environment and
   dependencies, including the development tools.
-- [`ruff`](https://docs.astral.sh/ruff/): the linter and formatter.
-- [`pyright`](https://microsoft.github.io/pyright): the type-checker.
-- [`pre-commit`](https://pre-commit.com/), which runs some basic checks before you
+- [`ruff`](https://docs.astral.sh/ruff/): linter and formatter.
+- [`pyright`](https://microsoft.github.io/pyright): type-checker.
+- [`pre-commit`](https://pre-commit.com/): which runs some basic checks before you
   create a commit.
 
 Please check the individual tool documentations for more information.

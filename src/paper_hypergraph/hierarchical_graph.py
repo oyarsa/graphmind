@@ -1,3 +1,9 @@
+"""Represent a hierarchical graph with directed nodes and edges, each with a string type.
+
+Create, validate, load and save hierarchical graphs, and visualise them as PNG files
+or in the GUI.
+"""
+
 # pyright: basic
 from __future__ import annotations
 
@@ -27,9 +33,12 @@ class Node:
 class Edge:
     source: str
     target: str
+    type: str
 
 
 class DiGraph:
+    """Directed graph with nodes and edges. Nodes and edges have string types."""
+
     _nxgraph: nx.DiGraph[str]
 
     def __init__(self, nxgraph: nx.DiGraph[str]) -> None:
@@ -37,33 +46,40 @@ class DiGraph:
 
     @classmethod
     def from_elements(cls, *, nodes: Iterable[Node], edges: Iterable[Edge]) -> Self:
+        """Create a new graph from nodes and edges.
+
+        Nodes are added first, and it's assumed that the edges will connect existing
+        nodes.
+        """
         nxgraph = nx.DiGraph()
 
         for node in nodes:
             nxgraph.add_node(node.name, type=node.type)
 
         for edge in edges:
-            nxgraph.add_edge(edge.source, edge.target)
+            nxgraph.add_edge(edge.source, edge.target, type=edge.type)
 
         return cls(nxgraph)
 
     def visualise_hierarchy(
         self,
-        show: bool = True,
-        img_path: Path | None = None,
+        img_path: Path,
+        display_gui: bool = True,
         description: str | None = None,
     ) -> None:
         """Visualise a hierarchical directed acyclical graph with matplotlib.
 
+        Saves the visualisation to a file. Optionally, can show the plot in the GUI.
+        Note: plotting to GUI suspends the calling thread until the plot is closed.
+
         Args:
-            graph: The graph to visualise.
-            show: Whether to display the plot in the GUI. By default, displays the plot.
-            img_path: Path to save the image of the visualisation. By default, does not save.
-            description: Description added to the plot title. By default, does not display.
+            img_path: Path to save the image of the visualisation.
+            display_gui: If True, display the plot in the GUI.
+            description: If present, add the description to the plot title.
 
         Raises:
-            GraphError: If the graph doesn't have any root nodes (nodes with degree 0), has
-                multiple root nodes, or a cycle.
+            GraphError: If the graph doesn't have any root nodes (nodes with degree 0),
+                has multiple root nodes, or a cycle.
         """
         nxgraph = self._nxgraph
 
@@ -90,7 +106,7 @@ class DiGraph:
                 return 0
             return 1 + max(node_depth(parent) for parent in nxgraph.predecessors(node))
 
-        depths: dict[str, int] = {node: node_depth(node) for node in nxgraph.nodes()}
+        depths = {node: node_depth(node) for node in nxgraph.nodes()}
         max_depth = max(depths.values())
 
         # Create Hierarchical position mapping
@@ -149,16 +165,29 @@ class DiGraph:
                 node_type,
                 ha="center",
                 va="bottom",
-                color="red",
+                color="black",
                 fontsize=8,
                 zorder=3,  # Labels drawn above nodes and edges
             )
 
-        # Draw edges with arrows
+        # Collect edges and their colors
+        edges: list[tuple[str, str]] = list(nxgraph.edges())
+        edge_colors: list[str] = []
+        for edge in edges:
+            edge_type = nxgraph.edges[edge].get("type", "")
+            edge_colors.append(
+                {
+                    "support": "green",
+                    "contrast": "red",
+                }.get(edge_type, "grey")
+            )
+
+        # Draw edges with arrows and colors
         edge_collection = nx.draw_networkx_edges(
             nxgraph,
             pos,
-            edge_color="gray",
+            edgelist=edges,
+            edge_color=edge_colors,  # type: ignore
             arrows=True,
             arrowsize=20,
             arrowstyle="->",
@@ -173,6 +202,46 @@ class DiGraph:
             else:
                 edge_collection.set_zorder(2)
 
+        # Collect edge labels separately based on edge type
+        edge_labels_support: dict[tuple[str, str], str] = {}
+        edge_labels_contrast: dict[tuple[str, str], str] = {}
+        for edge in edges:
+            edge_type = nxgraph.edges[edge].get("type", "")
+            if edge_type == "support":
+                edge_labels_support[edge] = edge_type
+            elif edge_type == "contrast":
+                edge_labels_contrast[edge] = edge_type
+
+        # Draw edge labels for 'support' edges in green
+        if edge_labels_support:
+            nx.draw_networkx_edge_labels(
+                nxgraph,
+                pos,
+                edge_labels=edge_labels_support,
+                label_pos=0.5,
+                font_size=8,
+                font_color="green",
+                bbox=dict(facecolor="white", edgecolor="none", pad=0.1),
+                verticalalignment="center",
+                horizontalalignment="center",
+                rotate=False,
+            )
+
+        # Draw edge labels for 'contrast' edges in red
+        if edge_labels_contrast:
+            nx.draw_networkx_edge_labels(
+                nxgraph,
+                pos,
+                edge_labels=edge_labels_contrast,
+                label_pos=0.5,
+                font_size=8,
+                font_color="red",
+                bbox=dict(facecolor="white", edgecolor="none", pad=0.1),
+                verticalalignment="center",
+                horizontalalignment="center",
+                rotate=False,
+            )
+
         title = "Paper Hierarchical Graph"
         if description:
             title += f"\n{description}"
@@ -181,36 +250,33 @@ class DiGraph:
         plt.axis("off")
         plt.tight_layout()
 
-        if img_path:
-            plt.savefig(img_path)
-        if show:
+        plt.savefig(img_path)
+        if display_gui:
             plt.show()
 
     def validate_hierarchy(self) -> str | None:
         """Validate that the graph follows the hirarchical rules.
 
         Rules:
-        - The graph must have a single root node (in-degree 0).
-        - The graph must be a directed acyclic graph (no cycles).
-        - Each concept node must connect to at least one supporting sentence (out-degree > 0).
+        1. The graph must have a single root node (in-degree 0).
+        2. The graph must be a directed acyclic graph (no cycles).
+        3. Each concept node must connect to at least one supporting sentence
+           (out-degree > 0).
 
         Args:
             graph: The graph to validate.
 
         Returns:
-            None if the graph is valid, otherwise a message explaining the error.
+            None if the graph is valid, otherwise a message explaining the violated rule.
         """
         nxgraph = self._nxgraph
         roots = [node for node in nxgraph.nodes if nxgraph.in_degree(node) == 0]
 
-        if not roots:
-            return "The graph has no root node. It should have one."
+        # 1. Single root node
+        if len(roots) != 1:
+            return f"The graph must have a single root node. Found {len(roots)}."
 
-        if len(roots) > 1:
-            return (
-                f"The graph has multiple root nodes. It should have only one."
-                f" Found {len(roots)}."
-            )
+        # 2. Must be a DAG
         if not nx.is_directed_acyclic_graph(nxgraph):
             return "The graph has a cycle. It should be a directed acyclic graph."
 
@@ -225,6 +291,7 @@ class DiGraph:
         concepts_unconnected = sum(
             out_degree == 0 for _, out_degree in out_degrees if out_degree == 0
         )
+        # 3. Each concept must connect to at least one supporting sentence
         if concepts_unconnected > 0:
             return (
                 "Each concept must connect to at least one supporting sentence."
@@ -262,7 +329,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     graph = DiGraph.load(args.graph_file)
-    graph.visualise_hierarchy(show=args.show, img_path=args.output)
+    graph.visualise_hierarchy(display_gui=args.show, img_path=args.output)
 
 
 if __name__ == "__main__":
