@@ -440,7 +440,7 @@ RATING_APPROVAL_THRESHOLD = 5
 """A rating is an approval if it's greater of equal than this."""
 
 
-def generate_graphs(
+def _generate_graphs(
     client: OpenAI, data: list[Paper], model: str, user_prompt: str
 ) -> GptResult[list[Graph]]:
     total_cost = 0
@@ -689,7 +689,7 @@ def extract_graph(
     graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]
 
     with BlockTimer() as timer_gen:
-        graphs = generate_graphs(client, papers, model, graph_user_prompt)
+        graphs = _generate_graphs(client, papers, model, graph_user_prompt)
 
     logger.info(f"Graph generation time elapsed: {timer_gen.human}")
     logger.info(f"Total graph generation cost: ${graphs.cost:.10f}")
