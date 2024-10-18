@@ -841,7 +841,7 @@ def main() -> None:
     setup_logging(logger)
 
     if args.subcommand == "prompts":
-        _display_prompts(detail=args.detail)
+        list_prompts(detail=args.detail)
     elif args.subcommand == "run":
         extract_graph(
             args.model,
@@ -856,7 +856,7 @@ def main() -> None:
         )
 
 
-def _display_prompts(detail: bool) -> None:
+def list_prompts(detail: bool) -> None:
     items = [
         ("GRAPH EXTRACTION PROMPTS", _GRAPH_USER_PROMPTS),
         ("CLASSIFICATION PROMPTS", _CLASSIFY_USER_PROMPTS),
