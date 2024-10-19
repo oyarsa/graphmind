@@ -328,7 +328,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         "-m",
         type=str,
         default="gpt-4o-mini",
-        help="The model to use for the extraction.",
+        help="The model to use for the extraction. Defaults to %(default)s",
     )
     run_parser.add_argument(
         "--api-key",
@@ -351,7 +351,8 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         type=str,
         choices=_CONTEXT_USER_PROMPTS.keys(),
         default="simple",
-        help="The user prompt to use for context classification. Defaults to %(default)s.",
+        help="The user prompt to use for context classification. Defaults to"
+        " %(default)s.",
     )
     run_parser.add_argument(
         "--ref-limit",
