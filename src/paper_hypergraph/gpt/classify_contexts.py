@@ -86,6 +86,23 @@ _CONTEXT_SYSTEM_PROMPT = (
 )
 _CONTEXT_USER_PROMPTS = {
     "simple": """\
+You are given a main paper and a reference with a citation context. Your task is to \
+determine the polarity of the citation context as 'positive' or 'negative', given the \
+main paper's title, the reference's title, and the citation context where the main \
+paper mentions the reference.
+
+The polarity represents whether the citation context is supporting the paper's goals \
+('positive'), or if it's provided as a counterpoint or criticism ('negative').
+
+#####
+-Data-
+Main paper title: {main_title}
+Reference title: {reference_title}
+Citation context: {context}
+#####
+Output:
+""",
+    "full": """\
 You are given a main paper and a reference with a citation context. Your task is to
 determine the polarity of the citation context as 'positive' or 'negative', given the
 main paper's title and abstract, the reference's title and abstract, and the citation
@@ -105,7 +122,7 @@ Reference abstract: {reference_abstract}
 Citation context: {context}
 #####
 Output:
-"""
+""",
 }
 
 
