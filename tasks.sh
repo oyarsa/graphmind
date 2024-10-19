@@ -14,7 +14,7 @@ help() {
 	printf "  setup   Set up the development environment\n"
 	printf "  check   Run linters and tests\n"
 	printf "  lint    Run ruff check, ruff format, and pyright\n"
-	printf "  test    Run tests\n"
+	printf "  tests   Run tests\n"
 	printf "  help    Show this help message\n"
 	printf "  doc     Open the module documentation on the browser\n"
 }
@@ -72,13 +72,10 @@ if [ $# -eq 0 ]; then
 	exit 1
 fi
 
-case "$1" in
-help | setup | check | doc | tests | lint)
+if declare -f "$1" >/dev/null; then
 	"$1"
-	;;
-*)
+else
 	printf "Error: Unknown task '%s'\n\n" "$1"
 	usage
 	exit 1
-	;;
-esac
+fi
