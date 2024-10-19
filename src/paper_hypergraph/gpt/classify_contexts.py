@@ -86,6 +86,23 @@ _CONTEXT_SYSTEM_PROMPT = (
 )
 _CONTEXT_USER_PROMPTS = {
     "simple": """\
+You are given a main paper and a reference with a citation context. Your task is to \
+determine the polarity of the citation context as 'positive' or 'negative', given the \
+main paper's title, the reference's title, and the citation context where the main \
+paper mentions the reference.
+
+The polarity represents whether the citation context is supporting the paper's goals \
+('positive'), or if it's provided as a counterpoint or criticism ('negative').
+
+#####
+-Data-
+Main paper title: {main_title}
+Reference title: {reference_title}
+Citation context: {context}
+#####
+Output:
+""",
+    "full": """\
 You are given a main paper and a reference with a citation context. Your task is to
 determine the polarity of the citation context as 'positive' or 'negative', given the
 main paper's title and abstract, the reference's title and abstract, and the citation
@@ -105,7 +122,7 @@ Reference abstract: {reference_abstract}
 Citation context: {context}
 #####
 Output:
-"""
+""",
 }
 
 
@@ -130,6 +147,7 @@ def _classify_contexts(
     user_prompt_template: str,
     papers: Sequence[PaperInput],
     limit_references: int | None,
+    use_expanded_context: bool,
 ) -> GptResult[list[PaperOutput]]:
     """Classify the contexts for each papers' references by polarity.
 
@@ -150,7 +168,12 @@ def _classify_contexts(
         for reference in references:
             classified_contexts: list[ContextClassified] = []
 
-            for context in reference.contexts:
+            contexts = (
+                reference.contexts_expanded
+                if use_expanded_context
+                else reference.contexts
+            )
+            for context in contexts:
                 user_prompt = user_prompt_template.format(
                     main_title=paper.title,
                     main_abstract=paper.abstract,
@@ -234,6 +257,7 @@ def classify_contexts(
     user_prompt_key: str,
     output_dir: Path,
     limit_references: int | None,
+    use_expanded_context: bool,
 ) -> None:
     """Classify reference citation contexts by polarity."""
 
@@ -263,7 +287,7 @@ def classify_contexts(
 
     with BlockTimer() as timer:
         results = _classify_contexts(
-            client, model, user_prompt, papers, limit_references
+            client, model, user_prompt, papers, limit_references, use_expanded_context
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -328,7 +352,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         "-m",
         type=str,
         default="gpt-4o-mini",
-        help="The model to use for the extraction.",
+        help="The model to use for the extraction. Defaults to %(default)s",
     )
     run_parser.add_argument(
         "--api-key",
@@ -351,13 +375,21 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         type=str,
         choices=_CONTEXT_USER_PROMPTS.keys(),
         default="simple",
-        help="The user prompt to use for context classification. Defaults to %(default)s.",
+        help="The user prompt to use for context classification. Defaults to"
+        " %(default)s.",
     )
     run_parser.add_argument(
         "--ref-limit",
         type=int,
         default=None,
         help="The number of references per paper to process. Defaults to all.",
+    )
+    run_parser.add_argument(
+        "--use-expanded-context",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Use expanded context (sentences surrounding the citation context)."
+        " Defaults to %(default)s",
     )
 
     # 'prompts' subcommand parser
@@ -393,6 +425,7 @@ def main() -> None:
             args.user_prompt,
             args.output_dir,
             args.ref_limit,
+            args.use_expanded_context,
         )
 
 

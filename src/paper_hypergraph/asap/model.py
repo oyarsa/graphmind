@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # Models from the ASAP files after exctraction (e.g. asap_filtered.json)
@@ -36,9 +36,6 @@ class Paper(BaseModel):
     references: Sequence[PaperReference] = Field(
         description="References made in the paper"
     )
-
-
-ASAPDatasetAdapter = TypeAdapter(list[Paper])
 
 
 # Models after enrichment of references with data from the S2 API
