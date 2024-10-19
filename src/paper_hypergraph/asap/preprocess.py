@@ -8,7 +8,12 @@ from paper_hypergraph.asap.filter import filter_ratings
 from paper_hypergraph.asap.merge import merge_content_review
 
 
-def pipeline(papers_path: Path, output_path: Path) -> None:
+def pipeline(
+    papers_path: Path,
+    output_path: Path,
+    context_sentences: int,
+    context_min_fuzzy: float,
+) -> None:
     """Run the complete ASAP-Review preprocessing pipeline.
 
     Steps:
@@ -26,7 +31,9 @@ def pipeline(papers_path: Path, output_path: Path) -> None:
 
     interesting_path = output_path / "asap_extracted.json"
     print(f"\n==== Extracting relevant information from papers -> {interesting_path}")
-    extract_interesting(merged_path, interesting_path)
+    extract_interesting(
+        merged_path, interesting_path, context_sentences, context_min_fuzzy
+    )
 
     filtered_path = output_path / "asap_filtered.json"
     print(f"\n==== Removing papers with high variance ratings -> {filtered_path}")
@@ -45,12 +52,25 @@ def cli_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "output", type=Path, help="Path to output directory for processed files"
     )
+    parser.add_argument(
+        "--context-sentences",
+        type=int,
+        default=1,
+        help="Maximum number of sentences to expand the context (before and after)",
+    )
+    parser.add_argument(
+        "--context-min-fuzzy",
+        type=float,
+        default=0.8,
+        help="Minimum fuzzy ratio to accept candidate citation sentences matches. "
+        "Value in [0, 1].",
+    )
     return parser
 
 
 def main() -> None:
     args = cli_parser().parse_args()
-    pipeline(args.input, args.output)
+    pipeline(args.input, args.output, args.context_sentences, args.context_min_fuzzy)
 
 
 if __name__ == "__main__":
