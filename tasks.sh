@@ -12,10 +12,11 @@ help() {
 	printf "\n"
 	printf "Available tasks:\n"
 	printf "  setup   Set up the development environment\n"
-	printf "  check   Run ruff check, ruff format, and pyright\n"
+	printf "  check   Run linters and tests\n"
+	printf "  lint    Run ruff check, ruff format, and pyright\n"
+	printf "  test    Run tests\n"
 	printf "  help    Show this help message\n"
 	printf "  doc     Open the module documentation on the browser\n"
-	printf "  test    Run tests\n"
 }
 
 setup() {
@@ -48,18 +49,22 @@ setup() {
 	fi
 }
 
-check() {
+lint() {
 	uv run ruff check . --fix
 	uv run ruff format .
 	uv run pyright .
 }
 
-doc() {
-	uv run pdoc paper_hypergraph --docformat google
+tests() {
+	uv run pytest tests
 }
 
-test() {
-	uv run pytest tests
+check() {
+	lint && tests
+}
+
+doc() {
+	uv run pdoc paper_hypergraph --docformat google
 }
 
 if [ $# -eq 0 ]; then
@@ -68,7 +73,7 @@ if [ $# -eq 0 ]; then
 fi
 
 case "$1" in
-help | setup | check | doc | test)
+help | setup | check | doc | tests | lint)
 	"$1"
 	;;
 *)
