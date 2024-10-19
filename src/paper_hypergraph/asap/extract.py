@@ -13,7 +13,7 @@ import argparse
 import json
 import re
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict
 from difflib import get_close_matches
 from pathlib import Path
@@ -53,6 +53,38 @@ def _split_paragraph(model: SpacyModel, paragraph: str) -> list[str]:
     """Split a paragraph into sentences using a spaCy model."""
     doc = model(paragraph)
     return [sent.text.strip() for sent in doc.sents]
+
+
+def _expand_citation_contexts(
+    spacy_model: SpacyModel,
+    sections: Sequence[process_sections.Section],
+    contexts: Iterable[str],
+    min_fuzzy: float,
+    n: int,
+) -> list[str]:
+    """Expand the given contexts in the paragraph by `n` sentences.
+
+    See `_expand_citation_context` for more information.
+
+    TODO: Speed this up. Using spaCy makes this really slow.
+    """
+    expanded: list[str] = []
+
+    for context in contexts:
+        if paragraph := _find_context_paragraph(sections, context):
+            expanded.append(
+                _expand_citation_context(
+                    spacy_model,
+                    paragraph,
+                    context,
+                    min_fuzzy,
+                    n=n,
+                )
+            )
+        else:
+            expanded.append(context)
+
+    return expanded
 
 
 def _expand_citation_context(
@@ -127,10 +159,32 @@ def _expand_citation_context(
     return "\n".join(context)
 
 
+def _find_context_paragraph(
+    sections: Iterable[process_sections.Section], context: str
+) -> str | None:
+    """Find the first paragraph that contains the citaton context sentence.
+
+    Args:
+        sections: grouped sections from the main paper (see
+            paper_hypergraph.asap.process_sections).
+        context: context sentence from referenceMentions.
+
+    Returns:
+        The paragraph if found. None, otherwise.
+    """
+    for section in sections:
+        for paragraph in section.text.splitlines():
+            if context in paragraph:
+                return paragraph
+
+    return None
+
+
 def _process_references(
     spacy_model: SpacyModel,
     paper: dict[str, Any],
     context_sentences: int,
+    sections: Sequence[process_sections.Section],
     min_fuzzy: float,
 ) -> list[dict[str, Any]]:
     class ReferenceKey(NamedTuple):
@@ -161,16 +215,9 @@ def _process_references(
             "authors": ref.authors,
             "year": ref.year,
             "contexts": list(contexts),
-            "contexts_expanded": [
-                _expand_citation_context(
-                    spacy_model,
-                    context,
-                    context,
-                    min_fuzzy,
-                    n=context_sentences,
-                )
-                for context in contexts
-            ],
+            "contexts_expanded": _expand_citation_contexts(
+                spacy_model, sections, contexts, min_fuzzy, context_sentences
+            ),
         }
         for ref, contexts in references_output.items()
     ]
@@ -207,7 +254,7 @@ def extract_interesting(
                 "sections": [asdict(section) for section in sections],
                 "approval": _parse_approval(item["approval"]),
                 "references": _process_references(
-                    spacy_model, paper, context_sentences, min_fuzzy
+                    spacy_model, paper, context_sentences, sections, min_fuzzy
                 ),
             }
         )
