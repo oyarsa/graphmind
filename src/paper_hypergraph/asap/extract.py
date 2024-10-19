@@ -11,11 +11,13 @@ we find a sentence that contains another citation.
 
 import argparse
 import json
+import multiprocessing
 import re
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict
 from difflib import get_close_matches
+from functools import partial
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -53,6 +55,36 @@ def _split_paragraph(model: SpacyModel, paragraph: str) -> list[str]:
     """Split a paragraph into sentences using a spaCy model."""
     doc = model(paragraph)
     return [sent.text.strip() for sent in doc.sents]
+
+
+def _expand_citation_contexts(
+    spacy_model: SpacyModel,
+    sections: Sequence[process_sections.Section],
+    contexts: Iterable[str],
+    min_fuzzy: float,
+    n: int,
+) -> list[str]:
+    """Expand the given contexts in the paragraph by `n` sentences.
+
+    See `_expand_citation_context` for more information.
+    """
+    expanded: list[str] = []
+
+    for context in contexts:
+        if paragraph := _find_context_paragraph(sections, context):
+            expanded.append(
+                _expand_citation_context(
+                    spacy_model,
+                    paragraph,
+                    context,
+                    min_fuzzy,
+                    n=n,
+                )
+            )
+        else:
+            expanded.append(context)
+
+    return expanded
 
 
 def _expand_citation_context(
@@ -104,10 +136,10 @@ def _expand_citation_context(
             break
 
         sentence = sentences[citation_index - i]
-        if not _REGEX_CITATION.search(sentence):
-            context.insert(0, sentence)
-        else:
+        if _REGEX_CITATION.search(sentence):
             break
+
+        context.insert(0, sentence)
 
     # Add sentences after the citation
     for i in range(1, n + 1):
@@ -115,10 +147,10 @@ def _expand_citation_context(
             break
 
         sentence = sentences[citation_index + i]
-        if not _REGEX_CITATION.search(sentence):
-            context.append(sentence)
-        else:
+        if _REGEX_CITATION.search(sentence):
             break
+
+        context.append(sentence)
 
     # If we didn't find anything else, we return the original sentence as-is.
     if len(context) == 1:
@@ -127,10 +159,32 @@ def _expand_citation_context(
     return "\n".join(context)
 
 
+def _find_context_paragraph(
+    sections: Iterable[process_sections.Section], context: str
+) -> str | None:
+    """Find the first paragraph that contains the citation context sentence.
+
+    Args:
+        sections: grouped sections from the main paper (see
+            paper_hypergraph.asap.process_sections).
+        context: context sentence from referenceMentions.
+
+    Returns:
+        The paragraph if found. None, otherwise.
+    """
+    for section in sections:
+        for paragraph in section.text.splitlines():
+            if context in paragraph:
+                return paragraph
+
+    return None
+
+
 def _process_references(
     spacy_model: SpacyModel,
     paper: dict[str, Any],
     context_sentences: int,
+    sections: Sequence[process_sections.Section],
     min_fuzzy: float,
 ) -> list[dict[str, Any]]:
     class ReferenceKey(NamedTuple):
@@ -161,19 +215,39 @@ def _process_references(
             "authors": ref.authors,
             "year": ref.year,
             "contexts": list(contexts),
-            "contexts_expanded": [
-                _expand_citation_context(
-                    spacy_model,
-                    context,
-                    context,
-                    min_fuzzy,
-                    n=context_sentences,
-                )
-                for context in contexts
-            ],
+            "contexts_expanded": _expand_citation_contexts(
+                spacy_model, sections, contexts, min_fuzzy, context_sentences
+            ),
         }
         for ref, contexts in references_output.items()
     ]
+
+
+def _process_paper(
+    item: dict[str, Any],
+    spacy_model: SpacyModel,
+    context_sentences: int,
+    min_fuzzy: float,
+) -> dict[str, Any] | None:
+    """Process a single paper item."""
+    paper = item["paper"]
+
+    sections = process_sections.group_sections(paper["sections"])
+    if not sections:
+        return None
+
+    ratings = [r for review in item["review"] if (r := _parse_rating(review["rating"]))]
+
+    return {
+        "title": paper["title"],
+        "abstract": paper["abstractText"],
+        "ratings": ratings,
+        "sections": [asdict(section) for section in sections],
+        "approval": _parse_approval(item["approval"]),
+        "references": _process_references(
+            spacy_model, paper, context_sentences, sections, min_fuzzy
+        ),
+    }
 
 
 def extract_interesting(
@@ -186,36 +260,27 @@ def extract_interesting(
     spacy_model = load_spacy_model(_SPACY_MODEL)
     data = json.loads(input_file.read_text())
 
-    output: list[dict[str, Any]] = []
-
-    for item in data:
-        paper = item["paper"]
-
-        sections = process_sections.group_sections(paper["sections"])
-        if not sections:
-            continue
-
-        ratings = [
-            r for review in item["review"] if (r := _parse_rating(review["rating"]))
-        ]
-
-        output.append(
-            {
-                "title": paper["title"],
-                "abstract": paper["abstractText"],
-                "ratings": ratings,
-                "sections": [asdict(section) for section in sections],
-                "approval": _parse_approval(item["approval"]),
-                "references": _process_references(
-                    spacy_model, paper, context_sentences, min_fuzzy
-                ),
-            }
+    with multiprocessing.Pool() as pool:
+        results = pool.map(
+            partial(
+                _process_paper,
+                spacy_model=spacy_model,
+                context_sentences=context_sentences,
+                min_fuzzy=min_fuzzy,
+            ),
+            data,
         )
 
-    print("no.  input papers:", len(data))
-    print("no. output papers:", len(output), f"({len(output) / len(data):.2%})")
+    results_valid = [res for res in results if res]
 
-    output_file.write_text(json.dumps(output, indent=2))
+    print("no.  input papers:", len(data))
+    print(
+        "no. output papers:",
+        len(results_valid),
+        f"({len(results_valid) / len(data):.2%})",
+    )
+
+    output_file.write_text(json.dumps(results_valid, indent=2))
 
 
 def main() -> None:

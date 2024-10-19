@@ -13,6 +13,7 @@ def pipeline(
     output_path: Path,
     context_sentences: int,
     context_min_fuzzy: float,
+    max_papers: int | None,
 ) -> None:
     """Run the complete ASAP-Review preprocessing pipeline.
 
@@ -27,7 +28,7 @@ def pipeline(
     """
     merged_path = output_path / "asap_merged.json"
     print(f"==== Merging data from multiple files -> {merged_path}")
-    merge_content_review(papers_path, merged_path)
+    merge_content_review(papers_path, merged_path, max_papers)
 
     interesting_path = output_path / "asap_extracted.json"
     print(f"\n==== Extracting relevant information from papers -> {interesting_path}")
@@ -65,12 +66,24 @@ def cli_parser() -> argparse.ArgumentParser:
         help="Minimum fuzzy ratio to accept candidate citation sentences matches. "
         "Value in [0, 1].",
     )
+    parser.add_argument(
+        "--max-papers",
+        type=int,
+        default=None,
+        help="Maximum number of papers to process",
+    )
     return parser
 
 
 def main() -> None:
     args = cli_parser().parse_args()
-    pipeline(args.input, args.output, args.context_sentences, args.context_min_fuzzy)
+    pipeline(
+        args.input,
+        args.output,
+        args.context_sentences,
+        args.context_min_fuzzy,
+        args.max_papers,
+    )
 
 
 if __name__ == "__main__":
