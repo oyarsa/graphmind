@@ -23,7 +23,7 @@ def filter_ratings(input_file: Path, output_file: Path) -> None:
     The input file is the output of `paper_hypergraph.asap.extract`. The output has
     the same format as the input.
     """
-    data = TypeAdapter(list[Paper]).validate_json(input_file.read_text())
+    data = TypeAdapter(list[Paper]).validate_json(input_file.read_bytes())
     output = [p for p in data if _keep_paper(p)]
 
     print("no.  input papers:", len(data))

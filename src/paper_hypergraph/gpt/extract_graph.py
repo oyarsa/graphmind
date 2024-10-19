@@ -672,7 +672,7 @@ def extract_graph(
 
     client = OpenAI()
 
-    data = TypeAdapter(list[Paper]).validate_json(data_path.read_text())
+    data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
 
     papers = data[:limit]
     graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]
