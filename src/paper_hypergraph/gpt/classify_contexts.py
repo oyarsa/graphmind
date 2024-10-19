@@ -280,7 +280,7 @@ def classify_contexts(
 
     client = OpenAI()
 
-    data = TypeAdapter(list[PaperInput]).validate_json(data_path.read_text())
+    data = TypeAdapter(list[PaperInput]).validate_json(data_path.read_bytes())
 
     papers = data[:limit_papers]
     user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
