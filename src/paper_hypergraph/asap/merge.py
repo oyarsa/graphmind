@@ -19,7 +19,7 @@ def _safe_load_json(file_path: Path) -> Any:
     return json.loads(file_path.read_text(encoding="utf-8", errors="replace"))
 
 
-def merge_content_review(path: Path, output_path: Path) -> None:
+def merge_content_review(path: Path, output_path: Path, max_papers: int | None) -> None:
     """Read papers in `path`, extract content and reviews, and writes to `output_path`.
 
     Only papers with titles and reviews with ratings are kept.
@@ -28,6 +28,7 @@ def merge_content_review(path: Path, output_path: Path) -> None:
     encoding issues. This might lead to fallback characters in the output.
     """
     output: list[dict[str, Any]] = []
+    count = 0
 
     for dir in path.iterdir():
         if not dir.is_dir():
@@ -41,6 +42,9 @@ def merge_content_review(path: Path, output_path: Path) -> None:
             continue
 
         for content_file in contents.glob("*.json"):
+            if max_papers is not None and count >= max_papers:
+                break
+
             review_file = reviews / content_file.name.replace("_content", "_review")
             paper_file = papers / content_file.name.replace("_content", "_paper")
 
@@ -61,6 +65,7 @@ def merge_content_review(path: Path, output_path: Path) -> None:
                         "approval": approval,
                     }
                 )
+                count += 1
 
     output_path.write_text(
         json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -81,8 +86,14 @@ def main() -> None:
         type=Path,
         help="Output merged JSON file",
     )
+    parser.add_argument(
+        "--max-papers",
+        type=int,
+        default=None,
+        help="Maximum number of papers to process",
+    )
     args = parser.parse_args()
-    merge_content_review(args.path, args.output)
+    merge_content_review(args.path, args.output, args.max_papers)
 
 
 if __name__ == "__main__":

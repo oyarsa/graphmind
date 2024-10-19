@@ -39,7 +39,11 @@ def main():
         )
     elif args.command == "asap":
         asap.pipeline(
-            args.input, args.output, args.context_sentences, args.context_min_fuzzy
+            args.input,
+            args.output,
+            args.context_sentences,
+            args.context_min_fuzzy,
+            args.max_papers,
         )
     else:
         parser.print_help()
