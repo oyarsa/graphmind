@@ -92,7 +92,7 @@ def _expand_citation_context(
         citation_sentence, sentences, n=1, cutoff=min_fuzzy
     )
     if not close_matches:
-        raise ValueError("Citation sentence not found in the paragraph")
+        return citation_sentence
 
     citation_sentence_match = close_matches[0]
     citation_index = sentences.index(citation_sentence_match)
