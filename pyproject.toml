@@ -60,6 +60,11 @@ ignore = [
 reportUnusedImport = false
 typeCheckingMode = "strict"
 
+# Allow unit tests to import private things
+executionEnvironments = [
+  { root = "tests", reportPrivateUsage = false }
+]
+
 [tool.uv]
 dev-dependencies = [
     "ipython>=8.27.0",
@@ -68,6 +73,7 @@ dev-dependencies = [
     "pdoc>=15.0.0",
     "pre-commit>=3.8.0",
     "pyright>=1.1.380",
+    "pytest>=8.3.3",
     "ruff>=0.6.4",
 ]
 
