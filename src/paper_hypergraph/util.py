@@ -6,6 +6,7 @@ import time
 from typing import Any, Self
 
 import colorlog
+import spacy
 from thefuzz import fuzz  # type: ignore
 
 
@@ -71,3 +72,19 @@ def setup_logging(logger: logging.Logger) -> None:
     handler.setFormatter(colorlog.ColoredFormatter(fmt=fmt, datefmt=datefmt))
 
     logger.addHandler(handler)
+
+
+def load_spacy_model(model_name: str) -> spacy.language.Language:
+    """Ensure that a spaCy model is available, downloading it if necessary.
+
+    NB: spaCy neeeds `pip` to download the model, so make sure your environment has it
+    (e.g. explicitly add `pip` as a dependency if using uv or poetry).
+
+    Args:
+        model_name: The name of the spaCy model to load (e.g., "en_core_web_sm")
+    """
+    if not spacy.util.is_package(model_name):
+        print(f"Model {model_name} not found. Downloading...")
+        spacy.cli.download(model_name)  # type: ignore
+
+    return spacy.load(model_name)

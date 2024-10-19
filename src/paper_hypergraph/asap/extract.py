@@ -19,7 +19,13 @@ from difflib import get_close_matches
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from spacy.language import Language as SpacyModel
+
 from paper_hypergraph.asap import process_sections
+from paper_hypergraph.util import load_spacy_model
+
+_SPACY_MODEL = "en_core_web_sm"
+_CONTEXT_MIN_FUZZY = 0.8
 
 
 def _parse_rating(rating: str) -> int | None:
@@ -39,13 +45,24 @@ def _parse_approval(approval: str) -> bool:
     return approval.strip().lower() != "reject"
 
 
-_REGEX_SENTENCE = re.compile(r"(?<=[.!?])\s+")
-"""Used to split a paragraph into sentences."""
 _REGEX_CITATION = re.compile(r"\([A-Z][a-z]+(\s+et al\.)?\.?,\s+\d{4}\)")
 """Used to search for citations."""
 
 
-def _expand_citation_context(paragraph: str, citation_sentence: str, *, n: int) -> str:
+def _split_paragraph(model: SpacyModel, paragraph: str) -> list[str]:
+    """Split a paragraph into sentences using a spaCy model."""
+    doc = model(paragraph)
+    return [sent.text.strip() for sent in doc.sents]
+
+
+def _expand_citation_context(
+    spacy_model: SpacyModel,
+    paragraph: str,
+    citation_sentence: str,
+    min_fuzzy: float,
+    *,
+    n: int,
+) -> str:
     """Expand the given context in the paragraph by `n` sentences.
 
     We try to expand the context within the given paragraph. We get `n` sentences before
@@ -56,6 +73,8 @@ def _expand_citation_context(paragraph: str, citation_sentence: str, *, n: int) 
             expand it.
         citation_sentence: Original context given in the ASAP dataset.
         n: Number of sentences to expand the context, before and after.
+        min_fuzzy: Minimum fuzzy ratio (in [0, 1]) to accept a citation sentence
+            candidate.
 
     Returns:
         The expanded context. This contains at least the original citation sentence we
@@ -63,12 +82,15 @@ def _expand_citation_context(paragraph: str, citation_sentence: str, *, n: int) 
 
     Raises:
         ValueError if the `citation_sentence` cannot be found in the paragraph. Even
-            tries to find a fuzzy match (ratio over 0.8) before it bails.
+            tries to find a fuzzy match (ratio greater or equal to `min_fuzzy`) before
+            it bails.
     """
-    sentences = _REGEX_SENTENCE.split(paragraph)
+    sentences = _split_paragraph(spacy_model, paragraph)
 
     # Find the index of the citation sentence using fuzzy matching
-    close_matches = get_close_matches(citation_sentence, sentences, n=1, cutoff=0.8)
+    close_matches = get_close_matches(
+        citation_sentence, sentences, n=1, cutoff=min_fuzzy
+    )
     if not close_matches:
         raise ValueError("Citation sentence not found in the paragraph")
 
@@ -106,7 +128,10 @@ def _expand_citation_context(paragraph: str, citation_sentence: str, *, n: int) 
 
 
 def _process_references(
-    paper: dict[str, Any], context_sentences: int
+    spacy_model: SpacyModel,
+    paper: dict[str, Any],
+    context_sentences: int,
+    min_fuzzy: float,
 ) -> list[dict[str, Any]]:
     class ReferenceKey(NamedTuple):
         title: str
@@ -137,7 +162,13 @@ def _process_references(
             "year": ref.year,
             "contexts": list(contexts),
             "contexts_expanded": [
-                _expand_citation_context(context, context, n=context_sentences)
+                _expand_citation_context(
+                    spacy_model,
+                    context,
+                    context,
+                    min_fuzzy,
+                    n=context_sentences,
+                )
                 for context in contexts
             ],
         }
@@ -146,12 +177,13 @@ def _process_references(
 
 
 def extract_interesting(
-    input_file: Path, output_file: Path, context_sentences: int
+    input_file: Path, output_file: Path, context_sentences: int, min_fuzzy: float
 ) -> None:
     """Extract information from the input JSON file and write to the output JSON file.
 
     The input file is the output of `paper_hypergraph.asap.merge`.
     """
+    spacy_model = load_spacy_model(_SPACY_MODEL)
     data = json.loads(input_file.read_text())
 
     output: list[dict[str, Any]] = []
@@ -174,7 +206,9 @@ def extract_interesting(
                 "ratings": ratings,
                 "sections": [asdict(section) for section in sections],
                 "approval": _parse_approval(item["approval"]),
-                "references": _process_references(paper, context_sentences),
+                "references": _process_references(
+                    spacy_model, paper, context_sentences, min_fuzzy
+                ),
             }
         )
 
@@ -196,8 +230,15 @@ def main() -> None:
         default=1,
         help="Maximum number of sentences to expand the context (before and after)",
     )
+    parser.add_argument(
+        "--min-fuzzy",
+        type=float,
+        default=_CONTEXT_MIN_FUZZY,
+        help="Minimum fuzzy ratio to accept candidate citation sentences matches. "
+        "Value in [0, 1].",
+    )
     args = parser.parse_args()
-    extract_interesting(args.input, args.output, args.context_sentences)
+    extract_interesting(args.input, args.output, args.context_sentences, args.min_fuzzy)
 
 
 if __name__ == "__main__":
