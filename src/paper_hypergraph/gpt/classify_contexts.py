@@ -147,6 +147,7 @@ def _classify_contexts(
     user_prompt_template: str,
     papers: Sequence[PaperInput],
     limit_references: int | None,
+    use_expanded_context: bool,
 ) -> GptResult[list[PaperOutput]]:
     """Classify the contexts for each papers' references by polarity.
 
@@ -167,7 +168,12 @@ def _classify_contexts(
         for reference in references:
             classified_contexts: list[ContextClassified] = []
 
-            for context in reference.contexts:
+            contexts = (
+                reference.contexts_expanded
+                if use_expanded_context
+                else reference.contexts
+            )
+            for context in contexts:
                 user_prompt = user_prompt_template.format(
                     main_title=paper.title,
                     main_abstract=paper.abstract,
@@ -251,6 +257,7 @@ def classify_contexts(
     user_prompt_key: str,
     output_dir: Path,
     limit_references: int | None,
+    use_expanded_context: bool,
 ) -> None:
     """Classify reference citation contexts by polarity."""
 
@@ -280,7 +287,7 @@ def classify_contexts(
 
     with BlockTimer() as timer:
         results = _classify_contexts(
-            client, model, user_prompt, papers, limit_references
+            client, model, user_prompt, papers, limit_references, use_expanded_context
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -377,6 +384,13 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="The number of references per paper to process. Defaults to all.",
     )
+    run_parser.add_argument(
+        "--use-expanded-context",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Use expanded context (sentences surrounding the citation context)."
+        " Defaults to %(default)s",
+    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -411,6 +425,7 @@ def main() -> None:
             args.user_prompt,
             args.output_dir,
             args.ref_limit,
+            args.use_expanded_context,
         )
 
 
