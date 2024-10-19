@@ -59,7 +59,7 @@ from pydantic import TypeAdapter
 from tqdm import tqdm
 
 from paper_hypergraph.asap.model import (
-    ASAPDatasetAdapter,
+    Paper,
     PaperReference,
     PaperWithReferenceEnriched,
     ReferenceEnriched,
@@ -118,7 +118,7 @@ def add_references(
     Matching is done by fuzzy matching, with a minimum fuzzy score. If no S2 papers
     match a given reference, the reference is removed.
     """
-    source_papers = ASAPDatasetAdapter.validate_json(papers_file.read_text())[
+    source_papers = TypeAdapter(list[Paper]).validate_json(papers_file.read_text())[
         :file_limit
     ]
     external_papers = TypeAdapter(list[S2Paper]).validate_json(

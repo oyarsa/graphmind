@@ -7,7 +7,9 @@ greater than 3, the paper is removed from the dataset.
 import argparse
 from pathlib import Path
 
-from paper_hypergraph.asap.model import ASAPDatasetAdapter, Paper
+from pydantic import TypeAdapter
+
+from paper_hypergraph.asap.model import Paper
 
 
 def _keep_paper(paper: Paper) -> bool:
@@ -21,13 +23,13 @@ def filter_ratings(input_file: Path, output_file: Path) -> None:
     The input file is the output of `paper_hypergraph.asap.extract`. The output has
     the same format as the input.
     """
-    data = ASAPDatasetAdapter.validate_json(input_file.read_text())
+    data = TypeAdapter(list[Paper]).validate_json(input_file.read_text())
     output = [p for p in data if _keep_paper(p)]
 
     print("no.  input papers:", len(data))
     print("no. output papers:", len(output), f"({len(output) / len(data):.2%})")
 
-    output_file.write_bytes(ASAPDatasetAdapter.dump_json(output, indent=2))
+    output_file.write_bytes(TypeAdapter(list[Paper]).dump_json(output, indent=2))
 
 
 def main() -> None:
