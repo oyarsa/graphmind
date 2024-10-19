@@ -96,6 +96,7 @@ def _match_paper_external(
         year=source.year,
         authors=source.authors,
         contexts=source.contexts,
+        contexts_expanded=source.contexts_expanded,
         abstract=best_external.abstract,
         s2title=best_external.title,
         reference_count=best_external.reference_count,

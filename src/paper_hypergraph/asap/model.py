@@ -18,6 +18,9 @@ class PaperReference(BaseModel):
     year: int = Field(description="Year of publication")
     authors: Sequence[str] = Field(description="Author names")
     contexts: Sequence[str] = Field(description="Citation contexts from this reference")
+    contexts_expanded: Sequence[str] = Field(
+        description="Citation contexts from this reference (expanded in paragraph)"
+    )
 
 
 class Paper(BaseModel):
