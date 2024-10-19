@@ -36,7 +36,7 @@ The final sentence is here.\
     assert sentences == expected
 
 
-def test_extract_citation_context(spacy_model: SpacyModel) -> None:
+def test_expand_citation_context(spacy_model: SpacyModel) -> None:
     paragraph = """\
 This is a sentence before the citation. \
 Smith et al. (2020) found that AI can be very useful. \
