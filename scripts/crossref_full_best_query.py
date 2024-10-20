@@ -16,7 +16,7 @@ from typing import Any
 
 from tqdm import tqdm
 
-from paper_hypergraph.s2orc.query_cr import get_best_paper
+from paper_hypergraph.external_data.crossref import get_best_paper
 
 
 def download(

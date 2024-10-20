@@ -21,7 +21,7 @@ from tqdm import tqdm
 
 from paper_hypergraph.asap.model import PaperSection
 from paper_hypergraph.asap.model import PaperWithFullReference as PaperInput
-from paper_hypergraph.gpt.run_gpt import MODELS_ALLOWED, GptResult, run_gpt
+from paper_hypergraph.gpt.run_gpt import MODELS_ALLOWED, GPTResult, run_gpt
 from paper_hypergraph.util import BlockTimer, setup_logging
 
 logger = logging.getLogger("classify_contexts")
@@ -126,7 +126,7 @@ Output:
 }
 
 
-class GptContext(BaseModel):
+class GPTContext(BaseModel):
     """Context from a paper reference with GPT-classified polarity.
 
     NB: This is currently identical to the main type (PaperContextClassified). They're
@@ -148,7 +148,7 @@ def _classify_contexts(
     papers: Sequence[PaperInput],
     limit_references: int | None,
     use_expanded_context: bool,
-) -> GptResult[list[PaperOutput]]:
+) -> GPTResult[list[PaperOutput]]:
     """Classify the contexts for each papers' references by polarity.
 
     Polarity (ContextPolarity): positive (supports argument) or negative (counterpoint).
@@ -182,7 +182,7 @@ def _classify_contexts(
                     context=context,
                 )
                 result = run_gpt(
-                    GptContext, client, _CONTEXT_SYSTEM_PROMPT, user_prompt, model
+                    GPTContext, client, _CONTEXT_SYSTEM_PROMPT, user_prompt, model
                 )
                 total_cost += result.cost
 
@@ -221,7 +221,7 @@ def _classify_contexts(
         )
 
     assert len(paper_outputs) == len(papers)
-    return GptResult(paper_outputs, total_cost)
+    return GPTResult(paper_outputs, total_cost)
 
 
 def _log_config(
@@ -293,11 +293,13 @@ def classify_contexts(
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${results.cost:.10f}")
 
-    logger.info("Classification frequency\n" + show_classified_stats(results.result))
+    logger.info(
+        "Classification frequency:\n%s\n", show_classified_stats(results.result)
+    )
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "result.json").write_text(
-        TypeAdapter(list[PaperOutput]).dump_json(results.result, indent=2).decode()
+    (output_dir / "result.json").write_bytes(
+        TypeAdapter(list[PaperOutput]).dump_json(results.result, indent=2)
     )
 
 

@@ -5,8 +5,9 @@ the unique reference titles and queries them on the Crossref API. This querying 
 by title, where we get the top 10 matches, of which we find the best matching by fuzzy
 matching. There's a minimum fuzzy threshold (30 by default).
 
-NB: Crossref has very poor performance, so we focus on using query_s2 (Semantic Scholar
-API) instead. This script is likely to break in the future, as it won't be maintained.
+NB: Crossref has very poor performance, so we focus on using
+external_data.semantic_scholar (Semantic Scholar API) instead. This script is likely to
+break in the future, as it won't be maintained.
 """
 
 import argparse

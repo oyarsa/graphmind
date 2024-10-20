@@ -1,4 +1,5 @@
 import pytest
+import spacy
 
 from paper_hypergraph.asap.extract import (
     _CONTEXT_MIN_FUZZY,
@@ -7,12 +8,11 @@ from paper_hypergraph.asap.extract import (
     _expand_citation_context,
     _split_paragraph,
 )
-from paper_hypergraph.util import load_spacy_model
 
 
 @pytest.fixture(scope="session")
 def spacy_model() -> SpacyModel:
-    return load_spacy_model(_SPACY_MODEL)
+    return spacy.load(_SPACY_MODEL)
 
 
 def test_split_paragraph(spacy_model: SpacyModel) -> None:

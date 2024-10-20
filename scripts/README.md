@@ -1,4 +1,4 @@
-# archive: throwaway scripts
+# scripts: independent scripts
 
 This directory is a collection of (potentially) throwaway scripts I write over the
 course of development that could be useful again in the future, so I don't want to just

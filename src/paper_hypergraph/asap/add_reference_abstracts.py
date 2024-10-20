@@ -11,15 +11,16 @@ no papers from S2 clear that threshold for a given reference, the reference is r
 The ASAP papers used as input come from the ASAP preprocess pipeline, finishing with
 paper_hypergraph.asap.filter (asap_filtered.json).
 
-The S2 results come from paper_hypergraph.s2orc.query_s2. Note that the S2 script also
-uses the result of the ASAP pipeline, asap_filtered.json.
+The S2 results come from paper_hypergraph.external_data.semantic_scholar. Note that the
+S2 script also uses the result of the ASAP pipeline, asap_filtered.json.
 
 Since the S2 script takes a long time to run, it cannot be used in the middle of the
 pipeline, so this whole part needs to be run manually. The order is:
 
 - `uv run src/paper_hypergraph/asap/pipeline.py data/asap output`:
     - generates output/asap_filtered.json
-- `uv run src/paper_hypergraph/s2orc/query_s2.py output/asap_filtered.json output`:
+- `uv run src/paper_hypergraph/external_data/semantic_scholar.py
+    output/asap_filtered.json output`:
     - uses `output/asap_filtered.json` to generate `semantic_scholar_filtered.json`
 - `uv run src/paper_hypergraph/asap/add_reference_abstracts.py output/asap_filtered.json
   output/semantic_scholar_filtered.json output/asap_with_abstracts.json`:
@@ -34,9 +35,9 @@ Diagram for this pipeline:
 +-----------------------------------+
   |
   |     +---------------------+     +---------------------+     +---------------------+
-  +---->| asap_filtered.json  |---->| s2orc/query_s2.py   |---->| semantic_scholar_   |
-        +---------------------+     +---------------------+     | filtered.json       |
-          |                                                     +---------------------+
+  +---->| asap_filtered.json  |---->| external_data/      |---->| semantic_scholar_   |
+        +---------------------+     | semantic_scholar.py |     | filtered.json       |
+          |                         +---------------------+     +---------------------+
           |                                                               |
           |     +---------------------+                                   |
           |     | asap/add_reference_ |                                   |
