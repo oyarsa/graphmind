@@ -306,6 +306,10 @@ class DiGraph:
             path = path.with_suffix(".graphml")
         nx.write_graphml(self._nxgraph, path)
 
+    def graphml(self) -> str:
+        """Save the graph as a GraphML string."""
+        return "\n".join(nx.generate_graphml(self._nxgraph))
+
     @classmethod
     def load(cls, path: Path) -> Self:
         """Load a graph from a GraphML file."""
