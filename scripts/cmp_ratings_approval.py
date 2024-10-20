@@ -22,7 +22,7 @@ from sklearn.metrics import (
     precision_recall_fscore_support,
 )
 
-from paper_hypergraph.gpt.extract_graph import RatingEvaluationStrategy
+from paper_hypergraph.gpt.model import RatingEvaluationStrategy
 
 
 class InputEntry(BaseModel):

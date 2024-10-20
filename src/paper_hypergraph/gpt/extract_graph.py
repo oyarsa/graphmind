@@ -10,51 +10,31 @@ import argparse
 import hashlib
 import logging
 import os
-from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from enum import StrEnum
 from pathlib import Path
-from typing import Self
 
 import dotenv
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph import evaluation_metrics, hierarchical_graph
+from paper_hypergraph import hierarchical_graph
+from paper_hypergraph.gpt.evaluate_graph import (
+    CLASSIFY_USER_PROMPTS,
+    evaluate_graphs,
+)
+from paper_hypergraph.gpt.model import (
+    Entity,
+    EntityType,
+    Graph,
+    Paper,
+    Relationship,
+    RelationType,
+)
 from paper_hypergraph.gpt.run_gpt import GPTResult, Prompt, PromptResult, run_gpt
 from paper_hypergraph.util import BlockTimer, setup_logging
 
 logger = logging.getLogger("extract_graph")
-
-
-class RelationType(StrEnum):
-    SUPPORT = "support"
-    CONTRAST = "contrast"
-
-
-class RatingEvaluationStrategy(StrEnum):
-    MEAN = "mean"
-    """Mean rating is higher than the threshold."""
-    MAJORITY = "majority"
-    """Majority of ratings are higher than the threshold."""
-    DEFAULT = MEAN
-
-    def is_approved(self, ratings: Sequence[int]) -> bool:
-        match self:
-            case RatingEvaluationStrategy.MEAN:
-                mean = sum(ratings) / len(ratings)
-                return mean >= RATING_APPROVAL_THRESHOLD
-            case RatingEvaluationStrategy.MAJORITY:
-                approvals = [r >= RATING_APPROVAL_THRESHOLD for r in ratings]
-                return sum(approvals) >= len(approvals) / 2
-
-
-class PaperSection(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    heading: str
-    text: str
 
 
 class GPTRelationship(BaseModel):
@@ -63,12 +43,6 @@ class GPTRelationship(BaseModel):
     source_index: int
     target_index: int
     type: RelationType
-
-
-class EntityType(StrEnum):
-    TITLE = "title"
-    CONCEPT = "concept"
-    SENTENCE = "sentence"
 
 
 class GPTEntity(BaseModel):
@@ -119,158 +93,6 @@ class GPTGraph(BaseModel):
         )
 
 
-class Relationship(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    source: str
-    target: str
-    type: RelationType
-
-
-class Entity(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    name: str
-    type: EntityType
-
-
-class Graph(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    entities: Sequence[Entity]
-    relationships: Sequence[Relationship]
-
-    @classmethod
-    def from_gpt_graph(cls, gpt_graph: GPTGraph) -> Self:
-        """Builds a graph from the GPT output.
-
-        Assumes that the entities are all valid, and that the source/target indices for
-        the relationships match the indices in the entities sequence.
-        """
-        entities = [Entity(name=e.name, type=e.type) for e in gpt_graph.entities]
-
-        entity_index = {e.index: e for e in gpt_graph.entities}
-        relationships = [
-            Relationship(
-                source=entity_index[r.source_index].name,
-                target=entity_index[r.target_index].name,
-                type=r.type,
-            )
-            for r in gpt_graph.relationships
-        ]
-
-        return cls(entities=entities, relationships=relationships)
-
-    def __str__(self) -> str:
-        entities = "\n".join(
-            f"  {i}. {c.type} - {c.name}"
-            for i, c in enumerate(
-                sorted(self.entities, key=lambda e: (e.type, e.name)), 1
-            )
-        )
-
-        relationships = "\n".join(
-            f" {i}. {r.source} - {r.type} - {r.target}"
-            for i, r in enumerate(
-                sorted(self.relationships, key=lambda r: (r.source, r.target)),
-                1,
-            )
-        )
-
-        return "\n".join(
-            [
-                f"Nodes: {len(self.entities)}",
-                f"Edges: {len(self.relationships)}",
-                f"Titles: {sum(e.type is EntityType.TITLE for e in self.entities)}",
-                f"Concepts: {sum(e.type is EntityType.CONCEPT for e in self.entities)}",
-                f"Sentences: {sum(e.type is EntityType.SENTENCE for e in self.entities)}",
-                "",
-                "Entities:",
-                entities,
-                "",
-                "Relationships:",
-                relationships,
-                "",
-            ]
-        )
-
-
-def validate_rules(graph: Graph) -> str | None:
-    """Check if graph rules hold. Returns error message if invalid, or None if valid.
-
-    Rules:
-    1. There must be exactly one Title node
-    2. The Title node cannot have incoming edges
-    3. The Title node can only have outgoing edges to Concepts, and these edges must
-       be of type Support
-    4. Concepts must have exactly one incoming edge each, and it must be the Title
-    5. All outgoing edges from Concepts must be Sentences
-    6. Sentences must not have outgoing edges
-
-    Note: this doesn't throw an exception if the graph is invalid, it just returns
-    the error message. The graph is allowed to be invalid, but it's useful to know
-    why it's invalid.
-
-    Returns:
-        Error message describing the rule violated if the graph is invalid.
-        None if the graph is follows all rules.
-    """
-    entities = {entity.name: entity for entity in graph.entities}
-    incoming: defaultdict[str, list[Relationship]] = defaultdict(list)
-    outgoing: defaultdict[str, list[Relationship]] = defaultdict(list)
-
-    for relation in graph.relationships:
-        incoming[relation.target].append(relation)
-        outgoing[relation.source].append(relation)
-
-    # Rule 1: Exactly one Title node
-    titles = [e for e in graph.entities if e.type is EntityType.TITLE]
-    if len(titles) != 1:
-        return f"Found {len(titles)} title nodes. Should be exactly 1."
-
-    title = titles[0]
-
-    # Rule 2: Title node cannot have incoming edges
-    if incoming[title.name]:
-        return "Title node should not have any incoming edges."
-
-    # Rule 3: Title's outgoing edges only to Concepts with Support type
-    if any(
-        entities[r.target].type is not EntityType.CONCEPT
-        or r.type is not RelationType.SUPPORT
-        for r in outgoing[title.name]
-    ):
-        return "Title should only have outgoing Support edges to Concepts."
-
-    # Rule 4: Concepts must have exactly one incoming edge from Title
-    # Rule 5: Concepts' outgoing edges must only link to Sentences
-    for concept in (e for e in graph.entities if e.type is EntityType.CONCEPT):
-        concept_incoming = incoming[concept.name]
-        if (
-            len(concept_incoming) != 1
-            or entities[concept_incoming[0].source].type is not EntityType.TITLE
-        ):
-            return (
-                f"Concept {concept.name} must have exactly one"
-                " incoming edge from Title."
-            )
-
-        if any(
-            entities[r.target].type is not EntityType.SENTENCE
-            for r in outgoing[concept.name]
-        ):
-            return (
-                f"Concept {concept.name} must only have outgoing" " edges to Sentences."
-            )
-
-    # Rule 6: Sentences must not have outgoing edges
-    sentences = [e.name for e in graph.entities if e.type is EntityType.SENTENCE]
-    if any(outgoing[s] for s in sentences):
-        return "Sentences must not have outgoing edges."
-
-    return None
-
-
 _MODEL_SYNONYMS = {
     "4o-mini": "gpt-4o-mini-2024-07-18",
     "gpt-4o-mini": "gpt-4o-mini-2024-07-18",
@@ -279,27 +101,6 @@ _MODEL_SYNONYMS = {
 }
 # Include the synonyms and their keys in the allowed models
 _MODELS_ALLOWED = sorted(_MODEL_SYNONYMS.keys() | _MODEL_SYNONYMS.values())
-
-
-_CLASSIFY_SYSTEM_PROMPT = (
-    "Approve or reject the scientific paper based on the extracted entities."
-)
-_CLASSIFY_USER_PROMPTS = {
-    "simple": """\
-The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, and a graph representation of the paper and its network.
-
-Based on the extracted entities graph, approve or reject the paper. First, generate the \
-rationale for your decision, then give the final decision.
-"""
-}
-
-
-class GPTClassify(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    rationale: str
-    approved: bool
 
 
 def _log_config(
@@ -436,10 +237,6 @@ Output:
 }
 
 
-RATING_APPROVAL_THRESHOLD = 5
-"""A rating is an approval if it's greater of equal than this."""
-
-
 def _generate_graphs(
     client: OpenAI, data: list[Paper], model: str, user_prompt: str
 ) -> GPTResult[list[PromptResult[Graph]]]:
@@ -454,7 +251,7 @@ def _generate_graphs(
         )
         result = run_gpt(GPTGraph, client, _GRAPH_SYSTEM_PROMPT, prompt, model)
         graph = (
-            Graph.from_gpt_graph(result.result)
+            _graph_from_gpt_graph(result.result)
             if result.result
             else Graph(entities=[], relationships=[])
         )
@@ -468,103 +265,25 @@ def _generate_graphs(
     return GPTResult(graph_results, total_cost)
 
 
-class Paper(BaseModel):
-    """ASAP-Review paper with only currently useful fields.
+def _graph_from_gpt_graph(gpt_graph: GPTGraph) -> Graph:
+    """Builds a graph from the GPT output.
 
-    Check the ASAP-Review dataset to see what else is available, and use
-    paper_hypergraph.asap.extract and asap.filter to add them to this dataset.
+    Assumes that the entities are all valid, and that the source/target indices for
+    the relationships match the indices in the entities sequence.
     """
+    entities = [Entity(name=e.name, type=e.type) for e in gpt_graph.entities]
 
-    model_config = ConfigDict(frozen=True)
-
-    title: str
-    abstract: str
-    ratings: Sequence[int]
-    sections: Sequence[PaperSection]
-
-    def is_approved(
-        self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.MEAN
-    ) -> bool:
-        return strategy.is_approved(self.ratings)
-
-    def main_text(self) -> str:
-        return "\n".join(s.text for s in self.sections)
-
-    def __str__(self) -> str:
-        main_text_words_num = len(self.main_text().split())
-        return (
-            f"Title: {self.title}\n"
-            f"Abstract: {self.abstract}\n"
-            f"Main text: {main_text_words_num} words.\n"
-            f"Ratings: {self.ratings}\n"
+    entity_index = {e.index: e for e in gpt_graph.entities}
+    relationships = [
+        Relationship(
+            source=entity_index[r.source_index].name,
+            target=entity_index[r.target_index].name,
+            type=r.type,
         )
+        for r in gpt_graph.relationships
+    ]
 
-
-class PaperResult(Paper):
-    """ASAP-Review dataset paper with added approval ground truth and GPT prediction."""
-
-    y_true: bool
-    y_pred: bool
-
-
-def _calculate_metrics(papers: Sequence[PaperResult]) -> evaluation_metrics.Metrics:
-    return evaluation_metrics.calculate_metrics(
-        [p.y_true for p in papers], [p.y_pred for p in papers]
-    )
-
-
-def _classify_papers(
-    client: OpenAI,
-    model: str,
-    user_prompt_template: str,
-    papers: Sequence[Paper],
-    graphs: Sequence[Graph],
-) -> GPTResult[list[PaperResult]]:
-    """Classify Papers into approved/not approved using the generated graphs.
-
-    The output - input dataset information, predicted values and metrics - is written
-    to {output_dir}/classification.
-
-    Args:
-        client: OpenAI client to use GPT
-        model: GPT model code to use (must support Structured Outputs)
-        user_prompt_template: User prompt template to use for classification to be filled
-        papers: Papers from the ASAP-Review dataset to classify
-        graphs: Graphs generated from the papers
-        output_dir: Directory to save the classification results
-
-    Returns:
-        None. The outputs are saved to disk.
-    """
-    results: list[PaperResult] = []
-    total_cost = 0
-
-    for paper, graph in tqdm(
-        zip(papers, graphs), desc="Classifying papers", total=len(papers)
-    ):
-        user_prompt = user_prompt_template.format(
-            title=paper.title,
-            abstract=paper.abstract,
-            graph=graph.model_dump_json(),
-        )
-        result = run_gpt(
-            GPTClassify, client, _CLASSIFY_SYSTEM_PROMPT, user_prompt, model
-        )
-        total_cost += result.cost
-        classified = result.result
-
-        results.append(
-            PaperResult(
-                title=paper.title,
-                abstract=paper.abstract,
-                ratings=paper.ratings,
-                sections=paper.sections,
-                y_true=paper.is_approved(),
-                y_pred=classified.approved if classified else False,
-            )
-        )
-
-    return GPTResult(results, total_cost)
+    return Graph(entities=entities, relationships=relationships)
 
 
 def _save_graphs(
@@ -595,7 +314,7 @@ def _save_graphs(
         output.append(
             Output(
                 paper=paper.title,
-                graph=graph_to_dag(graph_result.item).graphml(),
+                graph=_graph_to_dag(graph_result.item).graphml(),
                 prompt=graph_result.prompt,
             )
         )
@@ -627,7 +346,7 @@ def _display_graphs(
             the plot is closed.
     """
     for paper, graph_result in zip(papers, graph_results):
-        dag = graph_to_dag(graph_result.item)
+        dag = _graph_to_dag(graph_result.item)
 
         try:
             dag.visualise_hierarchy(
@@ -722,31 +441,13 @@ def extract_graph(
     )
 
     if classify:
-        classify_user_prompt = _CLASSIFY_USER_PROMPTS[classify_user_prompt_key]
-
-        with BlockTimer() as timer_class:
-            graphs = [result.item for result in graph_results.result]
-            results = _classify_papers(
-                client, model, classify_user_prompt, papers, graphs
-            )
-        metrics = _calculate_metrics(results.result)
-        logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
-
-        logger.info(f"Classification time elapsed: {timer_class.human}")
-        logger.info(f"Total classification cost: ${results.cost:.10f}")
-
-        classification_dir = output_dir / "classification"
-        classification_dir.mkdir(parents=True, exist_ok=True)
-
-        (classification_dir / "metrics.json").write_text(
-            metrics.model_dump_json(indent=2)
-        )
-        (classification_dir / "result.json").write_bytes(
-            TypeAdapter(list[PaperResult]).dump_json(results.result, indent=2)
+        graphs = [result.item for result in graph_results.result]
+        evaluate_graphs(
+            client, model, papers, graphs, classify_user_prompt_key, output_dir
         )
 
 
-def graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
+def _graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
     return hierarchical_graph.DiGraph.from_elements(
         nodes=[hierarchical_graph.Node(e.name, e.type.value) for e in graph.entities],
         edges=[
@@ -876,7 +577,7 @@ def main() -> None:
 def list_prompts(detail: bool) -> None:
     items = [
         ("GRAPH EXTRACTION PROMPTS", _GRAPH_USER_PROMPTS),
-        ("CLASSIFICATION PROMPTS", _CLASSIFY_USER_PROMPTS),
+        ("CLASSIFICATION PROMPTS", CLASSIFY_USER_PROMPTS),
     ]
     for title, prompts in items:
         print()
