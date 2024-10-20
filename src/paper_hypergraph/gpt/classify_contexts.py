@@ -21,7 +21,13 @@ from tqdm import tqdm
 
 from paper_hypergraph.asap.model import PaperSection
 from paper_hypergraph.asap.model import PaperWithFullReference as PaperInput
-from paper_hypergraph.gpt.run_gpt import MODELS_ALLOWED, GPTResult, run_gpt
+from paper_hypergraph.gpt.run_gpt import (
+    MODELS_ALLOWED,
+    GPTResult,
+    Prompt,
+    PromptResult,
+    run_gpt,
+)
 from paper_hypergraph.util import BlockTimer, setup_logging
 
 logger = logging.getLogger("classify_contexts")
@@ -148,7 +154,7 @@ def _classify_contexts(
     papers: Sequence[PaperInput],
     limit_references: int | None,
     use_expanded_context: bool,
-) -> GPTResult[list[PaperOutput]]:
+) -> GPTResult[list[PromptResult[PaperOutput]]]:
     """Classify the contexts for each papers' references by polarity.
 
     Polarity (ContextPolarity): positive (supports argument) or negative (counterpoint).
@@ -158,7 +164,8 @@ def _classify_contexts(
     are now `ContextClassified`, containing the original text plus the predicted
     polarity.
     """
-    paper_outputs: list[PaperOutput] = []
+    paper_outputs: list[PromptResult[PaperOutput]] = []
+    user_prompts: list[str] = []
     total_cost = 0
 
     for paper in tqdm(papers, desc="Classifying contexts"):
@@ -181,6 +188,7 @@ def _classify_contexts(
                     reference_abstract=reference.abstract,
                     context=context,
                 )
+                user_prompts.append(user_prompt)
                 result = run_gpt(
                     GPTContext, client, _CONTEXT_SYSTEM_PROMPT, user_prompt, model
                 )
@@ -210,13 +218,19 @@ def _classify_contexts(
         assert len(classified_references) == len(references)
 
         paper_outputs.append(
-            PaperOutput(
-                title=paper.title,
-                abstract=paper.abstract,
-                ratings=paper.ratings,
-                sections=paper.sections,
-                approval=paper.approval,
-                references=classified_references,
+            PromptResult(
+                prompt=Prompt(
+                    system=_CONTEXT_SYSTEM_PROMPT,
+                    user=f"\n{"-"*80}\n\n".join(user_prompts),
+                ),
+                item=PaperOutput(
+                    title=paper.title,
+                    abstract=paper.abstract,
+                    ratings=paper.ratings,
+                    sections=paper.sections,
+                    approval=paper.approval,
+                    references=classified_references,
+                ),
             )
         )
 
@@ -293,13 +307,12 @@ def classify_contexts(
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${results.cost:.10f}")
 
-    logger.info(
-        "Classification frequency:\n%s\n", show_classified_stats(results.result)
-    )
+    contexts = [result.item for result in results.result]
+    logger.info("Classification frequency:\n%s\n", show_classified_stats(contexts))
 
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "result.json").write_bytes(
-        TypeAdapter(list[PaperOutput]).dump_json(results.result, indent=2)
+        TypeAdapter(list[PromptResult[PaperOutput]]).dump_json(results.result, indent=2)
     )
 
 
