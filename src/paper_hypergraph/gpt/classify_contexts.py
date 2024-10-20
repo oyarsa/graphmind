@@ -293,7 +293,9 @@ def classify_contexts(
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${results.cost:.10f}")
 
-    logger.info("Classification frequency\n" + show_classified_stats(results.result))
+    logger.info(
+        "Classification frequency:\n%s\n", show_classified_stats(results.result)
+    )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "result.json").write_text(
