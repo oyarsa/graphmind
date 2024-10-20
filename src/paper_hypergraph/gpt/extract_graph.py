@@ -567,7 +567,7 @@ def _classify_papers(
     return GPTResult(results, total_cost)
 
 
-def _display_graphs(
+def _display_and_save_graphs(
     model: str,
     graph_user_prompt_key: str,
     papers: Iterable[Paper],
@@ -679,7 +679,7 @@ def extract_graph(
     logger.info(f"Total graph generation cost: ${graph_results.cost:.10f}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    _display_graphs(
+    _display_and_save_graphs(
         model,
         graph_user_prompt_key,
         papers,
