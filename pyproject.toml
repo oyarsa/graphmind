@@ -74,7 +74,7 @@ dev-dependencies = [
     "pandas>=2.2.3",
     "pdoc>=15.0.0",
     "pre-commit>=3.8.0",
-    "pyright>=1.1.380",
+    "pyright>=1.1.385",
     "pytest>=8.3.3",
     "ruff>=0.6.4",
 ]
