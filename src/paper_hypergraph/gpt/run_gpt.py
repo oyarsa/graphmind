@@ -36,7 +36,7 @@ def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
 
 
 @dataclass(frozen=True)
-class GptResult[T]:
+class GPTResult[T]:
     """Result of a GPT request and its full API cost."""
 
     result: T
@@ -51,7 +51,7 @@ def run_gpt[T: BaseModel](
     model: str,
     seed: int = 0,
     temperature: float = 0,
-) -> GptResult[T | None]:
+) -> GPTResult[T | None]:
     """Run the GPT query and return a parsed object of `class_` using Structured Outputs.
 
     See also: https://platform.openai.com/docs/guides/structured-outputs
@@ -93,7 +93,7 @@ def run_gpt[T: BaseModel](
         )
     except Exception:
         logger.exception("Error making API request")
-        return GptResult(result=None, cost=float("nan"))
+        return GPTResult(result=None, cost=float("nan"))
 
     usage = completion.usage
     if usage is not None:
@@ -103,4 +103,4 @@ def run_gpt[T: BaseModel](
 
     parsed = completion.choices[0].message.parsed
 
-    return GptResult(result=parsed, cost=cost)
+    return GPTResult(result=parsed, cost=cost)

@@ -22,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
 from paper_hypergraph import evaluation_metrics, hierarchical_graph
-from paper_hypergraph.gpt.run_gpt import GptResult, run_gpt
+from paper_hypergraph.gpt.run_gpt import GPTResult, run_gpt
 from paper_hypergraph.util import BlockTimer, setup_logging
 
 logger = logging.getLogger("extract_graph")
@@ -295,7 +295,7 @@ rationale for your decision, then give the final decision.
 }
 
 
-class GptClassify(BaseModel):
+class GPTClassify(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     rationale: str
@@ -442,7 +442,7 @@ RATING_APPROVAL_THRESHOLD = 5
 
 def _generate_graphs(
     client: OpenAI, data: list[Paper], model: str, user_prompt: str
-) -> GptResult[list[Graph]]:
+) -> GPTResult[list[Graph]]:
     total_cost = 0
     graphs: list[Graph] = []
 
@@ -461,7 +461,7 @@ def _generate_graphs(
         total_cost += result.cost
         graphs.append(graph)
 
-    return GptResult(graphs, total_cost)
+    return GPTResult(graphs, total_cost)
 
 
 class Paper(BaseModel):
@@ -515,7 +515,7 @@ def _classify_papers(
     user_prompt_template: str,
     papers: Sequence[Paper],
     graphs: Sequence[Graph],
-) -> GptResult[list[PaperResult]]:
+) -> GPTResult[list[PaperResult]]:
     """Classify Papers into approved/not approved using the generated graphs.
 
     The output - input dataset information, predicted values and metrics - is written
@@ -544,7 +544,7 @@ def _classify_papers(
             graph=graph.model_dump_json(),
         )
         result = run_gpt(
-            GptClassify, client, _CLASSIFY_SYSTEM_PROMPT, user_prompt, model
+            GPTClassify, client, _CLASSIFY_SYSTEM_PROMPT, user_prompt, model
         )
         total_cost += result.cost
         classified = result.result
@@ -560,7 +560,7 @@ def _classify_papers(
             )
         )
 
-    return GptResult(results, total_cost)
+    return GPTResult(results, total_cost)
 
 
 def _display_graphs(
