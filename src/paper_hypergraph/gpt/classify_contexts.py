@@ -298,8 +298,8 @@ def classify_contexts(
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "result.json").write_text(
-        TypeAdapter(list[PaperOutput]).dump_json(results.result, indent=2).decode()
+    (output_dir / "result.json").write_bytes(
+        TypeAdapter(list[PaperOutput]).dump_json(results.result, indent=2)
     )
 
 
