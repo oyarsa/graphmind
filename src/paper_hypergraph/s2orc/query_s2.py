@@ -27,7 +27,7 @@ from typing import Any
 import aiohttp
 import dotenv
 
-from paper_hypergraph.s2orc.download import progress_gather
+from paper_hypergraph.s2orc.util import progress_gather
 from paper_hypergraph.util import fuzzy_ratio
 
 MAX_CONCURRENT_REQUESTS = 10

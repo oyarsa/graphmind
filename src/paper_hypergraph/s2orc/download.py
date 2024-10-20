@@ -5,33 +5,19 @@ import asyncio
 import json
 import os
 import sys
-import urllib.parse
-from collections.abc import Coroutine, Iterable
+from collections.abc import Coroutine
 from pathlib import Path
-from typing import Any
 
 import aiohttp
 import dotenv
 from tqdm.asyncio import tqdm
 
+from paper_hypergraph.s2orc.util import parse_url, progress_gather
+
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file
 MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds
-
-
-def parse_url(url: str) -> urllib.parse.ParseResult:
-    """Wrapper around urllib.parse.urlparse for type-checking."""
-    return urllib.parse.urlparse(url)
-
-
-async def progress_gather(*awaitable: Any, **kwargs: Any) -> Iterable[Any]:
-    """Run asyncio.gather with tqdm progress bar.
-
-    Arguments are exactly the same as asyncio.gather.
-    """
-    # There's no safe way to type-check this function, so we ignore the type error
-    return await tqdm.gather(*awaitable, **kwargs)  # type: ignore
 
 
 async def _try_download_file(
@@ -129,7 +115,7 @@ async def _download(
 
             tasks.append(_download_file(url, file_path, session, semaphore))
 
-        await tqdm.gather(*tasks, desc="Overall progress")  # type: ignore
+        await progress_gather(*tasks, desc="Overall progress")
 
 
 def download_dataset(

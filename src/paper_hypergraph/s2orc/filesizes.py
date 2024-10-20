@@ -10,7 +10,7 @@ from pathlib import Path
 import aiohttp
 import dotenv
 
-from paper_hypergraph.s2orc.download import parse_url, progress_gather
+from paper_hypergraph.s2orc.util import parse_url, progress_gather
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
