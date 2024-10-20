@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import logging
 import os
 from collections import defaultdict
@@ -568,8 +567,45 @@ def _classify_papers(
     return GPTResult(results, total_cost)
 
 
-# TODO: Break up visualisation and saving into two functions
-def _display_and_save_graphs(
+def _save_graphs(
+    papers: Iterable[Paper],
+    graph_results: Iterable[PromptResult[Graph]],
+    output_dir: Path,
+) -> None:
+    """Save results as a JSON file with the prompts and graphs in GraphML format.
+
+    Args:
+        papers: Papers used to generate the graph
+        graphs: Graphs generated from the paper. Must match the respective paper in
+            `papers`
+        output_dir: Where the graph and image wll be persisted. The graph is saved as
+            GraphML and the image as PNG.
+    """
+
+    class Output(BaseModel):
+        model_config = ConfigDict(frozen=True)
+
+        paper: str
+        graph: str
+        prompt: Prompt
+
+    output: list[Output] = []
+
+    for paper, graph_result in zip(papers, graph_results):
+        output.append(
+            Output(
+                paper=paper.title,
+                graph=graph_to_dag(graph_result.item).graphml(),
+                prompt=graph_result.prompt,
+            )
+        )
+
+    (output_dir / "result_graphs.json").write_bytes(
+        TypeAdapter(list[Output]).dump_json(output, indent=2)
+    )
+
+
+def _display_graphs(
     model: str,
     graph_user_prompt_key: str,
     papers: Iterable[Paper],
@@ -577,7 +613,7 @@ def _display_and_save_graphs(
     output_dir: Path,
     visualise: bool,
 ) -> None:
-    """Save generated graphs and plot them to PNG files and (optionally) the screen.
+    """Plot graphs to PNG files and (optionally) the screen.
 
     Args:
         model: GPT model used to generate the Graph
@@ -592,15 +628,6 @@ def _display_and_save_graphs(
     """
     for paper, graph_result in zip(papers, graph_results):
         dag = graph_to_dag(graph_result.item)
-
-        (output_dir / f"{paper.title}.json").write_text(
-            json.dumps(
-                {
-                    "graph": dag.graphml(),
-                    "prompt": graph_result.prompt.model_dump(),
-                }
-            )
-        )
 
         try:
             dag.visualise_hierarchy(
@@ -684,7 +711,8 @@ def extract_graph(
     logger.info(f"Total graph generation cost: ${graph_results.cost:.10f}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    _display_and_save_graphs(
+    _save_graphs(papers, graph_results.result, output_dir)
+    _display_graphs(
         model,
         graph_user_prompt_key,
         papers,
