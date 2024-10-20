@@ -21,11 +21,12 @@ from functools import partial
 from pathlib import Path
 from typing import Any, NamedTuple
 
+import spacy
 from spacy.language import Language as SpacyModel
 
 from paper_hypergraph.asap import process_sections
-from paper_hypergraph.util import load_spacy_model
 
+# When changing this constant, also change the dependency on `pyproject.toml`
 _SPACY_MODEL = "en_core_web_sm"
 _CONTEXT_MIN_FUZZY = 0.8
 
@@ -257,7 +258,7 @@ def extract_interesting(
 
     The input file is the output of `paper_hypergraph.asap.merge`.
     """
-    spacy_model = load_spacy_model(_SPACY_MODEL)
+    spacy_model = spacy.load(_SPACY_MODEL)
     data = json.loads(input_file.read_text())
 
     with multiprocessing.Pool() as pool:
