@@ -6,13 +6,21 @@ from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger("paper_hypergraph.gpt.run_gpt")
 
+MODEL_SYNONYMS = {
+    "4o-mini": "gpt-4o-mini-2024-07-18",
+    "gpt-4o-mini": "gpt-4o-mini-2024-07-18",
+    "4o": "gpt-4o-2024-08-06",
+    "gpt-4o": "gpt-4o-2024-08-06",
+}
+# Include the synonyms and their keys in the allowed models
+MODELS_ALLOWED = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.values())
+
 # Cost in $ per 1M tokens: (input cost, output cost)
 # From https://openai.com/api/pricing/
 MODEL_COSTS = {
     "gpt-4o-mini-2024-07-18": (0.15, 0.6),
     "gpt-4o-2024-08-06": (2.5, 10),
 }
-MODELS_ALLOWED = sorted(MODEL_COSTS)
 
 
 def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:

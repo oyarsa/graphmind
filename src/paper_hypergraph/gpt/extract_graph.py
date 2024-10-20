@@ -31,7 +31,14 @@ from paper_hypergraph.gpt.model import (
     Relationship,
     RelationType,
 )
-from paper_hypergraph.gpt.run_gpt import GPTResult, Prompt, PromptResult, run_gpt
+from paper_hypergraph.gpt.run_gpt import (
+    MODEL_SYNONYMS,
+    MODELS_ALLOWED,
+    GPTResult,
+    Prompt,
+    PromptResult,
+    run_gpt,
+)
 from paper_hypergraph.util import BlockTimer, setup_logging
 
 logger = logging.getLogger("extract_graph")
@@ -91,16 +98,6 @@ class GPTGraph(BaseModel):
                 "",
             ]
         )
-
-
-_MODEL_SYNONYMS = {
-    "4o-mini": "gpt-4o-mini-2024-07-18",
-    "gpt-4o-mini": "gpt-4o-mini-2024-07-18",
-    "4o": "gpt-4o-2024-08-06",
-    "gpt-4o": "gpt-4o-2024-08-06",
-}
-# Include the synonyms and their keys in the allowed models
-_MODELS_ALLOWED = sorted(_MODEL_SYNONYMS.keys() | _MODEL_SYNONYMS.values())
 
 
 def _log_config(
@@ -403,9 +400,9 @@ def extract_graph(
     if api_key:
         os.environ["OPENAI_API_KEY"] = api_key
 
-    if model not in _MODELS_ALLOWED:
-        raise ValueError(f"Model {model} not in allowed models: {_MODELS_ALLOWED}")
-    model = _MODEL_SYNONYMS.get(model, model)
+    if model not in MODELS_ALLOWED:
+        raise ValueError(f"Model {model} not in allowed models: {MODELS_ALLOWED}")
+    model = MODEL_SYNONYMS.get(model, model)
 
     _log_config(
         model=model,
@@ -489,7 +486,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         "-m",
         type=str,
         default="gpt-4o-mini",
-        choices=_MODELS_ALLOWED,
+        choices=MODELS_ALLOWED,
         help="The model to use for the extraction.",
     )
     run_parser.add_argument(
