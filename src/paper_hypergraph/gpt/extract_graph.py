@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import logging
 import os
 from collections import defaultdict
@@ -567,6 +568,7 @@ def _classify_papers(
     return GPTResult(results, total_cost)
 
 
+# TODO: Break up visualisation and saving into two functions
 def _display_and_save_graphs(
     model: str,
     graph_user_prompt_key: str,
@@ -590,11 +592,14 @@ def _display_and_save_graphs(
     """
     for paper, graph_result in zip(papers, graph_results):
         dag = graph_to_dag(graph_result.item)
-        # TODO: Merge these two files into one. Maybe have the GraphML be a field in
-        # an output JSON.
-        dag.save(output_dir / f"{paper.title}.graphml")
-        (output_dir / f"{paper.title}_prompt.json").write_text(
-            graph_result.prompt.model_dump_json()
+
+        (output_dir / f"{paper.title}.json").write_text(
+            json.dumps(
+                {
+                    "graph": dag.graphml(),
+                    "prompt": graph_result.prompt.model_dump(),
+                }
+            )
         )
 
         try:
