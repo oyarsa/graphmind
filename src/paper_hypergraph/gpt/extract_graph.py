@@ -22,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
 from paper_hypergraph import evaluation_metrics, hierarchical_graph
-from paper_hypergraph.gpt.run_gpt import GPTResult, run_gpt
+from paper_hypergraph.gpt.run_gpt import GPTResult, Prompt, PromptResult, run_gpt
 from paper_hypergraph.util import BlockTimer, setup_logging
 
 logger = logging.getLogger("extract_graph")
@@ -442,9 +442,9 @@ RATING_APPROVAL_THRESHOLD = 5
 
 def _generate_graphs(
     client: OpenAI, data: list[Paper], model: str, user_prompt: str
-) -> GPTResult[list[Graph]]:
+) -> GPTResult[list[PromptResult[Graph]]]:
     total_cost = 0
-    graphs: list[Graph] = []
+    graph_results: list[PromptResult[Graph]] = []
 
     for example in tqdm(data, desc="Extracting graphs"):
         prompt = user_prompt.format(
@@ -459,9 +459,13 @@ def _generate_graphs(
             else Graph(entities=[], relationships=[])
         )
         total_cost += result.cost
-        graphs.append(graph)
+        graph_results.append(
+            PromptResult(
+                item=graph, prompt=Prompt(user=prompt, system=_GRAPH_SYSTEM_PROMPT)
+            )
+        )
 
-    return GPTResult(graphs, total_cost)
+    return GPTResult(graph_results, total_cost)
 
 
 class Paper(BaseModel):
@@ -567,7 +571,7 @@ def _display_graphs(
     model: str,
     graph_user_prompt_key: str,
     papers: Iterable[Paper],
-    graphs: Iterable[Graph],
+    graph_results: Iterable[PromptResult[Graph]],
     output_dir: Path,
     visualise: bool,
 ) -> None:
@@ -584,9 +588,14 @@ def _display_graphs(
         visualise: If True, show the graph on screen. This suspends the process until
             the plot is closed.
     """
-    for paper, graph in zip(papers, graphs):
-        dag = graph_to_dag(graph)
+    for paper, graph_result in zip(papers, graph_results):
+        dag = graph_to_dag(graph_result.item)
+        # TODO: Merge these two files into one. Maybe have the GraphML be a field in
+        # an output JSON.
         dag.save(output_dir / f"{paper.title}.graphml")
+        (output_dir / f"{paper.title}_prompt.json").write_text(
+            graph_result.prompt.model_dump_json()
+        )
 
         try:
             dag.visualise_hierarchy(
@@ -596,20 +605,6 @@ def _display_graphs(
             )
         except hierarchical_graph.GraphError:
             logger.exception("Error visualising graph")
-
-
-class Prompt(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    system: str
-    user: str
-
-
-class GraphResult(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    graphs: Sequence[Graph]
-    prompts: Sequence[Prompt]
 
 
 def extract_graph(
@@ -678,22 +673,28 @@ def extract_graph(
     graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]
 
     with BlockTimer() as timer_gen:
-        graphs = _generate_graphs(client, papers, model, graph_user_prompt)
+        graph_results = _generate_graphs(client, papers, model, graph_user_prompt)
 
     logger.info(f"Graph generation time elapsed: {timer_gen.human}")
-    logger.info(f"Total graph generation cost: ${graphs.cost:.10f}")
+    logger.info(f"Total graph generation cost: ${graph_results.cost:.10f}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     _display_graphs(
-        model, graph_user_prompt_key, papers, graphs.result, output_dir, visualise
+        model,
+        graph_user_prompt_key,
+        papers,
+        graph_results.result,
+        output_dir,
+        visualise,
     )
 
     if classify:
         classify_user_prompt = _CLASSIFY_USER_PROMPTS[classify_user_prompt_key]
 
         with BlockTimer() as timer_class:
+            graphs = [result.item for result in graph_results.result]
             results = _classify_papers(
-                client, model, classify_user_prompt, papers, graphs.result
+                client, model, classify_user_prompt, papers, graphs
             )
         metrics = _calculate_metrics(results.result)
         logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
@@ -710,13 +711,6 @@ def extract_graph(
         (classification_dir / "result.json").write_bytes(
             TypeAdapter(list[PaperResult]).dump_json(results.result, indent=2)
         )
-
-
-class PaperPrompt(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    paper: Paper
-    prompt: Prompt
 
 
 def graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
