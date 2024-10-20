@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 
 from openai import OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger("paper_hypergraph.gpt.run_gpt")
 
@@ -41,6 +41,20 @@ class GPTResult[T]:
 
     result: T
     cost: float
+
+
+class Prompt(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    system: str
+    user: str
+
+
+class PromptResult[T](BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    item: T
+    prompt: Prompt
 
 
 def run_gpt[T: BaseModel](
