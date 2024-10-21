@@ -48,10 +48,6 @@ def _parse_approval(approval: str) -> bool:
     return approval.strip().lower() != "reject"
 
 
-_REGEX_CITATION = re.compile(r"\([A-Z][a-z]+(\s+et al\.)?\.?,\s+\d{4}\)")
-"""Used to search for citations."""
-
-
 def _split_paragraph(model: SpacyModel, paragraph: str) -> list[str]:
     """Split a paragraph into sentences using a spaCy model."""
     doc = model(paragraph)
@@ -158,6 +154,12 @@ def _expand_citation_context(
         return citation_sentence
 
     return "\n".join(context)
+
+
+_REGEX_CITATION = re.compile(
+    r"\((?:[A-Z][a-z]+(?:\s+et\s+al\.)?(?:,?\s+and\s+)?)+,?\s+\d{4}(?:;\s*(?:[A-Z][a-z]+(?:\s+et\s+al\.)?(?:,?\s+and\s+)?)+,?\s+\d{4})*\)"
+)
+"""Used to search for citations."""
 
 
 def _contains_citation(sentence: str) -> bool:
