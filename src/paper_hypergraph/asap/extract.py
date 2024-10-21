@@ -137,7 +137,7 @@ def _expand_citation_context(
             break
 
         sentence = sentences[citation_index - i]
-        if _REGEX_CITATION.search(sentence):
+        if _contains_citation(sentence):
             break
 
         context.insert(0, sentence)
@@ -148,7 +148,7 @@ def _expand_citation_context(
             break
 
         sentence = sentences[citation_index + i]
-        if _REGEX_CITATION.search(sentence):
+        if _contains_citation(sentence):
             break
 
         context.append(sentence)
@@ -158,6 +158,10 @@ def _expand_citation_context(
         return citation_sentence
 
     return "\n".join(context)
+
+
+def _contains_citation(sentence: str) -> bool:
+    return bool(_REGEX_CITATION.search(sentence))
 
 
 def _find_context_paragraph(
