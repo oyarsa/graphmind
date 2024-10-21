@@ -11,7 +11,6 @@ import logging
 import os
 from collections import Counter
 from collections.abc import Sequence
-from enum import StrEnum
 from pathlib import Path
 
 import dotenv
@@ -19,7 +18,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph.asap.model import PaperSection
+from paper_hypergraph.asap.model import ContextPolarity, PaperSection
 from paper_hypergraph.asap.model import PaperWithFullReference as PaperInput
 from paper_hypergraph.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -32,11 +31,6 @@ from paper_hypergraph.gpt.run_gpt import (
 from paper_hypergraph.util import BlockTimer, setup_logging
 
 logger = logging.getLogger("gpt.classify_contexts")
-
-
-class ContextPolarity(StrEnum):
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
 
 
 class ContextClassified(BaseModel):

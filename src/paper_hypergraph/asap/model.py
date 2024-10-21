@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -9,6 +10,10 @@ class PaperSection(BaseModel):
 
     heading: str = Field(description="Section heading")
     text: str = Field(description="Section full text")
+
+class ContextPolarity(StrEnum):
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
 
 
 class PaperReference(BaseModel):
