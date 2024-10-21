@@ -9,7 +9,7 @@ import argparse
 import hashlib
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import dotenv
@@ -166,8 +166,7 @@ def _classify_contexts(
         for reference in references:
             classified_contexts: list[ContextClassified] = []
 
-            assert reference.contexts_annotated
-            for context in reference.contexts_annotated:
+            for context in reference.contexts_annotated_valid:
                 context_text = (
                     context.expanded if use_expanded_context else context.regular
                 )
@@ -184,12 +183,13 @@ def _classify_contexts(
                 )
                 total_cost += result.cost
 
-                assert context.polarity
                 if gpt_context := result.result:
                     classified_contexts.append(
                         ContextClassified(
                             text=context_text,
-                            gold=ContextPolarityBinary.from_trinary(context.polarity),
+                            gold=ContextPolarityBinary.from_trinary(context.polarity)
+                            if context.polarity
+                            else None,
                             prediction=gpt_context.polarity,
                         )
                     )
@@ -303,7 +303,7 @@ def classify_contexts(
     logger.info(f"Total cost: ${results.cost:.10f}")
 
     contexts = [result.item for result in results.result]
-    logger.info("Classification metrics:\n%s\n", show_classified_stats(contexts))
+    logger.info("Classification metrics:\n%s\n", _show_classified_stats(contexts))
 
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "result.json").write_bytes(
@@ -311,23 +311,44 @@ def classify_contexts(
     )
 
 
-def show_classified_stats(input_data: Sequence[PaperOutput]) -> str:
+def _show_classified_stats(data: Iterable[PaperOutput]) -> str:
+    all_contexts: list[ContextClassified] = []
     y_true: list[bool] = []
     y_pred: list[bool] = []
 
-    for paper in input_data:
+    for paper in data:
         for reference in paper.references:
             for context in reference.contexts:
+                all_contexts.append(context)
                 if context.gold is not None:
                     y_true.append(bool(context.gold))
                     y_pred.append(bool(context.prediction))
 
-    metrics = evaluation_metrics.calculate_metrics(y_true, y_pred)
+    assert len(y_true) == len(y_pred)
     output = [
-        str(metrics),
+        f"Total contexts: {len(all_contexts)}",
         "",
-        f"Gold (P/N): {sum(y_true)}/{len(y_true) - sum(y_true)}",
-        f"Pred (P/N): {sum(y_pred)}/{len(y_pred) - sum(y_pred)}",
+    ]
+
+    if y_true:
+        metrics = evaluation_metrics.calculate_metrics(y_true, y_pred)
+        output += [
+            str(metrics),
+            "",
+            f"Gold (P/N): {sum(y_true)}/{len(y_true) - sum(y_true)}"
+            f" ({sum(y_true)/len(y_true):.2%})",
+            f"Pred (P/N): {sum(y_pred)}/{len(y_pred) - sum(y_pred)}"
+            f" ({sum(y_pred)/len(y_pred):.2%})",
+        ]
+        return "\n".join(output)
+
+    # No entries with gold annotation
+    positive = sum(bool(context.prediction) for context in all_contexts)
+    negative = len(all_contexts) - positive
+    output += [
+        "No gold values to calculate metrics.",
+        f"Positive: {positive} ({positive / len(all_contexts):.2%})",
+        f"Negative {negative} ({negative / len(all_contexts):.2%})",
     ]
     return "\n".join(output)
 
