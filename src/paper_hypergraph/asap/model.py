@@ -26,9 +26,6 @@ class ContextPolarityBinary(enum.StrEnum):
             else cls.NEGATIVE
         )
 
-    def __bool__(self) -> bool:
-        return self is self.POSITIVE
-
 
 class ContextAnnotated(BaseModel):
     regular: str = Field(description="Regular context the from ASAP data")
