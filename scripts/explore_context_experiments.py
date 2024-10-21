@@ -40,7 +40,7 @@ def create_table(metrics_data: Sequence[dict[str, Any]]) -> Table:
         if key not in ["prompt", "context", "model"]:
             table.add_column(key.capitalize(), style="magenta")
 
-    for entry in metrics_data:
+    for entry in sorted(metrics_data, key=lambda x: x["f1"], reverse=True):
         row = [entry["prompt"], str(entry["context"]), entry["model"]]
         for key, value in entry.items():
             if key not in ["prompt", "context", "model"]:
