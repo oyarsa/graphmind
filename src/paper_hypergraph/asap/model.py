@@ -3,17 +3,18 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # Models from the ASAP files after exctraction (e.g. asap_filtered.json)
-class PaperSection(BaseModel):
-    model_config = ConfigDict(frozen=True)
 
-    heading: str = Field(description="Section heading")
-    text: str = Field(description="Section full text")
 
 class ContextPolarity(StrEnum):
     POSITIVE = "positive"
     NEGATIVE = "negative"
+
+
+class ContextAnnotated(BaseModel):
+    regular: str = Field(description="Regular context the from ASAP data")
+    expanded: str = Field(description="Expanded context")
+    polarity: ContextPolarity
 
 
 class PaperReference(BaseModel):
@@ -26,6 +27,18 @@ class PaperReference(BaseModel):
     contexts_expanded: Sequence[str] = Field(
         description="Citation contexts from this reference (expanded in paragraph)"
     )
+    # TODO: Rework the types here. This feels like a hack because ASAP has nothing
+    # to do with the annotation.
+    contexts_annotated: Sequence[ContextAnnotated] | None = Field(
+        default=None, description="Citation context with golden polarity evaluation"
+    )
+
+
+class PaperSection(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    heading: str = Field(description="Section heading")
+    text: str = Field(description="Section full text")
 
 
 class Paper(BaseModel):
