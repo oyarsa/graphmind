@@ -303,15 +303,32 @@ def classify_contexts(
     logger.info(f"Total cost: ${results.cost:.10f}")
 
     contexts = [result.item for result in results.result]
-    logger.info("Classification metrics:\n%s\n", _show_classified_stats(contexts))
+    stats, metrics = _show_classified_stats(contexts)
+    logger.info("Classification metrics:\n%s\n", stats)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "result.json").write_bytes(
         TypeAdapter(list[PromptResult[PaperOutput]]).dump_json(results.result, indent=2)
     )
+    (output_dir / "output.txt").write_text(stats)
+    if metrics is not None:
+        (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
 
 
-def _show_classified_stats(data: Iterable[PaperOutput]) -> str:
+# TODO:This one is a bit messy. Refactor it.
+def _show_classified_stats(
+    data: Iterable[PaperOutput],
+) -> tuple[str, evaluation_metrics.Metrics | None]:
+    """Evaluate the annotation results and print statistics.
+
+    If the data includes gold annotation, calculate evaluation metrics. If not,
+    render frequency statistics.
+
+    Returns:
+        If the data includes gold annotation, render evaluation metrics and frequency
+        pred/gold frequency information. Also return the calculated metrics.
+        Otherwise, render basic frequency information and don't return metrics.
+    """
     all_contexts: list[ContextClassified] = []
     y_true: list[bool] = []
     y_pred: list[bool] = []
@@ -340,7 +357,7 @@ def _show_classified_stats(data: Iterable[PaperOutput]) -> str:
             f"Pred (P/N): {sum(y_pred)}/{len(y_pred) - sum(y_pred)}"
             f" ({sum(y_pred)/len(y_pred):.2%})",
         ]
-        return "\n".join(output)
+        return "\n".join(output), metrics
 
     # No entries with gold annotation
     positive = sum(bool(context.prediction) for context in all_contexts)
@@ -350,7 +367,7 @@ def _show_classified_stats(data: Iterable[PaperOutput]) -> str:
         f"Positive: {positive} ({positive / len(all_contexts):.2%})",
         f"Negative {negative} ({negative / len(all_contexts):.2%})",
     ]
-    return "\n".join(output)
+    return "\n".join(output), None
 
 
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
