@@ -82,6 +82,19 @@ _CONTEXT_SYSTEM_PROMPT = (
     "Classify the context polarity between the main paper and its citation."
 )
 _CONTEXT_USER_PROMPTS = {
+    "sentence": """\
+You are given a citation context from a scientific paper that mentions. Your task is to \
+determine the polarity of the citation context as 'positive' or 'negative'.
+
+The polarity represents whether the citation context is supporting the paper's goals \
+('positive'), or if it's provided as a counterpoint or criticism ('negative').
+
+#####
+-Data-
+Citation context: {context}
+#####
+Output:
+""",
     "simple": """\
 You are given a main paper and a reference with a citation context. Your task is to \
 determine the polarity of the citation context as 'positive' or 'negative', given the \
