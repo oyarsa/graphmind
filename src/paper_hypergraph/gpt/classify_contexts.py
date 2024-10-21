@@ -39,8 +39,9 @@ class ContextClassified(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     text: str = Field(description="Full text of the context mention")
-    gold: ContextPolarityBinary = Field(
-        description="Whether the citation context is annotated as positive or negative"
+    gold: ContextPolarityBinary | None = Field(
+        description="Whether the citation context is annotated as positive or negative."
+        " Can be absent for unannotated data."
     )
     prediction: ContextPolarityBinary = Field(
         description="Whether the citation context is predicted positive or negative"
@@ -317,8 +318,9 @@ def show_classified_stats(input_data: Sequence[PaperOutput]) -> str:
     for paper in input_data:
         for reference in paper.references:
             for context in reference.contexts:
-                y_true.append(bool(context.gold))
-                y_pred.append(bool(context.prediction))
+                if context.gold is not None:
+                    y_true.append(bool(context.gold))
+                    y_pred.append(bool(context.prediction))
 
     metrics = evaluation_metrics.calculate_metrics(y_true, y_pred)
     output = [
