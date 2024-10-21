@@ -42,6 +42,7 @@ The final sentence is here.\
 @pytest.mark.parametrize(
     "paragraph, sentence, expected",
     [
+        # smith
         (
             """\
 This is a sentence before the citation. \
@@ -57,6 +58,7 @@ Smith et al. (2020) found that AI can be very useful.
 This is a sentence after the citation.\
 """,
         ),
+        # momentum
         (
             """\
 The vanilla SGD does not incorporate any curvature information about the objective \
@@ -66,10 +68,6 @@ Nesterov, 2013; Sutskever et al., 2013) or adaptive gradient-based methods \
 These adaptive methods can be seen as implicitly computing finite-difference \
 approximations to the diagonal entries of the Hessian matrix (LeCun et al., 1998).\
 """,
-            # Regression test to make sure the citation sentence is being expanded to
-            # the same value as before (i.e. the "paragraph" is the result of the
-            # expansion). Note that the output isn't exactly the same: the expansion
-            # process gives each sentence in its own line.
             """\
 Momentum (Qian, 1999; Nesterov, 2013; Sutskever et al., 2013) or adaptive gradient-based \
 methods (Duchi et al., 2011; Kingma and Ba, 2014) are sometimes used to rectify these \
