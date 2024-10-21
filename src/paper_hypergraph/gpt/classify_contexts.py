@@ -31,7 +31,7 @@ from paper_hypergraph.gpt.run_gpt import (
 )
 from paper_hypergraph.util import BlockTimer, setup_logging
 
-logger = logging.getLogger("classify_contexts")
+logger = logging.getLogger("gpt.classify_contexts")
 
 
 class ContextPolarity(StrEnum):
@@ -323,7 +323,6 @@ def show_classified_stats(input_data: Sequence[PaperOutput]) -> str:
     output.append(">>> polarity")
     for key, count in counter_polarity.most_common():
         output.append(f"  {key}: {count} ({count / counter_polarity.total():.2%})")
-    output.append("")
 
     return "\n".join(output)
 
@@ -420,7 +419,7 @@ def main() -> None:
     setup_cli_parser(parser)
 
     args = parser.parse_args()
-    setup_logging(logger)
+    setup_logging("gpt")
 
     if args.subcommand == "prompts":
         list_prompts(detail=args.detail)

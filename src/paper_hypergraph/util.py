@@ -61,7 +61,10 @@ class BlockTimer:
         return " ".join(parts)
 
 
-def setup_logging(logger: logging.Logger) -> None:
+def setup_logging(logger: logging.Logger | str) -> None:
+    if isinstance(logger, str):
+        logger = logging.getLogger(logger)
+
     level = os.environ.get("LOG_LEVEL", "INFO").upper()
     logger.setLevel(level)
     handler = colorlog.StreamHandler()
