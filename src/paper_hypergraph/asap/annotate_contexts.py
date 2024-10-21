@@ -1,4 +1,8 @@
-"""Annotate citation contexts polarities using both regular and extended contexts."""
+"""Annotate citation contexts polarities using both regular and extended contexts.
+
+The user can quit at any time, in that case, the partial annotation will be saved,
+and the user can continue annotating by running the script on the previous output file.
+"""
 
 import textwrap
 from collections import Counter
@@ -33,7 +37,6 @@ def main(
         input_file.read_bytes()
     )
 
-    output_data: list[PaperWithReferenceEnriched] = []
     count = 0
     total = sum(
         1
@@ -43,37 +46,51 @@ def main(
     )
     typer.echo(f"Number of contexts in file: {total}")
 
+    output_data: list[PaperWithReferenceEnriched] = []
+    # When False, we'll skip asking the user and just copy the old annotation. This is
+    # used when the user pickes the 'q' (quit) option, so we save the partial annotation
+    # for later.
+    annotating = True
+
     for paper in input_data:
-        new_references = []
+        new_references: list[ReferenceEnriched] = []
         for r in paper.references:
-            new_contexts_annotated = []
+            new_contexts_annotated: list[ContextAnnotated] = []
             for regular, expanded, old in zip(
                 r.contexts,
                 r.contexts_expanded,
                 r.contexts_annotated or [None] * len(r.contexts),
             ):
                 count += 1
-                new_context = ContextAnnotated(
-                    regular=regular,
-                    expanded=expanded,
-                    polarity=_annotate_context(
+
+                if annotating:
+                    polarity = _annotate_context(
                         count,
                         total,
                         regular,
                         expanded,
                         old,
                         width=width,
-                    ),
+                    )
+                    if polarity is None:  # User picked quit
+                        annotating = False
+                else:
+                    polarity = None
+
+                new_context = ContextAnnotated(
+                    regular=regular, expanded=expanded, polarity=polarity
                 )
                 new_contexts_annotated.append(new_context)
-            
+
             new_reference = ReferenceEnriched(
+                # Updated
+                contexts_annotated=new_contexts_annotated,
+                # The rest remains the same
                 title=r.title,
                 year=r.year,
                 authors=r.authors,
                 contexts=r.contexts,
                 contexts_expanded=r.contexts_expanded,
-                contexts_annotated=new_contexts_annotated,
                 abstract=r.abstract,
                 s2title=r.s2title,
                 reference_count=r.reference_count,
@@ -82,14 +99,16 @@ def main(
                 tldr=r.tldr,
             )
             new_references.append(new_reference)
-        
+
         new_paper = PaperWithReferenceEnriched(
+            # Updated
+            references=new_references,
+            # The rest remains the same
             title=paper.title,
             abstract=paper.abstract,
             ratings=paper.ratings,
             sections=paper.sections,
             approval=paper.approval,
-            references=new_references,
         )
         output_data.append(new_paper)
 
@@ -105,6 +124,9 @@ def main(
     output_file.write_bytes(
         TypeAdapter(list[PaperWithReferenceEnriched]).dump_json(output_data, indent=2)
     )
+    assert len(input_data) == len(
+        output_data
+    ), "Output length should match input even if annotation was not completed"
 
 
 _ANNOTATION_CACHE: dict[str, ContextPolarity] = {}
