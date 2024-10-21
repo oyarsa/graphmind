@@ -30,7 +30,7 @@ def parse_metrics(base_path: Path) -> list[dict[str, Any]]:
 
 
 def create_table(metrics_data: Sequence[dict[str, Any]]) -> Table:
-    table = Table(title="Metrics Comparison")
+    table = Table(title="Context classification results")
 
     table.add_column("Prompt", style="green")
     table.add_column("Context", style="yellow")
