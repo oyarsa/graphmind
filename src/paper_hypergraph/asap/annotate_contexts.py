@@ -44,50 +44,54 @@ def main(
     typer.echo(f"Number of contexts in file: {total}")
 
     for paper in input_data:
-        output_data.append(
-            PaperWithReferenceEnriched(
-                title=paper.title,
-                abstract=paper.abstract,
-                ratings=paper.ratings,
-                sections=paper.sections,
-                approval=paper.approval,
-                references=[
-                    ReferenceEnriched(
-                        title=r.title,
-                        year=r.year,
-                        authors=r.authors,
-                        contexts=r.contexts,
-                        contexts_expanded=r.contexts_expanded,
-                        contexts_annotated=[
-                            ContextAnnotated(
-                                regular=regular,
-                                expanded=expanded,
-                                polarity=_annotate_context(
-                                    (count := count + 1),
-                                    total,
-                                    regular,
-                                    expanded,
-                                    old,
-                                    width=width,
-                                ),
-                            )
-                            for regular, expanded, old in zip(
-                                r.contexts,
-                                r.contexts_expanded,
-                                r.contexts_annotated or [None] * len(r.contexts),
-                            )
-                        ],
-                        abstract=r.abstract,
-                        s2title=r.s2title,
-                        reference_count=r.reference_count,
-                        citation_count=r.citation_count,
-                        influential_citation_count=r.influential_citation_count,
-                        tldr=r.tldr,
-                    )
-                    for r in paper.references
-                ],
+        new_references = []
+        for r in paper.references:
+            new_contexts_annotated = []
+            for regular, expanded, old in zip(
+                r.contexts,
+                r.contexts_expanded,
+                r.contexts_annotated or [None] * len(r.contexts),
+            ):
+                count += 1
+                new_context = ContextAnnotated(
+                    regular=regular,
+                    expanded=expanded,
+                    polarity=_annotate_context(
+                        count,
+                        total,
+                        regular,
+                        expanded,
+                        old,
+                        width=width,
+                    ),
+                )
+                new_contexts_annotated.append(new_context)
+            
+            new_reference = ReferenceEnriched(
+                title=r.title,
+                year=r.year,
+                authors=r.authors,
+                contexts=r.contexts,
+                contexts_expanded=r.contexts_expanded,
+                contexts_annotated=new_contexts_annotated,
+                abstract=r.abstract,
+                s2title=r.s2title,
+                reference_count=r.reference_count,
+                citation_count=r.citation_count,
+                influential_citation_count=r.influential_citation_count,
+                tldr=r.tldr,
             )
+            new_references.append(new_reference)
+        
+        new_paper = PaperWithReferenceEnriched(
+            title=paper.title,
+            abstract=paper.abstract,
+            ratings=paper.ratings,
+            sections=paper.sections,
+            approval=paper.approval,
+            references=new_references,
         )
+        output_data.append(new_paper)
 
     polarities = [
         context.polarity
