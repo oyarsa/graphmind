@@ -10,7 +10,7 @@ import logging
 from paper_hypergraph.gpt import classify_contexts, extract_graph
 from paper_hypergraph.util import setup_logging
 
-logger = logging.getLogger("gpt")
+logger = logging.getLogger("gpt.cli")
 
 
 def main() -> None:
@@ -44,7 +44,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    setup_logging(logger)
+    setup_logging("gpt")
 
     if args.command == "graph":
         if args.subcommand == "prompts":

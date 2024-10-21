@@ -11,7 +11,6 @@ import logging
 import os
 from collections import Counter
 from collections.abc import Sequence
-from enum import StrEnum
 from pathlib import Path
 
 import dotenv
@@ -19,9 +18,10 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph.asap.model import PaperSection
+from paper_hypergraph.asap.model import ContextPolarity, PaperSection
 from paper_hypergraph.asap.model import PaperWithFullReference as PaperInput
 from paper_hypergraph.gpt.run_gpt import (
+    MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
     Prompt,
@@ -30,12 +30,7 @@ from paper_hypergraph.gpt.run_gpt import (
 )
 from paper_hypergraph.util import BlockTimer, setup_logging
 
-logger = logging.getLogger("classify_contexts")
-
-
-class ContextPolarity(StrEnum):
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
+logger = logging.getLogger("gpt.classify_contexts")
 
 
 class ContextClassified(BaseModel):
@@ -77,14 +72,6 @@ class PaperOutput(BaseModel):
         description="Approval decision - whether the paper was approved"
     )
     references: Sequence[Reference] = Field(description="References made in the paper")
-
-
-_MODEL_SYNONYMS = {
-    "4o-mini": "gpt-4o-mini-2024-07-18",
-    "gpt-4o-mini": "gpt-4o-mini-2024-07-18",
-    "4o": "gpt-4o-2024-08-06",
-    "gpt-4o": "gpt-4o-2024-08-06",
-}
 
 
 _CONTEXT_SYSTEM_PROMPT = (
@@ -246,6 +233,7 @@ def _log_config(
     limit_references: int | None,
     user_prompt: str,
     output_dir: Path,
+    use_expanded_context: bool,
 ) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
 
@@ -260,6 +248,7 @@ def _log_config(
             limit_references if limit_references is not None else 'All'
         }\n"
         f"  User prompt: {user_prompt}\n"
+        f"  Use expanded context: {use_expanded_context}\n"
     )
 
 
@@ -279,7 +268,7 @@ def classify_contexts(
     if api_key:
         os.environ["OPENAI_API_KEY"] = api_key
 
-    model = _MODEL_SYNONYMS.get(model, model)
+    model = MODEL_SYNONYMS.get(model, model)
     if model not in MODELS_ALLOWED:
         raise ValueError(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
@@ -290,6 +279,7 @@ def classify_contexts(
         limit_references=limit_references,
         user_prompt=user_prompt_key,
         output_dir=output_dir,
+        use_expanded_context=use_expanded_context,
     )
 
     client = OpenAI()
@@ -330,7 +320,6 @@ def show_classified_stats(input_data: Sequence[PaperOutput]) -> str:
     output.append(">>> polarity")
     for key, count in counter_polarity.most_common():
         output.append(f"  {key}: {count} ({count / counter_polarity.total():.2%})")
-    output.append("")
 
     return "\n".join(output)
 
@@ -427,7 +416,7 @@ def main() -> None:
     setup_cli_parser(parser)
 
     args = parser.parse_args()
-    setup_logging(logger)
+    setup_logging("gpt")
 
     if args.subcommand == "prompts":
         list_prompts(detail=args.detail)

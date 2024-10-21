@@ -11,7 +11,7 @@ from paper_hypergraph.gpt.model import Graph, Paper
 from paper_hypergraph.gpt.run_gpt import GPTResult, run_gpt
 from paper_hypergraph.util import BlockTimer
 
-logger = logging.getLogger("evaluate_graph")
+logger = logging.getLogger("gpt.evaluate_graph")
 
 
 CLASSIFY_SYSTEM_PROMPT = (

@@ -41,7 +41,7 @@ from paper_hypergraph.gpt.run_gpt import (
 )
 from paper_hypergraph.util import BlockTimer, setup_logging
 
-logger = logging.getLogger("extract_graph")
+logger = logging.getLogger("gpt.extract_graph")
 
 
 class GPTRelationship(BaseModel):
@@ -553,7 +553,7 @@ def main() -> None:
     setup_cli_parser(parser)
 
     args = parser.parse_args()
-    setup_logging(logger)
+    setup_logging("gpt")
 
     if args.subcommand == "prompts":
         list_prompts(detail=args.detail)
