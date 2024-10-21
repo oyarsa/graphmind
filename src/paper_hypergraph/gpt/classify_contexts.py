@@ -22,6 +22,7 @@ from tqdm import tqdm
 from paper_hypergraph.asap.model import PaperSection
 from paper_hypergraph.asap.model import PaperWithFullReference as PaperInput
 from paper_hypergraph.gpt.run_gpt import (
+    MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
     Prompt,
@@ -77,14 +78,6 @@ class PaperOutput(BaseModel):
         description="Approval decision - whether the paper was approved"
     )
     references: Sequence[Reference] = Field(description="References made in the paper")
-
-
-_MODEL_SYNONYMS = {
-    "4o-mini": "gpt-4o-mini-2024-07-18",
-    "gpt-4o-mini": "gpt-4o-mini-2024-07-18",
-    "4o": "gpt-4o-2024-08-06",
-    "gpt-4o": "gpt-4o-2024-08-06",
-}
 
 
 _CONTEXT_SYSTEM_PROMPT = (
@@ -279,7 +272,7 @@ def classify_contexts(
     if api_key:
         os.environ["OPENAI_API_KEY"] = api_key
 
-    model = _MODEL_SYNONYMS.get(model, model)
+    model = MODEL_SYNONYMS.get(model, model)
     if model not in MODELS_ALLOWED:
         raise ValueError(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
