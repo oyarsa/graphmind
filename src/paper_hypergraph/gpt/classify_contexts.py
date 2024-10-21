@@ -188,7 +188,7 @@ def _classify_contexts(
                         ContextClassified(
                             text=context_text,
                             gold=ContextPolarityBinary.from_trinary(context.polarity)
-                            if context.polarity
+                            if context.polarity is not None
                             else None,
                             prediction=gpt_context.polarity,
                         )
@@ -321,8 +321,8 @@ def _show_classified_stats(data: Iterable[PaperOutput]) -> str:
             for context in reference.contexts:
                 all_contexts.append(context)
                 if context.gold is not None:
-                    y_true.append(bool(context.gold))
-                    y_pred.append(bool(context.prediction))
+                    y_true.append(context.gold is ContextPolarityBinary.POSITIVE)
+                    y_pred.append(context.prediction is ContextPolarityBinary.POSITIVE)
 
     assert len(y_true) == len(y_pred)
     output = [
