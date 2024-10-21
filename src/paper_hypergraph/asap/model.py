@@ -15,7 +15,7 @@ class ContextPolarity(enum.StrEnum):
 class ContextAnnotated(BaseModel):
     regular: str = Field(description="Regular context the from ASAP data")
     expanded: str = Field(description="Expanded context")
-    polarity: ContextPolarity
+    polarity: ContextPolarity | None = None
 
 
 class PaperReference(BaseModel):
