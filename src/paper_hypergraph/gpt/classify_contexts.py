@@ -9,7 +9,6 @@ import argparse
 import hashlib
 import logging
 import os
-from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -18,6 +17,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from tqdm import tqdm
 
+from paper_hypergraph import evaluation_metrics
 from paper_hypergraph.asap.model import ContextPolarityBinary, PaperSection
 from paper_hypergraph.asap.model import PaperWithFullReference as PaperInput
 from paper_hypergraph.gpt.run_gpt import (
@@ -39,8 +39,11 @@ class ContextClassified(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     text: str = Field(description="Full text of the context mention")
-    polarity: ContextPolarityBinary = Field(
-        description="Whether the citation context is positive or negative"
+    gold: ContextPolarityBinary = Field(
+        description="Whether the citation context is annotated as positive or negative"
+    )
+    prediction: ContextPolarityBinary = Field(
+        description="Whether the citation context is predicted positive or negative"
     )
 
 
@@ -162,18 +165,17 @@ def _classify_contexts(
         for reference in references:
             classified_contexts: list[ContextClassified] = []
 
-            contexts = (
-                reference.contexts_expanded
-                if use_expanded_context
-                else reference.contexts
-            )
-            for context in contexts:
+            assert reference.contexts_annotated
+            for context in reference.contexts_annotated:
+                context_text = (
+                    context.expanded if use_expanded_context else context.regular
+                )
                 user_prompt = user_prompt_template.format(
                     main_title=paper.title,
                     main_abstract=paper.abstract,
                     reference_title=reference.s2title,
                     reference_abstract=reference.abstract,
-                    context=context,
+                    context=context_text,
                 )
                 user_prompts.append(user_prompt)
                 result = run_gpt(
@@ -181,11 +183,13 @@ def _classify_contexts(
                 )
                 total_cost += result.cost
 
-                if context := result.result:
+                assert context.polarity
+                if gpt_context := result.result:
                     classified_contexts.append(
                         ContextClassified(
-                            text=context.text,
-                            polarity=context.polarity,
+                            text=context_text,
+                            gold=ContextPolarityBinary.from_trinary(context.polarity),
+                            prediction=gpt_context.polarity,
                         )
                     )
 
@@ -298,7 +302,7 @@ def classify_contexts(
     logger.info(f"Total cost: ${results.cost:.10f}")
 
     contexts = [result.item for result in results.result]
-    logger.info("Classification frequency:\n%s\n", show_classified_stats(contexts))
+    logger.info("Classification metrics:\n%s\n", show_classified_stats(contexts))
 
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "result.json").write_bytes(
@@ -307,20 +311,22 @@ def classify_contexts(
 
 
 def show_classified_stats(input_data: Sequence[PaperOutput]) -> str:
-    context_polarity: list[str] = []
+    y_true: list[bool] = []
+    y_pred: list[bool] = []
 
     for paper in input_data:
         for reference in paper.references:
             for context in reference.contexts:
-                context_polarity.append(context.polarity)
+                y_true.append(bool(context.gold))
+                y_pred.append(bool(context.prediction))
 
-    counter_polarity = Counter(context_polarity)
-
-    output: list[str] = []
-    output.append(">>> polarity")
-    for key, count in counter_polarity.most_common():
-        output.append(f"  {key}: {count} ({count / counter_polarity.total():.2%})")
-
+    metrics = evaluation_metrics.calculate_metrics(y_true, y_pred)
+    output = [
+        str(metrics),
+        "",
+        f"Gold (P/N): {sum(y_true)}/{len(y_true) - sum(y_true)}",
+        f"Pred (P/N): {sum(y_pred)}/{len(y_pred) - sum(y_pred)}",
+    ]
     return "\n".join(output)
 
 
