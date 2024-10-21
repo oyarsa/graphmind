@@ -239,6 +239,7 @@ def _log_config(
     limit_references: int | None,
     user_prompt: str,
     output_dir: Path,
+    use_expanded_context: bool,
 ) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
 
@@ -253,6 +254,7 @@ def _log_config(
             limit_references if limit_references is not None else 'All'
         }\n"
         f"  User prompt: {user_prompt}\n"
+        f"  Use expanded context: {use_expanded_context}\n"
     )
 
 
@@ -283,6 +285,7 @@ def classify_contexts(
         limit_references=limit_references,
         user_prompt=user_prompt_key,
         output_dir=output_dir,
+        use_expanded_context=use_expanded_context,
     )
 
     client = OpenAI()
