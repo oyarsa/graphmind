@@ -1,14 +1,15 @@
+import enum
 from collections.abc import Sequence
-from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
 # Models from the ASAP files after exctraction (e.g. asap_filtered.json)
 
 
-class ContextPolarity(StrEnum):
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
+class ContextPolarity(enum.StrEnum):
+    POSITIVE = enum.auto()
+    NEGATIVE = enum.auto()
+    NEUTRAL = enum.auto()
 
 
 class ContextAnnotated(BaseModel):
