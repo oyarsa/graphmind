@@ -1,15 +1,30 @@
+from __future__ import annotations
+
 import enum
 from collections.abc import Sequence
+from functools import cached_property
 
 from pydantic import BaseModel, ConfigDict, Field
 
+
 # Models from the ASAP files after exctraction (e.g. asap_filtered.json)
-
-
 class ContextPolarity(enum.StrEnum):
     POSITIVE = enum.auto()
     NEGATIVE = enum.auto()
     NEUTRAL = enum.auto()
+
+
+class ContextPolarityBinary(enum.StrEnum):
+    POSITIVE = enum.auto()
+    NEGATIVE = enum.auto()
+
+    @classmethod
+    def from_trinary(cls, polarity: ContextPolarity) -> ContextPolarityBinary:
+        return (
+            cls.POSITIVE
+            if polarity in (ContextPolarity.POSITIVE, ContextPolarity.NEUTRAL)
+            else cls.NEGATIVE
+        )
 
 
 class ContextAnnotated(BaseModel):
@@ -33,6 +48,22 @@ class PaperReference(BaseModel):
     contexts_annotated: Sequence[ContextAnnotated] | None = Field(
         default=None, description="Citation context with golden polarity evaluation"
     )
+
+    @cached_property
+    def contexts_annotated_valid(self) -> Sequence[ContextAnnotated]:
+        """Get always-valid sequence of annotated contexts.
+
+        Given that `contexts_annotated` is optional (e.g. the ASAP pipeline generates
+        a file without it), we need to use a default. The default is created by
+        combining `contexts` and `contexts_expanded`, leaving a None polarity.
+        """
+        if self.contexts_annotated is not None:
+            return self.contexts_annotated
+        else:
+            return [
+                ContextAnnotated(regular=regular, expanded=expanded, polarity=None)
+                for regular, expanded in zip(self.contexts, self.contexts_expanded)
+            ]
 
 
 class PaperSection(BaseModel):

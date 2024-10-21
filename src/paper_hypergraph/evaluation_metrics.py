@@ -11,6 +11,16 @@ class Metrics(BaseModel):
     f1: float
     accuracy: float
 
+    def __str__(self) -> str:
+        return "\n".join(
+            (
+                f"P   : {self.precision:.4f}",
+                f"R   : {self.recall:.4f}",
+                f"F1  : {self.f1:.4f}",
+                f"Acc : {self.accuracy:.4f}",
+            )
+        )
+
 
 def calculate_metrics(y_true: Sequence[bool], y_pred: Sequence[bool]) -> Metrics:
     """Calculate classification metrics from true and predicted binary labels.

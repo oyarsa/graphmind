@@ -9,8 +9,7 @@ import argparse
 import hashlib
 import logging
 import os
-from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import dotenv
@@ -18,7 +17,8 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph.asap.model import ContextPolarity, PaperSection
+from paper_hypergraph import evaluation_metrics
+from paper_hypergraph.asap.model import ContextPolarityBinary, PaperSection
 from paper_hypergraph.asap.model import PaperWithFullReference as PaperInput
 from paper_hypergraph.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -39,8 +39,12 @@ class ContextClassified(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     text: str = Field(description="Full text of the context mention")
-    polarity: ContextPolarity = Field(
-        description="Whether the citation context is positive or negative"
+    gold: ContextPolarityBinary | None = Field(
+        description="Whether the citation context is annotated as positive or negative."
+        " Can be absent for unannotated data."
+    )
+    prediction: ContextPolarityBinary = Field(
+        description="Whether the citation context is predicted positive or negative"
     )
 
 
@@ -129,7 +133,7 @@ class GPTContext(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     text: str = Field(description="Full text of the context mention")
-    polarity: ContextPolarity = Field(
+    polarity: ContextPolarityBinary = Field(
         description="Whether the citation context is positive or negative"
     )
 
@@ -162,18 +166,16 @@ def _classify_contexts(
         for reference in references:
             classified_contexts: list[ContextClassified] = []
 
-            contexts = (
-                reference.contexts_expanded
-                if use_expanded_context
-                else reference.contexts
-            )
-            for context in contexts:
+            for context in reference.contexts_annotated_valid:
+                context_text = (
+                    context.expanded if use_expanded_context else context.regular
+                )
                 user_prompt = user_prompt_template.format(
                     main_title=paper.title,
                     main_abstract=paper.abstract,
                     reference_title=reference.s2title,
                     reference_abstract=reference.abstract,
-                    context=context,
+                    context=context_text,
                 )
                 user_prompts.append(user_prompt)
                 result = run_gpt(
@@ -181,11 +183,14 @@ def _classify_contexts(
                 )
                 total_cost += result.cost
 
-                if context := result.result:
+                if gpt_context := result.result:
                     classified_contexts.append(
                         ContextClassified(
-                            text=context.text,
-                            polarity=context.polarity,
+                            text=context_text,
+                            gold=ContextPolarityBinary.from_trinary(context.polarity)
+                            if context.polarity is not None
+                            else None,
+                            prediction=gpt_context.polarity,
                         )
                     )
 
@@ -298,7 +303,7 @@ def classify_contexts(
     logger.info(f"Total cost: ${results.cost:.10f}")
 
     contexts = [result.item for result in results.result]
-    logger.info("Classification frequency:\n%s\n", show_classified_stats(contexts))
+    logger.info("Classification metrics:\n%s\n", _show_classified_stats(contexts))
 
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "result.json").write_bytes(
@@ -306,21 +311,45 @@ def classify_contexts(
     )
 
 
-def show_classified_stats(input_data: Sequence[PaperOutput]) -> str:
-    context_polarity: list[str] = []
+def _show_classified_stats(data: Iterable[PaperOutput]) -> str:
+    all_contexts: list[ContextClassified] = []
+    y_true: list[bool] = []
+    y_pred: list[bool] = []
 
-    for paper in input_data:
+    for paper in data:
         for reference in paper.references:
             for context in reference.contexts:
-                context_polarity.append(context.polarity)
+                all_contexts.append(context)
+                if context.gold is not None:
+                    y_true.append(context.gold is ContextPolarityBinary.POSITIVE)
+                    y_pred.append(context.prediction is ContextPolarityBinary.POSITIVE)
 
-    counter_polarity = Counter(context_polarity)
+    assert len(y_true) == len(y_pred)
+    output = [
+        f"Total contexts: {len(all_contexts)}",
+        "",
+    ]
 
-    output: list[str] = []
-    output.append(">>> polarity")
-    for key, count in counter_polarity.most_common():
-        output.append(f"  {key}: {count} ({count / counter_polarity.total():.2%})")
+    if y_true:
+        metrics = evaluation_metrics.calculate_metrics(y_true, y_pred)
+        output += [
+            str(metrics),
+            "",
+            f"Gold (P/N): {sum(y_true)}/{len(y_true) - sum(y_true)}"
+            f" ({sum(y_true)/len(y_true):.2%})",
+            f"Pred (P/N): {sum(y_pred)}/{len(y_pred) - sum(y_pred)}"
+            f" ({sum(y_pred)/len(y_pred):.2%})",
+        ]
+        return "\n".join(output)
 
+    # No entries with gold annotation
+    positive = sum(bool(context.prediction) for context in all_contexts)
+    negative = len(all_contexts) - positive
+    output += [
+        "No gold values to calculate metrics.",
+        f"Positive: {positive} ({positive / len(all_contexts):.2%})",
+        f"Negative {negative} ({negative / len(all_contexts):.2%})",
+    ]
     return "\n".join(output)
 
 
