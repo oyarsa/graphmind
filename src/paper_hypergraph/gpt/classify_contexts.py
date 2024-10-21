@@ -385,7 +385,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         "-m",
         type=str,
         default="gpt-4o-mini",
-        help="The model to use for the extraction. Defaults to %(default)s",
+        help="The model to use for the extraction. Defaults to %(default)s.",
     )
     run_parser.add_argument(
         "--api-key",
@@ -422,7 +422,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Use expanded context (sentences surrounding the citation context)."
-        " Defaults to %(default)s",
+        " Defaults to %(default)s.",
     )
 
     # 'prompts' subcommand parser
