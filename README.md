@@ -23,11 +23,10 @@ below.
 - **S2ORC - Semantic Scholar Open Research Corpus**: dataset with the full paper content
   from Semantic Scholar. See [s2orc README](/src/paper_hypergraph/s2orc/README.md) for
   information.
-- **ASAP-Review**: dataset with full content and ratings for ICLR 2017-2022 papers.
-  See [asap README](/src/paper_hypergraph/asap/README.md) for more information.
+- **ASAP-Review**: dataset with full content and ratings for ICLR 2017-2022 papers. See
+  [asap README](/src/paper_hypergraph/asap/README.md) for more information.
 
-Use the `uv run preprocess` command to access to both the S2ORC and ASAP dataset
-preprocessing:
+Use the `uv run preprocess` command to access both S2ORC and ASAP dataset preprocessing:
 
 ```console
 # Create `data` and `output` directories
@@ -40,12 +39,12 @@ $ mkdir data output
 $ uv run preprocess asap data/asap output
 
 # > Preprocess S2ORC dataset
-# Note: takes a long time, potentially hours.
+# Note: this takes a long time, potentially hours.
 # This needs a Semantic Scholar API, which you can get from https://www.semanticscholar.org/product/api#api-key-form
 # Downloaded S2ORC data and intermediate files will be stored on `data/s2orc`
 # Output will be saved to `output/s2orc_papers.json.gz`
 $ uv run preprocess s2orc data/s2orc output --api-key YOUR_SEMANTIC_SCHOLAR_KEY
-# You can also set the SEMANTIC_SCHOLAR_API_KEY envionment variable instead of using
+# You can also set the SEMANTIC_SCHOLAR_API_KEY environment variable instead of using
 # `--api-key`.
 
 # More information on the commands and options
@@ -79,14 +78,14 @@ $ uv run graph-gpt prompts --help
 
 ## Development Environment
 
-When running commads, use `uv run`:
+When running commands, use `uv run`:
 
 ```bash
 uv run python example.py [...args]
 ```
 
-You don't to set up a virtual environment or install dependencies. `uv run` will take
-care of that automatically.
+You don't have to set up a virtual environment or install dependencies. `uv run` will
+take care of that automatically.
 
 If you're running Python scripts or commands (e.g. see `preprocess` below), you can omit
 the `python`. Real example:
@@ -95,10 +94,10 @@ the `python`. Real example:
 uv run src/paper_hypergraph/s2orc/acl.py
 ```
 
-See `./tasks.sh` for common development tasks. In special, use `./tasks.sh check` to run
-the linter, formatter and type checker. Run `./tasks.sh help` to see all tasks.
+See `./tasks.sh` for common development tasks. In particular, use `./tasks.sh check` to
+run the linter, formatter and type checker. Run `./tasks.sh help` to see all tasks.
 
-The `./tasks.sh setup` task sets up the full envionment:
+The `./tasks.sh setup` task sets up the full environment:
 
 - [`uv`](https://docs.astral.sh/uv/): manages the project, Python environment and
   dependencies, including the development tools.
@@ -107,8 +106,8 @@ The `./tasks.sh setup` task sets up the full envionment:
 - [`pre-commit`](https://pre-commit.com/): which runs some basic checks before you
   create a commit.
 
-Please check the individual tool documentations for more information.
-See also [CONTRIBUTING](/CONTRIBUTING.md) for in-depth information.
+Please check the individual tool documentation for more information. See also
+[CONTRIBUTING](/CONTRIBUTING.md) for in-depth information.
 
 To view the project documentation in the browser (module, functions, class, etc.), run
 
