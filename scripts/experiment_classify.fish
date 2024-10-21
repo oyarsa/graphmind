@@ -26,7 +26,7 @@ else
     end
 end
 
-set -l prompt_types full simple
+set -l prompt_types full simple sentence
 set -l context_modes --use-expanded-context --no-use-expanded-context
 set -l models gpt-4o-mini gpt-4o
 
