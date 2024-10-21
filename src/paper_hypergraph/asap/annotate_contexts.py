@@ -119,12 +119,12 @@ def _annotate_context(
     *,
     width: int,
 ) -> ContextPolarity | None:
+    if polarity := _ANNOTATION_CACHE.get(regular):
+        return polarity
+
     if old is not None and old.polarity is not None:
         _ANNOTATION_CACHE[regular] = old.polarity
         return old.polarity
-
-    if polarity := _ANNOTATION_CACHE.get(regular):
-        return polarity
 
     prompt = f"""\
 
