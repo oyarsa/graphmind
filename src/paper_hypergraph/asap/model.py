@@ -1,15 +1,29 @@
+from __future__ import annotations
+
 import enum
 from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
+
 # Models from the ASAP files after exctraction (e.g. asap_filtered.json)
-
-
 class ContextPolarity(enum.StrEnum):
     POSITIVE = enum.auto()
     NEGATIVE = enum.auto()
     NEUTRAL = enum.auto()
+
+
+class ContextPolarityBinary(enum.StrEnum):
+    POSITIVE = enum.auto()
+    NEGATIVE = enum.auto()
+
+    @classmethod
+    def from_trinary(cls, polarity: ContextPolarity) -> ContextPolarityBinary:
+        return (
+            cls.POSITIVE
+            if polarity in (ContextPolarity.POSITIVE, ContextPolarity.NEUTRAL)
+            else cls.NEGATIVE
+        )
 
 
 class ContextAnnotated(BaseModel):

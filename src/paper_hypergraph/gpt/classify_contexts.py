@@ -18,7 +18,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph.asap.model import ContextPolarity, PaperSection
+from paper_hypergraph.asap.model import ContextPolarityBinary, PaperSection
 from paper_hypergraph.asap.model import PaperWithFullReference as PaperInput
 from paper_hypergraph.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -39,7 +39,7 @@ class ContextClassified(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     text: str = Field(description="Full text of the context mention")
-    polarity: ContextPolarity = Field(
+    polarity: ContextPolarityBinary = Field(
         description="Whether the citation context is positive or negative"
     )
 
@@ -129,7 +129,7 @@ class GPTContext(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     text: str = Field(description="Full text of the context mention")
-    polarity: ContextPolarity = Field(
+    polarity: ContextPolarityBinary = Field(
         description="Whether the citation context is positive or negative"
     )
 
