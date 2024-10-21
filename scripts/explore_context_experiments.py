@@ -1,7 +1,7 @@
 """Create table with the results of the citation context classification experiments."""
 
 import json
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -13,15 +13,20 @@ from rich.table import Table
 def parse_metrics(base_path: Path) -> list[dict[str, Any]]:
     metrics_data: list[dict[str, Any]] = []
 
-    for file_path in base_path.rglob("metrics.json"):
-        metrics: dict[str, Any] = json.loads(file_path.read_bytes())
+    for dir in base_path.iterdir():
+        if not dir.is_dir():
+            continue
 
-        run_name = str(file_path.parent.relative_to(base_path))
+        metrics: dict[str, Any] = json.loads((dir / "metrics.json").read_bytes())
+        results: list[dict[str, Any]] = json.loads((dir / "result.json").read_bytes())
+
+        run_name = str(dir.relative_to(base_path))
         prompt, context_flag, model = run_name.split("_", maxsplit=2)
         run_info = {
             "prompt": prompt,
             "context": "extended" if context_flag.startswith("--use") else "original",
             "model": model,
+            "n": str(count_contexts(results)),
         }
 
         metrics_data.append(run_info | metrics)
@@ -29,21 +34,31 @@ def parse_metrics(base_path: Path) -> list[dict[str, Any]]:
     return metrics_data
 
 
+def count_contexts(data: Iterable[dict[str, Any]]) -> int:
+    return sum(
+        len(reference["contexts"])
+        for paper in data
+        for reference in paper["item"]["references"]
+    )
+
+
 def create_table(metrics_data: Sequence[dict[str, Any]]) -> Table:
     table = Table(title="Context classification results")
 
-    table.add_column("Prompt", style="green")
-    table.add_column("Context", style="yellow")
-    table.add_column("Model", style="blue")
+    info_columns = ["prompt", "context", "model", "n"]
+    info_colours = ["green", "yellow", "blue", "red"]
+
+    for col, colour in zip(info_columns, info_colours):
+        table.add_column(col.capitalize(), style=colour)
 
     for key in metrics_data[0]:
-        if key not in ["prompt", "context", "model"]:
+        if key not in info_columns:
             table.add_column(key.capitalize(), style="magenta")
 
     for entry in sorted(metrics_data, key=lambda x: x["f1"], reverse=True):
-        row = [entry["prompt"], str(entry["context"]), entry["model"]]
+        row = [entry[col] for col in info_columns]
         for key, value in entry.items():
-            if key not in ["prompt", "context", "model"]:
+            if key not in info_columns:
                 row.append(f"{value:.4f}")
         table.add_row(*row)
 
