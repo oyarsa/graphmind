@@ -443,7 +443,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         "--user-prompt",
         type=str,
         choices=_CONTEXT_USER_PROMPTS.keys(),
-        default="simple",
+        default="sentence",
         help="The user prompt to use for context classification. Defaults to"
         " %(default)s.",
     )
