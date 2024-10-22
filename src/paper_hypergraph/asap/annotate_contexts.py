@@ -12,7 +12,7 @@ Offers two commands:
 import random
 import textwrap
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
@@ -119,10 +119,44 @@ def annotate(
         input_file.read_bytes()
     )
 
-    count = 0
     total = _count_contexts(input_data)
     typer.echo(f"Number of contexts in file: {total}")
 
+    with BlockTimer() as timer:
+        output_data = _annotate(input_data, total, width)
+
+    annotated_before = _count_contexts_annotated(input_data)
+    annotated_after = _count_contexts_annotated(output_data)
+    annotated_num = annotated_after - annotated_before
+
+    typer.echo()
+    typer.echo(f"Annotated: {annotated_num}")
+    typer.echo(f"Time     : {timer.human}")
+    typer.echo(f"Average  : {timer.seconds / (annotated_num or 1):.2f}s")
+
+    polarities = [
+        context.polarity
+        for paper in output_data
+        for reference in paper.references
+        for context in reference.contexts_annotated_valid
+    ]
+
+    typer.echo()
+    for polarity, count in Counter(polarities).most_common():
+        typer.echo(f"{polarity!s:<9}: {count}")
+
+    output_file.write_bytes(
+        TypeAdapter(list[PaperWithReferenceEnriched]).dump_json(output_data, indent=2)
+    )
+    assert len(input_data) == len(
+        output_data
+    ), "Output length should match input even if annotation was not completed"
+
+
+def _annotate(
+    input_data: Sequence[PaperWithReferenceEnriched], total: int, width: int
+) -> list[PaperWithReferenceEnriched]:
+    count = 0
     output_data: list[PaperWithReferenceEnriched] = []
     # When False, we'll skip asking the user and just copy the old annotation. This is
     # used when the user pickes the 'q' (quit) option, so we save the partial annotation
@@ -134,9 +168,7 @@ def annotate(
         for r in paper.references:
             new_contexts_annotated: list[ContextAnnotated] = []
             for regular, expanded, old in zip(
-                r.contexts,
-                r.contexts_expanded,
-                r.contexts_annotated or [None] * len(r.contexts),
+                r.contexts, r.contexts_expanded, r.contexts_annotated_valid
             ):
                 count += 1
 
@@ -189,21 +221,17 @@ def annotate(
         )
         output_data.append(new_paper)
 
-    polarities = [
-        context.polarity
-        for paper in output_data
-        for reference in paper.references
-        for context in reference.contexts_annotated or []
-    ]
-    for polarity, count in Counter(polarities).most_common():
-        print(f"{polarity}: {count}")
+    return output_data
 
-    output_file.write_bytes(
-        TypeAdapter(list[PaperWithReferenceEnriched]).dump_json(output_data, indent=2)
+
+def _count_contexts_annotated(data: Iterable[PaperWithReferenceEnriched]) -> int:
+    """Count total number of *annotated* contexts available in the papers."""
+    return sum(
+        context.polarity is not None
+        for paper in data
+        for reference in paper.references
+        for context in reference.contexts_annotated_valid
     )
-    assert len(input_data) == len(
-        output_data
-    ), "Output length should match input even if annotation was not completed"
 
 
 def _count_contexts(data: Iterable[PaperWithReferenceEnriched]) -> int:
