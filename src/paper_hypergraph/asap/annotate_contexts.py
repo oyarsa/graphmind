@@ -45,7 +45,10 @@ def sample(
         Path, typer.Argument(help="Path to output JSON file (sampled data).")
     ],
     num_samples: Annotated[int, typer.Argument(help="Number of contexts to sample.")],
+    seed: Annotated[int, typer.Option(help="Random seed for sampling")] = 0,
 ) -> None:
+    random.seed(seed)
+
     input_data = TypeAdapter(list[PaperWithReferenceEnriched]).validate_json(
         input_file.read_bytes()
     )
