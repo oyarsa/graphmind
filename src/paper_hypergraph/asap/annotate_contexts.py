@@ -2,10 +2,17 @@
 
 The user can quit at any time, in that case, the partial annotation will be saved,
 and the user can continue annotating by running the script on the previous output file.
+
+Offers two commands:
+- annotate: annotate the input data and save to file.
+- sample: takes a data file and samples N random contexts from it. These can be from
+  multiple papers.
 """
 
+import random
 import textwrap
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Annotated
 
@@ -19,16 +26,91 @@ from paper_hypergraph.asap.model import (
     PaperWithReferenceEnriched,
     ReferenceEnriched,
 )
+from paper_hypergraph.util import BlockTimer
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     add_completion=False,
     rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
 )
 
 
-@app.command(help=__doc__)
-def main(
+@app.command(help="Sample N citation contexts from file.")
+def sample(
+    input_file: Annotated[
+        Path, typer.Argument(help="Path to input JSON file (ASAP with abstracts).")
+    ],
+    output_file: Annotated[
+        Path, typer.Argument(help="Path to output JSON file (sampled data).")
+    ],
+    num_samples: Annotated[int, typer.Argument(help="Number of contexts to sample.")],
+) -> None:
+    input_data = TypeAdapter(list[PaperWithReferenceEnriched]).validate_json(
+        input_file.read_bytes()
+    )
+    total = _count_contexts(input_data)
+
+    indices = random.sample(list(range(total)), k=num_samples)
+    cur_idx = 0
+
+    output_data: list[PaperWithReferenceEnriched] = []
+
+    for paper in input_data:
+        picked_references: list[ReferenceEnriched] = []
+        for r in paper.references:
+            picked_context_regular: list[str] = []
+            picked_context_expanded: list[str] = []
+
+            for regular, expanded in zip(r.contexts, r.contexts_expanded):
+                if cur_idx in indices:
+                    picked_context_regular.append(regular)
+                    picked_context_expanded.append(expanded)
+
+                cur_idx += 1
+
+            assert len(picked_context_expanded) == len(picked_context_regular)
+
+            if picked_context_regular:
+                picked_references.append(
+                    ReferenceEnriched(
+                        # Updated
+                        contexts=picked_context_regular,
+                        contexts_expanded=picked_context_expanded,
+                        # The rest remains the same
+                        title=r.title,
+                        year=r.year,
+                        authors=r.authors,
+                        abstract=r.abstract,
+                        s2title=r.s2title,
+                        reference_count=r.reference_count,
+                        citation_count=r.citation_count,
+                        influential_citation_count=r.influential_citation_count,
+                        tldr=r.tldr,
+                    )
+                )
+
+        if picked_references:
+            output_data.append(
+                PaperWithReferenceEnriched(
+                    # Updated
+                    references=picked_references,
+                    # The rest remains the same
+                    title=paper.title,
+                    abstract=paper.abstract,
+                    ratings=paper.ratings,
+                    sections=paper.sections,
+                    approval=paper.approval,
+                )
+            )
+
+    output_file.write_bytes(
+        TypeAdapter(list[PaperWithReferenceEnriched]).dump_json(output_data, indent=2)
+    )
+
+
+@app.command(help="Annotation citation contexts polarities.")
+def annotate(
     input_file: Annotated[Path, typer.Argument(help="Path to input JSON file.")],
     output_file: Annotated[Path, typer.Argument(help="Path to output JSON file.")],
     width: Annotated[int, typer.Option(help="Width to wrap displayed text.")] = 100,
@@ -38,12 +120,7 @@ def main(
     )
 
     count = 0
-    total = sum(
-        1
-        for paper in input_data
-        for reference in paper.references
-        for _ in reference.contexts_annotated or []
-    )
+    total = _count_contexts(input_data)
     typer.echo(f"Number of contexts in file: {total}")
 
     output_data: list[PaperWithReferenceEnriched] = []
@@ -129,6 +206,13 @@ def main(
     ), "Output length should match input even if annotation was not completed"
 
 
+def _count_contexts(data: Iterable[PaperWithReferenceEnriched]) -> int:
+    """Count total number of *regular* contexts available in the papers."""
+    return sum(
+        len(reference.contexts) for paper in data for reference in paper.references
+    )
+
+
 _ANNOTATION_CACHE: dict[str, ContextPolarity] = {}
 
 
@@ -163,9 +247,11 @@ Expanded
 
 """
     typer.echo(prompt)
-    answer = typer.prompt(
-        "What is the polarity of this context?", type=click.Choice(["p", "u", "n", "q"])
-    )
+    with BlockTimer() as timer:
+        answer = typer.prompt(
+            "What is the polarity of this context?",
+            type=click.Choice(["p", "u", "n", "q"]),
+        )
     if answer == "q":
         return None
 
@@ -174,14 +260,19 @@ Expanded
         "u": ContextPolarity.NEUTRAL,
         "n": ContextPolarity.NEGATIVE,
     }[answer]
-    typer.echo(f"Chosen: {polarity}")
     _ANNOTATION_CACHE[regular] = polarity
 
+    typer.echo(f"Chosen: {polarity} (took {timer.human})")
     return polarity
 
 
 def _wrap(text: str, *, width: int) -> str:
     return "\n".join(textwrap.wrap(text, width=width))
+
+
+@app.callback(help=__doc__)
+def doc():  # Empty callback just for top-level documentation
+    pass
 
 
 if __name__ == "__main__":
