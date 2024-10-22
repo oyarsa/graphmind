@@ -14,6 +14,8 @@ from typing import Annotated
 
 import typer
 
+from paper_hypergraph.util import Timer
+
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     add_completion=False,
@@ -57,6 +59,9 @@ def main(
 
     combinations = list(itertools.product(prompts, contexts, models))
 
+    timer = Timer()
+    timer.start()
+
     for i, (prompt, context, model) in enumerate(combinations, start=1):
         name = f"{prompt}_{context}_{model}"
         output_dir = base_output / name
@@ -92,6 +97,9 @@ def main(
     script_dir = Path(__file__).parent
     explore_script = script_dir / "explore_context_experiments.py"
     subprocess.run(_strs("uv", "run", explore_script, base_output), check=False)
+
+    timer.stop()
+    print(f"\nTotal time taken: {timer.human}")
 
 
 def _strs(*args: object) -> list[str]:
