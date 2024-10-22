@@ -178,7 +178,7 @@ def _classify_contexts(
         for reference in references:
             classified_contexts: list[ContextClassified] = []
 
-            for context in reference.contexts_annotated_valid:
+            for context in reference.contexts:
                 user_prompt = user_prompt_template.format(
                     main_title=paper.title,
                     main_abstract=paper.abstract,

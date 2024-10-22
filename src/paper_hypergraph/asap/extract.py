@@ -14,7 +14,7 @@ from typing import Any, NamedTuple
 from pydantic import TypeAdapter
 
 from paper_hypergraph.asap import process_sections
-from paper_hypergraph.asap.model import Paper, PaperReference
+from paper_hypergraph.asap.model import CitationContext, Paper, PaperReference
 
 
 def _parse_rating(rating: str) -> int | None:
@@ -59,7 +59,12 @@ def _process_references(paper: dict[str, Any]) -> list[PaperReference]:
 
     return [
         PaperReference(
-            title=ref.title, authors=ref.authors, year=ref.year, contexts=list(contexts)
+            title=ref.title,
+            authors=ref.authors,
+            year=ref.year,
+            contexts=[
+                CitationContext(sentence=context, polarity=None) for context in contexts
+            ],
         )
         for ref, contexts in references_output.items()
     ]

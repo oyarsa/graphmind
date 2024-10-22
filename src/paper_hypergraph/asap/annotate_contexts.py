@@ -21,7 +21,7 @@ import typer
 from pydantic import TypeAdapter
 
 from paper_hypergraph.asap.model import (
-    ContextAnnotated,
+    CitationContext,
     ContextPolarity,
     PaperWithReferenceEnriched,
     ReferenceEnriched,
@@ -62,19 +62,19 @@ def sample(
     for paper in input_data:
         picked_references: list[ReferenceEnriched] = []
         for r in paper.references:
-            picked_context_regular: list[str] = []
+            picked_context: list[CitationContext] = []
 
-            for regular in r.contexts:
+            for context in r.contexts:
                 if cur_idx in indices:
-                    picked_context_regular.append(regular)
+                    picked_context.append(context)
 
                 cur_idx += 1
 
-            if picked_context_regular:
+            if picked_context:
                 picked_references.append(
                     ReferenceEnriched(
                         # Updated
-                        contexts=picked_context_regular,
+                        contexts=picked_context,
                         # The rest remains the same
                         title=r.title,
                         year=r.year,
@@ -136,7 +136,7 @@ def annotate(
         context.polarity
         for paper in output_data
         for reference in paper.references
-        for context in reference.contexts_annotated_valid
+        for context in reference.contexts
     ]
 
     typer.echo()
@@ -164,34 +164,27 @@ def _annotate(
     for paper in input_data:
         new_references: list[ReferenceEnriched] = []
         for r in paper.references:
-            new_contexts_annotated: list[ContextAnnotated] = []
-            for regular, old in zip(r.contexts, r.contexts_annotated_valid):
+            new_contexts: list[CitationContext] = []
+            for old in r.contexts:
                 count += 1
 
                 if annotating:
-                    polarity = _annotate_context(
-                        count,
-                        total,
-                        regular,
-                        old,
-                        width=width,
-                    )
+                    polarity = _annotate_context(count, total, old, width=width)
                     if polarity is None:  # User picked quit
                         annotating = False
                 else:
                     polarity = None
 
-                new_context = ContextAnnotated(sentence=regular, polarity=polarity)
-                new_contexts_annotated.append(new_context)
+                new_context = CitationContext(sentence=old.sentence, polarity=polarity)
+                new_contexts.append(new_context)
 
             new_reference = ReferenceEnriched(
                 # Updated
-                contexts_annotated=new_contexts_annotated,
+                contexts=new_contexts,
                 # The rest remains the same
                 title=r.title,
                 year=r.year,
                 authors=r.authors,
-                contexts=r.contexts,
                 abstract=r.abstract,
                 s2title=r.s2title,
                 reference_count=r.reference_count,
@@ -222,7 +215,7 @@ def _count_contexts_annotated(data: Iterable[PaperWithReferenceEnriched]) -> int
         context.polarity is not None
         for paper in data
         for reference in paper.references
-        for context in reference.contexts_annotated_valid
+        for context in reference.contexts
     )
 
 
@@ -237,14 +230,14 @@ _ANNOTATION_CACHE: dict[str, ContextPolarity] = {}
 
 
 def _annotate_context(
-    idx: int, total: int, regular: str, old: ContextAnnotated | None, *, width: int
+    idx: int, total: int, context: CitationContext, *, width: int
 ) -> ContextPolarity | None:
-    if polarity := _ANNOTATION_CACHE.get(regular):
+    if polarity := _ANNOTATION_CACHE.get(context.sentence):
         return polarity
 
-    if old is not None and old.polarity is not None:
-        _ANNOTATION_CACHE[regular] = old.polarity
-        return old.polarity
+    if context.polarity is not None:
+        _ANNOTATION_CACHE[context.sentence] = context.polarity
+        return context.polarity
 
     prompt = f"""\
 
@@ -252,7 +245,7 @@ def _annotate_context(
 
 Context
 -------
-{_wrap(regular, width=width)}
+{_wrap(context.sentence, width=width)}
 
 """
     typer.echo(prompt)
@@ -269,7 +262,7 @@ Context
         "u": ContextPolarity.NEUTRAL,
         "n": ContextPolarity.NEGATIVE,
     }[answer]
-    _ANNOTATION_CACHE[regular] = polarity
+    _ANNOTATION_CACHE[context.sentence] = polarity
 
     typer.echo(f"Chosen: {polarity} (took {timer.human})")
     return polarity

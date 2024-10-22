@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Sequence
-from functools import cached_property
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,9 +26,11 @@ class ContextPolarityBinary(enum.StrEnum):
         )
 
 
-class ContextAnnotated(BaseModel):
+class CitationContext(BaseModel):
     sentence: str = Field(description="Context sentence the from ASAP data")
-    polarity: ContextPolarity | None = None
+    polarity: ContextPolarity | None = Field(
+        description="Polarity of the citation context between main and reference papers."
+    )
 
 
 class PaperReference(BaseModel):
@@ -38,28 +39,9 @@ class PaperReference(BaseModel):
     title: str = Field(description="Title of the citation in the paper references")
     year: int = Field(description="Year of publication")
     authors: Sequence[str] = Field(description="Author names")
-    contexts: Sequence[str] = Field(description="Citation contexts from this reference")
-    # TODO: Rework the types here. This feels like a hack because ASAP has nothing
-    # to do with the annotation.
-    contexts_annotated: Sequence[ContextAnnotated] | None = Field(
-        default=None, description="Citation context with golden polarity evaluation"
+    contexts: Sequence[CitationContext] = Field(
+        description="Citation context with optional polarity evaluation"
     )
-
-    @cached_property
-    def contexts_annotated_valid(self) -> Sequence[ContextAnnotated]:
-        """Get always-valid sequence of annotated contexts.
-
-        Given that `contexts_annotated` is optional (e.g. the ASAP pipeline generates
-        a file without it), we need to use a default. The default is created by
-        combining `contexts` with a None polarity.
-        """
-        if self.contexts_annotated is not None:
-            return self.contexts_annotated
-        else:
-            return [
-                ContextAnnotated(sentence=sentence, polarity=None)
-                for sentence in self.contexts
-            ]
 
 
 class PaperSection(BaseModel):
