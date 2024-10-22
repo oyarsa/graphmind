@@ -290,6 +290,12 @@ def classify_contexts(
     if model not in MODELS_ALLOWED:
         raise ValueError(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
+    if limit_papers == 0:
+        limit_papers = None
+
+    if limit_references == 0:
+        limit_references = None
+
     _log_config(
         model=model,
         data_path=data_path,
