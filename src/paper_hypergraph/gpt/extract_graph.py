@@ -39,7 +39,7 @@ from paper_hypergraph.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper_hypergraph.util import BlockTimer, setup_logging
+from paper_hypergraph.util import Timer, setup_logging
 
 logger = logging.getLogger("gpt.extract_graph")
 
@@ -420,7 +420,7 @@ def extract_graph(
     papers = data[:limit]
     graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]
 
-    with BlockTimer() as timer_gen:
+    with Timer() as timer_gen:
         graph_results = _generate_graphs(client, papers, model, graph_user_prompt)
 
     logger.info(f"Graph generation time elapsed: {timer_gen.human}")

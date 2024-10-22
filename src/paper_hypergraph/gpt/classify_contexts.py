@@ -28,7 +28,7 @@ from paper_hypergraph.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper_hypergraph.util import BlockTimer, setup_logging
+from paper_hypergraph.util import Timer, setup_logging
 
 logger = logging.getLogger("gpt.classify_contexts")
 
@@ -307,7 +307,7 @@ def classify_contexts(
     papers = data[:limit_papers]
     user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
 
-    with BlockTimer() as timer:
+    with Timer() as timer:
         results = _classify_contexts(
             client, model, user_prompt, papers, limit_references, use_expanded_context
         )

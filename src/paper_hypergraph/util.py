@@ -17,16 +17,24 @@ def fuzzy_ratio(s1: str, s2: str) -> int:
     return fuzz.ratio(s1, s2)  # type: ignore
 
 
-class BlockTimer:
-    """Track the time elapsed during its block."""
+class Timer:
+    """Track time elapsed. Can be used as a context manager to time its block."""
 
     def __init__(self) -> None:
         self._start_time = 0
         self._elapsed_seconds = 0
 
+    def start(self) -> None:
+        """(Re)start the timer."""
+        self._start_time = time.perf_counter()
+
+    def stop(self) -> None:
+        """Stop the timer."""
+        self._elapsed_seconds = time.perf_counter() - self._start_time
+
     def __enter__(self) -> Self:
         """Start the timer when entering the context."""
-        self._start_time = time.perf_counter()
+        self.start()
         return self
 
     def __exit__(
@@ -36,7 +44,7 @@ class BlockTimer:
         traceback: Any,
     ) -> None:
         """Stop the timer when exiting the context."""
-        self._elapsed_seconds = time.perf_counter() - self._start_time
+        self.stop()
 
     @property
     def seconds(self) -> float:

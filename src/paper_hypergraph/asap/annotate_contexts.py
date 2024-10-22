@@ -26,7 +26,7 @@ from paper_hypergraph.asap.model import (
     PaperWithReferenceEnriched,
     ReferenceEnriched,
 )
-from paper_hypergraph.util import BlockTimer
+from paper_hypergraph.util import Timer
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -122,7 +122,7 @@ def annotate(
     total = _count_contexts(input_data)
     typer.echo(f"Number of contexts in file: {total}")
 
-    with BlockTimer() as timer:
+    with Timer() as timer:
         output_data = _annotate(input_data, total, width)
 
     annotated_before = _count_contexts_annotated(input_data)
@@ -275,7 +275,7 @@ Expanded
 
 """
     typer.echo(prompt)
-    with BlockTimer() as timer:
+    with Timer() as timer:
         answer = typer.prompt(
             "What is the polarity of this context?",
             type=click.Choice(["p", "u", "n", "q"]),
