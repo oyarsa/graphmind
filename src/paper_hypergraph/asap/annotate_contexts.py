@@ -63,23 +63,18 @@ def sample(
         picked_references: list[ReferenceEnriched] = []
         for r in paper.references:
             picked_context_regular: list[str] = []
-            picked_context_expanded: list[str] = []
 
-            for regular, expanded in zip(r.contexts, r.contexts_expanded):
+            for regular in r.contexts:
                 if cur_idx in indices:
                     picked_context_regular.append(regular)
-                    picked_context_expanded.append(expanded)
 
                 cur_idx += 1
-
-            assert len(picked_context_expanded) == len(picked_context_regular)
 
             if picked_context_regular:
                 picked_references.append(
                     ReferenceEnriched(
                         # Updated
                         contexts=picked_context_regular,
-                        contexts_expanded=picked_context_expanded,
                         # The rest remains the same
                         title=r.title,
                         year=r.year,
@@ -170,9 +165,7 @@ def _annotate(
         new_references: list[ReferenceEnriched] = []
         for r in paper.references:
             new_contexts_annotated: list[ContextAnnotated] = []
-            for regular, expanded, old in zip(
-                r.contexts, r.contexts_expanded, r.contexts_annotated_valid
-            ):
+            for regular, old in zip(r.contexts, r.contexts_annotated_valid):
                 count += 1
 
                 if annotating:
@@ -180,7 +173,6 @@ def _annotate(
                         count,
                         total,
                         regular,
-                        expanded,
                         old,
                         width=width,
                     )
@@ -189,9 +181,7 @@ def _annotate(
                 else:
                     polarity = None
 
-                new_context = ContextAnnotated(
-                    regular=regular, expanded=expanded, polarity=polarity
-                )
+                new_context = ContextAnnotated(sentence=regular, polarity=polarity)
                 new_contexts_annotated.append(new_context)
 
             new_reference = ReferenceEnriched(
@@ -202,7 +192,6 @@ def _annotate(
                 year=r.year,
                 authors=r.authors,
                 contexts=r.contexts,
-                contexts_expanded=r.contexts_expanded,
                 abstract=r.abstract,
                 s2title=r.s2title,
                 reference_count=r.reference_count,
@@ -248,13 +237,7 @@ _ANNOTATION_CACHE: dict[str, ContextPolarity] = {}
 
 
 def _annotate_context(
-    idx: int,
-    total: int,
-    regular: str,
-    expanded: str,
-    old: ContextAnnotated | None,
-    *,
-    width: int,
+    idx: int, total: int, regular: str, old: ContextAnnotated | None, *, width: int
 ) -> ContextPolarity | None:
     if polarity := _ANNOTATION_CACHE.get(regular):
         return polarity
@@ -267,14 +250,9 @@ def _annotate_context(
 
 # {idx} / {total}
 
-Regular
+Context
 -------
 {_wrap(regular, width=width)}
-
-
-Expanded
---------
-{_wrap(expanded,width=width)}
 
 """
     typer.echo(prompt)

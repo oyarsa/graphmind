@@ -67,6 +67,7 @@ def merge_content_review(path: Path, output_path: Path, max_papers: int | None) 
                 )
                 count += 1
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8"
     )

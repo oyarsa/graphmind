@@ -2,7 +2,6 @@
 
 Runs combinations of:
 - prompts: simple, full, sentence
-- contexts: original, expanded
 - models: GPT-4o, GPT-4o-mini
 """
 
@@ -56,16 +55,15 @@ def main(
     print()
 
     prompts = ["full", "simple", "sentence"]
-    contexts = ["original", "expanded"]
     models = ["gpt-4o-mini", "gpt-4o"]
 
-    combinations = list(itertools.product(prompts, contexts, models))
+    combinations = list(itertools.product(prompts, models))
 
     timer = Timer()
     timer.start()
 
-    for i, (prompt, context, model) in enumerate(combinations, start=1):
-        name = f"{prompt}_{context}_{model}"
+    for i, (prompt, model) in enumerate(combinations, start=1):
+        name = f"{prompt}_{model}"
         output_dir = base_output / name
 
         cmd = [
@@ -85,13 +83,6 @@ def main(
             "--limit",
             paper_limit,
         ]
-
-        if context == "expanded":
-            cmd.append("--use-expanded-context")
-        elif context == "original":
-            cmd.append("--no-use-expanded-context")
-        else:
-            print(f"Error: invalid context type {context!r}")
 
         print(f"\033[33m[{i}/{len(combinations)}] Running with: {name}\033[0m")
         subprocess.run(_strs(*cmd), check=False)
