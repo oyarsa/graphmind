@@ -73,7 +73,6 @@ def main() -> None:
                 args.user_prompt,
                 args.output_dir,
                 args.ref_limit,
-                args.use_expanded_context,
             )
 
 

@@ -28,8 +28,7 @@ class ContextPolarityBinary(enum.StrEnum):
 
 
 class ContextAnnotated(BaseModel):
-    regular: str = Field(description="Regular context the from ASAP data")
-    expanded: str = Field(description="Expanded context")
+    sentence: str = Field(description="Context sentence the from ASAP data")
     polarity: ContextPolarity | None = None
 
 
@@ -40,9 +39,6 @@ class PaperReference(BaseModel):
     year: int = Field(description="Year of publication")
     authors: Sequence[str] = Field(description="Author names")
     contexts: Sequence[str] = Field(description="Citation contexts from this reference")
-    contexts_expanded: Sequence[str] = Field(
-        description="Citation contexts from this reference (expanded in paragraph)"
-    )
     # TODO: Rework the types here. This feels like a hack because ASAP has nothing
     # to do with the annotation.
     contexts_annotated: Sequence[ContextAnnotated] | None = Field(
@@ -55,14 +51,14 @@ class PaperReference(BaseModel):
 
         Given that `contexts_annotated` is optional (e.g. the ASAP pipeline generates
         a file without it), we need to use a default. The default is created by
-        combining `contexts` and `contexts_expanded`, leaving a None polarity.
+        combining `contexts` with a None polarity.
         """
         if self.contexts_annotated is not None:
             return self.contexts_annotated
         else:
             return [
-                ContextAnnotated(regular=regular, expanded=expanded, polarity=None)
-                for regular, expanded in zip(self.contexts, self.contexts_expanded)
+                ContextAnnotated(sentence=sentence, polarity=None)
+                for sentence in self.contexts
             ]
 
 

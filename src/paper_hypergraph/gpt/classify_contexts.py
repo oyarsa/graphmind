@@ -157,7 +157,6 @@ def _classify_contexts(
     user_prompt_template: str,
     papers: Sequence[PaperInput],
     limit_references: int | None,
-    use_expanded_context: bool,
 ) -> GPTResult[list[PromptResult[PaperOutput]]]:
     """Classify the contexts for each papers' references by polarity.
 
@@ -180,15 +179,12 @@ def _classify_contexts(
             classified_contexts: list[ContextClassified] = []
 
             for context in reference.contexts_annotated_valid:
-                context_text = (
-                    context.expanded if use_expanded_context else context.regular
-                )
                 user_prompt = user_prompt_template.format(
                     main_title=paper.title,
                     main_abstract=paper.abstract,
                     reference_title=reference.s2title,
                     reference_abstract=reference.abstract,
-                    context=context_text,
+                    context=context.sentence,
                 )
                 user_prompts.append(user_prompt)
                 result = run_gpt(
@@ -199,7 +195,7 @@ def _classify_contexts(
                 if gpt_context := result.result:
                     classified_contexts.append(
                         ContextClassified(
-                            text=context_text,
+                            text=context.sentence,
                             gold=ContextPolarityBinary.from_trinary(context.polarity)
                             if context.polarity is not None
                             else None,
@@ -251,7 +247,6 @@ def _log_config(
     limit_references: int | None,
     user_prompt: str,
     output_dir: Path,
-    use_expanded_context: bool,
 ) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
 
@@ -266,7 +261,6 @@ def _log_config(
             limit_references if limit_references is not None else 'All'
         }\n"
         f"  User prompt: {user_prompt}\n"
-        f"  Use expanded context: {use_expanded_context}\n"
     )
 
 
@@ -278,7 +272,6 @@ def classify_contexts(
     user_prompt_key: str,
     output_dir: Path,
     limit_references: int | None,
-    use_expanded_context: bool,
 ) -> None:
     """Classify reference citation contexts by polarity."""
 
@@ -303,7 +296,6 @@ def classify_contexts(
         limit_references=limit_references,
         user_prompt=user_prompt_key,
         output_dir=output_dir,
-        use_expanded_context=use_expanded_context,
     )
 
     client = OpenAI()
@@ -315,7 +307,7 @@ def classify_contexts(
 
     with Timer() as timer:
         results = _classify_contexts(
-            client, model, user_prompt, papers, limit_references, use_expanded_context
+            client, model, user_prompt, papers, limit_references
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -453,13 +445,6 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="The number of references per paper to process. Defaults to all.",
     )
-    run_parser.add_argument(
-        "--use-expanded-context",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Use expanded context (sentences surrounding the citation context)."
-        " Defaults to %(default)s.",
-    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -494,7 +479,6 @@ def main() -> None:
             args.user_prompt,
             args.output_dir,
             args.ref_limit,
-            args.use_expanded_context,
         )
 
 
