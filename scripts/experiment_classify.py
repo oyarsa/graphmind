@@ -32,11 +32,13 @@ def main(
     base_output: Annotated[
         Path, typer.Argument(help="Base output directory: one subdir per combination.")
     ],
-    limit: Annotated[
+    ref_limit: Annotated[
         int,
-        typer.Option(
-            "--limit", "-n", help="Number of references to run. If 0, run everything."
-        ),
+        typer.Option(help="Number of references to run. If 0, run everything."),
+    ] = 0,
+    paper_limit: Annotated[
+        int,
+        typer.Option(help="Number of papers to run. If 0, run everything."),
     ] = 0,
     clean: Annotated[
         bool, typer.Option(help="Clean existing results before running experiments.")
@@ -50,7 +52,7 @@ def main(
     else:
         print("Skipping removal of existing experiment results.")
 
-    print(f"Running on {"'all'" if limit == 0 else limit} references.")
+    print(f"Running on {"'all'" if ref_limit == 0 else ref_limit} references.")
     print()
 
     prompts = ["full", "simple", "sentence"]
@@ -78,6 +80,10 @@ def main(
             prompt,
             "--model",
             model,
+            "--ref-limit",
+            ref_limit,
+            "--limit",
+            paper_limit,
         ]
 
         if context == "expanded":
@@ -86,9 +92,6 @@ def main(
             cmd.append("--no-use-expanded-context")
         else:
             print(f"Error: invalid context type {context!r}")
-
-        if limit > 0:
-            cmd += ["--ref-limit", limit]
 
         print(f"\033[33m[{i}/{len(combinations)}] Running with: {name}\033[0m")
         subprocess.run(_strs(*cmd), check=False)
