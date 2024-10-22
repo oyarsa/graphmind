@@ -8,11 +8,7 @@ from paper_hypergraph.asap.filter import filter_ratings
 from paper_hypergraph.asap.merge import merge_content_review
 
 
-def pipeline(
-    papers_path: Path,
-    output_path: Path,
-    max_papers: int | None,
-) -> None:
+def pipeline(papers_path: Path, output_path: Path, max_papers: int | None) -> None:
     """Run the complete ASAP-Review preprocessing pipeline.
 
     Steps:

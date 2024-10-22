@@ -11,7 +11,7 @@ import typer
 from pydantic import TypeAdapter
 
 from paper_hypergraph.asap.model import (
-    ContextAnnotated,
+    CitationContext,
     PaperWithReferenceEnriched,
 )
 
@@ -34,15 +34,15 @@ def main(
         context
         for paper in papers
         for reference in paper.references
-        for context in reference.contexts_annotated_valid
+        for context in reference.contexts
     ]
 
-    references: list[tuple[str, list[ContextAnnotated]]] = []
+    references: list[tuple[str, list[CitationContext]]] = []
 
     for paper in papers:
         for reference in paper.references:
-            contexts_classified: list[ContextAnnotated] = []
-            for context in reference.contexts_annotated_valid:
+            contexts_classified: list[CitationContext] = []
+            for context in reference.contexts:
                 if context.polarity is not None:
                     contexts_classified.append(context)
 

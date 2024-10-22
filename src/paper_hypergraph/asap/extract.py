@@ -8,11 +8,13 @@ import argparse
 import json
 from collections import defaultdict
 from collections.abc import Sequence
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from pydantic import TypeAdapter
+
 from paper_hypergraph.asap import process_sections
+from paper_hypergraph.asap.model import CitationContext, Paper, PaperReference
 
 
 def _parse_rating(rating: str) -> int | None:
@@ -32,7 +34,7 @@ def _parse_approval(approval: str) -> bool:
     return approval.strip().lower() != "reject"
 
 
-def _process_references(paper: dict[str, Any]) -> list[dict[str, Any]]:
+def _process_references(paper: dict[str, Any]) -> list[PaperReference]:
     class ReferenceKey(NamedTuple):
         title: str
         authors: Sequence[str]
@@ -56,17 +58,19 @@ def _process_references(paper: dict[str, Any]) -> list[dict[str, Any]]:
         references_output[ref_key].add(ref_mention["context"].strip())
 
     return [
-        {
-            "title": ref.title,
-            "authors": ref.authors,
-            "year": ref.year,
-            "contexts": list(contexts),
-        }
+        PaperReference(
+            title=ref.title,
+            authors=ref.authors,
+            year=ref.year,
+            contexts=[
+                CitationContext(sentence=context, polarity=None) for context in contexts
+            ],
+        )
         for ref, contexts in references_output.items()
     ]
 
 
-def _process_paper(item: dict[str, Any]) -> dict[str, Any] | None:
+def _process_paper(item: dict[str, Any]) -> Paper | None:
     """Process a single paper item."""
     paper = item["paper"]
 
@@ -76,14 +80,14 @@ def _process_paper(item: dict[str, Any]) -> dict[str, Any] | None:
 
     ratings = [r for review in item["review"] if (r := _parse_rating(review["rating"]))]
 
-    return {
-        "title": paper["title"],
-        "abstract": paper["abstractText"],
-        "ratings": ratings,
-        "sections": [asdict(section) for section in sections],
-        "approval": _parse_approval(item["approval"]),
-        "references": _process_references(paper),
-    }
+    return Paper(
+        title=paper["title"],
+        abstract=paper["abstractText"],
+        ratings=ratings,
+        sections=sections,
+        approval=_parse_approval(item["approval"]),
+        references=_process_references(paper),
+    )
 
 
 def extract_interesting(input_file: Path, output_file: Path) -> None:
@@ -91,10 +95,9 @@ def extract_interesting(input_file: Path, output_file: Path) -> None:
 
     The input file is the output of `paper_hypergraph.asap.merge`.
     """
-    data = json.loads(input_file.read_text())
+    data: list[dict[str, Any]] = json.loads(input_file.read_text())
 
     results = [_process_paper(paper) for paper in data]
-
     results_valid = [res for res in results if res]
 
     print("no.  input papers:", len(data))
@@ -104,7 +107,7 @@ def extract_interesting(input_file: Path, output_file: Path) -> None:
         f"({len(results_valid) / len(data):.2%})",
     )
 
-    output_file.write_text(json.dumps(results_valid, indent=2))
+    output_file.write_bytes(TypeAdapter(list[Paper]).dump_json(results_valid, indent=2))
 
 
 def main() -> None:

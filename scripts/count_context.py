@@ -32,7 +32,7 @@ def main(
         context
         for paper in papers
         for reference in paper.references
-        for context in reference.contexts_annotated_valid
+        for context in reference.contexts
     ]
 
     print(f"{"contexts":<8} : {len(contexts)}")
