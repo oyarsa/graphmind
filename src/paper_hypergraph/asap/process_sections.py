@@ -3,8 +3,9 @@
 import argparse
 import json
 from collections.abc import Callable, Iterable, Sequence
-from dataclasses import asdict
 from pathlib import Path
+
+from pydantic import TypeAdapter
 
 from paper_hypergraph.asap.model import PaperSection
 
@@ -137,8 +138,8 @@ def process_sections(infile: Path, outfile: Path, limit: int | None = None) -> N
     all_outputs = [group_sections(item["paper"]["sections"]) for item in data[:limit]]
 
     outfile.parent.mkdir(parents=True, exist_ok=True)
-    outfile.write_text(
-        json.dumps([[asdict(s) for s in out] for out in all_outputs], indent=2)
+    outfile.write_bytes(
+        TypeAdapter(list[list[PaperSection]]).dump_json(all_outputs, indent=2)
     )
 
 
