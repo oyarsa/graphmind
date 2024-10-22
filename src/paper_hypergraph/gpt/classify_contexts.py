@@ -28,7 +28,7 @@ from paper_hypergraph.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper_hypergraph.util import BlockTimer, setup_logging
+from paper_hypergraph.util import Timer, setup_logging
 
 logger = logging.getLogger("gpt.classify_contexts")
 
@@ -290,6 +290,12 @@ def classify_contexts(
     if model not in MODELS_ALLOWED:
         raise ValueError(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
+    if limit_papers == 0:
+        limit_papers = None
+
+    if limit_references == 0:
+        limit_references = None
+
     _log_config(
         model=model,
         data_path=data_path,
@@ -307,7 +313,7 @@ def classify_contexts(
     papers = data[:limit_papers]
     user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
 
-    with BlockTimer() as timer:
+    with Timer() as timer:
         results = _classify_contexts(
             client, model, user_prompt, papers, limit_references, use_expanded_context
         )
@@ -437,7 +443,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         "--user-prompt",
         type=str,
         choices=_CONTEXT_USER_PROMPTS.keys(),
-        default="simple",
+        default="sentence",
         help="The user prompt to use for context classification. Defaults to"
         " %(default)s.",
     )

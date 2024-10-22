@@ -9,7 +9,7 @@ from tqdm import tqdm
 from paper_hypergraph import evaluation_metrics
 from paper_hypergraph.gpt.model import Graph, Paper
 from paper_hypergraph.gpt.run_gpt import GPTResult, run_gpt
-from paper_hypergraph.util import BlockTimer
+from paper_hypergraph.util import Timer
 
 logger = logging.getLogger("gpt.evaluate_graph")
 
@@ -44,7 +44,7 @@ def evaluate_graphs(
 
     classify_user_prompt = CLASSIFY_USER_PROMPTS[user_prompt_key]
 
-    with BlockTimer() as timer_class:
+    with Timer() as timer_class:
         results = _classify_papers(client, model, classify_user_prompt, papers, graphs)
 
     metrics = _calculate_metrics(results.result)
