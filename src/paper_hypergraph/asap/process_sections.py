@@ -3,19 +3,13 @@
 import argparse
 import json
 from collections.abc import Callable, Iterable, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 
-
-@dataclass(frozen=True)
-class Section:
-    """Section of a paper from the ASAP-Review dataset."""
-
-    heading: str
-    text: str
+from paper_hypergraph.asap.model import PaperSection
 
 
-def _merge_section(subsections: Sequence[Section]) -> Section | None:
+def _merge_section(subsections: Sequence[PaperSection]) -> PaperSection | None:
     """Merge subsections into a single section.
 
     Uses the first subsection's heading as the title. The text is the concatenation of
@@ -31,7 +25,7 @@ def _merge_section(subsections: Sequence[Section]) -> Section | None:
     text = "\n".join(
         [f"{subsection.heading}\n{subsection.text}\n" for subsection in subsections]
     )
-    return Section(heading=title, text=text)
+    return PaperSection(heading=title, text=text)
 
 
 def _parse_section_number(heading: str) -> int | None:
@@ -88,7 +82,7 @@ def _groupby[T, K](
     return groups
 
 
-def group_sections(sections: Iterable[dict[str, str]]) -> list[Section]:
+def group_sections(sections: Iterable[dict[str, str]]) -> list[PaperSection]:
     """Combine subsections with the same main heading number into a single section.
 
     Combines the text of each matching subsection into a single block.
@@ -117,7 +111,7 @@ def group_sections(sections: Iterable[dict[str, str]]) -> list[Section]:
         ]
     """
     headings = [
-        Section(heading=section["heading"], text=section["text"])
+        PaperSection(heading=section["heading"], text=section["text"])
         for section in sections
         if section["heading"]
     ]
