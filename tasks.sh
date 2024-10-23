@@ -68,7 +68,7 @@ doc() {
 }
 
 watch() {
-	watchexec --exts=py --restart './tasks.sh check'
+	watchexec --exts=py --restart 'uv run ruff check && uv run pyright'
 }
 
 if [ $# -eq 0 ]; then
