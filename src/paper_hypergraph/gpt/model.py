@@ -5,11 +5,6 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict
 
 
-class RelationType(StrEnum):
-    SUPPORT = "support"
-    CONTRAST = "contrast"
-
-
 class EntityType(StrEnum):
     TITLE = "title"
     CONCEPT = "concept"
@@ -21,7 +16,6 @@ class Relationship(BaseModel):
 
     source: str
     target: str
-    type: RelationType
 
 
 class Entity(BaseModel):
@@ -46,7 +40,7 @@ class Graph(BaseModel):
         )
 
         relationships = "\n".join(
-            f" {i}. {r.source} - {r.type} - {r.target}"
+            f" {i}. {r.source} - {r.target}"
             for i, r in enumerate(
                 sorted(self.relationships, key=lambda r: (r.source, r.target)),
                 1,
@@ -77,8 +71,7 @@ def validate_rules(graph: Graph) -> str | None:
     Rules:
     1. There must be exactly one Title node
     2. The Title node cannot have incoming edges
-    3. The Title node can only have outgoing edges to Concepts, and these edges must
-       be of type Support
+    3. The Title node can only have outgoing edges to Concepts
     4. Concepts must have exactly one incoming edge each, and it must be the Title
     5. All outgoing edges from Concepts must be Sentences
     6. Sentences must not have outgoing edges
@@ -110,13 +103,11 @@ def validate_rules(graph: Graph) -> str | None:
     if incoming[title.name]:
         return "Title node should not have any incoming edges."
 
-    # Rule 3: Title's outgoing edges only to Concepts with Support type
+    # Rule 3: Title's outgoing edges only to Concepts
     if any(
-        entities[r.target].type is not EntityType.CONCEPT
-        or r.type is not RelationType.SUPPORT
-        for r in outgoing[title.name]
+        entities[r.target].type is not EntityType.CONCEPT for r in outgoing[title.name]
     ):
-        return "Title should only have outgoing Support edges to Concepts."
+        return "Title should only have outgoing edges to Concepts."
 
     # Rule 4: Concepts must have exactly one incoming edge from Title
     # Rule 5: Concepts' outgoing edges must only link to Sentences

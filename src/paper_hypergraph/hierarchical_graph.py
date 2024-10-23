@@ -33,7 +33,6 @@ class Node:
 class Edge:
     source: str
     target: str
-    type: str
 
 
 class DiGraph:
@@ -57,7 +56,7 @@ class DiGraph:
             nxgraph.add_node(node.name, type=node.type)
 
         for edge in edges:
-            nxgraph.add_edge(edge.source, edge.target, type=edge.type)
+            nxgraph.add_edge(edge.source, edge.target)
 
         return cls(nxgraph)
 

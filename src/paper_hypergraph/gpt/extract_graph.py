@@ -23,14 +23,7 @@ from paper_hypergraph.gpt.evaluate_graph import (
     CLASSIFY_USER_PROMPTS,
     evaluate_graphs,
 )
-from paper_hypergraph.gpt.model import (
-    Entity,
-    EntityType,
-    Graph,
-    Paper,
-    Relationship,
-    RelationType,
-)
+from paper_hypergraph.gpt.model import Entity, EntityType, Graph, Paper, Relationship
 from paper_hypergraph.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -49,7 +42,6 @@ class GPTRelationship(BaseModel):
 
     source_index: int
     target_index: int
-    type: RelationType
 
 
 class GPTEntity(BaseModel):
@@ -156,13 +148,6 @@ sentence can connect to multiple concepts. There can be up to 10 sentences. \
 Each concept must be connected to at least one sentence, and each sentence must be \
 connected to at least one concept.
 
-Relations can be of two types: supporting or contrasting. Supporting relations \
-support the key concepts, provide evidence of why they might be true, or explain \
-them. For example, they can be supporting sentences from citations, explanations from \
-methodology or discussion sections. Constrasting relations oppose the main \
-concepts. For example, they can be limitations from other works, negative results, or \
-citations to other papers that did something differently.
-
 Note that the relation between title and concepts is always supporting.
 
 All entities (title, concepts and sentences) should be mentioned in the output.
@@ -206,16 +191,7 @@ connect to multiple concepts.
 - Each concept MUST connect to at least one sentence.
 - Each sentence MUST connect to at least one concept.
 - There MUST be twice as many sentences as concepts.
-- Relations can be of two types: supporting or contrasting.
 - There MUST be at least two sentences of each type.
-- Supporting relations support the key concepts, provide evidence of why they might be \
-true or explain them. For example, they can be supporting sentences from citations, \
-explanations from methodology or discussion sections. They are used to convince the \
-reader that the key concepts are valid.
-- Constrasting relations oppose the main concepts. For example, they can be descriptions \
-of limitations from other works, negative results, or citations to other papers that \
-did something differently. They are used to convince the reader that the authors are \
-aware of different perspectives and have considered them.
 
 All entities (title, concepts and sentences) MUST be mentioned in the output.
 
@@ -275,7 +251,6 @@ def _graph_from_gpt_graph(gpt_graph: GPTGraph) -> Graph:
         Relationship(
             source=entity_index[r.source_index].name,
             target=entity_index[r.target_index].name,
-            type=r.type,
         )
         for r in gpt_graph.relationships
     ]
@@ -448,8 +423,7 @@ def _graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
     return hierarchical_graph.DiGraph.from_elements(
         nodes=[hierarchical_graph.Node(e.name, e.type.value) for e in graph.entities],
         edges=[
-            hierarchical_graph.Edge(r.source, r.target, r.type.value)
-            for r in graph.relationships
+            hierarchical_graph.Edge(r.source, r.target) for r in graph.relationships
         ],
     )
 
