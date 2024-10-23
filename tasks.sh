@@ -56,7 +56,7 @@ lint() {
 }
 
 tests() {
-	uv run pytest tests
+	uv run pytest tests --quiet
 }
 
 check() {
@@ -65,6 +65,10 @@ check() {
 
 doc() {
 	uv run pdoc paper_hypergraph --docformat google
+}
+
+watch() {
+	watchexec --exts=py --restart './tasks.sh check'
 }
 
 if [ $# -eq 0 ]; then
