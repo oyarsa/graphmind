@@ -13,8 +13,6 @@ dependencies = [
     "networkx>=3.3",
     "openai>=1.45.0",
     "python-dotenv>=1.0.1",
-    "ratelimit>=2.2.1",
-    "requests>=2.32.3",
     "semanticscholar>=0.8.4",
     "tqdm>=4.66.5",
     "habanero>=1.2.6",
@@ -22,8 +20,7 @@ dependencies = [
     "typer>=0.12.5",
     "scikit-learn>=1.5.2",
     "rich>=13.9.2",
-    "spacy>=3.8.2",
-    "en-core-web-sm",
+    "click>=8.1.7",
 ]
 
 [tool.ruff.lint.isort]
@@ -80,7 +77,6 @@ dev-dependencies = [
 ]
 
 [tool.uv.sources]
-en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
 
 [project.scripts]
 preprocess = "paper_hypergraph.preprocess:main"
