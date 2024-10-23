@@ -1,14 +1,18 @@
-from collections import defaultdict
+import enum
+from collections import Counter, defaultdict
 from collections.abc import Sequence
-from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
 
-class EntityType(StrEnum):
-    TITLE = "title"
-    CONCEPT = "concept"
-    SENTENCE = "sentence"
+class EntityType(enum.StrEnum):
+    TITLE = enum.auto()
+    TLDR = enum.auto()
+    PRIMARY_AREA = enum.auto()
+    KEYWORD = enum.auto()
+    CLAIM = enum.auto()
+    METHOD = enum.auto()
+    EXPERIMENT = enum.auto()
 
 
 class Relationship(BaseModel):
@@ -46,14 +50,13 @@ class Graph(BaseModel):
                 1,
             )
         )
+        node_type_counts = sorted(Counter(e.type for e in self.entities).items())
 
         return "\n".join(
             [
                 f"Nodes: {len(self.entities)}",
                 f"Edges: {len(self.relationships)}",
-                f"Titles: {sum(e.type is EntityType.TITLE for e in self.entities)}",
-                f"Concepts: {sum(e.type is EntityType.CONCEPT for e in self.entities)}",
-                f"Sentences: {sum(e.type is EntityType.SENTENCE for e in self.entities)}",
+                f"Node types: {", ".join(f"{k}: {v}" for k, v in node_type_counts)}",
                 "",
                 "Entities:",
                 entities,
@@ -84,7 +87,6 @@ def validate_rules(graph: Graph) -> str | None:
         Error message describing the rule violated if the graph is invalid.
         None if the graph is follows all rules.
     """
-    entities = {entity.name: entity for entity in graph.entities}
     incoming: defaultdict[str, list[Relationship]] = defaultdict(list)
     outgoing: defaultdict[str, list[Relationship]] = defaultdict(list)
 
@@ -103,38 +105,6 @@ def validate_rules(graph: Graph) -> str | None:
     if incoming[title.name]:
         return "Title node should not have any incoming edges."
 
-    # Rule 3: Title's outgoing edges only to Concepts
-    if any(
-        entities[r.target].type is not EntityType.CONCEPT for r in outgoing[title.name]
-    ):
-        return "Title should only have outgoing edges to Concepts."
-
-    # Rule 4: Concepts must have exactly one incoming edge from Title
-    # Rule 5: Concepts' outgoing edges must only link to Sentences
-    for concept in (e for e in graph.entities if e.type is EntityType.CONCEPT):
-        concept_incoming = incoming[concept.name]
-        if (
-            len(concept_incoming) != 1
-            or entities[concept_incoming[0].source].type is not EntityType.TITLE
-        ):
-            return (
-                f"Concept {concept.name} must have exactly one"
-                " incoming edge from Title."
-            )
-
-        if any(
-            entities[r.target].type is not EntityType.SENTENCE
-            for r in outgoing[concept.name]
-        ):
-            return (
-                f"Concept {concept.name} must only have outgoing" " edges to Sentences."
-            )
-
-    # Rule 6: Sentences must not have outgoing edges
-    sentences = [e.name for e in graph.entities if e.type is EntityType.SENTENCE]
-    if any(outgoing[s] for s in sentences):
-        return "Sentences must not have outgoing edges."
-
     return None
 
 
@@ -149,7 +119,7 @@ RATING_APPROVAL_THRESHOLD = 5
 """A rating is an approval if it's greater of equal than this."""
 
 
-class RatingEvaluationStrategy(StrEnum):
+class RatingEvaluationStrategy(enum.StrEnum):
     MEAN = "mean"
     """Mean rating is higher than the threshold."""
     MAJORITY = "majority"

@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import logging
 import os
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
@@ -73,14 +74,13 @@ class GPTGraph(BaseModel):
                 1,
             )
         )
+        node_type_counts = sorted(Counter(e.type for e in self.entities).items())
 
         return "\n".join(
             [
                 f"Nodes: {len(self.entities)}",
                 f"Edges: {len(self.relationships)}",
-                f"Titles: {sum(e.type is EntityType.TITLE for e in self.entities)}",
-                f"Concepts: {sum(e.type is EntityType.CONCEPT for e in self.entities)}",
-                f"Sentences: {sum(e.type is EntityType.SENTENCE for e in self.entities)}",
+                f"Node types: {", ".join(f"{k}: {v}" for k, v in node_type_counts)}",
                 "",
                 "Entities:",
                 entities,
@@ -118,51 +118,67 @@ def _log_config(
 _GRAPH_SYSTEM_PROMPT = (
     "Extract the entities from the text and the relationships between them."
 )
+_PRIMARY_AREAS = "unsupervised, self-supervised, semi-supervised, supervised representation learning, transfer learning, meta learning, lifelong learning, reinforcement learning, representation learning for computer vision, audio, language, other modalities, metric learning, kernel learning, sparse coding, probabilistic methods, Bayesian methods, variational inference, sampling, UQ, generative models, causal reasoning, optimization, learning theory, learning on graphs, other geometries, topologies, societal considerations, fairness, safety, privacy, visualization, interpretation of learned representations, datasets, benchmarks, infrastructure, software libraries, hardware, neurosymbolic, hybrid AI systems, physics-informed, logic, formal reasoning, applications to robotics, autonomy, planning, applications to neuroscience, cognitive science, applications to physical sciences, physics, chemistry, biology, general machine learning"
 
 _GRAPH_USER_PROMPTS = {
-    # FIX: Update variables to match the actual data
-    "introduction": """\
+    "introduction": f"""\
 The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, and introduction.
+paper's title, abstract, the main text from the paper.
 
-Your task is to extract three types of entities:
+Your task is to extract entities of these types:
 - title: the title of the paper
-- concepts: the top 5 key concepts mentioned in the abstract. If there are fewer than 5, \
-use only those.
-- sentences: sentences from the introduction that mention the key concepts.
+- primary area: what scientific primary area the paper is from. Pick one from \
+{_PRIMARY_AREAS}.
+- TLDR: a sentence that summarises the paper
+- claim: summarise what the paper claims to contribute, especially claims made in the \
+abstract, introduction, discussion and conclusion. Pay attention to the key phrases \
+that highlight new findings or interpretations.
+- method: for each claim, identify the methods used to validate the claims from the \
+method sections. These include the key components: algorithms, theoretical framework \
+or novel techniques introduced.
+- experiment: what models, baselines, datasets, etc. that were used in \
+experiments to validate the methods.
 
 Extract these entities and the relationships between them as a graph. The paper title is \
-the main node, connected to the key concepts. The key concepts are connected to the \
-sentences that mention them.
+the main node and represents the paper. There are restrictions for what types of \
+connections can be made between node based on their types. The only allowed edges are:
+
+- There can be no incoming edges to the paper title node
+- Edges between nodes of the same type cannot exist
+- The graph is hierarchical, and all edges are from a node type above to one below. The \
+hierarchy is Title > Primary area = Keywords = TLDR > Claims > Methods > Experiments. \
+Note that Title, Primary area and Keywords are on the same level.
+- Title -> TLDR (1:1): there is only one TLDR node, and it's connected to the title
+- Title -> primary area (1:1): there is only one primary area node, and it's connected \
+to the title.
+- Title -> keywords (1:N, N <= 5): there can be up to 5 keyword nodes, and they're \
+connected to the title.
+- TLDR -> claims (N:M): there can be many claim nodes, and they're connected to the TLDR \
+node.
+- Claims -> methods (N:M): there can be many methods nodes, and they're connected to the \
+claim nodes. A claim can connect to multiple methods, and a method can connect to \
+multiple claims.
+- Methods -> experiments (N:M): there can be many experiments, and they're connected to \
+the method nodes. An experiment can connect to multiple methods, and a method can \
+connect to multiple claims.
 
 Each entity must have a unique index. You must use these indexes to represent the \
 relationships between the entities.
 
-Only provide connections between the entities from each of the three types (title to \
-concepts, concepts to sentences). Do not provide relationships among concepts \
-or sentences.
-
-The sentences count as entities and must be returned along with the title \
-and the concepts. There can be multiple sentences for a single concept, and a single \
-sentence can connect to multiple concepts. There can be up to 10 sentences. \
-Each concept must be connected to at least one sentence, and each sentence must be \
-connected to at least one concept.
-
-Note that the relation between title and concepts is always supporting.
-
-All entities (title, concepts and sentences) should be mentioned in the output.
+All entity types should be present in the output.
 
 #####
 -Data-
-Title: {title}
-Abstract: {abstract}
+Title: {{title}}
+Abstract: {{abstract}}
 
-Introduction:
-{introduction}
+Main text:
+{{main_text}}
 
 #####
 Output:
 """,
+    # TODO: Add new node types
     # Unfortunately, the models don't always comply with the rules, especially the
     # rule that each concept must connect to at least one supporting sentence. This
     # version is currently the best at that.
