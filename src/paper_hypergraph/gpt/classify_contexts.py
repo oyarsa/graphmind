@@ -314,7 +314,7 @@ def classify_contexts(
     logger.info(f"Total cost: ${results.cost:.10f}")
 
     contexts = [result.item for result in results.result]
-    stats, metrics = _show_classified_stats(contexts)
+    stats, metrics = show_classified_stats(contexts)
     logger.info("Classification metrics:\n%s\n", stats)
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -327,7 +327,7 @@ def classify_contexts(
 
 
 # TODO:This one is a bit messy. Refactor it.
-def _show_classified_stats(
+def show_classified_stats(
     data: Iterable[PaperOutput],
 ) -> tuple[str, evaluation_metrics.Metrics | None]:
     """Evaluate the annotation results and print statistics.
