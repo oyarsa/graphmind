@@ -14,11 +14,12 @@ import logging
 import os
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 from pathlib import Path
+from typing import cast
 
 import dotenv
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 
 from paper_hypergraph import evaluation_metrics
 from paper_hypergraph.asap.model import (
@@ -277,10 +278,14 @@ async def _classify_contexts(
     continue_paper_ids = {_paper_id(paper.item) for paper in continue_papers}
     papers = [paper for paper in papers if _paper_id(paper) not in continue_paper_ids]
 
-    for paper in tqdm(papers, desc="Classifying contexts"):
-        result = await _classify_paper(
-            client, limit_references, model, paper, user_prompt_template
-        )
+    tasks = [
+        _classify_paper(client, limit_references, model, paper, user_prompt_template)
+        for paper in papers
+    ]
+    for task in tqdm.as_completed(  # type: ignore
+        tasks, desc="Classifying paper reference contexts"
+    ):
+        result = cast(GPTResult[PromptResult[PaperOutput]], await task)
         total_cost += result.cost
 
         paper_outputs.append(result.result)
