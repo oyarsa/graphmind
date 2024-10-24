@@ -27,7 +27,7 @@ class GraphError(Exception):
 class Node:
     name: str
     type: str
-    detail: str | None
+    detail: str = ""
 
 
 @dataclass(frozen=True)
@@ -195,7 +195,7 @@ class DiGraph:
 
             # Get detail if it exists and wrap it
             detail_lines = 0
-            if detail is not None:
+            if detail:
                 wrapped_detail = textwrap.fill(str(detail), width=30)
                 detail_lines = len(wrapped_detail.split("\n"))
 

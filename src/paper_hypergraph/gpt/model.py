@@ -73,9 +73,7 @@ class Graph(BaseModel):
 
 def graph_to_digraph(graph: Graph) -> hierarchical_graph.DiGraph:
     return hierarchical_graph.DiGraph.from_elements(
-        nodes=[
-            hierarchical_graph.Node(e.name, e.type.value, None) for e in graph.entities
-        ],
+        nodes=[hierarchical_graph.Node(e.name, e.type.value) for e in graph.entities],
         edges=[
             hierarchical_graph.Edge(r.source, r.target) for r in graph.relationships
         ],
