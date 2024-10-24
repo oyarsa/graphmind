@@ -21,7 +21,7 @@ dependencies = [
     "scikit-learn>=1.5.2",
     "rich>=13.9.2",
     "click>=8.1.7",
-    "openlimit>=0.3.0",
+    "openlimit",
 ]
 
 [tool.ruff.lint.isort]
@@ -78,6 +78,7 @@ dev-dependencies = [
 ]
 
 [tool.uv.sources]
+openlimit = { git = "https://github.com/shobrook/openlimit.git", rev = "ae77eb7d41f537ce1e68f78031f4b7197ddf29f4" }
 
 [project.scripts]
 preprocess = "paper_hypergraph.preprocess:main"
