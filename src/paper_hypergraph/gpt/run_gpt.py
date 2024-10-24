@@ -75,7 +75,9 @@ class PromptResult[T](BaseModel):
 
 
 @backoff.on_exception(backoff.expo, openai.APIError, max_tries=5, logger=logger)
-async def _call_gpt(rate_limiter: Any, client: AsyncOpenAI, chat_params: Any):
+async def _call_gpt(
+    rate_limiter: Any, client: AsyncOpenAI, chat_params: dict[str, Any]
+):
     try:
         async with rate_limiter.limit(**chat_params):
             return await client.beta.chat.completions.parse(**chat_params)
@@ -125,17 +127,16 @@ async def run_gpt[T: BaseModel](
             f"Invalid model: {model!r}. Should be one of: {MODELS_ALLOWED}."
         )
 
-    # TODO: type this properly. OpenAI's types are a little convoluted.
-    chat_params: dict[str, Any] = dict(
-        model=model,
-        messages=[
+    chat_params = {
+        "model": model,
+        "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        response_format=class_,
-        seed=seed,
-        temperature=temperature,
-    )
+        "response_format": class_,
+        "seed": seed,
+        "temperature": temperature,
+    }
     rate_limiter = None
     for limit_model, limiter in rate_limiters.items():
         if model.startswith(limit_model):
