@@ -9,7 +9,7 @@ import argparse
 import hashlib
 import logging
 import os
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
 import dotenv
@@ -157,6 +157,7 @@ def _classify_contexts(
     user_prompt_template: str,
     papers: Sequence[PaperInput],
     limit_references: int | None,
+    completion_cb: Callable[[PromptResult[PaperOutput]], None] | None = None,
 ) -> GPTResult[list[PromptResult[PaperOutput]]]:
     """Classify the contexts for each papers' references by polarity.
 
@@ -218,22 +219,24 @@ def _classify_contexts(
         # references should be in the output.
         assert len(classified_references) == len(references)
 
-        paper_outputs.append(
-            PromptResult(
-                prompt=Prompt(
-                    system=_CONTEXT_SYSTEM_PROMPT,
-                    user=f"\n{"-"*80}\n\n".join(user_prompts),
-                ),
-                item=PaperOutput(
-                    title=paper.title,
-                    abstract=paper.abstract,
-                    ratings=paper.ratings,
-                    sections=paper.sections,
-                    approval=paper.approval,
-                    references=classified_references,
-                ),
-            )
+        result = PromptResult(
+            prompt=Prompt(
+                system=_CONTEXT_SYSTEM_PROMPT,
+                user=f"\n{"-"*80}\n\n".join(user_prompts),
+            ),
+            item=PaperOutput(
+                title=paper.title,
+                abstract=paper.abstract,
+                ratings=paper.ratings,
+                sections=paper.sections,
+                approval=paper.approval,
+                references=classified_references,
+            ),
         )
+
+        paper_outputs.append(result)
+        if completion_cb:
+            completion_cb(result)
 
     assert len(paper_outputs) == len(papers)
     return GPTResult(paper_outputs, total_cost)
@@ -305,9 +308,22 @@ def classify_contexts(
     papers = data[:limit_papers]
     user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
 
+    result_adapter = TypeAdapter(list[PromptResult[PaperOutput]])
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_interim_path = output_dir / "results.tmp.json"
+
+    def completion_cb(result: PromptResult[PaperOutput]) -> None:
+        try:
+            previous = result_adapter.validate_json(output_interim_path.read_bytes())
+        except FileNotFoundError:
+            previous = []
+        previous.append(result)
+        output_interim_path.write_bytes(result_adapter.dump_json(previous, indent=2))
+
     with Timer() as timer:
         results = _classify_contexts(
-            client, model, user_prompt, papers, limit_references
+            client, model, user_prompt, papers, limit_references, completion_cb
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -317,9 +333,8 @@ def classify_contexts(
     stats, metrics = show_classified_stats(contexts)
     logger.info("Classification metrics:\n%s\n", stats)
 
-    output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "result.json").write_bytes(
-        TypeAdapter(list[PromptResult[PaperOutput]]).dump_json(results.result, indent=2)
+        result_adapter.dump_json(results.result, indent=2)
     )
     (output_dir / "output.txt").write_text(stats)
     if metrics is not None:
