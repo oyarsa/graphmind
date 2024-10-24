@@ -5,6 +5,8 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict
 
+from paper_hypergraph import hierarchical_graph
+
 
 class EntityType(enum.StrEnum):
     TITLE = enum.auto()
@@ -69,11 +71,22 @@ class Graph(BaseModel):
         )
 
 
+def graph_to_digraph(graph: Graph) -> hierarchical_graph.DiGraph:
+    return hierarchical_graph.DiGraph.from_elements(
+        nodes=[
+            hierarchical_graph.Node(e.name, e.type.value, None) for e in graph.entities
+        ],
+        edges=[
+            hierarchical_graph.Edge(r.source, r.target) for r in graph.relationships
+        ],
+    )
+
+
 def validate_rules(graph: Graph) -> str | None:
     """Check if graph rules hold. Returns error message if invalid, or None if valid.
 
     Rules:
-    1. There must be exactly one Title node.
+    1. There must be exactly one node of types Title, Primary Area and TLDR.
     2. The Title node cannot have incoming edges.
     3. In the second level, TLDR, Primary Area and Keyword nodes can only have one
        incoming each, and it must be from Title.
@@ -86,6 +99,7 @@ def validate_rules(graph: Graph) -> str | None:
         3. TLDR -> Claims
         4. Claims -> Methods
         5. Methods -> Experiments
+    6. There should be no cycles
 
     Note: this function doesn't throw an exception if the graph is invalid, it just
     returns the error message. The graph is allowed to be invalid, but it's useful to
@@ -103,14 +117,15 @@ def validate_rules(graph: Graph) -> str | None:
         incoming[relation.target].append(relation)
         outgoing[relation.source].append(relation)
 
-    # Rule 1: Exactly one Title node
-    titles = _get_nodes_of_type(graph, EntityType.TITLE)
-    if len(titles) != 1:
-        return f"Found {len(titles)} title nodes. Should be exactly 1."
-
-    title = titles[0]
+    # Rule 1: Exactly one node from Title, Primary Area and TLDR
+    singletons = [EntityType.TITLE, EntityType.PRIMARY_AREA, EntityType.TLDR]
+    for node_type in singletons:
+        nodes = _get_nodes_of_type(graph, node_type)
+        if len(nodes) != 1:
+            return f"Found {len(nodes)} {node_type} nodes. Should be exactly 1."
 
     # Rule 2: Title node cannot have incoming edges
+    title = _get_nodes_of_type(graph, EntityType.TITLE)[0]
     if incoming[title.name]:
         return "Title node should not have any incoming edges."
 
@@ -164,6 +179,10 @@ def validate_rules(graph: Graph) -> str | None:
                 type_ = entities[edge.source].type
                 if type_ is not prev_type:
                     return f"Found illegal incoming edge from {type_} to {cur_type}"
+
+    # Rule 6: No cycles
+    if graph_to_digraph(graph).has_cycle():
+        return "Graph has cycles"
 
     return None
 

@@ -24,7 +24,14 @@ from paper_hypergraph.gpt.evaluate_graph import (
     CLASSIFY_USER_PROMPTS,
     evaluate_graphs,
 )
-from paper_hypergraph.gpt.model import Entity, EntityType, Graph, Paper, Relationship
+from paper_hypergraph.gpt.model import (
+    Entity,
+    EntityType,
+    Graph,
+    Paper,
+    Relationship,
+    graph_to_digraph,
+)
 from paper_hypergraph.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -302,7 +309,7 @@ def _save_graphs(
         output.append(
             Output(
                 paper=paper.title,
-                graph=_graph_to_dag(graph_result.item).graphml(),
+                graph=graph_to_digraph(graph_result.item).graphml(),
                 prompt=graph_result.prompt,
             )
         )
@@ -334,7 +341,7 @@ def _display_graphs(
             the plot is closed.
     """
     for paper, graph_result in zip(papers, graph_results):
-        dag = _graph_to_dag(graph_result.item)
+        dag = graph_to_digraph(graph_result.item)
 
         try:
             dag.visualise_hierarchy(
@@ -433,17 +440,6 @@ def extract_graph(
         evaluate_graphs(
             client, model, papers, graphs, classify_user_prompt_key, output_dir
         )
-
-
-def _graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
-    return hierarchical_graph.DiGraph.from_elements(
-        nodes=[
-            hierarchical_graph.Node(e.name, e.type.value, None) for e in graph.entities
-        ],
-        edges=[
-            hierarchical_graph.Edge(r.source, r.target) for r in graph.relationships
-        ],
-    )
 
 
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
