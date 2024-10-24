@@ -371,10 +371,10 @@ async def classify_contexts(
     result_adapter = TypeAdapter(list[PromptResult[PaperOutput]])
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_interim_path = output_dir / "results.tmp.json"
+    output_intermediate_path = output_dir / "results.tmp.json"
 
-    if continue_papers_file is None and output_interim_path.is_file():
-        continue_papers_file = output_interim_path
+    if continue_papers_file is None and output_intermediate_path.is_file():
+        continue_papers_file = output_intermediate_path
 
     continue_papers = []
     if continue_papers_file:
@@ -396,7 +396,7 @@ async def classify_contexts(
     completion_cb = functools.partial(
         on_result_completion,
         lock=result_completion_lock,
-        path=output_interim_path,
+        path=output_intermediate_path,
     )
 
     with Timer() as timer:
