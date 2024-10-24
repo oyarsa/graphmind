@@ -6,7 +6,9 @@ negative).
 """
 
 import argparse
+import asyncio
 import contextlib
+import functools
 import hashlib
 import logging
 import os
@@ -31,7 +33,7 @@ from paper_hypergraph.gpt.run_gpt import (
     GPTResult,
     Prompt,
     PromptResult,
-    run_gpt,
+    run_gpt_async,
 )
 from paper_hypergraph.util import Timer, safediv, setup_logging
 
@@ -156,7 +158,7 @@ class GPTContext(BaseModel):
     )
 
 
-def _classify_contexts(
+async def _classify_contexts(
     client: AsyncOpenAI,
     model: str,
     user_prompt_template: str,
@@ -204,7 +206,7 @@ def _classify_contexts(
                     context=context.sentence,
                 )
                 user_prompts.append(user_prompt)
-                result = run_gpt(
+                result = await run_gpt_async(
                     GPTContext, client, _CONTEXT_SYSTEM_PROMPT, user_prompt, model
                 )
                 total_cost += result.cost
@@ -287,7 +289,7 @@ def _log_config(
     )
 
 
-def classify_contexts(
+async def classify_contexts_async(
     model: str,
     api_key: str | None,
     data_path: Path,
@@ -350,7 +352,7 @@ def classify_contexts(
             )
 
     with Timer() as timer:
-        results = _classify_contexts(
+        results = await _classify_contexts(
             client,
             model,
             user_prompt,
@@ -373,6 +375,31 @@ def classify_contexts(
     (output_dir / "output.txt").write_text(stats)
     if metrics is not None:
         (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
+
+
+@functools.wraps(classify_contexts_async)
+def classify_contexts(
+    model: str,
+    api_key: str | None,
+    data_path: Path,
+    limit_papers: int | None,
+    user_prompt_key: str,
+    output_dir: Path,
+    limit_references: int | None,
+    continue_papers_file: Path | None,
+) -> None:
+    asyncio.run(
+        classify_contexts_async(
+            model,
+            api_key,
+            data_path,
+            limit_papers,
+            user_prompt_key,
+            output_dir,
+            limit_references,
+            continue_papers_file,
+        )
+    )
 
 
 # TODO:This one is a bit messy. Refactor it.
