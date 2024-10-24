@@ -128,7 +128,7 @@ _GRAPH_SYSTEM_PROMPT = (
 _PRIMARY_AREAS = "unsupervised, self-supervised, semi-supervised, supervised representation learning, transfer learning, meta learning, lifelong learning, reinforcement learning, representation learning for computer vision, audio, language, other modalities, metric learning, kernel learning, sparse coding, probabilistic methods, Bayesian methods, variational inference, sampling, UQ, generative models, causal reasoning, optimization, learning theory, learning on graphs, other geometries, topologies, societal considerations, fairness, safety, privacy, visualization, interpretation of learned representations, datasets, benchmarks, infrastructure, software libraries, hardware, neurosymbolic, hybrid AI systems, physics-informed, logic, formal reasoning, applications to robotics, autonomy, planning, applications to neuroscience, cognitive science, applications to physical sciences, physics, chemistry, biology, general machine learning"
 
 _GRAPH_USER_PROMPTS = {
-    "introduction": f"""\
+    "simple": f"""\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, the main text from the paper.
 
@@ -497,7 +497,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         "--graph-user-prompt",
         type=str,
         choices=_GRAPH_USER_PROMPTS.keys(),
-        default="bullets",
+        default="simple",
         help="The user prompt to use for the graph extraction. Defaults to %(default)s.",
     )
     run_parser.add_argument(
