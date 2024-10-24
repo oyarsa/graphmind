@@ -5,7 +5,7 @@ from typing import Any
 import backoff
 import openai
 from openai import AsyncOpenAI
-from openlimit import ChatRateLimiter  # type: ignore
+from openlimit import ChatRateLimiter
 from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger("paper_hypergraph.gpt.run_gpt")
@@ -27,8 +27,8 @@ MODEL_COSTS = {
 }
 
 rate_limiters: dict[str, Any] = {
-    "gpt-4o-mini": ChatRateLimiter(request_limit=5_000, token_limit=4_000_000),  # type: ignore,
-    "gpt-4o": ChatRateLimiter(request_limit=5_000, token_limit=800_000),  # type: ignore,
+    "gpt-4o-mini": ChatRateLimiter(request_limit=5_000, token_limit=4_000_000),
+    "gpt-4o": ChatRateLimiter(request_limit=5_000, token_limit=800_000),
 }
 
 
@@ -77,7 +77,7 @@ class PromptResult[T](BaseModel):
 @backoff.on_exception(backoff.expo, openai.APIError, max_tries=5, logger=logger)
 async def _call_gpt(rate_limiter: Any, client: AsyncOpenAI, chat_params: Any):
     try:
-        async with rate_limiter.limit(**chat_params):  # type: ignore
+        async with rate_limiter.limit(**chat_params):
             return await client.beta.chat.completions.parse(**chat_params)
     except openai.APIError as e:
         logger.warning("\nCaught an API error: %s", e)
