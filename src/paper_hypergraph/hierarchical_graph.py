@@ -103,7 +103,7 @@ class DiGraph:
                 predecessors = list(nxgraph.predecessors(node))
                 if len(predecessors) != 1 or predecessors[0] != title_node:
                     raise GraphError(
-                        f"Level 2 node {node} must have exactly one incoming edge"
+                        f"Level 2 node {node!r} must have exactly one incoming edge"
                         " from title"
                     )
                 levels[2].append((node, type_))
@@ -126,7 +126,7 @@ class DiGraph:
             predecessors = list(nxgraph.predecessors(node))
             if len(predecessors) != 1 or predecessors[0] != tldr_node:
                 raise GraphError(
-                    f"Claim node {node} must have exactly one incoming edge from tldr. "
+                    f"Claim node {node!r} must have exactly one incoming edge from tldr. "
                     f"Found predecessors: {predecessors}"
                 )
             levels[3].append((node, type_))
@@ -139,7 +139,7 @@ class DiGraph:
             predecessors = list(nxgraph.predecessors(node))
             if not all(node_types[pred] == "claim" for pred in predecessors):
                 raise GraphError(
-                    f"Method node {node} must only have incoming edges from claims"
+                    f"Method node {node!r} must only have incoming edges from claims"
                 )
             levels[4].append((node, type_))
 
@@ -151,7 +151,7 @@ class DiGraph:
             predecessors = list(nxgraph.predecessors(node))
             if not all(node_types[pred] == "method" for pred in predecessors):
                 raise GraphError(
-                    f"Experiment node {node} must only have incoming edges from methods"
+                    f"Experiment node {node!r} must only have incoming edges from methods"
                 )
             levels[5].append((node, type_))
 
