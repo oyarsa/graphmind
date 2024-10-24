@@ -12,7 +12,7 @@ import textwrap
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Self, cast
+from typing import Self
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -54,7 +54,7 @@ class DiGraph:
         nxgraph = nx.DiGraph()
 
         for node in nodes:
-            nxgraph.add_node(node.name, type=node.type)
+            nxgraph.add_node(node.name, type=node.type, detail=node.detail)
 
         for edge in edges:
             nxgraph.add_edge(edge.source, edge.target)
@@ -63,148 +63,217 @@ class DiGraph:
 
     def visualise_hierarchy(
         self,
-        img_path: Path,
+        img_path: Path | None = None,
         display_gui: bool = True,
         description: str | None = None,
     ) -> None:
-        """Visualise a hierarchical directed acyclical graph with matplotlib.
+        """Visualize a paper graph following the hierarchical structure rules."""
+        if img_path is None and not display_gui:
+            raise ValueError(
+                "Either `img_path` must be provided or `display_gui` must be True"
+            )
 
-        Saves the visualisation to a file. Optionally, can show the plot in the GUI.
-        Note: plotting to GUI suspends the calling thread until the plot is closed.
-
-        Args:
-            img_path: Path to save the image of the visualisation.
-            display_gui: If True, display the plot in the GUI.
-            description: If present, add the description to the plot title.
-
-        Raises:
-            GraphError: If the graph doesn't have any root nodes (nodes with degree 0),
-                has multiple root nodes, or a cycle.
-        """
         nxgraph = self._nxgraph
-
-        # Identify root nodes (nodes with in-degree 0)
-        in_degrees = cast(nx.classes.reportviews.DiDegreeView, nxgraph.in_degree())
-        roots = [node for node, in_degree in in_degrees if in_degree == 0]
-
-        if not roots:
-            raise GraphError(
-                "The graph doesn't have any root nodes (nodes with in-degree 0)"
-            )
-        if len(roots) > 1:
-            raise GraphError(
-                f"The graph has multiple root nodes. It should have only one."
-                f" Found {len(roots)}."
-            )
-        if not nx.is_directed_acyclic_graph(nxgraph):
-            raise GraphError(
-                "The graph has a cycle. It should be a directed acyclic graph."
-            )
-
-        def node_depth(node: str) -> int:
-            if nxgraph.in_degree(node) == 0:
-                return 0
-            return 1 + max(node_depth(parent) for parent in nxgraph.predecessors(node))
-
-        depths = {node: node_depth(node) for node in nxgraph.nodes()}
-        max_depth = max(depths.values())
-
-        # Create Hierarchical position mapping
-        pos: dict[str, tuple[float, float]] = {}
-        nodes_at_depth: dict[int, list[str]] = {d: [] for d in range(max_depth + 1)}
-
-        for node, depth in depths.items():
-            nodes_at_depth[depth].append(node)
-
-        for depth, nodes in nodes_at_depth.items():
-            width = len(nodes)
-            for i, node in enumerate(nodes):
-                pos[node] = ((i - (width - 1) / 2) / max(width - 1, 1), -depth)
-
         plt.figure(figsize=(20, 12))
 
-        # Draw nodes and labels with wrapped text
+        node_types = nx.get_node_attributes(nxgraph, "type")
+        node_details = nx.get_node_attributes(nxgraph, "detail")
+
+        # Level 1: Validate and find Title node
+        title_nodes = [node for node, type_ in node_types.items() if type_ == "Title"]
+        if len(title_nodes) != 1:
+            raise GraphError(
+                f"Graph must have exactly one Title node. Found {len(title_nodes)}"
+            )
+        title_node = title_nodes[0]
+
+        # Group nodes by levels
+        levels: dict[int, list[tuple[str, str]]] = {
+            1: [(title_node, "Title")],
+            2: [],  # Primary Area, Keywords, TLDR
+            3: [],  # Claims
+            4: [],  # Methods
+            5: [],  # Experiments
+        }
+
+        # Level 2: Primary Area, Keywords, TLDR
+        level2_types = {"Primary Area", "Keyword", "TLDR"}
+        for node, type_ in node_types.items():
+            if type_ in level2_types:
+                predecessors = list(nxgraph.predecessors(node))
+                if len(predecessors) != 1 or predecessors[0] != title_node:
+                    raise GraphError(
+                        f"Level 2 node {node} must have exactly one incoming edge"
+                        " from Title"
+                    )
+                levels[2].append((node, type_))
+
+        # Find TLDR node for next level
+        tldr_nodes = [
+            (node, type_) for node, type_ in node_types.items() if type_ == "TLDR"
+        ]
+        if len(tldr_nodes) != 1:
+            raise GraphError(
+                f"Graph must have exactly one TLDR node. Found {len(tldr_nodes)}"
+            )
+        tldr_node = tldr_nodes[0][0]
+
+        # Level 3: Claims
+        claim_nodes = [
+            (node, type_) for node, type_ in node_types.items() if type_ == "Claim"
+        ]
+        for node, type_ in claim_nodes:
+            predecessors = list(nxgraph.predecessors(node))
+            if len(predecessors) != 1 or predecessors[0] != tldr_node:
+                raise GraphError(
+                    f"Claim node {node} must have exactly one incoming edge from TLDR. "
+                    f"Found predecessors: {predecessors}"
+                )
+            levels[3].append((node, type_))
+
+        # Level 4: Methods
+        method_nodes = [
+            (node, type_) for node, type_ in node_types.items() if type_ == "Method"
+        ]
+        for node, type_ in method_nodes:
+            predecessors = list(nxgraph.predecessors(node))
+            if not all(node_types[pred] == "Claim" for pred in predecessors):
+                raise GraphError(
+                    f"Method node {node} must only have incoming edges from Claims"
+                )
+            levels[4].append((node, type_))
+
+        # Level 5: Experiments
+        experiment_nodes = [
+            (node, type_)
+            for node, type_ in node_types.items()
+            if type_ == "Experiment Design"
+        ]
+        for node, type_ in experiment_nodes:
+            predecessors = list(nxgraph.predecessors(node))
+            if not all(node_types[pred] == "Method" for pred in predecessors):
+                raise GraphError(
+                    f"Experiment node {node} must only have incoming edges from Methods"
+                )
+            levels[5].append((node, type_))
+
+        # Calculate positions
+        pos: dict[str, tuple[float, float]] = {}
+        colors: dict[str, str] = {}
+        color_map = {
+            "Title": "lightblue",
+            "TLDR": "lightgreen",
+            "Claim": "lightcoral",
+            "Primary Area": "lightyellow",
+            "Keyword": "lightsalmon",
+            "Method": "lightpink",
+            "Experiment Design": "lightgray",
+        }
+
+        # Position nodes by level
+        for level, nodes in levels.items():
+            if not nodes:
+                continue
+
+            nodes.sort(key=lambda x: x[0])
+            y_pos = -(level - 1) * 2.0  # Increased vertical spacing for details
+            width = len(nodes)
+
+            for i, (node, type_) in enumerate(nodes):
+                x_pos = (i - (width - 1) / 2) * 1.8  # Increased horizontal spacing
+                pos[node] = (x_pos, y_pos)
+                colors[node] = color_map[type_]
+
+        # Draw nodes
         for node, (x, y) in pos.items():
-            node_type = nxgraph.nodes[node].get("type", "")
+            # Get node info
+            detail = node_details.get(node)
 
-            # Wrap the text to fit in the box
-            wrapped_text = textwrap.wrap(node, width=25)
+            # Wrap node text
+            wrapped_text = textwrap.fill(node, width=20)
+            num_lines = len(wrapped_text.split("\n"))
 
-            # Calculate box dimensions
-            box_width = 0.15
-            # Adjust height based on number of lines
-            box_height = 0.05 * (len(wrapped_text) + 1)
+            # Get detail if it exists and wrap it
+            detail_lines = 0
+            if detail is not None:
+                wrapped_detail = textwrap.fill(str(detail), width=30)
+                detail_lines = len(wrapped_detail.split("\n"))
 
+            # Adjust box size based on content
+            box_width = 1.0
+            box_height = 0.3 + (num_lines * 0.15) + (detail_lines * 0.12)
+
+            # Create node box
             rect = Rectangle(
                 (x - box_width / 2, y - box_height / 2),
                 box_width,
                 box_height,
                 fill=True,
-                facecolor="lightblue",
+                facecolor=colors[node],
                 edgecolor="black",
-                zorder=1,  # Nodes drawn first
+                zorder=1,
+                alpha=0.7,
             )
             plt.gca().add_patch(rect)
 
-            # Add wrapped text
+            # Add node type at the top
             plt.text(
                 x,
-                y,
-                "\n".join(wrapped_text),
-                ha="center",
-                va="center",
-                wrap=True,
-                fontsize=8,
-                zorder=3,  # Labels drawn above nodes and edges
-            )
-
-            # Add node type
-            plt.text(
-                x,
-                y + box_height / 2 + 0.02,
-                node_type,
+                y + box_height / 2 + 0.1,
+                node_types[node],
                 ha="center",
                 va="bottom",
-                color="black",
                 fontsize=8,
-                zorder=3,  # Labels drawn above nodes and edges
+                color="black",
+                style="italic",
+                zorder=3,
             )
 
-        # Draw edges with arrows
-        edge_collection = nx.draw_networkx_edges(
-            nxgraph,
-            pos,
-            arrows=True,
-            arrowsize=20,
-            arrowstyle="->",
-            connectionstyle="arc3,rad=0.1",
-        )
+            # Add node name
+            name_y = y + (detail_lines * 0.06) if detail is not None else y
+            plt.text(
+                x,
+                name_y,
+                wrapped_text,
+                ha="center",
+                va="center",
+                fontsize=9,
+                wrap=True,
+                zorder=3,
+            )
 
-        # Set zorder for edges
-        if edge_collection:
-            if isinstance(edge_collection, list):
-                for col in edge_collection:
-                    col.set_zorder(2)  # Edges drawn above nodes but below labels
-            else:
-                edge_collection.set_zorder(2)
+            # Add detail if it exists
+            if detail is not None:
+                plt.text(
+                    x,
+                    y - (num_lines * 0.06) - 0.1,
+                    wrapped_detail,
+                    ha="center",
+                    va="top",
+                    fontsize=7,
+                    color="darkslategray",
+                    wrap=True,
+                    style="italic",
+                    zorder=3,
+                )
 
-        # Draw edge labels
-        edge_labels = {
-            edge: nxgraph.edges[edge].get("type", "")
-            for edge in nxgraph.edges()
-            if nxgraph.edges[edge].get("type")
-        }
-        if edge_labels:
-            nx.draw_networkx_edge_labels(
+        # Draw edges
+        for edge in nxgraph.edges():
+            source_pos = pos[edge[0]]
+            target_pos = pos[edge[1]]
+            rad = 0.2 if abs(source_pos[1] - target_pos[1]) > 1 else 0.1
+
+            nx.draw_networkx_edges(
                 nxgraph,
                 pos,
-                edge_labels=edge_labels,
-                label_pos=0.5,
-                font_size=8,
-                bbox=dict(facecolor="white", edgecolor="none", pad=0.1),
-                verticalalignment="center",
-                horizontalalignment="center",
-                rotate=False,
+                edgelist=[edge],
+                arrows=True,
+                arrowsize=15,
+                arrowstyle="->",
+                connectionstyle=f"arc3,rad={rad}",
+                edge_color="gray",
+                alpha=0.6,
+                width=1,
             )
 
         title = "Paper Hierarchical Graph"
@@ -215,7 +284,8 @@ class DiGraph:
         plt.axis("off")
         plt.tight_layout()
 
-        plt.savefig(img_path)
+        if img_path:
+            plt.savefig(img_path)
         if display_gui:
             plt.show()
 
