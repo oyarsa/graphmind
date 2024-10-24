@@ -80,80 +80,78 @@ class DiGraph:
         node_details = nx.get_node_attributes(nxgraph, "detail")
 
         # Level 1: Validate and find Title node
-        title_nodes = [node for node, type_ in node_types.items() if type_ == "Title"]
+        title_nodes = [node for node, type_ in node_types.items() if type_ == "title"]
         if len(title_nodes) != 1:
             raise GraphError(
-                f"Graph must have exactly one Title node. Found {len(title_nodes)}"
+                f"Graph must have exactly one title node. Found {len(title_nodes)}"
             )
         title_node = title_nodes[0]
 
         # Group nodes by levels
         levels: dict[int, list[tuple[str, str]]] = {
-            1: [(title_node, "Title")],
-            2: [],  # Primary Area, Keywords, TLDR
-            3: [],  # Claims
-            4: [],  # Methods
-            5: [],  # Experiments
+            1: [(title_node, "title")],
+            2: [],  # primary_area, keyword, tldr
+            3: [],  # claims
+            4: [],  # methods
+            5: [],  # experiments
         }
 
-        # Level 2: Primary Area, Keywords, TLDR
-        level2_types = {"Primary Area", "Keyword", "TLDR"}
+        # Level 2: primary_area, keyword, tldr
+        level2_types = {"primary_area", "keyword", "tldr"}
         for node, type_ in node_types.items():
             if type_ in level2_types:
                 predecessors = list(nxgraph.predecessors(node))
                 if len(predecessors) != 1 or predecessors[0] != title_node:
                     raise GraphError(
                         f"Level 2 node {node} must have exactly one incoming edge"
-                        " from Title"
+                        " from title"
                     )
                 levels[2].append((node, type_))
 
         # Find TLDR node for next level
         tldr_nodes = [
-            (node, type_) for node, type_ in node_types.items() if type_ == "TLDR"
+            (node, type_) for node, type_ in node_types.items() if type_ == "tldr"
         ]
         if len(tldr_nodes) != 1:
             raise GraphError(
-                f"Graph must have exactly one TLDR node. Found {len(tldr_nodes)}"
+                f"Graph must have exactly one tldr node. Found {len(tldr_nodes)}"
             )
         tldr_node = tldr_nodes[0][0]
 
         # Level 3: Claims
         claim_nodes = [
-            (node, type_) for node, type_ in node_types.items() if type_ == "Claim"
+            (node, type_) for node, type_ in node_types.items() if type_ == "claim"
         ]
         for node, type_ in claim_nodes:
             predecessors = list(nxgraph.predecessors(node))
             if len(predecessors) != 1 or predecessors[0] != tldr_node:
                 raise GraphError(
-                    f"Claim node {node} must have exactly one incoming edge from TLDR. "
+                    f"Claim node {node} must have exactly one incoming edge from tldr. "
                     f"Found predecessors: {predecessors}"
                 )
             levels[3].append((node, type_))
 
         # Level 4: Methods
         method_nodes = [
-            (node, type_) for node, type_ in node_types.items() if type_ == "Method"
+            (node, type_) for node, type_ in node_types.items() if type_ == "method"
         ]
         for node, type_ in method_nodes:
             predecessors = list(nxgraph.predecessors(node))
-            if not all(node_types[pred] == "Claim" for pred in predecessors):
+            if not all(node_types[pred] == "claim" for pred in predecessors):
                 raise GraphError(
-                    f"Method node {node} must only have incoming edges from Claims"
+                    f"Method node {node} must only have incoming edges from claims"
                 )
             levels[4].append((node, type_))
 
         # Level 5: Experiments
         experiment_nodes = [
-            (node, type_)
-            for node, type_ in node_types.items()
-            if type_ == "Experiment Design"
+            (node, type_) for node, type_ in node_types.items() if type_ == "experiment"
         ]
         for node, type_ in experiment_nodes:
             predecessors = list(nxgraph.predecessors(node))
-            if not all(node_types[pred] == "Method" for pred in predecessors):
+            if not all(node_types[pred] == "method" for pred in predecessors):
                 raise GraphError(
-                    f"Experiment node {node} must only have incoming edges from Methods"
+                    f"Experiment node {node} must only have incoming edges from methods"
                 )
             levels[5].append((node, type_))
 
@@ -161,13 +159,13 @@ class DiGraph:
         pos: dict[str, tuple[float, float]] = {}
         colors: dict[str, str] = {}
         color_map = {
-            "Title": "lightblue",
-            "TLDR": "lightgreen",
-            "Claim": "lightcoral",
-            "Primary Area": "lightyellow",
-            "Keyword": "lightsalmon",
-            "Method": "lightpink",
-            "Experiment Design": "lightgray",
+            "title": "lightblue",
+            "tldr": "lightgreen",
+            "claim": "lightcoral",
+            "primary_area": "lightyellow",
+            "keyword": "lightsalmon",
+            "method": "lightpink",
+            "experiment": "lightgray",
         }
 
         # Position nodes by level
@@ -230,7 +228,7 @@ class DiGraph:
             )
 
             # Add node name
-            name_y = y + (detail_lines * 0.06) if detail is not None else y
+            name_y = y + (detail_lines * 0.06) if detail else y
             plt.text(
                 x,
                 name_y,
@@ -243,7 +241,7 @@ class DiGraph:
             )
 
             # Add detail if it exists
-            if detail is not None:
+            if detail:
                 plt.text(
                     x,
                     y - (num_lines * 0.06) - 0.1,

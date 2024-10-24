@@ -72,23 +72,23 @@ def main(output: Path | None) -> None:
     }
 
     nodes = [
-        Node(name=node_names["title"]["main"], type="Title", detail=""),
-        Node(name=node_names["tldr"]["main"], type="TLDR", detail=""),
-        Node(name=node_names["area"]["main"], type="Primary Area", detail=""),
+        Node(name=node_names["title"]["main"], type="title", detail=""),
+        Node(name=node_names["tldr"]["main"], type="tldr", detail=""),
+        Node(name=node_names["area"]["main"], type="primary_area", detail=""),
         *[
-            Node(name=name, type="Keyword", detail="")
+            Node(name=name, type="keyword", detail="")
             for name in node_names["keywords"].values()
         ],
         *[
-            Node(name=name, type="Claim", detail=node_details[name])
+            Node(name=name, type="claim", detail=node_details[name])
             for name in node_names["claims"].values()
         ],
         *[
-            Node(name=name, type="Method", detail=node_details[name])
+            Node(name=name, type="method", detail=node_details[name])
             for name in node_names["methods"].values()
         ],
         *[
-            Node(name=name, type="Experiment", detail=node_details[name])
+            Node(name=name, type="experiment", detail=node_details[name])
             for name in node_names["experiments"].values()
         ],
     ]
