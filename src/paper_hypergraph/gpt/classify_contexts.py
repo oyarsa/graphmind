@@ -411,10 +411,14 @@ async def on_result_completion(
 ) -> None:
     adapter = TypeAdapter(list[PromptResult[PaperOutput]])
     async with lock:
+        previous = []
         try:
             previous = adapter.validate_json(path.read_bytes())
+        except FileNotFoundError:
+            pass
         except Exception:
-            previous = []
+            logger.exception("Error reading intermediate result file")
+
         previous.append(result)
         path.write_bytes(adapter.dump_json(previous, indent=2))
 
