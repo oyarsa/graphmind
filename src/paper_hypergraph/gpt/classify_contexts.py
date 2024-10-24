@@ -385,12 +385,15 @@ async def classify_contexts(
             )
 
     continue_paper_ids = {_paper_id(paper.item) for paper in continue_papers}
+    papers_num = len(papers)
     papers = [paper for paper in papers if _paper_id(paper) not in continue_paper_ids]
     if not papers:
         logger.warning(
             "No remaining papers to classify. They're all on the intermediate results."
         )
         return
+    else:
+        logger.info("Skipping %d papers.", papers_num - len(papers))
 
     result_completion_lock = asyncio.Lock()
     completion_cb = functools.partial(
