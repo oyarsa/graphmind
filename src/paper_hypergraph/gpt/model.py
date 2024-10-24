@@ -1,4 +1,5 @@
 import enum
+import itertools
 from collections import Counter, defaultdict
 from collections.abc import Sequence
 
@@ -72,21 +73,29 @@ def validate_rules(graph: Graph) -> str | None:
     """Check if graph rules hold. Returns error message if invalid, or None if valid.
 
     Rules:
-    1. There must be exactly one Title node
-    2. The Title node cannot have incoming edges
-    3. The Title node can only have outgoing edges to Concepts
-    4. Concepts must have exactly one incoming edge each, and it must be the Title
-    5. All outgoing edges from Concepts must be Sentences
-    6. Sentences must not have outgoing edges
+    1. There must be exactly one Title node.
+    2. The Title node cannot have incoming edges.
+    3. In the second level, TLDR, Primary Area and Keyword nodes can only have one
+       incoming each, and it must be from Title.
+    4. Primary Area, Keyword and Experiment nodes don't have outgoing edges.
+    5. At later mid levels, nodes can only have incoming edges from the previous level
+       and outgoing edges to the next level.
+       The sequence in levels is:
+        1. Title
+        2. Title -> Primary Area, Keywords, TLDR
+        3. TLDR -> Claims
+        4. Claims -> Methods
+        5. Methods -> Experiments
 
-    Note: this doesn't throw an exception if the graph is invalid, it just returns
-    the error message. The graph is allowed to be invalid, but it's useful to know
-    why it's invalid.
+    Note: this function doesn't throw an exception if the graph is invalid, it just
+    returns the error message. The graph is allowed to be invalid, but it's useful to
+    know why it's invalid.
 
     Returns:
         Error message describing the rule violated if the graph is invalid.
         None if the graph is follows all rules.
     """
+    entities = {entity.name: entity for entity in graph.entities}
     incoming: defaultdict[str, list[Relationship]] = defaultdict(list)
     outgoing: defaultdict[str, list[Relationship]] = defaultdict(list)
 
@@ -95,7 +104,7 @@ def validate_rules(graph: Graph) -> str | None:
         outgoing[relation.source].append(relation)
 
     # Rule 1: Exactly one Title node
-    titles = [e for e in graph.entities if e.type is EntityType.TITLE]
+    titles = _get_nodes_of_type(graph, EntityType.TITLE)
     if len(titles) != 1:
         return f"Found {len(titles)} title nodes. Should be exactly 1."
 
@@ -105,7 +114,62 @@ def validate_rules(graph: Graph) -> str | None:
     if incoming[title.name]:
         return "Title node should not have any incoming edges."
 
+    # Rule 3: TLDR, Primary Area and Keyword nodes only have incoming edges from Title
+    level_2 = [EntityType.TLDR, EntityType.PRIMARY_AREA, EntityType.KEYWORD]
+    for node_type in level_2:
+        nodes = _get_nodes_of_type(graph, node_type)
+        for node in nodes:
+            inc_edges = incoming[node.name]
+            if len(inc_edges) != 1:
+                return (
+                    f"Found {len(inc_edges)} incoming edges to node type {node_type}."
+                    " Should be exactly 1."
+                )
+
+            inc_node = entities[inc_edges[0].source]
+            if inc_node.type is not EntityType.TITLE:
+                return (
+                    f"Incoming edge to {node_type} is not Title, but {inc_node.type}."
+                )
+
+    # Rule 4: Primary Area, Keyword and Experiment nodes don't have outgoing edges
+    level_leaf = [EntityType.PRIMARY_AREA, EntityType.KEYWORD, EntityType.EXPERIMENT]
+    for node_type in level_leaf:
+        for node in _get_nodes_of_type(graph, node_type):
+            if out := outgoing[node.name]:
+                return (
+                    f"Found {len(out)} outgoing edges from node type {node_type}."
+                    " Should be 0."
+                )
+
+    # Rule 5: At mid levels, edges come from the previous level and go to the next
+    level_order = [
+        EntityType.TLDR,
+        EntityType.CLAIM,
+        EntityType.METHOD,
+        EntityType.EXPERIMENT,
+    ]
+    # Outgoing edges
+    for cur_type, next_type in itertools.pairwise(level_order):
+        for node in _get_nodes_of_type(graph, cur_type):
+            for edge in outgoing[node.name]:
+                type_ = entities[edge.target].type
+                if type_ is not next_type:
+                    return f"Found illegal outgoing edge from {cur_type} to {type_}"
+
+    # Incoming edges
+    for cur_type, prev_type in itertools.pairwise(reversed(level_order)):
+        for node in _get_nodes_of_type(graph, cur_type):
+            for edge in incoming[node.name]:
+                type_ = entities[edge.source].type
+                if type_ is not prev_type:
+                    return f"Found illegal incoming edge from {type_} to {cur_type}"
+
     return None
+
+
+def _get_nodes_of_type(graph: Graph, type_: EntityType) -> list[Entity]:
+    return [e for e in graph.entities if e.type is type_]
 
 
 class PaperSection(BaseModel):
