@@ -1,5 +1,3 @@
-import asyncio
-import functools
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -71,7 +69,7 @@ class PromptResult[T](BaseModel):
     prompt: Prompt
 
 
-async def run_gpt_async[T: BaseModel](
+async def run_gpt[T: BaseModel](
     class_: type[T],
     client: AsyncOpenAI,
     system_prompt: str,
@@ -135,20 +133,3 @@ async def run_gpt_async[T: BaseModel](
     parsed = completion.choices[0].message.parsed
 
     return GPTResult(result=parsed, cost=cost)
-
-
-@functools.wraps(run_gpt_async)
-def run_gpt[T: BaseModel](
-    class_: type[T],
-    client: AsyncOpenAI,
-    system_prompt: str,
-    user_prompt: str,
-    model: str,
-    seed: int = 0,
-    temperature: float = 0,
-) -> GPTResult[T | None]:
-    return asyncio.run(
-        run_gpt_async(
-            class_, client, system_prompt, user_prompt, model, seed, temperature
-        )
-    )

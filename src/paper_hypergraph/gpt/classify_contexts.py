@@ -8,7 +8,6 @@ negative).
 import argparse
 import asyncio
 import contextlib
-import functools
 import hashlib
 import logging
 import os
@@ -33,7 +32,7 @@ from paper_hypergraph.gpt.run_gpt import (
     GPTResult,
     Prompt,
     PromptResult,
-    run_gpt_async,
+    run_gpt,
 )
 from paper_hypergraph.util import Timer, safediv, setup_logging
 
@@ -206,7 +205,7 @@ async def _classify_contexts(
                     context=context.sentence,
                 )
                 user_prompts.append(user_prompt)
-                result = await run_gpt_async(
+                result = await run_gpt(
                     GPTContext, client, _CONTEXT_SYSTEM_PROMPT, user_prompt, model
                 )
                 total_cost += result.cost
@@ -289,7 +288,7 @@ def _log_config(
     )
 
 
-async def classify_contexts_async(
+async def classify_contexts(
     model: str,
     api_key: str | None,
     data_path: Path,
@@ -375,31 +374,6 @@ async def classify_contexts_async(
     (output_dir / "output.txt").write_text(stats)
     if metrics is not None:
         (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
-
-
-@functools.wraps(classify_contexts_async)
-def classify_contexts(
-    model: str,
-    api_key: str | None,
-    data_path: Path,
-    limit_papers: int | None,
-    user_prompt_key: str,
-    output_dir: Path,
-    limit_references: int | None,
-    continue_papers_file: Path | None,
-) -> None:
-    asyncio.run(
-        classify_contexts_async(
-            model,
-            api_key,
-            data_path,
-            limit_papers,
-            user_prompt_key,
-            output_dir,
-            limit_references,
-            continue_papers_file,
-        )
-    )
 
 
 # TODO:This one is a bit messy. Refactor it.
@@ -553,15 +527,17 @@ def main() -> None:
     if args.subcommand == "prompts":
         list_prompts(detail=args.detail)
     elif args.subcommand == "run":
-        classify_contexts(
-            args.model,
-            args.api_key,
-            args.data_path,
-            args.limit,
-            args.user_prompt,
-            args.output_dir,
-            args.ref_limit,
-            args.continue_papers,
+        asyncio.run(
+            classify_contexts(
+                args.model,
+                args.api_key,
+                args.data_path,
+                args.limit,
+                args.user_prompt,
+                args.output_dir,
+                args.ref_limit,
+                args.continue_papers,
+            )
         )
 
 

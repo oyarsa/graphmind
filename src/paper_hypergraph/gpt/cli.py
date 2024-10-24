@@ -5,6 +5,7 @@
 """
 
 import argparse
+import asyncio
 import logging
 
 from paper_hypergraph.gpt import classify_contexts, extract_graph
@@ -50,30 +51,35 @@ def main() -> None:
         if args.subcommand == "prompts":
             extract_graph.list_prompts(detail=args.detail)
         elif args.subcommand == "run":
-            extract_graph.extract_graph(
-                args.model,
-                args.api_key,
-                args.data_path,
-                args.limit,
-                args.graph_user_prompt,
-                args.classify_user_prompt,
-                args.visualise,
-                args.output_dir,
-                args.classify,
+            asyncio.run(
+                extract_graph.extract_graph(
+                    args.model,
+                    args.api_key,
+                    args.data_path,
+                    args.limit,
+                    args.graph_user_prompt,
+                    args.classify_user_prompt,
+                    args.visualise,
+                    args.output_dir,
+                    args.classify,
+                )
             )
+
     elif args.command == "context":
         if args.subcommand == "prompts":
             classify_contexts.list_prompts(detail=args.detail)
         elif args.subcommand == "run":
-            classify_contexts.classify_contexts(
-                args.model,
-                args.api_key,
-                args.data_path,
-                args.limit,
-                args.user_prompt,
-                args.output_dir,
-                args.ref_limit,
-                args.continue_papers,
+            asyncio.run(
+                classify_contexts.classify_contexts(
+                    args.model,
+                    args.api_key,
+                    args.data_path,
+                    args.limit,
+                    args.user_prompt,
+                    args.output_dir,
+                    args.ref_limit,
+                    args.continue_papers,
+                )
             )
 
 
