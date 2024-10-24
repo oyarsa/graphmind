@@ -173,9 +173,15 @@ class DiGraph:
             if not nodes:
                 continue
 
-            nodes.sort(key=lambda x: x[0])
             y_pos = -(level - 1) * 2.0  # Increased vertical spacing for details
             width = len(nodes)
+
+            if level == 2:
+                # Special handling for level 2 to center the TLDR node
+                tldr_idx = next(i for i, (n, t) in enumerate(nodes) if t == "tldr")
+                # Move TLDR to center by swapping with middle position
+                mid_idx = width // 2
+                nodes[tldr_idx], nodes[mid_idx] = nodes[mid_idx], nodes[tldr_idx]
 
             for i, (node, type_) in enumerate(nodes):
                 x_pos = (i - (width - 1) / 2) * 1.8  # Increased horizontal spacing
