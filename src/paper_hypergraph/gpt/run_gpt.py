@@ -126,7 +126,7 @@ async def run_gpt[T: BaseModel](
         )
 
     # TODO: type this properly. OpenAI's types are a little convoluted.
-    chat_params: Any = dict(
+    chat_params: dict[str, Any] = dict(
         model=model,
         messages=[
             {"role": "system", "content": system_prompt},
