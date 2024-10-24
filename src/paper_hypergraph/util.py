@@ -82,3 +82,19 @@ def setup_logging(logger: logging.Logger | str) -> None:
     handler.setFormatter(colorlog.ColoredFormatter(fmt=fmt, datefmt=datefmt))
 
     logger.addHandler(handler)
+
+
+def safediv(x: float, y: float) -> float:
+    """x/y where if `y` is 0, returns NaN instead of throwing.
+
+    Args:
+        x: numerator
+        y: denominator (can be 0)
+
+    Returns:
+        If y is not 0, returns x/y. Else, returns NaN.
+    """
+    try:
+        return x / y
+    except ZeroDivisionError:
+        return float("nan")
