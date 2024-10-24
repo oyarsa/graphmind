@@ -1,4 +1,8 @@
-"""TODO: write docstring."""
+"""Show statistics from context classification results.
+
+The same things are shown when the run is done, but I want to be able to generate that
+view again.
+"""
 
 from pathlib import Path
 from typing import Annotated
