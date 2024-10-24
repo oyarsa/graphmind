@@ -27,6 +27,7 @@ class GraphError(Exception):
 class Node:
     name: str
     type: str
+    detail: str | None
 
 
 @dataclass(frozen=True)
