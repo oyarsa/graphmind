@@ -368,15 +368,19 @@ async def classify_contexts(
 
     result_adapter = TypeAdapter(list[PromptResult[PaperOutput]])
 
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_interim_path = output_dir / "results.tmp.json"
+
+    if continue_papers_file is None and output_interim_path.is_file():
+        continue_papers_file = output_interim_path
+
     continue_papers = []
     if continue_papers_file:
+        logger.info("Continuing papers from: %s", continue_papers_file)
         with contextlib.suppress(Exception):
             continue_papers = result_adapter.validate_json(
                 continue_papers_file.read_bytes()
             )
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_interim_path = output_dir / "results.tmp.json"
 
     result_completion_lock = asyncio.Lock()
     completion_cb = functools.partial(
