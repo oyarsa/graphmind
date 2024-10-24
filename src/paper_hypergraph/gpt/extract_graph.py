@@ -251,6 +251,7 @@ def _generate_graphs(
             if result.result
             else Graph(entities=[], relationships=[])
         )
+        logger.debug(graph)
         total_cost += result.cost
         graph_results.append(
             PromptResult(

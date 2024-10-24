@@ -66,6 +66,7 @@ class Graph(BaseModel):
                 "",
                 "Relationships:",
                 relationships,
+                f"Valid: {validate_rules(self)}",
                 "",
             ]
         )
