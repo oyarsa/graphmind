@@ -3,6 +3,12 @@
 Each paper contains many references. These can appear in one or more citation contexts
 inside the text. Each citation context can be classified by polarity (positive vs
 negative).
+
+NB: We do concurrent requests (mediated by a rate limiter). Unfortunately, that doesn't
+work very well with OpenAI's client. This means you'll likely see a lot of
+openai.APIConnectionError thrown around. Most requests will go through, so you'll just
+have to run the script again until you get everything. See also the `--continue-papers`
+option.
 """
 
 import argparse
