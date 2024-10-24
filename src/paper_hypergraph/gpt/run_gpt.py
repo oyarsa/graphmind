@@ -2,6 +2,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+import backoff
+import openai
 from openai import AsyncOpenAI
 from openlimit import ChatRateLimiter  # type: ignore
 from pydantic import BaseModel, ConfigDict
@@ -72,6 +74,19 @@ class PromptResult[T](BaseModel):
     prompt: Prompt
 
 
+@backoff.on_exception(backoff.expo, openai.APIError, max_tries=5, logger=logger)
+async def _call_gpt(rate_limiter: Any, client: AsyncOpenAI, chat_params: Any):
+    try:
+        async with rate_limiter.limit(**chat_params):  # type: ignore
+            return await client.beta.chat.completions.parse(**chat_params)
+    except openai.APIError as e:
+        logger.warning("\nCaught an API error: %s", e)
+        raise
+    except Exception as e:
+        logger.warning("\nCaught non-API error. Returning None: %s", e)
+        return None
+
+
 async def run_gpt[T: BaseModel](
     class_: type[T],
     client: AsyncOpenAI,
@@ -103,6 +118,7 @@ async def run_gpt[T: BaseModel](
 
     Raises:
         ValueError: if the `model` is invalid (see `MODELS_ALLOWED`).
+        RetryError: if the the client should retry the request
     """
     if model not in MODELS_ALLOWED:
         raise ValueError(
@@ -127,10 +143,12 @@ async def run_gpt[T: BaseModel](
     assert rate_limiter is not None
 
     try:
-        async with rate_limiter.limit(**chat_params):  # type: ignore
-            completion = await client.beta.chat.completions.parse(**chat_params)
+        completion = await _call_gpt(rate_limiter, client, chat_params)
     except Exception:
-        logger.exception("Error making API request")
+        logger.exception("Error when calling OpenAI. Gave up on retrying")
+        completion = None
+
+    if completion is None:
         return GPTResult(result=None, cost=0)
 
     usage = completion.usage
