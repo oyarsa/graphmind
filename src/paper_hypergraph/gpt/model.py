@@ -1,21 +1,21 @@
-import enum
 import itertools
 from collections import Counter, defaultdict
 from collections.abc import Sequence
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
 from paper_hypergraph import hierarchical_graph
 
 
-class EntityType(enum.StrEnum):
-    TITLE = enum.auto()
-    TLDR = enum.auto()
-    PRIMARY_AREA = enum.auto()
-    KEYWORD = enum.auto()
-    CLAIM = enum.auto()
-    METHOD = enum.auto()
-    EXPERIMENT = enum.auto()
+class EntityType(StrEnum):
+    TITLE = "title"
+    TLDR = "tldr"
+    PRIMARY_AREA = "primary_area"
+    KEYWORD = "keyword"
+    CLAIM = "claim"
+    METHOD = "method"
+    EXPERIMENT = "experiment"
 
 
 class Relationship(BaseModel):
@@ -200,7 +200,7 @@ RATING_APPROVAL_THRESHOLD = 5
 """A rating is an approval if it's greater of equal than this."""
 
 
-class RatingEvaluationStrategy(enum.StrEnum):
+class RatingEvaluationStrategy(StrEnum):
     MEAN = "mean"
     """Mean rating is higher than the threshold."""
     MAJORITY = "majority"
