@@ -6,10 +6,11 @@ negative).
 """
 
 import argparse
+import contextlib
 import hashlib
 import logging
 import os
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
 import dotenv
@@ -18,7 +19,11 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from tqdm import tqdm
 
 from paper_hypergraph import evaluation_metrics
-from paper_hypergraph.asap.model import ContextPolarityBinary, PaperSection
+from paper_hypergraph.asap.model import (
+    ContextPolarityBinary,
+    PaperSection,
+    PaperWithFullReference,
+)
 from paper_hypergraph.asap.model import PaperWithFullReference as PaperInput
 from paper_hypergraph.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -157,6 +162,8 @@ def _classify_contexts(
     user_prompt_template: str,
     papers: Sequence[PaperInput],
     limit_references: int | None,
+    completion_cb: Callable[[PromptResult[PaperOutput]], None] | None = None,
+    continue_papers: Sequence[PromptResult[PaperOutput]] = (),
 ) -> GPTResult[list[PromptResult[PaperOutput]]]:
     """Classify the contexts for each papers' references by polarity.
 
@@ -166,10 +173,20 @@ def _classify_contexts(
     the references are different. Instead of the contexts being only strings, they
     are now `ContextClassified`, containing the original text plus the predicted
     polarity.
+
+    Important args:
+        completion_cb: Called after a paper classification is completed. Mainly used
+            to save results as they're completed without having to pass the whole
+            file machinery to this function.
+        continue_papers: Papers that were completed in a previous iteration so we don't
+            query them again.
     """
     paper_outputs: list[PromptResult[PaperOutput]] = []
     user_prompts: list[str] = []
     total_cost = 0
+
+    continue_paper_ids = {_paper_id(paper.item) for paper in continue_papers}
+    papers = [paper for paper in papers if _paper_id(paper) not in continue_paper_ids]
 
     for paper in tqdm(papers, desc="Classifying contexts"):
         classified_references: list[Reference] = []
@@ -218,25 +235,31 @@ def _classify_contexts(
         # references should be in the output.
         assert len(classified_references) == len(references)
 
-        paper_outputs.append(
-            PromptResult(
-                prompt=Prompt(
-                    system=_CONTEXT_SYSTEM_PROMPT,
-                    user=f"\n{"-"*80}\n\n".join(user_prompts),
-                ),
-                item=PaperOutput(
-                    title=paper.title,
-                    abstract=paper.abstract,
-                    ratings=paper.ratings,
-                    sections=paper.sections,
-                    approval=paper.approval,
-                    references=classified_references,
-                ),
-            )
+        result = PromptResult(
+            prompt=Prompt(
+                system=_CONTEXT_SYSTEM_PROMPT,
+                user=f"\n{"-"*80}\n\n".join(user_prompts),
+            ),
+            item=PaperOutput(
+                title=paper.title,
+                abstract=paper.abstract,
+                ratings=paper.ratings,
+                sections=paper.sections,
+                approval=paper.approval,
+                references=classified_references,
+            ),
         )
+
+        paper_outputs.append(result)
+        if completion_cb:
+            completion_cb(result)
 
     assert len(paper_outputs) == len(papers)
     return GPTResult(paper_outputs, total_cost)
+
+
+def _paper_id(paper: PaperOutput | PaperWithFullReference) -> int:
+    return hash(paper.title + paper.abstract)
 
 
 def _log_config(
@@ -272,6 +295,7 @@ def classify_contexts(
     user_prompt_key: str,
     output_dir: Path,
     limit_references: int | None,
+    continue_papers_file: Path | None,
 ) -> None:
     """Classify reference citation contexts by polarity."""
 
@@ -305,9 +329,35 @@ def classify_contexts(
     papers = data[:limit_papers]
     user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
 
+    result_adapter = TypeAdapter(list[PromptResult[PaperOutput]])
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_interim_path = output_dir / "results.tmp.json"
+
+    def completion_cb(result: PromptResult[PaperOutput]) -> None:
+        try:
+            previous = result_adapter.validate_json(output_interim_path.read_bytes())
+        except Exception:
+            previous = []
+        previous.append(result)
+        output_interim_path.write_bytes(result_adapter.dump_json(previous, indent=2))
+
+    continue_papers = []
+    if continue_papers_file:
+        with contextlib.suppress(Exception):
+            continue_papers = result_adapter.validate_json(
+                continue_papers_file.read_bytes()
+            )
+
     with Timer() as timer:
         results = _classify_contexts(
-            client, model, user_prompt, papers, limit_references
+            client,
+            model,
+            user_prompt,
+            papers,
+            limit_references,
+            completion_cb,
+            continue_papers,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -317,9 +367,8 @@ def classify_contexts(
     stats, metrics = show_classified_stats(contexts)
     logger.info("Classification metrics:\n%s\n", stats)
 
-    output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "result.json").write_bytes(
-        TypeAdapter(list[PromptResult[PaperOutput]]).dump_json(results.result, indent=2)
+        result_adapter.dump_json(results.result, indent=2)
     )
     (output_dir / "output.txt").write_text(stats)
     if metrics is not None:
@@ -445,6 +494,12 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="The number of references per paper to process. Defaults to all.",
     )
+    run_parser.add_argument(
+        "--continue-papers",
+        type=Path,
+        default=None,
+        help="Path to file with data from a previous run",
+    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -479,6 +534,7 @@ def main() -> None:
             args.user_prompt,
             args.output_dir,
             args.ref_limit,
+            args.continue_papers,
         )
 
 
