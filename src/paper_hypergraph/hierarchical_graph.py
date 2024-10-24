@@ -222,52 +222,6 @@ class DiGraph:
     def has_cycle(self) -> bool:
         return not nx.is_directed_acyclic_graph(self._nxgraph)
 
-    def validate_hierarchy(self) -> str | None:
-        """Validate that the graph follows the hirarchical rules.
-
-        Rules:
-        1. The graph must have a single root node (in-degree 0).
-        2. The graph must be a directed acyclic graph (no cycles).
-        3. Each concept node must connect to at least one supporting sentence
-           (out-degree > 0).
-
-        Args:
-            graph: The graph to validate.
-
-        Returns:
-            None if the graph is valid, otherwise a message explaining the violated rule.
-        """
-        nxgraph = self._nxgraph
-        roots = [node for node in nxgraph.nodes if nxgraph.in_degree(node) == 0]
-
-        # 1. Single root node
-        if len(roots) != 1:
-            return f"The graph must have a single root node. Found {len(roots)}."
-
-        # 2. Must be a DAG
-        if not nx.is_directed_acyclic_graph(nxgraph):
-            return "The graph has a cycle. It should be a directed acyclic graph."
-
-        concepts = [
-            node
-            for node, data in nxgraph.nodes(data=True)
-            if data.get("type") == "concept"
-        ]
-        out_degrees = cast(
-            nx.classes.reportviews.OutDegreeView, nxgraph.out_degree(concepts)
-        )
-        concepts_unconnected = sum(
-            out_degree == 0 for _, out_degree in out_degrees if out_degree == 0
-        )
-        # 3. Each concept must connect to at least one supporting sentence
-        if concepts_unconnected > 0:
-            return (
-                "Each concept must connect to at least one supporting sentence."
-                f" Found {concepts_unconnected} that don't."
-            )
-
-        return None
-
     def save(self, path: Path) -> None:
         """Save a graph to a GraphML file."""
         if path.suffix != ".graphml":
