@@ -8,10 +8,11 @@ negative).
 import argparse
 import asyncio
 import contextlib
+import functools
 import hashlib
 import logging
 import os
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Sequence
 from pathlib import Path
 
 import dotenv
@@ -250,7 +251,8 @@ async def _classify_contexts(
     user_prompt_template: str,
     papers: Sequence[PaperInput],
     limit_references: int | None,
-    completion_cb: Callable[[PromptResult[PaperOutput]], None] | None = None,
+    async_completion_cb: Callable[[PromptResult[PaperOutput]], Awaitable[None]]
+    | None = None,
     continue_papers: Sequence[PromptResult[PaperOutput]] = (),
 ) -> GPTResult[list[PromptResult[PaperOutput]]]:
     """Classify the contexts for each papers' references by polarity.
@@ -282,8 +284,8 @@ async def _classify_contexts(
         total_cost += result.cost
 
         paper_outputs.append(result.result)
-        if completion_cb:
-            completion_cb(result.result)
+        if async_completion_cb:
+            await async_completion_cb(result.result)
 
     return GPTResult(paper_outputs, total_cost)
 
@@ -361,23 +363,22 @@ async def classify_contexts(
 
     result_adapter = TypeAdapter(list[PromptResult[PaperOutput]])
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_interim_path = output_dir / "results.tmp.json"
-
-    def completion_cb(result: PromptResult[PaperOutput]) -> None:
-        try:
-            previous = result_adapter.validate_json(output_interim_path.read_bytes())
-        except Exception:
-            previous = []
-        previous.append(result)
-        output_interim_path.write_bytes(result_adapter.dump_json(previous, indent=2))
-
     continue_papers = []
     if continue_papers_file:
         with contextlib.suppress(Exception):
             continue_papers = result_adapter.validate_json(
                 continue_papers_file.read_bytes()
             )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_interim_path = output_dir / "results.tmp.json"
+
+    result_completion_lock = asyncio.Lock()
+    completion_cb = functools.partial(
+        on_result_completion,
+        lock=result_completion_lock,
+        path=output_interim_path,
+    )
 
     with Timer() as timer:
         results = await _classify_contexts(
@@ -403,6 +404,19 @@ async def classify_contexts(
     (output_dir / "output.txt").write_text(stats)
     if metrics is not None:
         (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
+
+
+async def on_result_completion(
+    result: PromptResult[PaperOutput], lock: asyncio.Lock, path: Path
+) -> None:
+    adapter = TypeAdapter(list[PromptResult[PaperOutput]])
+    async with lock:
+        try:
+            previous = adapter.validate_json(path.read_bytes())
+        except Exception:
+            previous = []
+        previous.append(result)
+        path.write_bytes(adapter.dump_json(previous, indent=2))
 
 
 # TODO:This one is a bit messy. Refactor it.
