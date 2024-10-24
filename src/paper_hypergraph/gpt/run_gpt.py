@@ -24,7 +24,10 @@ MODEL_COSTS = {
     "gpt-4o-2024-08-06": (2.5, 10),
 }
 
-rate_limiter = ChatRateLimiter(request_limit=5_000, token_limit=4_000_000)  # type: ignore
+rate_limiters: dict[str, Any] = {
+    "gpt-4o-mini": ChatRateLimiter(request_limit=5_000, token_limit=4_000_000),  # type: ignore,
+    "gpt-4o": ChatRateLimiter(request_limit=5_000, token_limit=800_000),  # type: ignore,
+}
 
 
 def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
@@ -117,6 +120,12 @@ async def run_gpt[T: BaseModel](
         seed=seed,
         temperature=temperature,
     )
+    rate_limiter = None
+    for limit_model, limiter in rate_limiters.items():
+        if model.startswith(limit_model):
+            rate_limiter = limiter
+    assert rate_limiter is not None
+
     try:
         async with rate_limiter.limit(**chat_params):  # type: ignore
             completion = await client.beta.chat.completions.parse(**chat_params)
