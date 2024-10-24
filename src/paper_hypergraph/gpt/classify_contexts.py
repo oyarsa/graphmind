@@ -260,7 +260,6 @@ async def _classify_contexts(
     limit_references: int | None,
     async_completion_cb: Callable[[PromptResult[PaperOutput]], Awaitable[None]]
     | None = None,
-    continue_papers: Sequence[PromptResult[PaperOutput]] = (),
 ) -> GPTResult[list[PromptResult[PaperOutput]]]:
     """Classify the contexts for each papers' references by polarity.
 
@@ -280,9 +279,6 @@ async def _classify_contexts(
     """
     paper_outputs: list[PromptResult[PaperOutput]] = []
     total_cost = 0
-
-    continue_paper_ids = {_paper_id(paper.item) for paper in continue_papers}
-    papers = [paper for paper in papers if _paper_id(paper) not in continue_paper_ids]
 
     tasks = [
         _classify_paper(client, limit_references, model, paper, user_prompt_template)
@@ -388,6 +384,14 @@ async def classify_contexts(
                 continue_papers_file.read_bytes()
             )
 
+    continue_paper_ids = {_paper_id(paper.item) for paper in continue_papers}
+    papers = [paper for paper in papers if _paper_id(paper) not in continue_paper_ids]
+    if not papers:
+        logger.warning(
+            "No remaining papers to classify. They're all on the intermediate results."
+        )
+        return
+
     result_completion_lock = asyncio.Lock()
     completion_cb = functools.partial(
         on_result_completion,
@@ -397,13 +401,7 @@ async def classify_contexts(
 
     with Timer() as timer:
         results = await _classify_contexts(
-            client,
-            model,
-            user_prompt,
-            papers,
-            limit_references,
-            completion_cb,
-            continue_papers,
+            client, model, user_prompt, papers, limit_references, completion_cb
         )
 
     logger.info(f"Time elapsed: {timer.human}")
