@@ -15,7 +15,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import dotenv
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
@@ -237,7 +237,7 @@ Output:
 
 
 def _generate_graphs(
-    client: OpenAI, data: list[Paper], model: str, user_prompt: str
+    client: AsyncOpenAI, data: list[Paper], model: str, user_prompt: str
 ) -> GPTResult[list[PromptResult[Graph]]]:
     total_cost = 0
     graph_results: list[PromptResult[Graph]] = []
@@ -415,7 +415,7 @@ def extract_graph(
         output_dir=output_dir,
     )
 
-    client = OpenAI()
+    client = AsyncOpenAI()
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
 

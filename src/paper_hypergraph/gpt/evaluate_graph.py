@@ -2,7 +2,7 @@ import logging
 from collections.abc import Sequence
 from pathlib import Path
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
@@ -29,7 +29,7 @@ rationale for your decision, then give the final decision.
 
 
 def evaluate_graphs(
-    client: OpenAI,
+    client: AsyncOpenAI,
     model: str,
     papers: Sequence[Paper],
     graphs: Sequence[Graph],
@@ -83,7 +83,7 @@ class GPTClassify(BaseModel):
 
 
 def _classify_papers(
-    client: OpenAI,
+    client: AsyncOpenAI,
     model: str,
     user_prompt_template: str,
     papers: Sequence[Paper],

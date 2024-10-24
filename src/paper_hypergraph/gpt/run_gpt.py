@@ -1,7 +1,9 @@
+import asyncio
+import functools
 import logging
 from dataclasses import dataclass
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger("paper_hypergraph.gpt.run_gpt")
@@ -65,9 +67,9 @@ class PromptResult[T](BaseModel):
     prompt: Prompt
 
 
-def run_gpt[T: BaseModel](
+async def run_gpt_async[T: BaseModel](
     class_: type[T],
-    client: OpenAI,
+    client: AsyncOpenAI,
     system_prompt: str,
     user_prompt: str,
     model: str,
@@ -103,7 +105,7 @@ def run_gpt[T: BaseModel](
         )
 
     try:
-        completion = client.beta.chat.completions.parse(
+        completion = await client.beta.chat.completions.parse(
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -126,3 +128,20 @@ def run_gpt[T: BaseModel](
     parsed = completion.choices[0].message.parsed
 
     return GPTResult(result=parsed, cost=cost)
+
+
+@functools.wraps(run_gpt_async)
+def run_gpt[T: BaseModel](
+    class_: type[T],
+    client: AsyncOpenAI,
+    system_prompt: str,
+    user_prompt: str,
+    model: str,
+    seed: int = 0,
+    temperature: float = 0,
+) -> GPTResult[T | None]:
+    return asyncio.run(
+        run_gpt_async(
+            class_, client, system_prompt, user_prompt, model, seed, temperature
+        )
+    )

@@ -14,7 +14,7 @@ from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
 import dotenv
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from tqdm import tqdm
 
@@ -157,7 +157,7 @@ class GPTContext(BaseModel):
 
 
 def _classify_contexts(
-    client: OpenAI,
+    client: AsyncOpenAI,
     model: str,
     user_prompt_template: str,
     papers: Sequence[PaperInput],
@@ -322,7 +322,7 @@ def classify_contexts(
         output_dir=output_dir,
     )
 
-    client = OpenAI()
+    client = AsyncOpenAI()
 
     data = TypeAdapter(list[PaperInput]).validate_json(data_path.read_bytes())
 
