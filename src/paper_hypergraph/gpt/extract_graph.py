@@ -130,42 +130,45 @@ _PRIMARY_AREAS = "unsupervised, self-supervised, semi-supervised, supervised rep
 _GRAPH_USER_PROMPTS = {
     "simple": f"""\
 The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, the main text from the paper.
+paper's title, abstract, the main text from the paper. The goal is to represent all the \
+relevant information from the paper as a graph.
 
 Your task is to extract entities of these types:
 - title: the title of the paper
-- primary area: what scientific primary area the paper is from. Pick one from \
+- primary_area: what scientific primary area the paper is from. Pick one from \
 {_PRIMARY_AREAS}.
-- TLDR: a sentence that summarises the paper
+- tldr: a sentence that summarises the paper
 - claim: summarise what the paper claims to contribute, especially claims made in the \
 abstract, introduction, discussion and conclusion. Pay attention to the key phrases \
 that highlight new findings or interpretations.
 - method: for each claim, identify the methods used to validate the claims from the \
 method sections. These include the key components: algorithms, theoretical framework \
 or novel techniques introduced.
-- experiment: what models, baselines, datasets, etc. that were used in \
-experiments to validate the methods.
+- experiment: what models, baselines, datasets, etc. that were used in experiments to \
+validate the methods.
 
 Extract these entities and the relationships between them as a graph. The paper title is \
 the main node and represents the paper. There are restrictions for what types of \
 connections can be made between node based on their types. The only allowed edges are:
 
-- There can be no incoming edges to the paper title node
-- Edges between nodes of the same type cannot exist
+- There's only one title node.
+- There can be no incoming edges to the paper title node.
+- Edges between nodes of the same type cannot exist.
 - The graph is hierarchical, and all edges are from a node type above to one below. The \
-hierarchy is Title > Primary area = Keywords = TLDR > Claims > Methods > Experiments. \
-Note that Title, Primary area and Keywords are on the same level.
-- Title -> TLDR (1:1): there is only one TLDR node, and it's connected to the title
-- Title -> primary area (1:1): there is only one primary area node, and it's connected \
+hierarchy is title > primary_area = keyword = tldr > claim > method > experiment. \
+Note that tldr, primary_area and keyword are on the same level.
+- There's only one edge from the title node, and it's to the tldr node.
+- title -> tldr (1:1): there is only one tldr node, and it's connected only to the title.
+- title -> primary_area (1:1): there is only one primary_area node, and it's connected \
+only to the title.
+- title -> keyword (1:N): there can be up to 5 keyword nodes, and they're only connected \
 to the title.
-- Title -> keywords (1:N, N <= 5): there can be up to 5 keyword nodes, and they're \
-connected to the title.
-- TLDR -> claims (N:M): there can be many claim nodes, and they're connected to the TLDR \
-node.
-- Claims -> methods (N:M): there can be many methods nodes, and they're connected to the \
+- tldr -> claim (1:N): there can be many claim nodes, and they're connected only to the \
+tldr node.
+- claim -> method (N:M): there can be many method nodes, and they're only connected to the \
 claim nodes. A claim can connect to multiple methods, and a method can connect to \
 multiple claims.
-- Methods -> experiments (N:M): there can be many experiments, and they're connected to \
+- method -> experiment (N:M): there can be many experiments, and they're connected only to \
 the method nodes. An experiment can connect to multiple methods, and a method can \
 connect to multiple claims.
 
