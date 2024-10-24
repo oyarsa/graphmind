@@ -2,8 +2,10 @@ import asyncio
 import functools
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 from openai import AsyncOpenAI
+from openlimit import ChatRateLimiter  # type: ignore
 from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger("paper_hypergraph.gpt.run_gpt")
@@ -23,6 +25,8 @@ MODEL_COSTS = {
     "gpt-4o-mini-2024-07-18": (0.15, 0.6),
     "gpt-4o-2024-08-06": (2.5, 10),
 }
+
+rate_limiter = ChatRateLimiter(request_limit=5_000, token_limit=4_000_000)  # type: ignore
 
 
 def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
@@ -104,17 +108,20 @@ async def run_gpt_async[T: BaseModel](
             f"Invalid model: {model!r}. Should be one of: {MODELS_ALLOWED}."
         )
 
+    # TODO: type this properly. OpenAI's types are a little convoluted.
+    chat_params: Any = dict(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        response_format=class_,
+        seed=seed,
+        temperature=temperature,
+    )
     try:
-        completion = await client.beta.chat.completions.parse(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format=class_,
-            seed=seed,
-            temperature=temperature,
-        )
+        async with rate_limiter.limit(**chat_params):  # type: ignore
+            completion = await client.beta.chat.completions.parse(**chat_params)
     except Exception:
         logger.exception("Error making API request")
         return GPTResult(result=None, cost=0)
