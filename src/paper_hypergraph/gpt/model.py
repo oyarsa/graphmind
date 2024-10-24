@@ -1,19 +1,21 @@
-from collections import defaultdict
+import itertools
+from collections import Counter, defaultdict
 from collections.abc import Sequence
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
-
-class RelationType(StrEnum):
-    SUPPORT = "support"
-    CONTRAST = "contrast"
+from paper_hypergraph import hierarchical_graph
 
 
 class EntityType(StrEnum):
     TITLE = "title"
-    CONCEPT = "concept"
-    SENTENCE = "sentence"
+    TLDR = "tldr"
+    PRIMARY_AREA = "primary_area"
+    KEYWORD = "keyword"
+    CLAIM = "claim"
+    METHOD = "method"
+    EXPERIMENT = "experiment"
 
 
 class Relationship(BaseModel):
@@ -21,7 +23,6 @@ class Relationship(BaseModel):
 
     source: str
     target: str
-    type: RelationType
 
 
 class Entity(BaseModel):
@@ -46,46 +47,62 @@ class Graph(BaseModel):
         )
 
         relationships = "\n".join(
-            f" {i}. {r.source} - {r.type} - {r.target}"
+            f" {i}. {r.source} - {r.target}"
             for i, r in enumerate(
                 sorted(self.relationships, key=lambda r: (r.source, r.target)),
                 1,
             )
         )
+        node_type_counts = sorted(Counter(e.type for e in self.entities).items())
 
         return "\n".join(
             [
                 f"Nodes: {len(self.entities)}",
                 f"Edges: {len(self.relationships)}",
-                f"Titles: {sum(e.type is EntityType.TITLE for e in self.entities)}",
-                f"Concepts: {sum(e.type is EntityType.CONCEPT for e in self.entities)}",
-                f"Sentences: {sum(e.type is EntityType.SENTENCE for e in self.entities)}",
+                f"Node types: {", ".join(f"{k}: {v}" for k, v in node_type_counts)}",
                 "",
                 "Entities:",
                 entities,
                 "",
                 "Relationships:",
                 relationships,
+                f"Valid: {validate_rules(self)}",
                 "",
             ]
         )
+
+
+def graph_to_digraph(graph: Graph) -> hierarchical_graph.DiGraph:
+    return hierarchical_graph.DiGraph.from_elements(
+        nodes=[hierarchical_graph.Node(e.name, e.type.value) for e in graph.entities],
+        edges=[
+            hierarchical_graph.Edge(r.source, r.target) for r in graph.relationships
+        ],
+    )
 
 
 def validate_rules(graph: Graph) -> str | None:
     """Check if graph rules hold. Returns error message if invalid, or None if valid.
 
     Rules:
-    1. There must be exactly one Title node
-    2. The Title node cannot have incoming edges
-    3. The Title node can only have outgoing edges to Concepts, and these edges must
-       be of type Support
-    4. Concepts must have exactly one incoming edge each, and it must be the Title
-    5. All outgoing edges from Concepts must be Sentences
-    6. Sentences must not have outgoing edges
+    1. There must be exactly one node of types Title, Primary Area and TLDR.
+    2. The Title node cannot have incoming edges.
+    3. In the second level, TLDR, Primary Area and Keyword nodes can only have one
+       incoming each, and it must be from Title.
+    4. Primary Area, Keyword and Experiment nodes don't have outgoing edges.
+    5. At later mid levels, nodes can only have incoming edges from the previous level
+       and outgoing edges to the next level.
+       The sequence in levels is:
+        1. Title
+        2. Title -> Primary Area, Keywords, TLDR
+        3. TLDR -> Claims
+        4. Claims -> Methods
+        5. Methods -> Experiments
+    6. There should be no cycles
 
-    Note: this doesn't throw an exception if the graph is invalid, it just returns
-    the error message. The graph is allowed to be invalid, but it's useful to know
-    why it's invalid.
+    Note: this function doesn't throw an exception if the graph is invalid, it just
+    returns the error message. The graph is allowed to be invalid, but it's useful to
+    know why it's invalid.
 
     Returns:
         Error message describing the rule violated if the graph is invalid.
@@ -99,52 +116,78 @@ def validate_rules(graph: Graph) -> str | None:
         incoming[relation.target].append(relation)
         outgoing[relation.source].append(relation)
 
-    # Rule 1: Exactly one Title node
-    titles = [e for e in graph.entities if e.type is EntityType.TITLE]
-    if len(titles) != 1:
-        return f"Found {len(titles)} title nodes. Should be exactly 1."
-
-    title = titles[0]
+    # Rule 1: Exactly one node from Title, Primary Area and TLDR
+    singletons = [EntityType.TITLE, EntityType.PRIMARY_AREA, EntityType.TLDR]
+    for node_type in singletons:
+        nodes = _get_nodes_of_type(graph, node_type)
+        if len(nodes) != 1:
+            return f"Found {len(nodes)} {node_type} nodes. Should be exactly 1."
 
     # Rule 2: Title node cannot have incoming edges
+    title = _get_nodes_of_type(graph, EntityType.TITLE)[0]
     if incoming[title.name]:
         return "Title node should not have any incoming edges."
 
-    # Rule 3: Title's outgoing edges only to Concepts with Support type
-    if any(
-        entities[r.target].type is not EntityType.CONCEPT
-        or r.type is not RelationType.SUPPORT
-        for r in outgoing[title.name]
-    ):
-        return "Title should only have outgoing Support edges to Concepts."
+    # Rule 3: TLDR, Primary Area and Keyword nodes only have incoming edges from Title
+    level_2 = [EntityType.TLDR, EntityType.PRIMARY_AREA, EntityType.KEYWORD]
+    for node_type in level_2:
+        nodes = _get_nodes_of_type(graph, node_type)
+        for node in nodes:
+            inc_edges = incoming[node.name]
+            if len(inc_edges) != 1:
+                return (
+                    f"Found {len(inc_edges)} incoming edges to node type {node_type}."
+                    " Should be exactly 1."
+                )
 
-    # Rule 4: Concepts must have exactly one incoming edge from Title
-    # Rule 5: Concepts' outgoing edges must only link to Sentences
-    for concept in (e for e in graph.entities if e.type is EntityType.CONCEPT):
-        concept_incoming = incoming[concept.name]
-        if (
-            len(concept_incoming) != 1
-            or entities[concept_incoming[0].source].type is not EntityType.TITLE
-        ):
-            return (
-                f"Concept {concept.name} must have exactly one"
-                " incoming edge from Title."
-            )
+            inc_node = entities[inc_edges[0].source]
+            if inc_node.type is not EntityType.TITLE:
+                return (
+                    f"Incoming edge to {node_type} is not Title, but {inc_node.type}."
+                )
 
-        if any(
-            entities[r.target].type is not EntityType.SENTENCE
-            for r in outgoing[concept.name]
-        ):
-            return (
-                f"Concept {concept.name} must only have outgoing" " edges to Sentences."
-            )
+    # Rule 4: Primary Area, Keyword and Experiment nodes don't have outgoing edges
+    level_leaf = [EntityType.PRIMARY_AREA, EntityType.KEYWORD, EntityType.EXPERIMENT]
+    for node_type in level_leaf:
+        for node in _get_nodes_of_type(graph, node_type):
+            if out := outgoing[node.name]:
+                return (
+                    f"Found {len(out)} outgoing edges from node type {node_type}."
+                    " Should be 0."
+                )
 
-    # Rule 6: Sentences must not have outgoing edges
-    sentences = [e.name for e in graph.entities if e.type is EntityType.SENTENCE]
-    if any(outgoing[s] for s in sentences):
-        return "Sentences must not have outgoing edges."
+    # Rule 5: At mid levels, edges come from the previous level and go to the next
+    level_order = [
+        EntityType.TLDR,
+        EntityType.CLAIM,
+        EntityType.METHOD,
+        EntityType.EXPERIMENT,
+    ]
+    # Outgoing edges
+    for cur_type, next_type in itertools.pairwise(level_order):
+        for node in _get_nodes_of_type(graph, cur_type):
+            for edge in outgoing[node.name]:
+                type_ = entities[edge.target].type
+                if type_ is not next_type:
+                    return f"Found illegal outgoing edge from {cur_type} to {type_}"
+
+    # Incoming edges
+    for cur_type, prev_type in itertools.pairwise(reversed(level_order)):
+        for node in _get_nodes_of_type(graph, cur_type):
+            for edge in incoming[node.name]:
+                type_ = entities[edge.source].type
+                if type_ is not prev_type:
+                    return f"Found illegal incoming edge from {type_} to {cur_type}"
+
+    # Rule 6: No cycles
+    if graph_to_digraph(graph).has_cycle():
+        return "Graph has cycles"
 
     return None
+
+
+def _get_nodes_of_type(graph: Graph, type_: EntityType) -> list[Entity]:
+    return [e for e in graph.entities if e.type is type_]
 
 
 class PaperSection(BaseModel):

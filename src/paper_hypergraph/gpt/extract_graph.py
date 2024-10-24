@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import logging
 import os
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
@@ -29,7 +30,7 @@ from paper_hypergraph.gpt.model import (
     Graph,
     Paper,
     Relationship,
-    RelationType,
+    graph_to_digraph,
 )
 from paper_hypergraph.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -49,7 +50,6 @@ class GPTRelationship(BaseModel):
 
     source_index: int
     target_index: int
-    type: RelationType
 
 
 class GPTEntity(BaseModel):
@@ -81,14 +81,13 @@ class GPTGraph(BaseModel):
                 1,
             )
         )
+        node_type_counts = sorted(Counter(e.type for e in self.entities).items())
 
         return "\n".join(
             [
                 f"Nodes: {len(self.entities)}",
                 f"Edges: {len(self.relationships)}",
-                f"Titles: {sum(e.type is EntityType.TITLE for e in self.entities)}",
-                f"Concepts: {sum(e.type is EntityType.CONCEPT for e in self.entities)}",
-                f"Sentences: {sum(e.type is EntityType.SENTENCE for e in self.entities)}",
+                f"Node types: {", ".join(f"{k}: {v}" for k, v in node_type_counts)}",
                 "",
                 "Entities:",
                 entities,
@@ -126,58 +125,70 @@ def _log_config(
 _GRAPH_SYSTEM_PROMPT = (
     "Extract the entities from the text and the relationships between them."
 )
+_PRIMARY_AREAS = "unsupervised, self-supervised, semi-supervised, supervised representation learning, transfer learning, meta learning, lifelong learning, reinforcement learning, representation learning for computer vision, audio, language, other modalities, metric learning, kernel learning, sparse coding, probabilistic methods, Bayesian methods, variational inference, sampling, UQ, generative models, causal reasoning, optimization, learning theory, learning on graphs, other geometries, topologies, societal considerations, fairness, safety, privacy, visualization, interpretation of learned representations, datasets, benchmarks, infrastructure, software libraries, hardware, neurosymbolic, hybrid AI systems, physics-informed, logic, formal reasoning, applications to robotics, autonomy, planning, applications to neuroscience, cognitive science, applications to physical sciences, physics, chemistry, biology, general machine learning"
 
 _GRAPH_USER_PROMPTS = {
-    # FIX: Update variables to match the actual data
-    "introduction": """\
+    "simple": f"""\
 The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, and introduction.
+paper's title, abstract, the main text from the paper. The goal is to represent all the \
+relevant information from the paper as a graph.
 
-Your task is to extract three types of entities:
+Your task is to extract entities of these types:
 - title: the title of the paper
-- concepts: the top 5 key concepts mentioned in the abstract. If there are fewer than 5, \
-use only those.
-- sentences: sentences from the introduction that mention the key concepts.
+- primary_area: what scientific primary area the paper is from. Pick one from \
+{_PRIMARY_AREAS}.
+- tldr: a sentence that summarises the paper
+- claim: summarise what the paper claims to contribute, especially claims made in the \
+abstract, introduction, discussion and conclusion. Pay attention to the key phrases \
+that highlight new findings or interpretations.
+- method: for each claim, identify the methods used to validate the claims from the \
+method sections. These include the key components: algorithms, theoretical framework \
+or novel techniques introduced.
+- experiment: what models, baselines, datasets, etc. that were used in experiments to \
+validate the methods.
 
 Extract these entities and the relationships between them as a graph. The paper title is \
-the main node, connected to the key concepts. The key concepts are connected to the \
-sentences that mention them.
+the main node and represents the paper. There are restrictions for what types of \
+connections can be made between node based on their types. The only allowed edges are:
+
+- There's only one title node.
+- There can be no incoming edges to the paper title node.
+- Edges between nodes of the same type cannot exist.
+- The graph is hierarchical, and all edges are from a node type above to one below. The \
+hierarchy is title > primary_area = keyword = tldr > claim > method > experiment. \
+Note that tldr, primary_area and keyword are on the same level.
+- There's only one edge from the title node, and it's to the tldr node.
+- title -> tldr (1:1): there is only one tldr node, and it's connected only to the title.
+- title -> primary_area (1:1): there is only one primary_area node, and it's connected \
+only to the title.
+- title -> keyword (1:N): there can be up to 5 keyword nodes, and they're only connected \
+to the title.
+- tldr -> claim (1:N): there can be many claim nodes, and they're connected only to the \
+tldr node.
+- claim -> method (N:M): there can be many method nodes, and they're only connected to the \
+claim nodes. A claim can connect to multiple methods, and a method can connect to \
+multiple claims.
+- method -> experiment (N:M): there can be many experiments, and they're connected only to \
+the method nodes. An experiment can connect to multiple methods, and a method can \
+connect to multiple claims.
 
 Each entity must have a unique index. You must use these indexes to represent the \
 relationships between the entities.
 
-Only provide connections between the entities from each of the three types (title to \
-concepts, concepts to sentences). Do not provide relationships among concepts \
-or sentences.
-
-The sentences count as entities and must be returned along with the title \
-and the concepts. There can be multiple sentences for a single concept, and a single \
-sentence can connect to multiple concepts. There can be up to 10 sentences. \
-Each concept must be connected to at least one sentence, and each sentence must be \
-connected to at least one concept.
-
-Relations can be of two types: supporting or contrasting. Supporting relations \
-support the key concepts, provide evidence of why they might be true, or explain \
-them. For example, they can be supporting sentences from citations, explanations from \
-methodology or discussion sections. Constrasting relations oppose the main \
-concepts. For example, they can be limitations from other works, negative results, or \
-citations to other papers that did something differently.
-
-Note that the relation between title and concepts is always supporting.
-
-All entities (title, concepts and sentences) should be mentioned in the output.
+All entity types should be present in the output.
 
 #####
 -Data-
-Title: {title}
-Abstract: {abstract}
+Title: {{title}}
+Abstract: {{abstract}}
 
-Introduction:
-{introduction}
+Main text:
+{{main_text}}
 
 #####
 Output:
 """,
+    # TODO: Add new node types
     # Unfortunately, the models don't always comply with the rules, especially the
     # rule that each concept must connect to at least one supporting sentence. This
     # version is currently the best at that.
@@ -206,16 +217,7 @@ connect to multiple concepts.
 - Each concept MUST connect to at least one sentence.
 - Each sentence MUST connect to at least one concept.
 - There MUST be twice as many sentences as concepts.
-- Relations can be of two types: supporting or contrasting.
 - There MUST be at least two sentences of each type.
-- Supporting relations support the key concepts, provide evidence of why they might be \
-true or explain them. For example, they can be supporting sentences from citations, \
-explanations from methodology or discussion sections. They are used to convince the \
-reader that the key concepts are valid.
-- Constrasting relations oppose the main concepts. For example, they can be descriptions \
-of limitations from other works, negative results, or citations to other papers that \
-did something differently. They are used to convince the reader that the authors are \
-aware of different perspectives and have considered them.
 
 All entities (title, concepts and sentences) MUST be mentioned in the output.
 
@@ -252,6 +254,7 @@ def _generate_graphs(
             if result.result
             else Graph(entities=[], relationships=[])
         )
+        logger.debug(graph)
         total_cost += result.cost
         graph_results.append(
             PromptResult(
@@ -275,7 +278,6 @@ def _graph_from_gpt_graph(gpt_graph: GPTGraph) -> Graph:
         Relationship(
             source=entity_index[r.source_index].name,
             target=entity_index[r.target_index].name,
-            type=r.type,
         )
         for r in gpt_graph.relationships
     ]
@@ -311,7 +313,7 @@ def _save_graphs(
         output.append(
             Output(
                 paper=paper.title,
-                graph=_graph_to_dag(graph_result.item).graphml(),
+                graph=graph_to_digraph(graph_result.item).graphml(),
                 prompt=graph_result.prompt,
             )
         )
@@ -343,7 +345,7 @@ def _display_graphs(
             the plot is closed.
     """
     for paper, graph_result in zip(papers, graph_results):
-        dag = _graph_to_dag(graph_result.item)
+        dag = graph_to_digraph(graph_result.item)
 
         try:
             dag.visualise_hierarchy(
@@ -444,16 +446,6 @@ def extract_graph(
         )
 
 
-def _graph_to_dag(graph: Graph) -> hierarchical_graph.DiGraph:
-    return hierarchical_graph.DiGraph.from_elements(
-        nodes=[hierarchical_graph.Node(e.name, e.type.value) for e in graph.entities],
-        edges=[
-            hierarchical_graph.Edge(r.source, r.target, r.type.value)
-            for r in graph.relationships
-        ],
-    )
-
-
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     # Create subparsers for 'run' and 'prompts' subcommands
     subparsers = parser.add_subparsers(
@@ -509,7 +501,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         "--graph-user-prompt",
         type=str,
         choices=_GRAPH_USER_PROMPTS.keys(),
-        default="bullets",
+        default="simple",
         help="The user prompt to use for the graph extraction. Defaults to %(default)s.",
     )
     run_parser.add_argument(
