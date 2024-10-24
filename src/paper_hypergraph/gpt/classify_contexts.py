@@ -6,6 +6,7 @@ negative).
 """
 
 import argparse
+import contextlib
 import hashlib
 import logging
 import os
@@ -158,6 +159,7 @@ def _classify_contexts(
     papers: Sequence[PaperInput],
     limit_references: int | None,
     completion_cb: Callable[[PromptResult[PaperOutput]], None] | None = None,
+    continue_papers: Sequence[PromptResult[PaperOutput]] = (),
 ) -> GPTResult[list[PromptResult[PaperOutput]]]:
     """Classify the contexts for each papers' references by polarity.
 
@@ -167,10 +169,20 @@ def _classify_contexts(
     the references are different. Instead of the contexts being only strings, they
     are now `ContextClassified`, containing the original text plus the predicted
     polarity.
+
+    Important args:
+        completion_cb: Called after a paper classification is completed. Mainly used
+            to save results as they're completed without having to pass the whole
+            file machinery to this function.
+        continue_papers: Papers that were completed in a previous iteration so we don't
+            query them again.
     """
     paper_outputs: list[PromptResult[PaperOutput]] = []
     user_prompts: list[str] = []
     total_cost = 0
+
+    continue_papers_titles = {paper.item.title for paper in continue_papers}
+    papers = [paper for paper in papers if paper.title not in continue_papers_titles]
 
     for paper in tqdm(papers, desc="Classifying contexts"):
         classified_references: list[Reference] = []
@@ -275,6 +287,7 @@ def classify_contexts(
     user_prompt_key: str,
     output_dir: Path,
     limit_references: int | None,
+    continue_papers_file: Path | None,
 ) -> None:
     """Classify reference citation contexts by polarity."""
 
@@ -316,14 +329,27 @@ def classify_contexts(
     def completion_cb(result: PromptResult[PaperOutput]) -> None:
         try:
             previous = result_adapter.validate_json(output_interim_path.read_bytes())
-        except FileNotFoundError:
+        except Exception:
             previous = []
         previous.append(result)
         output_interim_path.write_bytes(result_adapter.dump_json(previous, indent=2))
 
+    continue_papers = []
+    if continue_papers_file:
+        with contextlib.suppress(Exception):
+            continue_papers = result_adapter.validate_json(
+                continue_papers_file.read_bytes()
+            )
+
     with Timer() as timer:
         results = _classify_contexts(
-            client, model, user_prompt, papers, limit_references, completion_cb
+            client,
+            model,
+            user_prompt,
+            papers,
+            limit_references,
+            completion_cb,
+            continue_papers,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -460,6 +486,12 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="The number of references per paper to process. Defaults to all.",
     )
+    run_parser.add_argument(
+        "--continue-papers",
+        type=Path,
+        default=None,
+        help="Path to file with data from a previous run",
+    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -494,6 +526,7 @@ def main() -> None:
             args.user_prompt,
             args.output_dir,
             args.ref_limit,
+            args.continue_papers,
         )
 
 
