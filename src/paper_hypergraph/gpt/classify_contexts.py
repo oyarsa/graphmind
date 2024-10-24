@@ -183,7 +183,6 @@ async def _classify_contexts(
             query them again.
     """
     paper_outputs: list[PromptResult[PaperOutput]] = []
-    user_prompts: list[str] = []
     total_cost = 0
 
     continue_paper_ids = {_paper_id(paper.item) for paper in continue_papers}
@@ -191,6 +190,7 @@ async def _classify_contexts(
 
     for paper in tqdm(papers, desc="Classifying contexts"):
         classified_references: list[Reference] = []
+        user_prompt_save = None
 
         references = paper.references[:limit_references]
         for reference in references:
@@ -204,7 +204,9 @@ async def _classify_contexts(
                     reference_abstract=reference.abstract,
                     context=context.sentence,
                 )
-                user_prompts.append(user_prompt)
+                if not user_prompt_save:
+                    user_prompt_save = user_prompt
+
                 result = await run_gpt(
                     GPTContext, client, _CONTEXT_SYSTEM_PROMPT, user_prompt, model
                 )
@@ -237,10 +239,7 @@ async def _classify_contexts(
         assert len(classified_references) == len(references)
 
         result = PromptResult(
-            prompt=Prompt(
-                system=_CONTEXT_SYSTEM_PROMPT,
-                user=f"\n{"-"*80}\n\n".join(user_prompts),
-            ),
+            prompt=Prompt(system=_CONTEXT_SYSTEM_PROMPT, user=user_prompt_save or ""),
             item=PaperOutput(
                 title=paper.title,
                 abstract=paper.abstract,
