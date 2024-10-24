@@ -219,6 +219,9 @@ class DiGraph:
         if display_gui:
             plt.show()
 
+    def has_cycle(self) -> bool:
+        return not nx.is_directed_acyclic_graph(self._nxgraph)
+
     def validate_hierarchy(self) -> str | None:
         """Validate that the graph follows the hirarchical rules.
 
