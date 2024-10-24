@@ -34,10 +34,10 @@ def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
         completion_tokens: the output tokens from the API
 
     Returns:
-        The total cost of the request. If the model is invalid, returns NaN.
+        The total cost of the request. If the model is invalid, returns 0.
     """
     if model not in MODEL_COSTS:
-        return float("nan")
+        return 0
 
     input_cost, output_cost = MODEL_COSTS[model]
     return prompt_tokens / 1e6 * input_cost + completion_tokens / 1e6 * output_cost
@@ -115,7 +115,7 @@ def run_gpt[T: BaseModel](
         )
     except Exception:
         logger.exception("Error making API request")
-        return GPTResult(result=None, cost=float("nan"))
+        return GPTResult(result=None, cost=0)
 
     usage = completion.usage
     if usage is not None:
