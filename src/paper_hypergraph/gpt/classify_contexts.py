@@ -19,7 +19,11 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from tqdm import tqdm
 
 from paper_hypergraph import evaluation_metrics
-from paper_hypergraph.asap.model import ContextPolarityBinary, PaperSection
+from paper_hypergraph.asap.model import (
+    ContextPolarityBinary,
+    PaperSection,
+    PaperWithFullReference,
+)
 from paper_hypergraph.asap.model import PaperWithFullReference as PaperInput
 from paper_hypergraph.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -181,8 +185,8 @@ def _classify_contexts(
     user_prompts: list[str] = []
     total_cost = 0
 
-    continue_papers_titles = {paper.item.title for paper in continue_papers}
-    papers = [paper for paper in papers if paper.title not in continue_papers_titles]
+    continue_paper_ids = {_paper_id(paper.item) for paper in continue_papers}
+    papers = [paper for paper in papers if _paper_id(paper) not in continue_paper_ids]
 
     for paper in tqdm(papers, desc="Classifying contexts"):
         classified_references: list[Reference] = []
@@ -252,6 +256,10 @@ def _classify_contexts(
 
     assert len(paper_outputs) == len(papers)
     return GPTResult(paper_outputs, total_cost)
+
+
+def _paper_id(paper: PaperOutput | PaperWithFullReference) -> int:
+    return hash(paper.title + paper.abstract)
 
 
 def _log_config(
