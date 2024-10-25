@@ -8,6 +8,7 @@ or in the GUI.
 from __future__ import annotations
 
 import argparse
+import logging
 import textwrap
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -17,6 +18,8 @@ from typing import Self
 import matplotlib.pyplot as plt
 import networkx as nx
 from matplotlib.patches import Rectangle
+
+logger = logging.getLogger("paper_hypergraph.hierarchical_graph")
 
 
 class GraphError(Exception):
@@ -79,11 +82,13 @@ class DiGraph:
         node_types = nx.get_node_attributes(nxgraph, "type")
         node_details = nx.get_node_attributes(nxgraph, "detail")
 
-        # Level 1: Validate and find Title node
+        # Level 1: Find Title node
         title_nodes = [node for node, type_ in node_types.items() if type_ == "title"]
-        if len(title_nodes) != 1:
-            raise GraphError(
-                f"Graph must have exactly one title node. Found {len(title_nodes)}"
+        if not title_nodes:
+            raise GraphError("No Title node found")
+        if len(title_nodes) > 1:
+            logger.warning(
+                f"Warning: Graph has more than 1 title node. Found {len(title_nodes)}."
             )
         title_node = title_nodes[0]
 
@@ -101,10 +106,15 @@ class DiGraph:
         for node, type_ in node_types.items():
             if type_ in level2_types:
                 predecessors = list(nxgraph.predecessors(node))
-                if len(predecessors) != 1 or predecessors[0] != title_node:
+                valid_edges = [p for p in predecessors if p == title_node]
+                if not valid_edges:
                     raise GraphError(
-                        f"Level 2 node {node!r} must have exactly one incoming edge"
-                        " from title"
+                        f"Level 2 node {node!r} must have at least one edge from title"
+                    )
+                if len(predecessors) != 1:
+                    logger.warning(
+                        f"Warning: Level 2 node {node!r} has invalid edges from non-title nodes: "
+                        f"{[p for p in predecessors if p != title_node]}"
                     )
                 levels[2].append((node, type_))
 
@@ -112,9 +122,11 @@ class DiGraph:
         tldr_nodes = [
             (node, type_) for node, type_ in node_types.items() if type_ == "tldr"
         ]
-        if len(tldr_nodes) != 1:
-            raise GraphError(
-                f"Graph must have exactly one tldr node. Found {len(tldr_nodes)}"
+        if not tldr_nodes:
+            raise GraphError("No TLDR node found")
+        if len(tldr_nodes) > 1:
+            logger.warning(
+                f"Warning: Graph has more than 1 TLDR node. Found {len(tldr_nodes)}"
             )
         tldr_node = tldr_nodes[0][0]
 
@@ -124,10 +136,15 @@ class DiGraph:
         ]
         for node, type_ in claim_nodes:
             predecessors = list(nxgraph.predecessors(node))
-            if len(predecessors) != 1 or predecessors[0] != tldr_node:
+            valid_edges = [p for p in predecessors if p == tldr_node]
+            if not valid_edges:
                 raise GraphError(
-                    f"Claim node {node!r} must have exactly one incoming edge from tldr. "
-                    f"Found predecessors: {predecessors}"
+                    f"Claim node {node!r} must have at least one edge from tldr"
+                )
+            if len(predecessors) > 1:
+                logger.warning(
+                    f"Warning: Claim node {node!r} has invalid edges from non-tldr nodes: "
+                    f"{[p for p in predecessors if p != tldr_node]}"
                 )
             levels[3].append((node, type_))
 
@@ -137,9 +154,15 @@ class DiGraph:
         ]
         for node, type_ in method_nodes:
             predecessors = list(nxgraph.predecessors(node))
-            if not all(node_types[pred] == "claim" for pred in predecessors):
+            valid_edges = [p for p in predecessors if node_types[p] == "claim"]
+            if not valid_edges:
                 raise GraphError(
-                    f"Method node {node!r} must only have incoming edges from claims"
+                    f"Method node {node!r} must have at least one edge from claims"
+                )
+            if len(valid_edges) != len(predecessors):
+                logger.warning(
+                    f"Warning: Method node {node!r} has invalid edges from non-claim nodes: "
+                    f"{[p for p in predecessors if node_types[p] != 'claim']}"
                 )
             levels[4].append((node, type_))
 
@@ -149,9 +172,15 @@ class DiGraph:
         ]
         for node, type_ in experiment_nodes:
             predecessors = list(nxgraph.predecessors(node))
-            if not all(node_types[pred] == "method" for pred in predecessors):
+            valid_edges = [p for p in predecessors if node_types[p] == "method"]
+            if not valid_edges:
                 raise GraphError(
-                    f"Experiment node {node!r} must only have incoming edges from methods"
+                    f"Experiment node {node!r} must have at least one edge from methods"
+                )
+            if len(valid_edges) != len(predecessors):
+                logger.warning(
+                    f"Warning: Experiment node {node!r} has invalid edges from non-method nodes: "
+                    f"{[p for p in predecessors if node_types[p] != 'method']}"
                 )
             levels[5].append((node, type_))
 
@@ -178,7 +207,7 @@ class DiGraph:
 
             if level == 2:
                 # Special handling for level 2 to center the TLDR node
-                tldr_idx = next(i for i, (n, t) in enumerate(nodes) if t == "tldr")
+                tldr_idx = next(i for i, (_, t) in enumerate(nodes) if t == "tldr")
                 # Move TLDR to center by swapping with middle position
                 mid_idx = width // 2
                 nodes[tldr_idx], nodes[mid_idx] = nodes[mid_idx], nodes[tldr_idx]
