@@ -1279,15 +1279,6 @@ wheels = [
 ]
 
 [[package]]
-name = "openlimit"
-version = "0.3.0"
-source = { git = "https://github.com/shobrook/openlimit.git?rev=ae77eb7d41f537ce1e68f78031f4b7197ddf29f4#ae77eb7d41f537ce1e68f78031f4b7197ddf29f4" }
-dependencies = [
-    { name = "redis" },
-    { name = "tiktoken" },
-]
-
-[[package]]
 name = "overrides"
 version = "7.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1361,13 +1352,13 @@ dependencies = [
     { name = "matplotlib" },
     { name = "networkx" },
     { name = "openai" },
-    { name = "openlimit" },
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "rich" },
     { name = "scikit-learn" },
     { name = "semanticscholar" },
     { name = "thefuzz" },
+    { name = "tiktoken" },
     { name = "tqdm" },
     { name = "typer" },
 ]
@@ -1394,13 +1385,13 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.9.2" },
     { name = "networkx", specifier = ">=3.3" },
     { name = "openai", specifier = ">=1.45.0" },
-    { name = "openlimit", git = "https://github.com/shobrook/openlimit.git?rev=ae77eb7d41f537ce1e68f78031f4b7197ddf29f4" },
     { name = "pydantic", specifier = ">=2.9.2" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "rich", specifier = ">=13.9.2" },
     { name = "scikit-learn", specifier = ">=1.5.2" },
     { name = "semanticscholar", specifier = ">=0.8.4" },
     { name = "thefuzz", specifier = ">=0.22.1" },
+    { name = "tiktoken", specifier = ">=0.8.0" },
     { name = "tqdm", specifier = ">=4.66.5" },
     { name = "typer", specifier = ">=0.12.5" },
 ]
@@ -1891,15 +1882,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/1f/b1/ab98a0a1511ab6695118d083bbf49afa6246fd445034be2aa13faa4914b4/rapidfuzz-3.10.0-cp313-cp313-win32.whl", hash = "sha256:d29d1b9857c65f8cb3a29270732e1591b9bacf89de9d13fa764f79f07d8f1fd2", size = 1810829 },
     { url = "https://files.pythonhosted.org/packages/59/0e/939808bf07fd1e3d809c54c03bbd4266ae197f5aca6eb1edf2c592cc57eb/rapidfuzz-3.10.0-cp313-cp313-win_amd64.whl", hash = "sha256:fa9720e56663cc3649d62b4b5f3145e94b8f5611e8a8e1b46507777249d46aad", size = 1604489 },
     { url = "https://files.pythonhosted.org/packages/fa/51/15e04a4cccf3b4b2a93fdbe413157e0568538fd61a0fef9bd4d8accd326c/rapidfuzz-3.10.0-cp313-cp313-win_arm64.whl", hash = "sha256:eda4c661e68dddd56c8fbfe1ca35e40dd2afd973f7ebb1605f4d151edc63dff8", size = 847299 },
-]
-
-[[package]]
-name = "redis"
-version = "5.2.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/53/17/2f4a87ffa4cd93714cf52edfa3ea94589e9de65f71e9f99cbcfa84347a53/redis-5.2.0.tar.gz", hash = "sha256:0b1087665a771b1ff2e003aa5bdd354f15a70c9e25d5a7dbf9c722c16528a7b0", size = 4607878 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/12/f5/ffa560ecc4bafbf25f7961c3d6f50d627a90186352e27e7d0ba5b1f6d87d/redis-5.2.0-py3-none-any.whl", hash = "sha256:ae174f2bb3b1bf2b09d54bf3e51fbc1469cf6c10aa03e21141f51969801a7897", size = 261428 },
 ]
 
 [[package]]

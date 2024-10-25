@@ -5,8 +5,9 @@ from typing import Any
 import backoff
 import openai
 from openai import AsyncOpenAI
-from openlimit import ChatRateLimiter
 from pydantic import BaseModel, ConfigDict
+
+from paper_hypergraph.rate_limiter import ChatRateLimiter
 
 logger = logging.getLogger("paper_hypergraph.gpt.run_gpt")
 
