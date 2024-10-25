@@ -483,7 +483,7 @@ def show_classified_stats(
         return "\n".join(output), metrics
 
     # No entries with gold annotation
-    positive = sum(bool(context.prediction) for context in all_contexts)
+    positive = sum(context.prediction == "positive" for context in all_contexts)
     negative = len(all_contexts) - positive
     output += [
         "No gold values to calculate metrics.",
