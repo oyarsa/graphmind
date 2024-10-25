@@ -112,10 +112,13 @@ class DiGraph:
                         f"Level 2 node {node!r} must have at least one edge from title"
                     )
                 if len(predecessors) != 1:
+                    invalid_edges = [p for p in predecessors if p != title_node]
                     logger.warning(
-                        f"Warning: Level 2 node {node!r} has invalid edges from non-title nodes: "
-                        f"{[p for p in predecessors if p != title_node]}"
+                        f"Warning: Level 2 node {node!r} has invalid edges from non-title nodes: {invalid_edges}"
                     )
+                    # Remove invalid edges
+                    for invalid_source in invalid_edges:
+                        nxgraph.remove_edge(invalid_source, node)
                 levels[2].append((node, type_))
 
         # Find TLDR node for next level
@@ -142,10 +145,13 @@ class DiGraph:
                     f"Claim node {node!r} must have at least one edge from tldr"
                 )
             if len(predecessors) > 1:
+                invalid_edges = [p for p in predecessors if p != tldr_node]
                 logger.warning(
-                    f"Warning: Claim node {node!r} has invalid edges from non-tldr nodes: "
-                    f"{[p for p in predecessors if p != tldr_node]}"
+                    f"Warning: Claim node {node!r} has invalid edges from non-tldr nodes: {invalid_edges}"
                 )
+                # Remove invalid edges
+                for invalid_source in invalid_edges:
+                    nxgraph.remove_edge(invalid_source, node)
             levels[3].append((node, type_))
 
         # Level 4: Methods
@@ -160,10 +166,13 @@ class DiGraph:
                     f"Method node {node!r} must have at least one edge from claims"
                 )
             if len(valid_edges) != len(predecessors):
+                invalid_edges = [p for p in predecessors if node_types[p] != "claim"]
                 logger.warning(
-                    f"Warning: Method node {node!r} has invalid edges from non-claim nodes: "
-                    f"{[p for p in predecessors if node_types[p] != 'claim']}"
+                    f"Warning: Method node {node!r} has invalid edges from non-claim nodes: {invalid_edges}"
                 )
+                # Remove invalid edges
+                for invalid_source in invalid_edges:
+                    nxgraph.remove_edge(invalid_source, node)
             levels[4].append((node, type_))
 
         # Level 5: Experiments
@@ -178,10 +187,13 @@ class DiGraph:
                     f"Experiment node {node!r} must have at least one edge from methods"
                 )
             if len(valid_edges) != len(predecessors):
+                invalid_edges = [p for p in predecessors if node_types[p] != "method"]
                 logger.warning(
-                    f"Warning: Experiment node {node!r} has invalid edges from non-method nodes: "
-                    f"{[p for p in predecessors if node_types[p] != 'method']}"
+                    f"Warning: Experiment node {node!r} has invalid edges from non-method nodes: {invalid_edges}"
                 )
+                # Remove invalid edges
+                for invalid_source in invalid_edges:
+                    nxgraph.remove_edge(invalid_source, node)
             levels[5].append((node, type_))
 
         # Calculate positions
