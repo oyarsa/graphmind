@@ -1,7 +1,11 @@
 import logging
 from dataclasses import dataclass
+from typing import Any
 
-from openai import OpenAI
+import backoff
+import openai
+from openai import AsyncOpenAI
+from openlimit import ChatRateLimiter
 from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger("paper_hypergraph.gpt.run_gpt")
@@ -20,6 +24,11 @@ MODELS_ALLOWED = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.values())
 MODEL_COSTS = {
     "gpt-4o-mini-2024-07-18": (0.15, 0.6),
     "gpt-4o-2024-08-06": (2.5, 10),
+}
+
+rate_limiters: dict[str, Any] = {
+    "gpt-4o-mini": ChatRateLimiter(request_limit=5_000, token_limit=4_000_000),
+    "gpt-4o": ChatRateLimiter(request_limit=5_000, token_limit=800_000),
 }
 
 
@@ -65,9 +74,24 @@ class PromptResult[T](BaseModel):
     prompt: Prompt
 
 
-def run_gpt[T: BaseModel](
+@backoff.on_exception(backoff.expo, openai.APIError, max_tries=5, logger=logger)
+async def _call_gpt(
+    rate_limiter: Any, client: AsyncOpenAI, chat_params: dict[str, Any]
+):
+    try:
+        async with rate_limiter.limit(**chat_params):
+            return await client.beta.chat.completions.parse(**chat_params)
+    except openai.APIError as e:
+        logger.warning("\nCaught an API error: %s", e)
+        raise
+    except Exception as e:
+        logger.warning("\nCaught non-API error. Returning None: %s", e)
+        return None
+
+
+async def run_gpt[T: BaseModel](
     class_: type[T],
-    client: OpenAI,
+    client: AsyncOpenAI,
     system_prompt: str,
     user_prompt: str,
     model: str,
@@ -96,25 +120,36 @@ def run_gpt[T: BaseModel](
 
     Raises:
         ValueError: if the `model` is invalid (see `MODELS_ALLOWED`).
+        RetryError: if the the client should retry the request
     """
     if model not in MODELS_ALLOWED:
         raise ValueError(
             f"Invalid model: {model!r}. Should be one of: {MODELS_ALLOWED}."
         )
 
+    chat_params = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "response_format": class_,
+        "seed": seed,
+        "temperature": temperature,
+    }
+    rate_limiter = None
+    for limit_model, limiter in rate_limiters.items():
+        if model.startswith(limit_model):
+            rate_limiter = limiter
+    assert rate_limiter is not None
+
     try:
-        completion = client.beta.chat.completions.parse(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format=class_,
-            seed=seed,
-            temperature=temperature,
-        )
+        completion = await _call_gpt(rate_limiter, client, chat_params)
     except Exception:
-        logger.exception("Error making API request")
+        logger.exception("Error when calling OpenAI. Gave up on retrying")
+        completion = None
+
+    if completion is None:
         return GPTResult(result=None, cost=0)
 
     usage = completion.usage

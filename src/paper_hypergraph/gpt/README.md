@@ -2,16 +2,31 @@
 
 ## Graph extraction
 
-The goal is to give the LLM a paper's title, abstract and introduction, and extract the
-following hierarchy:
-- Root node: the title of the paper
-- Intermediate nodes: the main concepts covered in the paper, from the abstract
-- Leaves: sentences from the introduction mentioning the main concepts
+Given the title, abstract and main text of a paper, we want to extract information to
+represent the important aspects of the paper as a graph.
 
-This forms a hierarchical DAG, as nodes only have edges to their children: the title node
-to the concepts, and the concepts to their sentences.
+Connections:
+- Paper title —> TLDR (1:1)
+- Paper title —> Primary area (1:1)
+- Paper title —> Keywords (1:N, N <= 5)
+- TLDR —> Claims (1:N)
+- Claims —> Methods (N:M)
+- Methods —> Experiments (N:M)
 
-*NOTE*: This is a proof of concept. The prompt and pipeline need to be refined.
+Definitions:
+- Primary area: pick from a [list of options from
+  ICLR](https://iclr.cc/Conferences/2025/CallForPapers).
+- Keywords: no more than five.
+- TLDR: a sentence that summarises the paper.
+- Claims: summarise what the paper claims to contribute, especially claims made in the
+  abstract, introduction, discussion and conclusion. Pay attention to key phrases that
+  highlight new findings or interpretations.
+- Methods: for each claim, you identify the methods used to validate it from the method
+  sections (pay attention to the difference between methods and experiments). These
+  include the key components: algorithms, theoretical framework, modification or novel
+  techniques introduced.
+- Experiments: models, baselines, datasets, etc., used in experiments to validate the
+  methods. We don’t need experiment results, just configuration/test environment.
 
 ### Usage
 
@@ -30,6 +45,8 @@ Change the level using the `LOG_LEVEL` environment variable.
 $ LOG_LEVEL=DEBUG uv run gpt graph run output/asap_filtered.json output/graph
 ```
 
+Run `uv run gpt graph --help` to see more information about the commands.
+
 ## Context classification
 
 One of the key elements of the graph is classifying the relation between the main paper
@@ -42,7 +59,6 @@ For now, we explore this as a separate script, `classify_contexts.py`. Eventuall
 would be added to the main `extract_graph.py` script to be performed along the other
 parts of the pipeline.
 
-
 ### Usage
 
 This script also requires an OpenAI key. See above.
@@ -50,6 +66,18 @@ This script also requires an OpenAI key. See above.
 ```console
 $ uv run gpt context run output/asap_filtered.json output/context
 ```
+
+This will save the following files in `output/context`:
+- `output.txt`: text report on metrics, like the one printed at the end of the execution
+- `result.json`: after exeuction completes, this is the full result saved
+- `result.tmp.json`: results saved during execution in case something happens to
+  interrupt it
+
+If something happens, it's possible to continue the execution from where it last stopped
+using the flag `--continue-papers path/to/result.tmp.json`. This will avoid re-processing
+data.
+
+Run `uv run gpt context --help` to see more information about the commands.
 
 ## More information
 

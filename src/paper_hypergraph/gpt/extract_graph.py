@@ -7,6 +7,7 @@ Can also classify a paper into approved/not-approved using the generated graph.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import hashlib
 import logging
 import os
@@ -15,7 +16,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import dotenv
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
@@ -236,8 +237,8 @@ Output:
 }
 
 
-def _generate_graphs(
-    client: OpenAI, data: list[Paper], model: str, user_prompt: str
+async def _generate_graphs(
+    client: AsyncOpenAI, data: list[Paper], model: str, user_prompt: str
 ) -> GPTResult[list[PromptResult[Graph]]]:
     total_cost = 0
     graph_results: list[PromptResult[Graph]] = []
@@ -248,7 +249,7 @@ def _generate_graphs(
             abstract=example.abstract,
             main_text=example.main_text(),
         )
-        result = run_gpt(GPTGraph, client, _GRAPH_SYSTEM_PROMPT, prompt, model)
+        result = await run_gpt(GPTGraph, client, _GRAPH_SYSTEM_PROMPT, prompt, model)
         graph = (
             _graph_from_gpt_graph(result.result)
             if result.result
@@ -357,7 +358,7 @@ def _display_graphs(
             logger.exception("Error visualising graph")
 
 
-def extract_graph(
+async def extract_graph(
     model: str,
     api_key: str | None,
     data_path: Path,
@@ -415,7 +416,7 @@ def extract_graph(
         output_dir=output_dir,
     )
 
-    client = OpenAI()
+    client = AsyncOpenAI()
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
 
@@ -423,7 +424,7 @@ def extract_graph(
     graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]
 
     with Timer() as timer_gen:
-        graph_results = _generate_graphs(client, papers, model, graph_user_prompt)
+        graph_results = await _generate_graphs(client, papers, model, graph_user_prompt)
 
     logger.info(f"Graph generation time elapsed: {timer_gen.human}")
     logger.info(f"Total graph generation cost: ${graph_results.cost:.10f}")
@@ -441,7 +442,7 @@ def extract_graph(
 
     if classify:
         graphs = [result.item for result in graph_results.result]
-        evaluate_graphs(
+        await evaluate_graphs(
             client, model, papers, graphs, classify_user_prompt_key, output_dir
         )
 
@@ -550,16 +551,18 @@ def main() -> None:
     if args.subcommand == "prompts":
         list_prompts(detail=args.detail)
     elif args.subcommand == "run":
-        extract_graph(
-            args.model,
-            args.api_key,
-            args.data_path,
-            args.limit,
-            args.graph_user_prompt,
-            args.classify_user_prompt,
-            args.visualise,
-            args.output_dir,
-            args.classify,
+        asyncio.run(
+            extract_graph(
+                args.model,
+                args.api_key,
+                args.data_path,
+                args.limit,
+                args.graph_user_prompt,
+                args.classify_user_prompt,
+                args.visualise,
+                args.output_dir,
+                args.classify,
+            )
         )
 
 

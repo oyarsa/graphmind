@@ -2,7 +2,7 @@ import logging
 from collections.abc import Sequence
 from pathlib import Path
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
@@ -28,8 +28,8 @@ rationale for your decision, then give the final decision.
 }
 
 
-def evaluate_graphs(
-    client: OpenAI,
+async def evaluate_graphs(
+    client: AsyncOpenAI,
     model: str,
     papers: Sequence[Paper],
     graphs: Sequence[Graph],
@@ -45,7 +45,9 @@ def evaluate_graphs(
     classify_user_prompt = CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     with Timer() as timer_class:
-        results = _classify_papers(client, model, classify_user_prompt, papers, graphs)
+        results = await _classify_papers(
+            client, model, classify_user_prompt, papers, graphs
+        )
 
     metrics = _calculate_metrics(results.result)
     logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
@@ -82,8 +84,8 @@ class GPTClassify(BaseModel):
     approved: bool
 
 
-def _classify_papers(
-    client: OpenAI,
+async def _classify_papers(
+    client: AsyncOpenAI,
     model: str,
     user_prompt_template: str,
     papers: Sequence[Paper],
@@ -113,7 +115,7 @@ def _classify_papers(
             abstract=paper.abstract,
             graph=graph.model_dump_json(),
         )
-        result = run_gpt(
+        result = await run_gpt(
             GPTClassify, client, CLASSIFY_SYSTEM_PROMPT, user_prompt, model
         )
         total_cost += result.cost

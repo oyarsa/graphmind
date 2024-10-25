@@ -3,20 +3,29 @@
 Each paper contains many references. These can appear in one or more citation contexts
 inside the text. Each citation context can be classified by polarity (positive vs
 negative).
+
+NB: We do concurrent requests (mediated by a rate limiter). Unfortunately, that doesn't
+work very well with OpenAI's client. This means you'll likely see a lot of
+openai.APIConnectionError thrown around. Most requests will go through, so you'll just
+have to run the script again until you get everything. See also the `--continue-papers`
+option.
 """
 
 import argparse
+import asyncio
 import contextlib
+import functools
 import hashlib
 import logging
 import os
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Sequence
 from pathlib import Path
+from typing import cast
 
 import dotenv
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 
 from paper_hypergraph import evaluation_metrics
 from paper_hypergraph.asap.model import (
@@ -156,14 +165,101 @@ class GPTContext(BaseModel):
     )
 
 
-def _classify_contexts(
-    client: OpenAI,
+async def _classify_paper(
+    client: AsyncOpenAI,
+    limit_references: int | None,
+    model: str,
+    paper: PaperWithFullReference,
+    user_prompt_template: str,
+) -> GPTResult[PromptResult[PaperOutput]]:
+    """Classify the contexts for the paper's references by polarity.
+
+    Polarity (ContextPolarity): positive (supports argument) or negative (counterpoint).
+
+    The returned object `PaperOutput` is very similar to the input `PaperInput`, but
+    the references are different. Instead of the contexts being only strings, they
+    are now `ContextClassified`, containing the original text plus the predicted
+    polarity.
+    """
+
+    classified_references: list[Reference] = []
+    user_prompt_save = None
+    total_cost = 0
+
+    references = paper.references[:limit_references]
+    for reference in references:
+        classified_contexts: list[ContextClassified] = []
+
+        for context in reference.contexts:
+            user_prompt = user_prompt_template.format(
+                main_title=paper.title,
+                main_abstract=paper.abstract,
+                reference_title=reference.s2title,
+                reference_abstract=reference.abstract,
+                context=context.sentence,
+            )
+            if not user_prompt_save:
+                user_prompt_save = user_prompt
+
+            result = await run_gpt(
+                GPTContext, client, _CONTEXT_SYSTEM_PROMPT, user_prompt, model
+            )
+            total_cost += result.cost
+
+            if gpt_context := result.result:
+                classified_contexts.append(
+                    ContextClassified(
+                        text=context.sentence,
+                        gold=ContextPolarityBinary.from_trinary(context.polarity)
+                        if context.polarity is not None
+                        else None,
+                        prediction=gpt_context.polarity,
+                    )
+                )
+
+        classified_references.append(
+            Reference(
+                title=reference.title,
+                year=reference.year,
+                authors=reference.authors,
+                abstract=reference.abstract,
+                s2title=reference.s2title,
+                contexts=classified_contexts,
+            )
+        )
+
+    # Some references might have fewer contexts after classification, but all
+    # references should be in the output.
+    if len(classified_references) != len(references):
+        logger.warning(
+            "Paper %r has %d references but only %d were classified.",
+            paper.title,
+            len(references),
+            len(classified_references),
+        )
+
+    result = PromptResult(
+        prompt=Prompt(system=_CONTEXT_SYSTEM_PROMPT, user=user_prompt_save or ""),
+        item=PaperOutput(
+            title=paper.title,
+            abstract=paper.abstract,
+            ratings=paper.ratings,
+            sections=paper.sections,
+            approval=paper.approval,
+            references=classified_references,
+        ),
+    )
+    return GPTResult(result, total_cost)
+
+
+async def _classify_contexts(
+    client: AsyncOpenAI,
     model: str,
     user_prompt_template: str,
     papers: Sequence[PaperInput],
     limit_references: int | None,
-    completion_cb: Callable[[PromptResult[PaperOutput]], None] | None = None,
-    continue_papers: Sequence[PromptResult[PaperOutput]] = (),
+    async_completion_cb: Callable[[PromptResult[PaperOutput]], Awaitable[None]]
+    | None = None,
 ) -> GPTResult[list[PromptResult[PaperOutput]]]:
     """Classify the contexts for each papers' references by polarity.
 
@@ -182,79 +278,22 @@ def _classify_contexts(
             query them again.
     """
     paper_outputs: list[PromptResult[PaperOutput]] = []
-    user_prompts: list[str] = []
     total_cost = 0
 
-    continue_paper_ids = {_paper_id(paper.item) for paper in continue_papers}
-    papers = [paper for paper in papers if _paper_id(paper) not in continue_paper_ids]
+    tasks = [
+        _classify_paper(client, limit_references, model, paper, user_prompt_template)
+        for paper in papers
+    ]
+    for task in tqdm.as_completed(  # type: ignore
+        tasks, desc="Classifying paper reference contexts"
+    ):
+        result = cast(GPTResult[PromptResult[PaperOutput]], await task)
+        total_cost += result.cost
 
-    for paper in tqdm(papers, desc="Classifying contexts"):
-        classified_references: list[Reference] = []
+        paper_outputs.append(result.result)
+        if async_completion_cb:
+            await async_completion_cb(result.result)
 
-        references = paper.references[:limit_references]
-        for reference in references:
-            classified_contexts: list[ContextClassified] = []
-
-            for context in reference.contexts:
-                user_prompt = user_prompt_template.format(
-                    main_title=paper.title,
-                    main_abstract=paper.abstract,
-                    reference_title=reference.s2title,
-                    reference_abstract=reference.abstract,
-                    context=context.sentence,
-                )
-                user_prompts.append(user_prompt)
-                result = run_gpt(
-                    GPTContext, client, _CONTEXT_SYSTEM_PROMPT, user_prompt, model
-                )
-                total_cost += result.cost
-
-                if gpt_context := result.result:
-                    classified_contexts.append(
-                        ContextClassified(
-                            text=context.sentence,
-                            gold=ContextPolarityBinary.from_trinary(context.polarity)
-                            if context.polarity is not None
-                            else None,
-                            prediction=gpt_context.polarity,
-                        )
-                    )
-
-            classified_references.append(
-                Reference(
-                    title=reference.title,
-                    year=reference.year,
-                    authors=reference.authors,
-                    abstract=reference.abstract,
-                    s2title=reference.s2title,
-                    contexts=classified_contexts,
-                )
-            )
-
-        # Some references might have fewer contexts after classification, but all
-        # references should be in the output.
-        assert len(classified_references) == len(references)
-
-        result = PromptResult(
-            prompt=Prompt(
-                system=_CONTEXT_SYSTEM_PROMPT,
-                user=f"\n{"-"*80}\n\n".join(user_prompts),
-            ),
-            item=PaperOutput(
-                title=paper.title,
-                abstract=paper.abstract,
-                ratings=paper.ratings,
-                sections=paper.sections,
-                approval=paper.approval,
-                references=classified_references,
-            ),
-        )
-
-        paper_outputs.append(result)
-        if completion_cb:
-            completion_cb(result)
-
-    assert len(paper_outputs) == len(papers)
     return GPTResult(paper_outputs, total_cost)
 
 
@@ -287,7 +326,7 @@ def _log_config(
     )
 
 
-def classify_contexts(
+async def classify_contexts(
     model: str,
     api_key: str | None,
     data_path: Path,
@@ -322,7 +361,7 @@ def classify_contexts(
         output_dir=output_dir,
     )
 
-    client = OpenAI()
+    client = AsyncOpenAI()
 
     data = TypeAdapter(list[PaperInput]).validate_json(data_path.read_bytes())
 
@@ -332,32 +371,40 @@ def classify_contexts(
     result_adapter = TypeAdapter(list[PromptResult[PaperOutput]])
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_interim_path = output_dir / "results.tmp.json"
+    output_intermediate_path = output_dir / "results.tmp.json"
 
-    def completion_cb(result: PromptResult[PaperOutput]) -> None:
-        try:
-            previous = result_adapter.validate_json(output_interim_path.read_bytes())
-        except Exception:
-            previous = []
-        previous.append(result)
-        output_interim_path.write_bytes(result_adapter.dump_json(previous, indent=2))
+    if continue_papers_file is None and output_intermediate_path.is_file():
+        continue_papers_file = output_intermediate_path
 
     continue_papers = []
     if continue_papers_file:
+        logger.info("Continuing papers from: %s", continue_papers_file)
         with contextlib.suppress(Exception):
             continue_papers = result_adapter.validate_json(
                 continue_papers_file.read_bytes()
             )
 
+    continue_paper_ids = {_paper_id(paper.item) for paper in continue_papers}
+    papers_num = len(papers)
+    papers = [paper for paper in papers if _paper_id(paper) not in continue_paper_ids]
+    if not papers:
+        logger.warning(
+            "No remaining papers to classify. They're all on the intermediate results."
+        )
+        return
+    else:
+        logger.info("Skipping %d papers.", papers_num - len(papers))
+
+    result_completion_lock = asyncio.Lock()
+    completion_cb = functools.partial(
+        on_result_completion,
+        lock=result_completion_lock,
+        path=output_intermediate_path,
+    )
+
     with Timer() as timer:
-        results = _classify_contexts(
-            client,
-            model,
-            user_prompt,
-            papers,
-            limit_references,
-            completion_cb,
-            continue_papers,
+        results = await _classify_contexts(
+            client, model, user_prompt, papers, limit_references, completion_cb
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -373,6 +420,23 @@ def classify_contexts(
     (output_dir / "output.txt").write_text(stats)
     if metrics is not None:
         (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
+
+
+async def on_result_completion(
+    result: PromptResult[PaperOutput], lock: asyncio.Lock, path: Path
+) -> None:
+    adapter = TypeAdapter(list[PromptResult[PaperOutput]])
+    async with lock:
+        previous = []
+        try:
+            previous = adapter.validate_json(path.read_bytes())
+        except FileNotFoundError:
+            pass
+        except Exception:
+            logger.exception("Error reading intermediate result file")
+
+        previous.append(result)
+        path.write_bytes(adapter.dump_json(previous, indent=2))
 
 
 # TODO:This one is a bit messy. Refactor it.
@@ -401,7 +465,6 @@ def show_classified_stats(
                     y_true.append(context.gold is ContextPolarityBinary.POSITIVE)
                     y_pred.append(context.prediction is ContextPolarityBinary.POSITIVE)
 
-    assert len(y_true) == len(y_pred)
     output = [
         f"Total contexts: {len(all_contexts)}",
         "",
@@ -420,7 +483,7 @@ def show_classified_stats(
         return "\n".join(output), metrics
 
     # No entries with gold annotation
-    positive = sum(bool(context.prediction) for context in all_contexts)
+    positive = sum(context.prediction == "positive" for context in all_contexts)
     negative = len(all_contexts) - positive
     output += [
         "No gold values to calculate metrics.",
@@ -526,15 +589,17 @@ def main() -> None:
     if args.subcommand == "prompts":
         list_prompts(detail=args.detail)
     elif args.subcommand == "run":
-        classify_contexts(
-            args.model,
-            args.api_key,
-            args.data_path,
-            args.limit,
-            args.user_prompt,
-            args.output_dir,
-            args.ref_limit,
-            args.continue_papers,
+        asyncio.run(
+            classify_contexts(
+                args.model,
+                args.api_key,
+                args.data_path,
+                args.limit,
+                args.user_prompt,
+                args.output_dir,
+                args.ref_limit,
+                args.continue_papers,
+            )
         )
 
 
