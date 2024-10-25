@@ -11,7 +11,6 @@ import asyncio
 import hashlib
 import logging
 import os
-import tomllib
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -42,7 +41,7 @@ from paper_hypergraph.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper_hypergraph.util import Timer, load_prompts, read_resource, setup_logging
+from paper_hypergraph.util import Timer, setup_logging
 
 logger = logging.getLogger("gpt.extract_graph")
 
@@ -127,10 +126,169 @@ def _log_config(
 _GRAPH_SYSTEM_PROMPT = (
     "Extract the entities from the text and the relationships between them."
 )
-_PRIMARY_AREAS = tomllib.loads(read_resource("gpt.prompts", "primary_areas.toml"))[
-    "primary_areas"
+_PRIMARY_AREAS = [
+    "applications to neuroscience",
+    "applications to physical sciences",
+    "applications to robotics",
+    "audio",
+    "autonomy",
+    "bayesian methods",
+    "benchmarks",
+    "biology",
+    "causal reasoning",
+    "chemistry",
+    "cognitive science",
+    "datasets",
+    "fairness",
+    "formal reasoning",
+    "general machine learning",
+    "generative models",
+    "hardware",
+    "hybrid ai systems",
+    "infrastructure",
+    "interpretation of learned representations",
+    "kernel learning",
+    "language",
+    "learning on graphs",
+    "learning theory",
+    "lifelong learning",
+    "logic",
+    "meta learning",
+    "metric learning",
+    "neurosymbolic",
+    "optimization",
+    "other geometries",
+    "other modalities",
+    "physics",
+    "physics-informed",
+    "planning",
+    "privacy",
+    "probabilistic methods",
+    "reinforcement learning",
+    "representation learning for computer vision",
+    "safety",
+    "sampling",
+    "self-supervised",
+    "semi-supervised",
+    "societal considerations",
+    "software libraries",
+    "sparse coding",
+    "supervised representation learning",
+    "topologies",
+    "transfer learning",
+    "unsupervised",
+    "uq",
+    "variational inference",
+    "visualization",
 ]
-_GRAPH_USER_PROMPTS = load_prompts("extract_graph")
+
+_GRAPH_USER_PROMPTS = {
+    "simple": f"""\
+The following data contains information about a scientific paper. It includes the \
+paper's title, abstract, the main text from the paper. The goal is to represent all the \
+relevant information from the paper as a graph.
+
+Your task is to extract entities of the following types:
+- title: the title of the paper
+- primary_area: what scientific primary area the paper is from. Choose one from the \
+following list: {", ".join(_PRIMARY_AREAS)}.
+- tldr: a sentence that summarises the paper
+- claim: summarise what the paper claims to contribute, especially claims made in the \
+abstract, introduction, discussion and conclusion. Pay attention to the key phrases \
+that highlight new findings or interpretations.
+- method: for each claim, identify the methods used to validate the claims from the \
+method sections. These include the key components: algorithms, theoretical framework \
+or novel techniques introduced.
+- experiment: what models, baselines, datasets, etc. that were used in experiments to \
+validate the methods.
+
+Extract these entities and the relationships between them as a graph. The paper title is \
+the main node and represents the paper. There are restrictions for what types of \
+connections can be made between node based on their types. The only allowed edges are:
+
+- There's only one title node.
+- There can be no incoming edges to the paper title node.
+- Edges between nodes of the same type cannot exist.
+- The graph is hierarchical, and all edges are from a node type above to one below. The \
+hierarchy is title > primary_area = keyword = tldr > claim > method > experiment. \
+Note that tldr, primary_area and keyword are on the same level.
+- There's only one edge from the title node, and it's to the tldr node.
+- title -> tldr (1:1): there is only one tldr node, and it's connected only to the title.
+- title -> primary_area (1:1): there is only one primary_area node, and it's connected \
+only to the title.
+- title -> keyword (1:N): there can be up to 5 keyword nodes, and they're only connected \
+to the title.
+- tldr -> claim (1:N): there can be many claim nodes, and they're connected only to the \
+tldr node.
+- claim -> method (N:M): there can be many method nodes, and they're only connected to the \
+claim nodes. A claim can connect to multiple methods, and a method can connect to \
+multiple claims.
+- method -> experiment (N:M): there can be many experiments, and they're connected only to \
+the method nodes. An experiment can connect to multiple methods, and a method can \
+connect to multiple claims.
+
+Each entity must have a unique index. You must use these indexes to represent the \
+relationships between the entities.
+
+All entity types should be present in the output.
+
+#####
+-Data-
+Title: {{title}}
+Abstract: {{abstract}}
+
+Main text:
+{{main_text}}
+
+#####
+Output:
+""",
+    # TODO: Add new node types
+    # Unfortunately, the models don't always comply with the rules, especially the
+    # rule that each concept must connect to at least one supporting sentence. This
+    # version is currently the best at that.
+    "bullets": """\
+The following data contains information about a scientific paper. It includes the \
+paper's title, abstract, the main text from the paper.
+
+Your task is to extract three types of entities and the relationships between them:
+- title: the title of the paper
+- concept: the top 5 key concepts mentioned in the abstract. If there are fewer than 5, \
+use only those.
+- sentences: sentences from the main text and especially the introduction that mention \
+the key concepts.
+
+Extract these entities and the relationships between them as a graph. The paper title is \
+the only main node, connected to the key concepts. The key concepts are connected to the \
+sentences that mention them.
+
+You MUST follow these rules:
+
+- There is only one main node (title) and it MUST be connected to all the key concepts.
+- Only provide connections from title to concepts and concepts to sentences.
+- Do NOT provide relationships between concepts to concepts or sentences to sentences.
+- There can be multiple sentences for a single concept, and a single sentence can \
+connect to multiple concepts.
+- Each concept MUST connect to at least one sentence.
+- Each sentence MUST connect to at least one concept.
+- There MUST be twice as many sentences as concepts.
+- There MUST be at least two sentences of each type.
+
+All entities (title, concepts and sentences) MUST be mentioned in the output.
+
+#####
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+Main text:
+{main_text}
+
+
+#####
+Output:
+""",
+}
 
 
 async def _generate_graphs(
