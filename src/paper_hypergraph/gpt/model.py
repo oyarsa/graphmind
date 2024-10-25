@@ -39,21 +39,37 @@ class Graph(BaseModel):
     relationships: Sequence[Relationship]
 
     def __str__(self) -> str:
+        type_index = list(EntityType).index
         entities = "\n".join(
             f"  {i}. {c.type} - {c.name}"
             for i, c in enumerate(
-                sorted(self.entities, key=lambda e: (e.type, e.name)), 1
+                sorted(self.entities, key=lambda e: (type_index(e.type), e.name)), 1
             )
         )
 
+        entity_type = {e.name: e.type for e in self.entities}
         relationships = "\n".join(
-            f" {i}. {r.source} - {r.target}"
+            f"{i}. {entity_type[r.source]} -> {entity_type[r.target]}\n"
+            f"- {r.source}\n"
+            f"- {r.target}\n"
             for i, r in enumerate(
-                sorted(self.relationships, key=lambda r: (r.source, r.target)),
+                sorted(
+                    self.relationships,
+                    key=lambda r: (
+                        type_index(entity_type[r.source]),
+                        type_index(entity_type[r.target]),
+                        r.source,
+                        r.target,
+                    ),
+                ),
                 1,
             )
         )
-        node_type_counts = sorted(Counter(e.type for e in self.entities).items())
+        node_type_counter = Counter(e.type for e in self.entities)
+        node_type_counts = sorted(
+            ((k, node_type_counter.get(k, 0)) for k in EntityType),
+            key=lambda x: type_index(x[0]),
+        )
 
         return "\n".join(
             [
@@ -66,7 +82,8 @@ class Graph(BaseModel):
                 "",
                 "Relationships:",
                 relationships,
-                f"Valid: {validate_rules(self)}",
+                "",
+                f"Validation: {validate_rules(self) or "valid"}",
                 "",
             ]
         )
