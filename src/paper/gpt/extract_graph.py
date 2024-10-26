@@ -20,12 +20,12 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph import hierarchical_graph
-from paper_hypergraph.gpt.evaluate_graph import (
+from paper import hierarchical_graph
+from paper.gpt.evaluate_graph import (
     CLASSIFY_USER_PROMPTS,
     evaluate_graphs,
 )
-from paper_hypergraph.gpt.model import (
+from paper.gpt.model import (
     Entity,
     EntityType,
     Graph,
@@ -33,7 +33,7 @@ from paper_hypergraph.gpt.model import (
     Relationship,
     graph_to_digraph,
 )
-from paper_hypergraph.gpt.run_gpt import (
+from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
@@ -41,7 +41,7 @@ from paper_hypergraph.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper_hypergraph.util import Timer, setup_logging
+from paper.util import Timer, setup_logging
 
 logger = logging.getLogger("gpt.extract_graph")
 
@@ -430,7 +430,7 @@ async def extract_graph(
     relationships between nodes are either supporting or contrasting.
 
     The papers should come from the ASAP-Review dataset as processed by the
-    paper_hypergraph.asap module.
+    paper.asap module.
 
     The classification part is optional. It uses the generated graphs as input as saves
     the results (metrics and predictions) to {output_dir}/classification.

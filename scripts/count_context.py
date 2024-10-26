@@ -1,6 +1,6 @@
 """Count number of context items in data file. Show polarity frequencies, if available.
 
-The input file should have the `paper_hypergraph.asap.models.PaperWithReferenceEnriched`
+The input file should have the `paper.asap.models.PaperWithReferenceEnriched`
 format.
 """
 
@@ -11,7 +11,7 @@ from typing import Annotated
 import typer
 from pydantic import TypeAdapter
 
-from paper_hypergraph.asap.model import PaperWithReferenceEnriched
+from paper.asap.model import PaperWithReferenceEnriched
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

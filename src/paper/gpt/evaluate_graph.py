@@ -6,10 +6,10 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph import evaluation_metrics
-from paper_hypergraph.gpt.model import Graph, Paper
-from paper_hypergraph.gpt.run_gpt import GPTResult, run_gpt
-from paper_hypergraph.util import Timer, load_prompts
+from paper import evaluation_metrics
+from paper.gpt.model import Graph, Paper
+from paper.gpt.run_gpt import GPTResult, run_gpt
+from paper.util import Timer, load_prompts
 
 logger = logging.getLogger("gpt.evaluate_graph")
 

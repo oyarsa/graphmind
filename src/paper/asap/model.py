@@ -115,7 +115,7 @@ class S2Paper(BaseModel):
         tldr: Machine-generated TLDR of the paper. Not available for everything.
 
     NB: We got more data from the API, but this is what's relevant here. See also
-    `paper_hypergraph.external_data.semantic_scholar`.
+    `paper.external_data.semantic_scholar`.
     """
 
     model_config = ConfigDict(frozen=True)

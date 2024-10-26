@@ -64,7 +64,7 @@ check() {
 }
 
 doc() {
-	uv run pdoc paper_hypergraph --docformat google
+	uv run pdoc paper --docformat google
 }
 
 watch() {

@@ -12,7 +12,7 @@ The resulting files are:
 - semantic_scholar_final.json: the valid results with a non-empty abstract
   and fuzzy ratio above a minium (default: 80).
 
-[1] See paper_hypergraph.asap.preprocess.
+[1] See paper.asap.preprocess.
 """
 
 import argparse
@@ -27,8 +27,8 @@ from typing import Any
 import aiohttp
 import dotenv
 
-from paper_hypergraph.s2orc.util import progress_gather
-from paper_hypergraph.util import fuzzy_ratio
+from paper.s2orc.util import progress_gather
+from paper.util import fuzzy_ratio
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request

@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from matplotlib.patches import Rectangle
 
-logger = logging.getLogger("paper_hypergraph.hierarchical_graph")
+logger = logging.getLogger("paper.hierarchical_graph")
 
 
 class GraphError(Exception):

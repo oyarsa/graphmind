@@ -13,7 +13,7 @@ from typing import Annotated
 
 import typer
 
-from paper_hypergraph.util import Timer
+from paper.util import Timer
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
-from paper_hypergraph.asap.model import PaperSection
+from paper.asap.model import PaperSection
 
 
 def _merge_section(subsections: Sequence[PaperSection]) -> PaperSection | None:
@@ -131,7 +131,7 @@ def process_sections(infile: Path, outfile: Path, limit: int | None = None) -> N
     Sections are grouped by heading number and merged into a single section. The output
     is grouped by paper, but contains only the sections and nothing else.
 
-    The input file is the output of `paper_hypergraph.asap.merge`.
+    The input file is the output of `paper.asap.merge`.
     """
     data = json.loads(infile.read_text())
 

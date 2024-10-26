@@ -3,9 +3,9 @@
 import argparse
 from pathlib import Path
 
-from paper_hypergraph.asap.extract import extract_interesting
-from paper_hypergraph.asap.filter import filter_ratings
-from paper_hypergraph.asap.merge import merge_content_review
+from paper.asap.extract import extract_interesting
+from paper.asap.filter import filter_ratings
+from paper.asap.merge import merge_content_review
 
 
 def pipeline(papers_path: Path, output_path: Path, max_papers: int | None) -> None:

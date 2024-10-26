@@ -23,7 +23,7 @@ def process_papers(
 ) -> None:
     """Process S2ORC papers from multiple compressed JSON files and build an index.
 
-    The input data is the output of the paper_hypergraph.s2orc.extract module.
+    The input data is the output of the paper.s2orc.extract module.
     The index is title -> file. The title is raw from the 'title' field in the output.
     """
 

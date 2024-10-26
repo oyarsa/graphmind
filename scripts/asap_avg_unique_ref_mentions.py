@@ -2,7 +2,7 @@
 
 Also calculates the number of words in the contexts and estimated number of GPT tokens.
 
-Uses the output of `paper_hypergraph.asap.merge` as input.
+Uses the output of `paper.asap.merge` as input.
 """
 
 import argparse

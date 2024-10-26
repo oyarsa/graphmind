@@ -7,9 +7,9 @@ import openai
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict
 
-from paper_hypergraph.rate_limiter import ChatRateLimiter
+from paper.rate_limiter import ChatRateLimiter
 
-logger = logging.getLogger("paper_hypergraph.gpt.run_gpt")
+logger = logging.getLogger("paper.gpt.run_gpt")
 
 MODEL_SYNONYMS = {
     "4o-mini": "gpt-4o-mini-2024-07-18",

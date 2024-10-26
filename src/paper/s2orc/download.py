@@ -12,7 +12,7 @@ import aiohttp
 import dotenv
 from tqdm.asyncio import tqdm
 
-from paper_hypergraph.s2orc.util import parse_url, progress_gather
+from paper.s2orc.util import parse_url, progress_gather
 
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file

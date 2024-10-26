@@ -21,10 +21,10 @@ below.
 ## Datasets
 
 - **S2ORC - Semantic Scholar Open Research Corpus**: dataset with the full paper content
-  from Semantic Scholar. See [s2orc README](/src/paper_hypergraph/s2orc/README.md) for
+  from Semantic Scholar. See [s2orc README](/src/paper/s2orc/README.md) for
   information.
 - **ASAP-Review**: dataset with full content and ratings for ICLR 2017-2022 papers. See
-  [asap README](/src/paper_hypergraph/asap/README.md) for more information.
+  [asap README](/src/paper/asap/README.md) for more information.
 
 Use the `uv run preprocess` command to access both S2ORC and ASAP dataset preprocessing:
 
@@ -91,7 +91,7 @@ If you're running Python scripts or commands (e.g. see `preprocess` below), you 
 the `python`. Real example:
 
 ```bash
-uv run src/paper_hypergraph/s2orc/acl.py
+uv run src/paper/s2orc/acl.py
 ```
 
 See `./tasks.sh` for common development tasks. In particular, use `./tasks.sh check` to

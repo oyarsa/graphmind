@@ -9,20 +9,20 @@ default, we use a minimum fuzzy ratio of 80%, which includes 90% of the S2 match
 no papers from S2 clear that threshold for a given reference, the reference is removed.
 
 The ASAP papers used as input come from the ASAP preprocess pipeline, finishing with
-paper_hypergraph.asap.filter (asap_filtered.json).
+paper.asap.filter (asap_filtered.json).
 
-The S2 results come from paper_hypergraph.external_data.semantic_scholar. Note that the
+The S2 results come from paper.external_data.semantic_scholar. Note that the
 S2 script also uses the result of the ASAP pipeline, asap_filtered.json.
 
 Since the S2 script takes a long time to run, it cannot be used in the middle of the
 pipeline, so this whole part needs to be run manually. The order is:
 
-- `uv run src/paper_hypergraph/asap/pipeline.py data/asap output`:
+- `uv run src/paper/asap/pipeline.py data/asap output`:
     - generates output/asap_filtered.json
-- `uv run src/paper_hypergraph/external_data/semantic_scholar.py
+- `uv run src/paper/external_data/semantic_scholar.py
     output/asap_filtered.json output`:
     - uses `output/asap_filtered.json` to generate `semantic_scholar_filtered.json`
-- `uv run src/paper_hypergraph/asap/add_reference_abstracts.py output/asap_filtered.json
+- `uv run src/paper/asap/add_reference_abstracts.py output/asap_filtered.json
   output/semantic_scholar_filtered.json output/asap_with_abstracts.json`:
     - combines the whole thing to generate an ASAP data file including the reference
       abstracts
@@ -59,14 +59,14 @@ from pathlib import Path
 from pydantic import TypeAdapter
 from tqdm import tqdm
 
-from paper_hypergraph.asap.model import (
+from paper.asap.model import (
     Paper,
     PaperReference,
     PaperWithReferenceEnriched,
     ReferenceEnriched,
     S2Paper,
 )
-from paper_hypergraph.util import fuzzy_ratio
+from paper.util import fuzzy_ratio
 
 
 def _match_paper_external(

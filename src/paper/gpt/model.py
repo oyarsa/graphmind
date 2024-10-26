@@ -5,7 +5,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
-from paper_hypergraph import hierarchical_graph
+from paper import hierarchical_graph
 
 
 class EntityType(StrEnum):
@@ -239,7 +239,7 @@ class Paper(BaseModel):
     """ASAP-Review paper with only currently useful fields.
 
     Check the ASAP-Review dataset to see what else is available, and use
-    paper_hypergraph.asap.extract and asap.filter to add them to this dataset.
+    paper.asap.extract and asap.filter to add them to this dataset.
     """
 
     model_config = ConfigDict(frozen=True)

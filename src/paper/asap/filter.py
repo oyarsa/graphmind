@@ -9,7 +9,7 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
-from paper_hypergraph.asap.model import Paper
+from paper.asap.model import Paper
 
 
 def _keep_paper(paper: Paper) -> bool:
@@ -20,7 +20,7 @@ def _keep_paper(paper: Paper) -> bool:
 def filter_ratings(input_file: Path, output_file: Path) -> None:
     """Remove papers whose ratings have too much variance from the dataset.
 
-    The input file is the output of `paper_hypergraph.asap.extract`. The output has
+    The input file is the output of `paper.asap.extract`. The output has
     the same format as the input.
     """
     data = TypeAdapter(list[Paper]).validate_json(input_file.read_bytes())

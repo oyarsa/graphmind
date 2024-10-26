@@ -20,13 +20,13 @@ import click
 import typer
 from pydantic import TypeAdapter
 
-from paper_hypergraph.asap.model import (
+from paper.asap.model import (
     CitationContext,
     ContextPolarity,
     PaperWithReferenceEnriched,
     ReferenceEnriched,
 )
-from paper_hypergraph.util import Timer
+from paper.util import Timer
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

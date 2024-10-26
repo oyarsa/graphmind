@@ -1,7 +1,7 @@
 import argparse
 
-from paper_hypergraph.asap import preprocess as asap
-from paper_hypergraph.s2orc import preprocess as s2orc
+from paper.asap import preprocess as asap
+from paper.s2orc import preprocess as s2orc
 
 
 def main():

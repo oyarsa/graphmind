@@ -116,7 +116,7 @@ def _extract_acl_papers(
 def filter_papers(input_directory: Path, output_file: Path) -> None:
     """Keep only ACL-related papers from processed JSON.GZ files.
 
-    The input data is the output of the paper_hypergraph.s2orc.extract module.
+    The input data is the output of the paper.s2orc.extract module.
     """
     input_files = list(input_directory.rglob("*.json.gz"))
     if not input_files:

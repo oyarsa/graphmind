@@ -13,8 +13,8 @@ from typing import Any, NamedTuple
 
 from pydantic import TypeAdapter
 
-from paper_hypergraph.asap import process_sections
-from paper_hypergraph.asap.model import CitationContext, Paper, PaperReference
+from paper.asap import process_sections
+from paper.asap.model import CitationContext, Paper, PaperReference
 
 
 def _parse_rating(rating: str) -> int | None:
@@ -93,7 +93,7 @@ def _process_paper(item: dict[str, Any]) -> Paper | None:
 def extract_interesting(input_file: Path, output_file: Path) -> None:
     """Extract information from the input JSON file and write to the output JSON file.
 
-    The input file is the output of `paper_hypergraph.asap.merge`.
+    The input file is the output of `paper.asap.merge`.
     """
     data: list[dict[str, Any]] = json.loads(input_file.read_text())
 

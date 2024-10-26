@@ -8,8 +8,8 @@ import argparse
 import asyncio
 import logging
 
-from paper_hypergraph.gpt import classify_contexts, extract_graph
-from paper_hypergraph.util import setup_logging
+from paper.gpt import classify_contexts, extract_graph
+from paper.util import setup_logging
 
 logger = logging.getLogger("gpt.cli")
 

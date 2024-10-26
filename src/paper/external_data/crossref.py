@@ -20,7 +20,7 @@ from typing import Any
 import habanero  # type: ignore
 from tqdm import tqdm
 
-from paper_hypergraph.util import fuzzy_ratio
+from paper.util import fuzzy_ratio
 
 
 class CrossrefClient:

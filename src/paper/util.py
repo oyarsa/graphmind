@@ -90,17 +90,17 @@ def read_resource(package: str, filename: str) -> str:
     """Read text from resource file.
 
     Args:
-        package: Path to package, relative to `paper_hypergraph`.
-        filename: Name of the file under `paper_hypergraph.{package}`.
+        package: Path to package, relative to `paper`.
+        filename: Name of the file under `paper.{package}`.
     """
-    return resources.files(f"paper_hypergraph.{package}").joinpath(filename).read_text()
+    return resources.files(f"paper.{package}").joinpath(filename).read_text()
 
 
 def load_prompts(name: str) -> dict[str, str]:
     """Load prompts from a TOML file in the prompts package.
 
     Args:
-        name: Name of the TOML file in `paper_hypergraph.gpt.prompts`, without extension.
+        name: Name of the TOML file in `paper.gpt.prompts`, without extension.
 
     Returns:
         Dictionary mapping prompt names to their text content.

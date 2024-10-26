@@ -4,7 +4,7 @@
 import argparse
 from pathlib import Path
 
-from paper_hypergraph.hierarchical_graph import DiGraph, Edge, Node
+from paper.hierarchical_graph import DiGraph, Edge, Node
 
 
 def main(output: Path | None) -> None:

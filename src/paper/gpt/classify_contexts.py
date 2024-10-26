@@ -26,14 +26,14 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from tqdm.asyncio import tqdm
 
-from paper_hypergraph import evaluation_metrics
-from paper_hypergraph.asap.model import (
+from paper import evaluation_metrics
+from paper.asap.model import (
     ContextPolarityBinary,
     PaperSection,
     PaperWithFullReference,
 )
-from paper_hypergraph.asap.model import PaperWithFullReference as PaperInput
-from paper_hypergraph.gpt.run_gpt import (
+from paper.asap.model import PaperWithFullReference as PaperInput
+from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
@@ -41,7 +41,7 @@ from paper_hypergraph.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper_hypergraph.util import Timer, load_prompts, safediv, setup_logging
+from paper.util import Timer, load_prompts, safediv, setup_logging
 
 logger = logging.getLogger("gpt.classify_contexts")
 
