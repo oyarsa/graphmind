@@ -8,8 +8,9 @@ from tqdm import tqdm
 
 from paper import evaluation_metrics
 from paper.gpt.model import Graph, Paper
+from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import GPTResult, run_gpt
-from paper.util import PromptTemplate, Timer, load_prompts
+from paper.util import Timer
 
 logger = logging.getLogger("paper.gpt.evaluate_graph")
 

@@ -34,6 +34,7 @@ from paper.gpt.model import (
     Relationship,
     graph_to_digraph,
 )
+from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -42,7 +43,7 @@ from paper.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper.util import PromptTemplate, Timer, load_prompts, read_resource, setup_logging
+from paper.util import Timer, read_resource, setup_logging
 
 logger = logging.getLogger("paper.gpt.extract_graph")
 

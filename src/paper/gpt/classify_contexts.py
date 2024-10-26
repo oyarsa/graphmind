@@ -33,6 +33,7 @@ from paper.asap.model import (
     PaperWithFullReference,
 )
 from paper.asap.model import PaperWithFullReference as PaperInput
+from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -41,7 +42,7 @@ from paper.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper.util import PromptTemplate, Timer, load_prompts, safediv, setup_logging
+from paper.util import Timer, safediv, setup_logging
 
 logger = logging.getLogger("paper.gpt.classify_contexts")
 
