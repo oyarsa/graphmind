@@ -549,7 +549,7 @@ def main() -> None:
     setup_cli_parser(parser)
 
     args = parser.parse_args()
-    setup_logging("gpt")
+    setup_logging()
 
     if args.subcommand == "prompts":
         list_prompts(detail=args.detail)

@@ -45,7 +45,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    setup_logging("gpt")
+    setup_logging()
 
     if args.command == "graph":
         if args.subcommand == "prompts":
