@@ -42,7 +42,7 @@ from paper.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper.util import Timer, load_prompts, read_resource, setup_logging
+from paper.util import PromptTemplate, Timer, load_prompts, read_resource, setup_logging
 
 logger = logging.getLogger("paper.gpt.extract_graph")
 
@@ -134,19 +134,21 @@ _GRAPH_USER_PROMPTS = load_prompts("extract_graph")
 
 
 async def _generate_graphs(
-    client: AsyncOpenAI, data: list[Paper], model: str, user_prompt: str
+    client: AsyncOpenAI, data: list[Paper], model: str, user_prompt: PromptTemplate
 ) -> GPTResult[list[PromptResult[Graph]]]:
     total_cost = 0
     graph_results: list[PromptResult[Graph]] = []
 
     for example in tqdm(data, desc="Extracting graphs"):
-        prompt = user_prompt.format(
+        user_prompt_text = user_prompt.template.format(
             title=example.title,
             abstract=example.abstract,
             main_text=example.main_text(),
             primary_areas=", ".join(_PRIMARY_AREAS),
         )
-        result = await run_gpt(GPTGraph, client, _GRAPH_SYSTEM_PROMPT, prompt, model)
+        result = await run_gpt(
+            GPTGraph, client, _GRAPH_SYSTEM_PROMPT, user_prompt_text, model
+        )
         graph = (
             _graph_from_gpt_graph(result.result)
             if result.result
@@ -156,7 +158,8 @@ async def _generate_graphs(
         total_cost += result.cost
         graph_results.append(
             PromptResult(
-                item=graph, prompt=Prompt(user=prompt, system=_GRAPH_SYSTEM_PROMPT)
+                item=graph,
+                prompt=Prompt(user=user_prompt_text, system=_GRAPH_SYSTEM_PROMPT),
             )
         )
 

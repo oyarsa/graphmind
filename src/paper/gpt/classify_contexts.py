@@ -41,7 +41,7 @@ from paper.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper.util import Timer, load_prompts, safediv, setup_logging
+from paper.util import PromptTemplate, Timer, load_prompts, safediv, setup_logging
 
 logger = logging.getLogger("paper.gpt.classify_contexts")
 
@@ -118,7 +118,7 @@ async def _classify_paper(
     limit_references: int | None,
     model: str,
     paper: PaperWithFullReference,
-    user_prompt_template: str,
+    user_prompt: PromptTemplate,
 ) -> GPTResult[PromptResult[PaperOutput]]:
     """Classify the contexts for the paper's references by polarity.
 
@@ -139,7 +139,7 @@ async def _classify_paper(
         classified_contexts: list[ContextClassified] = []
 
         for context in reference.contexts:
-            user_prompt = user_prompt_template.format(
+            user_prompt_text = user_prompt.template.format(
                 main_title=paper.title,
                 main_abstract=paper.abstract,
                 reference_title=reference.s2title,
@@ -147,10 +147,10 @@ async def _classify_paper(
                 context=context.sentence,
             )
             if not user_prompt_save:
-                user_prompt_save = user_prompt
+                user_prompt_save = user_prompt_text
 
             result = await run_gpt(
-                GPTContext, client, _CONTEXT_SYSTEM_PROMPT, user_prompt, model
+                GPTContext, client, _CONTEXT_SYSTEM_PROMPT, user_prompt_text, model
             )
             total_cost += result.cost
 
@@ -203,7 +203,7 @@ async def _classify_paper(
 async def _classify_contexts(
     client: AsyncOpenAI,
     model: str,
-    user_prompt_template: str,
+    user_prompt: PromptTemplate,
     papers: Sequence[PaperInput],
     limit_references: int | None,
     output_intermediate_path: Path,
@@ -224,7 +224,7 @@ async def _classify_contexts(
     total_cost = 0
 
     tasks = [
-        _classify_paper(client, limit_references, model, paper, user_prompt_template)
+        _classify_paper(client, limit_references, model, paper, user_prompt)
         for paper in papers
     ]
     for task in tqdm.as_completed(  # type: ignore

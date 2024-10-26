@@ -4,6 +4,7 @@ import logging
 import os
 import time
 import tomllib
+from dataclasses import dataclass
 from importlib import resources
 from typing import Any, Self
 
@@ -105,7 +106,14 @@ def read_resource(package: str, filename: str) -> str:
     return resources.files(f"paper.{package}").joinpath(filename).read_text()
 
 
-def load_prompts(name: str) -> dict[str, str]:
+@dataclass(frozen=True)
+class PromptTemplate:
+    name: str
+    type_name: str
+    template: str
+
+
+def load_prompts(name: str) -> dict[str, PromptTemplate]:
     """Load prompts from a TOML file in the prompts package.
 
     Args:
@@ -115,7 +123,10 @@ def load_prompts(name: str) -> dict[str, str]:
         Dictionary mapping prompt names to their text content.
     """
     text = read_resource("gpt.prompts", f"{name}.toml")
-    return {p["name"]: p["prompt"] for p in tomllib.loads(text)["prompts"]}
+    return {
+        p["name"]: PromptTemplate(p["name"], p["type"], p["prompt"])
+        for p in tomllib.loads(text)["prompts"]
+    }
 
 
 def safediv(x: float, y: float) -> float:

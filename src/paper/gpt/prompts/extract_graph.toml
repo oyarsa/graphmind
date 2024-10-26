@@ -1,5 +1,6 @@
 [[prompts]]
 name = "simple"
+type = "graph"
 prompt = """The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, the main text from the paper. The goal is to represent all the \
 relevant information from the paper as a graph.
@@ -62,6 +63,7 @@ Output:
 
 [[prompts]]
 name = "bullets"
+type = "graph"
 prompt = """The following data contains information about a scientific paper. It includes the
 paper's title, abstract, the main text. The goal is to represent all the relevant
 information from the paper as a graph.
