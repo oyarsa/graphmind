@@ -1,8 +1,0 @@
-[[prompts]]
-name = "simple"
-prompt = """The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, and a graph representation of the paper and its network.
-
-Based on the extracted entities graph, approve or reject the paper. First, generate the \
-rationale for your decision, then give the final decision.
-"""
