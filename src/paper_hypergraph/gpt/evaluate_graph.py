@@ -9,7 +9,7 @@ from tqdm import tqdm
 from paper_hypergraph import evaluation_metrics
 from paper_hypergraph.gpt.model import Graph, Paper
 from paper_hypergraph.gpt.run_gpt import GPTResult, run_gpt
-from paper_hypergraph.util import Timer
+from paper_hypergraph.util import Timer, load_prompts
 
 logger = logging.getLogger("gpt.evaluate_graph")
 
@@ -17,15 +17,8 @@ logger = logging.getLogger("gpt.evaluate_graph")
 CLASSIFY_SYSTEM_PROMPT = (
     "Approve or reject the scientific paper based on the extracted entities."
 )
-CLASSIFY_USER_PROMPTS = {
-    "simple": """\
-The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, and a graph representation of the paper and its network.
 
-Based on the extracted entities graph, approve or reject the paper. First, generate the \
-rationale for your decision, then give the final decision.
-"""
-}
+CLASSIFY_USER_PROMPTS = load_prompts("evaluate_graph")
 
 
 async def evaluate_graphs(

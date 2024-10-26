@@ -41,7 +41,7 @@ from paper_hypergraph.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper_hypergraph.util import Timer, safediv, setup_logging
+from paper_hypergraph.util import Timer, load_prompts, safediv, setup_logging
 
 logger = logging.getLogger("gpt.classify_contexts")
 
@@ -94,59 +94,8 @@ class PaperOutput(BaseModel):
 _CONTEXT_SYSTEM_PROMPT = (
     "Classify the context polarity between the main paper and its citation."
 )
-_CONTEXT_USER_PROMPTS = {
-    "sentence": """\
-You are given a citation context from a scientific paper that mentions. Your task is to \
-determine the polarity of the citation context as 'positive' or 'negative'.
 
-The polarity represents whether the citation context is supporting the paper's goals \
-('positive'), or if it's provided as a counterpoint or criticism ('negative').
-
-#####
--Data-
-Citation context: {context}
-#####
-Output:
-""",
-    "simple": """\
-You are given a main paper and a reference with a citation context. Your task is to \
-determine the polarity of the citation context as 'positive' or 'negative', given the \
-main paper's title, the reference's title, and the citation context where the main \
-paper mentions the reference.
-
-The polarity represents whether the citation context is supporting the paper's goals \
-('positive'), or if it's provided as a counterpoint or criticism ('negative').
-
-#####
--Data-
-Main paper title: {main_title}
-Reference title: {reference_title}
-Citation context: {context}
-#####
-Output:
-""",
-    "full": """\
-You are given a main paper and a reference with a citation context. Your task is to
-determine the polarity of the citation context as 'positive' or 'negative', given the
-main paper's title and abstract, the reference's title and abstract, and the citation
-context where the main paper mentions the reference.
-
-The polarity represents whether the citation context is supporting the paper's goals \
-('positive'), or if it's provided as a counterpoint or criticism ('negative').
-
-#####
--Data-
-Main paper title: {main_title}
-Main paper abstract: {main_abstract}
-
-Reference title: {reference_title}
-Reference abstract: {reference_abstract}
-
-Citation context: {context}
-#####
-Output:
-""",
-}
+_CONTEXT_USER_PROMPTS = load_prompts("classify_contexts")
 
 
 class GPTContext(BaseModel):
