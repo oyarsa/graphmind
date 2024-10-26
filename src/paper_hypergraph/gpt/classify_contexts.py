@@ -14,11 +14,10 @@ option.
 import argparse
 import asyncio
 import contextlib
-import functools
 import hashlib
 import logging
 import os
-from collections.abc import Awaitable, Callable, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import cast
 
@@ -258,24 +257,19 @@ async def _classify_contexts(
     user_prompt_template: str,
     papers: Sequence[PaperInput],
     limit_references: int | None,
-    async_completion_cb: Callable[[PromptResult[PaperOutput]], Awaitable[None]]
-    | None = None,
+    output_intermediate_path: Path,
 ) -> GPTResult[list[PromptResult[PaperOutput]]]:
     """Classify the contexts for each papers' references by polarity.
 
     Polarity (ContextPolarity): positive (supports argument) or negative (counterpoint).
 
-    The returned object `PaperOutput` is very similar to the input `PaperInput`, but
-    the references are different. Instead of the contexts being only strings, they
-    are now `ContextClassified`, containing the original text plus the predicted
-    polarity.
+    The returned object `PaperOutput` is very similar to the input `PaperInput`, but the
+    references are different. Instead of the contexts being only strings, they are now
+    `ContextClassified`, containing the original text plus the predicted polarity.
 
-    Important args:
-        completion_cb: Called after a paper classification is completed. Mainly used
-            to save results as they're completed without having to pass the whole
-            file machinery to this function.
-        continue_papers: Papers that were completed in a previous iteration so we don't
-            query them again.
+    Requests to the OpenAI API are made concurrently, respecting the rate limits. As
+    each request is completed, the result is saved to an intermediate file. Once all
+    are done, a full result is returned.
     """
     paper_outputs: list[PromptResult[PaperOutput]] = []
     total_cost = 0
@@ -291,10 +285,32 @@ async def _classify_contexts(
         total_cost += result.cost
 
         paper_outputs.append(result.result)
-        if async_completion_cb:
-            await async_completion_cb(result.result)
+        _append_intermediate_result(output_intermediate_path, result.result)
 
     return GPTResult(paper_outputs, total_cost)
+
+
+def _append_intermediate_result(path: Path, result: PromptResult[PaperOutput]) -> None:
+    """Save result to intermediate file.
+
+    If the intermediate file doesn't exist, create a new one containing the result.
+    """
+    result_adapter = TypeAdapter(list[PromptResult[PaperOutput]])
+
+    previous = []
+    try:
+        previous = result_adapter.validate_json(path.read_bytes())
+    except FileNotFoundError:
+        # It's fine if the file didn't exist previously. We'll create a new one now.
+        pass
+    except Exception:
+        logger.exception("Error reading intermediate result file: %s", path)
+
+    previous.append(result)
+    try:
+        path.write_bytes(result_adapter.dump_json(previous, indent=2))
+    except Exception:
+        logger.exception("Error writing intermediate results to: %s", path)
 
 
 def _paper_id(paper: PaperOutput | PaperWithFullReference) -> int:
@@ -395,16 +411,14 @@ async def classify_contexts(
     else:
         logger.info("Skipping %d papers.", papers_num - len(papers))
 
-    result_completion_lock = asyncio.Lock()
-    completion_cb = functools.partial(
-        on_result_completion,
-        lock=result_completion_lock,
-        path=output_intermediate_path,
-    )
-
     with Timer() as timer:
         results = await _classify_contexts(
-            client, model, user_prompt, papers, limit_references, completion_cb
+            client,
+            model,
+            user_prompt,
+            papers,
+            limit_references,
+            output_intermediate_path,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
