@@ -11,7 +11,7 @@ from paper.gpt.model import Graph, Paper
 from paper.gpt.run_gpt import GPTResult, run_gpt
 from paper.util import Timer, load_prompts
 
-logger = logging.getLogger("gpt.evaluate_graph")
+logger = logging.getLogger("paper.gpt.evaluate_graph")
 
 
 CLASSIFY_SYSTEM_PROMPT = (

@@ -43,7 +43,7 @@ from paper.gpt.run_gpt import (
 )
 from paper.util import Timer, setup_logging
 
-logger = logging.getLogger("gpt.extract_graph")
+logger = logging.getLogger("paper.gpt.extract_graph")
 
 
 class GPTRelationship(BaseModel):
