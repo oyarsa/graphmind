@@ -3,6 +3,8 @@
 import logging
 import os
 import time
+import tomllib
+from importlib import resources
 from typing import Any, Self
 
 import colorlog
@@ -82,6 +84,29 @@ def setup_logging(logger: logging.Logger | str) -> None:
     handler.setFormatter(colorlog.ColoredFormatter(fmt=fmt, datefmt=datefmt))
 
     logger.addHandler(handler)
+
+
+def read_resource(package: str, filename: str) -> str:
+    """Read text from resource file.
+
+    Args:
+        package: Path to package, relative to `paper_hypergraph`.
+        filename: Name of the file under `paper_hypergraph.{package}`.
+    """
+    return resources.files(f"paper_hypergraph.{package}").joinpath(filename).read_text()
+
+
+def load_prompts(name: str) -> dict[str, str]:
+    """Load prompts from a TOML file in the prompts package.
+
+    Args:
+        name: Name of the TOML file in `paper_hypergraph.gpt.prompts`, without extension.
+
+    Returns:
+        Dictionary mapping prompt names to their text content.
+    """
+    text = read_resource("gpt.prompts", f"{name}.toml")
+    return {p["name"]: p["prompt"] for p in tomllib.loads(text)["prompts"]}
 
 
 def safediv(x: float, y: float) -> float:
