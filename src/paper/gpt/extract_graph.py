@@ -12,9 +12,11 @@ import hashlib
 import logging
 import os
 import tomllib
+from abc import ABC, abstractmethod
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
+from typing import override
 
 import dotenv
 from openai import AsyncOpenAI
@@ -63,7 +65,12 @@ class GPTEntity(BaseModel):
     type: EntityType
 
 
-class GPTGraph(BaseModel):
+class GPTGraphBase(BaseModel, ABC):
+    @abstractmethod
+    def to_graph(self) -> Graph: ...
+
+
+class GPTGraph(GPTGraphBase):
     model_config = ConfigDict(frozen=True)
 
     entities: Sequence[GPTEntity]
@@ -100,6 +107,31 @@ class GPTGraph(BaseModel):
                 "",
             ]
         )
+
+    @override
+    def to_graph(self) -> Graph:
+        """Builds a graph from the GPT output.
+
+        Assumes that the entities are all valid, and that the source/target indices for
+        the relationships match the indices in the entities sequence.
+        """
+        entities = [Entity(name=e.name, type=e.type) for e in self.entities]
+
+        entity_index = {e.index: e for e in self.entities}
+        relationships = [
+            Relationship(
+                source=entity_index[r.source_index].name,
+                target=entity_index[r.target_index].name,
+            )
+            for r in self.relationships
+        ]
+
+        return Graph(entities=entities, relationships=relationships)
+
+
+_GRAPH_TYPES: Mapping[str, type[GPTGraphBase]] = {
+    "graph": GPTGraph,
+}
 
 
 def _log_config(
@@ -151,7 +183,7 @@ async def _generate_graphs(
             GPTGraph, client, _GRAPH_SYSTEM_PROMPT, user_prompt_text, model
         )
         graph = (
-            _graph_from_gpt_graph(result.result)
+            result.result.to_graph()
             if result.result
             else Graph(entities=[], relationships=[])
         )
@@ -165,26 +197,6 @@ async def _generate_graphs(
         )
 
     return GPTResult(graph_results, total_cost)
-
-
-def _graph_from_gpt_graph(gpt_graph: GPTGraph) -> Graph:
-    """Builds a graph from the GPT output.
-
-    Assumes that the entities are all valid, and that the source/target indices for
-    the relationships match the indices in the entities sequence.
-    """
-    entities = [Entity(name=e.name, type=e.type) for e in gpt_graph.entities]
-
-    entity_index = {e.index: e for e in gpt_graph.entities}
-    relationships = [
-        Relationship(
-            source=entity_index[r.source_index].name,
-            target=entity_index[r.target_index].name,
-        )
-        for r in gpt_graph.relationships
-    ]
-
-    return Graph(entities=entities, relationships=relationships)
 
 
 def _save_graphs(
