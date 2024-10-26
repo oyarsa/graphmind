@@ -20,7 +20,7 @@ from typing import override
 
 import dotenv
 from openai import AsyncOpenAI
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from tqdm import tqdm
 
 from paper import hierarchical_graph
@@ -66,13 +66,13 @@ class GPTEntity(BaseModel):
 
 
 class GPTGraphBase(BaseModel, ABC):
+    model_config = ConfigDict(frozen=True)
+
     @abstractmethod
     def to_graph(self) -> Graph: ...
 
 
 class GPTGraph(GPTGraphBase):
-    model_config = ConfigDict(frozen=True)
-
     entities: Sequence[GPTEntity]
     relationships: Sequence[GPTRelationship]
 
@@ -129,8 +129,111 @@ class GPTGraph(GPTGraphBase):
         return Graph(entities=entities, relationships=relationships)
 
 
+class GPTGraphStrict(GPTGraphBase):
+    """Graph representing the paper."""
+
+    # Has the same nodes as `GPTGraph`, only the representation is different. The goal
+    # is to prevent the model from creating invalid relationships, e.g. from title to
+    # claims, which happens on `GPTGraph` with GPT-4o-mini.
+    # (This comment isn't in the docstring because I don't want it in the JSON schema).
+
+    model_config = ConfigDict(frozen=True)
+
+    title: str = Field("Title of the paper.")
+    primary_area: str = Field(
+        "The primary subject area of the paper picked from the ICLR list of topics."
+    )
+    keywords: Sequence[str] = Field(
+        "Keywords that summarise the key aspects of the paper."
+    )
+    tldr: str = Field("Sentence that summarises the paper.")
+    claims: Sequence[IndexedEntity] = Field(
+        "Main contributions the paper claims to make."
+    )
+    methods: Sequence[ConnectedEntity] = Field(
+        "Methods used to verify the claims. Source indices come from the `claims` list."
+    )
+    experiments: Sequence[ConnectedEntity] = Field(
+        "Experiments designed to put methods in practice. Source indices come from the"
+        " `methods` list."
+    )
+
+    @override
+    def to_graph(self) -> Graph:
+        """Build a real `Graph` from the entities and their relationships.
+
+        Raises:
+            IndexError: When a source index in `self.methods` or `self.experiments` is
+            invalid.
+        """
+        entities = [
+            Entity(name=self.title, type=EntityType.TITLE),
+            Entity(name=self.primary_area, type=EntityType.PRIMARY_AREA),
+            *(Entity(name=kw, type=EntityType.KEYWORD) for kw in self.keywords),
+            Entity(name=self.tldr, type=EntityType.TLDR),
+            *(Entity(name=c.text, type=EntityType.CLAIM) for c in self.claims),
+            *(Entity(name=m.text, type=EntityType.METHOD) for m in self.methods),
+            *(
+                Entity(name=x.text, type=EntityType.EXPERIMENT)
+                for x in self.experiments
+            ),
+        ]
+
+        relationships = [
+            Relationship(source=self.title, target=self.primary_area),
+            *(Relationship(source=self.title, target=kw) for kw in self.keywords),
+            Relationship(source=self.title, target=self.tldr),
+            *(Relationship(source=self.tldr, target=c.text) for c in self.claims),
+            *(_relationships_from_indices(self.claims, self.methods)),
+            *(_relationships_from_indices(self.methods, self.experiments)),
+        ]
+
+        return Graph(entities=entities, relationships=relationships)
+
+
+class IndexedEntity(BaseModel):
+    """Entity from the paper. It belongs to a list and carries its index in that list."""
+
+    model_config = ConfigDict(frozen=True)
+
+    index: int = Field("Index of this entity in its original list.")
+    text: str = Field("Sentence from the paper describing this entity.")
+
+
+class ConnectedEntity(IndexedEntity):
+    """Entity from a paper that has an index and is connected to other entities by index.
+
+    The source indices from other entities are from the original list containing the
+    connected entities.
+    """
+
+    source_indices: Sequence[int] = Field(
+        "Indices of the entities connected to this one in their original list."
+    )
+
+
+def _relationships_from_indices(
+    sources: Sequence[IndexedEntity], targets: Iterable[ConnectedEntity]
+) -> list[Relationship]:
+    """For each target, find their source entities from `source_indices` by index.
+
+    Returns:
+        List of all relationships between targets and their sources.
+
+    Raises:
+        IndexError: When an index in `target.source_indices` doesn't match any source in
+            `sources`.
+    """
+    return [
+        Relationship(source=sources[source_idx].text, target=target.text)
+        for target in targets
+        for source_idx in target.source_indices
+    ]
+
+
 _GRAPH_TYPES: Mapping[str, type[GPTGraphBase]] = {
     "graph": GPTGraph,
+    "strict": GPTGraphStrict,
 }
 
 
