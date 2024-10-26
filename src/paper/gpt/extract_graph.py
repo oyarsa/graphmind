@@ -164,6 +164,9 @@ _PRIMARY_AREAS = tomllib.loads(read_resource("gpt.prompts", "primary_areas.toml"
     "primary_areas"
 ]
 _GRAPH_USER_PROMPTS = load_prompts("extract_graph")
+_GRAPH_TYPES = {
+    "graph": GPTGraph,
+}
 
 
 async def _generate_graphs(
@@ -180,7 +183,11 @@ async def _generate_graphs(
             primary_areas=", ".join(_PRIMARY_AREAS),
         )
         result = await run_gpt(
-            GPTGraph, client, _GRAPH_SYSTEM_PROMPT, user_prompt_text, model
+            _GRAPH_TYPES[user_prompt.type_name],
+            client,
+            _GRAPH_SYSTEM_PROMPT,
+            user_prompt_text,
+            model,
         )
         graph = (
             result.result.to_graph()

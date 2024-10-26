@@ -18,7 +18,6 @@ logger = logging.getLogger("paper.gpt.evaluate_graph")
 CLASSIFY_SYSTEM_PROMPT = (
     "Approve or reject the scientific paper based on the extracted entities."
 )
-
 CLASSIFY_USER_PROMPTS = load_prompts("evaluate_graph")
 
 
@@ -78,6 +77,11 @@ class GPTClassify(BaseModel):
     approved: bool
 
 
+_CLASSIFY_TYPES = {
+    "classify": GPTClassify,
+}
+
+
 async def _classify_papers(
     client: AsyncOpenAI,
     model: str,
@@ -110,7 +114,11 @@ async def _classify_papers(
             graph=graph.model_dump_json(),
         )
         result = await run_gpt(
-            GPTClassify, client, CLASSIFY_SYSTEM_PROMPT, user_prompt_text, model
+            _CLASSIFY_TYPES[user_prompt.type_name],
+            client,
+            CLASSIFY_SYSTEM_PROMPT,
+            user_prompt_text,
+            model,
         )
         total_cost += result.cost
         classified = result.result

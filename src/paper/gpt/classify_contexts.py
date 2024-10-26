@@ -114,6 +114,11 @@ class GPTContext(BaseModel):
     )
 
 
+_CONTEXT_TYPES = {
+    "context": GPTContext,
+}
+
+
 async def _classify_paper(
     client: AsyncOpenAI,
     limit_references: int | None,
@@ -151,7 +156,11 @@ async def _classify_paper(
                 user_prompt_save = user_prompt_text
 
             result = await run_gpt(
-                GPTContext, client, _CONTEXT_SYSTEM_PROMPT, user_prompt_text, model
+                _CONTEXT_TYPES[user_prompt.type_name],
+                client,
+                _CONTEXT_SYSTEM_PROMPT,
+                user_prompt_text,
+                model,
             )
             total_cost += result.cost
 
