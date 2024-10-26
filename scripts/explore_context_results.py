@@ -10,8 +10,8 @@ from typing import Annotated
 import typer
 from pydantic import TypeAdapter
 
-from paper_hypergraph.gpt.classify_contexts import PaperOutput, show_classified_stats
-from paper_hypergraph.gpt.run_gpt import PromptResult
+from paper.gpt.classify_contexts import PaperOutput, show_classified_stats
+from paper.gpt.run_gpt import PromptResult
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

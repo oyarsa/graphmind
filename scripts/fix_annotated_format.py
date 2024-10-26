@@ -2,7 +2,7 @@
 
 Old format: separated contexts, contexts_expanded and contexts_annotated.
 New format: old a single contexts list with an optional polarity. This has the
-`paper_hypergraph.asap.model.PaperWithReferenceEnriched` format.
+`paper.asap.model.PaperWithReferenceEnriched` format.
 """
 
 import json
@@ -12,7 +12,7 @@ from typing import Annotated, Any
 import typer
 from pydantic import TypeAdapter
 
-from paper_hypergraph.asap.model import (
+from paper.asap.model import (
     CitationContext,
     PaperSection,
     PaperWithReferenceEnriched,

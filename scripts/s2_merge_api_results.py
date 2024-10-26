@@ -1,6 +1,6 @@
 """Add original paper title to Semantic Scholar API results.
 
-The original version of `paper_hypergraph.s2orc.retrieve_papers_semantic_scholar` did not
+The original version of `paper.s2orc.retrieve_papers_semantic_scholar` did not
 include the input title query in the output file, which was necessary to evaluate the
 match accuracy. This script adds these titles.
 

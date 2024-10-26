@@ -1,5 +1,5 @@
 [project]
-name = "paper-hypergraph"
+name = "paper"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -26,7 +26,7 @@ dependencies = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["paper_hypergraph"]
+known-first-party = ["paper"]
 
 [tool.ruff.lint]
 select = [
@@ -79,8 +79,8 @@ dev-dependencies = [
 ]
 
 [project.scripts]
-preprocess = "paper_hypergraph.preprocess:main"
-gpt = "paper_hypergraph.gpt.cli:main"
+preprocess = "paper.preprocess:main"
+gpt = "paper.gpt.cli:main"
 
 [build-system]
 requires = ["hatchling"]

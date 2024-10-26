@@ -1,6 +1,6 @@
 """Calculate citation quality for the S2 API results through fuzzy matching scores.
 
-Takes as input the best matches from `paper_hypergraph.s2orc.retrieve_papers_semantic_scholar`
+Takes as input the best matches from `paper.s2orc.retrieve_papers_semantic_scholar`
 and calculates the fuzzy ratio between the retrieved best paper title and the original
 title query (`title` vs `title_query`).
 
@@ -21,7 +21,7 @@ from typing import Annotated
 
 import typer
 
-from paper_hypergraph.util import fuzzy_ratio
+from paper.util import fuzzy_ratio
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

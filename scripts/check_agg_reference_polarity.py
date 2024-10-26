@@ -1,6 +1,6 @@
 """Check for difference in polarities from references with multiple contexts.
 
-The input file should have the `paper_hypergraph.asap.models.PaperWithReferenceEnriched`
+The input file should have the `paper.asap.models.PaperWithReferenceEnriched`
 format.
 """
 
@@ -10,7 +10,7 @@ from typing import Annotated
 import typer
 from pydantic import TypeAdapter
 
-from paper_hypergraph.asap.model import (
+from paper.asap.model import (
     CitationContext,
     PaperWithReferenceEnriched,
 )
