@@ -50,6 +50,7 @@ class Graph(BaseModel):
         """Check if graph rules hold. Returns error message if invalid, or "Valid".
 
         Rules:
+        0. All entity names must be unique.
         1. There must be exactly one node of types Title, Primary Area and TLDR.
         2. The Title node cannot have incoming edges.
         3. In the second level, TLDR, Primary Area and Keyword nodes can only have one
@@ -75,6 +76,14 @@ class Graph(BaseModel):
             Error message describing the rule violated if the graph is invalid.
             "Valid" if the graph is follows all rules.
         """
+        # Rule 0: Every entity must be unique
+        if entity_counts := [
+            f"{entity} ({count})"
+            for entity, count in Counter(e.name for e in self.entities).most_common()
+            if count > 1
+        ]:
+            return f"Entities with non-unique names: {", ".join(entity_counts)}"
+
         entities = {entity.name: entity for entity in self.entities}
         incoming: defaultdict[str, list[Relationship]] = defaultdict(list)
         outgoing: defaultdict[str, list[Relationship]] = defaultdict(list)
@@ -104,7 +113,7 @@ class Graph(BaseModel):
                 if len(inc_edges) != 1:
                     return (
                         f"Found {len(inc_edges)} incoming edges to node type '{node_type}'."
-                        " Should be exactly 1."
+                        f" Should be exactly 1. Node: '{node.name}'"
                     )
 
                 inc_node = entities[inc_edges[0].source]
