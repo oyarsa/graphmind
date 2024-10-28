@@ -168,12 +168,7 @@ class GPTGraphStrict(GPTGraphBase):
 
     @override
     def to_graph(self) -> Graph:
-        """Build a real `Graph` from the entities and their relationships.
-
-        Raises:
-            IndexError: When a source index in `self.methods` or `self.experiments` is
-            invalid.
-        """
+        """Build a real `Graph` from the entities and their relationships."""
         entities = [
             Entity(name=self.title, type=EntityType.TITLE),
             Entity(name=self.primary_area, type=EntityType.PRIMARY_AREA),
@@ -192,8 +187,12 @@ class GPTGraphStrict(GPTGraphBase):
             *(Relationship(source=self.title, target=kw) for kw in self.keywords),
             Relationship(source=self.title, target=self.tldr),
             *(Relationship(source=self.tldr, target=c.text) for c in self.claims),
-            *(_relationships_from_indices(self.claims, self.methods)),
-            *(_relationships_from_indices(self.methods, self.experiments)),
+            *(_relationships_from_indices(self.claims, self.methods, "claim->method")),
+            *(
+                _relationships_from_indices(
+                    self.methods, self.experiments, "method->exp"
+                )
+            ),
         ]
 
         return Graph(entities=entities, relationships=relationships)
@@ -226,12 +225,11 @@ def _relationships_from_indices(
 ) -> list[Relationship]:
     """For each target, find their source entities from `source_indices` by index.
 
+    NB: If the target index is invald, it will be logged and the relationship will be
+    skipped.
+
     Returns:
         List of all relationships between targets and their sources.
-
-    Raises:
-        IndexError: When an index in `target.source_indices` doesn't match any source in
-            `sources`.
     """
     return [
         Relationship(source=source.text, target=target.text)
@@ -313,18 +311,16 @@ class GPTGraphStrict2(GPTGraphBase):
             Relationship(source=self.title, target=self.tldr),
             *(Relationship(source=self.tldr, target=c) for c in self.claims),
             *(
-                Relationship(
-                    source=self.claims[r.source_index],
-                    target=self.methods[r.target_index],
-                )
+                Relationship(source=source, target=target)
                 for r in self.claims_to_methods
+                if (source := _at(self.claims, r.source_index, "|claim|->method"))
+                and (target := _at(self.methods, r.target_index, "claim->|method|"))
             ),
             *(
-                Relationship(
-                    source=self.methods[r.source_index],
-                    target=self.experiments[r.target_index],
-                )
+                Relationship(source=source, target=target)
                 for r in self.methods_to_experiments
+                if (source := _at(self.methods, r.source_index, "|method|->exp"))
+                and (target := _at(self.experiments, r.target_index, "method->|exp|"))
             ),
         ]
 
