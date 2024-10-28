@@ -115,7 +115,9 @@ def validate_rules(graph: Graph) -> str | None:
         3. TLDR -> Claims
         4. Claims -> Methods
         5. Methods -> Experiments
-    6. There should be no cycles
+    6. All methods must have at least one incoming edge from a claim
+    7. All experiments must have at least one incoming edge from a method
+    8. There should be no cycles
 
     Note: this function doesn't throw an exception if the graph is invalid, it just
     returns the error message. The graph is allowed to be invalid, but it's useful to
@@ -196,7 +198,22 @@ def validate_rules(graph: Graph) -> str | None:
                 if type_ is not prev_type:
                     return f"Found illegal incoming edge from {type_} to {cur_type}"
 
-    # Rule 6: No cycles
+    # Rule 6: All methods must have at least one incoming edge from a claim
+    # Rule 7: All experiments must have at least one incoming edge from a method
+    for cur_type, prev_type in itertools.pairwise(reversed(level_order)):
+        for node in _get_nodes_of_type(graph, cur_type):
+            inc = [
+                edge
+                for edge in incoming[node.name]
+                if entities[edge.source].type is prev_type
+            ]
+            if not inc:
+                return (
+                    f"Node type {cur_type} has no incoming edges from {prev_type}."
+                    " Should be at least 1."
+                )
+
+    # Rule 8: No cycles
     if graph_to_digraph(graph).has_cycle():
         return "Graph has cycles"
 
