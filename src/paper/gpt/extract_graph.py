@@ -222,7 +222,7 @@ class ConnectedEntity(IndexedEntity):
 
 
 def _relationships_from_indices(
-    sources: Sequence[IndexedEntity], targets: Iterable[ConnectedEntity]
+    sources: Sequence[IndexedEntity], targets: Iterable[ConnectedEntity], desc: str
 ) -> list[Relationship]:
     """For each target, find their source entities from `source_indices` by index.
 
@@ -234,10 +234,20 @@ def _relationships_from_indices(
             `sources`.
     """
     return [
-        Relationship(source=sources[source_idx].text, target=target.text)
+        Relationship(source=source.text, target=target.text)
         for target in targets
         for source_idx in target.source_indices
+        if (source := _at(sources, source_idx, desc))
     ]
+
+
+def _at[T](seq: Sequence[T], idx: int, desc: str) -> T | None:
+    """Get `seq[idx]` if possible, otherwise return None and log warning with `desc`."""
+    try:
+        return seq[idx]
+    except IndexError:
+        logger.warning("Invalid index at '%s': %d out of %d", desc, idx, len(seq))
+        return None
 
 
 class GPTGraphStrict2(GPTGraphBase):
