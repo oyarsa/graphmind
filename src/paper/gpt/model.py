@@ -115,9 +115,9 @@ def validate_rules(graph: Graph) -> str | None:
         3. TLDR -> Claims
         4. Claims -> Methods
         5. Methods -> Experiments
-    6. All methods must have at least one incoming edge from a claim
-    7. All experiments must have at least one incoming edge from a method
-    8. There should be no cycles
+    6. At mid levels, in each node in a level must be connected to at least one node from
+       the previous.
+    7. There should be no cycles
 
     Note: this function doesn't throw an exception if the graph is invalid, it just
     returns the error message. The graph is allowed to be invalid, but it's useful to
@@ -189,16 +189,16 @@ def validate_rules(graph: Graph) -> str | None:
                     return f"Found illegal outgoing edge from '{cur_type}' to '{type_}'"
 
     # Incoming edges
-    for cur_type, prev_type in itertools.pairwise(reversed(level_order)):
+    for prev_type, cur_type in itertools.pairwise(level_order):
         for node in _get_nodes_of_type(graph, cur_type):
             for edge in incoming[node.name]:
                 type_ = entities[edge.source].type
                 if type_ is not prev_type:
                     return f"Found illegal incoming edge from '{type_}' to '{cur_type}'"
 
-    # Rule 6: All methods must have at least one incoming edge from a claim
-    # Rule 7: All experiments must have at least one incoming edge from a method
-    for cur_type, prev_type in itertools.pairwise(reversed(level_order)):
+    # Rule 6: At mid levels, in each node in a level must be connected to at least one
+    # node from the previous.
+    for prev_type, cur_type in itertools.pairwise(level_order):
         for node in _get_nodes_of_type(graph, cur_type):
             inc = [
                 edge
@@ -211,7 +211,7 @@ def validate_rules(graph: Graph) -> str | None:
                     " Should be at least 1."
                 )
 
-    # Rule 8: No cycles
+    # Rule 7: No cycles
     if graph_to_digraph(graph).has_cycle():
         return "Graph has cycles"
 
