@@ -38,6 +38,12 @@ class Graph(BaseModel):
     entities: Sequence[Entity]
     relationships: Sequence[Relationship]
 
+    @property
+    def title(self) -> str:
+        return next(
+            (e.name for e in self.entities if e.type is EntityType.TITLE), "ERROR"
+        )
+
     @computed_field
     @property
     def valid_status(self) -> str:
