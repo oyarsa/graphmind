@@ -59,7 +59,7 @@ def main() -> None:
                     args.limit,
                     args.graph_user_prompt,
                     args.classify_user_prompt,
-                    args.visualise,
+                    args.display,
                     args.output_dir,
                     args.classify,
                 )

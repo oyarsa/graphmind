@@ -439,7 +439,7 @@ def _display_graphs(
     papers: Iterable[Paper],
     graph_results: Iterable[PromptResult[Graph]],
     output_dir: Path,
-    visualise: bool,
+    display_gui: bool,
 ) -> None:
     """Plot graphs to PNG files and (optionally) the screen.
 
@@ -451,7 +451,7 @@ def _display_graphs(
             `papers`
         output_dir: Where the graph and image wll be persisted. The graph is saved as
             GraphML and the image as PNG.
-        visualise: If True, show the graph on screen. This suspends the process until
+        display_gui: If True, show the graph on screen. This suspends the process until
             the plot is closed.
     """
     for paper, graph_result in zip(papers, graph_results):
@@ -460,7 +460,7 @@ def _display_graphs(
         try:
             dag.visualise_hierarchy(
                 img_path=output_dir / f"{paper.title}.png",
-                display_gui=visualise,
+                display_gui=display_gui,
                 description=f"index - model: {model} - prompt: {graph_user_prompt_key}",
             )
         except hierarchical_graph.GraphError:
@@ -474,7 +474,7 @@ async def extract_graph(
     limit: int | None,
     graph_user_prompt_key: str,
     classify_user_prompt_key: str,
-    visualise: bool,
+    display: bool,
     output_dir: Path,
     classify: bool,
 ) -> None:
@@ -498,7 +498,7 @@ async def extract_graph(
             `_GRAPH_USER_PROMPTS` for available options or `_display_prompts` for more.
         classify_user_prompt_key: Key to the user prompt to use for graph extraction. See
             `_CLASSIFY_USER_PROMPTS` for available options or `_display_prompts` for more.
-        visualise: If True, show each graph on screen. This suspends the process until
+        display: If True, show each graph on screen. This suspends the process until
             the plot is closed.
         output_dir: Directory to save the output files: serialised graphs (GraphML),
             plot images (PNG) and classification results (JSON), if classification is
@@ -546,7 +546,7 @@ async def extract_graph(
         papers,
         graph_results.result,
         output_dir,
-        visualise,
+        display,
     )
 
     if classify:
@@ -622,11 +622,10 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         help="The user prompt to use for paper classification. Defaults to %(default)s.",
     )
     run_parser.add_argument(
-        "--visualise",
-        "-V",
+        "--display",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Visualise the extracted graph.",
+        help="Display the extracted graph.",
     )
     run_parser.add_argument(
         "--classify",
@@ -668,7 +667,7 @@ def main() -> None:
                 args.limit,
                 args.graph_user_prompt,
                 args.classify_user_prompt,
-                args.visualise,
+                args.display,
                 args.output_dir,
                 args.classify,
             )
