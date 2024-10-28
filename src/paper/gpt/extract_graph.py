@@ -51,17 +51,23 @@ logger = logging.getLogger("paper.gpt.extract_graph")
 
 
 class GPTRelationship(BaseModel):
+    """Relationship connecting `source` -> `target` based on indices."""
+
     model_config = ConfigDict(frozen=True)
 
-    source_index: int
-    target_index: int
+    source_index: int = Field(
+        description="Index of the source entity in its original list."
+    )
+    target_index: int = Field(
+        description="Index of the target entity in its original list."
+    )
 
 
 class GPTEntity(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    index: int
-    name: str
+    index: int = Field(description="Index of this entity in the entities list.")
+    name: str = Field(description="Name that describes this entity.")
     type: EntityType
 
 
