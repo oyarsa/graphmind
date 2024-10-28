@@ -140,7 +140,7 @@ def validate_rules(graph: Graph) -> str | None:
     for node_type in singletons:
         nodes = _get_nodes_of_type(graph, node_type)
         if len(nodes) != 1:
-            return f"Found {len(nodes)} {node_type} nodes. Should be exactly 1."
+            return f"Found {len(nodes)} '{node_type}' nodes. Should be exactly 1."
 
     # Rule 2: Title node cannot have incoming edges
     title = _get_nodes_of_type(graph, EntityType.TITLE)[0]
@@ -155,15 +155,13 @@ def validate_rules(graph: Graph) -> str | None:
             inc_edges = incoming[node.name]
             if len(inc_edges) != 1:
                 return (
-                    f"Found {len(inc_edges)} incoming edges to node type {node_type}."
+                    f"Found {len(inc_edges)} incoming edges to node type '{node_type}'."
                     " Should be exactly 1."
                 )
 
             inc_node = entities[inc_edges[0].source]
             if inc_node.type is not EntityType.TITLE:
-                return (
-                    f"Incoming edge to {node_type} is not Title, but {inc_node.type}."
-                )
+                return f"Incoming edge to '{node_type}' is not Title, but '{inc_node.type}'."
 
     # Rule 4: Primary Area, Keyword and Experiment nodes don't have outgoing edges
     level_leaf = [EntityType.PRIMARY_AREA, EntityType.KEYWORD, EntityType.EXPERIMENT]
@@ -171,7 +169,7 @@ def validate_rules(graph: Graph) -> str | None:
         for node in _get_nodes_of_type(graph, node_type):
             if out := outgoing[node.name]:
                 return (
-                    f"Found {len(out)} outgoing edges from node type {node_type}."
+                    f"Found {len(out)} outgoing edges from node type '{node_type}'."
                     " Should be 0."
                 )
 
@@ -188,7 +186,7 @@ def validate_rules(graph: Graph) -> str | None:
             for edge in outgoing[node.name]:
                 type_ = entities[edge.target].type
                 if type_ is not next_type:
-                    return f"Found illegal outgoing edge from {cur_type} to {type_}"
+                    return f"Found illegal outgoing edge from '{cur_type}' to '{type_}'"
 
     # Incoming edges
     for cur_type, prev_type in itertools.pairwise(reversed(level_order)):
@@ -196,7 +194,7 @@ def validate_rules(graph: Graph) -> str | None:
             for edge in incoming[node.name]:
                 type_ = entities[edge.source].type
                 if type_ is not prev_type:
-                    return f"Found illegal incoming edge from {type_} to {cur_type}"
+                    return f"Found illegal incoming edge from '{type_}' to '{cur_type}'"
 
     # Rule 6: All methods must have at least one incoming edge from a claim
     # Rule 7: All experiments must have at least one incoming edge from a method
@@ -209,7 +207,7 @@ def validate_rules(graph: Graph) -> str | None:
             ]
             if not inc:
                 return (
-                    f"Node type {cur_type} has no incoming edges from {prev_type}."
+                    f"Node type '{cur_type}' has no incoming edges from '{prev_type}'."
                     " Should be at least 1."
                 )
 
