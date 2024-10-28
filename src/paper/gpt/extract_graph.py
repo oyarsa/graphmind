@@ -21,6 +21,8 @@ from typing import override
 import dotenv
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from rich.console import Console
+from rich.table import Table
 from tqdm import tqdm
 
 from paper import hierarchical_graph
@@ -548,12 +550,22 @@ async def extract_graph(
         output_dir,
         display,
     )
+    _display_validation(graph_results.result)
 
     if classify:
         graphs = [result.item for result in graph_results.result]
         await evaluate_graphs(
             client, model, papers, graphs, classify_user_prompt_key, output_dir
         )
+
+
+def _display_validation(results: Iterable[PromptResult[Graph]]) -> None:
+    valids = Counter(x.item.valid_status for x in results)
+    valid_table = Table("Validation message", "Count")
+    for msg, count in valids.most_common():
+        valid_table.add_row(msg, str(count))
+
+    Console().print(valid_table)
 
 
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
