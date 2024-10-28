@@ -280,9 +280,9 @@ def _log_config(
 _GRAPH_SYSTEM_PROMPT = (
     "Extract the entities from the text and the relationships between them."
 )
-_PRIMARY_AREAS = tomllib.loads(read_resource("gpt.prompts", "primary_areas.toml"))[
-    "primary_areas"
-]
+_PRIMARY_AREAS: list[str] = tomllib.loads(
+    read_resource("gpt.prompts", "primary_areas.toml")
+)["primary_areas"]
 _GRAPH_USER_PROMPTS = load_prompts("extract_graph")
 
 
