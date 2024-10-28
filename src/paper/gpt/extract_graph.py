@@ -248,89 +248,9 @@ def _at[T](seq: Sequence[T], idx: int, desc: str) -> T | None:
         return None
 
 
-class GPTGraphStrict2(GPTGraphBase):
-    """Graph representing the paper."""
-
-    # Has the same nodes as `GPTGraph`, only the representation is different. The goal
-    # is to prevent the model from creating invalid relationships, e.g. from title to
-    # claims, which happens on `GPTGraph` with GPT-4o-mini.
-    # The difference to `GPTGraphStrict` is how the relationships between claims,
-    # methods and experiments are structured.
-    # (This comment isn't in the docstring because I don't want it in the JSON schema).
-
-    title: str = Field(description="Title of the paper.")
-    primary_area: str = Field(
-        description="The primary subject area of the paper picked from the ICLR list of"
-        " topics."
-    )
-    keywords: Sequence[str] = Field(
-        description="Keywords that summarise the key aspects of the paper."
-    )
-    tldr: str = Field(description="Sentence that summarises the paper.")
-    claims: Sequence[str] = Field(
-        description="Sentences from the paper describing the main contributions it"
-        " claims to make."
-    )
-    methods: Sequence[str] = Field(
-        description="Sentences from the paper describing the methods used to verify the"
-        " claims."
-    )
-    experiments: Sequence[str] = Field(
-        description="Sentences from the paper describing the experiments designed to"
-        " test the"
-        " methods in practice."
-    )
-    claims_to_methods: Sequence[GPTRelationship] = Field(
-        description="Relationships with source in `claims` and target in `methods`."
-    )
-    methods_to_experiments: Sequence[GPTRelationship] = Field(
-        description="Relationships with source in `methods` and target in `experiments`."
-    )
-
-    @override
-    def to_graph(self) -> Graph:
-        """Build a real `Graph` from the entities and their relationships.
-
-        Raises:
-            IndexError: When source or target index in `claims_to_methods` or
-                `methods_to_experiments` is invalid.
-        """
-        entities = [
-            Entity(name=self.title, type=EntityType.TITLE),
-            Entity(name=self.primary_area, type=EntityType.PRIMARY_AREA),
-            *(Entity(name=kw, type=EntityType.KEYWORD) for kw in self.keywords),
-            Entity(name=self.tldr, type=EntityType.TLDR),
-            *(Entity(name=c, type=EntityType.CLAIM) for c in self.claims),
-            *(Entity(name=m, type=EntityType.METHOD) for m in self.methods),
-            *(Entity(name=x, type=EntityType.EXPERIMENT) for x in self.experiments),
-        ]
-
-        relationships = [
-            Relationship(source=self.title, target=self.primary_area),
-            *(Relationship(source=self.title, target=kw) for kw in self.keywords),
-            Relationship(source=self.title, target=self.tldr),
-            *(Relationship(source=self.tldr, target=c) for c in self.claims),
-            *(
-                Relationship(source=source, target=target)
-                for r in self.claims_to_methods
-                if (source := _at(self.claims, r.source_index, "|claim|->method"))
-                and (target := _at(self.methods, r.target_index, "claim->|method|"))
-            ),
-            *(
-                Relationship(source=source, target=target)
-                for r in self.methods_to_experiments
-                if (source := _at(self.methods, r.source_index, "|method|->exp"))
-                and (target := _at(self.experiments, r.target_index, "method->|exp|"))
-            ),
-        ]
-
-        return Graph(entities=entities, relationships=relationships)
-
-
 _GRAPH_TYPES: Mapping[str, type[GPTGraphBase]] = {
     "graph": GPTGraph,
     "strict": GPTGraphStrict,
-    "strict2": GPTGraphStrict2,
 }
 
 
