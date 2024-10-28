@@ -416,7 +416,8 @@ def _save_graphs(
         model_config = ConfigDict(frozen=True)
 
         paper: str
-        graph: str
+        graphml: str
+        graph: Graph
         prompt: Prompt
 
     output: list[Output] = []
@@ -425,7 +426,8 @@ def _save_graphs(
         output.append(
             Output(
                 paper=paper.title,
-                graph=graph_to_digraph(graph_result.item).graphml(),
+                graphml=graph_to_digraph(graph_result.item).graphml(),
+                graph=graph_result.item,
                 prompt=graph_result.prompt,
             )
         )
