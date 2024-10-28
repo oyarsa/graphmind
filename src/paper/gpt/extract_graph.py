@@ -137,25 +137,25 @@ class GPTGraphStrict(GPTGraphBase):
     # claims, which happens on `GPTGraph` with GPT-4o-mini.
     # (This comment isn't in the docstring because I don't want it in the JSON schema).
 
-    model_config = ConfigDict(frozen=True)
-
-    title: str = Field("Title of the paper.")
+    title: str = Field(description="Title of the paper.")
     primary_area: str = Field(
-        "The primary subject area of the paper picked from the ICLR list of topics."
+        description="The primary subject area of the paper picked from the ICLR list of"
+        " topics."
     )
     keywords: Sequence[str] = Field(
-        "Keywords that summarise the key aspects of the paper."
+        description="Keywords that summarise the key aspects of the paper."
     )
-    tldr: str = Field("Sentence that summarises the paper.")
+    tldr: str = Field(description="Sentence that summarises the paper.")
     claims: Sequence[IndexedEntity] = Field(
-        "Main contributions the paper claims to make."
+        description="Main contributions the paper claims to make."
     )
     methods: Sequence[ConnectedEntity] = Field(
-        "Methods used to verify the claims. Source indices come from the `claims` list."
+        description="Methods used to verify the claims. Source indices come from the"
+        " `claims` list."
     )
     experiments: Sequence[ConnectedEntity] = Field(
-        "Experiments designed to put methods in practice. Source indices come from the"
-        " `methods` list."
+        description="Experiments designed to put methods in practice. Source indices"
+        " come from the `methods` list."
     )
 
     @override
@@ -196,8 +196,8 @@ class IndexedEntity(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    index: int = Field("Index of this entity in its original list.")
-    text: str = Field("Sentence from the paper describing this entity.")
+    index: int = Field(description="Index of this entity in its original list.")
+    text: str = Field(description="Sentence from the paper describing this entity.")
 
 
 class ConnectedEntity(IndexedEntity):
@@ -208,7 +208,8 @@ class ConnectedEntity(IndexedEntity):
     """
 
     source_indices: Sequence[int] = Field(
-        "Indices of the entities connected to this one in their original list."
+        description="Indices of the entities connected to this one in their original"
+        " list."
     )
 
 
@@ -241,29 +242,33 @@ class GPTGraphStrict2(GPTGraphBase):
     # methods and experiments are structured.
     # (This comment isn't in the docstring because I don't want it in the JSON schema).
 
-    title: str = Field("Title of the paper.")
+    title: str = Field(description="Title of the paper.")
     primary_area: str = Field(
-        "The primary subject area of the paper picked from the ICLR list of topics."
+        description="The primary subject area of the paper picked from the ICLR list of"
+        " topics."
     )
     keywords: Sequence[str] = Field(
-        "Keywords that summarise the key aspects of the paper."
+        description="Keywords that summarise the key aspects of the paper."
     )
-    tldr: str = Field("Sentence that summarises the paper.")
+    tldr: str = Field(description="Sentence that summarises the paper.")
     claims: Sequence[str] = Field(
-        "Sentences from the paper describing the main contributions it claims to make."
+        description="Sentences from the paper describing the main contributions it"
+        " claims to make."
     )
     methods: Sequence[str] = Field(
-        "Sentences from the paper describing the methods used to verify the claims."
+        description="Sentences from the paper describing the methods used to verify the"
+        " claims."
     )
     experiments: Sequence[str] = Field(
-        "Sentences from the paper describing the experiments designed to test the"
+        description="Sentences from the paper describing the experiments designed to"
+        " test the"
         " methods in practice."
     )
     claims_to_methods: Sequence[GPTRelationship] = Field(
-        "Relationships with source in `claims` and target in `methods`."
+        description="Relationships with source in `claims` and target in `methods`."
     )
     methods_to_experiments: Sequence[GPTRelationship] = Field(
-        "Relationships with source in `methods` and target in `experiments`."
+        description="Relationships with source in `methods` and target in `experiments`."
     )
 
     @override
