@@ -13,7 +13,7 @@ import logging
 import os
 import tomllib
 from abc import ABC, abstractmethod
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import override
@@ -562,10 +562,14 @@ async def extract_graph(
 
 
 def _display_validation(results: Iterable[PromptResult[Graph]]) -> None:
-    valids = Counter(x.item.valid_status for x in results)
-    valid_table = Table("Validation message", "Count")
-    for msg, count in valids.most_common():
-        valid_table.add_row(msg, str(count))
+    valids: defaultdict[str, list[Graph]] = defaultdict(list)
+    for x in results:
+        valids[x.item.valid_status].append(x.item)
+    valid_items = sorted(valids.items(), key=lambda x: len(x[1]))
+
+    valid_table = Table("Validation message", "Count", "Example (title)")
+    for msg, graphs in valid_items:
+        valid_table.add_row(f"«{msg}»", str(len(graphs)), graphs[0].title)
 
     Console().print(valid_table)
 
