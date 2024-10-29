@@ -165,8 +165,109 @@ def _at[T](seq: Sequence[T], idx: int, desc: str) -> T | None:
         return None
 
 
+class GPTGraphStrict2(GPTGraphBase):
+    """Graph representing the paper."""
+
+    # This is very similar to `GPTGraphStrict`, but there the connections are backwards.
+    # E.g., `experiment` with a backlink to `method`. Here the connections are forward.
+    # There are also dedicated classes for each entity, even at the bottom levels, with
+    # different field names for each connection.
+
+    title: str = Field(description="Title of the paper.")
+    primary_area: str = Field(
+        description="The primary subject area of the paper picked from the ICLR list of"
+        " topics."
+    )
+    keywords: Sequence[str] = Field(
+        description="Keywords that summarise the key aspects of the paper."
+    )
+    tldr: str = Field(description="Sentence that summarises the paper.")
+    claims: Sequence[ClaimEntity] = Field(
+        description="Main contributions the paper claims to make, with connections to"
+        " target `methods`."
+    )
+    methods: Sequence[MethodEntity] = Field(
+        description="Methods used to verify the claims, with connections to target"
+        " `experiments`"
+    )
+    experiments: Sequence[ExperimentEntity] = Field(
+        description="Experiments designed to put methods in practice."
+    )
+
+    @override
+    def to_graph(self) -> Graph:
+        """Build a real `Graph` from the entities and their relationships."""
+        entities = [
+            Entity(name=self.title, type=EntityType.TITLE),
+            Entity(name=self.primary_area, type=EntityType.PRIMARY_AREA),
+            *(Entity(name=kw, type=EntityType.KEYWORD) for kw in self.keywords),
+            Entity(name=self.tldr, type=EntityType.TLDR),
+            *(Entity(name=c.text, type=EntityType.CLAIM) for c in self.claims),
+            *(Entity(name=m.text, type=EntityType.METHOD) for m in self.methods),
+            *(
+                Entity(name=x.text, type=EntityType.EXPERIMENT)
+                for x in self.experiments
+            ),
+        ]
+
+        relationships = [
+            Relationship(source=self.title, target=self.primary_area),
+            *(Relationship(source=self.title, target=kw) for kw in self.keywords),
+            Relationship(source=self.title, target=self.tldr),
+            *(Relationship(source=self.tldr, target=c.text) for c in self.claims),
+            *(
+                Relationship(source=c.text, target=target.text)
+                for c in self.claims
+                for midx in c.method_indices
+                if (target := _at(self.methods, midx, "claim->method"))
+            ),
+            *(
+                Relationship(source=m.text, target=target.text)
+                for m in self.methods
+                for eidx in m.experiment_indices
+                if (target := _at(self.experiments, eidx, "method->exp"))
+            ),
+        ]
+
+        return Graph(entities=entities, relationships=relationships)
+
+
+class ClaimEntity(BaseModel):
+    """Entity representing a claim made in the paper."""
+
+    text: str = Field(description="Description of a claim made by the paper")
+    method_indices: Sequence[int] = Field(
+        description="Indices for the `methods` connected to this claim in the `methods`"
+        " list. There must be at least one connected `method`."
+    )
+
+
+class MethodEntity(BaseModel):
+    """Entity representing a method described in the paper to support the claims."""
+
+    text: str = Field(
+        description="Description of a method used to validate claims from the paper."
+    )
+    index: int = Field(description="Index for this method in the `methods` list")
+    experiment_indices: Sequence[int] = Field(
+        description="Indices for the `experiments` connected to this method in the "
+        " `experiments` list. There must be at least one connected `experiment`."
+    )
+
+
+class ExperimentEntity(BaseModel):
+    """Entity representing an experiment used to validate a method from the paper."""
+
+    text: str = Field(
+        description="Description of an experiment used to validate the methods from"
+        " the paper."
+    )
+    index: int = Field(description="Index for this method in the `experiments` list")
+
+
 _GRAPH_TYPES: Mapping[str, type[GPTGraphBase]] = {
     "strict": GPTGraphStrict,
+    "strict2": GPTGraphStrict2,
 }
 
 
