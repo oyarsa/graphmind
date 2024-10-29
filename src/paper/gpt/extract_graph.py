@@ -16,14 +16,13 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import cast, override
+from typing import override
 
 import dotenv
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from rich.console import Console
 from rich.table import Table
-from tqdm.asyncio import tqdm
 
 from paper import hierarchical_graph
 from paper.gpt.evaluate_graph import (
@@ -47,7 +46,7 @@ from paper.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper.util import Timer, read_resource, setup_logging
+from paper.util import Timer, as_completed, read_resource, setup_logging
 
 logger = logging.getLogger("paper.gpt.extract_graph")
 
@@ -342,8 +341,8 @@ async def _generate_graphs(
 
     tasks = [_generate_graph(client, example, model, user_prompt) for example in data]
 
-    for task in tqdm.as_completed(tasks, desc="Extracting graphs"):  # type: ignore
-        result = cast(GPTResult[PromptResult[Graph]], await task)
+    for task in as_completed(tasks, desc="Extracting graphs"):
+        result = await task
         graph_results.append(result.result)
         total_cost += result.cost
 

@@ -19,12 +19,10 @@ import logging
 import os
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import cast
 
 import dotenv
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
-from tqdm.asyncio import tqdm
 
 from paper import evaluation_metrics
 from paper.asap.model import (
@@ -42,7 +40,7 @@ from paper.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper.util import Timer, safediv, setup_logging
+from paper.util import Timer, as_completed, safediv, setup_logging
 
 logger = logging.getLogger("paper.gpt.classify_contexts")
 
@@ -237,10 +235,10 @@ async def _classify_contexts(
         _classify_paper(client, limit_references, model, paper, user_prompt)
         for paper in papers
     ]
-    for task in tqdm.as_completed(  # type: ignore
+    for task in as_completed(  # type: ignore
         tasks, desc="Classifying paper reference contexts"
     ):
-        result = cast(GPTResult[PromptResult[PaperOutput]], await task)
+        result = await task
         total_cost += result.cost
 
         paper_outputs.append(result.result)
