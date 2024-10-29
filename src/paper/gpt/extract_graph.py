@@ -13,7 +13,7 @@ import logging
 import os
 import tomllib
 from abc import ABC, abstractmethod
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import override
@@ -52,27 +52,6 @@ from paper.util import Timer, read_resource, setup_logging
 logger = logging.getLogger("paper.gpt.extract_graph")
 
 
-class GPTRelationship(BaseModel):
-    """Relationship connecting `source` -> `target` based on indices."""
-
-    model_config = ConfigDict(frozen=True)
-
-    source_index: int = Field(
-        description="Index of the source entity in its original list."
-    )
-    target_index: int = Field(
-        description="Index of the target entity in its original list."
-    )
-
-
-class GPTEntity(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    index: int = Field(description="Index of this entity in the entities list.")
-    name: str = Field(description="Name that describes this entity.")
-    type: EntityType
-
-
 class GPTGraphBase(BaseModel, ABC):
     model_config = ConfigDict(frozen=True)
 
@@ -80,70 +59,8 @@ class GPTGraphBase(BaseModel, ABC):
     def to_graph(self) -> Graph: ...
 
 
-class GPTGraph(GPTGraphBase):
-    entities: Sequence[GPTEntity]
-    relationships: Sequence[GPTRelationship]
-
-    def __str__(self) -> str:
-        entities = "\n".join(
-            f"  {e.index}. {e.type} - {e.name}"
-            for e in sorted(self.entities, key=lambda e: e.index)
-        )
-
-        relationships = "\n".join(
-            f" {i}. {r.source_index} - {r.target_index}"
-            for i, r in enumerate(
-                sorted(
-                    self.relationships, key=lambda r: (r.source_index, r.target_index)
-                ),
-                1,
-            )
-        )
-        node_type_counts = sorted(Counter(e.type for e in self.entities).items())
-
-        return "\n".join(
-            [
-                f"Nodes: {len(self.entities)}",
-                f"Edges: {len(self.relationships)}",
-                f"Node types: {", ".join(f"{k}: {v}" for k, v in node_type_counts)}",
-                "",
-                "Entities:",
-                entities,
-                "",
-                "Relationships:",
-                relationships,
-                "",
-            ]
-        )
-
-    @override
-    def to_graph(self) -> Graph:
-        """Builds a graph from the GPT output.
-
-        Assumes that the entities are all valid, and that the source/target indices for
-        the relationships match the indices in the entities sequence.
-        """
-        entities = [Entity(name=e.name, type=e.type) for e in self.entities]
-
-        entity_index = {e.index: e for e in self.entities}
-        relationships = [
-            Relationship(
-                source=entity_index[r.source_index].name,
-                target=entity_index[r.target_index].name,
-            )
-            for r in self.relationships
-        ]
-
-        return Graph(entities=entities, relationships=relationships)
-
-
 class GPTGraphStrict(GPTGraphBase):
     """Graph representing the paper."""
-
-    # Has the same nodes as `GPTGraph`, only the representation is different. The goal
-    # is to prevent the model from creating invalid relationships, e.g. from title to
-    # claims, which happens on `GPTGraph` with GPT-4o-mini.
-    # (This comment isn't in the docstring because I don't want it in the JSON schema).
 
     title: str = Field(description="Title of the paper.")
     primary_area: str = Field(
@@ -249,7 +166,6 @@ def _at[T](seq: Sequence[T], idx: int, desc: str) -> T | None:
 
 
 _GRAPH_TYPES: Mapping[str, type[GPTGraphBase]] = {
-    "graph": GPTGraph,
     "strict": GPTGraphStrict,
 }
 
