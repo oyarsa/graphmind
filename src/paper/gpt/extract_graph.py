@@ -16,14 +16,14 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import override
+from typing import cast, override
 
 import dotenv
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from rich.console import Console
 from rich.table import Table
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 
 from paper import hierarchical_graph
 from paper.gpt.evaluate_graph import (
@@ -303,39 +303,49 @@ _PRIMARY_AREAS: list[str] = tomllib.loads(
 _GRAPH_USER_PROMPTS = load_prompts("extract_graph")
 
 
+async def _generate_graph(
+    client: AsyncOpenAI, example: Paper, model: str, user_prompt: PromptTemplate
+) -> GPTResult[PromptResult[Graph]]:
+    user_prompt_text = user_prompt.template.format(
+        title=example.title,
+        abstract=example.abstract,
+        main_text=example.main_text(),
+        primary_areas=", ".join(_PRIMARY_AREAS),
+    )
+    result = await run_gpt(
+        _GRAPH_TYPES[user_prompt.type_name],
+        client,
+        _GRAPH_SYSTEM_PROMPT,
+        user_prompt_text,
+        model,
+    )
+    graph = (
+        result.result.to_graph()
+        if result.result
+        else Graph(entities=[], relationships=[])
+    )
+    logger.debug(graph)
+    return GPTResult(
+        result=PromptResult(
+            item=graph,
+            prompt=Prompt(user=user_prompt_text, system=_GRAPH_SYSTEM_PROMPT),
+        ),
+        cost=result.cost,
+    )
+
+
 async def _generate_graphs(
     client: AsyncOpenAI, data: list[Paper], model: str, user_prompt: PromptTemplate
 ) -> GPTResult[list[PromptResult[Graph]]]:
     total_cost = 0
     graph_results: list[PromptResult[Graph]] = []
 
-    for example in tqdm(data, desc="Extracting graphs"):
-        user_prompt_text = user_prompt.template.format(
-            title=example.title,
-            abstract=example.abstract,
-            main_text=example.main_text(),
-            primary_areas=", ".join(_PRIMARY_AREAS),
-        )
-        result = await run_gpt(
-            _GRAPH_TYPES[user_prompt.type_name],
-            client,
-            _GRAPH_SYSTEM_PROMPT,
-            user_prompt_text,
-            model,
-        )
-        graph = (
-            result.result.to_graph()
-            if result.result
-            else Graph(entities=[], relationships=[])
-        )
-        logger.debug(graph)
+    tasks = [_generate_graph(client, example, model, user_prompt) for example in data]
+
+    for task in tqdm.as_completed(tasks, desc="Extracting graphs"):  # type: ignore
+        result = cast(GPTResult[PromptResult[Graph]], await task)
+        graph_results.append(result.result)
         total_cost += result.cost
-        graph_results.append(
-            PromptResult(
-                item=graph,
-                prompt=Prompt(user=user_prompt_text, system=_GRAPH_SYSTEM_PROMPT),
-            )
-        )
 
     return GPTResult(graph_results, total_cost)
 
