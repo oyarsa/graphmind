@@ -391,7 +391,8 @@ def _display_graphs(
             dag.visualise_hierarchy(
                 img_path=output_dir / f"{paper.title}.png",
                 display_gui=display_gui,
-                description=f"index - model: {model} - prompt: {graph_user_prompt_key}",
+                description=f"index - model: {model} - prompt: {graph_user_prompt_key}\n"
+                f"status: {graph_result.item.valid_status}\n",
             )
         except hierarchical_graph.GraphError:
             logger.exception("Error visualising graph")
