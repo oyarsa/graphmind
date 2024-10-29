@@ -56,17 +56,19 @@ class Graph(BaseModel):
         3. In the second level, TLDR, Primary Area and Keyword nodes can only have one
            incoming each, and it must be from Title.
         4. Primary Area, Keyword and Experiment nodes don't have outgoing edges.
-        5. At later mid levels, nodes can only have incoming edges from the previous level
-           and outgoing edges to the next level.
+        5. At later mid levels, nodes can only have incoming edges from the previous
+           level and outgoing edges to the next level.
            The sequence in levels is:
             1. Title
             2. Title -> Primary Area, Keywords, TLDR
             3. TLDR -> Claims
             4. Claims -> Methods
             5. Methods -> Experiments
-        6. At mid levels, in each node in a level must be connected to at least one node from
-           the previous.
-        7. There should be no cycles
+        6. At mid levels, in each node in a level must be connected to at least one node
+           from the previous level.
+        7. At mid levels, in each node in a level must be connected to at least one node
+           from the next level.
+        8. There should be no cycles
 
         Note: this function doesn't throw an exception if the graph is invalid, it just
         returns the error message. The graph is allowed to be invalid, but it's useful to
@@ -157,8 +159,8 @@ class Graph(BaseModel):
                     if type_ is not prev_type:
                         return f"Found illegal incoming edge from '{type_}' to '{cur_type}'"
 
-        # Rule 6: At mid levels, in each node in a level must be connected to at least one
-        # node from the previous.
+        # Rule 6: At mid levels, each node in a level must be connected to at least one
+        # node in the previous level.
         for prev_type, cur_type in itertools.pairwise(level_order):
             for node in _get_nodes_of_type(self, cur_type):
                 inc = [
@@ -171,8 +173,22 @@ class Graph(BaseModel):
                         f"Node type '{cur_type}' has no incoming edges from '{prev_type}'."
                         " Should be at least 1."
                     )
+        # Rule 7: At mid levels, each node in a level must be connected to at least one
+        # node in the next level.
+        for cur_type, next_type in itertools.pairwise(level_order):
+            for node in _get_nodes_of_type(self, cur_type):
+                out = [
+                    edge
+                    for edge in outgoing[node.name]
+                    if entities[edge.target].type is next_type
+                ]
+                if not out:
+                    return (
+                        f"Node type '{cur_type}' has no outgoing edges to '{next_type}'."
+                        " Should be at least 1."
+                    )
 
-        # Rule 7: No cycles
+        # Rule 8: No cycles
         if graph_to_digraph(self).has_cycle():
             return "Graph has cycles"
 
