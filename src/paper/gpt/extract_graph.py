@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import hashlib
 import logging
 import os
@@ -44,6 +45,7 @@ from paper.gpt.run_gpt import (
     GPTResult,
     Prompt,
     PromptResult,
+    append_intermediate_result,
     run_gpt,
 )
 from paper.progress import as_completed
@@ -335,7 +337,11 @@ async def _generate_graph(
 
 
 async def _generate_graphs(
-    client: AsyncOpenAI, data: list[Paper], model: str, user_prompt: PromptTemplate
+    client: AsyncOpenAI,
+    data: list[Paper],
+    model: str,
+    user_prompt: PromptTemplate,
+    output_intermediate_path: Path,
 ) -> GPTResult[list[PromptResult[Graph]]]:
     total_cost = 0
     graph_results: list[PromptResult[Graph]] = []
@@ -344,8 +350,10 @@ async def _generate_graphs(
 
     for task in as_completed(tasks, desc="Extracting graphs"):
         result = await task
-        graph_results.append(result.result)
         total_cost += result.cost
+
+        graph_results.append(result.result)
+        append_intermediate_result(Graph, output_intermediate_path, result.result)
 
     return GPTResult(graph_results, total_cost)
 
@@ -435,6 +443,7 @@ async def extract_graph(
     display: bool,
     output_dir: Path,
     classify: bool,
+    continue_papers_file: Path | None,
 ) -> None:
     """Extract graphs from the papers in the dataset and (maybe) classify them.
 
@@ -486,17 +495,45 @@ async def extract_graph(
     client = AsyncOpenAI()
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
+    result_adapter = TypeAdapter(list[PromptResult[Graph]])
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_intermediate_path = output_dir / "results.tmp.json"
+
+    if continue_papers_file is None and output_intermediate_path.is_file():
+        continue_papers_file = output_intermediate_path
+
+    continue_graphs = []
+    if continue_papers_file:
+        logger.info("Continuing papers from: %s", continue_papers_file)
+        with contextlib.suppress(Exception):
+            continue_graphs = result_adapter.validate_json(
+                continue_papers_file.read_bytes()
+            )
 
     papers = data[:limit]
     graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]
 
+    continue_graph_ids = {_graph_id(graph.item) for graph in continue_graphs}
+    papers_num = len(papers)
+    papers = [paper for paper in papers if _graph_id(paper) not in continue_graph_ids]
+    if not papers:
+        logger.warning(
+            "No remaining papers to extract graphs. They're all on the intermediate"
+            " results."
+        )
+        return
+    else:
+        logger.info("Skipping %d papers.", papers_num - len(papers))
+
     with Timer() as timer_gen:
-        graph_results = await _generate_graphs(client, papers, model, graph_user_prompt)
+        graph_results = await _generate_graphs(
+            client, papers, model, graph_user_prompt, output_intermediate_path
+        )
 
     logger.info(f"Graph generation time elapsed: {timer_gen.human}")
     logger.info(f"Total graph generation cost: ${graph_results.cost:.10f}")
 
-    output_dir.mkdir(parents=True, exist_ok=True)
     _save_graphs(papers, graph_results.result, output_dir)
     _display_graphs(
         model,
@@ -526,6 +563,10 @@ def _display_validation(results: Iterable[PromptResult[Graph]]) -> None:
         valid_table.add_row(f"«{msg}»", str(len(graphs)), graphs[0].title)
 
     Console().print(valid_table)
+
+
+def _graph_id(graph: Graph | Paper) -> int:
+    return hash(graph.title)
 
 
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
@@ -605,6 +646,12 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Classify the papers based on the extracted entities.",
     )
+    run_parser.add_argument(
+        "--continue-papers",
+        type=Path,
+        default=None,
+        help="Path to file with data from a previous run",
+    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -642,6 +689,7 @@ def main() -> None:
                 args.display,
                 args.output_dir,
                 args.classify,
+                args.continue_papers,
             )
         )
 

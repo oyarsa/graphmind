@@ -62,6 +62,7 @@ def main() -> None:
                     args.display,
                     args.output_dir,
                     args.classify,
+                    args.continue_papers,
                 )
             )
 
