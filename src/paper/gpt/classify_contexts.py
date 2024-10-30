@@ -91,6 +91,10 @@ class PaperOutput(BaseModel):
     )
     references: Sequence[Reference] = Field(description="References made in the paper")
 
+    @property
+    def id(self) -> int:
+        return hash(self.title + self.abstract)
+
 
 _CONTEXT_SYSTEM_PROMPT = (
     "Classify the context polarity between the main paper and its citation."
@@ -247,10 +251,6 @@ async def _classify_contexts(
     return GPTResult(paper_outputs, total_cost)
 
 
-def _paper_id(paper: PaperOutput | PaperWithFullReference) -> int:
-    return hash(paper.title + paper.abstract)
-
-
 def _log_config(
     *,
     model: str,
@@ -334,9 +334,9 @@ async def classify_contexts(
                 continue_papers_file.read_bytes()
             )
 
-    continue_paper_ids = {_paper_id(paper.item) for paper in continue_papers}
+    continue_paper_ids = {paper.item.id for paper in continue_papers}
     papers_num = len(papers)
-    papers = [paper for paper in papers if _paper_id(paper) not in continue_paper_ids]
+    papers = [paper for paper in papers if paper.id not in continue_paper_ids]
     if not papers:
         logger.warning(
             "No remaining papers to classify. They're all on the intermediate results."

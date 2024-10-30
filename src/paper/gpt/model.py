@@ -44,6 +44,10 @@ class Graph(BaseModel):
             (e.name for e in self.entities if e.type is EntityType.TITLE), "ERROR"
         )
 
+    @property
+    def id(self) -> int:
+        return hash(self.title)
+
     @computed_field
     @property
     def valid_status(self) -> str:
@@ -299,6 +303,10 @@ class Paper(BaseModel):
     abstract: str
     ratings: Sequence[int]
     sections: Sequence[PaperSection]
+
+    @property
+    def id(self) -> int:
+        return hash(self.title)
 
     def is_approved(
         self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.MEAN

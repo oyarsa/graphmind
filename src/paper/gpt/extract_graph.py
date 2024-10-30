@@ -514,9 +514,9 @@ async def extract_graph(
     papers = data[:limit]
     graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]
 
-    continue_graph_ids = {_graph_id(graph.item) for graph in continue_graphs}
+    continue_graph_ids = {graph.item.id for graph in continue_graphs}
     papers_num = len(papers)
-    papers = [paper for paper in papers if _graph_id(paper) not in continue_graph_ids]
+    papers = [paper for paper in papers if paper.id not in continue_graph_ids]
     if not papers:
         logger.warning(
             "No remaining papers to extract graphs. They're all on the intermediate"
@@ -563,10 +563,6 @@ def _display_validation(results: Iterable[PromptResult[Graph]]) -> None:
         valid_table.add_row(f"«{msg}»", str(len(graphs)), graphs[0].title)
 
     Console().print(valid_table)
-
-
-def _graph_id(graph: Graph | Paper) -> int:
-    return hash(graph.title)
 
 
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
