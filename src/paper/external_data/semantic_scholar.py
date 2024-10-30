@@ -141,7 +141,7 @@ async def _download_paper_info(
             _fetch_paper_info(session, api_key, title, fields, semaphore)
             for title in unique_titles
         ]
-        results = list(await gather(*tasks, desc="Downloading paper info"))
+        results = list(await gather(tasks, desc="Downloading paper info"))
 
     results_valid = [
         result | {"fuzz_ratio": fuzzy_ratio(result["title_query"], result["title"])}

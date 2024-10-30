@@ -19,7 +19,7 @@ def as_completed[T](
     return tqdm_asyncio.as_completed(tasks, **kwargs)  # type: ignore
 
 
-async def gather[T](*tasks: Awaitable[T], **kwargs: Any) -> Iterable[T]:
+async def gather[T](tasks: Iterable[Awaitable[T]], **kwargs: Any) -> Iterable[T]:
     """Wait for tasks to complete with a progress bar. Returns an iterator the results.
 
     Type-safe wrapper around `tqdm.asyncio.as_completed`. `kwargs` are forwarded to it.

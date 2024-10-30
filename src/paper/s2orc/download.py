@@ -116,7 +116,7 @@ async def _download(
 
             tasks.append(_download_file(url, file_path, session, semaphore))
 
-        await gather(*tasks, desc="Overall progress")
+        await gather(tasks, desc="Overall progress")
 
 
 def download_dataset(
