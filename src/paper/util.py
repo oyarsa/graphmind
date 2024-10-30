@@ -1,10 +1,14 @@
 """Infamous utility module for stuff I can't place anywhere else."""
 
+from __future__ import annotations
+
+import copy
+import heapq
 import logging
 import os
 import time
 from importlib import resources
-from typing import Any, Self
+from typing import Any, Protocol, Self
 
 import colorlog
 from thefuzz import fuzz  # type: ignore
@@ -118,3 +122,61 @@ def safediv(x: float, y: float) -> float:
         return x / y
     except ZeroDivisionError:
         return float("nan")
+
+
+class Comparable(Protocol):
+    """Protocol for comparable types. Requires `<` (__lt__)."""
+
+    def __lt__(self: Self, other: Self, /) -> bool: ...
+
+
+class TopKSet[T: Comparable]:
+    """Set that keeps the top K items. The item type needs to be `Comparable`.
+
+    If the collection has less than K items, it accepts any new item. Once K is reached,
+    only items that are larger than the smallest of the current items on the list are
+    added.
+
+    Items added are also added to a set to make them unique. Note that this means that
+    `T` must be hashable.
+
+    Access the items on the list via the `items` property, which returns a new list.
+    """
+
+    def __init__(self, type_: type[T], k: int) -> None:
+        """Initialise TopK list.
+
+        Args:
+            type_: Type of the elements of the list.
+            k: How many items to keep.
+        """
+        self.k = k
+        self.data: list[T] = []
+        self.seen: set[T] = set()
+
+    def add(self, item: T) -> None:
+        """Add new item to collection, depending on the value of `item`.
+
+        - If we have less than k items, just add it.
+        - If the new item is larger than the smallest in the list, replace it.
+        - Otherwise, ignore it.
+        """
+        if item in self.seen:
+            return
+        self.seen.add(item)
+
+        if len(self.data) < self.k:
+            heapq.heappush(self.data, item)
+        elif item > self.data[0]:
+            heapq.heapreplace(self.data, item)
+
+    @property
+    def items(self) -> list[T]:
+        """Items from the collection in a new list, sorted by descending value.
+
+        Both the list and the items are new, so no modifications will affect the
+        collection.
+
+        NB: The list is new by construction, and the items are copied with `deepcopy`.
+        """
+        return [copy.deepcopy(item) for item in sorted(self.data, reverse=True)]
