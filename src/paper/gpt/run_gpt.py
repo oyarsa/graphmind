@@ -1,7 +1,8 @@
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import backoff
 import openai
@@ -204,3 +205,54 @@ def append_intermediate_result[T: BaseModel](
         path.write_bytes(result_adapter.dump_json(previous, indent=2))
     except Exception:
         logger.exception("Error writing intermediate results to: %s", path)
+
+
+class HasId(Protocol):
+    @property
+    def id(self) -> int: ...
+
+
+def get_remaining_items[T: HasId, U: HasId](
+    continue_type_: type[T],
+    output_intermediate_file: Path,
+    continue_papers_file: Path | None,
+    original: Sequence[U],
+) -> list[U]:
+    """Remove items that were previously processed from this run's input list.
+
+    Args:
+        continue_type_: Pydantic type for the output items that will be read.
+        output_intermediate_file: File that stores the processed output.
+        continue_papers_file: File with the previously processed items. If this is None
+            and `output_intermediate_file` exists, it will be set to that.
+        original: Items read for the original dataset file.
+
+    Returns:
+        Remaining items to be processed.
+    """
+    if continue_papers_file is None and output_intermediate_file.is_file():
+        continue_papers_file = output_intermediate_file
+
+    continue_papers: list[PromptResult[T]] = []
+    if continue_papers_file:
+        logger.info("Continuing items from: %s", continue_papers_file)
+        try:
+            continue_papers = TypeAdapter(
+                list[PromptResult[continue_type_]]
+            ).validate_json(continue_papers_file.read_bytes())
+        except Exception:
+            logger.exception("Error reading previous files")
+
+    continue_paper_ids = {paper.item.id for paper in continue_papers}
+    papers_num = len(original)
+    original = [paper for paper in original if paper.id not in continue_paper_ids]
+
+    if not original:
+        logger.warning(
+            "No remaining items to process. They're all on the intermediate results."
+        )
+        return []
+    else:
+        logger.info("Skipping %d items.", papers_num - len(original))
+
+    return original

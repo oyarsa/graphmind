@@ -13,7 +13,6 @@ option.
 
 import argparse
 import asyncio
-import contextlib
 import hashlib
 import logging
 import os
@@ -39,6 +38,7 @@ from paper.gpt.run_gpt import (
     Prompt,
     PromptResult,
     append_intermediate_result,
+    get_remaining_items,
     run_gpt,
 )
 from paper.progress import as_completed
@@ -318,32 +318,13 @@ async def classify_contexts(
     papers = data[:limit_papers]
     user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
 
-    result_adapter = TypeAdapter(list[PromptResult[PaperOutput]])
-
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_intermediate_path = output_dir / "results.tmp.json"
-
-    if continue_papers_file is None and output_intermediate_path.is_file():
-        continue_papers_file = output_intermediate_path
-
-    continue_papers = []
-    if continue_papers_file:
-        logger.info("Continuing papers from: %s", continue_papers_file)
-        with contextlib.suppress(Exception):
-            continue_papers = result_adapter.validate_json(
-                continue_papers_file.read_bytes()
-            )
-
-    continue_paper_ids = {paper.item.id for paper in continue_papers}
-    papers_num = len(papers)
-    papers = [paper for paper in papers if paper.id not in continue_paper_ids]
+    output_intermediate_file = output_dir / "results.tmp.json"
+    papers = get_remaining_items(
+        PaperOutput, output_intermediate_file, continue_papers_file, papers
+    )
     if not papers:
-        logger.warning(
-            "No remaining papers to classify. They're all on the intermediate results."
-        )
         return
-    else:
-        logger.info("Skipping %d papers.", papers_num - len(papers))
 
     with Timer() as timer:
         results = await _classify_contexts(
@@ -352,7 +333,7 @@ async def classify_contexts(
             user_prompt,
             papers,
             limit_references,
-            output_intermediate_path,
+            output_intermediate_file,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -363,7 +344,7 @@ async def classify_contexts(
     logger.info("Classification metrics:\n%s\n", stats)
 
     (output_dir / "result.json").write_bytes(
-        result_adapter.dump_json(results.result, indent=2)
+        TypeAdapter(list[PromptResult[PaperOutput]]).dump_json(results.result, indent=2)
     )
     (output_dir / "output.txt").write_text(stats)
     if metrics is not None:

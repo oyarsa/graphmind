@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import contextlib
 import hashlib
 import logging
 import os
@@ -46,6 +45,7 @@ from paper.gpt.run_gpt import (
     Prompt,
     PromptResult,
     append_intermediate_result,
+    get_remaining_items,
     run_gpt,
 )
 from paper.progress import as_completed
@@ -495,40 +495,21 @@ async def extract_graph(
     client = AsyncOpenAI()
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
-    result_adapter = TypeAdapter(list[PromptResult[Graph]])
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_intermediate_path = output_dir / "results.tmp.json"
-
-    if continue_papers_file is None and output_intermediate_path.is_file():
-        continue_papers_file = output_intermediate_path
-
-    continue_graphs = []
-    if continue_papers_file:
-        logger.info("Continuing papers from: %s", continue_papers_file)
-        with contextlib.suppress(Exception):
-            continue_graphs = result_adapter.validate_json(
-                continue_papers_file.read_bytes()
-            )
 
     papers = data[:limit]
     graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]
 
-    continue_graph_ids = {graph.item.id for graph in continue_graphs}
-    papers_num = len(papers)
-    papers = [paper for paper in papers if paper.id not in continue_graph_ids]
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_intermediate_file = output_dir / "results.tmp.json"
+    papers = get_remaining_items(
+        Graph, output_intermediate_file, continue_papers_file, papers
+    )
     if not papers:
-        logger.warning(
-            "No remaining papers to extract graphs. They're all on the intermediate"
-            " results."
-        )
         return
-    else:
-        logger.info("Skipping %d papers.", papers_num - len(papers))
 
     with Timer() as timer_gen:
         graph_results = await _generate_graphs(
-            client, papers, model, graph_user_prompt, output_intermediate_path
+            client, papers, model, graph_user_prompt, output_intermediate_file
         )
 
     logger.info(f"Graph generation time elapsed: {timer_gen.human}")
