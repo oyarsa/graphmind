@@ -46,7 +46,8 @@ from paper.gpt.run_gpt import (
     PromptResult,
     run_gpt,
 )
-from paper.util import Timer, as_completed, read_resource, setup_logging
+from paper.progress import as_completed
+from paper.util import Timer, read_resource, setup_logging
 
 logger = logging.getLogger("paper.gpt.extract_graph")
 

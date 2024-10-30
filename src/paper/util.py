@@ -3,13 +3,11 @@
 import logging
 import os
 import time
-from collections.abc import Awaitable, Iterable
 from importlib import resources
 from typing import Any, Self
 
 import colorlog
 from thefuzz import fuzz  # type: ignore
-from tqdm.asyncio import tqdm_asyncio
 
 
 def fuzzy_ratio(s1: str, s2: str) -> int:
@@ -120,13 +118,3 @@ def safediv(x: float, y: float) -> float:
         return x / y
     except ZeroDivisionError:
         return float("nan")
-
-
-def as_completed[T](
-    tasks: Iterable[Awaitable[T]], **kwargs: Any
-) -> Iterable[Awaitable[T]]:
-    """Type-safe wrapper around `tqdm_asyncio.as_completed`.
-
-    See also `asyncio.as_completed.`
-    """
-    return tqdm_asyncio.as_completed(tasks, **kwargs)  # type: ignore
