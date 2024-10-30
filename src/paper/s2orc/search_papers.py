@@ -67,22 +67,33 @@ def main(
     print(f"{len(processed_s2orc)=}")
     print(f"{len(processed_query)=}")
 
-    matches_fuzzy = _search_papers_fuzzy(processed_query, processed_s2orc, min_fuzzy)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_intermediate_file = output_file.with_name(f"{output_file.stem}.tmp.jsonl")
+    output_intermediate_file.unlink()
+
+    matches_fuzzy = _search_papers_fuzzy(
+        processed_query, processed_s2orc, min_fuzzy, output_intermediate_file
+    )
     print()
     print(f"{len(matches_fuzzy)=}")
 
     scores = pd.Series(m.score for p in matches_fuzzy for m in p.matches)
     print(scores.describe())
 
-    output_file.parent.mkdir(parents=True, exist_ok=True)
     output_file.write_bytes(TypeAdapter(list[Paper]).dump_json(matches_fuzzy, indent=2))
 
 
 def _search_papers_fuzzy(
-    papers_search: set[str], papers_s2orc: set[str], min_fuzzy: int
+    papers_search: set[str],
+    papers_s2orc: set[str],
+    min_fuzzy: int,
+    output_intermediate_file: Path,
 ) -> list[Paper]:
     search_func = partial(
-        _search_paper_fuzzy, papers_s2orc=papers_s2orc, min_fuzzy=min_fuzzy
+        _search_paper_fuzzy,
+        papers_s2orc=papers_s2orc,
+        min_fuzzy=min_fuzzy,
+        output_intermediate_file=output_intermediate_file,
     )
 
     with Pool() as pool:
@@ -97,7 +108,7 @@ def _search_papers_fuzzy(
 
 
 def _search_paper_fuzzy(
-    query: str, papers_s2orc: set[str], min_fuzzy: int
+    query: str, papers_s2orc: set[str], min_fuzzy: int, output_intermediate_file: Path
 ) -> Paper | None:
     matches: list[PaperMatch] = []
 
@@ -109,7 +120,10 @@ def _search_paper_fuzzy(
             )
 
     if matches:
-        return Paper(query=query, matches=sorted(matches, key=lambda x: x.score))
+        paper = Paper(query=query, matches=sorted(matches, key=lambda x: x.score))
+        with output_intermediate_file.open("a") as f:
+            f.write(paper.model_dump_json() + "\n")
+        return paper
     return None
 
 
