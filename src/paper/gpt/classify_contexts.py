@@ -38,6 +38,7 @@ from paper.gpt.run_gpt import (
     GPTResult,
     Prompt,
     PromptResult,
+    append_intermediate_result,
     run_gpt,
 )
 from paper.progress import as_completed
@@ -241,32 +242,9 @@ async def _classify_contexts(
         total_cost += result.cost
 
         paper_outputs.append(result.result)
-        _append_intermediate_result(output_intermediate_path, result.result)
+        append_intermediate_result(PaperOutput, output_intermediate_path, result.result)
 
     return GPTResult(paper_outputs, total_cost)
-
-
-def _append_intermediate_result(path: Path, result: PromptResult[PaperOutput]) -> None:
-    """Save result to intermediate file.
-
-    If the intermediate file doesn't exist, create a new one containing the result.
-    """
-    result_adapter = TypeAdapter(list[PromptResult[PaperOutput]])
-
-    previous = []
-    try:
-        previous = result_adapter.validate_json(path.read_bytes())
-    except FileNotFoundError:
-        # It's fine if the file didn't exist previously. We'll create a new one now.
-        pass
-    except Exception:
-        logger.exception("Error reading intermediate result file: %s", path)
-
-    previous.append(result)
-    try:
-        path.write_bytes(result_adapter.dump_json(previous, indent=2))
-    except Exception:
-        logger.exception("Error writing intermediate results to: %s", path)
 
 
 def _paper_id(paper: PaperOutput | PaperWithFullReference) -> int:
