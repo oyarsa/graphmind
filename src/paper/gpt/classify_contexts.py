@@ -38,6 +38,7 @@ from paper.gpt.run_gpt import (
     Prompt,
     PromptResult,
     append_intermediate_result,
+    get_id,
     get_remaining_items,
     run_gpt,
 )
@@ -320,18 +321,30 @@ async def classify_contexts(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
-    papers = get_remaining_items(
-        PaperOutput, output_intermediate_file, continue_papers_file, papers
+    papers_remaining = get_remaining_items(
+        PaperOutput,
+        output_intermediate_file,
+        continue_papers_file,
+        papers,
+        continue_key=get_id,
+        original_key=get_id,
     )
-    if not papers:
+    if not papers_remaining.remaining:
+        logging.warning(
+            "No items left to process. They're all on the `continues` file. Exiting."
+        )
         return
+
+    logging.warning(
+        "Skipping %d items from the `continue` file.", len(papers_remaining.done)
+    )
 
     with Timer() as timer:
         results = await _classify_contexts(
             client,
             model,
             user_prompt,
-            papers,
+            papers_remaining.remaining,
             limit_references,
             output_intermediate_file,
         )
@@ -339,12 +352,13 @@ async def classify_contexts(
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${results.cost:.10f}")
 
-    contexts = [result.item for result in results.result]
-    stats, metrics = show_classified_stats(contexts)
+    results_all = papers_remaining.done + results.result
+    stats, metrics = show_classified_stats(result.item for result in results_all)
     logger.info("Classification metrics:\n%s\n", stats)
 
+    assert len(results_all) == len(papers)
     (output_dir / "result.json").write_bytes(
-        TypeAdapter(list[PromptResult[PaperOutput]]).dump_json(results.result, indent=2)
+        TypeAdapter(list[PromptResult[PaperOutput]]).dump_json(results_all, indent=2)
     )
     (output_dir / "output.txt").write_text(stats)
     if metrics is not None:

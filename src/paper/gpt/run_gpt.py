@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Hashable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -207,17 +207,30 @@ def append_intermediate_result[T: BaseModel](
         logger.exception("Error writing intermediate results to: %s", path)
 
 
+@dataclass(frozen=True, kw_only=True)
+class RemainingItems[T, U]:
+    remaining: list[U]
+    done: list[T]
+
+
 class HasId(Protocol):
     @property
     def id(self) -> int: ...
 
 
-def get_remaining_items[T: HasId, U: HasId](
+def get_id(x: HasId) -> int:
+    return x.id
+
+
+def get_remaining_items[T: BaseModel, U: BaseModel](
     continue_type_: type[T],
     output_intermediate_file: Path,
     continue_papers_file: Path | None,
     original: Sequence[U],
-) -> list[U]:
+    *,
+    continue_key: Callable[[T], Hashable],
+    original_key: Callable[[U], Hashable],
+) -> RemainingItems[PromptResult[T], U]:
     """Remove items that were previously processed from this run's input list.
 
     Args:
@@ -243,16 +256,16 @@ def get_remaining_items[T: HasId, U: HasId](
         except Exception:
             logger.exception("Error reading previous files")
 
-    continue_paper_ids = {paper.item.id for paper in continue_papers}
-    papers_num = len(original)
-    original = [paper for paper in original if paper.id not in continue_paper_ids]
+    continue_paper_ids = {continue_key(paper.item) for paper in continue_papers}
+    # Split into papers that _are_ in the continue file.
+    done = [
+        next(c for c in continue_papers if continue_key(c.item) == original_key(paper))
+        for paper in original
+        if original_key(paper) in continue_paper_ids
+    ]
+    # And those that _are not_.
+    remaining = [
+        paper for paper in original if original_key(paper) not in continue_paper_ids
+    ]
 
-    if not original:
-        logger.warning(
-            "No remaining items to process. They're all on the intermediate results."
-        )
-        return []
-    else:
-        logger.info("Skipping %d items.", papers_num - len(original))
-
-    return original
+    return RemainingItems(remaining=remaining, done=done)

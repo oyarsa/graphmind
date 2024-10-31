@@ -35,18 +35,14 @@ class Entity(BaseModel):
 class Graph(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    title: str
+    abstract: str
     entities: Sequence[Entity]
     relationships: Sequence[Relationship]
 
     @property
-    def title(self) -> str:
-        return next(
-            (e.name for e in self.entities if e.type is EntityType.TITLE), "ERROR"
-        )
-
-    @property
     def id(self) -> int:
-        return hash(self.title)
+        return hash(self.title + self.abstract)
 
     @computed_field
     @property
@@ -306,7 +302,7 @@ class Paper(BaseModel):
 
     @property
     def id(self) -> int:
-        return hash(self.title)
+        return hash(self.title + self.abstract)
 
     def is_approved(
         self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.MEAN

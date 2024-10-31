@@ -45,6 +45,7 @@ from paper.gpt.run_gpt import (
     Prompt,
     PromptResult,
     append_intermediate_result,
+    get_id,
     get_remaining_items,
     run_gpt,
 )
@@ -58,7 +59,7 @@ class GPTGraphBase(BaseModel, ABC):
     model_config = ConfigDict(frozen=True)
 
     @abstractmethod
-    def to_graph(self) -> Graph: ...
+    def to_graph(self, title: str, abstract: str) -> Graph: ...
 
 
 class GPTGraphStrict(GPTGraphBase):
@@ -86,7 +87,7 @@ class GPTGraphStrict(GPTGraphBase):
     )
 
     @override
-    def to_graph(self) -> Graph:
+    def to_graph(self, title: str, abstract: str) -> Graph:
         """Build a real `Graph` from the entities and their relationships."""
         entities = [
             Entity(name=self.title, type=EntityType.TITLE),
@@ -114,7 +115,12 @@ class GPTGraphStrict(GPTGraphBase):
             ),
         ]
 
-        return Graph(entities=entities, relationships=relationships)
+        return Graph(
+            title=title,
+            abstract=abstract,
+            entities=entities,
+            relationships=relationships,
+        )
 
 
 class IndexedEntity(BaseModel):
@@ -197,7 +203,7 @@ class GPTGraphStrict2(GPTGraphBase):
     )
 
     @override
-    def to_graph(self) -> Graph:
+    def to_graph(self, title: str, abstract: str) -> Graph:
         """Build a real `Graph` from the entities and their relationships."""
         entities = [
             Entity(name=self.title, type=EntityType.TITLE),
@@ -231,7 +237,12 @@ class GPTGraphStrict2(GPTGraphBase):
             ),
         ]
 
-        return Graph(entities=entities, relationships=relationships)
+        return Graph(
+            title=title,
+            abstract=abstract,
+            entities=entities,
+            relationships=relationships,
+        )
 
 
 class ClaimEntity(BaseModel):
@@ -322,9 +333,14 @@ async def _generate_graph(
         model,
     )
     graph = (
-        result.result.to_graph()
+        result.result.to_graph(title=example.title, abstract=example.abstract)
         if result.result
-        else Graph(entities=[], relationships=[])
+        else Graph(
+            title=example.title,
+            abstract=example.abstract,
+            entities=[],
+            relationships=[],
+        )
     )
     logger.debug(graph)
     return GPTResult(
@@ -501,33 +517,54 @@ async def extract_graph(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
-    papers = get_remaining_items(
-        Graph, output_intermediate_file, continue_papers_file, papers
+    papers_remaining = get_remaining_items(
+        Graph,
+        output_intermediate_file,
+        continue_papers_file,
+        papers,
+        continue_key=get_id,
+        original_key=get_id,
     )
-    if not papers:
-        return
+    if not papers_remaining.remaining:
+        logger.info("No items left to process. They're all on the `continues` file.")
+    else:
+        logger.info(
+            "Skipping %d items from the `continue` file.", len(papers_remaining.done)
+        )
 
     with Timer() as timer_gen:
         graph_results = await _generate_graphs(
-            client, papers, model, graph_user_prompt, output_intermediate_file
+            client,
+            papers_remaining.remaining,
+            model,
+            graph_user_prompt,
+            output_intermediate_file,
         )
 
     logger.info(f"Graph generation time elapsed: {timer_gen.human}")
     logger.info(f"Total graph generation cost: ${graph_results.cost:.10f}")
 
-    _save_graphs(papers, graph_results.result, output_dir)
+    papers = sorted(papers, key=lambda x: x.id)
+    graph_results_all = sorted(
+        graph_results.result + papers_remaining.done, key=lambda x: x.item.id
+    )
+    assert all(
+        x.id == y.item.id for x, y in zip(papers, graph_results_all)
+    ), "Papers and results should match"
+
+    _save_graphs(papers, graph_results_all, output_dir)
     _display_graphs(
         model,
         graph_user_prompt_key,
         papers,
-        graph_results.result,
+        graph_results_all,
         output_dir,
         display,
     )
-    _display_validation(graph_results.result)
+    _display_validation(graph_results_all)
 
     if classify:
-        graphs = [result.item for result in graph_results.result]
+        graphs = [result.item for result in graph_results_all]
         await evaluate_graphs(
             client, model, papers, graphs, classify_user_prompt_key, output_dir
         )
