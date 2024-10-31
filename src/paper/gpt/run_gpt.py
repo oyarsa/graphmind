@@ -7,8 +7,9 @@ from typing import Any, Protocol
 import backoff
 import openai
 from openai import AsyncOpenAI
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 
+from paper.gpt.model import PromptResult
 from paper.rate_limiter import ChatRateLimiter
 
 logger = logging.getLogger("paper.gpt.run_gpt")
@@ -61,20 +62,6 @@ class GPTResult[T]:
 
     result: T
     cost: float
-
-
-class Prompt(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    system: str
-    user: str
-
-
-class PromptResult[T](BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    item: T
-    prompt: Prompt
 
 
 @backoff.on_exception(backoff.expo, openai.APIError, max_tries=5, logger=logger)

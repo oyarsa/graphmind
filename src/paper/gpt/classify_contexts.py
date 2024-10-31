@@ -30,13 +30,12 @@ from paper.asap.model import (
     PaperWithFullReference,
 )
 from paper.asap.model import PaperWithFullReference as PaperInput
+from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    Prompt,
-    PromptResult,
     append_intermediate_result,
     get_id,
     get_remaining_items,

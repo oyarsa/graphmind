@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
 from paper import evaluation_metrics
-from paper.gpt.model import Graph, Paper
+from paper.gpt.model import Paper, PaperGraph
 from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import GPTResult, run_gpt
 from paper.util import Timer
@@ -24,8 +24,7 @@ CLASSIFY_USER_PROMPTS = load_prompts("evaluate_graph")
 async def evaluate_graphs(
     client: AsyncOpenAI,
     model: str,
-    papers: Sequence[Paper],
-    graphs: Sequence[Graph],
+    paper_graphs: Sequence[PaperGraph],
     user_prompt_key: str,
     output_dir: Path,
 ) -> None:
@@ -39,7 +38,7 @@ async def evaluate_graphs(
 
     with Timer() as timer_class:
         results = await _classify_papers(
-            client, model, classify_user_prompt, papers, graphs
+            client, model, classify_user_prompt, paper_graphs
         )
 
     metrics = _calculate_metrics(results.result)
@@ -86,8 +85,7 @@ async def _classify_papers(
     client: AsyncOpenAI,
     model: str,
     user_prompt: PromptTemplate,
-    papers: Sequence[Paper],
-    graphs: Sequence[Graph],
+    paper_graphs: Sequence[PaperGraph],
 ) -> GPTResult[list[PaperResult]]:
     """Classify Papers into approved/not approved using the generated graphs.
 
@@ -105,13 +103,11 @@ async def _classify_papers(
     results: list[PaperResult] = []
     total_cost = 0
 
-    for paper, graph in tqdm(
-        zip(papers, graphs), desc="Classifying papers", total=len(papers)
-    ):
+    for pg in tqdm(paper_graphs, desc="Classifying papers"):
         user_prompt_text = user_prompt.template.format(
-            title=paper.title,
-            abstract=paper.abstract,
-            graph=graph.model_dump_json(),
+            title=pg.paper.title,
+            abstract=pg.paper.abstract,
+            graph=pg.graph.model_dump_json(),
         )
         result = await run_gpt(
             _CLASSIFY_TYPES[user_prompt.type_name],
@@ -125,11 +121,11 @@ async def _classify_papers(
 
         results.append(
             PaperResult(
-                title=paper.title,
-                abstract=paper.abstract,
-                ratings=paper.ratings,
-                sections=paper.sections,
-                y_true=paper.is_approved(),
+                title=pg.paper.title,
+                abstract=pg.paper.abstract,
+                ratings=pg.paper.ratings,
+                sections=pg.paper.sections,
+                y_true=pg.paper.is_approved(),
                 y_pred=classified.approved if classified else False,
             )
         )

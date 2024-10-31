@@ -34,6 +34,9 @@ from paper.gpt.model import (
     EntityType,
     Graph,
     Paper,
+    PaperGraph,
+    Prompt,
+    PromptResult,
     Relationship,
     graph_to_digraph,
 )
@@ -42,8 +45,6 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    Prompt,
-    PromptResult,
     append_intermediate_result,
     get_id,
     get_remaining_items,
@@ -375,8 +376,7 @@ async def _generate_graphs(
 
 
 def _save_graphs(
-    papers: Iterable[Paper],
-    graph_results: Iterable[PromptResult[Graph]],
+    paper_graphs: Iterable[PaperGraph],
     output_dir: Path,
 ) -> None:
     """Save results as a JSON file with the prompts and graphs in GraphML format.
@@ -399,13 +399,13 @@ def _save_graphs(
 
     output: list[Output] = []
 
-    for paper, graph_result in zip(papers, graph_results):
+    for pg in paper_graphs:
         output.append(
             Output(
-                paper=paper.title,
-                graphml=graph_to_digraph(graph_result.item).graphml(),
-                graph=graph_result.item,
-                prompt=graph_result.prompt,
+                paper=pg.paper.title,
+                graphml=graph_to_digraph(pg.graph.item).graphml(),
+                graph=pg.graph.item,
+                prompt=pg.graph.prompt,
             )
         )
 
@@ -416,9 +416,8 @@ def _save_graphs(
 
 def _display_graphs(
     model: str,
+    paper_graphs: Iterable[PaperGraph],
     graph_user_prompt_key: str,
-    papers: Iterable[Paper],
-    graph_results: Iterable[PromptResult[Graph]],
     output_dir: Path,
     display_gui: bool,
 ) -> None:
@@ -435,15 +434,15 @@ def _display_graphs(
         display_gui: If True, show the graph on screen. This suspends the process until
             the plot is closed.
     """
-    for paper, graph_result in zip(papers, graph_results):
-        dag = graph_to_digraph(graph_result.item)
+    for pg in paper_graphs:
+        dag = graph_to_digraph(pg.graph.item)
 
         try:
             dag.visualise_hierarchy(
-                img_path=output_dir / f"{paper.title}.png",
+                img_path=output_dir / f"{pg.paper.title}.png",
                 display_gui=display_gui,
                 description=f"index - model: {model} - prompt: {graph_user_prompt_key}\n"
-                f"status: {graph_result.item.valid_status}\n",
+                f"status: {pg.graph.item.valid_status}\n",
             )
         except hierarchical_graph.GraphError:
             logger.exception("Error visualising graph")
@@ -544,29 +543,21 @@ async def extract_graph(
     logger.info(f"Graph generation time elapsed: {timer_gen.human}")
     logger.info(f"Total graph generation cost: ${graph_results.cost:.10f}")
 
-    papers = sorted(papers, key=lambda x: x.id)
-    graph_results_all = sorted(
-        graph_results.result + papers_remaining.done, key=lambda x: x.item.id
-    )
-    assert all(
-        x.id == y.item.id for x, y in zip(papers, graph_results_all)
-    ), "Papers and results should match"
+    graph_results_all = graph_results.result + papers_remaining.done
+    paper_graphs = [
+        PaperGraph(
+            paper=p, graph=next(g for g in graph_results_all if g.item.id == p.id)
+        )
+        for p in papers
+    ]
 
-    _save_graphs(papers, graph_results_all, output_dir)
-    _display_graphs(
-        model,
-        graph_user_prompt_key,
-        papers,
-        graph_results_all,
-        output_dir,
-        display,
-    )
+    _save_graphs(paper_graphs, output_dir)
+    _display_graphs(model, paper_graphs, graph_user_prompt_key, output_dir, display)
     _display_validation(graph_results_all)
 
     if classify:
-        graphs = [result.item for result in graph_results_all]
         await evaluate_graphs(
-            client, model, papers, graphs, classify_user_prompt_key, output_dir
+            client, model, paper_graphs, classify_user_prompt_key, output_dir
         )
 
 
