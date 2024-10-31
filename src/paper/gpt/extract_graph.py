@@ -63,67 +63,6 @@ class GPTGraphBase(BaseModel, ABC):
     def to_graph(self, title: str, abstract: str) -> Graph: ...
 
 
-class GPTGraphStrict(GPTGraphBase):
-    """Graph representing the paper."""
-
-    title: str = Field(description="Title of the paper.")
-    primary_area: str = Field(
-        description="The primary subject area of the paper picked from the ICLR list of"
-        " topics."
-    )
-    keywords: Sequence[str] = Field(
-        description="Keywords that summarise the key aspects of the paper."
-    )
-    tldr: str = Field(description="Sentence that summarises the paper.")
-    claims: Sequence[IndexedEntity] = Field(
-        description="Main contributions the paper claims to make."
-    )
-    methods: Sequence[ConnectedEntity] = Field(
-        description="Methods used to verify the claims. Source indices come from the"
-        " `claims` list."
-    )
-    experiments: Sequence[ConnectedEntity] = Field(
-        description="Experiments designed to put methods in practice. Source indices"
-        " come from the `methods` list."
-    )
-
-    @override
-    def to_graph(self, title: str, abstract: str) -> Graph:
-        """Build a real `Graph` from the entities and their relationships."""
-        entities = [
-            Entity(name=self.title, type=EntityType.TITLE),
-            Entity(name=self.primary_area, type=EntityType.PRIMARY_AREA),
-            *(Entity(name=kw, type=EntityType.KEYWORD) for kw in self.keywords),
-            Entity(name=self.tldr, type=EntityType.TLDR),
-            *(Entity(name=c.text, type=EntityType.CLAIM) for c in self.claims),
-            *(Entity(name=m.text, type=EntityType.METHOD) for m in self.methods),
-            *(
-                Entity(name=x.text, type=EntityType.EXPERIMENT)
-                for x in self.experiments
-            ),
-        ]
-
-        relationships = [
-            Relationship(source=self.title, target=self.primary_area),
-            *(Relationship(source=self.title, target=kw) for kw in self.keywords),
-            Relationship(source=self.title, target=self.tldr),
-            *(Relationship(source=self.tldr, target=c.text) for c in self.claims),
-            *(_relationships_from_indices(self.claims, self.methods, "claim->method")),
-            *(
-                _relationships_from_indices(
-                    self.methods, self.experiments, "method->exp"
-                )
-            ),
-        ]
-
-        return Graph(
-            title=title,
-            abstract=abstract,
-            entities=entities,
-            relationships=relationships,
-        )
-
-
 class IndexedEntity(BaseModel):
     """Entity from the paper. It belongs to a list and carries its index in that list."""
 
@@ -146,25 +85,6 @@ class ConnectedEntity(IndexedEntity):
     )
 
 
-def _relationships_from_indices(
-    sources: Sequence[IndexedEntity], targets: Iterable[ConnectedEntity], desc: str
-) -> list[Relationship]:
-    """For each target, find their source entities from `source_indices` by index.
-
-    NB: If the target index is invald, it will be logged and the relationship will be
-    skipped.
-
-    Returns:
-        List of all relationships between targets and their sources.
-    """
-    return [
-        Relationship(source=source.text, target=target.text)
-        for target in targets
-        for source_idx in target.source_indices
-        if (source := _at(sources, source_idx, desc))
-    ]
-
-
 def _at[T](seq: Sequence[T], idx: int, desc: str) -> T | None:
     """Get `seq[idx]` if possible, otherwise return None and log warning with `desc`."""
     try:
@@ -174,7 +94,7 @@ def _at[T](seq: Sequence[T], idx: int, desc: str) -> T | None:
         return None
 
 
-class GPTGraphStrict2(GPTGraphBase):
+class GPTGraphStrict(GPTGraphBase):
     """Graph representing the paper."""
 
     # This is very similar to `GPTGraphStrict`, but there the connections are backwards.
@@ -281,7 +201,6 @@ class ExperimentEntity(BaseModel):
 
 _GRAPH_TYPES: Mapping[str, type[GPTGraphBase]] = {
     "strict": GPTGraphStrict,
-    "strict2": GPTGraphStrict2,
 }
 
 
