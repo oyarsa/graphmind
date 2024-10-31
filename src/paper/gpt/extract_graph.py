@@ -126,32 +126,67 @@ class GPTGraphStrict(GPTGraphBase):
     @override
     def to_graph(self, title: str, abstract: str) -> Graph:
         """Build a real `Graph` from the entities and their relationships."""
+
+        # Track seen names to detect duplicates
+        names_map: dict[tuple[str, EntityType], str] = {}
+        names_seen: set[str] = set()
+
+        def entity(name: str, type: EntityType) -> Entity:
+            if name in names_seen:
+                unique_name = f"{name} ({type.value})"
+            else:
+                names_seen.add(name)
+                unique_name = name
+            names_map[name, type] = unique_name
+            return Entity(name=unique_name, type=type)
+
         entities = [
-            Entity(name=self.title, type=EntityType.TITLE),
-            Entity(name=self.primary_area, type=EntityType.PRIMARY_AREA),
-            *(Entity(name=kw, type=EntityType.KEYWORD) for kw in self.keywords),
-            Entity(name=self.tldr, type=EntityType.TLDR),
-            *(Entity(name=c.text, type=EntityType.CLAIM) for c in self.claims),
-            *(Entity(name=m.text, type=EntityType.METHOD) for m in self.methods),
-            *(
-                Entity(name=x.text, type=EntityType.EXPERIMENT)
-                for x in self.experiments
-            ),
+            entity(self.title, EntityType.TITLE),
+            entity(self.primary_area, EntityType.PRIMARY_AREA),
+            *(entity(kw, EntityType.KEYWORD) for kw in self.keywords),
+            entity(self.tldr, EntityType.TLDR),
+            *(entity(c.text, EntityType.CLAIM) for c in self.claims),
+            *(entity(m.text, EntityType.METHOD) for m in self.methods),
+            *(entity(x.text, EntityType.EXPERIMENT) for x in self.experiments),
         ]
 
         relationships = [
-            Relationship(source=self.title, target=self.primary_area),
-            *(Relationship(source=self.title, target=kw) for kw in self.keywords),
-            Relationship(source=self.title, target=self.tldr),
-            *(Relationship(source=self.tldr, target=c.text) for c in self.claims),
+            Relationship(
+                source=names_map[self.title, EntityType.TITLE],
+                target=names_map[self.primary_area, EntityType.PRIMARY_AREA],
+            ),
             *(
-                Relationship(source=c.text, target=target.text)
+                Relationship(
+                    source=names_map[self.title, EntityType.TITLE],
+                    target=names_map[kw, EntityType.KEYWORD],
+                )
+                for kw in self.keywords
+            ),
+            Relationship(
+                source=names_map[self.title, EntityType.TITLE],
+                target=names_map[self.tldr, EntityType.TLDR],
+            ),
+            *(
+                Relationship(
+                    source=names_map[self.tldr, EntityType.TLDR],
+                    target=names_map[c.text, EntityType.CLAIM],
+                )
+                for c in self.claims
+            ),
+            *(
+                Relationship(
+                    source=names_map[c.text, EntityType.CLAIM],
+                    target=names_map[target.text, EntityType.METHOD],
+                )
                 for c in self.claims
                 for midx in c.method_indices
                 if (target := _at(self.methods, midx, "claim->method"))
             ),
             *(
-                Relationship(source=m.text, target=target.text)
+                Relationship(
+                    source=names_map[m.text, EntityType.METHOD],
+                    target=names_map[target.text, EntityType.EXPERIMENT],
+                )
                 for m in self.methods
                 for eidx in m.experiment_indices
                 if (target := _at(self.experiments, eidx, "method->exp"))
