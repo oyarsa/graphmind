@@ -12,7 +12,8 @@ import aiohttp
 import dotenv
 from tqdm.asyncio import tqdm
 
-from paper.s2orc.util import parse_url, progress_gather
+from paper.progress import gather
+from paper.s2orc.util import parse_url
 
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file
@@ -115,7 +116,7 @@ async def _download(
 
             tasks.append(_download_file(url, file_path, session, semaphore))
 
-        await progress_gather(*tasks, desc="Overall progress")
+        await gather(tasks, desc="Overall progress")
 
 
 def download_dataset(

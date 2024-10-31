@@ -12,14 +12,17 @@ import hashlib
 import logging
 import os
 import tomllib
-from collections import Counter
-from collections.abc import Iterable, Sequence
+from abc import ABC, abstractmethod
+from collections import defaultdict
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
+from typing import override
 
 import dotenv
 from openai import AsyncOpenAI
-from pydantic import BaseModel, ConfigDict, TypeAdapter
-from tqdm import tqdm
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from rich.console import Console
+from rich.table import Table
 
 from paper import hierarchical_graph
 from paper.gpt.evaluate_graph import (
@@ -31,74 +34,209 @@ from paper.gpt.model import (
     EntityType,
     Graph,
     Paper,
+    PaperGraph,
+    Prompt,
+    PromptResult,
     Relationship,
     graph_to_digraph,
 )
+from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    Prompt,
-    PromptResult,
+    append_intermediate_result,
+    get_id,
+    get_remaining_items,
     run_gpt,
 )
-from paper.util import Timer, load_prompts, read_resource, setup_logging
+from paper.progress import as_completed
+from paper.util import Timer, read_resource, setup_logging
 
 logger = logging.getLogger("paper.gpt.extract_graph")
 
 
-class GPTRelationship(BaseModel):
+class GPTGraphBase(BaseModel, ABC):
     model_config = ConfigDict(frozen=True)
 
-    source_index: int
-    target_index: int
+    @abstractmethod
+    def to_graph(self, title: str, abstract: str) -> Graph: ...
 
 
-class GPTEntity(BaseModel):
+class IndexedEntity(BaseModel):
+    """Entity from the paper. It belongs to a list and carries its index in that list."""
+
     model_config = ConfigDict(frozen=True)
 
-    index: int
-    name: str
-    type: EntityType
+    index: int = Field(description="Index of this entity in its original list.")
+    text: str = Field(description="Sentence from the paper describing this entity.")
 
 
-class GPTGraph(BaseModel):
-    model_config = ConfigDict(frozen=True)
+class ConnectedEntity(IndexedEntity):
+    """Entity from a paper that has an index and is connected to other entities by index.
 
-    entities: Sequence[GPTEntity]
-    relationships: Sequence[GPTRelationship]
+    The source indices from other entities are from the original list containing the
+    connected entities.
+    """
 
-    def __str__(self) -> str:
-        entities = "\n".join(
-            f"  {e.index}. {e.type} - {e.name}"
-            for e in sorted(self.entities, key=lambda e: e.index)
+    source_indices: Sequence[int] = Field(
+        description="Indices of the entities connected to this one in their original"
+        " list."
+    )
+
+
+def _at[T](seq: Sequence[T], idx: int, desc: str) -> T | None:
+    """Get `seq[idx]` if possible, otherwise return None and log warning with `desc`."""
+    try:
+        return seq[idx]
+    except IndexError:
+        logger.warning("Invalid index at '%s': %d out of %d", desc, idx, len(seq))
+        return None
+
+
+class GPTGraphStrict(GPTGraphBase):
+    """Graph representing the paper."""
+
+    # This is very similar to `GPTGraphStrict`, but there the connections are backwards.
+    # E.g., `experiment` with a backlink to `method`. Here the connections are forward.
+    # There are also dedicated classes for each entity, even at the bottom levels, with
+    # different field names for each connection.
+
+    title: str = Field(description="Title of the paper.")
+    primary_area: str = Field(
+        description="The primary subject area of the paper picked from the ICLR list of"
+        " topics."
+    )
+    keywords: Sequence[str] = Field(
+        description="Keywords that summarise the key aspects of the paper."
+    )
+    tldr: str = Field(description="Sentence that summarises the paper.")
+    claims: Sequence[ClaimEntity] = Field(
+        description="Main contributions the paper claims to make, with connections to"
+        " target `methods`."
+    )
+    methods: Sequence[MethodEntity] = Field(
+        description="Methods used to verify the claims, with connections to target"
+        " `experiments`"
+    )
+    experiments: Sequence[ExperimentEntity] = Field(
+        description="Experiments designed to put methods in practice."
+    )
+
+    @override
+    def to_graph(self, title: str, abstract: str) -> Graph:
+        """Build a real `Graph` from the entities and their relationships."""
+
+        # Track seen names to detect duplicates
+        names_map: dict[tuple[str, EntityType], str] = {}
+        names_seen: set[str] = set()
+
+        def entity(name: str, type: EntityType) -> Entity:
+            if name in names_seen:
+                unique_name = f"{name} ({type.value})"
+            else:
+                names_seen.add(name)
+                unique_name = name
+            names_map[name, type] = unique_name
+            return Entity(name=unique_name, type=type)
+
+        entities = [
+            entity(self.title, EntityType.TITLE),
+            entity(self.primary_area, EntityType.PRIMARY_AREA),
+            *(entity(kw, EntityType.KEYWORD) for kw in self.keywords),
+            entity(self.tldr, EntityType.TLDR),
+            *(entity(c.text, EntityType.CLAIM) for c in self.claims),
+            *(entity(m.text, EntityType.METHOD) for m in self.methods),
+            *(entity(x.text, EntityType.EXPERIMENT) for x in self.experiments),
+        ]
+
+        relationships = [
+            Relationship(
+                source=names_map[self.title, EntityType.TITLE],
+                target=names_map[self.primary_area, EntityType.PRIMARY_AREA],
+            ),
+            *(
+                Relationship(
+                    source=names_map[self.title, EntityType.TITLE],
+                    target=names_map[kw, EntityType.KEYWORD],
+                )
+                for kw in self.keywords
+            ),
+            Relationship(
+                source=names_map[self.title, EntityType.TITLE],
+                target=names_map[self.tldr, EntityType.TLDR],
+            ),
+            *(
+                Relationship(
+                    source=names_map[self.tldr, EntityType.TLDR],
+                    target=names_map[c.text, EntityType.CLAIM],
+                )
+                for c in self.claims
+            ),
+            *(
+                Relationship(
+                    source=names_map[c.text, EntityType.CLAIM],
+                    target=names_map[target.text, EntityType.METHOD],
+                )
+                for c in self.claims
+                for midx in c.method_indices
+                if (target := _at(self.methods, midx, "claim->method"))
+            ),
+            *(
+                Relationship(
+                    source=names_map[m.text, EntityType.METHOD],
+                    target=names_map[target.text, EntityType.EXPERIMENT],
+                )
+                for m in self.methods
+                for eidx in m.experiment_indices
+                if (target := _at(self.experiments, eidx, "method->exp"))
+            ),
+        ]
+
+        return Graph(
+            title=title,
+            abstract=abstract,
+            entities=entities,
+            relationships=relationships,
         )
 
-        relationships = "\n".join(
-            f" {i}. {r.source_index} - {r.target_index}"
-            for i, r in enumerate(
-                sorted(
-                    self.relationships, key=lambda r: (r.source_index, r.target_index)
-                ),
-                1,
-            )
-        )
-        node_type_counts = sorted(Counter(e.type for e in self.entities).items())
 
-        return "\n".join(
-            [
-                f"Nodes: {len(self.entities)}",
-                f"Edges: {len(self.relationships)}",
-                f"Node types: {", ".join(f"{k}: {v}" for k, v in node_type_counts)}",
-                "",
-                "Entities:",
-                entities,
-                "",
-                "Relationships:",
-                relationships,
-                "",
-            ]
-        )
+class ClaimEntity(BaseModel):
+    """Entity representing a claim made in the paper."""
+
+    text: str = Field(description="Description of a claim made by the paper")
+    method_indices: Sequence[int] = Field(
+        description="Indices for the `methods` connected to this claim in the `methods`"
+        " list. There must be at least one connected `method`."
+    )
+
+
+class MethodEntity(BaseModel):
+    """Entity representing a method described in the paper to support the claims."""
+
+    text: str = Field(
+        description="Description of a method used to validate claims from the paper."
+    )
+    index: int = Field(description="Index for this method in the `methods` list")
+    experiment_indices: Sequence[int] = Field(
+        description="Indices for the `experiments` connected to this method in the "
+        " `experiments` list. There must be at least one connected `experiment`."
+    )
+
+
+class ExperimentEntity(BaseModel):
+    """Entity representing an experiment used to validate a method from the paper."""
+
+    text: str = Field(
+        description="Description of an experiment used to validate the methods from"
+        " the paper."
+    )
+    index: int = Field(description="Index for this method in the `experiments` list")
+
+
+_GRAPH_TYPES: Mapping[str, type[GPTGraphBase]] = {
+    "strict": GPTGraphStrict,
+}
 
 
 def _log_config(
@@ -127,65 +265,72 @@ def _log_config(
 _GRAPH_SYSTEM_PROMPT = (
     "Extract the entities from the text and the relationships between them."
 )
-_PRIMARY_AREAS = tomllib.loads(read_resource("gpt.prompts", "primary_areas.toml"))[
-    "primary_areas"
-]
+_PRIMARY_AREAS: list[str] = tomllib.loads(
+    read_resource("gpt.prompts", "primary_areas.toml")
+)["primary_areas"]
 _GRAPH_USER_PROMPTS = load_prompts("extract_graph")
 
 
+async def _generate_graph(
+    client: AsyncOpenAI, example: Paper, model: str, user_prompt: PromptTemplate
+) -> GPTResult[PromptResult[Graph]]:
+    user_prompt_text = user_prompt.template.format(
+        title=example.title,
+        abstract=example.abstract,
+        main_text=example.main_text(),
+        primary_areas=", ".join(_PRIMARY_AREAS),
+    )
+    result = await run_gpt(
+        _GRAPH_TYPES[user_prompt.type_name],
+        client,
+        _GRAPH_SYSTEM_PROMPT,
+        user_prompt_text,
+        model,
+    )
+    graph = (
+        result.result.to_graph(title=example.title, abstract=example.abstract)
+        if result.result
+        else Graph(
+            title=example.title,
+            abstract=example.abstract,
+            entities=[],
+            relationships=[],
+        )
+    )
+    logger.debug(graph)
+    return GPTResult(
+        result=PromptResult(
+            item=graph,
+            prompt=Prompt(user=user_prompt_text, system=_GRAPH_SYSTEM_PROMPT),
+        ),
+        cost=result.cost,
+    )
+
+
 async def _generate_graphs(
-    client: AsyncOpenAI, data: list[Paper], model: str, user_prompt: str
+    client: AsyncOpenAI,
+    data: list[Paper],
+    model: str,
+    user_prompt: PromptTemplate,
+    output_intermediate_path: Path,
 ) -> GPTResult[list[PromptResult[Graph]]]:
     total_cost = 0
     graph_results: list[PromptResult[Graph]] = []
 
-    for example in tqdm(data, desc="Extracting graphs"):
-        prompt = user_prompt.format(
-            title=example.title,
-            abstract=example.abstract,
-            main_text=example.main_text(),
-            primary_areas=", ".join(_PRIMARY_AREAS),
-        )
-        result = await run_gpt(GPTGraph, client, _GRAPH_SYSTEM_PROMPT, prompt, model)
-        graph = (
-            _graph_from_gpt_graph(result.result)
-            if result.result
-            else Graph(entities=[], relationships=[])
-        )
-        logger.debug(graph)
+    tasks = [_generate_graph(client, example, model, user_prompt) for example in data]
+
+    for task in as_completed(tasks, desc="Extracting graphs"):
+        result = await task
         total_cost += result.cost
-        graph_results.append(
-            PromptResult(
-                item=graph, prompt=Prompt(user=prompt, system=_GRAPH_SYSTEM_PROMPT)
-            )
-        )
+
+        graph_results.append(result.result)
+        append_intermediate_result(Graph, output_intermediate_path, result.result)
 
     return GPTResult(graph_results, total_cost)
 
 
-def _graph_from_gpt_graph(gpt_graph: GPTGraph) -> Graph:
-    """Builds a graph from the GPT output.
-
-    Assumes that the entities are all valid, and that the source/target indices for
-    the relationships match the indices in the entities sequence.
-    """
-    entities = [Entity(name=e.name, type=e.type) for e in gpt_graph.entities]
-
-    entity_index = {e.index: e for e in gpt_graph.entities}
-    relationships = [
-        Relationship(
-            source=entity_index[r.source_index].name,
-            target=entity_index[r.target_index].name,
-        )
-        for r in gpt_graph.relationships
-    ]
-
-    return Graph(entities=entities, relationships=relationships)
-
-
 def _save_graphs(
-    papers: Iterable[Paper],
-    graph_results: Iterable[PromptResult[Graph]],
+    paper_graphs: Iterable[PaperGraph],
     output_dir: Path,
 ) -> None:
     """Save results as a JSON file with the prompts and graphs in GraphML format.
@@ -202,17 +347,19 @@ def _save_graphs(
         model_config = ConfigDict(frozen=True)
 
         paper: str
-        graph: str
+        graphml: str
+        graph: Graph
         prompt: Prompt
 
     output: list[Output] = []
 
-    for paper, graph_result in zip(papers, graph_results):
+    for pg in paper_graphs:
         output.append(
             Output(
-                paper=paper.title,
-                graph=graph_to_digraph(graph_result.item).graphml(),
-                prompt=graph_result.prompt,
+                paper=pg.paper.title,
+                graphml=graph_to_digraph(pg.graph.item).graphml(),
+                graph=pg.graph.item,
+                prompt=pg.graph.prompt,
             )
         )
 
@@ -223,11 +370,10 @@ def _save_graphs(
 
 def _display_graphs(
     model: str,
+    paper_graphs: Iterable[PaperGraph],
     graph_user_prompt_key: str,
-    papers: Iterable[Paper],
-    graph_results: Iterable[PromptResult[Graph]],
     output_dir: Path,
-    visualise: bool,
+    display_gui: bool,
 ) -> None:
     """Plot graphs to PNG files and (optionally) the screen.
 
@@ -239,17 +385,18 @@ def _display_graphs(
             `papers`
         output_dir: Where the graph and image wll be persisted. The graph is saved as
             GraphML and the image as PNG.
-        visualise: If True, show the graph on screen. This suspends the process until
+        display_gui: If True, show the graph on screen. This suspends the process until
             the plot is closed.
     """
-    for paper, graph_result in zip(papers, graph_results):
-        dag = graph_to_digraph(graph_result.item)
+    for pg in paper_graphs:
+        dag = graph_to_digraph(pg.graph.item)
 
         try:
             dag.visualise_hierarchy(
-                img_path=output_dir / f"{paper.title}.png",
-                display_gui=visualise,
-                description=f"index - model: {model} - prompt: {graph_user_prompt_key}",
+                img_path=output_dir / f"{pg.paper.title}.png",
+                display_gui=display_gui,
+                description=f"index - model: {model} - prompt: {graph_user_prompt_key}\n"
+                f"status: {pg.graph.item.valid_status}\n",
             )
         except hierarchical_graph.GraphError:
             logger.exception("Error visualising graph")
@@ -262,9 +409,10 @@ async def extract_graph(
     limit: int | None,
     graph_user_prompt_key: str,
     classify_user_prompt_key: str,
-    visualise: bool,
+    display: bool,
     output_dir: Path,
     classify: bool,
+    continue_papers_file: Path | None,
 ) -> None:
     """Extract graphs from the papers in the dataset and (maybe) classify them.
 
@@ -286,7 +434,7 @@ async def extract_graph(
             `_GRAPH_USER_PROMPTS` for available options or `_display_prompts` for more.
         classify_user_prompt_key: Key to the user prompt to use for graph extraction. See
             `_CLASSIFY_USER_PROMPTS` for available options or `_display_prompts` for more.
-        visualise: If True, show each graph on screen. This suspends the process until
+        display: If True, show each graph on screen. This suspends the process until
             the plot is closed.
         output_dir: Directory to save the output files: serialised graphs (GraphML),
             plot images (PNG) and classification results (JSON), if classification is
@@ -320,28 +468,64 @@ async def extract_graph(
     papers = data[:limit]
     graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]
 
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_intermediate_file = output_dir / "results.tmp.json"
+    papers_remaining = get_remaining_items(
+        Graph,
+        output_intermediate_file,
+        continue_papers_file,
+        papers,
+        continue_key=get_id,
+        original_key=get_id,
+    )
+    if not papers_remaining.remaining:
+        logger.info("No items left to process. They're all on the `continues` file.")
+    else:
+        logger.info(
+            "Skipping %d items from the `continue` file.", len(papers_remaining.done)
+        )
+
     with Timer() as timer_gen:
-        graph_results = await _generate_graphs(client, papers, model, graph_user_prompt)
+        graph_results = await _generate_graphs(
+            client,
+            papers_remaining.remaining,
+            model,
+            graph_user_prompt,
+            output_intermediate_file,
+        )
 
     logger.info(f"Graph generation time elapsed: {timer_gen.human}")
     logger.info(f"Total graph generation cost: ${graph_results.cost:.10f}")
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    _save_graphs(papers, graph_results.result, output_dir)
-    _display_graphs(
-        model,
-        graph_user_prompt_key,
-        papers,
-        graph_results.result,
-        output_dir,
-        visualise,
-    )
+    graph_results_all = graph_results.result + papers_remaining.done
+    paper_graphs = [
+        PaperGraph(
+            paper=p, graph=next(g for g in graph_results_all if g.item.id == p.id)
+        )
+        for p in papers
+    ]
+
+    _save_graphs(paper_graphs, output_dir)
+    _display_graphs(model, paper_graphs, graph_user_prompt_key, output_dir, display)
+    _display_validation(graph_results_all)
 
     if classify:
-        graphs = [result.item for result in graph_results.result]
         await evaluate_graphs(
-            client, model, papers, graphs, classify_user_prompt_key, output_dir
+            client, model, paper_graphs, classify_user_prompt_key, output_dir
         )
+
+
+def _display_validation(results: Iterable[PromptResult[Graph]]) -> None:
+    valids: defaultdict[str, list[Graph]] = defaultdict(list)
+    for x in results:
+        valids[x.item.valid_status].append(x.item)
+    valid_items = sorted(valids.items(), key=lambda x: len(x[1]))
+
+    valid_table = Table("Validation message", "Count", "Example (title)")
+    for msg, graphs in valid_items:
+        valid_table.add_row(f"«{msg}»", str(len(graphs)), graphs[0].title)
+
+    Console().print(valid_table)
 
 
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
@@ -410,17 +594,22 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         help="The user prompt to use for paper classification. Defaults to %(default)s.",
     )
     run_parser.add_argument(
-        "--visualise",
-        "-V",
+        "--display",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Visualise the extracted graph.",
+        help="Display the extracted graph.",
     )
     run_parser.add_argument(
         "--classify",
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Classify the papers based on the extracted entities.",
+    )
+    run_parser.add_argument(
+        "--continue-papers",
+        type=Path,
+        default=None,
+        help="Path to file with data from a previous run",
     )
 
     # 'prompts' subcommand parser
@@ -456,9 +645,10 @@ def main() -> None:
                 args.limit,
                 args.graph_user_prompt,
                 args.classify_user_prompt,
-                args.visualise,
+                args.display,
                 args.output_dir,
                 args.classify,
+                args.continue_papers,
             )
         )
 

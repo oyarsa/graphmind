@@ -7,9 +7,10 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
 from paper import evaluation_metrics
-from paper.gpt.model import Graph, Paper
+from paper.gpt.model import Paper, PaperGraph
+from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import GPTResult, run_gpt
-from paper.util import Timer, load_prompts
+from paper.util import Timer
 
 logger = logging.getLogger("paper.gpt.evaluate_graph")
 
@@ -17,15 +18,13 @@ logger = logging.getLogger("paper.gpt.evaluate_graph")
 CLASSIFY_SYSTEM_PROMPT = (
     "Approve or reject the scientific paper based on the extracted entities."
 )
-
 CLASSIFY_USER_PROMPTS = load_prompts("evaluate_graph")
 
 
 async def evaluate_graphs(
     client: AsyncOpenAI,
     model: str,
-    papers: Sequence[Paper],
-    graphs: Sequence[Graph],
+    paper_graphs: Sequence[PaperGraph],
     user_prompt_key: str,
     output_dir: Path,
 ) -> None:
@@ -39,7 +38,7 @@ async def evaluate_graphs(
 
     with Timer() as timer_class:
         results = await _classify_papers(
-            client, model, classify_user_prompt, papers, graphs
+            client, model, classify_user_prompt, paper_graphs
         )
 
     metrics = _calculate_metrics(results.result)
@@ -77,19 +76,23 @@ class GPTClassify(BaseModel):
     approved: bool
 
 
+_CLASSIFY_TYPES = {
+    "classify": GPTClassify,
+}
+
+
 async def _classify_papers(
     client: AsyncOpenAI,
     model: str,
-    user_prompt_template: str,
-    papers: Sequence[Paper],
-    graphs: Sequence[Graph],
+    user_prompt: PromptTemplate,
+    paper_graphs: Sequence[PaperGraph],
 ) -> GPTResult[list[PaperResult]]:
     """Classify Papers into approved/not approved using the generated graphs.
 
     Args:
         client: OpenAI client to use GPT
         model: GPT model code to use (must support Structured Outputs)
-        user_prompt_template: User prompt template to use for classification to be filled
+        user_prompt: User prompt template to use for classification to be filled
         papers: Papers from the ASAP-Review dataset to classify
         graphs: Graphs generated from the papers
         output_dir: Directory to save the classification results
@@ -100,27 +103,29 @@ async def _classify_papers(
     results: list[PaperResult] = []
     total_cost = 0
 
-    for paper, graph in tqdm(
-        zip(papers, graphs), desc="Classifying papers", total=len(papers)
-    ):
-        user_prompt = user_prompt_template.format(
-            title=paper.title,
-            abstract=paper.abstract,
-            graph=graph.model_dump_json(),
+    for pg in tqdm(paper_graphs, desc="Classifying papers"):
+        user_prompt_text = user_prompt.template.format(
+            title=pg.paper.title,
+            abstract=pg.paper.abstract,
+            graph=pg.graph.model_dump_json(),
         )
         result = await run_gpt(
-            GPTClassify, client, CLASSIFY_SYSTEM_PROMPT, user_prompt, model
+            _CLASSIFY_TYPES[user_prompt.type_name],
+            client,
+            CLASSIFY_SYSTEM_PROMPT,
+            user_prompt_text,
+            model,
         )
         total_cost += result.cost
         classified = result.result
 
         results.append(
             PaperResult(
-                title=paper.title,
-                abstract=paper.abstract,
-                ratings=paper.ratings,
-                sections=paper.sections,
-                y_true=paper.is_approved(),
+                title=pg.paper.title,
+                abstract=pg.paper.abstract,
+                ratings=pg.paper.ratings,
+                sections=pg.paper.sections,
+                y_true=pg.paper.is_approved(),
                 y_pred=classified.approved if classified else False,
             )
         )

@@ -1,5 +1,6 @@
 [[prompts]]
 name = "simple"
+type = "classify"
 prompt = """The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and a graph representation of the paper and its network.
 

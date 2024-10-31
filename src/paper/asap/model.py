@@ -94,6 +94,10 @@ class PaperWithFullReference(BaseModel):
         description="References made in the paper with their abstracts"
     )
 
+    @property
+    def id(self) -> int:
+        return hash(self.title + self.abstract)
+
 
 class TLDR(BaseModel):
     model_config = ConfigDict(frozen=True)

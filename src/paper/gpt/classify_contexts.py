@@ -13,18 +13,15 @@ option.
 
 import argparse
 import asyncio
-import contextlib
 import hashlib
 import logging
 import os
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import cast
 
 import dotenv
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
-from tqdm.asyncio import tqdm
 
 from paper import evaluation_metrics
 from paper.asap.model import (
@@ -33,15 +30,19 @@ from paper.asap.model import (
     PaperWithFullReference,
 )
 from paper.asap.model import PaperWithFullReference as PaperInput
+from paper.gpt.model import Prompt, PromptResult
+from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    Prompt,
-    PromptResult,
+    append_intermediate_result,
+    get_id,
+    get_remaining_items,
     run_gpt,
 )
-from paper.util import Timer, load_prompts, safediv, setup_logging
+from paper.progress import as_completed
+from paper.util import Timer, safediv, setup_logging
 
 logger = logging.getLogger("paper.gpt.classify_contexts")
 
@@ -90,6 +91,10 @@ class PaperOutput(BaseModel):
     )
     references: Sequence[Reference] = Field(description="References made in the paper")
 
+    @property
+    def id(self) -> int:
+        return hash(self.title + self.abstract)
+
 
 _CONTEXT_SYSTEM_PROMPT = (
     "Classify the context polarity between the main paper and its citation."
@@ -113,12 +118,17 @@ class GPTContext(BaseModel):
     )
 
 
+_CONTEXT_TYPES = {
+    "context": GPTContext,
+}
+
+
 async def _classify_paper(
     client: AsyncOpenAI,
     limit_references: int | None,
     model: str,
     paper: PaperWithFullReference,
-    user_prompt_template: str,
+    user_prompt: PromptTemplate,
 ) -> GPTResult[PromptResult[PaperOutput]]:
     """Classify the contexts for the paper's references by polarity.
 
@@ -139,7 +149,7 @@ async def _classify_paper(
         classified_contexts: list[ContextClassified] = []
 
         for context in reference.contexts:
-            user_prompt = user_prompt_template.format(
+            user_prompt_text = user_prompt.template.format(
                 main_title=paper.title,
                 main_abstract=paper.abstract,
                 reference_title=reference.s2title,
@@ -147,10 +157,14 @@ async def _classify_paper(
                 context=context.sentence,
             )
             if not user_prompt_save:
-                user_prompt_save = user_prompt
+                user_prompt_save = user_prompt_text
 
             result = await run_gpt(
-                GPTContext, client, _CONTEXT_SYSTEM_PROMPT, user_prompt, model
+                _CONTEXT_TYPES[user_prompt.type_name],
+                client,
+                _CONTEXT_SYSTEM_PROMPT,
+                user_prompt_text,
+                model,
             )
             total_cost += result.cost
 
@@ -203,7 +217,7 @@ async def _classify_paper(
 async def _classify_contexts(
     client: AsyncOpenAI,
     model: str,
-    user_prompt_template: str,
+    user_prompt: PromptTemplate,
     papers: Sequence[PaperInput],
     limit_references: int | None,
     output_intermediate_path: Path,
@@ -224,46 +238,17 @@ async def _classify_contexts(
     total_cost = 0
 
     tasks = [
-        _classify_paper(client, limit_references, model, paper, user_prompt_template)
+        _classify_paper(client, limit_references, model, paper, user_prompt)
         for paper in papers
     ]
-    for task in tqdm.as_completed(  # type: ignore
-        tasks, desc="Classifying paper reference contexts"
-    ):
-        result = cast(GPTResult[PromptResult[PaperOutput]], await task)
+    for task in as_completed(tasks, desc="Classifying paper reference contexts"):
+        result = await task
         total_cost += result.cost
 
         paper_outputs.append(result.result)
-        _append_intermediate_result(output_intermediate_path, result.result)
+        append_intermediate_result(PaperOutput, output_intermediate_path, result.result)
 
     return GPTResult(paper_outputs, total_cost)
-
-
-def _append_intermediate_result(path: Path, result: PromptResult[PaperOutput]) -> None:
-    """Save result to intermediate file.
-
-    If the intermediate file doesn't exist, create a new one containing the result.
-    """
-    result_adapter = TypeAdapter(list[PromptResult[PaperOutput]])
-
-    previous = []
-    try:
-        previous = result_adapter.validate_json(path.read_bytes())
-    except FileNotFoundError:
-        # It's fine if the file didn't exist previously. We'll create a new one now.
-        pass
-    except Exception:
-        logger.exception("Error reading intermediate result file: %s", path)
-
-    previous.append(result)
-    try:
-        path.write_bytes(result_adapter.dump_json(previous, indent=2))
-    except Exception:
-        logger.exception("Error writing intermediate results to: %s", path)
-
-
-def _paper_id(paper: PaperOutput | PaperWithFullReference) -> int:
-    return hash(paper.title + paper.abstract)
 
 
 def _log_config(
@@ -333,73 +318,50 @@ async def classify_contexts(
     papers = data[:limit_papers]
     user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
 
-    result_adapter = TypeAdapter(list[PromptResult[PaperOutput]])
-
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_intermediate_path = output_dir / "results.tmp.json"
-
-    if continue_papers_file is None and output_intermediate_path.is_file():
-        continue_papers_file = output_intermediate_path
-
-    continue_papers = []
-    if continue_papers_file:
-        logger.info("Continuing papers from: %s", continue_papers_file)
-        with contextlib.suppress(Exception):
-            continue_papers = result_adapter.validate_json(
-                continue_papers_file.read_bytes()
-            )
-
-    continue_paper_ids = {_paper_id(paper.item) for paper in continue_papers}
-    papers_num = len(papers)
-    papers = [paper for paper in papers if _paper_id(paper) not in continue_paper_ids]
-    if not papers:
-        logger.warning(
-            "No remaining papers to classify. They're all on the intermediate results."
+    output_intermediate_file = output_dir / "results.tmp.json"
+    papers_remaining = get_remaining_items(
+        PaperOutput,
+        output_intermediate_file,
+        continue_papers_file,
+        papers,
+        continue_key=get_id,
+        original_key=get_id,
+    )
+    if not papers_remaining.remaining:
+        logging.warning(
+            "No items left to process. They're all on the `continues` file. Exiting."
         )
         return
-    else:
-        logger.info("Skipping %d papers.", papers_num - len(papers))
+
+    logging.warning(
+        "Skipping %d items from the `continue` file.", len(papers_remaining.done)
+    )
 
     with Timer() as timer:
         results = await _classify_contexts(
             client,
             model,
             user_prompt,
-            papers,
+            papers_remaining.remaining,
             limit_references,
-            output_intermediate_path,
+            output_intermediate_file,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${results.cost:.10f}")
 
-    contexts = [result.item for result in results.result]
-    stats, metrics = show_classified_stats(contexts)
+    results_all = papers_remaining.done + results.result
+    stats, metrics = show_classified_stats(result.item for result in results_all)
     logger.info("Classification metrics:\n%s\n", stats)
 
+    assert len(results_all) == len(papers)
     (output_dir / "result.json").write_bytes(
-        result_adapter.dump_json(results.result, indent=2)
+        TypeAdapter(list[PromptResult[PaperOutput]]).dump_json(results_all, indent=2)
     )
     (output_dir / "output.txt").write_text(stats)
     if metrics is not None:
         (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
-
-
-async def on_result_completion(
-    result: PromptResult[PaperOutput], lock: asyncio.Lock, path: Path
-) -> None:
-    adapter = TypeAdapter(list[PromptResult[PaperOutput]])
-    async with lock:
-        previous = []
-        try:
-            previous = adapter.validate_json(path.read_bytes())
-        except FileNotFoundError:
-            pass
-        except Exception:
-            logger.exception("Error reading intermediate result file")
-
-        previous.append(result)
-        path.write_bytes(adapter.dump_json(previous, indent=2))
 
 
 # TODO:This one is a bit messy. Refactor it.

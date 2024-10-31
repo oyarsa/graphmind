@@ -27,7 +27,7 @@ from typing import Any
 import aiohttp
 import dotenv
 
-from paper.s2orc.util import progress_gather
+from paper.progress import gather
 from paper.util import fuzzy_ratio
 
 MAX_CONCURRENT_REQUESTS = 10
@@ -141,7 +141,7 @@ async def _download_paper_info(
             _fetch_paper_info(session, api_key, title, fields, semaphore)
             for title in unique_titles
         ]
-        results = list(await progress_gather(*tasks, desc="Downloading paper info"))
+        results = list(await gather(tasks, desc="Downloading paper info"))
 
     results_valid = [
         result | {"fuzz_ratio": fuzzy_ratio(result["title_query"], result["title"])}
