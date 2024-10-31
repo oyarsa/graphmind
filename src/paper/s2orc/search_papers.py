@@ -3,21 +3,22 @@
 Takes the S2ORC (no need to involve the whole dataset) and a file containing the paper
 names to search as a JSON list.
 """
-# pyright: basic
+
+from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any, no_type_check
 
-import pandas as pd
 import typer
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
-from paper.util import fuzzy_ratio
+from paper.util import TopKSet, fuzzy_ratio
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -34,6 +35,9 @@ class PaperMatch(BaseModel):
     title_query: str
     title_s2orc: str
     score: int
+
+    def __lt__(self, other: PaperMatch) -> bool:
+        return (self.score, self.title_s2orc) < (other.score, other.title_s2orc)
 
 
 class Paper(BaseModel):
@@ -77,10 +81,17 @@ def main(
     print()
     print(f"{len(matches_fuzzy)=}")
 
-    scores = pd.Series(m.score for p in matches_fuzzy for m in p.matches)
-    print(scores.describe())
+    scores = [m.score for p in matches_fuzzy for m in p.matches]
+    print(describe(scores))
 
     output_file.write_bytes(TypeAdapter(list[Paper]).dump_json(matches_fuzzy, indent=2))
+
+
+@no_type_check
+def describe(x: Iterable[Any]) -> str:
+    import pandas as pd  # type: ignore
+
+    return pd.Series(x).describe()
 
 
 def _search_papers_fuzzy(
@@ -110,17 +121,15 @@ def _search_papers_fuzzy(
 def _search_paper_fuzzy(
     query: str, papers_s2orc: set[str], min_fuzzy: int, output_intermediate_file: Path
 ) -> Paper | None:
-    matches: list[PaperMatch] = []
+    matches = TopKSet(PaperMatch, 5)
 
     for s2orc in papers_s2orc:
-        score = fuzzy_ratio(query, s2orc)  # output: integer 0-100 where 100 is exact
+        score = fuzzy_ratio(query, s2orc)
         if score >= min_fuzzy:
-            matches.append(
-                PaperMatch(title_query=query, title_s2orc=s2orc, score=score)
-            )
+            matches.add(PaperMatch(title_query=query, title_s2orc=s2orc, score=score))
 
-    if matches:
-        paper = Paper(query=query, matches=sorted(matches, key=lambda x: x.score))
+    if items := matches.items:
+        paper = Paper(query=query, matches=items)
         with output_intermediate_file.open("a") as f:
             f.write(paper.model_dump_json() + "\n")
         return paper
