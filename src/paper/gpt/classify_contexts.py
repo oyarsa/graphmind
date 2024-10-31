@@ -351,23 +351,6 @@ async def classify_contexts(
         (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
 
 
-async def on_result_completion(
-    result: PromptResult[PaperOutput], lock: asyncio.Lock, path: Path
-) -> None:
-    adapter = TypeAdapter(list[PromptResult[PaperOutput]])
-    async with lock:
-        previous = []
-        try:
-            previous = adapter.validate_json(path.read_bytes())
-        except FileNotFoundError:
-            pass
-        except Exception:
-            logger.exception("Error reading intermediate result file")
-
-        previous.append(result)
-        path.write_bytes(adapter.dump_json(previous, indent=2))
-
-
 # TODO:This one is a bit messy. Refactor it.
 def show_classified_stats(
     data: Iterable[PaperOutput],
