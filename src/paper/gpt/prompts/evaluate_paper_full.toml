@@ -1,0 +1,9 @@
+[[prompts]]
+name = "simple"
+type = "full"
+prompt = """The following data contains information about a scientific paper. It includes the \
+paper's title, abstract, and the full body text.
+
+Based on this content, approve or reject the paper. First, generate the rationale for \
+your decision, then give the final decision.
+"""
