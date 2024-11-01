@@ -15,7 +15,13 @@ from paper.gpt.evaluate_paper import (
 )
 from paper.gpt.model import PaperGraph, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts
-from paper.gpt.run_gpt import GPTResult, run_gpt
+from paper.gpt.run_gpt import (
+    GPTResult,
+    append_intermediate_result,
+    get_id,
+    get_remaining_items,
+    run_gpt,
+)
 from paper.util import Timer
 
 logger = logging.getLogger("paper.gpt.evaluate_graph")
@@ -33,6 +39,8 @@ async def evaluate_graphs(
     paper_graphs: Sequence[PaperGraph],
     user_prompt_key: str,
     output_dir: Path,
+    continue_papers_file: Path | None,
+    clean_run: bool,
 ) -> None:
     """Evaluate papers acceptance based on their structured graphs.
 
@@ -42,9 +50,30 @@ async def evaluate_graphs(
 
     classify_user_prompt = CLASSIFY_USER_PROMPTS[user_prompt_key]
 
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_intermediate_file = output_dir / "results.tmp.json"
+    papers_remaining = get_remaining_items(
+        PaperGraph,
+        output_intermediate_file,
+        continue_papers_file,
+        paper_graphs,
+        clean_run=clean_run,
+        continue_key=get_id,
+        original_key=get_id,
+    )
+    if not papers_remaining.remaining:
+        logging.warning(
+            "No items left to process. They're all on the `continues` file. Exiting."
+        )
+        return
+
+    logging.warning(
+        "Skipping %d items from the `continue` file.", len(papers_remaining.done)
+    )
+
     with Timer() as timer_class:
         results = await _classify_papers(
-            client, model, classify_user_prompt, paper_graphs
+            client, model, classify_user_prompt, paper_graphs, output_intermediate_file
         )
 
     results_items = [result.item for result in results.result]
@@ -80,6 +109,7 @@ async def _classify_papers(
     model: str,
     user_prompt: PromptTemplate,
     paper_graphs: Sequence[PaperGraph],
+    output_intermediate_file: Path,
 ) -> GPTResult[list[PromptResult[PaperResult]]]:
     """Classify Papers into approved/not approved using the generated graphs.
 
@@ -87,13 +117,13 @@ async def _classify_papers(
         client: OpenAI client to use GPT
         model: GPT model code to use (must support Structured Outputs)
         user_prompt: User prompt template to use for classification to be filled
-        papers: Papers from the ASAP-Review dataset to classify
-        graphs: Graphs generated from the papers
-        output_dir: Directory to save the classification results
+        paper_graphs: Graphs generated from the papers
+        output_intermediate_file: File to write new results after each task is completed
 
     Returns:
         List of classified papers wrapped in a GPTResult.
     """
+
     results: list[PromptResult[PaperResult]] = []
     total_cost = 0
 
