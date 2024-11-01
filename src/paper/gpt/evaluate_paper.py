@@ -3,6 +3,8 @@
 from collections.abc import Sequence
 from typing import NamedTuple
 
+from pydantic import Field
+
 from paper import evaluation_metrics
 from paper.gpt.model import Paper
 from paper.util import safediv
@@ -11,8 +13,9 @@ from paper.util import safediv
 class PaperResult(Paper):
     """ASAP-Review dataset paper with added approval ground truth and GPT prediction."""
 
-    y_true: bool
-    y_pred: bool
+    y_true: bool = Field(description="Human annotation")
+    y_pred: bool = Field(description="Model prediction")
+    rationale: str = Field(description="Model rationale for the prediction")
 
 
 class Labels(NamedTuple):
