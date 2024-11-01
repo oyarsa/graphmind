@@ -5,13 +5,13 @@ import asyncio
 import json
 import os
 import sys
+import urllib.parse
 from pathlib import Path
 
 import aiohttp
 import dotenv
 
 from paper.progress import gather
-from paper.s2orc.util import parse_url
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -89,7 +89,7 @@ async def _get_filesizes(
 
         print("\nFile sizes:")
         for url, size in zip(files, file_sizes):
-            file_name = parse_url(url).path.split("/")[-1]
+            file_name = urllib.parse.urlparse(str(url)).path.split("/")[-1]
             size_gb = _bytes_to_gib(size)
             print(f"{file_name}: {size_gb:.2f} GiB")
 

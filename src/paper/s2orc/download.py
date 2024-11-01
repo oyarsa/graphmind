@@ -5,6 +5,7 @@ import asyncio
 import json
 import os
 import sys
+import urllib.parse
 from collections.abc import Coroutine
 from pathlib import Path
 
@@ -13,7 +14,6 @@ import dotenv
 from tqdm.asyncio import tqdm
 
 from paper.progress import gather
-from paper.s2orc.util import parse_url
 
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file
@@ -111,7 +111,7 @@ async def _download(
         tasks: list[Coroutine[None, None, None]] = []
 
         for url in dataset["files"][:limit]:
-            file_name = parse_url(url).path.split("/")[-1]
+            file_name = urllib.parse.urlparse(str(url)).path.split("/")[-1]
             file_path = output_path / file_name
 
             tasks.append(_download_file(url, file_path, session, semaphore))
