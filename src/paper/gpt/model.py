@@ -3,7 +3,6 @@
 import itertools
 from collections import Counter, defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, computed_field
@@ -344,11 +343,16 @@ class PromptResult[T](BaseModel):
     prompt: Prompt
 
 
-@dataclass(frozen=True, kw_only=True)
-class PaperGraph:
+class PaperGraph(BaseModel):
     paper: Paper
     graph: PromptResult[Graph]
 
+    @computed_field
+    @property
+    def id(self) -> int:
+        return self.paper.id
+
     def __post_init__(self) -> None:
+        # TODO: Use proper pydantic thing for this
         if self.paper.id != self.graph.item.id:
             raise ValueError("Paper ID must match graph item ID")
