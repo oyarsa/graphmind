@@ -312,7 +312,7 @@ class Paper(BaseModel):
         return hash(self.title + self.abstract)
 
     def is_approved(
-        self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.MEAN
+        self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.DEFAULT
     ) -> bool:
         return strategy.is_approved(self.approval, self.ratings)
 
