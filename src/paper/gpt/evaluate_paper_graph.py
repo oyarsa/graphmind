@@ -6,7 +6,6 @@ from pathlib import Path
 
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
-from tqdm import tqdm
 
 from paper.gpt.evaluate_paper import (
     PaperResult,
@@ -22,6 +21,7 @@ from paper.gpt.run_gpt import (
     get_remaining_items,
     run_gpt,
 )
+from paper.progress import as_completed
 from paper.util import Timer
 
 logger = logging.getLogger("paper.gpt.evaluate_graph")
@@ -127,23 +127,37 @@ async def _classify_papers(
     results: list[PromptResult[PaperResult]] = []
     total_cost = 0
 
-    for pg in tqdm(paper_graphs, desc="Classifying papers"):
-        user_prompt_text = user_prompt.template.format(
-            title=pg.paper.title,
-            abstract=pg.paper.abstract,
-            graph=pg.graph.model_dump_json(),
-        )
-        result = await run_gpt(
-            _CLASSIFY_TYPES[user_prompt.type_name],
-            client,
-            CLASSIFY_SYSTEM_PROMPT,
-            user_prompt_text,
-            model,
-        )
-        total_cost += result.cost
-        classified = result.result
+    tasks = [_classify_paper(client, model, pg, user_prompt) for pg in paper_graphs]
 
-        result = PromptResult(
+    for task in as_completed(tasks, desc="Classifying papers"):
+        result = await task
+        total_cost += result.cost
+
+        results.append(result.result)
+        append_intermediate_result(PaperResult, output_intermediate_file, result.result)
+
+    return GPTResult(results, total_cost)
+
+
+async def _classify_paper(
+    client: AsyncOpenAI, model: str, pg: PaperGraph, user_prompt: PromptTemplate
+) -> GPTResult[PromptResult[PaperResult]]:
+    user_prompt_text = user_prompt.template.format(
+        title=pg.paper.title,
+        abstract=pg.paper.abstract,
+        graph=pg.graph.model_dump_json(),
+    )
+    result = await run_gpt(
+        _CLASSIFY_TYPES[user_prompt.type_name],
+        client,
+        CLASSIFY_SYSTEM_PROMPT,
+        user_prompt_text,
+        model,
+    )
+    classified = result.result
+
+    return GPTResult(
+        result=PromptResult(
             item=PaperResult(
                 title=pg.paper.title,
                 abstract=pg.paper.abstract,
@@ -154,8 +168,6 @@ async def _classify_papers(
                 approval=pg.paper.approval,
             ),
             prompt=Prompt(system=CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
-        )
-
-        results.append(result)
-
-    return GPTResult(results, total_cost)
+        ),
+        cost=result.cost,
+    )
