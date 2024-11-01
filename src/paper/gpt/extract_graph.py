@@ -40,7 +40,7 @@ from paper.gpt.model import (
     Relationship,
     graph_to_digraph,
 )
-from paper.gpt.prompts import PromptTemplate, load_prompts
+from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -676,17 +676,8 @@ def list_prompts(detail: bool) -> None:
         ("CLASSIFICATION PROMPTS", CLASSIFY_USER_PROMPTS),
     ]
     for title, prompts in items:
+        print_prompts(title, prompts, detail=detail)
         print()
-        if detail:
-            print(">>>", title)
-        else:
-            print(title)
-        for key, prompt in prompts.items():
-            if detail:
-                sep = "-" * 80
-                print(f"{sep}\n{key}\n{sep}\n{prompt}")
-            else:
-                print(f"- {key}")
 
 
 if __name__ == "__main__":

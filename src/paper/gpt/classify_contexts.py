@@ -31,7 +31,7 @@ from paper.asap.model import (
 )
 from paper.asap.model import PaperWithFullReference as PaperInput
 from paper.gpt.model import Prompt, PromptResult
-from paper.gpt.prompts import PromptTemplate, load_prompts
+from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -546,21 +546,7 @@ def main() -> None:
 
 
 def list_prompts(detail: bool) -> None:
-    items = [
-        ("CONTEXT PROMPTS", _CONTEXT_USER_PROMPTS),
-    ]
-    for title, prompts in items:
-        print()
-        if detail:
-            print(">>>", title)
-        else:
-            print(title)
-        for key, prompt in prompts.items():
-            if detail:
-                sep = "-" * 80
-                print(f"{sep}\n{key}\n{sep}\n{prompt}")
-            else:
-                print(f"- {key}")
+    print_prompts("CONTEXT PROMPTS", _CONTEXT_USER_PROMPTS, detail=detail)
 
 
 if __name__ == "__main__":

@@ -27,3 +27,21 @@ def load_prompts(name: str) -> dict[str, PromptTemplate]:
         p["name"]: PromptTemplate(p["name"], p["type"], p["prompt"])
         for p in tomllib.loads(text)["prompts"]
     }
+
+
+def print_prompts(
+    title: str, prompts: dict[str, PromptTemplate], *, detail: bool
+) -> None:
+    if detail:
+        print(">>>", title)
+    else:
+        print(title)
+
+    for prompt in prompts.values():
+        if detail:
+            sep = "-" * 80
+            print(
+                f"{sep}\n{prompt.name} ({prompt.type_name})\n{sep}\n{prompt.template}"
+            )
+        else:
+            print(f"- {prompt.name} ({prompt.type_name})")
