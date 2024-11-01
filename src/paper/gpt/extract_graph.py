@@ -518,7 +518,14 @@ async def extract_graph(
 
     if classify:
         await evaluate_graphs(
-            client, model, paper_graphs, classify_user_prompt_key, output_dir
+            client,
+            model,
+            paper_graphs,
+            classify_user_prompt_key,
+            output_dir,
+            # We always want new paper classifications after processing the graphs
+            continue_papers_file=None,
+            clean_run=True,
         )
 
 
