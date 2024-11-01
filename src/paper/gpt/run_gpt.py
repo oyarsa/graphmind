@@ -9,7 +9,7 @@ from typing import Any, Protocol
 import backoff
 import openai
 from openai import AsyncOpenAI
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from paper.gpt.model import PromptResult
 from paper.rate_limiter import ChatRateLimiter
@@ -186,6 +186,8 @@ def append_intermediate_result[T: BaseModel](
     except FileNotFoundError:
         # It's fine if the file didn't exist previously. We'll create a new one now.
         pass
+    except ValidationError:
+        logger.warning("Existing intermediate file has out of date types. Ignoring it.")
     except Exception:
         logger.exception("Error reading intermediate result file: %s", path)
 
