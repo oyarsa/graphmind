@@ -25,10 +25,7 @@ from rich.console import Console
 from rich.table import Table
 
 from paper import hierarchical_graph
-from paper.gpt.evaluate_graph import (
-    CLASSIFY_USER_PROMPTS,
-    evaluate_graphs,
-)
+from paper.gpt.evaluate_paper_graph import CLASSIFY_USER_PROMPTS, evaluate_graphs
 from paper.gpt.model import (
     Entity,
     EntityType,
