@@ -1,3 +1,8 @@
+"""URL manipulation functions.
+
+Wraps existing functions from libraries that might not integrate well with strict typing.
+"""
+
 import urllib.parse
 
 

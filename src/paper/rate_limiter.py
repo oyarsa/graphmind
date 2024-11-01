@@ -1,3 +1,4 @@
+"""Rate limiter for the OpenAI API. Works for both request and token limits."""
 # openlimit: Maximize your usage of OpenAI models without hitting rate limits
 
 # Copyright (C) 2024 shobrook
@@ -21,7 +22,6 @@
 # Modifications:
 # - 2024-10-25: oyarsa - Move only what I use to a single file and add type hints.
 # ---------------------------------------------------------------------------------
-
 
 from __future__ import annotations
 

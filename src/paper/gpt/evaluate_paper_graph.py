@@ -1,3 +1,5 @@
+"""Evaluate a paper's approval based on its structured graph."""
+
 import logging
 from collections.abc import Sequence
 from pathlib import Path

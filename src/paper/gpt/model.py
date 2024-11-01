@@ -1,3 +1,5 @@
+"""Common types used to represent entities in the GPT-based extraction tools."""
+
 import itertools
 from collections import Counter, defaultdict
 from collections.abc import Sequence

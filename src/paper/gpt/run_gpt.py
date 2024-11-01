@@ -1,3 +1,5 @@
+"""Interact with the OpenAI API."""
+
 import logging
 from collections.abc import Callable, Hashable, Sequence
 from dataclasses import dataclass

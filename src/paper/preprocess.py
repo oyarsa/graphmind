@@ -1,3 +1,5 @@
+"""Entrypoint for ASAP and S2ORC preprocessing pipelines."""
+
 import argparse
 
 from paper.asap import preprocess as asap
