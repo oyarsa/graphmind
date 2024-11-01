@@ -107,6 +107,7 @@ def main() -> None:
                     args.output_dir,
                     args.continue_papers,
                     args.clean_run,
+                    args.seed,
                 )
             )
 

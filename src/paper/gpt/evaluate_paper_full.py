@@ -5,6 +5,7 @@ import asyncio
 import hashlib
 import logging
 import os
+import random
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -57,6 +58,7 @@ def main() -> None:
                 args.output_dir,
                 args.continue_papers,
                 args.clean_run,
+                args.seed,
             )
         )
 
@@ -73,6 +75,7 @@ async def evaluate_papers(
     output_dir: Path,
     continue_papers_file: Path | None,
     clean_run: bool,
+    seed: int,
 ) -> None:
     """Evaluate a paper's approval based on its full-body text.
 
@@ -100,10 +103,13 @@ async def evaluate_papers(
         continue_papers_file: If provided, check for entries in the input data. If they
             are there, we use those results and skip processing them.
         clean_run: If True, ignore `continue_papers` and run everything from scratch.
+        seed: Random seed used for shuffling.
 
     Returns:
         None. The output is saved to disk.
     """
+    random.seed(seed)
+
     dotenv.load_dotenv()
     if api_key:
         os.environ["OPENAI_API_KEY"] = api_key
@@ -128,6 +134,7 @@ async def evaluate_papers(
     client = AsyncOpenAI()
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
+    random.shuffle(data)
 
     papers = data[:limit_papers]
     user_prompt = _FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
@@ -190,6 +197,7 @@ async def _classify_papers(
         model: GPT model code to use (must support Structured Outputs)
         user_prompt: User prompt template to use for classification to be filled
         papers: Papers from the ASAP-Review dataset to classify
+        output_intermediate_file: File to write new results after each task is completed
 
     Returns:
         List of classified papers wrapped in a GPTResult.
@@ -328,6 +336,9 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Start from scratch, ignoring existing intermediate results",
+    )
+    run_parser.add_argument(
+        "--seed", default=0, type=int, help="Random seed used for shuffling."
     )
 
     # 'prompts' subcommand parser
