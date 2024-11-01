@@ -181,6 +181,9 @@ async def evaluate_papers(
     (output_dir / "result.json").write_bytes(
         TypeAdapter(list[PromptResult[PaperResult]]).dump_json(results_all, indent=2)
     )
+    (output_dir / "result_items.json").write_bytes(
+        TypeAdapter(list[PaperResult]).dump_json(results_items, indent=2)
+    )
     (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
 
 
