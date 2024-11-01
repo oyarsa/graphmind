@@ -214,6 +214,7 @@ def get_remaining_items[T: BaseModel, U: BaseModel](
     output_intermediate_file: Path,
     continue_papers_file: Path | None,
     original: Sequence[U],
+    clean_run: bool,
     *,
     continue_key: Callable[[T], Hashable],
     original_key: Callable[[U], Hashable],
@@ -230,6 +231,9 @@ def get_remaining_items[T: BaseModel, U: BaseModel](
     Returns:
         Remaining items to be processed.
     """
+    if clean_run:
+        return RemainingItems(remaining=list(original), done=[])
+
     if continue_papers_file is None and output_intermediate_file.is_file():
         continue_papers_file = output_intermediate_file
 

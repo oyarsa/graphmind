@@ -248,6 +248,7 @@ def _log_config(
     classify_user_prompt: str,
     output_dir: Path,
     continue_papers_file: Path | None,
+    clean_run: bool,
 ) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
 
@@ -261,6 +262,7 @@ def _log_config(
         f"  Graph prompt: {graph_user_prompt}\n"
         f"  Classify prompt: {classify_user_prompt}\n"
         f"  Continue papers file: {continue_papers_file}\n"
+        f"  Clean run: {clean_run}\n"
     )
 
 
@@ -415,11 +417,11 @@ async def extract_graph(
     output_dir: Path,
     classify: bool,
     continue_papers_file: Path | None,
+    clean_run: bool,
 ) -> None:
     """Extract graphs from the papers in the dataset and (maybe) classify them.
 
-    The graphs follow a taxonomy based on paper title -> concepts -> sentences. The
-    relationships between nodes are either supporting or contrasting.
+    See `gpt.models.Graph` for the graph structure and rules.
 
     The papers should come from the ASAP-Review dataset as processed by the
     paper.asap module.
@@ -442,6 +444,9 @@ async def extract_graph(
             plot images (PNG) and classification results (JSON), if classification is
             enabled.
         classify: If True, classify the papers based on the generated graph.
+        continue_papers_file: If provided, check for entries in the input data. If they
+            are there, we use those results and skip processing them.
+        clean_run: If True, ignore `continue_papers` and run everything from scratch.
 
     Returns:
         None. The output is saved to disk.
@@ -462,6 +467,7 @@ async def extract_graph(
         classify_user_prompt=classify_user_prompt_key,
         output_dir=output_dir,
         continue_papers_file=continue_papers_file,
+        clean_run=clean_run,
     )
 
     client = AsyncOpenAI()
@@ -478,6 +484,7 @@ async def extract_graph(
         output_intermediate_file,
         continue_papers_file,
         papers,
+        clean_run,
         continue_key=get_id,
         original_key=get_id,
     )
@@ -614,6 +621,12 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Path to file with data from a previous run",
     )
+    run_parser.add_argument(
+        "--clean-run",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Start from scratch, ignoring existing intermediate results",
+    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -652,6 +665,7 @@ def main() -> None:
                 args.output_dir,
                 args.classify,
                 args.continue_papers,
+                args.clean_run,
             )
         )
 

@@ -260,6 +260,7 @@ def _log_config(
     user_prompt: str,
     output_dir: Path,
     continue_papers_file: Path | None,
+    clean_run: bool,
 ) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
 
@@ -275,6 +276,7 @@ def _log_config(
         }\n"
         f"  User prompt: {user_prompt}\n"
         f"  Continue papers file: {continue_papers_file}\n"
+        f"  Clean run: {clean_run}\n"
     )
 
 
@@ -287,6 +289,7 @@ async def classify_contexts(
     output_dir: Path,
     limit_references: int | None,
     continue_papers_file: Path | None,
+    clean_run: bool,
 ) -> None:
     """Classify reference citation contexts by polarity."""
 
@@ -312,6 +315,7 @@ async def classify_contexts(
         user_prompt=user_prompt_key,
         output_dir=output_dir,
         continue_papers_file=continue_papers_file,
+        clean_run=clean_run,
     )
 
     client = AsyncOpenAI()
@@ -328,6 +332,7 @@ async def classify_contexts(
         output_intermediate_file,
         continue_papers_file,
         papers,
+        clean_run,
         continue_key=get_id,
         original_key=get_id,
     )
@@ -493,6 +498,12 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Path to file with data from a previous run",
     )
+    run_parser.add_argument(
+        "--clean-run",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Start from scratch, ignoring existing intermediate results",
+    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -529,6 +540,7 @@ def main() -> None:
                 args.output_dir,
                 args.ref_limit,
                 args.continue_papers,
+                args.clean_run,
             )
         )
 

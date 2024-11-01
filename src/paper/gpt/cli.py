@@ -63,6 +63,7 @@ def main() -> None:
                     args.output_dir,
                     args.classify,
                     args.continue_papers,
+                    args.clean_run,
                 )
             )
 
@@ -80,6 +81,7 @@ def main() -> None:
                     args.output_dir,
                     args.ref_limit,
                     args.continue_papers,
+                    args.clean_run,
                 )
             )
 
