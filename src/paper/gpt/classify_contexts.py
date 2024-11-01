@@ -337,12 +337,12 @@ async def classify_contexts(
         original_key=get_id,
     )
     if not papers_remaining.remaining:
-        logging.warning(
+        logger.info(
             "No items left to process. They're all on the `continues` file. Exiting."
         )
         return
 
-    logging.warning(
+    logger.info(
         "Skipping %d items from the `continue` file.", len(papers_remaining.done)
     )
 
