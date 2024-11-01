@@ -5,6 +5,7 @@ from typing import NamedTuple
 
 from paper import evaluation_metrics
 from paper.gpt.model import Paper
+from paper.util import safediv
 
 
 class PaperResult(Paper):
@@ -28,5 +29,38 @@ def _get_ys(papers: Sequence[PaperResult]) -> Labels:
 def calculate_paper_metrics(
     papers: Sequence[PaperResult],
 ) -> evaluation_metrics.Metrics:
-    ys = _get_ys(papers)
-    return evaluation_metrics.calculate_metrics(*ys)
+    """Calculate classification metrics between `y_true` and `y_pred` results.
+
+    See also `paper.evaluation_metrics.calculate_metrics`.
+    """
+    return evaluation_metrics.calculate_metrics(*_get_ys(papers))
+
+
+def display_metrics(
+    metrics: evaluation_metrics.Metrics, results: Sequence[PaperResult]
+) -> str:
+    """Display metrics and distribution statistics from the results.
+
+    `evaluation_metrics.Metrics` are displayed directly. The distribution statistics are
+    shown as the count and percentage of true/false for both gold and prediction.
+
+    Args:
+        metrics: Metrics calculated using `evaluation_metrics.calculate_metrics`.
+        results: Paper evaluation results.
+
+    Returns:
+        Formatted string showing both metrics and distribution statistics.
+    """
+    y_true = [r.y_true for r in results]
+    y_pred = [r.y_pred for r in results]
+
+    output = [
+        "Metrics:",
+        str(metrics),
+        "",
+        f"Gold (P/N): {sum(y_true)}/{len(y_true) - sum(y_true)}"
+        f" ({safediv(sum(y_true), len(y_true)):.2%})",
+        f"Pred (P/N): {sum(y_pred)}/{len(y_pred) - sum(y_pred)}"
+        f" ({safediv(sum(y_pred), len(y_pred)):.2%})",
+    ]
+    return "\n".join(output)
