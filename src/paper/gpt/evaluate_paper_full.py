@@ -13,6 +13,7 @@ import dotenv
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
+from paper.evaluation_metrics import Metrics
 from paper.gpt.model import (
     Paper,
     PaperResult,
@@ -31,7 +32,7 @@ from paper.gpt.run_gpt import (
     run_gpt,
 )
 from paper.progress import as_completed
-from paper.util import Timer, setup_logging
+from paper.util import Timer, safediv, setup_logging
 
 logger = logging.getLogger("paper.gpt.evaluate_paper_full")
 
@@ -173,8 +174,10 @@ async def evaluate_papers(
     logger.info(f"Total cost: ${results.cost:.10f}")
 
     results_all = papers_remaining.done + results.result
-    metrics = calculate_paper_metrics([result.item for result in results_all])
-    logger.info(f"Metrics:\n{metrics}\n")
+    results_items = [result.item for result in results_all]
+
+    metrics = calculate_paper_metrics(results_items)
+    logger.info(_display_metrics(metrics, results_items))
 
     assert len(results_all) == len(papers)
     (output_dir / "result.json").write_bytes(
@@ -266,6 +269,22 @@ async def _classify_paper(
         ),
         cost=result.cost,
     )
+
+
+def _display_metrics(metrics: Metrics, results: Sequence[PaperResult]) -> str:
+    y_true = [r.y_true for r in results]
+    y_pred = [r.y_pred for r in results]
+
+    output = [
+        "Metrics:",
+        str(metrics),
+        "",
+        f"Gold (P/N): {sum(y_true)}/{len(y_true) - sum(y_true)}"
+        f" ({safediv(sum(y_true), len(y_true)):.2%})",
+        f"Pred (P/N): {sum(y_pred)}/{len(y_pred) - sum(y_pred)}"
+        f" ({safediv(sum(y_pred), len(y_pred)):.2%})",
+    ]
+    return "\n".join(output)
 
 
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:

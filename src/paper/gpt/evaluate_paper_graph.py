@@ -8,8 +8,7 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
-from paper import evaluation_metrics
-from paper.gpt.model import Paper, PaperGraph
+from paper.gpt.model import PaperGraph, PaperResult, calculate_paper_metrics
 from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import GPTResult, run_gpt
 from paper.util import Timer
@@ -43,7 +42,7 @@ async def evaluate_graphs(
             client, model, classify_user_prompt, paper_graphs
         )
 
-    metrics = _calculate_metrics(results.result)
+    metrics = calculate_paper_metrics(results.result)
     logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
 
     logger.info(f"Classification time elapsed: {timer_class.human}")
@@ -55,19 +54,6 @@ async def evaluate_graphs(
     (classification_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
     (classification_dir / "result.json").write_bytes(
         TypeAdapter(list[PaperResult]).dump_json(results.result, indent=2)
-    )
-
-
-class PaperResult(Paper):
-    """ASAP-Review dataset paper with added approval ground truth and GPT prediction."""
-
-    y_true: bool
-    y_pred: bool
-
-
-def _calculate_metrics(papers: Sequence[PaperResult]) -> evaluation_metrics.Metrics:
-    return evaluation_metrics.calculate_metrics(
-        [p.y_true for p in papers], [p.y_pred for p in papers]
     )
 
 
