@@ -259,6 +259,7 @@ def _log_config(
     limit_references: int | None,
     user_prompt: str,
     output_dir: Path,
+    continue_papers_file: Path | None,
 ) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
 
@@ -273,6 +274,7 @@ def _log_config(
             limit_references if limit_references is not None else 'All'
         }\n"
         f"  User prompt: {user_prompt}\n"
+        f"  Continue papers file: {continue_papers_file}\n"
     )
 
 
@@ -309,6 +311,7 @@ async def classify_contexts(
         limit_references=limit_references,
         user_prompt=user_prompt_key,
         output_dir=output_dir,
+        continue_papers_file=continue_papers_file,
     )
 
     client = AsyncOpenAI()
