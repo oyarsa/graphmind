@@ -277,10 +277,14 @@ class RatingEvaluationStrategy(StrEnum):
     """Mean rating is higher than the threshold."""
     MAJORITY = "majority"
     """Majority of ratings are higher than the threshold."""
-    DEFAULT = MEAN
+    DECISION = "decision"
+    """Use the provided approval decision."""
+    DEFAULT = DECISION
 
-    def is_approved(self, ratings: Sequence[int]) -> bool:
+    def is_approved(self, decision: bool, ratings: Sequence[int]) -> bool:
         match self:
+            case RatingEvaluationStrategy.DECISION:
+                return decision
             case RatingEvaluationStrategy.MEAN:
                 mean = sum(ratings) / len(ratings)
                 return mean >= RATING_APPROVAL_THRESHOLD
@@ -302,6 +306,7 @@ class Paper(BaseModel):
     abstract: str
     ratings: Sequence[int]
     sections: Sequence[PaperSection]
+    approval: bool
 
     @property
     def id(self) -> int:
@@ -310,7 +315,7 @@ class Paper(BaseModel):
     def is_approved(
         self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.MEAN
     ) -> bool:
-        return strategy.is_approved(self.ratings)
+        return strategy.is_approved(self.approval, self.ratings)
 
     def main_text(self) -> str:
         return "\n".join(s.text for s in self.sections)

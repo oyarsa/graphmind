@@ -260,6 +260,7 @@ async def _classify_paper(
                 sections=paper.sections,
                 y_true=paper.is_approved(),
                 y_pred=classified.approved if classified else False,
+                approval=paper.approval,
             ),
             prompt=Prompt(system=FULL_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),

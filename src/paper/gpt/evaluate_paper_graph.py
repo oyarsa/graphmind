@@ -129,6 +129,7 @@ async def _classify_papers(
                 sections=pg.paper.sections,
                 y_true=pg.paper.is_approved(),
                 y_pred=classified.approved if classified else False,
+                approval=pg.paper.approval,
             )
         )
 
