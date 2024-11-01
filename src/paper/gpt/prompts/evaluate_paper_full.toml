@@ -6,4 +6,15 @@ paper's title, abstract, and the full body text.
 
 Based on this content, approve or reject the paper. First, generate the rationale for \
 your decision, then give the final decision.
+
+#####
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+Main text:
+{main_text}
+
+#####
+Output:
 """
