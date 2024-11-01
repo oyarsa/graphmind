@@ -14,13 +14,8 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from paper.evaluation_metrics import Metrics
-from paper.gpt.model import (
-    Paper,
-    PaperResult,
-    Prompt,
-    PromptResult,
-    calculate_paper_metrics,
-)
+from paper.gpt.evaluate_paper import PaperResult, calculate_paper_metrics
+from paper.gpt.model import Paper, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,

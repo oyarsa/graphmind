@@ -8,7 +8,8 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
-from paper.gpt.model import PaperGraph, PaperResult, calculate_paper_metrics
+from paper.gpt.evaluate_paper import PaperResult, calculate_paper_metrics
+from paper.gpt.model import PaperGraph
 from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import GPTResult, run_gpt
 from paper.util import Timer
