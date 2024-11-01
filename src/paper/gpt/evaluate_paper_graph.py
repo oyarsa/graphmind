@@ -8,7 +8,11 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
-from paper.gpt.evaluate_paper import PaperResult, calculate_paper_metrics
+from paper.gpt.evaluate_paper import (
+    PaperResult,
+    calculate_paper_metrics,
+    display_metrics,
+)
 from paper.gpt.model import PaperGraph
 from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import GPTResult, run_gpt
@@ -44,7 +48,7 @@ async def evaluate_graphs(
         )
 
     metrics = calculate_paper_metrics(results.result)
-    logger.info(f"Metrics:\n{metrics.model_dump_json(indent=2)}")
+    logger.info(display_metrics(metrics, results.result))
 
     logger.info(f"Classification time elapsed: {timer_class.human}")
     logger.info(f"Total classification cost: ${results.cost:.10f}")
