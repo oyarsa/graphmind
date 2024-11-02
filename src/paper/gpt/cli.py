@@ -8,7 +8,7 @@ import argparse
 import asyncio
 import logging
 
-from paper.gpt import classify_contexts, extract_graph
+from paper.gpt import classify_contexts, evaluate_paper_full, extract_graph
 from paper.util import setup_logging
 
 logger = logging.getLogger("paper.gpt.cli")
@@ -43,6 +43,14 @@ def main() -> None:
     )
     classify_contexts.setup_cli_parser(context_parser)
 
+    # 'evaluate_paper_full'
+    eval_full_parser = subparsers.add_parser(
+        "eval_full",
+        help="Rull paper evaluation from full text",
+        description="Rull paper evaluation from full text with the provided arguments",
+    )
+    evaluate_paper_full.setup_cli_parser(eval_full_parser)
+
     args = parser.parse_args()
 
     setup_logging()
@@ -63,6 +71,7 @@ def main() -> None:
                     args.output_dir,
                     args.classify,
                     args.continue_papers,
+                    args.clean_run,
                 )
             )
 
@@ -80,6 +89,25 @@ def main() -> None:
                     args.output_dir,
                     args.ref_limit,
                     args.continue_papers,
+                    args.clean_run,
+                )
+            )
+
+    elif args.command == "eval_full":
+        if args.subcommand == "prompts":
+            evaluate_paper_full.list_prompts(detail=args.detail)
+        elif args.subcommand == "run":
+            asyncio.run(
+                evaluate_paper_full.evaluate_papers(
+                    args.model,
+                    args.api_key,
+                    args.data_path,
+                    args.limit,
+                    args.user_prompt,
+                    args.output_dir,
+                    args.continue_papers,
+                    args.clean_run,
+                    args.seed,
                 )
             )
 

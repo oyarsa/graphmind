@@ -31,7 +31,7 @@ from paper.asap.model import (
 )
 from paper.asap.model import PaperWithFullReference as PaperInput
 from paper.gpt.model import Prompt, PromptResult
-from paper.gpt.prompts import PromptTemplate, load_prompts
+from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -259,6 +259,8 @@ def _log_config(
     limit_references: int | None,
     user_prompt: str,
     output_dir: Path,
+    continue_papers_file: Path | None,
+    clean_run: bool,
 ) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
 
@@ -273,6 +275,8 @@ def _log_config(
             limit_references if limit_references is not None else 'All'
         }\n"
         f"  User prompt: {user_prompt}\n"
+        f"  Continue papers file: {continue_papers_file}\n"
+        f"  Clean run: {clean_run}\n"
     )
 
 
@@ -285,6 +289,7 @@ async def classify_contexts(
     output_dir: Path,
     limit_references: int | None,
     continue_papers_file: Path | None,
+    clean_run: bool,
 ) -> None:
     """Classify reference citation contexts by polarity."""
 
@@ -309,6 +314,8 @@ async def classify_contexts(
         limit_references=limit_references,
         user_prompt=user_prompt_key,
         output_dir=output_dir,
+        continue_papers_file=continue_papers_file,
+        clean_run=clean_run,
     )
 
     client = AsyncOpenAI()
@@ -325,16 +332,17 @@ async def classify_contexts(
         output_intermediate_file,
         continue_papers_file,
         papers,
+        clean_run,
         continue_key=get_id,
         original_key=get_id,
     )
     if not papers_remaining.remaining:
-        logging.warning(
+        logger.info(
             "No items left to process. They're all on the `continues` file. Exiting."
         )
         return
 
-    logging.warning(
+    logger.info(
         "Skipping %d items from the `continue` file.", len(papers_remaining.done)
     )
 
@@ -490,6 +498,12 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Path to file with data from a previous run",
     )
+    run_parser.add_argument(
+        "--clean-run",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Start from scratch, ignoring existing intermediate results",
+    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -526,26 +540,13 @@ def main() -> None:
                 args.output_dir,
                 args.ref_limit,
                 args.continue_papers,
+                args.clean_run,
             )
         )
 
 
 def list_prompts(detail: bool) -> None:
-    items = [
-        ("CONTEXT PROMPTS", _CONTEXT_USER_PROMPTS),
-    ]
-    for title, prompts in items:
-        print()
-        if detail:
-            print(">>>", title)
-        else:
-            print(title)
-        for key, prompt in prompts.items():
-            if detail:
-                sep = "-" * 80
-                print(f"{sep}\n{key}\n{sep}\n{prompt}")
-            else:
-                print(f"- {key}")
+    print_prompts("CONTEXT PROMPTS", _CONTEXT_USER_PROMPTS, detail=detail)
 
 
 if __name__ == "__main__":

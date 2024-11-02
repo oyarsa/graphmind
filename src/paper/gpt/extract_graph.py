@@ -25,10 +25,7 @@ from rich.console import Console
 from rich.table import Table
 
 from paper import hierarchical_graph
-from paper.gpt.evaluate_graph import (
-    CLASSIFY_USER_PROMPTS,
-    evaluate_graphs,
-)
+from paper.gpt.evaluate_paper_graph import CLASSIFY_USER_PROMPTS, evaluate_graphs
 from paper.gpt.model import (
     Entity,
     EntityType,
@@ -40,7 +37,7 @@ from paper.gpt.model import (
     Relationship,
     graph_to_digraph,
 )
-from paper.gpt.prompts import PromptTemplate, load_prompts
+from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -247,6 +244,8 @@ def _log_config(
     graph_user_prompt: str,
     classify_user_prompt: str,
     output_dir: Path,
+    continue_papers_file: Path | None,
+    clean_run: bool,
 ) -> None:
     data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
 
@@ -259,6 +258,8 @@ def _log_config(
         f"  Limit: {limit if limit is not None else 'All'}\n"
         f"  Graph prompt: {graph_user_prompt}\n"
         f"  Classify prompt: {classify_user_prompt}\n"
+        f"  Continue papers file: {continue_papers_file}\n"
+        f"  Clean run: {clean_run}\n"
     )
 
 
@@ -413,11 +414,11 @@ async def extract_graph(
     output_dir: Path,
     classify: bool,
     continue_papers_file: Path | None,
+    clean_run: bool,
 ) -> None:
     """Extract graphs from the papers in the dataset and (maybe) classify them.
 
-    The graphs follow a taxonomy based on paper title -> concepts -> sentences. The
-    relationships between nodes are either supporting or contrasting.
+    See `gpt.models.Graph` for the graph structure and rules.
 
     The papers should come from the ASAP-Review dataset as processed by the
     paper.asap module.
@@ -440,6 +441,9 @@ async def extract_graph(
             plot images (PNG) and classification results (JSON), if classification is
             enabled.
         classify: If True, classify the papers based on the generated graph.
+        continue_papers_file: If provided, check for entries in the input data. If they
+            are there, we use those results and skip processing them.
+        clean_run: If True, ignore `continue_papers` and run everything from scratch.
 
     Returns:
         None. The output is saved to disk.
@@ -459,6 +463,8 @@ async def extract_graph(
         graph_user_prompt=graph_user_prompt_key,
         classify_user_prompt=classify_user_prompt_key,
         output_dir=output_dir,
+        continue_papers_file=continue_papers_file,
+        clean_run=clean_run,
     )
 
     client = AsyncOpenAI()
@@ -475,6 +481,7 @@ async def extract_graph(
         output_intermediate_file,
         continue_papers_file,
         papers,
+        clean_run,
         continue_key=get_id,
         original_key=get_id,
     )
@@ -511,7 +518,14 @@ async def extract_graph(
 
     if classify:
         await evaluate_graphs(
-            client, model, paper_graphs, classify_user_prompt_key, output_dir
+            client,
+            model,
+            paper_graphs,
+            classify_user_prompt_key,
+            output_dir,
+            # We always want new paper classifications after processing the graphs
+            continue_papers_file=None,
+            clean_run=True,
         )
 
 
@@ -611,6 +625,12 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Path to file with data from a previous run",
     )
+    run_parser.add_argument(
+        "--clean-run",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Start from scratch, ignoring existing intermediate results",
+    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -649,6 +669,7 @@ def main() -> None:
                 args.output_dir,
                 args.classify,
                 args.continue_papers,
+                args.clean_run,
             )
         )
 
@@ -659,17 +680,8 @@ def list_prompts(detail: bool) -> None:
         ("CLASSIFICATION PROMPTS", CLASSIFY_USER_PROMPTS),
     ]
     for title, prompts in items:
+        print_prompts(title, prompts, detail=detail)
         print()
-        if detail:
-            print(">>>", title)
-        else:
-            print(title)
-        for key, prompt in prompts.items():
-            if detail:
-                sep = "-" * 80
-                print(f"{sep}\n{key}\n{sep}\n{prompt}")
-            else:
-                print(f"- {key}")
 
 
 if __name__ == "__main__":

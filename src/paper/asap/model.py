@@ -1,3 +1,5 @@
+"""Common types used to represent entities in the ASAP dataset processing."""
+
 from __future__ import annotations
 
 import enum

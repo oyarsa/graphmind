@@ -1,3 +1,5 @@
+"""Metric calculation (precision, recall, F1 and accuracy) for binary classification."""
+
 from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict

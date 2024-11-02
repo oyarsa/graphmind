@@ -1,7 +1,8 @@
+"""Common types used to represent entities in the GPT-based extraction tools."""
+
 import itertools
 from collections import Counter, defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, computed_field
@@ -275,10 +276,14 @@ class RatingEvaluationStrategy(StrEnum):
     """Mean rating is higher than the threshold."""
     MAJORITY = "majority"
     """Majority of ratings are higher than the threshold."""
-    DEFAULT = MEAN
+    DECISION = "decision"
+    """Use the provided approval decision."""
+    DEFAULT = DECISION
 
-    def is_approved(self, ratings: Sequence[int]) -> bool:
+    def is_approved(self, decision: bool, ratings: Sequence[int]) -> bool:
         match self:
+            case RatingEvaluationStrategy.DECISION:
+                return decision
             case RatingEvaluationStrategy.MEAN:
                 mean = sum(ratings) / len(ratings)
                 return mean >= RATING_APPROVAL_THRESHOLD
@@ -300,15 +305,16 @@ class Paper(BaseModel):
     abstract: str
     ratings: Sequence[int]
     sections: Sequence[PaperSection]
+    approval: bool
 
     @property
     def id(self) -> int:
         return hash(self.title + self.abstract)
 
     def is_approved(
-        self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.MEAN
+        self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.DEFAULT
     ) -> bool:
-        return strategy.is_approved(self.ratings)
+        return strategy.is_approved(self.approval, self.ratings)
 
     def main_text(self) -> str:
         return "\n".join(s.text for s in self.sections)
@@ -337,11 +343,16 @@ class PromptResult[T](BaseModel):
     prompt: Prompt
 
 
-@dataclass(frozen=True, kw_only=True)
-class PaperGraph:
+class PaperGraph(BaseModel):
     paper: Paper
     graph: PromptResult[Graph]
 
+    @computed_field
+    @property
+    def id(self) -> int:
+        return self.paper.id
+
     def __post_init__(self) -> None:
+        # TODO: Use proper pydantic thing for this
         if self.paper.id != self.graph.item.id:
             raise ValueError("Paper ID must match graph item ID")

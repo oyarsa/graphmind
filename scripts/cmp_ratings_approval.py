@@ -91,8 +91,10 @@ def main(
 
     approvals = [
         Approvals(
-            mean=RatingEvaluationStrategy.MEAN.is_approved(d.ratings),
-            majority=RatingEvaluationStrategy.MAJORITY.is_approved(d.ratings),
+            mean=RatingEvaluationStrategy.MEAN.is_approved(d.approval, d.ratings),
+            majority=RatingEvaluationStrategy.MAJORITY.is_approved(
+                d.approval, d.ratings
+            ),
             gold=d.approval,
         )
         for d in data

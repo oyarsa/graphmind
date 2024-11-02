@@ -88,7 +88,7 @@ class DiGraph:
             raise GraphError("No Title node found")
         if len(title_nodes) > 1:
             logger.warning(
-                f"Warning: Graph has more than 1 title node. Found {len(title_nodes)}."
+                f"Graph has more than 1 title node. Found {len(title_nodes)}."
             )
         title_node = title_nodes[0]
 
@@ -114,7 +114,7 @@ class DiGraph:
                 if len(predecessors) != 1:
                     invalid_edges = [p for p in predecessors if p != title_node]
                     logger.warning(
-                        f"Warning: Level 2 node {node!r} has invalid edges from non-title nodes: {invalid_edges}"
+                        f"Level 2 node {node!r} has invalid edges from non-title nodes: {invalid_edges}"
                     )
                     # Remove invalid edges
                     for invalid_source in invalid_edges:
@@ -128,9 +128,7 @@ class DiGraph:
         if not tldr_nodes:
             raise GraphError("No TLDR node found")
         if len(tldr_nodes) > 1:
-            logger.warning(
-                f"Warning: Graph has more than 1 TLDR node. Found {len(tldr_nodes)}"
-            )
+            logger.warning(f"Graph has more than 1 TLDR node. Found {len(tldr_nodes)}")
         tldr_node = tldr_nodes[0][0]
 
         # Level 3: Claims
@@ -147,7 +145,7 @@ class DiGraph:
             if len(predecessors) > 1:
                 invalid_edges = [p for p in predecessors if p != tldr_node]
                 logger.warning(
-                    f"Warning: Claim node {node!r} has invalid edges from non-tldr nodes: {invalid_edges}"
+                    f"Claim node {node!r} has invalid edges from non-tldr nodes: {invalid_edges}"
                 )
                 # Remove invalid edges
                 for invalid_source in invalid_edges:
@@ -168,7 +166,7 @@ class DiGraph:
             if len(valid_edges) != len(predecessors):
                 invalid_edges = [p for p in predecessors if node_types[p] != "claim"]
                 logger.warning(
-                    f"Warning: Method node {node!r} has invalid edges from non-claim nodes: {invalid_edges}"
+                    f"Method node {node!r} has invalid edges from non-claim nodes: {invalid_edges}"
                 )
                 # Remove invalid edges
                 for invalid_source in invalid_edges:
@@ -189,7 +187,7 @@ class DiGraph:
             if len(valid_edges) != len(predecessors):
                 invalid_edges = [p for p in predecessors if node_types[p] != "method"]
                 logger.warning(
-                    f"Warning: Experiment node {node!r} has invalid edges from non-method nodes: {invalid_edges}"
+                    f"Experiment node {node!r} has invalid edges from non-method nodes: {invalid_edges}"
                 )
                 # Remove invalid edges
                 for invalid_source in invalid_edges:
