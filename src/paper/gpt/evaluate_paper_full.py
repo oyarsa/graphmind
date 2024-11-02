@@ -235,8 +235,9 @@ _CLASSIFY_TYPES = {
 }
 
 
-FULL_CLASSIFY_SYSTEM_PROMPT = (
-    "Approve or reject the scientific paper based on the following paper text."
+_FULL_CLASSIFY_SYSTEM_PROMPT = (
+    "Give an approval or rejection to a paper submitted to a high-quality scientific"
+    " conference."
 )
 
 
@@ -249,7 +250,7 @@ async def _classify_paper(
     result = await run_gpt(
         _CLASSIFY_TYPES[user_prompt.type_name],
         client,
-        FULL_CLASSIFY_SYSTEM_PROMPT,
+        _FULL_CLASSIFY_SYSTEM_PROMPT,
         user_prompt_text,
         model,
     )
@@ -267,7 +268,7 @@ async def _classify_paper(
                 y_pred=classified.approved if classified else False,
                 rationale=classified.rationale if classified else "<error>",
             ),
-            prompt=Prompt(system=FULL_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
+            prompt=Prompt(system=_FULL_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),
         cost=result.cost,
     )
