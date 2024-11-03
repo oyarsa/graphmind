@@ -14,6 +14,7 @@ from multiprocessing import Pool
 from pathlib import Path
 from typing import Annotated, Any, no_type_check
 
+import pandas as pd  # type: ignore
 import typer
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
@@ -89,8 +90,6 @@ def main(
 
 @no_type_check
 def describe(x: Iterable[Any]) -> str:
-    import pandas as pd  # type: ignore
-
     return pd.Series(x).describe()
 
 
