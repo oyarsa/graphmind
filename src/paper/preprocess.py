@@ -37,7 +37,11 @@ def main():
 
     if args.command == "s2orc":
         s2orc.pipeline(
-            args.output_path, args.api_key, args.output_path, args.file_limit
+            args.processed_path,
+            args.output_path,
+            args.api_key,
+            args.output_path,
+            args.file_limit,
         )
     elif args.command == "asap":
         asap.pipeline(args.input, args.output, args.max_papers)

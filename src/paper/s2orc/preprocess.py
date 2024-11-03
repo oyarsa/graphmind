@@ -15,7 +15,11 @@ from paper.s2orc.filter import filter_papers
 
 
 def pipeline(
-    output_path: Path, api_key: str | None, dataset_path: Path, file_limit: int | None
+    processed_dir: Path,
+    output_path: Path,
+    api_key: str | None,
+    dataset_path: Path,
+    file_limit: int | None,
 ) -> None:
     """Run the complete S2ORC preprocessing pipeline.
 
@@ -36,7 +40,7 @@ def pipeline(
     download_dataset("s2orc", dataset_path, api_key, file_limit)
 
     print(f"\n\n==== Extracting S2ORC dataset -> {dataset_path}")
-    extract_data(dataset_path.glob("*.gz"))
+    extract_data(dataset_path.glob("*.gz"), processed_dir)
 
     matched_papers_path = output_path / "s2orc_papers.json.gz"
     print(f"\n==== Get papers matching ACL venues -> {matched_papers_path}")
@@ -55,9 +59,14 @@ def cli_parser() -> argparse.ArgumentParser:
         help="Path to save the downloaded dataset",
     )
     parser.add_argument(
+        "processed._path",
+        type=Path,
+        help="Path to save the S2 extracted files (JSON.GZ)",
+    )
+    parser.add_argument(
         "output_path",
         type=Path,
-        help="Path to save the output (processed) files",
+        help="Path to save the output (processed and filtered - ACL only) files",
     )
     parser.add_argument(
         "--api-key",
@@ -77,6 +86,7 @@ def cli_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = cli_parser().parse_args()
     pipeline(
+        args.processed_path,
         args.output_path,
         args.api_key,
         args.dataset_path,

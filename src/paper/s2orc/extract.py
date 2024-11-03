@@ -76,27 +76,39 @@ def _process_file(file_path: Path) -> list[dict[str, Any]]:
     return results
 
 
-def extract_data(files: Iterable[Path]) -> None:
+def extract_data(input_files: Iterable[Path], output_dir: Path) -> None:
     """Extract the .gz JSON Lines files to JSON.GZ files.
 
     Only keep those that contain the title and annotations (e.g. abstract, venue, text).
+
+    Args:
+        files: Input gzipped files to process
+        output_dir: Directory where processed files will be saved
     """
-    for file_path in tqdm(tuple(files)):
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for file_path in tqdm(tuple(input_files)):
         try:
             processed = _process_file(file_path)
         except Exception as e:
             print(f"ERROR | {file_path} | {e}")
         else:
-            output_path = file_path.with_suffix(".json.gz")
+            output_path = output_dir / f"{file_path.stem}.json.gz"
             with gzip.open(output_path, "wt") as f:
                 json.dump(processed, f)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("files", type=Path, nargs="+", help="Input gzipped files")
+    parser.add_argument("input_files", type=Path, nargs="+", help="Input gzipped files")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        required=True,
+        help="Directory where processed files will be saved",
+    )
     args = parser.parse_args()
-    extract_data(args.files)
+    extract_data(args.input_files, args.output_dir)
 
 
 if __name__ == "__main__":
