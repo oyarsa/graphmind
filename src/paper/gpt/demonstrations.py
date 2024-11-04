@@ -63,26 +63,16 @@ def main(
 
 
 def new_demonstration(paper: Paper, kind: DemonstrationKind) -> Demonstration:
-    rationales = paper.rationales or [""] * len(paper.ratings)
-
-    reviews = [
-        (rating, rationale) for rating, rationale in zip(paper.ratings, rationales)
-    ]
-    assert len(reviews) == len(paper.ratings)
-
     chosen_func = min if kind is DemonstrationKind.NEGATIVE else max
-    chosen_rating = chosen_func(x for x, _ in reviews)
-    chosen_rationale = next(
-        rationale for rating, rationale in reviews if rating == chosen_rating
-    )
+    chosen = chosen_func(paper.reviews, key=lambda x: x.rating)
 
     return Demonstration(
         title=paper.title,
         abstract=paper.abstract,
         text=paper.main_text(),
         approval=paper.approval,
-        rationale=chosen_rationale,
-        rating=chosen_rating,
+        rationale=chosen.rationale,
+        rating=chosen.rating,
     )
 
 

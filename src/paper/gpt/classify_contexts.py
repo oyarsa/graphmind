@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from paper import evaluation_metrics
 from paper.asap.model import (
     ContextPolarityBinary,
+    PaperReview,
     PaperSection,
     PaperWithFullReference,
 )
@@ -84,7 +85,7 @@ class PaperOutput(BaseModel):
 
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
-    ratings: Sequence[int] = Field(description="Reviewer ratings (1 to 5)")
+    reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
     sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"
@@ -205,7 +206,7 @@ async def _classify_paper(
         item=PaperOutput(
             title=paper.title,
             abstract=paper.abstract,
-            ratings=paper.ratings,
+            reviews=paper.reviews,
             sections=paper.sections,
             approval=paper.approval,
             references=classified_references,
