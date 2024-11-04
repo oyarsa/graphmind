@@ -12,14 +12,13 @@ the chosen rationale with its rating.
 from __future__ import annotations
 
 import random
-from enum import Enum
 from pathlib import Path
 from typing import Annotated
 
 import typer
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import TypeAdapter
 
-from paper.gpt.model import Paper
+from paper.gpt.model import Demonstration, DemonstrationType, Paper
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -51,10 +50,10 @@ def main(
     papers_negative = random.sample([p for p in papers if not p.approval], num_entries)
 
     demonstrations = [
-        new_demonstration(paper, DemonstrationKind.POSITIVE)
+        new_demonstration(paper, DemonstrationType.POSITIVE)
         for paper in papers_positive
     ] + [
-        new_demonstration(paper, DemonstrationKind.NEGATIVE)
+        new_demonstration(paper, DemonstrationType.NEGATIVE)
         for paper in papers_negative
     ]
     output_file.write_bytes(
@@ -62,8 +61,8 @@ def main(
     )
 
 
-def new_demonstration(paper: Paper, kind: DemonstrationKind) -> Demonstration:
-    chosen_func = min if kind is DemonstrationKind.NEGATIVE else max
+def new_demonstration(paper: Paper, type_: DemonstrationType) -> Demonstration:
+    chosen_func = min if type_ is DemonstrationType.NEGATIVE else max
     chosen = chosen_func(paper.reviews, key=lambda x: x.rating)
 
     return Demonstration(
@@ -73,23 +72,8 @@ def new_demonstration(paper: Paper, kind: DemonstrationKind) -> Demonstration:
         approval=paper.approval,
         rationale=chosen.rationale,
         rating=chosen.rating,
+        type=type_,
     )
-
-
-class DemonstrationKind(Enum):
-    POSITIVE = 1
-    NEGATIVE = 0
-
-
-class Demonstration(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    title: str = Field(description="Paper title")
-    abstract: str = Field(description="Paper abstract")
-    text: str = Field(description="Paper full main text")
-    approval: bool = Field(description="Decision on whether to approve the paper")
-    rationale: str = Field(description="Rationale given by a reviewer")
-    rating: int = Field(description="Rating from the rationale")
 
 
 if __name__ == "__main__":
