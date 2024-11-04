@@ -306,6 +306,7 @@ class Paper(BaseModel):
     ratings: Sequence[int]
     sections: Sequence[PaperSection]
     approval: bool
+    rationales: Sequence[str] | None = None
 
     @property
     def id(self) -> int:
