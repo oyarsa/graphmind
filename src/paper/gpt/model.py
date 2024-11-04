@@ -8,6 +8,7 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, computed_field
 
 from paper import hierarchical_graph
+from paper.asap.model import PaperReview
 
 
 class EntityType(StrEnum):
@@ -303,7 +304,7 @@ class Paper(BaseModel):
 
     title: str
     abstract: str
-    ratings: Sequence[int]
+    reviews: Sequence[PaperReview]
     sections: Sequence[PaperSection]
     approval: bool
     rationales: Sequence[str] | None = None
@@ -315,7 +316,7 @@ class Paper(BaseModel):
     def is_approved(
         self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.DEFAULT
     ) -> bool:
-        return strategy.is_approved(self.approval, self.ratings)
+        return strategy.is_approved(self.approval, [r.rating for r in self.reviews])
 
     def main_text(self) -> str:
         return "\n".join(s.text for s in self.sections)
@@ -326,7 +327,7 @@ class Paper(BaseModel):
             f"Title: {self.title}\n"
             f"Abstract: {self.abstract}\n"
             f"Main text: {main_text_words_num} words.\n"
-            f"Ratings: {self.ratings}\n"
+            f"Ratings: {[r.rating for r in self.reviews]}\n"
         )
 
 
