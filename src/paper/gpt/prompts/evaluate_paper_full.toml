@@ -91,3 +91,91 @@ Main text:
 #####
 Output:
 """
+
+[[prompts]]
+name = "simple-abs"
+type = "full"
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+paper's title, abstract, and the full body text.
+
+Based on this content, approve or reject the paper. First, generate the rationale for \
+your decision, then give the final decision. Keep in mind that this paper was submitted \
+to a very high-quality conference, so make sure to only approve papers that are of \
+outstanding quality.
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+#####
+Output:
+"""
+
+[[prompts]]
+name = "iclr2023-abs"
+type = "full"
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+paper's title, abstract, and the full body text. Based on this content and the following \
+guidelines, your task is to make a decision on whether to approve the paper for \
+publication, and to give your reasons for that decision.
+
+Read the paper: It’s important to carefully read through the entire paper, and to look \
+up any related work and citations that will help you comprehensively evaluate it. Be \
+sure to give yourself sufficient time for this step. While reading, consider the \
+following:
+
+1. Objective of the work: What is the goal of the paper? Is it to better address a known \
+application or problem, draw attention to a new application or problem, or to introduce \
+and/or explain a new theoretical finding? A combination of these? Different objectives \
+will require different considerations as to potential value and impact.
+2. Strong points: is the submission clear, technically correct, experimentally rigorous, \
+reproducible, does it present novel findings (e.g. theoretically, algorithmically, etc.)?
+3. Weak points: is it weak in any of the aspects listed in b.?
+4. Be mindful of potential biases and try to be open-minded about the value and interest \
+a paper can hold for the entire ICLR community, even if it may not be very interesting \
+for you.
+
+Answer four key questions for yourself, to make a recommendation to Accept or Reject:
+
+1. What is the specific question and/or problem tackled by the paper?
+2. Is the approach well motivated, including being well-placed in the literature?
+3. Does the paper support the claims? This includes determining if results, whether \
+theoretical or empirical, are correct and if they are scientifically rigorous.
+4. What is the significance of the work? Does it contribute new knowledge and sufficient \
+value to the community? Note, this does not necessarily require state-of-the-art results. \
+Submissions bring value to the ICLR community when they convincingly demonstrate new, \
+relevant, impactful knowledge (incl., empirical, theoretical, for practitioners, etc).
+
+Write and submit your initial review, organizing it as follows:
+
+1. Summarize what the paper claims to contribute. Be positive and constructive.
+2. List strong and weak points of the paper. Be as comprehensive as possible.
+3. Clearly state your initial recommendation (accept or reject) with one or two key \
+reasons for this choice.
+4. Provide supporting arguments for your recommendation.
+5. Ask questions you would like answered by the authors to help you clarify your \
+understanding of the paper and provide the additional evidence you need to be confident \
+in your assessment.
+6. Provide additional feedback with the aim to improve the paper. Make it clear that \
+these points are here to help, and not necessarily part of your decision assessment.
+
+Based on the paper content and these guidelines, approve or reject the paper. First, \
+generate the rationale for your decision, then give the final decision. Keep in mind \
+that this paper was submitted to a very high-quality conference, so make sure to only \
+approve papers that are of outstanding quality.
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+#####
+Output:
+"""
