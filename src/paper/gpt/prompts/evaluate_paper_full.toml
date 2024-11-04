@@ -11,6 +11,8 @@ to a very high-quality conference, so make sure to only approve papers that are 
 outstanding quality.
 
 #####
+{demonstrations}
+
 -Data-
 Title: {title}
 Abstract: {abstract}
@@ -77,6 +79,8 @@ that this paper was submitted to a very high-quality conference, so make sure to
 approve papers that are of outstanding quality.
 
 #####
+{demonstrations}
+
 -Data-
 Title: {title}
 Abstract: {abstract}
