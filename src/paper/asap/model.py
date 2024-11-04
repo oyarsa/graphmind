@@ -53,12 +53,19 @@ class PaperSection(BaseModel):
     text: str = Field(description="Section full text")
 
 
+class PaperReview(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    rating: int = Field(description="Rating given by the review (1 to 10)")
+    rationale: str = Field(description="Explanation given for the rating")
+
+
 class Paper(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
-    ratings: Sequence[int] = Field(description="Reviewer ratings (1 to 5)")
+    reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
     sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"
@@ -87,7 +94,7 @@ class PaperWithFullReference(BaseModel):
 
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
-    ratings: Sequence[int] = Field(description="Reviewer ratings (1 to 5)")
+    reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
     sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"
@@ -169,9 +176,13 @@ class PaperWithReferenceEnriched(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    title: str
-    abstract: str
-    ratings: Sequence[int]
-    sections: Sequence[PaperSection]
-    approval: bool
-    references: Sequence[ReferenceEnriched]
+    title: str = Field(description="Paper title")
+    abstract: str = Field(description="Abstract text")
+    reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
+    sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
+    approval: bool = Field(
+        description="Approval decision - whether the paper was approved"
+    )
+    references: Sequence[ReferenceEnriched] = Field(
+        description="References made in the paper with their abstracts"
+    )
