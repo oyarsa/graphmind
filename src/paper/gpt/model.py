@@ -308,7 +308,6 @@ class Paper(BaseModel):
     reviews: Sequence[PaperReview]
     sections: Sequence[PaperSection]
     approval: bool
-    rationales: Sequence[str] | None = None
 
     @property
     def id(self) -> int:
