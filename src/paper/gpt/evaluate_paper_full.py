@@ -1,5 +1,33 @@
 """Evaluate a paper's approval based on its full-body text."""
 
+# Best configuration:
+#     Command:
+#     $ uv run gpt eval_full run output/asap_balanced_50.json tmp/eval-full -n 0 \
+#         --clean-run --user-prompt simple-abs --demos output/demonstrations_10.json \
+#         --demo-prompt simple -m 4o
+#
+#     2024-11-04 20:03:37 | INFO | paper.gpt.evaluate_paper_full:151 | CONFIG:
+#     - model: 4o
+#     - api_key: None
+#     - data_path: /Users/italo/dev/paper-hypergraph/output/asap_balanced_50.json (dc592a4f)
+#     - limit_papers: 0
+#     - user_prompt_key: simple-abs
+#     - output_dir: /Users/italo/dev/paper-hypergraph/tmp/eval-full (directory)
+#     - continue_papers_file: None
+#     - clean_run: True
+#     - seed: 0
+#     - demonstrations_file: /Users/italo/dev/paper-hypergraph/output/demonstrations_10.json (55baa321)
+#     - demo_prompt_key: simple
+#
+# Output:
+#     - P   : 0.6286
+#     - R   : 0.8800
+#     - F1  : 0.7333
+#     - Acc : 0.6800
+#
+#     Gold (P/N): 25/25 (50.00%)
+#     Pred (P/N): 35/15 (70.00%)
+
 import argparse
 import asyncio
 import logging
@@ -185,7 +213,7 @@ async def evaluate_papers(
     results_items = [result.item for result in results_all]
 
     metrics = calculate_paper_metrics(results_items)
-    logger.info(display_metrics(metrics, results_items))
+    logger.info(display_metrics(metrics, results_items) + "\n")
 
     assert len(results_all) == len(papers)
     (output_dir / "result.json").write_bytes(
