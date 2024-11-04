@@ -2,7 +2,6 @@
 
 import argparse
 import asyncio
-import hashlib
 import logging
 import os
 import random
@@ -31,7 +30,7 @@ from paper.gpt.run_gpt import (
     run_gpt,
 )
 from paper.progress import as_completed
-from paper.util import Timer, current_params, display_params, setup_logging
+from paper.util import Timer, display_params, setup_logging
 
 logger = logging.getLogger("paper.gpt.evaluate_paper_full")
 
@@ -116,7 +115,7 @@ async def evaluate_papers(
     Returns:
         None. The output is saved to `output_dir`.
     """
-    logger.info(display_params(current_params()))
+    logger.info(display_params())
 
     random.seed(seed)
 
@@ -130,16 +129,6 @@ async def evaluate_papers(
 
     if limit_papers == 0:
         limit_papers = None
-
-    _log_config(
-        model=model,
-        data_path=data_path,
-        limit_papers=limit_papers,
-        user_prompt=user_prompt_key,
-        output_dir=output_dir,
-        continue_papers_file=continue_papers_file,
-        clean_run=clean_run,
-    )
 
     client = AsyncOpenAI()
 
@@ -444,31 +433,6 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
 
 def list_prompts(detail: bool) -> None:
     print_prompts("FULL PAPER EVALUATION", _FULL_CLASSIFY_USER_PROMPTS, detail=detail)
-
-
-def _log_config(
-    *,
-    model: str,
-    data_path: Path,
-    limit_papers: int | None,
-    user_prompt: str,
-    output_dir: Path,
-    continue_papers_file: Path | None,
-    clean_run: bool,
-) -> None:
-    data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
-
-    logger.info(
-        "CONFIG:\n"
-        f"  Model: {model}\n"
-        f"  Data path: {data_path.resolve()}\n"
-        f"  Data hash (sha256): {data_hash}\n"
-        f"  Output dir: {output_dir.resolve()}\n"
-        f"  Limit papers: {limit_papers if limit_papers is not None else 'All'}\n"
-        f"  User prompt: {user_prompt}\n"
-        f"  Continue papers file: {continue_papers_file}\n"
-        f"  Clean run: {clean_run}\n"
-    )
 
 
 if __name__ == "__main__":

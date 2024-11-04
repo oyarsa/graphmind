@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import hashlib
 import logging
 import os
 import tomllib
@@ -48,7 +47,7 @@ from paper.gpt.run_gpt import (
     run_gpt,
 )
 from paper.progress import as_completed
-from paper.util import Timer, read_resource, setup_logging
+from paper.util import Timer, display_params, read_resource, setup_logging
 
 logger = logging.getLogger("paper.gpt.extract_graph")
 
@@ -236,33 +235,6 @@ _GRAPH_TYPES: Mapping[str, type[GPTGraphBase]] = {
 }
 
 
-def _log_config(
-    *,
-    model: str,
-    data_path: Path,
-    limit: int | None,
-    graph_user_prompt: str,
-    classify_user_prompt: str,
-    output_dir: Path,
-    continue_papers_file: Path | None,
-    clean_run: bool,
-) -> None:
-    data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
-
-    logger.info(
-        "CONFIG:\n"
-        f"  Model: {model}\n"
-        f"  Data path: {data_path.resolve()}\n"
-        f"  Data hash (sha256): {data_hash}\n"
-        f"  Output dir: {output_dir.resolve()}\n"
-        f"  Limit: {limit if limit is not None else 'All'}\n"
-        f"  Graph prompt: {graph_user_prompt}\n"
-        f"  Classify prompt: {classify_user_prompt}\n"
-        f"  Continue papers file: {continue_papers_file}\n"
-        f"  Clean run: {clean_run}\n"
-    )
-
-
 _GRAPH_SYSTEM_PROMPT = (
     "Extract the entities from the text and the relationships between them."
 )
@@ -448,6 +420,8 @@ async def extract_graph(
     Returns:
         None. The output is saved to disk.
     """
+    logger.info(display_params())
+
     dotenv.load_dotenv()
     if api_key:
         os.environ["OPENAI_API_KEY"] = api_key
@@ -455,17 +429,6 @@ async def extract_graph(
     if model not in MODELS_ALLOWED:
         raise ValueError(f"Model {model} not in allowed models: {MODELS_ALLOWED}")
     model = MODEL_SYNONYMS.get(model, model)
-
-    _log_config(
-        model=model,
-        data_path=data_path,
-        limit=limit,
-        graph_user_prompt=graph_user_prompt_key,
-        classify_user_prompt=classify_user_prompt_key,
-        output_dir=output_dir,
-        continue_papers_file=continue_papers_file,
-        clean_run=clean_run,
-    )
 
     client = AsyncOpenAI()
 
