@@ -166,13 +166,15 @@ async def evaluate_papers(
     random.shuffle(data)
 
     papers = data[:limit_papers]
-    demonstrations = (
+    user_prompt = _FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
+
+    demonstration_data = (
         TypeAdapter(list[Demonstration]).validate_json(demonstrations_file.read_bytes())
         if demonstrations_file is not None
         else []
     )
-    user_prompt = _FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
     demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
+    demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
@@ -206,7 +208,6 @@ async def evaluate_papers(
             papers_remaining.remaining,
             output_intermediate_file,
             demonstrations,
-            demonstration_prompt,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -234,8 +235,7 @@ async def _classify_papers(
     user_prompt: PromptTemplate,
     papers: Sequence[Paper],
     output_intermediate_file: Path,
-    demonstrations: Sequence[Demonstration],
-    demonstration_prompt: PromptTemplate,
+    demonstrations: str,
 ) -> GPTResult[list[PromptResult[PaperResult]]]:
     """Classify Papers into approved/not approved using the paper main text.
 
@@ -245,6 +245,7 @@ async def _classify_papers(
         user_prompt: User prompt template to use for classification to be filled
         papers: Papers from the ASAP-Review dataset to classify
         output_intermediate_file: File to write new results after each task is completed
+        demonstrations: Text of demonstrations for few-shot prompting
 
     Returns:
         List of classified papers wrapped in a GPTResult.
@@ -253,9 +254,7 @@ async def _classify_papers(
     total_cost = 0
 
     tasks = [
-        _classify_paper(
-            client, model, paper, user_prompt, demonstrations, demonstration_prompt
-        )
+        _classify_paper(client, model, paper, user_prompt, demonstrations)
         for paper in papers
     ]
 
@@ -294,14 +293,13 @@ async def _classify_paper(
     model: str,
     paper: Paper,
     user_prompt: PromptTemplate,
-    demonstrations: Sequence[Demonstration],
-    demonstration_prompt: PromptTemplate,
+    demonstrations: str,
 ) -> GPTResult[PromptResult[PaperResult]]:
     user_prompt_text = user_prompt.template.format(
         title=paper.title,
         abstract=paper.abstract,
         main_text=paper.main_text(),
-        demonstrations=format_demonstrations(demonstrations, demonstration_prompt),
+        demonstrations=demonstrations,
     )
     result = await run_gpt(
         _CLASSIFY_TYPES[user_prompt.type_name],
