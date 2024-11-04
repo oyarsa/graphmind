@@ -11,7 +11,7 @@ import logging
 from paper.gpt import classify_contexts, evaluate_paper_full, extract_graph
 from paper.util import setup_logging
 
-logger = logging.getLogger("paper.gpt.cli")
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:

@@ -14,7 +14,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from paper.gpt.model import PromptResult
 from paper.rate_limiter import ChatRateLimiter
 
-logger = logging.getLogger("paper.gpt.run_gpt")
+logger = logging.getLogger(__name__)
 
 MODEL_SYNONYMS = {
     "4o-mini": "gpt-4o-mini-2024-07-18",

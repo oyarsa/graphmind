@@ -44,7 +44,7 @@ from paper.gpt.run_gpt import (
 from paper.progress import as_completed
 from paper.util import Timer, display_params, safediv, setup_logging
 
-logger = logging.getLogger("paper.gpt.classify_contexts")
+logger = logging.getLogger(__name__)
 
 
 class ContextClassified(BaseModel):

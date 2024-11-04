@@ -24,7 +24,7 @@ from paper.gpt.run_gpt import (
 from paper.progress import as_completed
 from paper.util import Timer
 
-logger = logging.getLogger("paper.gpt.evaluate_graph")
+logger = logging.getLogger(__name__)
 
 
 CLASSIFY_SYSTEM_PROMPT = (

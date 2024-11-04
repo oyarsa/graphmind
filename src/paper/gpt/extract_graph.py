@@ -49,7 +49,7 @@ from paper.gpt.run_gpt import (
 from paper.progress import as_completed
 from paper.util import Timer, display_params, read_resource, setup_logging
 
-logger = logging.getLogger("paper.gpt.extract_graph")
+logger = logging.getLogger(__name__)
 
 
 class GPTGraphBase(BaseModel, ABC):

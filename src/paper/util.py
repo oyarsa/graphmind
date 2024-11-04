@@ -77,7 +77,7 @@ class Timer:
         return " ".join(parts)
 
 
-def setup_logging(logger: logging.Logger | str = "paper") -> None:
+def setup_logging(logger: logging.Logger | str | None = None) -> None:
     """Initialise a logger printing colourful output to stderr.
 
     Uses `LOG_LEVEL` environment variable to set the level. By default, it's INFO. Use
@@ -87,6 +87,8 @@ def setup_logging(logger: logging.Logger | str = "paper") -> None:
         logger: A proper Logger object, or a string to locate one. By default,
             initialises the global project logger, including all its descendants.
     """
+    if logger is None:
+        logger = __name__.split(".")[0]
     if isinstance(logger, str):
         logger = logging.getLogger(logger)
 

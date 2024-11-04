@@ -62,7 +62,7 @@ from paper.gpt.run_gpt import (
 from paper.progress import as_completed
 from paper.util import Timer, display_params, setup_logging
 
-logger = logging.getLogger("paper.gpt.evaluate_paper_full")
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
