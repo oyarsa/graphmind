@@ -110,7 +110,23 @@ def format_demonstrations(
         "",
     ]
 
-    for demo in demonstrations:
+    # Split demonstrations by type
+    positives = [d for d in demonstrations if d.type == DemonstrationType.POSITIVE]
+    negatives = [d for d in demonstrations if d.type == DemonstrationType.NEGATIVE]
+    
+    # Interleave positive and negative demonstrations
+    interleaved = []
+    for pos, neg in zip(positives, negatives):
+        interleaved.extend([pos, neg])
+    
+    # Add any remaining demonstrations if counts were uneven
+    if len(positives) > len(negatives):
+        interleaved.extend(positives[len(negatives):])
+    elif len(negatives) > len(positives):
+        interleaved.extend(negatives[len(positives):])
+
+    # Format each demonstration
+    for demo in interleaved:
         output_all.append(
             prompt.template.format(
                 title=demo.title,
