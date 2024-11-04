@@ -108,6 +108,8 @@ def main() -> None:
                     args.continue_papers,
                     args.clean_run,
                     args.seed,
+                    args.demos,
+                    args.demo_prompt,
                 )
             )
 

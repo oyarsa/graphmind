@@ -14,11 +14,12 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from paper.gpt.evaluate_paper import (
+    EVALUATE_DEMONSTRATION_PROMPTS,
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
 )
-from paper.gpt.model import Paper, Prompt, PromptResult
+from paper.gpt.model import Demonstration, Paper, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -30,7 +31,7 @@ from paper.gpt.run_gpt import (
     run_gpt,
 )
 from paper.progress import as_completed
-from paper.util import Timer, setup_logging
+from paper.util import Timer, current_params, display_params, setup_logging
 
 logger = logging.getLogger("paper.gpt.evaluate_paper_full")
 
@@ -58,6 +59,8 @@ def main() -> None:
                 args.continue_papers,
                 args.clean_run,
                 args.seed,
+                args.demos,
+                args.demo_prompt,
             )
         )
 
@@ -75,6 +78,8 @@ async def evaluate_papers(
     continue_papers_file: Path | None,
     clean_run: bool,
     seed: int,
+    demonstrations_file: Path | None,
+    demo_prompt_key: str,
 ) -> None:
     """Evaluate a paper's approval based on its full-body text.
 
@@ -90,9 +95,9 @@ async def evaluate_papers(
         data_path: Path to the JSON file containing the input papers data.
         limit: Number of papers to process. Defaults to 1 example. If None, process all.
         graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
-            `_GRAPH_USER_PROMPTS` for available options or `_display_prompts` for more.
+            `_GRAPH_USER_PROMPTS` for available options or `list_prompts` for more.
         classify_user_prompt_key: Key to the user prompt to use for graph extraction. See
-            `_CLASSIFY_USER_PROMPTS` for available options or `_display_prompts` for more.
+            `_CLASSIFY_USER_PROMPTS` for available options or `list_prompts` for more.
         display: If True, show each graph on screen. This suspends the process until
             the plot is closed.
         output_dir: Directory to save the output files: serialised graphs (GraphML),
@@ -103,10 +108,16 @@ async def evaluate_papers(
             are there, we use those results and skip processing them.
         clean_run: If True, ignore `continue_papers` and run everything from scratch.
         seed: Random seed used for shuffling.
+        demonstrations_file: Path to demonstrations file for use with few-shot prompting.
+        demo_prompt_key: Key to the demonstration prompt to use during evaluation to
+            build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
+            avaialble options or `list_prompts` for more.
 
     Returns:
-        None. The output is saved to disk.
+        None. The output is saved to `output_dir`.
     """
+    logger.info(display_params(current_params()))
+
     random.seed(seed)
 
     dotenv.load_dotenv()
@@ -136,7 +147,13 @@ async def evaluate_papers(
     random.shuffle(data)
 
     papers = data[:limit_papers]
+    demonstrations = (
+        TypeAdapter(list[Demonstration]).validate_json(demonstrations_file.read_bytes())
+        if demonstrations_file is not None
+        else []
+    )
     user_prompt = _FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
+    demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
@@ -166,6 +183,8 @@ async def evaluate_papers(
             user_prompt,
             papers_remaining.remaining,
             output_intermediate_file,
+            demonstrations,
+            demonstration_prompt,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -193,6 +212,8 @@ async def _classify_papers(
     user_prompt: PromptTemplate,
     papers: Sequence[Paper],
     output_intermediate_file: Path,
+    demonstrations: Sequence[Demonstration],
+    demonstration_prompt: PromptTemplate,
 ) -> GPTResult[list[PromptResult[PaperResult]]]:
     """Classify Papers into approved/not approved using the paper main text.
 
@@ -209,7 +230,12 @@ async def _classify_papers(
     results: list[PromptResult[PaperResult]] = []
     total_cost = 0
 
-    tasks = [_classify_paper(client, model, paper, user_prompt) for paper in papers]
+    tasks = [
+        _classify_paper(
+            client, model, paper, user_prompt, demonstrations, demonstration_prompt
+        )
+        for paper in papers
+    ]
 
     for task in as_completed(tasks, desc="Classifying papers"):
         result = await task
@@ -242,10 +268,18 @@ _FULL_CLASSIFY_SYSTEM_PROMPT = (
 
 
 async def _classify_paper(
-    client: AsyncOpenAI, model: str, paper: Paper, user_prompt: PromptTemplate
+    client: AsyncOpenAI,
+    model: str,
+    paper: Paper,
+    user_prompt: PromptTemplate,
+    demonstrations: Sequence[Demonstration],
+    demonstration_prompt: PromptTemplate,
 ) -> GPTResult[PromptResult[PaperResult]]:
     user_prompt_text = user_prompt.template.format(
-        title=paper.title, abstract=paper.abstract, main_text=paper.main_text()
+        title=paper.title,
+        abstract=paper.abstract,
+        main_text=paper.main_text(),
+        demonstrations=_format_demonstrations(demonstrations, demonstration_prompt),
     )
     result = await run_gpt(
         _CLASSIFY_TYPES[user_prompt.type_name],
@@ -272,6 +306,39 @@ async def _classify_paper(
         ),
         cost=result.cost,
     )
+
+
+def _format_demonstrations(
+    demonstrations: Sequence[Demonstration], prompt: PromptTemplate
+) -> str:
+    """Format all `demonstrations` according to `prompt` as a single string.
+
+    Scramble the inputs such that we always have true/false/true/false interleaved.
+
+    If `demonstrations` is empty, returns the empty string.
+    """
+    if not demonstrations:
+        return ""
+
+    output_all = [
+        "-Demonstrations-",
+        "The following are examples of other paper evaluations with their approval"
+        " decisions and rationales:",
+        "",
+    ]
+
+    for demo in demonstrations:
+        output_all.append(
+            prompt.template.format(
+                title=demo.title,
+                abstract=demo.abstract,
+                main_text=demo.text,
+                decision=demo.approval,
+                rationale=demo.rationale,
+            )
+        )
+
+    return "\n\n".join(output_all)
 
 
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
@@ -346,6 +413,20 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     )
     run_parser.add_argument(
         "--seed", default=0, type=int, help="Random seed used for shuffling."
+    )
+    run_parser.add_argument(
+        "--demos",
+        type=Path,
+        default=None,
+        help="File containing demonstrations to use in few-shot prompt",
+    )
+    run_parser.add_argument(
+        "--demo-prompt",
+        type=str,
+        choices=EVALUATE_DEMONSTRATION_PROMPTS.keys(),
+        default="simple",
+        help="The user prompt to use for building the few-shot demonstrations. Defaults"
+        " to %(default)s.",
     )
 
     # 'prompts' subcommand parser
