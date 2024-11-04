@@ -129,6 +129,8 @@ async def _classify_paper(
     model: str,
     paper: PaperWithFullReference,
     user_prompt: PromptTemplate,
+    *,
+    seed: int,
 ) -> GPTResult[PromptResult[PaperOutput]]:
     """Classify the contexts for the paper's references by polarity.
 
@@ -165,6 +167,7 @@ async def _classify_paper(
                 _CONTEXT_SYSTEM_PROMPT,
                 user_prompt_text,
                 model,
+                seed=seed,
             )
             total_cost += result.cost
 
@@ -221,6 +224,8 @@ async def _classify_contexts(
     papers: Sequence[PaperInput],
     limit_references: int | None,
     output_intermediate_path: Path,
+    *,
+    seed: int,
 ) -> GPTResult[list[PromptResult[PaperOutput]]]:
     """Classify the contexts for each papers' references by polarity.
 
@@ -238,7 +243,7 @@ async def _classify_contexts(
     total_cost = 0
 
     tasks = [
-        _classify_paper(client, limit_references, model, paper, user_prompt)
+        _classify_paper(client, limit_references, model, paper, user_prompt, seed=seed)
         for paper in papers
     ]
     for task in as_completed(tasks, desc="Classifying paper reference contexts"):
@@ -261,6 +266,7 @@ async def classify_contexts(
     limit_references: int | None,
     continue_papers_file: Path | None,
     clean_run: bool,
+    seed: int,
 ) -> None:
     """Classify reference citation contexts by polarity."""
     logger.info(display_params())
@@ -318,6 +324,7 @@ async def classify_contexts(
             papers_remaining.remaining,
             limit_references,
             output_intermediate_file,
+            seed=seed,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -505,6 +512,7 @@ def main() -> None:
                 args.ref_limit,
                 args.continue_papers,
                 args.clean_run,
+                args.seed,
             )
         )
 

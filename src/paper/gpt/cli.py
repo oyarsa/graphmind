@@ -72,6 +72,7 @@ def main() -> None:
                     args.classify,
                     args.continue_papers,
                     args.clean_run,
+                    args.seed,
                 )
             )
 
@@ -90,6 +91,7 @@ def main() -> None:
                     args.ref_limit,
                     args.continue_papers,
                     args.clean_run,
+                    args.seed,
                 )
             )
 

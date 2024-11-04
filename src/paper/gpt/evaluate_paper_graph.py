@@ -41,6 +41,7 @@ async def evaluate_graphs(
     output_dir: Path,
     continue_papers_file: Path | None,
     clean_run: bool,
+    seed: int,
 ) -> None:
     """Evaluate papers acceptance based on their structured graphs.
 
@@ -73,7 +74,12 @@ async def evaluate_graphs(
 
     with Timer() as timer_class:
         results = await _classify_papers(
-            client, model, classify_user_prompt, paper_graphs, output_intermediate_file
+            client,
+            model,
+            classify_user_prompt,
+            paper_graphs,
+            output_intermediate_file,
+            seed=seed,
         )
 
     results_items = [result.item for result in results.result]
@@ -110,6 +116,8 @@ async def _classify_papers(
     user_prompt: PromptTemplate,
     paper_graphs: Sequence[PaperGraph],
     output_intermediate_file: Path,
+    *,
+    seed: int,
 ) -> GPTResult[list[PromptResult[PaperResult]]]:
     """Classify Papers into approved/not approved using the generated graphs.
 
@@ -127,7 +135,10 @@ async def _classify_papers(
     results: list[PromptResult[PaperResult]] = []
     total_cost = 0
 
-    tasks = [_classify_paper(client, model, pg, user_prompt) for pg in paper_graphs]
+    tasks = [
+        _classify_paper(client, model, pg, user_prompt, seed=seed)
+        for pg in paper_graphs
+    ]
 
     for task in as_completed(tasks, desc="Classifying papers"):
         result = await task
@@ -140,7 +151,12 @@ async def _classify_papers(
 
 
 async def _classify_paper(
-    client: AsyncOpenAI, model: str, pg: PaperGraph, user_prompt: PromptTemplate
+    client: AsyncOpenAI,
+    model: str,
+    pg: PaperGraph,
+    user_prompt: PromptTemplate,
+    *,
+    seed: int,
 ) -> GPTResult[PromptResult[PaperResult]]:
     user_prompt_text = user_prompt.template.format(
         title=pg.paper.title,
@@ -153,6 +169,7 @@ async def _classify_paper(
         CLASSIFY_SYSTEM_PROMPT,
         user_prompt_text,
         model,
+        seed=seed,
     )
     classified = result.result
 

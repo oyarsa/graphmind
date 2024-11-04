@@ -208,6 +208,7 @@ async def evaluate_papers(
             papers_remaining.remaining,
             output_intermediate_file,
             demonstrations,
+            seed=seed,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -236,6 +237,8 @@ async def _classify_papers(
     papers: Sequence[Paper],
     output_intermediate_file: Path,
     demonstrations: str,
+    *,
+    seed: int,
 ) -> GPTResult[list[PromptResult[PaperResult]]]:
     """Classify Papers into approved/not approved using the paper main text.
 
@@ -254,7 +257,7 @@ async def _classify_papers(
     total_cost = 0
 
     tasks = [
-        _classify_paper(client, model, paper, user_prompt, demonstrations)
+        _classify_paper(client, model, paper, user_prompt, demonstrations, seed=seed)
         for paper in papers
     ]
 
@@ -294,6 +297,8 @@ async def _classify_paper(
     paper: Paper,
     user_prompt: PromptTemplate,
     demonstrations: str,
+    *,
+    seed: int,
 ) -> GPTResult[PromptResult[PaperResult]]:
     user_prompt_text = user_prompt.template.format(
         title=paper.title,
@@ -307,6 +312,7 @@ async def _classify_paper(
         _FULL_CLASSIFY_SYSTEM_PROMPT,
         user_prompt_text,
         model,
+        seed=seed,
     )
     classified = result.result
 

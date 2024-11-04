@@ -245,7 +245,12 @@ _GRAPH_USER_PROMPTS = load_prompts("extract_graph")
 
 
 async def _generate_graph(
-    client: AsyncOpenAI, example: Paper, model: str, user_prompt: PromptTemplate
+    client: AsyncOpenAI,
+    example: Paper,
+    model: str,
+    user_prompt: PromptTemplate,
+    *,
+    seed: int,
 ) -> GPTResult[PromptResult[Graph]]:
     user_prompt_text = user_prompt.template.format(
         title=example.title,
@@ -259,6 +264,7 @@ async def _generate_graph(
         _GRAPH_SYSTEM_PROMPT,
         user_prompt_text,
         model,
+        seed=seed,
     )
     graph = (
         result.result.to_graph(title=example.title, abstract=example.abstract)
@@ -286,11 +292,16 @@ async def _generate_graphs(
     model: str,
     user_prompt: PromptTemplate,
     output_intermediate_path: Path,
+    *,
+    seed: int,
 ) -> GPTResult[list[PromptResult[Graph]]]:
     total_cost = 0
     graph_results: list[PromptResult[Graph]] = []
 
-    tasks = [_generate_graph(client, example, model, user_prompt) for example in data]
+    tasks = [
+        _generate_graph(client, example, model, user_prompt, seed=seed)
+        for example in data
+    ]
 
     for task in as_completed(tasks, desc="Extracting graphs"):
         result = await task
@@ -387,6 +398,7 @@ async def extract_graph(
     classify: bool,
     continue_papers_file: Path | None,
     clean_run: bool,
+    seed: int,
 ) -> None:
     """Extract graphs from the papers in the dataset and (maybe) classify them.
 
@@ -464,6 +476,7 @@ async def extract_graph(
             model,
             graph_user_prompt,
             output_intermediate_file,
+            seed=seed,
         )
 
     logger.info(f"Graph generation time elapsed: {timer_gen.human}")
@@ -491,6 +504,7 @@ async def extract_graph(
             # We always want new paper classifications after processing the graphs
             continue_papers_file=None,
             clean_run=True,
+            seed=seed,
         )
 
 
@@ -596,6 +610,9 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Start from scratch, ignoring existing intermediate results",
     )
+    run_parser.add_argument(
+        "--seed", default=0, type=int, help="Seed to set in OpenAI call"
+    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -635,6 +652,7 @@ def main() -> None:
                 args.classify,
                 args.continue_papers,
                 args.clean_run,
+                args.seed,
             )
         )
 

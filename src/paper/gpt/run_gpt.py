@@ -93,7 +93,8 @@ async def run_gpt[T: BaseModel](
     system_prompt: str,
     user_prompt: str,
     model: str,
-    seed: int = 0,
+    *,
+    seed: int,
     temperature: float = 0,
 ) -> GPTResult[T | None]:
     """Run the GPT query and return a parsed object of `class_` using Structured Outputs.
