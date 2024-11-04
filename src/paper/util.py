@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import heapq
 import inspect
 import logging
@@ -217,7 +218,7 @@ def display_params() -> str:
         value = args.get(param_name, param.default)
 
         if isinstance(value, Path):
-            value = str(value.resolve())
+            value = f"{value.resolve()} ({_hash_path(value)})"
 
         # Mask sensitive values
         if "api" in param_name.casefold() and value is not None:
@@ -230,3 +231,16 @@ def display_params() -> str:
         + "\n".join(f"{key}: {value}" for key, value in result.items())
         + "\n"
     )
+
+
+def _hash_path(path: Path, chars: int = 8) -> str:
+    """Calculate truncated SHA-256 hash of a path if it's a file.
+
+    If it's a directory, returns `directory`. Otherwise, returns `error`.
+    """
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()[:chars]
+    except IsADirectoryError:
+        return "directory"
+    except Exception:
+        return "error"
