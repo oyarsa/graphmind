@@ -71,6 +71,12 @@ async def _call_gpt(
     rate_limiter: Any, client: AsyncOpenAI, chat_params: dict[str, Any]
 ):
     try:
+        # FIX: This hangs when the input is too long, but everything runs without it,
+        # suggesting the problem is in the token allocation.
+        # I can either try to fix the problem in the RateLimiter, or figure something
+        # else out. The input is too long when both main paper and demonstrations give
+        # the full paper as content, but since that performs pretty badly anyway, this
+        # is not urgent.
         async with rate_limiter.limit(**chat_params):
             return await client.beta.chat.completions.parse(**chat_params)
     except openai.APIError as e:
