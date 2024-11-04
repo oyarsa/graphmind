@@ -303,9 +303,12 @@ async def classify_contexts(
         )
         return
 
-    logger.info(
-        "Skipping %d items from the `continue` file.", len(papers_remaining.done)
-    )
+    if clean_run:
+        logger.info("Clean run: ignoring `continue` file and using the whole data.")
+    else:
+        logger.info(
+            "Skipping %d items from the `continue` file.", len(papers_remaining.done)
+        )
 
     with Timer() as timer:
         results = await _classify_contexts(

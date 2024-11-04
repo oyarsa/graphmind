@@ -450,6 +450,8 @@ async def extract_graph(
     )
     if not papers_remaining.remaining:
         logger.info("No items left to process. They're all on the `continues` file.")
+    elif clean_run:
+        logger.info("Clean run: ignoring `continue` file and using the whole data.")
     else:
         logger.info(
             "Skipping %d items from the `continue` file.", len(papers_remaining.done)
