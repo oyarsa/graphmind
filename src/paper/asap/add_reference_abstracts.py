@@ -129,7 +129,7 @@ def add_references(
         PaperWithReferenceEnriched(
             title=paper.title,
             abstract=paper.abstract,
-            ratings=paper.ratings,
+            reviews=paper.reviews,
             sections=paper.sections,
             approval=paper.approval,
             references=[

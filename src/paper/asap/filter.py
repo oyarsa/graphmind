@@ -14,7 +14,8 @@ from paper.asap.model import Paper
 
 def _keep_paper(paper: Paper) -> bool:
     """Paper is kept if the difference between min and max ratings is <= 3."""
-    return max(paper.ratings) - min(paper.ratings) <= 3
+    ratings = [r.rating for r in paper.reviews]
+    return max(ratings) - min(ratings) <= 3
 
 
 def filter_ratings(input_file: Path, output_file: Path) -> None:

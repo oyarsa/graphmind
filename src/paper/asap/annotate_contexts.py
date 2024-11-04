@@ -96,7 +96,7 @@ def sample(
                     # The rest remains the same
                     title=paper.title,
                     abstract=paper.abstract,
-                    ratings=paper.ratings,
+                    reviews=paper.reviews,
                     sections=paper.sections,
                     approval=paper.approval,
                 )
@@ -200,7 +200,7 @@ def _annotate(
             # The rest remains the same
             title=paper.title,
             abstract=paper.abstract,
-            ratings=paper.ratings,
+            reviews=paper.reviews,
             sections=paper.sections,
             approval=paper.approval,
         )

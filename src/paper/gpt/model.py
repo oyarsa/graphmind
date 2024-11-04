@@ -4,10 +4,12 @@ import itertools
 from collections import Counter, defaultdict
 from collections.abc import Sequence
 from enum import StrEnum
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, computed_field, model_validator
 
 from paper import hierarchical_graph
+from paper.asap.model import PaperReview
 
 
 class EntityType(StrEnum):
@@ -303,7 +305,7 @@ class Paper(BaseModel):
 
     title: str
     abstract: str
-    ratings: Sequence[int]
+    reviews: Sequence[PaperReview]
     sections: Sequence[PaperSection]
     approval: bool
 
@@ -314,7 +316,7 @@ class Paper(BaseModel):
     def is_approved(
         self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.DEFAULT
     ) -> bool:
-        return strategy.is_approved(self.approval, self.ratings)
+        return strategy.is_approved(self.approval, [r.rating for r in self.reviews])
 
     def main_text(self) -> str:
         return "\n".join(s.text for s in self.sections)
@@ -325,7 +327,7 @@ class Paper(BaseModel):
             f"Title: {self.title}\n"
             f"Abstract: {self.abstract}\n"
             f"Main text: {main_text_words_num} words.\n"
-            f"Ratings: {self.ratings}\n"
+            f"Ratings: {[r.rating for r in self.reviews]}\n"
         )
 
 
@@ -352,7 +354,8 @@ class PaperGraph(BaseModel):
     def id(self) -> int:
         return self.paper.id
 
-    def __post_init__(self) -> None:
-        # TODO: Use proper pydantic thing for this
+    @model_validator(mode="after")
+    def validate_matching_ids(self) -> Self:
         if self.paper.id != self.graph.item.id:
             raise ValueError("Paper ID must match graph item ID")
+        return self

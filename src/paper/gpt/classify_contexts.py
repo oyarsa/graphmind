@@ -13,7 +13,6 @@ option.
 
 import argparse
 import asyncio
-import hashlib
 import logging
 import os
 from collections.abc import Iterable, Sequence
@@ -26,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from paper import evaluation_metrics
 from paper.asap.model import (
     ContextPolarityBinary,
+    PaperReview,
     PaperSection,
     PaperWithFullReference,
 )
@@ -42,9 +42,9 @@ from paper.gpt.run_gpt import (
     run_gpt,
 )
 from paper.progress import as_completed
-from paper.util import Timer, safediv, setup_logging
+from paper.util import Timer, display_params, safediv, setup_logging
 
-logger = logging.getLogger("paper.gpt.classify_contexts")
+logger = logging.getLogger(__name__)
 
 
 class ContextClassified(BaseModel):
@@ -84,7 +84,7 @@ class PaperOutput(BaseModel):
 
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
-    ratings: Sequence[int] = Field(description="Reviewer ratings (1 to 5)")
+    reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
     sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"
@@ -205,7 +205,7 @@ async def _classify_paper(
         item=PaperOutput(
             title=paper.title,
             abstract=paper.abstract,
-            ratings=paper.ratings,
+            reviews=paper.reviews,
             sections=paper.sections,
             approval=paper.approval,
             references=classified_references,
@@ -251,35 +251,6 @@ async def _classify_contexts(
     return GPTResult(paper_outputs, total_cost)
 
 
-def _log_config(
-    *,
-    model: str,
-    data_path: Path,
-    limit_papers: int | None,
-    limit_references: int | None,
-    user_prompt: str,
-    output_dir: Path,
-    continue_papers_file: Path | None,
-    clean_run: bool,
-) -> None:
-    data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
-
-    logger.info(
-        "CONFIG:\n"
-        f"  Model: {model}\n"
-        f"  Data path: {data_path.resolve()}\n"
-        f"  Data hash (sha256): {data_hash}\n"
-        f"  Output dir: {output_dir.resolve()}\n"
-        f"  Limit papers: {limit_papers if limit_papers is not None else 'All'}\n"
-        f"  Limit references: {
-            limit_references if limit_references is not None else 'All'
-        }\n"
-        f"  User prompt: {user_prompt}\n"
-        f"  Continue papers file: {continue_papers_file}\n"
-        f"  Clean run: {clean_run}\n"
-    )
-
-
 async def classify_contexts(
     model: str,
     api_key: str | None,
@@ -292,6 +263,7 @@ async def classify_contexts(
     clean_run: bool,
 ) -> None:
     """Classify reference citation contexts by polarity."""
+    logger.info(display_params())
 
     dotenv.load_dotenv()
     if api_key:
@@ -306,17 +278,6 @@ async def classify_contexts(
 
     if limit_references == 0:
         limit_references = None
-
-    _log_config(
-        model=model,
-        data_path=data_path,
-        limit_papers=limit_papers,
-        limit_references=limit_references,
-        user_prompt=user_prompt_key,
-        output_dir=output_dir,
-        continue_papers_file=continue_papers_file,
-        clean_run=clean_run,
-    )
 
     client = AsyncOpenAI()
 
@@ -342,9 +303,12 @@ async def classify_contexts(
         )
         return
 
-    logger.info(
-        "Skipping %d items from the `continue` file.", len(papers_remaining.done)
-    )
+    if clean_run:
+        logger.info("Clean run: ignoring `continue` file and using the whole data.")
+    else:
+        logger.info(
+            "Skipping %d items from the `continue` file.", len(papers_remaining.done)
+        )
 
     with Timer() as timer:
         results = await _classify_contexts(

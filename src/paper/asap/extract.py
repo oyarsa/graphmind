@@ -14,7 +14,7 @@ from typing import Any, NamedTuple
 from pydantic import TypeAdapter
 
 from paper.asap import process_sections
-from paper.asap.model import CitationContext, Paper, PaperReference
+from paper.asap.model import CitationContext, Paper, PaperReference, PaperReview
 
 
 def _parse_rating(rating: str) -> int | None:
@@ -78,12 +78,16 @@ def _process_paper(item: dict[str, Any]) -> Paper | None:
     if not sections:
         return None
 
-    ratings = [r for review in item["review"] if (r := _parse_rating(review["rating"]))]
+    reviews = [
+        PaperReview(rating=rating, rationale=review["review"])
+        for review in item["review"]
+        if (rating := _parse_rating(review["rating"]))
+    ]
 
     return Paper(
         title=paper["title"],
         abstract=paper["abstractText"],
-        ratings=ratings,
+        reviews=reviews,
         sections=sections,
         approval=_parse_approval(item["approval"]),
         references=_process_references(paper),

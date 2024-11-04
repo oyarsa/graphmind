@@ -1,8 +1,35 @@
 """Evaluate a paper's approval based on its full-body text."""
 
+# Best configuration:
+#     Command:
+#     $ uv run gpt eval_full run output/asap_balanced_50.json tmp/eval-full -n 0 \
+#         --clean-run --user-prompt simple-abs --demos output/demonstrations_10.json \
+#         --demo-prompt simple -m 4o
+#
+#     2024-11-04 20:03:37 | INFO | paper.gpt.evaluate_paper_full:151 | CONFIG:
+#     - model: 4o
+#     - api_key: None
+#     - data_path: /Users/italo/dev/paper-hypergraph/output/asap_balanced_50.json (dc592a4f)
+#     - limit_papers: 0
+#     - user_prompt_key: simple-abs
+#     - output_dir: /Users/italo/dev/paper-hypergraph/tmp/eval-full (directory)
+#     - continue_papers_file: None
+#     - clean_run: True
+#     - seed: 0
+#     - demonstrations_file: /Users/italo/dev/paper-hypergraph/output/demonstrations_10.json (55baa321)
+#     - demo_prompt_key: simple
+#
+# Output:
+#     - P   : 0.6286
+#     - R   : 0.8800
+#     - F1  : 0.7333
+#     - Acc : 0.6800
+#
+#     Gold (P/N): 25/25 (50.00%)
+#     Pred (P/N): 35/15 (70.00%)
+
 import argparse
 import asyncio
-import hashlib
 import logging
 import os
 import random
@@ -14,9 +41,12 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from paper.gpt.evaluate_paper import (
+    EVALUATE_DEMONSTRATION_PROMPTS,
+    Demonstration,
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
+    format_demonstrations,
 )
 from paper.gpt.model import Paper, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
@@ -30,9 +60,9 @@ from paper.gpt.run_gpt import (
     run_gpt,
 )
 from paper.progress import as_completed
-from paper.util import Timer, setup_logging
+from paper.util import Timer, display_params, setup_logging
 
-logger = logging.getLogger("paper.gpt.evaluate_paper_full")
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
@@ -58,6 +88,8 @@ def main() -> None:
                 args.continue_papers,
                 args.clean_run,
                 args.seed,
+                args.demos,
+                args.demo_prompt,
             )
         )
 
@@ -75,6 +107,8 @@ async def evaluate_papers(
     continue_papers_file: Path | None,
     clean_run: bool,
     seed: int,
+    demonstrations_file: Path | None,
+    demo_prompt_key: str,
 ) -> None:
     """Evaluate a paper's approval based on its full-body text.
 
@@ -90,9 +124,9 @@ async def evaluate_papers(
         data_path: Path to the JSON file containing the input papers data.
         limit: Number of papers to process. Defaults to 1 example. If None, process all.
         graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
-            `_GRAPH_USER_PROMPTS` for available options or `_display_prompts` for more.
+            `_GRAPH_USER_PROMPTS` for available options or `list_prompts` for more.
         classify_user_prompt_key: Key to the user prompt to use for graph extraction. See
-            `_CLASSIFY_USER_PROMPTS` for available options or `_display_prompts` for more.
+            `_CLASSIFY_USER_PROMPTS` for available options or `list_prompts` for more.
         display: If True, show each graph on screen. This suspends the process until
             the plot is closed.
         output_dir: Directory to save the output files: serialised graphs (GraphML),
@@ -103,10 +137,16 @@ async def evaluate_papers(
             are there, we use those results and skip processing them.
         clean_run: If True, ignore `continue_papers` and run everything from scratch.
         seed: Random seed used for shuffling.
+        demonstrations_file: Path to demonstrations file for use with few-shot prompting.
+        demo_prompt_key: Key to the demonstration prompt to use during evaluation to
+            build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
+            avaialble options or `list_prompts` for more.
 
     Returns:
-        None. The output is saved to disk.
+        None. The output is saved to `output_dir`.
     """
+    logger.info(display_params())
+
     random.seed(seed)
 
     dotenv.load_dotenv()
@@ -120,16 +160,6 @@ async def evaluate_papers(
     if limit_papers == 0:
         limit_papers = None
 
-    _log_config(
-        model=model,
-        data_path=data_path,
-        limit_papers=limit_papers,
-        user_prompt=user_prompt_key,
-        output_dir=output_dir,
-        continue_papers_file=continue_papers_file,
-        clean_run=clean_run,
-    )
-
     client = AsyncOpenAI()
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
@@ -137,6 +167,14 @@ async def evaluate_papers(
 
     papers = data[:limit_papers]
     user_prompt = _FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
+
+    demonstration_data = (
+        TypeAdapter(list[Demonstration]).validate_json(demonstrations_file.read_bytes())
+        if demonstrations_file is not None
+        else []
+    )
+    demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
+    demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
@@ -155,9 +193,12 @@ async def evaluate_papers(
         )
         return
 
-    logger.info(
-        "Skipping %d items from the `continue` file.", len(papers_remaining.done)
-    )
+    if clean_run:
+        logger.info("Clean run: ignoring `continue` file and using the whole data.")
+    else:
+        logger.info(
+            "Skipping %d items from the `continue` file.", len(papers_remaining.done)
+        )
 
     with Timer() as timer:
         results = await _classify_papers(
@@ -166,6 +207,7 @@ async def evaluate_papers(
             user_prompt,
             papers_remaining.remaining,
             output_intermediate_file,
+            demonstrations,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -175,7 +217,7 @@ async def evaluate_papers(
     results_items = [result.item for result in results_all]
 
     metrics = calculate_paper_metrics(results_items)
-    logger.info(display_metrics(metrics, results_items))
+    logger.info(display_metrics(metrics, results_items) + "\n")
 
     assert len(results_all) == len(papers)
     (output_dir / "result.json").write_bytes(
@@ -193,6 +235,7 @@ async def _classify_papers(
     user_prompt: PromptTemplate,
     papers: Sequence[Paper],
     output_intermediate_file: Path,
+    demonstrations: str,
 ) -> GPTResult[list[PromptResult[PaperResult]]]:
     """Classify Papers into approved/not approved using the paper main text.
 
@@ -202,6 +245,7 @@ async def _classify_papers(
         user_prompt: User prompt template to use for classification to be filled
         papers: Papers from the ASAP-Review dataset to classify
         output_intermediate_file: File to write new results after each task is completed
+        demonstrations: Text of demonstrations for few-shot prompting
 
     Returns:
         List of classified papers wrapped in a GPTResult.
@@ -209,7 +253,10 @@ async def _classify_papers(
     results: list[PromptResult[PaperResult]] = []
     total_cost = 0
 
-    tasks = [_classify_paper(client, model, paper, user_prompt) for paper in papers]
+    tasks = [
+        _classify_paper(client, model, paper, user_prompt, demonstrations)
+        for paper in papers
+    ]
 
     for task in as_completed(tasks, desc="Classifying papers"):
         result = await task
@@ -242,10 +289,17 @@ _FULL_CLASSIFY_SYSTEM_PROMPT = (
 
 
 async def _classify_paper(
-    client: AsyncOpenAI, model: str, paper: Paper, user_prompt: PromptTemplate
+    client: AsyncOpenAI,
+    model: str,
+    paper: Paper,
+    user_prompt: PromptTemplate,
+    demonstrations: str,
 ) -> GPTResult[PromptResult[PaperResult]]:
     user_prompt_text = user_prompt.template.format(
-        title=paper.title, abstract=paper.abstract, main_text=paper.main_text()
+        title=paper.title,
+        abstract=paper.abstract,
+        main_text=paper.main_text(),
+        demonstrations=demonstrations,
     )
     result = await run_gpt(
         _CLASSIFY_TYPES[user_prompt.type_name],
@@ -261,7 +315,7 @@ async def _classify_paper(
             item=PaperResult(
                 title=paper.title,
                 abstract=paper.abstract,
-                ratings=paper.ratings,
+                reviews=paper.reviews,
                 sections=paper.sections,
                 approval=paper.approval,
                 y_true=paper.is_approved(),
@@ -347,6 +401,20 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     run_parser.add_argument(
         "--seed", default=0, type=int, help="Random seed used for shuffling."
     )
+    run_parser.add_argument(
+        "--demos",
+        type=Path,
+        default=None,
+        help="File containing demonstrations to use in few-shot prompt",
+    )
+    run_parser.add_argument(
+        "--demo-prompt",
+        type=str,
+        choices=EVALUATE_DEMONSTRATION_PROMPTS.keys(),
+        default="simple",
+        help="The user prompt to use for building the few-shot demonstrations. Defaults"
+        " to %(default)s.",
+    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -363,31 +431,6 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
 
 def list_prompts(detail: bool) -> None:
     print_prompts("FULL PAPER EVALUATION", _FULL_CLASSIFY_USER_PROMPTS, detail=detail)
-
-
-def _log_config(
-    *,
-    model: str,
-    data_path: Path,
-    limit_papers: int | None,
-    user_prompt: str,
-    output_dir: Path,
-    continue_papers_file: Path | None,
-    clean_run: bool,
-) -> None:
-    data_hash = hashlib.sha256(data_path.read_bytes()).hexdigest()
-
-    logger.info(
-        "CONFIG:\n"
-        f"  Model: {model}\n"
-        f"  Data path: {data_path.resolve()}\n"
-        f"  Data hash (sha256): {data_hash}\n"
-        f"  Output dir: {output_dir.resolve()}\n"
-        f"  Limit papers: {limit_papers if limit_papers is not None else 'All'}\n"
-        f"  User prompt: {user_prompt}\n"
-        f"  Continue papers file: {continue_papers_file}\n"
-        f"  Clean run: {clean_run}\n"
-    )
 
 
 if __name__ == "__main__":

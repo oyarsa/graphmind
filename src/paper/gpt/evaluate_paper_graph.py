@@ -24,7 +24,7 @@ from paper.gpt.run_gpt import (
 from paper.progress import as_completed
 from paper.util import Timer
 
-logger = logging.getLogger("paper.gpt.evaluate_graph")
+logger = logging.getLogger(__name__)
 
 
 CLASSIFY_SYSTEM_PROMPT = (
@@ -161,7 +161,7 @@ async def _classify_paper(
             item=PaperResult(
                 title=pg.paper.title,
                 abstract=pg.paper.abstract,
-                ratings=pg.paper.ratings,
+                reviews=pg.paper.reviews,
                 sections=pg.paper.sections,
                 approval=pg.paper.approval,
                 y_true=pg.paper.is_approved(),

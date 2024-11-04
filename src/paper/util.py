@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import heapq
+import inspect
 import logging
 import os
 import time
 from importlib import resources
+from pathlib import Path
 from typing import Any, Protocol, Self
 
 import colorlog
@@ -74,7 +77,7 @@ class Timer:
         return " ".join(parts)
 
 
-def setup_logging(logger: logging.Logger | str = "paper") -> None:
+def setup_logging(logger: logging.Logger | str | None = None) -> None:
     """Initialise a logger printing colourful output to stderr.
 
     Uses `LOG_LEVEL` environment variable to set the level. By default, it's INFO. Use
@@ -84,6 +87,8 @@ def setup_logging(logger: logging.Logger | str = "paper") -> None:
         logger: A proper Logger object, or a string to locate one. By default,
             initialises the global project logger, including all its descendants.
     """
+    if logger is None:
+        logger = __name__.split(".")[0]
     if isinstance(logger, str):
         logger = logging.getLogger(logger)
 
@@ -180,3 +185,64 @@ class TopKSet[T: Comparable]:
         NB: The list is new by construction, and the items are copied with `deepcopy`.
         """
         return [copy.deepcopy(item) for item in sorted(self.data, reverse=True)]
+
+
+def display_params() -> str:
+    """Display the function parameters and values as a formatted string.
+
+    Masks sensitive values, i.e. values with `api` in the name.
+
+    Returns:
+        String representation of the parameter names and values.
+
+    Raises:
+        ValueError: if there's a problem getting the calling function object.
+    """
+    if (curframe := inspect.currentframe()) and curframe.f_back:
+        frame = curframe.f_back
+    else:
+        raise ValueError("Couldn't find calling function frame")
+
+    args = frame.f_locals
+    func_name = frame.f_code.co_name
+
+    # Get the actual function object from the frame
+    for obj in frame.f_globals.values():
+        if inspect.isfunction(obj) and obj.__name__ == func_name:
+            func = obj
+            break
+    else:
+        raise ValueError(f"Couldn't find function object '{func_name}'")
+
+    result: dict[str, str] = {}
+
+    for param_name, param in inspect.signature(func).parameters.items():
+        value = args.get(param_name, param.default)
+
+        if isinstance(value, Path):
+            value = f"{value.resolve()} ({_hash_path(value)})"
+
+        # Mask sensitive values
+        if "api" in param_name.casefold() and value is not None:
+            result[param_name] = "********"
+        else:
+            result[param_name] = str(value)
+
+    return (
+        "CONFIG:\n"
+        + "\n".join(f"{key}: {value}" for key, value in result.items())
+        + "\n"
+    )
+
+
+def _hash_path(path: Path, chars: int = 8) -> str:
+    """Calculate truncated SHA-256 hash of a path if it's a file.
+
+    If it's a directory, returns `directory`. Otherwise, returns `error`.
+    """
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()[:chars]
+    except IsADirectoryError:
+        return "directory"
+    except Exception:
+        return "error"
