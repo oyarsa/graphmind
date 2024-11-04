@@ -4,7 +4,7 @@
 #     Command:
 #     $ uv run gpt eval_full run output/asap_balanced_50.json tmp/eval-full -n 0 \
 #         --clean-run --user-prompt simple-abs --demos output/demonstrations_10.json \
-#         --demo-prompt simple -m 4o
+#         --demo-prompt abstract -m 4o
 #
 #     2024-11-04 20:03:37 | INFO | paper.gpt.evaluate_paper_full:151 | CONFIG:
 #     - model: 4o
@@ -17,7 +17,7 @@
 #     - clean_run: True
 #     - seed: 0
 #     - demonstrations_file: /Users/italo/dev/paper-hypergraph/output/demonstrations_10.json (55baa321)
-#     - demo_prompt_key: simple
+#     - demo_prompt_key: abstract
 #
 # Output:
 #     - P   : 0.6286
