@@ -1,0 +1,23 @@
+[[prompts]]
+name = "simple"
+type = "full"
+prompt = """
+Title: {title}
+Abstract: {abstract}
+Decision: {decision}
+Rationale: {rationale}
+"""
+
+[[prompts]]
+name = "maintext"
+type = "full"
+prompt = """
+Title: {title}
+Abstract: {abstract}
+
+Main text:
+{main_text}
+
+Decision: {decision}
+Rationale: {rationale}
+"""

@@ -7,6 +7,7 @@ from pydantic import Field
 
 from paper import evaluation_metrics
 from paper.gpt.model import Paper
+from paper.gpt.prompts import load_prompts
 from paper.util import safediv
 
 
@@ -67,3 +68,6 @@ def display_metrics(
         f" ({safediv(sum(y_pred), len(y_pred)):.2%})",
     ]
     return "\n".join(output)
+
+
+EVALUATE_DEMONSTRATION_PROMPTS = load_prompts("evaluate_paper_demonstrations")
