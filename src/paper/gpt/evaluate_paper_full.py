@@ -14,11 +14,13 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
+    Demonstration,
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
+    format_demonstrations,
 )
-from paper.gpt.model import Demonstration, Paper, Prompt, PromptResult
+from paper.gpt.model import Paper, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -268,7 +270,7 @@ async def _classify_paper(
         title=paper.title,
         abstract=paper.abstract,
         main_text=paper.main_text(),
-        demonstrations=_format_demonstrations(demonstrations, demonstration_prompt),
+        demonstrations=format_demonstrations(demonstrations, demonstration_prompt),
     )
     result = await run_gpt(
         _CLASSIFY_TYPES[user_prompt.type_name],
@@ -295,39 +297,6 @@ async def _classify_paper(
         ),
         cost=result.cost,
     )
-
-
-def _format_demonstrations(
-    demonstrations: Sequence[Demonstration], prompt: PromptTemplate
-) -> str:
-    """Format all `demonstrations` according to `prompt` as a single string.
-
-    Scramble the inputs such that we always have true/false/true/false interleaved.
-
-    If `demonstrations` is empty, returns the empty string.
-    """
-    if not demonstrations:
-        return ""
-
-    output_all = [
-        "-Demonstrations-",
-        "The following are examples of other paper evaluations with their approval"
-        " decisions and rationales:",
-        "",
-    ]
-
-    for demo in demonstrations:
-        output_all.append(
-            prompt.template.format(
-                title=demo.title,
-                abstract=demo.abstract,
-                main_text=demo.text,
-                decision=demo.approval,
-                rationale=demo.rationale,
-            )
-        )
-
-    return "\n\n".join(output_all)
 
 
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:

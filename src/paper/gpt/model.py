@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from enum import StrEnum
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, computed_field, model_validator
 
 from paper import hierarchical_graph
 from paper.asap.model import PaperReview
@@ -360,20 +360,3 @@ class PaperGraph(BaseModel):
         if self.paper.id != self.graph.item.id:
             raise ValueError("Paper ID must match graph item ID")
         return self
-
-
-class DemonstrationType(StrEnum):
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
-
-
-class Demonstration(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    title: str = Field(description="Paper title")
-    abstract: str = Field(description="Paper abstract")
-    text: str = Field(description="Paper full main text")
-    approval: bool = Field(description="Decision on whether to approve the paper")
-    rationale: str = Field(description="Rationale given by a reviewer")
-    rating: int = Field(description="Rating from the rationale")
-    type: DemonstrationType = Field(description="Type of demonstration")

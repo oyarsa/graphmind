@@ -18,7 +18,8 @@ from typing import Annotated
 import typer
 from pydantic import TypeAdapter
 
-from paper.gpt.model import Demonstration, DemonstrationType, Paper
+from paper.gpt.evaluate_paper import Demonstration, DemonstrationType
+from paper.gpt.model import Paper
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
