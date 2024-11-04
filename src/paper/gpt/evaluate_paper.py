@@ -104,28 +104,26 @@ def format_demonstrations(
         return ""
 
     output_all = [
-        "-Demonstrations-",
+        "-Demonstrations-\n"
         "The following are examples of other paper evaluations with their approval"
-        " decisions and rationales:",
-        "",
+        " decisions and rationales:\n",
     ]
 
     # Split demonstrations by type
-    positives = [d for d in demonstrations if d.type == DemonstrationType.POSITIVE]
-    negatives = [d for d in demonstrations if d.type == DemonstrationType.NEGATIVE]
-    
+    positives = [d for d in demonstrations if d.type is DemonstrationType.POSITIVE]
+    negatives = [d for d in demonstrations if d.type is DemonstrationType.NEGATIVE]
+
     # Interleave positive and negative demonstrations
-    interleaved = []
+    interleaved: list[Demonstration] = []
     for pos, neg in zip(positives, negatives):
-        interleaved.extend([pos, neg])
-    
+        interleaved.extend((pos, neg))
+
     # Add any remaining demonstrations if counts were uneven
     if len(positives) > len(negatives):
-        interleaved.extend(positives[len(negatives):])
+        interleaved.extend(positives[len(negatives) :])
     elif len(negatives) > len(positives):
-        interleaved.extend(negatives[len(positives):])
+        interleaved.extend(negatives[len(positives) :])
 
-    # Format each demonstration
     for demo in interleaved:
         output_all.append(
             prompt.template.format(
@@ -137,4 +135,4 @@ def format_demonstrations(
             )
         )
 
-    return "\n\n".join(output_all)
+    return f"\n{"-" * 50}\n".join(output_all)
