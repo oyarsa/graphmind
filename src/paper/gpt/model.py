@@ -4,8 +4,9 @@ import itertools
 from collections import Counter, defaultdict
 from collections.abc import Sequence
 from enum import StrEnum
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from paper import hierarchical_graph
 from paper.asap.model import PaperReview
@@ -354,10 +355,11 @@ class PaperGraph(BaseModel):
     def id(self) -> int:
         return self.paper.id
 
-    def __post_init__(self) -> None:
-        # TODO: Use proper pydantic thing for this
+    @model_validator(mode="after")
+    def validate_matching_ids(self) -> Self:
         if self.paper.id != self.graph.item.id:
             raise ValueError("Paper ID must match graph item ID")
+        return self
 
 
 class DemonstrationType(StrEnum):
