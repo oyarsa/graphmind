@@ -8,7 +8,7 @@ import argparse
 import asyncio
 import logging
 
-from paper.gpt import classify_contexts, evaluate_paper_full, extract_graph
+from paper.gpt import classify_contexts, evaluate_paper_full, extract_graph, tokens
 from paper.util import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,6 @@ def main() -> None:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    # Create subparsers for 'graph' and 'context' subcomands
     subparsers = parser.add_subparsers(
         title="commands",
         description="Valid commands",
@@ -51,8 +50,15 @@ def main() -> None:
     )
     evaluate_paper_full.setup_cli_parser(eval_full_parser)
 
-    args = parser.parse_args()
+    # 'tokens'
+    tokens_parser = subparsers.add_parser(
+        "tokens",
+        help="Estimate input tokens for task and prompts",
+        description="Estimate input tokens for task and prompts with provided arguments",
+    )
+    tokens.setup_cli_parser(tokens_parser)
 
+    args = parser.parse_args()
     setup_logging()
 
     if args.command == "graph":
@@ -114,6 +120,19 @@ def main() -> None:
                     args.demo_prompt,
                 )
             )
+
+    elif args.command == "tokens":
+        if args.subcommand == "eval_full":
+            tokens.fulltext(
+                args.input_file,
+                args.user_prompt_key,
+                args.demo_prompt_key,
+                args.demonstrations_file,
+                args.model,
+                args.limit,
+            )
+        else:  # other commands
+            pass
 
 
 if __name__ == "__main__":
