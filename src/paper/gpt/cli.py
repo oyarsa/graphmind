@@ -6,27 +6,19 @@
 - tokens: Estimate input tokens from different prompts and demonstrations.
 """
 
-import argparse
 import asyncio
 import logging
 
 from paper.gpt import classify_contexts, evaluate_paper_full, extract_graph, tokens
-from paper.util import setup_logging
+from paper.util import HelpOnErrorArgumentParser, setup_logging
 
 logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
 
-    subparsers = parser.add_subparsers(
-        title="commands",
-        description="Valid commands",
-        dest="command",
-        required=True,
-    )
+    subparsers = parser.add_subparsers(title="commands", dest="command", required=True)
 
     # 'graph' subcommand parser
     graph_parser = subparsers.add_parser(

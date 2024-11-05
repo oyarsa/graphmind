@@ -60,15 +60,13 @@ from paper.gpt.run_gpt import (
     run_gpt,
 )
 from paper.progress import as_completed
-from paper.util import Timer, display_params, setup_logging
+from paper.util import HelpOnErrorArgumentParser, Timer, display_params, setup_logging
 
 logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     setup_cli_parser(parser)
 
     args = parser.parse_args()
@@ -342,10 +340,7 @@ async def _classify_paper(
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     # Create subparsers for 'run' and 'prompts' subcommands
     subparsers = parser.add_subparsers(
-        title="subcommands",
-        description="Valid subcommands",
-        dest="subcommand",
-        required=True,
+        title="subcommands", dest="subcommand", required=True
     )
 
     # 'run' subcommand parser

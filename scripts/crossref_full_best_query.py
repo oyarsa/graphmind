@@ -8,7 +8,6 @@ This is done by going through the "full" file and doing the same fuzzy compariso
 original script did.
 """
 
-import argparse
 import json
 import sys
 from pathlib import Path
@@ -17,6 +16,7 @@ from typing import Any
 from tqdm import tqdm
 
 from paper.external_data.crossref import get_best_paper
+from paper.util import HelpOnErrorArgumentParser
 
 
 def download(
@@ -51,9 +51,7 @@ def download(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument(
         "input_file", type=Path, help="File containing paper titles, one per line"
     )

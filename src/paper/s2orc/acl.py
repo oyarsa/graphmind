@@ -5,9 +5,10 @@ Does not include the full text of the papers.
 
 # Because SemanticScholar is completely untyped, and it's not worth wrapping it
 # pyright: basic
-import argparse
 
 from semanticscholar import SemanticScholar
+
+from paper.util import HelpOnErrorArgumentParser
 
 # From https://aclanthology.org/
 _ACL_CONFERENCES = [
@@ -80,9 +81,7 @@ def search_papers(query: str, conferences: list[str], year: str, limit: int) -> 
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument("--query", default="*", help="Query string to search for")
     parser.add_argument(
         "--conferences",

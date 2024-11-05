@@ -52,7 +52,6 @@ Diagram for this pipeline:
 ```
 """
 
-import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -66,7 +65,7 @@ from paper.asap.model import (
     ReferenceEnriched,
     S2Paper,
 )
-from paper.util import fuzzy_ratio
+from paper.util import HelpOnErrorArgumentParser, fuzzy_ratio
 
 
 def _match_paper_external(
@@ -146,9 +145,7 @@ def add_references(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument("papers", type=Path, help="Path to ASAP filtered papers file")
     parser.add_argument("external", type=Path, help="Path to S2 reference papers file")
     parser.add_argument("output", type=Path, help="Path to output JSON file")

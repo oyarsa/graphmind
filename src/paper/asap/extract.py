@@ -4,7 +4,6 @@ We extract the title, abstract, full paper sections, ratings, approval decision 
 references (including their context in the paper).
 """
 
-import argparse
 import json
 from collections import defaultdict
 from collections.abc import Sequence
@@ -15,6 +14,7 @@ from pydantic import TypeAdapter
 
 from paper.asap import process_sections
 from paper.asap.model import CitationContext, Paper, PaperReference, PaperReview
+from paper.util import HelpOnErrorArgumentParser
 
 
 def _parse_rating(rating: str) -> int | None:
@@ -115,9 +115,7 @@ def extract_interesting(input_file: Path, output_file: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument("input", type=Path, help="Path to input (filtered) JSON file")
     parser.add_argument("output", type=Path, help="Path to output extracted JSON file")
     args = parser.parse_args()

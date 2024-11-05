@@ -10,7 +10,6 @@ external_data.semantic_scholar (Semantic Scholar API) instead. This script is li
 break in the future, as it won't be maintained.
 """
 
-import argparse
 import json
 import sys
 from collections.abc import Iterable
@@ -20,7 +19,7 @@ from typing import Any
 import habanero  # type: ignore
 from tqdm import tqdm
 
-from paper.util import fuzzy_ratio
+from paper.util import HelpOnErrorArgumentParser, fuzzy_ratio
 
 
 class CrossrefClient:
@@ -98,9 +97,7 @@ def download(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument("input_file", type=Path, help="Input file (asap_filtered.json)")
     parser.add_argument(
         "output_path", type=Path, help="Directory to save the downloaded information"

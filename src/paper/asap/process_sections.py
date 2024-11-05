@@ -1,6 +1,5 @@
 """Group paper sections by heading number and merge subsections."""
 
-import argparse
 import json
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
@@ -8,6 +7,7 @@ from pathlib import Path
 from pydantic import TypeAdapter
 
 from paper.asap.model import PaperSection
+from paper.util import HelpOnErrorArgumentParser
 
 
 def _merge_section(subsections: Sequence[PaperSection]) -> PaperSection | None:
@@ -144,9 +144,7 @@ def process_sections(infile: Path, outfile: Path, limit: int | None = None) -> N
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        __doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument("input", type=Path, help="Path input to JSON file")
     parser.add_argument("output", type=Path, help="Path output JSON file")
     parser.add_argument(

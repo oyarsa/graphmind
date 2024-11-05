@@ -15,7 +15,6 @@ The resulting files are:
 [1] See paper.asap.preprocess.
 """
 
-import argparse
 import asyncio
 import json
 import os
@@ -28,7 +27,7 @@ import aiohttp
 import dotenv
 
 from paper.progress import gather
-from paper.util import fuzzy_ratio
+from paper.util import HelpOnErrorArgumentParser, fuzzy_ratio
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -174,9 +173,7 @@ async def _download_paper_info(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument("input_file", type=Path, help="Input file (asap_filtered.json)")
     parser.add_argument(
         "output_path", type=Path, help="Directory to save the downloaded information"

@@ -8,10 +8,11 @@ UTF-8.
 The files must be downloaded from Google Drive. See README.md for more information.
 """
 
-import argparse
 import json
 from pathlib import Path
 from typing import Any
+
+from paper.util import HelpOnErrorArgumentParser
 
 
 def _safe_load_json(file_path: Path) -> Any:
@@ -74,9 +75,7 @@ def merge_content_review(path: Path, output_path: Path, max_papers: int | None) 
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument(
         "path",
         type=Path,

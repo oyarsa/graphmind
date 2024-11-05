@@ -1,6 +1,5 @@
 """Get the size of the files from the S2ORC from the Semantic Scholar API."""
 
-import argparse
 import asyncio
 import json
 import os
@@ -12,6 +11,7 @@ import aiohttp
 import dotenv
 
 from paper.progress import gather
+from paper.util import HelpOnErrorArgumentParser
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -113,9 +113,7 @@ def get_filesizes(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument(
         "dataset_name", type=str, help="Name of the dataset to get the file sizes for."
     )

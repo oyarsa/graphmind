@@ -1,6 +1,5 @@
 """Download files from the S2ORC from the Semantic Scholar API."""
 
-import argparse
 import asyncio
 import json
 import os
@@ -14,6 +13,7 @@ import dotenv
 from tqdm.asyncio import tqdm
 
 from paper.progress import gather
+from paper.util import HelpOnErrorArgumentParser
 
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file
@@ -147,9 +147,7 @@ def download_dataset(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument(
         "output_path", type=Path, help="Directory to save the downloaded files"
     )

@@ -1,9 +1,10 @@
 # pyright: strict
 """Search JSON files for objects with matching keys."""
 
-import argparse
 import json
 from pathlib import Path
+
+from paper.util import HelpOnErrorArgumentParser
 
 type JSONObject = list[JSONObject] | dict[str, JSONObject] | int | float | str | None
 
@@ -43,9 +44,7 @@ def main(paths: list[Path], keyword: str) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument("keyword", type=str, help="Keyword to search for in JSON keys")
     parser.add_argument(
         "paths", nargs="+", type=Path, help="List of paths to search for JSON files"

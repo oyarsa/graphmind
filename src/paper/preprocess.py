@@ -1,14 +1,13 @@
 """Entrypoint for ASAP and S2ORC preprocessing pipelines."""
 
-import argparse
-
 from paper.asap import preprocess as asap
 from paper.s2orc import preprocess as s2orc
+from paper.util import HelpOnErrorArgumentParser
 
 
 def main():
     # Create the top-level parser
-    parser = argparse.ArgumentParser(
+    parser = HelpOnErrorArgumentParser(
         description="Run different preprocessing pipelines"
     )
     subparsers = parser.add_subparsers(

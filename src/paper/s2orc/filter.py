@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Extract ACL-related papers from gzipped JSON files."""
 
-import argparse
 import gzip
 import json
 import re
@@ -9,6 +8,8 @@ import sys
 from pathlib import Path
 
 from tqdm import tqdm
+
+from paper.util import HelpOnErrorArgumentParser
 
 # ACL conference keywords
 # fmt: off
@@ -134,9 +135,7 @@ def filter_papers(input_directory: Path, output_file: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument(
         "input_directory",
         type=Path,

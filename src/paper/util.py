@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import argparse
 import copy
 import hashlib
 import heapq
 import inspect
 import logging
 import os
+import sys
 import time
+from collections.abc import Sequence
 from importlib import resources
 from pathlib import Path
-from typing import Any, Protocol, Self
+from typing import Any, NoReturn, Protocol, Self, override
 
 import colorlog
 from thefuzz import fuzz  # type: ignore
@@ -256,3 +259,58 @@ def _hash_path(path: Path, chars: int = 8) -> str:
         return "directory"
     except Exception:
         return "error"
+
+
+class HelpOnErrorArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser that prints the full help text on error."""
+
+    @override
+    def error(self, message: str) -> NoReturn:
+        self.print_help(sys.stderr)
+        self.exit(2, f"\nError: {message}\n")
+
+    def __init__(
+        self,
+        description: str | None = None,
+        prog: str | None = None,
+        usage: str | None = None,
+        epilog: str | None = None,
+        parents: Sequence[argparse.ArgumentParser] = (),
+        formatter_class: type[
+            argparse.HelpFormatter
+        ] = argparse.RawDescriptionHelpFormatter,
+        prefix_chars: str = "-",
+        fromfile_prefix_chars: str | None = None,
+        argument_default: Any = None,
+        conflict_handler: str = "error",
+        add_help: bool = True,
+        allow_abbrev: bool = False,
+        exit_on_error: bool = True,
+    ) -> None:
+        """Overrides `ArgumentParser.__init__` to make `description` the first parameter.
+
+        Sets a default value for `formatter_class` to be `RawDescriptionHelpFormatter`
+        since we're using the full module docstring as usage text. Also sets
+        `allow_abbrev` to `False`, so that only real flags are accepted.
+
+        The goal is to allow the most common case (use the module docstring as the
+        description) to be just:
+
+        Example:
+            >>> parser = HelpOnErrorArgumentParser(__doc__)
+        """
+        super().__init__(
+            prog=prog,
+            usage=usage,
+            description=description,
+            epilog=epilog,
+            parents=parents,
+            formatter_class=formatter_class,
+            prefix_chars=prefix_chars,
+            fromfile_prefix_chars=fromfile_prefix_chars,
+            argument_default=argument_default,
+            conflict_handler=conflict_handler,
+            add_help=add_help,
+            allow_abbrev=allow_abbrev,
+            exit_on_error=exit_on_error,
+        )

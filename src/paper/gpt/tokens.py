@@ -32,7 +32,7 @@ from paper.gpt.evaluate_paper_full import FULL_CLASSIFY_USER_PROMPTS as FULLTEXT
 from paper.gpt.evaluate_paper_full import format_template as format_fulltext
 from paper.gpt.model import Paper
 from paper.gpt.run_gpt import MODEL_SYNONYMS, MODELS_ALLOWED
-from paper.util import display_params, setup_logging
+from paper.util import HelpOnErrorArgumentParser, display_params, setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +76,7 @@ def fulltext(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     setup_cli_parser(parser)
     setup_logging()
 
@@ -95,7 +93,9 @@ def main() -> None:
 
 
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
-    subparsers = parser.add_subparsers(dest="subcommand", required=True)
+    subparsers = parser.add_subparsers(
+        title="subcommands", dest="subcommand", required=True
+    )
 
     # Fulltext subcommand
     parser_fulltext = subparsers.add_parser(

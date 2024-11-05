@@ -6,11 +6,12 @@ The input JSON file should have the following structure (nested):
 - Each "references" object has a "title" key with a string value
 """
 
-import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
 from pydantic import BaseModel, TypeAdapter
+
+from paper.util import HelpOnErrorArgumentParser
 
 
 class Reference(BaseModel):
@@ -36,9 +37,7 @@ def main(infile: Path, outfile: Path) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument("infile", type=Path, help="Path to the input JSON file")
     parser.add_argument("outfile", type=Path, help="Path to the output JSON file")
     args = parser.parse_args()

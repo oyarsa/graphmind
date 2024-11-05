@@ -3,7 +3,6 @@
 Consider running the scripts separately. See the README for more information.
 """
 
-import argparse
 import os
 from pathlib import Path
 
@@ -12,6 +11,7 @@ import dotenv
 from paper.s2orc.download import download_dataset
 from paper.s2orc.extract import extract_data
 from paper.s2orc.filter import filter_papers
+from paper.util import HelpOnErrorArgumentParser
 
 
 def pipeline(
@@ -49,17 +49,15 @@ def pipeline(
     print(f"\nFinal output file: {matched_papers_path}")
 
 
-def cli_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+def cli_parser() -> HelpOnErrorArgumentParser:
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument(
         "dataset_path",
         type=Path,
         help="Path to save the downloaded dataset",
     )
     parser.add_argument(
-        "processed._path",
+        "processed_path",
         type=Path,
         help="Path to save the S2 extracted files (JSON.GZ)",
     )

@@ -6,7 +6,6 @@ The file names are only the basename for the files, assumed to be under
 `input_directory`.
 """
 
-import argparse
 import gzip
 import json
 import sys
@@ -14,6 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from tqdm import tqdm
+
+from paper.util import HelpOnErrorArgumentParser
 
 
 def process_papers(
@@ -50,9 +51,7 @@ def process_papers(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument(
         "input_directory",
         type=Path,
