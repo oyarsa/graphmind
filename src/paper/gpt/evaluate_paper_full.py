@@ -94,7 +94,7 @@ def main() -> None:
         )
 
 
-_FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
+FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
 
 
 async def evaluate_papers(
@@ -166,7 +166,7 @@ async def evaluate_papers(
     random.shuffle(data)
 
     papers = data[:limit_papers]
-    user_prompt = _FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
+    user_prompt = FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
         TypeAdapter(list[Demonstration]).validate_json(demonstrations_file.read_bytes())
@@ -291,6 +291,16 @@ _FULL_CLASSIFY_SYSTEM_PROMPT = (
 )
 
 
+def format_template(prompt: PromptTemplate, paper: Paper, demonstrations: str) -> str:
+    """Format full-text evaluation template `paper` and `demonstrations`."""
+    return prompt.template.format(
+        title=paper.title,
+        abstract=paper.abstract,
+        main_text=paper.main_text(),
+        demonstrations=demonstrations,
+    )
+
+
 async def _classify_paper(
     client: AsyncOpenAI,
     model: str,
@@ -300,12 +310,7 @@ async def _classify_paper(
     *,
     seed: int,
 ) -> GPTResult[PromptResult[PaperResult]]:
-    user_prompt_text = user_prompt.template.format(
-        title=paper.title,
-        abstract=paper.abstract,
-        main_text=paper.main_text(),
-        demonstrations=demonstrations,
-    )
+    user_prompt_text = format_template(user_prompt, paper, demonstrations)
     result = await run_gpt(
         _CLASSIFY_TYPES[user_prompt.type_name],
         client,
@@ -387,7 +392,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     run_parser.add_argument(
         "--user-prompt",
         type=str,
-        choices=_FULL_CLASSIFY_USER_PROMPTS.keys(),
+        choices=FULL_CLASSIFY_USER_PROMPTS.keys(),
         default="simple",
         help="The user prompt to use for paper classification. Defaults to"
         " %(default)s.",
@@ -436,7 +441,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
 
 
 def list_prompts(detail: bool) -> None:
-    print_prompts("FULL PAPER EVALUATION", _FULL_CLASSIFY_USER_PROMPTS, detail=detail)
+    print_prompts("FULL PAPER EVALUATION", FULL_CLASSIFY_USER_PROMPTS, detail=detail)
 
 
 if __name__ == "__main__":
