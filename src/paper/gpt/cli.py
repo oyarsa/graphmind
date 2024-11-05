@@ -46,8 +46,8 @@ def main() -> None:
     # 'evaluate_paper_full'
     eval_full_parser = subparsers.add_parser(
         "eval_full",
-        help="Rull paper evaluation from full text",
-        description="Rull paper evaluation from full text with the provided arguments",
+        help="Run paper evaluation from full text",
+        description="Run paper evaluation from full text with the provided arguments",
     )
     evaluate_paper_full.setup_cli_parser(eval_full_parser)
 
