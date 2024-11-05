@@ -77,20 +77,30 @@ class Timer:
         return " ".join(parts)
 
 
-def setup_logging(logger: logging.Logger | str | None = None) -> None:
+def setup_logging() -> None:
+    """Initialise `paper` and `__main__` loggers, printing colourful output to stderr.
+
+    Uses `LOG_LEVEL` environment variable to set the level. By default, it's INFO. Use
+    the standard level names (see documentation for `logging` module).
+
+    This function initialises both the package's root logger `paper` and the `__main__`
+    logger.
+    """
+    _setup_logging("paper")  # Set up loggers for imported packages
+    _setup_logging("__main__")  # This one's for when a script is called directly
+
+
+def _setup_logging(logger_name: str) -> None:
     """Initialise a logger printing colourful output to stderr.
 
     Uses `LOG_LEVEL` environment variable to set the level. By default, it's INFO. Use
     the standard level names (see documentation for `logging` module).
 
     Args:
-        logger: A proper Logger object, or a string to locate one. By default,
-            initialises the global project logger, including all its descendants.
+        logger_name: String used to locate a global logger. Initialises the global
+            project logger, including all its descendants.
     """
-    if logger is None:
-        logger = __name__.split(".")[0]
-    if isinstance(logger, str):
-        logger = logging.getLogger(logger)
+    logger = logging.getLogger(logger_name)
 
     level = os.environ.get("LOG_LEVEL", "INFO").upper()
     logger.setLevel(level)

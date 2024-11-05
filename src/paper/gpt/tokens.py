@@ -45,7 +45,7 @@ def fulltext(
     model: str,
     limit: int | None,
 ) -> None:
-    """Full text-based paper evaluation"""
+    """Estimate tokens for full text-based paper evaluation."""
     logger.info(display_params())
 
     model = MODEL_SYNONYMS.get(model, model)
@@ -69,7 +69,10 @@ def fulltext(
 
     tokeniser = tiktoken.encoding_for_model(model)
     tokens = [len(tokeniser.encode(prompt)) for prompt in prompts]
-    print(pd.Series(tokens).describe().astype(int).to_string())  # type: ignore
+    logger.info(
+        "Token stats:\n%s\n",
+        pd.Series(tokens).describe().astype(int).to_string(),  # type: ignore
+    )
 
 
 def main() -> None:
@@ -89,8 +92,6 @@ def main() -> None:
             args.model,
             args.limit,
         )
-
-    setup_logging()
 
 
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
