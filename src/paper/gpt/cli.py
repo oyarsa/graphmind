@@ -2,6 +2,8 @@
 
 - context: Run context classification on ASAP references.
 - graph: Extract concept graph from an ASAP and perform classification on it.
+- eval_full: Paper evaluation based on the full text only.
+- tokens: Estimate input tokens from different prompts and demonstrations.
 """
 
 import argparse
