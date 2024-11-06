@@ -5,9 +5,10 @@ Also calculates the number of words in the contexts and estimated number of GPT 
 Uses the output of `paper.asap.merge` as input.
 """
 
-import argparse
 import json
 from pathlib import Path
+
+from paper.util import HelpOnErrorArgumentParser
 
 
 def main(input_file: Path) -> None:
@@ -31,9 +32,7 @@ def main(input_file: Path) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument(
         "input",
         type=Path,

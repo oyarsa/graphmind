@@ -15,11 +15,8 @@ The resulting files are:
 [1] See paper.asap.preprocess.
 """
 
-import argparse
 import asyncio
 import json
-import os
-import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -28,7 +25,7 @@ import aiohttp
 import dotenv
 
 from paper.progress import gather
-from paper.util import fuzzy_ratio
+from paper.util import HelpOnErrorArgumentParser, arun_safe, ensure_envvar, fuzzy_ratio
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -174,9 +171,7 @@ async def _download_paper_info(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument("input_file", type=Path, help="Input file (asap_filtered.json)")
     parser.add_argument(
         "output_path", type=Path, help="Directory to save the downloaded information"
@@ -202,12 +197,6 @@ def main() -> None:
         help="Comma-separated list of fields to retrieve",
     )
     parser.add_argument(
-        "--api-key",
-        type=str,
-        help="API key for the Semantic Scholar API. Defaults to the"
-        " SEMANTIC_SCHOLAR_API_KEY environment variable.",
-    )
-    parser.add_argument(
         "--min-fuzzy",
         type=int,
         default=80,
@@ -216,33 +205,16 @@ def main() -> None:
     args = parser.parse_args()
 
     dotenv.load_dotenv()
-    api_key = args.api_key or os.environ.get("SEMANTIC_SCHOLAR_API_KEY")
-    if not api_key:
-        print(
-            "Error: No API key provided. Please set the SEMANTIC_SCHOLAR_API_KEY"
-            " environment variable or use the --api-key argument."
-        )
-        sys.exit(1)
+    api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
 
-    while True:
-        try:
-            asyncio.run(
-                _download_paper_info(
-                    args.input_file,
-                    args.fields,
-                    args.output_path,
-                    api_key,
-                    args.min_fuzzy,
-                )
-            )
-            break  # If _download completes without interruption, exit the loop
-        except KeyboardInterrupt:
-            choice = input("\n\nCtrl+C detected. Do you really want to exit? (y/n): ")
-            if choice.lower() == "y":
-                sys.exit()
-            else:
-                # The loop will continue, restarting _download
-                print("Continuing...\n")
+    arun_safe(
+        _download_paper_info,
+        args.input_file,
+        args.fields,
+        args.output_path,
+        api_key,
+        args.min_fuzzy,
+    )
 
 
 if __name__ == "__main__":

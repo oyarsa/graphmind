@@ -4,7 +4,6 @@ Extracts abstract, title, venue and paper text. If any of these fields are missi
 the paper is skipped.
 """
 
-import argparse
 import contextlib
 import gzip
 import json
@@ -13,6 +12,8 @@ from pathlib import Path
 from typing import Any
 
 from tqdm import tqdm
+
+from paper.util import HelpOnErrorArgumentParser
 
 
 def _extract_annotation(text: str, annotations: dict[str, str], key: str) -> str | None:
@@ -99,7 +100,7 @@ def extract_data(input_files: Iterable[Path], output_dir: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument("input_files", type=Path, nargs="+", help="Input gzipped files")
     parser.add_argument(
         "--output-dir",

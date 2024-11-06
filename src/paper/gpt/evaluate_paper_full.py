@@ -31,7 +31,6 @@
 import argparse
 import asyncio
 import logging
-import os
 import random
 from collections.abc import Sequence
 from pathlib import Path
@@ -60,15 +59,19 @@ from paper.gpt.run_gpt import (
     run_gpt,
 )
 from paper.progress import as_completed
-from paper.util import Timer, display_params, setup_logging
+from paper.util import (
+    HelpOnErrorArgumentParser,
+    Timer,
+    display_params,
+    ensure_envvar,
+    setup_logging,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     setup_cli_parser(parser)
 
     args = parser.parse_args()
@@ -80,7 +83,6 @@ def main() -> None:
         asyncio.run(
             evaluate_papers(
                 args.model,
-                args.api_key,
                 args.data_path,
                 args.limit,
                 args.user_prompt,
@@ -94,12 +96,11 @@ def main() -> None:
         )
 
 
-_FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
+FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
 
 
 async def evaluate_papers(
     model: str,
-    api_key: str | None,
     data_path: Path,
     limit_papers: int | None,
     user_prompt_key: str,
@@ -120,7 +121,6 @@ async def evaluate_papers(
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        api_key: OpenAI API key. Defaults to OPENAI_API_KEY env var.
         data_path: Path to the JSON file containing the input papers data.
         limit: Number of papers to process. Defaults to 1 example. If None, process all.
         graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
@@ -150,8 +150,6 @@ async def evaluate_papers(
     random.seed(seed)
 
     dotenv.load_dotenv()
-    if api_key:
-        os.environ["OPENAI_API_KEY"] = api_key
 
     model = MODEL_SYNONYMS.get(model, model)
     if model not in MODELS_ALLOWED:
@@ -160,13 +158,13 @@ async def evaluate_papers(
     if limit_papers == 0:
         limit_papers = None
 
-    client = AsyncOpenAI()
+    client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
     random.shuffle(data)
 
     papers = data[:limit_papers]
-    user_prompt = _FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
+    user_prompt = FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
         TypeAdapter(list[Demonstration]).validate_json(demonstrations_file.read_bytes())
@@ -208,6 +206,7 @@ async def evaluate_papers(
             papers_remaining.remaining,
             output_intermediate_file,
             demonstrations,
+            seed=seed,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -236,6 +235,8 @@ async def _classify_papers(
     papers: Sequence[Paper],
     output_intermediate_file: Path,
     demonstrations: str,
+    *,
+    seed: int,
 ) -> GPTResult[list[PromptResult[PaperResult]]]:
     """Classify Papers into approved/not approved using the paper main text.
 
@@ -254,7 +255,7 @@ async def _classify_papers(
     total_cost = 0
 
     tasks = [
-        _classify_paper(client, model, paper, user_prompt, demonstrations)
+        _classify_paper(client, model, paper, user_prompt, demonstrations, seed=seed)
         for paper in papers
     ]
 
@@ -288,25 +289,33 @@ _FULL_CLASSIFY_SYSTEM_PROMPT = (
 )
 
 
+def format_template(prompt: PromptTemplate, paper: Paper, demonstrations: str) -> str:
+    """Format full-text evaluation template `paper` and `demonstrations`."""
+    return prompt.template.format(
+        title=paper.title,
+        abstract=paper.abstract,
+        main_text=paper.main_text(),
+        demonstrations=demonstrations,
+    )
+
+
 async def _classify_paper(
     client: AsyncOpenAI,
     model: str,
     paper: Paper,
     user_prompt: PromptTemplate,
     demonstrations: str,
+    *,
+    seed: int,
 ) -> GPTResult[PromptResult[PaperResult]]:
-    user_prompt_text = user_prompt.template.format(
-        title=paper.title,
-        abstract=paper.abstract,
-        main_text=paper.main_text(),
-        demonstrations=demonstrations,
-    )
+    user_prompt_text = format_template(user_prompt, paper, demonstrations)
     result = await run_gpt(
         _CLASSIFY_TYPES[user_prompt.type_name],
         client,
         _FULL_CLASSIFY_SYSTEM_PROMPT,
         user_prompt_text,
         model,
+        seed=seed,
     )
     classified = result.result
 
@@ -331,10 +340,7 @@ async def _classify_paper(
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     # Create subparsers for 'run' and 'prompts' subcommands
     subparsers = parser.add_subparsers(
-        title="subcommands",
-        description="Valid subcommands",
-        dest="subcommand",
-        required=True,
+        title="subcommands", dest="subcommand", required=True
     )
 
     # 'run' subcommand parser
@@ -363,15 +369,6 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         help="The model to use for the extraction. Defaults to %(default)s.",
     )
     run_parser.add_argument(
-        "--api-key",
-        type=str,
-        default=None,
-        help=(
-            "The OpenAI API key to use for the extraction. Defaults to OPENAI_API_KEY"
-            " env var. Can be read from the .env file."
-        ),
-    )
-    run_parser.add_argument(
         "--limit",
         "-n",
         type=int,
@@ -381,7 +378,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     run_parser.add_argument(
         "--user-prompt",
         type=str,
-        choices=_FULL_CLASSIFY_USER_PROMPTS.keys(),
+        choices=FULL_CLASSIFY_USER_PROMPTS.keys(),
         default="simple",
         help="The user prompt to use for paper classification. Defaults to"
         " %(default)s.",
@@ -430,7 +427,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
 
 
 def list_prompts(detail: bool) -> None:
-    print_prompts("FULL PAPER EVALUATION", _FULL_CLASSIFY_USER_PROMPTS, detail=detail)
+    print_prompts("FULL PAPER EVALUATION", FULL_CLASSIFY_USER_PROMPTS, detail=detail)
 
 
 if __name__ == "__main__":

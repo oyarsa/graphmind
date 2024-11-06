@@ -7,9 +7,10 @@ match accuracy. This script adds these titles.
 Note: the correct version of the API script is already available, so this is a one-off.
 """
 
-import argparse
 import json
 from pathlib import Path
+
+from paper.util import HelpOnErrorArgumentParser
 
 
 def main(titles_file: Path, api_result_file: Path, output_file: Path) -> None:
@@ -29,9 +30,7 @@ def main(titles_file: Path, api_result_file: Path, output_file: Path) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument("titles", type=Path, help="Path to ASAP Titles JSON file")
     parser.add_argument(
         "api_result", type=Path, help="Path to Semantic Scholar API results JSON file"

@@ -43,9 +43,8 @@ $ uv run preprocess asap data/asap output
 # This needs a Semantic Scholar API, which you can get from https://www.semanticscholar.org/product/api#api-key-form
 # Downloaded S2ORC data and intermediate files will be stored on `data/s2orc`
 # Output will be saved to `output/s2orc_papers.json.gz`
-$ uv run preprocess s2orc data/s2orc output --api-key YOUR_SEMANTIC_SCHOLAR_KEY
-# You can also set the SEMANTIC_SCHOLAR_API_KEY environment variable instead of using
-# `--api-key`.
+$ export SEMANTIC_SCHOLAR_API_KEY=... # set the environment variable or use the .env file
+$ uv run preprocess s2orc data/s2orc output
 
 # More information on the commands and options
 $ uv run preprocess s2orc --help
@@ -64,8 +63,8 @@ generation tool:
 
 ```console
 # Generate the graphs from ASAP papers
-$ uv run graph-gpt run output/asap_filtered output/graph --api-key YOUR_OPENAI_KEY
-# You can also set the OPENAI_API_KEY environment variable instead of using `--api-key`
+$ export OPENAI_API_KEY=... # set the environment variable or use the .env file
+$ uv run graph-gpt run output/asap_filtered output/graph
 
 # See the available prompts
 $ uv run graph-gpt prompts

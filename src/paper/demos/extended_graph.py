@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Plot representation of a graph with different node types."""
 
-import argparse
 from pathlib import Path
 
 from paper.hierarchical_graph import DiGraph, Edge, Node
+from paper.util import HelpOnErrorArgumentParser
 
 
 def main(output: Path | None) -> None:
@@ -122,11 +122,7 @@ def main(output: Path | None) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument(
-        "--output", type=Path, help="Path to save the figure (required)"
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
+    parser.add_argument("output", type=Path, help="Path to save the figure ")
     args = parser.parse_args()
     main(args.output)

@@ -19,6 +19,8 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from matplotlib.patches import Rectangle
 
+from paper.util import HelpOnErrorArgumentParser
+
 logger = logging.getLogger(__name__)
 
 
@@ -352,7 +354,7 @@ class DiGraph:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Visualise a hierarchical graph")
+    parser = HelpOnErrorArgumentParser(description="Visualise a hierarchical graph")
     parser.add_argument("graph_file", type=Path, help="Path to the graph file")
     parser.add_argument(
         "--output",

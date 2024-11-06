@@ -4,12 +4,12 @@ This is determined by the difference between the minimum and maximum ratings. If
 greater than 3, the paper is removed from the dataset.
 """
 
-import argparse
 from pathlib import Path
 
 from pydantic import TypeAdapter
 
 from paper.asap.model import Paper
+from paper.util import HelpOnErrorArgumentParser
 
 
 def _keep_paper(paper: Paper) -> bool:
@@ -34,9 +34,7 @@ def filter_ratings(input_file: Path, output_file: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument("input", type=Path, help="Path to input (extracted) JSON file")
     parser.add_argument("output", type=Path, help="Path to output filtered JSON file")
     args = parser.parse_args()

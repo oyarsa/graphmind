@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import argparse
+import asyncio
 import copy
 import hashlib
 import heapq
 import inspect
 import logging
 import os
+import sys
 import time
+from collections.abc import Callable, Coroutine, Sequence
 from importlib import resources
 from pathlib import Path
-from typing import Any, Protocol, Self
+from typing import Any, NoReturn, Protocol, Self, override
 
 import colorlog
 from thefuzz import fuzz  # type: ignore
@@ -77,20 +81,30 @@ class Timer:
         return " ".join(parts)
 
 
-def setup_logging(logger: logging.Logger | str | None = None) -> None:
+def setup_logging() -> None:
+    """Initialise `paper` and `__main__` loggers, printing colourful output to stderr.
+
+    Uses `LOG_LEVEL` environment variable to set the level. By default, it's INFO. Use
+    the standard level names (see documentation for `logging` module).
+
+    This function initialises both the package's root logger `paper` and the `__main__`
+    logger.
+    """
+    _setup_logging("paper")  # Set up loggers for imported packages
+    _setup_logging("__main__")  # This one's for when a script is called directly
+
+
+def _setup_logging(logger_name: str) -> None:
     """Initialise a logger printing colourful output to stderr.
 
     Uses `LOG_LEVEL` environment variable to set the level. By default, it's INFO. Use
     the standard level names (see documentation for `logging` module).
 
     Args:
-        logger: A proper Logger object, or a string to locate one. By default,
-            initialises the global project logger, including all its descendants.
+        logger_name: String used to locate a global logger. Initialises the global
+            project logger, including all its descendants.
     """
-    if logger is None:
-        logger = __name__.split(".")[0]
-    if isinstance(logger, str):
-        logger = logging.getLogger(logger)
+    logger = logging.getLogger(logger_name)
 
     level = os.environ.get("LOG_LEVEL", "INFO").upper()
     logger.setLevel(level)
@@ -246,3 +260,118 @@ def _hash_path(path: Path, chars: int = 8) -> str:
         return "directory"
     except Exception:
         return "error"
+
+
+class HelpOnErrorArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser that prints the full help text on error."""
+
+    @override
+    def error(self, message: str) -> NoReturn:
+        self.print_help(sys.stderr)
+        self.exit(2, f"\nError: {message}\n")
+
+    def __init__(
+        self,
+        description: str | None = None,
+        prog: str | None = None,
+        usage: str | None = None,
+        epilog: str | None = None,
+        parents: Sequence[argparse.ArgumentParser] = (),
+        formatter_class: type[
+            argparse.HelpFormatter
+        ] = argparse.RawDescriptionHelpFormatter,
+        prefix_chars: str = "-",
+        fromfile_prefix_chars: str | None = None,
+        argument_default: Any = None,
+        conflict_handler: str = "error",
+        add_help: bool = True,
+        allow_abbrev: bool = False,
+        exit_on_error: bool = True,
+    ) -> None:
+        """Overrides `ArgumentParser.__init__` to make `description` the first parameter.
+
+        Sets a default value for `formatter_class` to be `RawDescriptionHelpFormatter`
+        since we're using the full module docstring as usage text. Also sets
+        `allow_abbrev` to `False`, so that only real flags are accepted.
+
+        The goal is to allow the most common case (use the module docstring as the
+        description) to be just:
+
+        Example:
+            >>> parser = HelpOnErrorArgumentParser(__doc__)
+        """
+        super().__init__(
+            prog=prog,
+            usage=usage,
+            description=description,
+            epilog=epilog,
+            parents=parents,
+            formatter_class=formatter_class,
+            prefix_chars=prefix_chars,
+            fromfile_prefix_chars=fromfile_prefix_chars,
+            argument_default=argument_default,
+            conflict_handler=conflict_handler,
+            add_help=add_help,
+            allow_abbrev=allow_abbrev,
+            exit_on_error=exit_on_error,
+        )
+
+
+def ensure_envvar(name: str) -> str:
+    """Get an environment variable or print a nice error if unavailable.
+
+    Args:
+        name: name of the environment variable, e.g. `OPENAI_API_KEY`.
+
+    Returns:
+        The value of the variable if it's set. A variable set to the empty string counts
+        as unset.
+
+    Raises:
+        SystemExit: if the variable isn't set, prints a nice error and quits.
+    """
+    if value := os.environ.get(name):
+        return value
+    sys.exit(f"Error: environment variable {name} not set.")
+
+
+def run_safe[**P, R](func: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    """Run `func` until it ends, or the user quits with Ctrl-C, with confirmation.
+
+    This means a single Ctrl-C won't quit; the user will be prompted to ensure they
+    really want to quit.
+
+    Args:
+        func: Function that's called with `args` and `kwargs`. The return value is
+            returned if the user doesn't quit.
+        args: Positional arguments for `func`.
+        kwargs: Keyword arguments for `func`.
+    """
+    while True:
+        try:
+            return func(*args, **kwargs)
+        except KeyboardInterrupt:
+            choice = input("\n\nCtrl+C detected. Do you really want to exit? (y/n): ")
+            if choice.lower() == "y":
+                sys.exit()
+            else:
+                # The loop will continue, restarting _download
+                print("Continuing...\n")
+
+
+def arun_safe[**P, R](
+    async_func: Callable[P, Coroutine[Any, Any, R]], *args: P.args, **kwargs: P.kwargs
+) -> R:
+    """Run `async_func` until it ends, or the user quits with Ctrl-C, with confirmation.
+
+    This means a single Ctrl-C won't quit; the user will be prompted to ensure they
+    really want to quit. The function is executed using `asyncio.run` with the default
+    parameters.
+
+    Args:
+        func: Function that's called with `args` and `kwargs`. The return value is
+            returned if the user doesn't quit.
+        args: Positional arguments for `func`.
+        kwargs: Keyword arguments for `func`.
+    """
+    return run_safe(asyncio.run, async_func(*args, **kwargs))

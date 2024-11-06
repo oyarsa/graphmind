@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-import os
 import tomllib
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -47,7 +46,14 @@ from paper.gpt.run_gpt import (
     run_gpt,
 )
 from paper.progress import as_completed
-from paper.util import Timer, display_params, read_resource, setup_logging
+from paper.util import (
+    HelpOnErrorArgumentParser,
+    Timer,
+    display_params,
+    ensure_envvar,
+    read_resource,
+    setup_logging,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -245,7 +251,12 @@ _GRAPH_USER_PROMPTS = load_prompts("extract_graph")
 
 
 async def _generate_graph(
-    client: AsyncOpenAI, example: Paper, model: str, user_prompt: PromptTemplate
+    client: AsyncOpenAI,
+    example: Paper,
+    model: str,
+    user_prompt: PromptTemplate,
+    *,
+    seed: int,
 ) -> GPTResult[PromptResult[Graph]]:
     user_prompt_text = user_prompt.template.format(
         title=example.title,
@@ -259,6 +270,7 @@ async def _generate_graph(
         _GRAPH_SYSTEM_PROMPT,
         user_prompt_text,
         model,
+        seed=seed,
     )
     graph = (
         result.result.to_graph(title=example.title, abstract=example.abstract)
@@ -286,11 +298,16 @@ async def _generate_graphs(
     model: str,
     user_prompt: PromptTemplate,
     output_intermediate_path: Path,
+    *,
+    seed: int,
 ) -> GPTResult[list[PromptResult[Graph]]]:
     total_cost = 0
     graph_results: list[PromptResult[Graph]] = []
 
-    tasks = [_generate_graph(client, example, model, user_prompt) for example in data]
+    tasks = [
+        _generate_graph(client, example, model, user_prompt, seed=seed)
+        for example in data
+    ]
 
     for task in as_completed(tasks, desc="Extracting graphs"):
         result = await task
@@ -377,7 +394,6 @@ def _display_graphs(
 
 async def extract_graph(
     model: str,
-    api_key: str | None,
     data_path: Path,
     limit: int | None,
     graph_user_prompt_key: str,
@@ -387,6 +403,7 @@ async def extract_graph(
     classify: bool,
     continue_papers_file: Path | None,
     clean_run: bool,
+    seed: int,
 ) -> None:
     """Extract graphs from the papers in the dataset and (maybe) classify them.
 
@@ -400,7 +417,6 @@ async def extract_graph(
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        api_key: OpenAI API key. Defaults to OPENAI_API_KEY env var.
         data_path: Path to the JSON file containing the input papers data.
         limit: Number of papers to process. Defaults to 1 example. If None, process all.
         graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
@@ -423,14 +439,12 @@ async def extract_graph(
     logger.info(display_params())
 
     dotenv.load_dotenv()
-    if api_key:
-        os.environ["OPENAI_API_KEY"] = api_key
 
     if model not in MODELS_ALLOWED:
         raise ValueError(f"Model {model} not in allowed models: {MODELS_ALLOWED}")
     model = MODEL_SYNONYMS.get(model, model)
 
-    client = AsyncOpenAI()
+    client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
 
@@ -464,6 +478,7 @@ async def extract_graph(
             model,
             graph_user_prompt,
             output_intermediate_file,
+            seed=seed,
         )
 
     logger.info(f"Graph generation time elapsed: {timer_gen.human}")
@@ -491,6 +506,7 @@ async def extract_graph(
             # We always want new paper classifications after processing the graphs
             continue_papers_file=None,
             clean_run=True,
+            seed=seed,
         )
 
 
@@ -510,10 +526,7 @@ def _display_validation(results: Iterable[PromptResult[Graph]]) -> None:
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     # Create subparsers for 'run' and 'prompts' subcommands
     subparsers = parser.add_subparsers(
-        title="subcommands",
-        description="Valid subcommands",
-        dest="subcommand",
-        required=True,
+        title="subcommands", dest="subcommand", required=True
     )
 
     # 'run' subcommand parser
@@ -541,15 +554,6 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default="gpt-4o-mini",
         choices=MODELS_ALLOWED,
         help="The model to use for the extraction.",
-    )
-    run_parser.add_argument(
-        "--api-key",
-        type=str,
-        default=None,
-        help=(
-            "The OpenAI API key to use for the extraction. Defaults to OPENAI_API_KEY"
-            " env var. Can be read from the .env file."
-        ),
     )
     run_parser.add_argument(
         "--limit",
@@ -596,6 +600,9 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Start from scratch, ignoring existing intermediate results",
     )
+    run_parser.add_argument(
+        "--seed", default=0, type=int, help="Seed to set in OpenAI call"
+    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -611,9 +618,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     setup_cli_parser(parser)
 
     args = parser.parse_args()
@@ -625,7 +630,6 @@ def main() -> None:
         asyncio.run(
             extract_graph(
                 args.model,
-                args.api_key,
                 args.data_path,
                 args.limit,
                 args.graph_user_prompt,
@@ -635,6 +639,7 @@ def main() -> None:
                 args.classify,
                 args.continue_papers,
                 args.clean_run,
+                args.seed,
             )
         )
 

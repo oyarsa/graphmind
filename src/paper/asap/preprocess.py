@@ -1,11 +1,11 @@
 """Run the complete ASAP-Review preprocessing pipeline."""
 
-import argparse
 from pathlib import Path
 
 from paper.asap.extract import extract_interesting
 from paper.asap.filter import filter_ratings
 from paper.asap.merge import merge_content_review
+from paper.util import HelpOnErrorArgumentParser
 
 
 def pipeline(papers_path: Path, output_path: Path, max_papers: int | None) -> None:
@@ -35,10 +35,8 @@ def pipeline(papers_path: Path, output_path: Path, max_papers: int | None) -> No
     print(f"\nFinal output file: {filtered_path}")
 
 
-def cli_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+def cli_parser() -> HelpOnErrorArgumentParser:
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument(
         "input", type=Path, help="Path to input directory containing raw ASAP files"
     )

@@ -14,7 +14,6 @@ option.
 import argparse
 import asyncio
 import logging
-import os
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
@@ -42,7 +41,14 @@ from paper.gpt.run_gpt import (
     run_gpt,
 )
 from paper.progress import as_completed
-from paper.util import Timer, display_params, safediv, setup_logging
+from paper.util import (
+    HelpOnErrorArgumentParser,
+    Timer,
+    display_params,
+    ensure_envvar,
+    safediv,
+    setup_logging,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +135,8 @@ async def _classify_paper(
     model: str,
     paper: PaperWithFullReference,
     user_prompt: PromptTemplate,
+    *,
+    seed: int,
 ) -> GPTResult[PromptResult[PaperOutput]]:
     """Classify the contexts for the paper's references by polarity.
 
@@ -165,6 +173,7 @@ async def _classify_paper(
                 _CONTEXT_SYSTEM_PROMPT,
                 user_prompt_text,
                 model,
+                seed=seed,
             )
             total_cost += result.cost
 
@@ -221,6 +230,8 @@ async def _classify_contexts(
     papers: Sequence[PaperInput],
     limit_references: int | None,
     output_intermediate_path: Path,
+    *,
+    seed: int,
 ) -> GPTResult[list[PromptResult[PaperOutput]]]:
     """Classify the contexts for each papers' references by polarity.
 
@@ -238,7 +249,7 @@ async def _classify_contexts(
     total_cost = 0
 
     tasks = [
-        _classify_paper(client, limit_references, model, paper, user_prompt)
+        _classify_paper(client, limit_references, model, paper, user_prompt, seed=seed)
         for paper in papers
     ]
     for task in as_completed(tasks, desc="Classifying paper reference contexts"):
@@ -253,7 +264,6 @@ async def _classify_contexts(
 
 async def classify_contexts(
     model: str,
-    api_key: str | None,
     data_path: Path,
     limit_papers: int | None,
     user_prompt_key: str,
@@ -261,13 +271,12 @@ async def classify_contexts(
     limit_references: int | None,
     continue_papers_file: Path | None,
     clean_run: bool,
+    seed: int,
 ) -> None:
     """Classify reference citation contexts by polarity."""
     logger.info(display_params())
 
     dotenv.load_dotenv()
-    if api_key:
-        os.environ["OPENAI_API_KEY"] = api_key
 
     model = MODEL_SYNONYMS.get(model, model)
     if model not in MODELS_ALLOWED:
@@ -279,7 +288,7 @@ async def classify_contexts(
     if limit_references == 0:
         limit_references = None
 
-    client = AsyncOpenAI()
+    client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
     data = TypeAdapter(list[PaperInput]).validate_json(data_path.read_bytes())
 
@@ -318,6 +327,7 @@ async def classify_contexts(
             papers_remaining.remaining,
             limit_references,
             output_intermediate_file,
+            seed=seed,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -395,10 +405,7 @@ def show_classified_stats(
 def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     # Create subparsers for 'run' and 'prompts' subcommands
     subparsers = parser.add_subparsers(
-        title="subcommands",
-        description="Valid subcommands",
-        dest="subcommand",
-        required=True,
+        title="subcommands", dest="subcommand", required=True
     )
 
     # 'run' subcommand parser
@@ -425,15 +432,6 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         type=str,
         default="gpt-4o-mini",
         help="The model to use for the extraction. Defaults to %(default)s.",
-    )
-    run_parser.add_argument(
-        "--api-key",
-        type=str,
-        default=None,
-        help=(
-            "The OpenAI API key to use for the extraction. Defaults to OPENAI_API_KEY"
-            " env var. Can be read from the .env file."
-        ),
     )
     run_parser.add_argument(
         "--limit",
@@ -483,9 +481,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     setup_cli_parser(parser)
 
     args = parser.parse_args()
@@ -497,7 +493,6 @@ def main() -> None:
         asyncio.run(
             classify_contexts(
                 args.model,
-                args.api_key,
                 args.data_path,
                 args.limit,
                 args.user_prompt,
@@ -505,6 +500,7 @@ def main() -> None:
                 args.ref_limit,
                 args.continue_papers,
                 args.clean_run,
+                args.seed,
             )
         )
 

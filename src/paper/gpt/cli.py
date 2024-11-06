@@ -2,30 +2,23 @@
 
 - context: Run context classification on ASAP references.
 - graph: Extract concept graph from an ASAP and perform classification on it.
+- eval_full: Paper evaluation based on the full text only.
+- tokens: Estimate input tokens from different prompts and demonstrations.
 """
 
-import argparse
 import asyncio
 import logging
 
-from paper.gpt import classify_contexts, evaluate_paper_full, extract_graph
-from paper.util import setup_logging
+from paper.gpt import classify_contexts, evaluate_paper_full, extract_graph, tokens
+from paper.util import HelpOnErrorArgumentParser, setup_logging
 
 logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
 
-    # Create subparsers for 'graph' and 'context' subcomands
-    subparsers = parser.add_subparsers(
-        title="commands",
-        description="Valid commands",
-        dest="command",
-        required=True,
-    )
+    subparsers = parser.add_subparsers(title="commands", dest="command", required=True)
 
     # 'graph' subcommand parser
     graph_parser = subparsers.add_parser(
@@ -46,13 +39,20 @@ def main() -> None:
     # 'evaluate_paper_full'
     eval_full_parser = subparsers.add_parser(
         "eval_full",
-        help="Rull paper evaluation from full text",
-        description="Rull paper evaluation from full text with the provided arguments",
+        help="Run paper evaluation from full text",
+        description="Run paper evaluation from full text with the provided arguments",
     )
     evaluate_paper_full.setup_cli_parser(eval_full_parser)
 
-    args = parser.parse_args()
+    # 'tokens'
+    tokens_parser = subparsers.add_parser(
+        "tokens",
+        help="Estimate input tokens for task and prompts",
+        description="Estimate input tokens for task and prompts with provided arguments",
+    )
+    tokens.setup_cli_parser(tokens_parser)
 
+    args = parser.parse_args()
     setup_logging()
 
     if args.command == "graph":
@@ -62,7 +62,6 @@ def main() -> None:
             asyncio.run(
                 extract_graph.extract_graph(
                     args.model,
-                    args.api_key,
                     args.data_path,
                     args.limit,
                     args.graph_user_prompt,
@@ -72,6 +71,7 @@ def main() -> None:
                     args.classify,
                     args.continue_papers,
                     args.clean_run,
+                    args.seed,
                 )
             )
 
@@ -82,7 +82,6 @@ def main() -> None:
             asyncio.run(
                 classify_contexts.classify_contexts(
                     args.model,
-                    args.api_key,
                     args.data_path,
                     args.limit,
                     args.user_prompt,
@@ -90,6 +89,7 @@ def main() -> None:
                     args.ref_limit,
                     args.continue_papers,
                     args.clean_run,
+                    args.seed,
                 )
             )
 
@@ -100,7 +100,6 @@ def main() -> None:
             asyncio.run(
                 evaluate_paper_full.evaluate_papers(
                     args.model,
-                    args.api_key,
                     args.data_path,
                     args.limit,
                     args.user_prompt,
@@ -112,6 +111,19 @@ def main() -> None:
                     args.demo_prompt,
                 )
             )
+
+    elif args.command == "tokens":
+        if args.subcommand == "eval_full":
+            tokens.fulltext(
+                args.input_file,
+                args.user_prompt_key,
+                args.demo_prompt_key,
+                args.demonstrations_file,
+                args.model,
+                args.limit,
+            )
+        else:  # other commands
+            pass
 
 
 if __name__ == "__main__":

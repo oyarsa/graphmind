@@ -1,9 +1,7 @@
 """Download files from the S2ORC from the Semantic Scholar API."""
 
-import argparse
 import asyncio
 import json
-import os
 import sys
 import urllib.parse
 from collections.abc import Coroutine
@@ -14,6 +12,7 @@ import dotenv
 from tqdm.asyncio import tqdm
 
 from paper.progress import gather
+from paper.util import HelpOnErrorArgumentParser, arun_safe, ensure_envvar
 
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file
@@ -119,50 +118,30 @@ async def _download(
         await gather(tasks, desc="Overall progress")
 
 
-def download_dataset(
-    dataset_name: str, output_path: Path, api_key: str | None, limit: int | None
-) -> None:
+def download_dataset(dataset_name: str, output_path: Path, limit: int | None) -> None:
     """Download dataset files from the Semantic Scholar API to the output path.
 
     Prevents the user from accidentally exiting the script with Ctrl+C. Instead, it asks
     for confirmation before exiting.
     """
     dotenv.load_dotenv()
-    if api_key is None:
-        api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
+    api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
 
     output_path.mkdir(parents=True, exist_ok=True)
 
-    while True:
-        try:
-            asyncio.run(_download(dataset_name, output_path, api_key, limit))
-            break  # If _download completes without interruption, exit the loop
-        except KeyboardInterrupt:
-            choice = input("\n\nCtrl+C detected. Do you really want to exit? (y/n): ")
-            if choice.lower() == "y":
-                sys.exit()
-            else:
-                # The loop will continue, restarting _download
-                print("Continuing...\n")
+    arun_safe(_download, dataset_name, output_path, api_key, limit)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument(
-        "output_path", type=Path, help="Directory to save the downloaded files"
-    )
-    parser.add_argument(
-        "--dataset-name",
+        "dataset_name",
         type=str,
         default="s2orc",
         help="Name of the dataset to download",
     )
     parser.add_argument(
-        "--api-key",
-        type=str,
-        help="API key for the Semantic Scholar API. Defaults to the SEMANTIC_SCHOLAR_API_KEY environment variable.",
+        "output_path", type=Path, help="Directory to save the downloaded files"
     )
     parser.add_argument(
         "--limit",
@@ -171,7 +150,7 @@ def main() -> None:
         help="Limit the number of files to download. Useful for testing.",
     )
     args = parser.parse_args()
-    download_dataset(args.dataset_name, args.output_path, args.api_key, args.limit)
+    download_dataset(args.dataset_name, args.output_path, args.limit)
 
 
 if __name__ == "__main__":
