@@ -74,8 +74,7 @@ async def _get_filesizes(
         Path("dataset.json").write_text(json.dumps(dataset, indent=2))
 
         if "files" not in dataset or not dataset["files"]:
-            print("No files found.")
-            sys.exit(1)
+            sys.exit("No files found.")
 
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 

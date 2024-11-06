@@ -102,8 +102,7 @@ async def _download(
         (output_path / "dataset.json").write_text(json.dumps(dataset, indent=2))
 
         if "files" not in dataset or not dataset["files"]:
-            print("No files found.")
-            sys.exit(1)
+            sys.exit("No files found.")
 
         output_path.mkdir(exist_ok=True)
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_DOWNLOADS)
