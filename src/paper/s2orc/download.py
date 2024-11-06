@@ -149,13 +149,13 @@ def download_dataset(
 def main() -> None:
     parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument(
-        "output_path", type=Path, help="Directory to save the downloaded files"
-    )
-    parser.add_argument(
-        "--dataset-name",
+        "dataset_name",
         type=str,
         default="s2orc",
         help="Name of the dataset to download",
+    )
+    parser.add_argument(
+        "output_path", type=Path, help="Directory to save the downloaded files"
     )
     parser.add_argument(
         "--api-key",
