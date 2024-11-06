@@ -34,7 +34,7 @@ RETRY_DELAY = 5  # Initial delay in seconds
 BACKOFF_FACTOR = 2  # Exponential backoff factor
 
 
-SEMANTIC_SCHOLAR_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
+S2_SEARCH_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 
 
 async def _fetch_paper_info(
@@ -58,7 +58,7 @@ async def _fetch_paper_info(
         while attempt < MAX_RETRIES:
             try:
                 async with session.get(
-                    SEMANTIC_SCHOLAR_BASE_URL, params=params, headers=headers
+                    S2_SEARCH_BASE_URL, params=params, headers=headers
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
