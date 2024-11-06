@@ -314,3 +314,21 @@ class HelpOnErrorArgumentParser(argparse.ArgumentParser):
             allow_abbrev=allow_abbrev,
             exit_on_error=exit_on_error,
         )
+
+
+def ensure_envvar(name: str) -> str:
+    """Get an environment variable or print a nice error if unavailable.
+
+    Args:
+        name: name of the environment variable, e.g. `OPENAI_API_KEY`.
+
+    Returns:
+        The value of the variable if it's set. A variable set to the empty string counts
+        as unset.
+
+    Raises:
+        SystemExit: if the variable isn't set, prints a nice error and quits.
+    """
+    if value := os.environ.get(name):
+        return value
+    sys.exit(f"Error: environment variable {name} not set.")
