@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import copy
 import hashlib
 import heapq
@@ -11,7 +12,7 @@ import logging
 import os
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Coroutine, Sequence
 from importlib import resources
 from pathlib import Path
 from typing import Any, NoReturn, Protocol, Self, override
@@ -332,3 +333,45 @@ def ensure_envvar(name: str) -> str:
     if value := os.environ.get(name):
         return value
     sys.exit(f"Error: environment variable {name} not set.")
+
+
+def run_safe[**P, R](func: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    """Run `func` until it ends, or the user quits with Ctrl-C, with confirmation.
+
+    This means a single Ctrl-C won't quit; the user will be prompted to ensure they
+    really want to quit.
+
+    Args:
+        func: Function that's called with `args` and `kwargs`. The return value is
+            returned if the user doesn't quit.
+        args: Positional arguments for `func`.
+        kwargs: Keyword arguments for `func`.
+    """
+    while True:
+        try:
+            return func(*args, **kwargs)
+        except KeyboardInterrupt:
+            choice = input("\n\nCtrl+C detected. Do you really want to exit? (y/n): ")
+            if choice.lower() == "y":
+                sys.exit()
+            else:
+                # The loop will continue, restarting _download
+                print("Continuing...\n")
+
+
+def arun_safe[**P, R](
+    async_func: Callable[P, Coroutine[Any, Any, R]], *args: P.args, **kwargs: P.kwargs
+) -> R:
+    """Run `async_func` until it ends, or the user quits with Ctrl-C, with confirmation.
+
+    This means a single Ctrl-C won't quit; the user will be prompted to ensure they
+    really want to quit. The function is executed using `asyncio.run` with the default
+    parameters.
+
+    Args:
+        func: Function that's called with `args` and `kwargs`. The return value is
+            returned if the user doesn't quit.
+        args: Positional arguments for `func`.
+        kwargs: Keyword arguments for `func`.
+    """
+    return run_safe(asyncio.run, async_func(*args, **kwargs))
