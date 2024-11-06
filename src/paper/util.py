@@ -262,6 +262,21 @@ def _hash_path(path: Path, chars: int = 8) -> str:
         return "error"
 
 
+class ArgumentDefaultsRawDescriptionFormatter(
+    argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter
+):
+    """`formater_class` that shows the raw description text and adds default to help.
+
+    The raw description text is useful when printing pre-formatted text (e.g. bullet
+    lists, hard-wrapped text), such as when using a docstring for the `description`.
+
+    The defaults are only added to options that define a `help` text. It's added as
+    `(default: x)` at the end.
+    """
+
+    pass
+
+
 class HelpOnErrorArgumentParser(argparse.ArgumentParser):
     """ArgumentParser that prints the full help text on error."""
 
@@ -279,7 +294,7 @@ class HelpOnErrorArgumentParser(argparse.ArgumentParser):
         parents: Sequence[argparse.ArgumentParser] = (),
         formatter_class: type[
             argparse.HelpFormatter
-        ] = argparse.RawDescriptionHelpFormatter,
+        ] = ArgumentDefaultsRawDescriptionFormatter,
         prefix_chars: str = "-",
         fromfile_prefix_chars: str | None = None,
         argument_default: Any = None,
