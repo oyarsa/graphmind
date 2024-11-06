@@ -31,7 +31,6 @@
 import argparse
 import asyncio
 import logging
-import os
 import random
 from collections.abc import Sequence
 from pathlib import Path
@@ -60,7 +59,13 @@ from paper.gpt.run_gpt import (
     run_gpt,
 )
 from paper.progress import as_completed
-from paper.util import HelpOnErrorArgumentParser, Timer, display_params, setup_logging
+from paper.util import (
+    HelpOnErrorArgumentParser,
+    Timer,
+    display_params,
+    ensure_envvar,
+    setup_logging,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +83,6 @@ def main() -> None:
         asyncio.run(
             evaluate_papers(
                 args.model,
-                args.api_key,
                 args.data_path,
                 args.limit,
                 args.user_prompt,
@@ -97,7 +101,6 @@ FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
 
 async def evaluate_papers(
     model: str,
-    api_key: str | None,
     data_path: Path,
     limit_papers: int | None,
     user_prompt_key: str,
@@ -118,7 +121,6 @@ async def evaluate_papers(
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        api_key: OpenAI API key. Defaults to OPENAI_API_KEY env var.
         data_path: Path to the JSON file containing the input papers data.
         limit: Number of papers to process. Defaults to 1 example. If None, process all.
         graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
@@ -148,8 +150,6 @@ async def evaluate_papers(
     random.seed(seed)
 
     dotenv.load_dotenv()
-    if api_key:
-        os.environ["OPENAI_API_KEY"] = api_key
 
     model = MODEL_SYNONYMS.get(model, model)
     if model not in MODELS_ALLOWED:
@@ -158,7 +158,7 @@ async def evaluate_papers(
     if limit_papers == 0:
         limit_papers = None
 
-    client = AsyncOpenAI()
+    client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
     random.shuffle(data)
@@ -367,15 +367,6 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         type=str,
         default="gpt-4o-mini",
         help="The model to use for the extraction. Defaults to %(default)s.",
-    )
-    run_parser.add_argument(
-        "--api-key",
-        type=str,
-        default=None,
-        help=(
-            "The OpenAI API key to use for the extraction. Defaults to OPENAI_API_KEY"
-            " env var. Can be read from the .env file."
-        ),
     )
     run_parser.add_argument(
         "--limit",

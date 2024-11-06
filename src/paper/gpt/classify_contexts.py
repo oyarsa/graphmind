@@ -14,7 +14,6 @@ option.
 import argparse
 import asyncio
 import logging
-import os
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
@@ -46,6 +45,7 @@ from paper.util import (
     HelpOnErrorArgumentParser,
     Timer,
     display_params,
+    ensure_envvar,
     safediv,
     setup_logging,
 )
@@ -264,7 +264,6 @@ async def _classify_contexts(
 
 async def classify_contexts(
     model: str,
-    api_key: str | None,
     data_path: Path,
     limit_papers: int | None,
     user_prompt_key: str,
@@ -278,8 +277,6 @@ async def classify_contexts(
     logger.info(display_params())
 
     dotenv.load_dotenv()
-    if api_key:
-        os.environ["OPENAI_API_KEY"] = api_key
 
     model = MODEL_SYNONYMS.get(model, model)
     if model not in MODELS_ALLOWED:
@@ -291,7 +288,7 @@ async def classify_contexts(
     if limit_references == 0:
         limit_references = None
 
-    client = AsyncOpenAI()
+    client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
     data = TypeAdapter(list[PaperInput]).validate_json(data_path.read_bytes())
 
@@ -437,15 +434,6 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         help="The model to use for the extraction. Defaults to %(default)s.",
     )
     run_parser.add_argument(
-        "--api-key",
-        type=str,
-        default=None,
-        help=(
-            "The OpenAI API key to use for the extraction. Defaults to OPENAI_API_KEY"
-            " env var. Can be read from the .env file."
-        ),
-    )
-    run_parser.add_argument(
         "--limit",
         "-n",
         type=int,
@@ -505,7 +493,6 @@ def main() -> None:
         asyncio.run(
             classify_contexts(
                 args.model,
-                args.api_key,
                 args.data_path,
                 args.limit,
                 args.user_prompt,

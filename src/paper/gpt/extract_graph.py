@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-import os
 import tomllib
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -51,6 +50,7 @@ from paper.util import (
     HelpOnErrorArgumentParser,
     Timer,
     display_params,
+    ensure_envvar,
     read_resource,
     setup_logging,
 )
@@ -394,7 +394,6 @@ def _display_graphs(
 
 async def extract_graph(
     model: str,
-    api_key: str | None,
     data_path: Path,
     limit: int | None,
     graph_user_prompt_key: str,
@@ -418,7 +417,6 @@ async def extract_graph(
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        api_key: OpenAI API key. Defaults to OPENAI_API_KEY env var.
         data_path: Path to the JSON file containing the input papers data.
         limit: Number of papers to process. Defaults to 1 example. If None, process all.
         graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
@@ -441,14 +439,12 @@ async def extract_graph(
     logger.info(display_params())
 
     dotenv.load_dotenv()
-    if api_key:
-        os.environ["OPENAI_API_KEY"] = api_key
 
     if model not in MODELS_ALLOWED:
         raise ValueError(f"Model {model} not in allowed models: {MODELS_ALLOWED}")
     model = MODEL_SYNONYMS.get(model, model)
 
-    client = AsyncOpenAI()
+    client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
     data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
 
@@ -560,15 +556,6 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         help="The model to use for the extraction.",
     )
     run_parser.add_argument(
-        "--api-key",
-        type=str,
-        default=None,
-        help=(
-            "The OpenAI API key to use for the extraction. Defaults to OPENAI_API_KEY"
-            " env var. Can be read from the .env file."
-        ),
-    )
-    run_parser.add_argument(
         "--limit",
         "-n",
         type=int,
@@ -643,7 +630,6 @@ def main() -> None:
         asyncio.run(
             extract_graph(
                 args.model,
-                args.api_key,
                 args.data_path,
                 args.limit,
                 args.graph_user_prompt,

@@ -62,7 +62,6 @@ def main() -> None:
             asyncio.run(
                 extract_graph.extract_graph(
                     args.model,
-                    args.api_key,
                     args.data_path,
                     args.limit,
                     args.graph_user_prompt,
@@ -83,7 +82,6 @@ def main() -> None:
             asyncio.run(
                 classify_contexts.classify_contexts(
                     args.model,
-                    args.api_key,
                     args.data_path,
                     args.limit,
                     args.user_prompt,
@@ -102,7 +100,6 @@ def main() -> None:
             asyncio.run(
                 evaluate_paper_full.evaluate_papers(
                     args.model,
-                    args.api_key,
                     args.data_path,
                     args.limit,
                     args.user_prompt,

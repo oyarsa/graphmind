@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import os
 import sys
 import urllib.parse
 from pathlib import Path
@@ -11,7 +10,7 @@ import aiohttp
 import dotenv
 
 from paper.progress import gather
-from paper.util import HelpOnErrorArgumentParser
+from paper.util import HelpOnErrorArgumentParser, ensure_envvar
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -101,14 +100,11 @@ async def _get_filesizes(
         output_file.write_text(json.dumps(info, indent=2))
 
 
-def get_filesizes(
-    dataset_name: str, output_path: Path, api_key: str | None, limit: int | None
-) -> None:
+def get_filesizes(dataset_name: str, output_path: Path, limit: int | None) -> None:
     """Get the size of the files from the dataset from the Semantic Scholar API."""
 
     dotenv.load_dotenv()
-    if api_key is None:
-        api_key = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
+    api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
     asyncio.run(_get_filesizes(dataset_name, output_path, api_key, limit))
 
 
@@ -121,18 +117,13 @@ def main() -> None:
         "output_file", type=Path, help="Path to JSON file with file information."
     )
     parser.add_argument(
-        "--api-key",
-        type=str,
-        help="API key for the Semantic Scholar API. Defaults to the SEMANTIC_SCHOLAR_API_KEY environment variable.",
-    )
-    parser.add_argument(
         "--limit",
         "-n",
         type=int,
         help="Limit the number of files to download. Useful for testing.",
     )
     args = parser.parse_args()
-    get_filesizes(args.dataset_name, args.output_file, args.api_key, args.limit)
+    get_filesizes(args.dataset_name, args.output_file, args.limit)
 
 
 if __name__ == "__main__":

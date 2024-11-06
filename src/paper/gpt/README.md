@@ -31,8 +31,7 @@ Definitions:
 ### Usage
 
 This script requires the `OPENAI_API_KEY` environment variable to be set, either through
-the environment, the `.env` file at the root of the repository, or the `--api-key`
-argument.
+the environment or the `.env` file at the root of the repository.
 
 ```console
 $ uv run gpt graph run output/asap_filtered.json output/graph
