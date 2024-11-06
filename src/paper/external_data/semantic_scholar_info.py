@@ -17,7 +17,6 @@ The resulting files are:
 
 import asyncio
 import json
-import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -26,7 +25,7 @@ import aiohttp
 import dotenv
 
 from paper.progress import gather
-from paper.util import HelpOnErrorArgumentParser, ensure_envvar, fuzzy_ratio
+from paper.util import HelpOnErrorArgumentParser, arun_safe, ensure_envvar, fuzzy_ratio
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -208,25 +207,14 @@ def main() -> None:
     dotenv.load_dotenv()
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
 
-    while True:
-        try:
-            asyncio.run(
-                _download_paper_info(
-                    args.input_file,
-                    args.fields,
-                    args.output_path,
-                    api_key,
-                    args.min_fuzzy,
-                )
-            )
-            break  # If _download completes without interruption, exit the loop
-        except KeyboardInterrupt:
-            choice = input("\n\nCtrl+C detected. Do you really want to exit? (y/n): ")
-            if choice.lower() == "y":
-                sys.exit()
-            else:
-                # The loop will continue, restarting _download
-                print("Continuing...\n")
+    arun_safe(
+        _download_paper_info,
+        args.input_file,
+        args.fields,
+        args.output_path,
+        api_key,
+        args.min_fuzzy,
+    )
 
 
 if __name__ == "__main__":

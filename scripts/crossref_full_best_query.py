@@ -9,14 +9,13 @@ original script did.
 """
 
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
 from tqdm import tqdm
 
 from paper.external_data.crossref import get_best_paper
-from paper.util import HelpOnErrorArgumentParser
+from paper.util import HelpOnErrorArgumentParser, run_safe
 
 
 def download(
@@ -63,18 +62,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    while True:
-        try:
-            download(args.input_file, args.output_file, args.ratio)
-            break  # If _download completes without interruption, exit the loop
-        except KeyboardInterrupt as e:
-            choice = input("\n\nCtrl+C detected. Do you really want to exit? (y/n): ")
-            if choice.lower() == "y":
-                print(e)
-                sys.exit()
-            else:
-                # The loop will continue, restarting _download
-                print("Continuing...\n")
+    run_safe(download, args.input_file, args.output_file, args.ratio)
 
 
 if __name__ == "__main__":

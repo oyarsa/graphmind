@@ -12,7 +12,7 @@ import dotenv
 from tqdm.asyncio import tqdm
 
 from paper.progress import gather
-from paper.util import HelpOnErrorArgumentParser, ensure_envvar
+from paper.util import HelpOnErrorArgumentParser, arun_safe, ensure_envvar
 
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file
@@ -129,17 +129,7 @@ def download_dataset(dataset_name: str, output_path: Path, limit: int | None) ->
 
     output_path.mkdir(parents=True, exist_ok=True)
 
-    while True:
-        try:
-            asyncio.run(_download(dataset_name, output_path, api_key, limit))
-            break  # If _download completes without interruption, exit the loop
-        except KeyboardInterrupt:
-            choice = input("\n\nCtrl+C detected. Do you really want to exit? (y/n): ")
-            if choice.lower() == "y":
-                sys.exit()
-            else:
-                # The loop will continue, restarting _download
-                print("Continuing...\n")
+    arun_safe(_download, dataset_name, output_path, api_key, limit)
 
 
 def main() -> None:
