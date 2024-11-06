@@ -5,7 +5,7 @@ Consider running the scripts separately. See the README for more information.
 
 from pathlib import Path
 
-from paper.s2orc.download import download_dataset
+from paper.s2orc.datasets import download_dataset
 from paper.s2orc.extract import extract_data
 from paper.s2orc.filter import filter_papers
 from paper.util import HelpOnErrorArgumentParser
