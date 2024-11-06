@@ -117,8 +117,8 @@ async def _download_paper_info(
 ) -> None:
     """Download paper information for multiple titles.
 
-    The input file is a JSON array with the "title" field. These should be the unique
-    papers cited from the ASAP papers.
+    The input file is the output of the ASAP preprocessing pipeline (asap_filtered.json).
+    We obtain the unique titles from the references of all papers and get their info.
 
     The API allows us to specify the returned fields, so pass just the relevant ones
     to minimise the bandwidth required.
