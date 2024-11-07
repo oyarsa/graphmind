@@ -69,6 +69,7 @@ executionEnvironments = [
 
 [tool.uv]
 dev-dependencies = [
+    "cosy",
     "ipython>=8.27.0",
     "jupyterlab>=4.2.5",
     "pandas>=2.2.3",
@@ -78,6 +79,11 @@ dev-dependencies = [
     "pytest>=8.3.3",
     "ruff>=0.6.4",
 ]
+
+[tool.uv.sources.cosy]
+git = "https://github.com/oyarsa/x.git"
+subdirectory = "cosy"
+tag = "cosy-0.1.0"
 
 [project.scripts]
 preprocess = "paper.preprocess:main"
