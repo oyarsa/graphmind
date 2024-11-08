@@ -305,9 +305,10 @@ class HelpOnErrorArgumentParser(argparse.ArgumentParser):
     ) -> None:
         """Overrides `ArgumentParser.__init__` to make `description` the first parameter.
 
-        Sets a default value for `formatter_class` to be `RawDescriptionHelpFormatter`
-        since we're using the full module docstring as usage text. Also sets
-        `allow_abbrev` to `False`, so that only real flags are accepted.
+        Sets default `formatter_class` to be `ArgumentDefaultsRawDescriptionFormatter`
+        since we're using the full module docstring as usage text, and includes the
+        default value for all flags with defined help text. Also sets `allow_abbrev` to
+        `False`, so that only real flags are accepted.
 
         The goal is to allow the most common case (use the module docstring as the
         description) to be just:
