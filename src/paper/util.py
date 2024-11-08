@@ -258,6 +258,8 @@ def _hash_path(path: Path, chars: int = 8) -> str:
         return hashlib.sha256(path.read_bytes()).hexdigest()[:chars]
     except IsADirectoryError:
         return "directory"
+    except FileNotFoundError:
+        return "new"
     except Exception:
         return "error"
 
