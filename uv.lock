@@ -287,6 +287,38 @@ wheels = [
 ]
 
 [[package]]
+name = "boto3-stubs"
+version = "1.35.56"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "botocore-stubs" },
+    { name = "types-s3transfer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b6/87/ed3d7792eb41aecee56a9357c40571238f4e131e70dab67b2b0d57a260ab/boto3_stubs-1.35.56.tar.gz", hash = "sha256:de2a028c94b7a8f5164161bf9ff2495673aa104376ce5582d21f44bf697da581", size = 91587 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7c/7b/c83d6410c134b7829c0f4ed0b81fc19884da1595a9a1950b6fae2ec1ee2f/boto3_stubs-1.35.56-py3-none-any.whl", hash = "sha256:122bc60c4545748ee8e29e85bf3b917ffcef7e0ca56838734b1fa7391f77dda2", size = 61897 },
+]
+
+[package.optional-dependencies]
+full = [
+    { name = "boto3-stubs-full" },
+]
+
+[[package]]
+name = "boto3-stubs-full"
+version = "1.35.56"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "boto3-stubs" },
+    { name = "botocore-stubs" },
+    { name = "types-s3transfer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f5/f7/377abea992178f4ffe32316dda63a312285e9845e38dfc8ad3410aeb14f5/boto3_stubs_full-1.35.56.tar.gz", hash = "sha256:6af44fb4c9a831db72ed43567c31de65b7a03a41d698f248eb7c54bb6a734fa3", size = 7259897 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/1a/9f54ea6f04f20e24c96e1ca1bacf72822a72f8b6b3bbc23158daf4f2e46e/boto3_stubs_full-1.35.56-py3-none-any.whl", hash = "sha256:c7cc2e0f9d905a59df965199d25e9eb806ab0c3c1768dcc705ce714f9991c550", size = 11170392 },
+]
+
+[[package]]
 name = "botocore"
 version = "1.35.36"
 source = { registry = "https://pypi.org/simple" }
@@ -1492,6 +1524,8 @@ dependencies = [
     { name = "aiobotocore" },
     { name = "aiohttp" },
     { name = "backoff" },
+    { name = "boto3" },
+    { name = "boto3-stubs", extra = ["full"] },
     { name = "botocore" },
     { name = "click" },
     { name = "colorlog" },
@@ -1530,6 +1564,8 @@ requires-dist = [
     { name = "aiobotocore", specifier = ">=2.15.2" },
     { name = "aiohttp", specifier = ">=3.10.5" },
     { name = "backoff", specifier = ">=2.2.1" },
+    { name = "boto3", specifier = ">=1.35.36" },
+    { name = "boto3-stubs", extras = ["full"], specifier = ">=1.35.56" },
     { name = "botocore", specifier = ">=1.35.36" },
     { name = "click", specifier = ">=8.1.7" },
     { name = "colorlog", specifier = ">=6.8.2" },
