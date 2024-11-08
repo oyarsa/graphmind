@@ -12,7 +12,7 @@ import logging
 import os
 import sys
 import time
-from collections.abc import Callable, Coroutine, Iterable, Sequence
+from collections.abc import Callable, Coroutine, Sequence
 from importlib import resources
 from pathlib import Path
 from typing import Any, NoReturn, Protocol, Self, override
@@ -332,16 +332,20 @@ class HelpOnErrorArgumentParser(argparse.ArgumentParser):
         )
 
 
-def ensure_envvars(key_names: Iterable[str]) -> dict[str, str]:
-    keys = {key: os.environ.get(key) for key in key_names}
+def mustenv(*variables: str) -> dict[str, str]:
+    """Ensure that all environment `variables` exist and return a dict with the values.
 
-    if keys_unset := sorted(key for key, value in keys.items() if not value):
+    If any variables are unset, print an error with them and exit with code 1.
+    """
+    vars_ = {var: os.environ.get(var) for var in variables}
+
+    if vars_unset := sorted(var for var, value in vars_.items() if not value):
         sys.exit(
             "Error: the following required environment variables were unset:"
-            f" {", ".join(keys_unset)}."
+            f" {", ".join(vars_unset)}."
         )
 
-    return {key: value for key, value in keys.items() if value}
+    return {var: value for var, value in vars_.items() if value}
 
 
 def ensure_envvar(name: str) -> str:

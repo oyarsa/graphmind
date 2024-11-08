@@ -36,7 +36,7 @@ from dotenv import load_dotenv
 from types_aiobotocore_s3.client import S3Client
 
 from paper import progress
-from paper.util import arun_safe, ensure_envvars
+from paper.util import arun_safe, mustenv
 
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file
@@ -83,7 +83,7 @@ async def _main(
 ) -> None:
     load_dotenv()
 
-    env = ensure_envvars(
+    env = mustenv(
         "SEMANTIC_SCHOLAR_API_KEY",
         "S3_BUCKET_NAME",
         "AWS_REGION",
