@@ -41,7 +41,7 @@ MAX_RETRIES = 5
 def main() -> None:
     parser = HelpOnErrorArgumentParser(__doc__)
     parser.add_argument(
-        "output_path", type=Path, help="Directory to save the downloaded papers."
+        "output_file", type=Path, help="Path to output JSON with the downloaded papers."
     )
     parser.add_argument(
         "--fields",
@@ -87,7 +87,7 @@ def main() -> None:
     arun_safe(
         download_paper_info,
         args.fields,
-        args.output_path,
+        args.output_file,
         args.years,
         args.limit_year,
         args.limit_page,
@@ -96,7 +96,7 @@ def main() -> None:
 
 async def download_paper_info(
     fields_str: str,
-    output_path: Path,
+    output_file: Path,
     year_ranges: Sequence[str],
     limit_year: int | None,
     limit_page: int,
@@ -143,8 +143,8 @@ async def download_paper_info(
     table.add_row("Total", str(sum(len(area.papers) for area in area_results)))
     Console().print(table)
 
-    output_path.mkdir(parents=True, exist_ok=True)
-    (output_path / "primary_area_papers.json").write_bytes(
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_file.write_bytes(
         TypeAdapter(list[AreaResult]).dump_json(area_results, indent=2)
     )
 
