@@ -277,7 +277,7 @@ async def _fetch_area_year(
     """
 
     params = {
-        "query": query,
+        "query": _clean_query(query),
         "fields": ",".join(fields),
         "limit": limit_page,
         "year": year,
@@ -310,6 +310,12 @@ async def _fetch_area_year(
         print(e)
 
     return results_all
+
+
+def _clean_query(query: str) -> str:
+    """Replace anything that aren't letters or whitespace with space"""
+    query = "".join(c if c.isalnum() or c.isspace() else " " for c in query)
+    return " ".join(query.split())
 
 
 @backoff.on_exception(
