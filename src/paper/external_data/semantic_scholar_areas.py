@@ -2,9 +2,9 @@
 
 The primary areas are obtained from the `paper.gpt.prompt.primary_areas.toml` file.
 
-For each primary area and year, download the top `limit_year` papers by title similarity
-to the query. The years can be ranges like `2017-2022` or single values like `2022`.
-They're always strings.
+For each primary area and year range, download the top `limit_year` papers by title
+similarity to the query. The year ranges can be like `2017-2022` or single values like
+`2022`. They're always strings.
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ from paper.external_data.semantic_scholar_info import S2_SEARCH_BASE_URL
 from paper.util import (
     HelpOnErrorArgumentParser,
     arun_safe,
+    display_params,
     ensure_envvar,
     read_resource,
 )
@@ -73,7 +74,7 @@ def main() -> None:
         "--limit-year",
         type=int,
         default=10,
-        help="Number of papers per year per primary area. Set to 0 for all.",
+        help="Number of papers per year range per primary area. Set to 0 for all.",
     )
     parser.add_argument(
         "--limit-page",
@@ -96,13 +97,13 @@ def main() -> None:
 async def download_paper_info(
     fields_str: str,
     output_path: Path,
-    years: Sequence[str],
+    year_ranges: Sequence[str],
     limit_year: int | None,
     limit_page: int,
 ) -> None:
     """Download papers belonging to ICLR primary areas from the Semantic Scholar API.
 
-    For each primary area and year ranges in `years`, download the top `limit_year`
+    For each primary area and year range in `years`, download the top `limit_year`
     matches by similarity, as given by the API.
 
     The API allows us to specify the returned fields, so pass just the relevant ones
@@ -110,6 +111,8 @@ async def download_paper_info(
     errors. `limit_page` can be used to control the number of results per page if the
     payload size becomes a problem.
     """
+    print(display_params())
+
     dotenv.load_dotenv()
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
 
@@ -130,7 +133,7 @@ async def download_paper_info(
     )["primary_areas"]
 
     area_results = await _fetch_areas(
-        api_key, fields, limit_page, limit_year, primary_areas, years
+        api_key, fields, limit_page, limit_year, primary_areas, year_ranges
     )
 
     # Print pretty table of number of retrieved papers per area
@@ -152,7 +155,7 @@ async def _fetch_areas(
     limit_page: int,
     limit_year: int | None,
     primary_areas: Sequence[str],
-    years: Sequence[str],
+    year_ranges: Sequence[str],
 ) -> list[AreaResult]:
     """Fetch papers for each area, for each year ranges.
 
@@ -164,8 +167,8 @@ async def _fetch_areas(
         limit_year: Maximum number of papers to download for each area and year.
         primary_areas: Areas to search the API. Each area is used as the query for the
             request.
-        years: Years to filter the API. Can be ranges like `2017-2022` or a single year
-            like `2020`.
+        year_ranges: Year ranges to filter the API. Can be ranges like `2017-2022` or a
+            single year like `2020`.
 
     Returns:
         List of paper results per area.
@@ -182,14 +185,14 @@ async def _fetch_areas(
                 session,
                 area,
                 fields,
-                years,
+                year_ranges,
                 semaphore,
                 limit_year=limit_year,
                 limit_page=limit_page,
             )
             for area in primary_areas
         ]
-        task_results = await progress.gather(tasks, desc="Retrieving areas")
+        task_results = await asyncio.gather(*tasks)
         area_results = [
             AreaResult(area=area, papers=papers)
             for area, papers in zip(primary_areas, task_results)
@@ -201,14 +204,14 @@ async def _fetch_area(
     session: aiohttp.ClientSession,
     query: str,
     fields: Iterable[str],
-    years: Sequence[str],
+    year_ranges: Sequence[str],
     semaphore: asyncio.Semaphore,
     limit_year: int | None,
     limit_page: int,
 ) -> list[dict[str, Any]]:
     """Fetch paper information for a given `query`. Only returns data from `fields`.
 
-    The request filters by the `query` and `years`.
+    The request filters by the `query` and `year_ranges`.
 
     Handles pagination. Allows setting a total maximum of papers to download per year,
     and also the limit per page. The former is mostly for testing; the latter can be
@@ -221,34 +224,34 @@ async def _fetch_area(
             the ICLR documentation.
         fields: List of fields to retrieve. Restrict this only to the bare essentials
             to ensure the payloads are lightweight.
-        years: Sequence of year ranges to fetch papers. Can be like `2017-2022` or
+        year_ranges: Sequence of year ranges to fetch papers. Can be like `2017-2022` or
             `2010`.
         semaphore: Lock used to ensure that not too many requests are made at the same
             time.
-        limit_year: Maximum number of papers per year to retrieve from the API. If None,
-            retrieve as many as possible.
+        limit_year: Maximum number of papers per year range to retrieve from the API. If
+            None, retrieve as many as possible.
         limit_page: Page limit sent to the API. The API defaults to 100, but this can
             be tweaked to ensure the payloads aren't too heavy.
 
     Returns:
         List of dictionaries containing the contents of the `data` object of all pages
-        of all years.
+        of all year ranges.
     """
     tasks = [
-        _fetch_area_year(
-            session, query, fields, year, semaphore, limit_year, limit_page
+        _fetch_area_year_range(
+            session, query, fields, year_range, semaphore, limit_year, limit_page
         )
-        for year in years
+        for year_range in year_ranges
     ]
     results = await progress.gather(tasks, desc=f"Retrieving query: '{query}'")
     return [paper for papers in results for paper in papers]
 
 
-async def _fetch_area_year(
+async def _fetch_area_year_range(
     session: aiohttp.ClientSession,
     query: str,
     fields: Iterable[str],
-    year: str,
+    year_range: str,
     semaphore: asyncio.Semaphore,
     limit_year: int | None,
     limit_page: int,
@@ -263,11 +266,12 @@ async def _fetch_area_year(
             the ICLR documentation.
         fields: List of fields to retrieve. Restrict this only to the bare essentials
             to ensure the payloads are lightweight.
-        year: Range of years to fetch papers. Can be either like `2017-2022` or `2010`.
+        year_range: Range of years to fetch papers. Can be either like `2017-2022` or
+            `2010`.
         semaphore: Lock used to ensure that not too many requests are made at the same
             time.
-        limit_year: Maximum number of papers per year to retrieve from the API. If None,
-            retrieve as many as possible.
+        limit_year: Maximum number of papers per year range to retrieve from the API. If
+            None, retrieve as many as possible.
         limit_page: Page limit sent to the API. The API defaults to 100, but this can
             be tweaked to ensure the payloads aren't too heavy.
         url: base URL for the 'Paper relevance search' endpoint.
@@ -280,7 +284,7 @@ async def _fetch_area_year(
         "query": _clean_query(query),
         "fields": ",".join(fields),
         "limit": limit_page,
-        "year": year,
+        "year": year_range,
     }
 
     results_all: list[dict[str, Any]] = []
@@ -288,9 +292,11 @@ async def _fetch_area_year(
 
     try:
         while offset is not None:
+            params_ = params | {"offset": offset}
+
             async with semaphore:
                 result = await _fetch_with_retries(
-                    session, params=params | {"offset": offset}, url=S2_SEARCH_BASE_URL
+                    session, params=params_, url=S2_SEARCH_BASE_URL
                 )
 
             data = result.get("data")
@@ -301,10 +307,9 @@ async def _fetch_area_year(
             results_all.extend(data)
 
             if limit_year is not None and len(results_all) > limit_year:
-                print(f"Query '{query}' - {year}: paper limit ({limit_year}) reached.")
                 return results_all
 
-            offset = result.get("offset")
+            offset = result.get("next")
     except Exception as e:
         print(f"Query '{query}' (last {offset=}) failed after {MAX_RETRIES} tries:")
         print(e)
