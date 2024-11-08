@@ -29,6 +29,7 @@ from typing import Annotated, Any
 import boto3
 import typer
 from dotenv import load_dotenv
+from tqdm import tqdm
 
 from paper.util import mustenv
 
@@ -175,6 +176,7 @@ class AthenaWrapper:
             query: The query to execute.
             show_progress: Whether to show progress information for CTAS queries.
         """
+
         output_bucket_url = f"s3://{self._output_bucket}"
         query = query.format(database=self._database, output_bucket=output_bucket_url)
 
@@ -186,6 +188,7 @@ class AthenaWrapper:
 
         query_execution_id = response["QueryExecutionId"]
         last_bytes = 0
+        pbar = None
 
         while True:
             response = self._athena.get_query_execution(
@@ -200,13 +203,22 @@ class AthenaWrapper:
                 if data_scanned > last_bytes:
                     mb_scanned = data_scanned / (1024 * 1024)
                     elapsed = stats.get("EngineExecutionTimeInMillis", 0) / 1000
-                    echo(
-                        f"Progress: {mb_scanned:.1f} MB scanned in {elapsed:.1f}s "
-                        f"({mb_scanned/elapsed:.1f} MB/s if complete)"
-                    )
+
+                    if pbar is None:
+                        pbar = tqdm(
+                            desc="Scanning",
+                            unit="MB",
+                            unit_scale=True,
+                            unit_divisor=1024,
+                        )
+
+                    pbar.update(mb_scanned - (last_bytes / (1024 * 1024)))
                     last_bytes = data_scanned
 
             if state in ["SUCCEEDED", "FAILED", "CANCELLED"]:
+                if pbar is not None:
+                    pbar.close()
+
                 if state != "SUCCEEDED":
                     status = execution.get("Status", {})
                     raise RuntimeError(
