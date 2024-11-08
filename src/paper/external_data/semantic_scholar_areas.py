@@ -2,9 +2,12 @@
 
 The primary areas are obtained from the `paper.gpt.prompt.primary_areas.toml` file.
 
-For each primary area, download the top `limit_papers` papers by title similarity to the
-query.
+For each primary area and year, download the top `limit_year` papers by title similarity
+to the query. The years can be ranges like `2017-2022` or single values like `2022`.
+They're always strings.
 """
+
+from __future__ import annotations
 
 import asyncio
 import sys
@@ -20,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from rich.console import Console
 from rich.table import Table
 
+from paper import progress
 from paper.external_data.semantic_scholar_info import S2_SEARCH_BASE_URL
 from paper.util import (
     HelpOnErrorArgumentParser,
@@ -59,10 +63,17 @@ def main() -> None:
         help="Comma-separated list of fields to retrieve.",
     )
     parser.add_argument(
-        "--limit-total",
+        "--years",
+        nargs="+",
+        type=str,
+        default=["2017"],
+        help="List of year ranges to fetch papers. Can be like `2017-2022` or `2010`",
+    )
+    parser.add_argument(
+        "--limit-year",
         type=int,
         default=10,
-        help="Number of papers per primary area to download. Set to 0 for all.",
+        help="Number of papers per year per primary area. Set to 0 for all.",
     )
     parser.add_argument(
         "--limit-page",
@@ -76,22 +87,28 @@ def main() -> None:
         download_paper_info,
         args.fields,
         args.output_path,
-        args.limit_total,
+        args.years,
+        args.limit_year,
         args.limit_page,
     )
 
 
 async def download_paper_info(
-    fields_str: str, output_path: Path, limit_total: int | None, limit_page: int
+    fields_str: str,
+    output_path: Path,
+    years: Sequence[str],
+    limit_year: int | None,
+    limit_page: int,
 ) -> None:
-    """Download papers belonging to ICLR primary areas from the S2 API.
+    """Download papers belonging to ICLR primary areas from the Semantic Scholar API.
 
-    For each primary area, download the top `limit_total` papers by "influential
-    citations".
+    For each primary area and year ranges in `years`, download the top `limit_year`
+    matches by similarity, as given by the API.
 
     The API allows us to specify the returned fields, so pass just the relevant ones
     to minimise the bandwidth required, as payloads larger than 10 MB will generate
-    errors.
+    errors. `limit_page` can be used to control the number of results per page if the
+    payload size becomes a problem.
     """
     dotenv.load_dotenv()
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
@@ -102,8 +119,8 @@ async def download_paper_info(
             "No valid --fields. It should be a comma-separated strings of field names."
         )
 
-    if limit_total is not None and limit_total <= 0:
-        limit_total = None
+    if limit_year is not None and limit_year <= 0:
+        limit_year = None
 
     if not (1 <= limit_page <= 100):
         sys.exit(f"Invalid `limit-page`: '{limit_page}'. Must be between 1 and 100.")
@@ -112,6 +129,47 @@ async def download_paper_info(
         read_resource("gpt.prompts", "primary_areas.toml")
     )["primary_areas"]
 
+    area_results = await _fetch_areas(
+        api_key, fields, limit_page, limit_year, primary_areas, years
+    )
+
+    # Print pretty table of number of retrieved papers per area
+    table = Table("Area", "Number of papers")
+    for area in area_results:
+        table.add_row(area.area, str(len(area.papers)))
+    table.add_row("Total", str(sum(len(area.papers) for area in area_results)))
+    Console().print(table)
+
+    output_path.mkdir(parents=True, exist_ok=True)
+    (output_path / "primary_area_papers.json").write_bytes(
+        TypeAdapter(list[AreaResult]).dump_json(area_results, indent=2)
+    )
+
+
+async def _fetch_areas(
+    api_key: str,
+    fields: Sequence[str],
+    limit_page: int,
+    limit_year: int | None,
+    primary_areas: Sequence[str],
+    years: Sequence[str],
+) -> list[AreaResult]:
+    """Fetch papers for each area, for each year ranges.
+
+    Args:
+        api_key: Semantic Scholar API key
+        fields: Fields to obtain from the API.
+        limit_page: Limit of papers per page request. Decrease this is the API complains
+            about the payload.
+        limit_year: Maximum number of papers to download for each area and year.
+        primary_areas: Areas to search the API. Each area is used as the query for the
+            request.
+        years: Years to filter the API. Can be ranges like `2017-2022` or a single year
+            like `2020`.
+
+    Returns:
+        List of paper results per area.
+    """
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
         connector=aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS),
@@ -119,47 +177,42 @@ async def download_paper_info(
         raise_for_status=True,
     ) as session:
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
-        results = [
-            AreaResult(
-                area=area,
-                papers=await _fetch_area(
-                    session,
-                    area,
-                    fields,
-                    semaphore,
-                    limit_total=limit_total,
-                    limit_page=limit_page,
-                ),
+        tasks = [
+            _fetch_area(
+                session,
+                area,
+                fields,
+                years,
+                semaphore,
+                limit_year=limit_year,
+                limit_page=limit_page,
             )
             for area in primary_areas
         ]
-
-    table = Table("Area", "Number of papers")
-    for area in results:
-        table.add_row(area.area, str(len(area.papers)))
-    table.add_row("Total", str(sum(len(area.papers) for area in results)))
-    Console().print(table)
-
-    output_path.mkdir(parents=True, exist_ok=True)
-    (output_path / "primary_area_papers.json").write_bytes(
-        TypeAdapter(list[AreaResult]).dump_json(results, indent=2)
-    )
+        task_results = await progress.gather(tasks, desc="Retrieving areas")
+        area_results = [
+            AreaResult(area=area, papers=papers)
+            for area, papers in zip(primary_areas, task_results)
+        ]
+    return area_results
 
 
 async def _fetch_area(
     session: aiohttp.ClientSession,
     query: str,
     fields: Iterable[str],
+    years: Sequence[str],
     semaphore: asyncio.Semaphore,
-    limit_total: int | None,
+    limit_year: int | None,
     limit_page: int,
-    url: str = S2_SEARCH_BASE_URL,
 ) -> list[dict[str, Any]]:
     """Fetch paper information for a given `query`. Only returns data from `fields`.
 
-    Handles pagination. Allows setting a total maximum of papers to download, and also
-    the limit per page. The former is mostly for testing; the latter can be tweaked
-    if the API is complaining the payload is too heavy. This can have happen as the
+    The request filters by the `query` and `years`.
+
+    Handles pagination. Allows setting a total maximum of papers to download per year,
+    and also the limit per page. The former is mostly for testing; the latter can be
+    tweaked if the API is complaining the payload is too heavy. This can happen as the
     total size of the payload nears 10 MB.
 
     Args:
@@ -168,20 +221,67 @@ async def _fetch_area(
             the ICLR documentation.
         fields: List of fields to retrieve. Restrict this only to the bare essentials
             to ensure the payloads are lightweight.
+        years: Sequence of year ranges to fetch papers. Can be like `2017-2022` or
+            `2010`.
         semaphore: Lock used to ensure that not too many requests are made at the same
             time.
-        limit_total: Maximum number of papers to retrieve from the API. If None, retrieve
-            as many as possible.
+        limit_year: Maximum number of papers per year to retrieve from the API. If None,
+            retrieve as many as possible.
+        limit_page: Page limit sent to the API. The API defaults to 100, but this can
+            be tweaked to ensure the payloads aren't too heavy.
+
+    Returns:
+        List of dictionaries containing the contents of the `data` object of all pages
+        of all years.
+    """
+    tasks = [
+        _fetch_area_year(
+            session, query, fields, year, semaphore, limit_year, limit_page
+        )
+        for year in years
+    ]
+    results = await progress.gather(tasks, desc=f"Retrieving query: '{query}'")
+    return [paper for papers in results for paper in papers]
+
+
+async def _fetch_area_year(
+    session: aiohttp.ClientSession,
+    query: str,
+    fields: Iterable[str],
+    year: str,
+    semaphore: asyncio.Semaphore,
+    limit_year: int | None,
+    limit_page: int,
+) -> list[dict[str, Any]]:
+    """Fetch paper information for a given `query`. Only returns data from `fields`.
+
+    Handles pagination, subject to payload sizes. See `_fetch_area` for more information.
+
+    Args:
+        session: Client session. Assumes a the API key has been set in the headers.
+        query: What we'll search in the API. This should be text of a primary area from
+            the ICLR documentation.
+        fields: List of fields to retrieve. Restrict this only to the bare essentials
+            to ensure the payloads are lightweight.
+        year: Range of years to fetch papers. Can be either like `2017-2022` or `2010`.
+        semaphore: Lock used to ensure that not too many requests are made at the same
+            time.
+        limit_year: Maximum number of papers per year to retrieve from the API. If None,
+            retrieve as many as possible.
         limit_page: Page limit sent to the API. The API defaults to 100, but this can
             be tweaked to ensure the payloads aren't too heavy.
         url: base URL for the 'Paper relevance search' endpoint.
 
     Returns:
         List of dictionaries containing the contents of the `data` object of each page.
-        No modification is done to these items.
     """
 
-    params = {"query": query, "fields": ",".join(fields), "limit": limit_page}
+    params = {
+        "query": query,
+        "fields": ",".join(fields),
+        "limit": limit_page,
+        "year": year,
+    }
 
     results_all: list[dict[str, Any]] = []
     offset: int | None = 0
@@ -190,7 +290,7 @@ async def _fetch_area(
         while offset is not None:
             async with semaphore:
                 result = await _fetch_with_retries(
-                    session, params=params | {"offset": offset}, url=url
+                    session, params=params | {"offset": offset}, url=S2_SEARCH_BASE_URL
                 )
 
             data = result.get("data")
@@ -200,8 +300,8 @@ async def _fetch_area(
 
             results_all.extend(data)
 
-            if limit_total is not None and len(results_all) > limit_total:
-                print(f"Query '{query}': paper limit ({limit_total}) reached.")
+            if limit_year is not None and len(results_all) > limit_year:
+                print(f"Query '{query}' - {year}: paper limit ({limit_year}) reached.")
                 return results_all
 
             offset = result.get("offset")
