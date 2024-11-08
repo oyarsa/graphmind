@@ -88,6 +88,12 @@ def main() -> None:
         default=None,
         help="Number of areas to query.",
     )
+    parser.add_argument(
+        "--min-citations",
+        type=int,
+        default=10,
+        help="Minimum number of incoming citations for papers to include.",
+    )
     args = parser.parse_args()
 
     arun_safe(
@@ -98,6 +104,7 @@ def main() -> None:
         args.limit_year,
         args.limit_page,
         args.limit_areas,
+        args.min_citations,
     )
 
 
@@ -108,6 +115,7 @@ async def download_paper_info(
     limit_year: int | None,
     limit_page: int,
     limit_areas: int | None,
+    min_citations: int,
 ) -> None:
     """Download papers belonging to ICLR primary areas from the Semantic Scholar API.
 
@@ -144,7 +152,13 @@ async def download_paper_info(
     )["primary_areas"][:limit_areas]
 
     area_results = await _fetch_areas(
-        api_key, fields, limit_page, limit_year, primary_areas, year_ranges
+        api_key,
+        fields,
+        limit_page,
+        limit_year,
+        primary_areas,
+        year_ranges,
+        min_citations,
     )
 
     # Print pretty table of number of retrieved papers per area
@@ -167,6 +181,7 @@ async def _fetch_areas(
     limit_year: int | None,
     primary_areas: Sequence[str],
     year_ranges: Sequence[str],
+    min_citations: int,
 ) -> list[AreaResult]:
     """Fetch papers for each area, for each year ranges.
 
@@ -180,6 +195,7 @@ async def _fetch_areas(
             request.
         year_ranges: Year ranges to filter the API. Can be ranges like `2017-2022` or a
             single year like `2020`.
+        min_citations: Only include papers with the minimum number of citations.
 
     Returns:
         List of paper results per area.
@@ -200,6 +216,7 @@ async def _fetch_areas(
                 semaphore,
                 limit_year=limit_year,
                 limit_page=limit_page,
+                min_citations=min_citations,
             )
             for area in primary_areas
         ]
@@ -219,6 +236,7 @@ async def _fetch_area(
     semaphore: asyncio.Semaphore,
     limit_year: int | None,
     limit_page: int,
+    min_citations: int,
 ) -> list[dict[str, Any]]:
     """Fetch paper information for a given `query`. Only returns data from `fields`.
 
@@ -243,6 +261,7 @@ async def _fetch_area(
             None, retrieve as many as possible.
         limit_page: Page limit sent to the API. The API defaults to 100, but this can
             be tweaked to ensure the payloads aren't too heavy.
+        min_citations: Only include papers with the minimum number of citations.
 
     Returns:
         List of dictionaries containing the contents of the `data` object of all pages
@@ -266,6 +285,7 @@ async def _fetch_area_year_range(
     semaphore: asyncio.Semaphore,
     limit_year: int | None,
     limit_page: int,
+    min_citations: int,
 ) -> list[dict[str, Any]]:
     """Fetch paper information for a given `query`. Only returns data from `fields`.
 
@@ -285,7 +305,7 @@ async def _fetch_area_year_range(
             None, retrieve as many as possible.
         limit_page: Page limit sent to the API. The API defaults to 100, but this can
             be tweaked to ensure the payloads aren't too heavy.
-        url: base URL for the 'Paper relevance search' endpoint.
+        min_citations: Only include papers with the minimum number of citations.
 
     Returns:
         List of dictionaries containing the contents of the `data` object of each page.
@@ -296,6 +316,7 @@ async def _fetch_area_year_range(
         "fields": ",".join(fields),
         "limit": limit_page,
         "year": year_range,
+        "minCitationCount": min_citations,
     }
 
     results_all: list[dict[str, Any]] = []
