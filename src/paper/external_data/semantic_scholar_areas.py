@@ -82,6 +82,12 @@ def main() -> None:
         default=100,
         help="Number of papers per queried page. Must be <=100.",
     )
+    parser.add_argument(
+        "--limit-areas",
+        type=int,
+        default=None,
+        help="Number of areas to query.",
+    )
     args = parser.parse_args()
 
     arun_safe(
@@ -91,6 +97,7 @@ def main() -> None:
         args.years,
         args.limit_year,
         args.limit_page,
+        args.limit_areas,
     )
 
 
@@ -100,6 +107,7 @@ async def download_paper_info(
     year_ranges: Sequence[str],
     limit_year: int | None,
     limit_page: int,
+    limit_areas: int | None,
 ) -> None:
     """Download papers belonging to ICLR primary areas from the Semantic Scholar API.
 
@@ -125,12 +133,15 @@ async def download_paper_info(
     if limit_year is not None and limit_year <= 0:
         limit_year = None
 
+    if limit_areas is not None and limit_areas <= 0:
+        limit_areas = None
+
     if not (1 <= limit_page <= 100):
         sys.exit(f"Invalid `limit-page`: '{limit_page}'. Must be between 1 and 100.")
 
     primary_areas: list[str] = tomllib.loads(
         read_resource("external_data", "primary_areas.toml")
-    )["primary_areas"]
+    )["primary_areas"][:limit_areas]
 
     area_results = await _fetch_areas(
         api_key, fields, limit_page, limit_year, primary_areas, year_ranges
