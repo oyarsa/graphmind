@@ -84,13 +84,11 @@ async def _main(
     load_dotenv()
 
     env = ensure_envvars(
-        [
-            "SEMANTIC_SCHOLAR_API_KEY",
-            "S3_BUCKET_NAME",
-            "AWS_REGION",
-            "AWS_ACCESS_KEY_ID",
-            "AWS_SECRET_ACCESS_KEY",
-        ]
+        "SEMANTIC_SCHOLAR_API_KEY",
+        "S3_BUCKET_NAME",
+        "AWS_REGION",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
     )
     semantic_api_key = env["SEMANTIC_SCHOLAR_API_KEY"]
     bucket_name = env["S3_BUCKET_NAME"]
