@@ -33,9 +33,9 @@ from paper.util import (
     read_resource,
 )
 
-MAX_CONCURRENT_REQUESTS = 10
+MAX_CONCURRENT_REQUESTS = 1
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
-MAX_RETRIES = 5
+MAX_RETRIES = 10
 
 
 def main() -> None:
@@ -220,7 +220,7 @@ async def _fetch_areas(
             )
             for area in primary_areas
         ]
-        task_results = await asyncio.gather(*tasks)
+        task_results = await progress.gather(tasks, desc="Querying areas")
         area_results = [
             AreaResult(area=area, papers=papers)
             for area, papers in zip(primary_areas, task_results)
@@ -267,14 +267,20 @@ async def _fetch_area(
         List of dictionaries containing the contents of the `data` object of all pages
         of all year ranges.
     """
-    tasks = [
-        _fetch_area_year_range(
-            session, query, fields, year_range, semaphore, limit_year, limit_page
-        )
+    return [
+        paper
         for year_range in year_ranges
+        for paper in await _fetch_area_year_range(
+            session,
+            query,
+            fields,
+            year_range,
+            semaphore,
+            limit_year,
+            limit_page,
+            min_citations,
+        )
     ]
-    results = await progress.gather(tasks, desc=f"Retrieving query: '{query}'")
-    return [paper for papers in results for paper in papers]
 
 
 async def _fetch_area_year_range(
@@ -331,9 +337,11 @@ async def _fetch_area_year_range(
                     session, params=params_, url=S2_SEARCH_BASE_URL
                 )
 
+            if error := result.get("error"):
+                raise aiohttp.ClientError(error)  # noqa: TRY301
+
             data = result.get("data")
             if not data:
-                print(f"Query '{query}': result.data is unavailable or empty.")
                 return results_all
 
             results_all.extend(data)
@@ -344,7 +352,7 @@ async def _fetch_area_year_range(
             offset = result.get("next")
     except Exception as e:
         print(f"Query '{query}' (last {offset=}) failed after {MAX_RETRIES} tries:")
-        print(e)
+        print("Exception:", e)
 
     return results_all
 
