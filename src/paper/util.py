@@ -362,9 +362,7 @@ def ensure_envvar(name: str) -> str:
     Raises:
         SystemExit: if the variable isn't set, prints a nice error and quits.
     """
-    if value := os.environ.get(name):
-        return value
-    sys.exit(f"Error: environment variable {name} not set.")
+    return mustenv(name)[name]
 
 
 def run_safe[**P, R](func: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
