@@ -12,14 +12,15 @@ from __future__ import annotations
 import asyncio
 import sys
 import tomllib
+from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import aiohttp
 import backoff
 import dotenv
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from rich.console import Console
 from rich.table import Table
 
@@ -168,10 +169,10 @@ async def download_paper_info(
     table.add_row("Total", str(sum(len(area.papers) for area in area_results)))
     Console().print(table)
 
+    papers = _merge_areas(area_results)
+
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    output_file.write_bytes(
-        TypeAdapter(list[AreaResult]).dump_json(area_results, indent=2)
-    )
+    output_file.write_bytes(TypeAdapter(list[PaperOutput]).dump_json(papers, indent=2))
 
 
 async def _fetch_areas(
@@ -237,7 +238,7 @@ async def _fetch_area(
     limit_year: int | None,
     limit_page: int,
     min_citations: int,
-) -> list[dict[str, Any]]:
+) -> list[Paper]:
     """Fetch paper information for a given `query`. Only returns data from `fields`.
 
     The request filters by the `query` and `year_ranges`.
@@ -268,7 +269,7 @@ async def _fetch_area(
         of all year ranges.
     """
     return [
-        paper
+        Paper.model_validate(paper)
         for year_range in year_ranges
         for paper in await _fetch_area_year_range(
             session,
@@ -383,11 +384,110 @@ async def _fetch_with_retries(
         return await response.json()
 
 
+def _merge_areas(areas: Sequence[AreaResult]) -> list[PaperOutput]:
+    """Merge papers across `areas` by `paper_id`, keeping track of their area sources.
+
+    Ignores papers where the `abstract` is null or empty.
+    """
+    # Both have paper_id as the key
+    papers: dict[str, Paper] = {}
+    paper_areas: defaultdict[str, set[str]] = defaultdict(set)
+
+    for area in areas:
+        for paper in area.papers:
+            if not paper.abstract:
+                continue
+
+            if paper.paper_id not in papers:
+                papers[paper.paper_id] = paper
+
+            paper_areas[paper.paper_id].add(area.area)
+
+    return [
+        PaperOutput.model_construct(
+            paper_id=paper.paper_id,
+            corpus_id=paper.corpus_id,
+            url=paper.url,
+            title=paper.title,
+            abstract=paper.abstract,
+            year=paper.year,
+            reference_count=paper.reference_count,
+            citation_count=paper.citation_count,
+            influential_citation_count=paper.influential_citation_count,
+            tldr=paper.tldr,
+            authors=paper.authors,
+            areas=sorted(paper_areas[id]),
+        )
+        for id, paper in papers.items()
+    ]
+
+
 class AreaResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     area: str
-    papers: Sequence[dict[str, Any]]
+    papers: Sequence[Paper]
+
+
+class Paper(BaseModel):
+    """Paper returned by the Semantic Scholar API. Everything's optional but `corpusId`.
+
+    This is to avoid validation errors in the middle of the download. We'll only save
+    those with non-empty `abstract`, though.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    # Semantic Scholar's primary unique identifier for a paper.
+    paper_id: Annotated[str, Field(alias="paperId")]
+    # Semantic Scholar's secondary unique identifier for a paper.
+    corpus_id: Annotated[int | None, Field(alias="corpusId")]
+    # URL of the paper on the Semantic Scholar website.
+    url: str | None
+    # Title of the paper.
+    title: str | None
+    # The paper's abstract. Note that due to legal reasons, this may be missing even if
+    # we display an abstract on the website.
+    abstract: str | None
+    # The year the paper was published.
+    year: int | None
+    # The total number of papers this paper references.
+    reference_count: Annotated[int | None, Field(alias="referenceCount")]
+    # The total number of papers that reference this paper.
+    citation_count: Annotated[int | None, Field(alias="citationCount")]
+    # A subset of the citation count, where the cited publication has a significant
+    # impact on the citing publication.
+    influential_citation_count: Annotated[
+        int | None, Field(alias="influentialCitationCount")
+    ]
+    # The tldr paper summary.
+    tldr: Tldr | None
+    # Paper authors.
+    authors: Sequence[Author] | None
+
+
+class Tldr(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    # The tldr model version number: https://github.com/allenai/scitldr
+    model: str | None
+    # The tldr paper summary.
+    text: str | None
+
+
+class Author(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    # Author's name.
+    name: str | None
+    # Semantic Scholar's unique ID for the author.
+    author_id: Annotated[str | None, Field(alias="authorId")]
+
+
+class PaperOutput(Paper):
+    model_config = ConfigDict(frozen=True)
+
+    areas: Sequence[str]
 
 
 if __name__ == "__main__":
