@@ -5,6 +5,10 @@ The primary areas are obtained from the `paper.gpt.prompt.primary_areas.toml` fi
 For each primary area and year range, download the top `limit_year` papers by title
 similarity to the query. The year ranges can be like `2017-2022` or single values like
 `2022`. They're always strings.
+
+---
+NB: The code uses aiohttp for requests, but it's actually sequential. I tried using
+concurrent requests here, but it didn't work very well.
 """
 
 from __future__ import annotations
@@ -23,8 +27,8 @@ import dotenv
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from rich.console import Console
 from rich.table import Table
+from tqdm import tqdm
 
-from paper import progress
 from paper.external_data.semantic_scholar_info import S2_SEARCH_BASE_URL
 from paper.util import (
     HelpOnErrorArgumentParser,
@@ -34,9 +38,8 @@ from paper.util import (
     read_resource,
 )
 
-MAX_CONCURRENT_REQUESTS = 1
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
-MAX_RETRIES = 10
+MAX_RETRIES = 5
 
 
 def main() -> None:
@@ -170,6 +173,7 @@ async def download_paper_info(
     Console().print(table)
 
     papers = _merge_areas(area_results)
+    print("Unique papers:", len(papers))
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
     output_file.write_bytes(TypeAdapter(list[PaperOutput]).dump_json(papers, indent=2))
@@ -184,7 +188,7 @@ async def _fetch_areas(
     year_ranges: Sequence[str],
     min_citations: int,
 ) -> list[AreaResult]:
-    """Fetch papers for each area, for each year ranges.
+    """Fetch papers for each area and year range.
 
     Args:
         api_key: Semantic Scholar API key
@@ -203,29 +207,25 @@ async def _fetch_areas(
     """
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
-        connector=aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS),
         headers={"x-api-key": api_key},
         raise_for_status=True,
     ) as session:
-        semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
-        tasks = [
-            _fetch_area(
-                session,
-                area,
-                fields,
-                year_ranges,
-                semaphore,
-                limit_year=limit_year,
-                limit_page=limit_page,
-                min_citations=min_citations,
-            )
-            for area in primary_areas
-        ]
-        task_results = await progress.gather(tasks, desc="Querying areas")
         area_results = [
-            AreaResult(area=area, papers=papers)
-            for area, papers in zip(primary_areas, task_results)
+            AreaResult(
+                area=area,
+                papers=await _fetch_area(
+                    session,
+                    area,
+                    fields,
+                    year_ranges,
+                    limit_year=limit_year,
+                    limit_page=limit_page,
+                    min_citations=min_citations,
+                ),
+            )
+            for area in tqdm(primary_areas, desc="Querying areas")
         ]
+
     return area_results
 
 
@@ -234,7 +234,6 @@ async def _fetch_area(
     query: str,
     fields: Iterable[str],
     year_ranges: Sequence[str],
-    semaphore: asyncio.Semaphore,
     limit_year: int | None,
     limit_page: int,
     min_citations: int,
@@ -256,8 +255,6 @@ async def _fetch_area(
             to ensure the payloads are lightweight.
         year_ranges: Sequence of year ranges to fetch papers. Can be like `2017-2022` or
             `2010`.
-        semaphore: Lock used to ensure that not too many requests are made at the same
-            time.
         limit_year: Maximum number of papers per year range to retrieve from the API. If
             None, retrieve as many as possible.
         limit_page: Page limit sent to the API. The API defaults to 100, but this can
@@ -270,13 +267,12 @@ async def _fetch_area(
     """
     return [
         Paper.model_validate(paper)
-        for year_range in year_ranges
+        for year_range in tqdm(year_ranges, desc=f"Q: {query}", leave=False)
         for paper in await _fetch_area_year_range(
             session,
             query,
             fields,
             year_range,
-            semaphore,
             limit_year,
             limit_page,
             min_citations,
@@ -289,7 +285,6 @@ async def _fetch_area_year_range(
     query: str,
     fields: Iterable[str],
     year_range: str,
-    semaphore: asyncio.Semaphore,
     limit_year: int | None,
     limit_page: int,
     min_citations: int,
@@ -306,8 +301,6 @@ async def _fetch_area_year_range(
             to ensure the payloads are lightweight.
         year_range: Range of years to fetch papers. Can be either like `2017-2022` or
             `2010`.
-        semaphore: Lock used to ensure that not too many requests are made at the same
-            time.
         limit_year: Maximum number of papers per year range to retrieve from the API. If
             None, retrieve as many as possible.
         limit_page: Page limit sent to the API. The API defaults to 100, but this can
@@ -330,16 +323,15 @@ async def _fetch_area_year_range(
     offset: int | None = 0
 
     try:
-        while offset is not None:
-            params_ = params | {"offset": offset}
-
-            async with semaphore:
-                result = await _fetch_with_retries(
-                    session, params=params_, url=S2_SEARCH_BASE_URL
-                )
+        # Endpoint can only return up to 1000 relevance-ranked results
+        while offset is not None and offset < 1000:
+            result = await _fetch_with_retries(
+                session, params=params | {"offset": offset}, url=S2_SEARCH_BASE_URL
+            )
 
             if error := result.get("error"):
-                raise aiohttp.ClientError(error)  # noqa: TRY301
+                print(f"Error: {error}")
+                return results_all
 
             data = result.get("data")
             if not data:
