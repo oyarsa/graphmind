@@ -101,7 +101,7 @@ async def _main(
         aws_secret_access_key=aws_secret_access_key,
         region_name=aws_region,
     )
-    # The clienti is typed correctly, but pyright doesn't like it. Everything else works.
+    # The client is typed correctly, but pyright doesn't like it. Everything else works.
     async with session.client("s3") as s3:  # type: ignore
         if local_path:
             await _upload_local(s3, bucket_name, local_path, dataset_name, max_files)
