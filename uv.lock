@@ -112,6 +112,15 @@ wheels = [
 ]
 
 [[package]]
+name = "aiolimiter"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/df/62/6de944a6839a68f7d69e552e26d12234d9c556472e4c277a3a563013640a/aiolimiter-1.1.0.tar.gz", hash = "sha256:461cf02f82a29347340d031626c92853645c099cb5ff85577b831a7bd21132b5", size = 6229 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/60/69/4b7dea755fafa10b248928da836a2cc8b5cff0762f363234e24218040f8e/aiolimiter-1.1.0-py3-none-any.whl", hash = "sha256:0b4997961fc58b8df40279e739f9cf0d3e255e63e9a44f64df567a8c17241e24", size = 7212 },
+]
+
+[[package]]
 name = "aiosignal"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1523,6 +1532,7 @@ dependencies = [
     { name = "aioboto3" },
     { name = "aiobotocore" },
     { name = "aiohttp" },
+    { name = "aiolimiter" },
     { name = "backoff" },
     { name = "boto3" },
     { name = "boto3-stubs", extra = ["full"] },
@@ -1563,6 +1573,7 @@ requires-dist = [
     { name = "aioboto3", specifier = ">=13.2.0" },
     { name = "aiobotocore", specifier = ">=2.15.2" },
     { name = "aiohttp", specifier = ">=3.10.5" },
+    { name = "aiolimiter", specifier = ">=1.1.0" },
     { name = "backoff", specifier = ">=2.2.1" },
     { name = "boto3", specifier = ">=1.35.36" },
     { name = "boto3-stubs", extras = ["full"], specifier = ">=1.35.56" },

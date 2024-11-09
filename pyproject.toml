@@ -29,6 +29,7 @@ dependencies = [
     "types-aioboto3[full]>=13.2.0.post1",
     "boto3>=1.35.36",
     "boto3-stubs[full]>=1.35.56",
+    "aiolimiter>=1.1.0",
 ]
 
 [tool.ruff.lint.isort]
