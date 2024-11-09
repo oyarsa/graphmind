@@ -317,7 +317,12 @@ class HelpOnErrorArgumentParser(argparse.ArgumentParser):
 
         Example:
             >>> parser = HelpOnErrorArgumentParser(__doc__)
+
+        If the docstring contains a line with `---`, the text after that is not included
+        in the help text.
         """
+        if description:
+            description = description.split("\n---", maxsplit=1)[0]
         super().__init__(
             prog=prog,
             usage=usage,
