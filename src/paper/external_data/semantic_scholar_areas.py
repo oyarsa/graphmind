@@ -24,11 +24,13 @@ from typing import Annotated, Any
 import aiohttp
 import backoff
 import dotenv
+from aiolimiter import AsyncLimiter
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from rich.console import Console
 from rich.table import Table
 from tqdm import tqdm
 
+from paper import progress
 from paper.external_data.semantic_scholar_info import S2_SEARCH_BASE_URL
 from paper.util import (
     HelpOnErrorArgumentParser,
@@ -40,6 +42,8 @@ from paper.util import (
 
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 MAX_RETRIES = 5
+REQUESTS_PER_SECOND = 1
+RATE_LIMITER = AsyncLimiter(1, 1)
 
 
 def main() -> None:
@@ -265,10 +269,8 @@ async def _fetch_area(
         List of dictionaries containing the contents of the `data` object of all pages
         of all year ranges.
     """
-    return [
-        Paper.model_validate(paper)
-        for year_range in tqdm(year_ranges, desc=f"Q: {query}", leave=False)
-        for paper in await _fetch_area_year_range(
+    tasks = [
+        _fetch_area_year_range(
             session,
             query,
             fields,
@@ -277,6 +279,12 @@ async def _fetch_area(
             limit_page,
             min_citations,
         )
+        for year_range in year_ranges
+    ]
+    return [
+        Paper.model_validate(paper)
+        for papers in await progress.gather(tasks, desc=f"Q: {query}", leave=False)
+        for paper in papers
     ]
 
 
@@ -325,9 +333,10 @@ async def _fetch_area_year_range(
     try:
         # Endpoint can only return up to 1000 relevance-ranked results
         while offset is not None and offset < 1000:
-            result = await _fetch_with_retries(
-                session, params=params | {"offset": offset}, url=S2_SEARCH_BASE_URL
-            )
+            async with RATE_LIMITER:
+                result = await _fetch_with_retries(
+                    session, params=params | {"offset": offset}, url=S2_SEARCH_BASE_URL
+                )
 
             if error := result.get("error"):
                 print(f"Error: {error}")
