@@ -11,7 +11,7 @@ from paper.util import fuzzy_partial_ratio
 
 
 class Paper(BaseModel):
-    """Paper returned by the Semantic Scholar API. Everything's optional but `corpusId`.
+    """Paper returned by the Semantic Scholar API. Everything's optional but `paperId`.
 
     This is to avoid validation errors in the middle of the download. We'll only save
     those with non-empty `abstract`, though.
