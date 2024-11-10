@@ -18,7 +18,7 @@ class Paper(BaseModel):
     those with non-empty `abstract`, though.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     # Semantic Scholar's primary unique identifier for a paper.
     paper_id: Annotated[str, Field(alias="paperId")]
@@ -58,7 +58,7 @@ class Tldr(BaseModel):
 
 
 class Author(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     # Author's name.
     name: str | None
