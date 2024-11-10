@@ -178,12 +178,16 @@ async def _download_paper_info(
         if paper.fuzz_ratio >= min_fuzzy and paper.s2 and paper.s2.abstract
     ]
 
-    logger.info(len(results), "papers")
-    logger.info(len(results_valid), "valid")
+    logger.info(f"{len(results)} papers")
     logger.info(
-        len(results_filtered),
-        f"filtered (non-emtpy abstract and fuzz ratio >= {min_fuzzy})",
+        f"{len(results_valid)} valid (non-null results)"
+        f" - {len(results_valid)/len(results):.2%} papers found something"
     )
+    logger.info(
+        f"{len(results_filtered)} filtered (non-empty abstract and fuzz ratio"
+        f" >= {min_fuzzy})"
+    )
+    logger.info(f"> {len(results_filtered)/len(results):.2%} papers filtered")
 
     output_path.mkdir(parents=True, exist_ok=True)
     _save_result(output_path, "full.json", results)
