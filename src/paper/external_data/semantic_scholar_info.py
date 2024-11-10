@@ -38,6 +38,7 @@ from paper.progress import gather
 from paper.util import (
     HelpOnErrorArgumentParser,
     arun_safe,
+    display_params,
     ensure_envvar,
     setup_logging,
 )
@@ -153,6 +154,8 @@ async def _download_paper_info(
     The API allows us to specify the returned fields, so pass just the relevant ones
     to minimise the bandwidth required.
     """
+    logger.info(display_params())
+
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
     papers_asap = TypeAdapter(list[ASAPPaper]).validate_json(input_file.read_bytes())
     papers_asap = papers_asap[:limit_papers]
