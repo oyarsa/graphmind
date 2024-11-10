@@ -16,7 +16,6 @@ The resulting files are:
 """
 
 import asyncio
-import json
 import logging
 from collections.abc import Sequence
 from pathlib import Path
@@ -187,14 +186,14 @@ async def _download_paper_info(
     )
 
     output_path.mkdir(parents=True, exist_ok=True)
-    (output_path / "semantic_scholar_full.json").write_text(
-        json.dumps(results, indent=2)
-    )
-    (output_path / "semantic_scholar_best.json").write_text(
-        json.dumps(results_valid, indent=2)
-    )
-    (output_path / "semantic_scholar_final.json").write_text(
-        json.dumps(results_filtered, indent=2)
+    _save_result(output_path, "full.json", results)
+    _save_result(output_path, "best.json", results_valid)
+    _save_result(output_path, "filtered.json", results_filtered)
+
+
+def _save_result(path: Path, name: str, data: list[PaperExtended]) -> None:
+    (path / name).write_bytes(
+        TypeAdapter(list[PaperExtended]).dump_json(data, indent=2)
     )
 
 
