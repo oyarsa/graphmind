@@ -104,6 +104,17 @@ class ASAPPaperWithS2(ASAPPaper):
         )
 
 
+class PaperWithRecommendations(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    main_paper: ASAPPaperWithS2
+    recommendations: Sequence[Paper]
+
+
+class PaperRecommended(Paper):
+    sources: Sequence[str]
+
+
 def title_ratio(title1: str, title2: str) -> int:
     """Calculate fuzzy ratio between paper titles.
 
