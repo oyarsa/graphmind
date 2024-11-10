@@ -59,7 +59,7 @@ LIMITER = (
 logger = logging.getLogger(__name__)
 
 
-class PaperExtended(ASAPPaper):
+class ASAPPaperWithS2(ASAPPaper):
     model_config = ConfigDict(frozen=True)
 
     s2: S2Paper | None
@@ -170,7 +170,7 @@ async def _download_paper_info(
         ]
         task_results = list(await gather(tasks, desc="Downloading paper info"))
         results = [
-            PaperExtended(
+            ASAPPaperWithS2(
                 title=paper.title,
                 abstract=paper.abstract,
                 reviews=paper.reviews,
@@ -207,9 +207,9 @@ async def _download_paper_info(
     _save_result(output_path, "filtered.json", results_filtered)
 
 
-def _save_result(path: Path, name: str, data: list[PaperExtended]) -> None:
+def _save_result(path: Path, name: str, data: list[ASAPPaperWithS2]) -> None:
     (path / name).write_bytes(
-        TypeAdapter(list[PaperExtended]).dump_json(data, indent=2)
+        TypeAdapter(list[ASAPPaperWithS2]).dump_json(data, indent=2)
     )
 
 
