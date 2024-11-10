@@ -9,11 +9,6 @@ The output is two files:
   recommendations
 - papers_recommended.json: unique recommended papers with the set of titles for the
   papers that led to them. The titles come from ASAP, not S2.
-
----
-
-NB: The code uses aiohttp for requests, but it's actually sequential. I tried using
-concurrent requests here, but it didn't work very well.
 """
 
 from __future__ import annotations
@@ -28,8 +23,8 @@ from typing import Any
 import aiohttp
 import backoff
 import dotenv
-from tqdm import tqdm
 
+from paper import progress
 from paper.external_data.semantic_scholar_model import (
     ASAPPaperWithS2,
     PaperRecommended,
@@ -200,14 +195,16 @@ async def _fetch_recommendations(
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT), headers={"x-api-key": api_key}
     ) as session:
-        return [
-            PaperWithRecommendations(
-                main_paper=paper,
-                recommendations=await _fetch_paper_recommendations(
-                    session, paper.s2, fields, from_, limit_recommendations
-                ),
+        tasks = [
+            _fetch_paper_recommendations(
+                session, paper.s2, fields, from_, limit_recommendations
             )
-            for paper in tqdm(papers, desc="Querying papers")
+            for paper in papers
+        ]
+        task_results = await progress.gather(tasks, desc="Querying papers")
+        return [
+            PaperWithRecommendations(main_paper=paper, recommendations=result)
+            for paper, result in zip(papers, task_results)
         ]
 
 
