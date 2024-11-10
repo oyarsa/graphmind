@@ -450,7 +450,9 @@ def save_data[T: BaseModel](path: Path, data: Sequence[T]) -> None:
 
     path.parent.mkdir(parents=True, exist_ok=True)
     type_ = type(data[0])
-    path.write_bytes(TypeAdapter(Sequence[type_]).dump_json(data, indent=2))
+    path.write_bytes(
+        TypeAdapter(Sequence[type_]).dump_json(data, indent=2, by_alias=True)
+    )
 
 
 def get_limiter(
