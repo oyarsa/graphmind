@@ -18,12 +18,14 @@ The resulting files (under `output_dir`) are:
 
 import asyncio
 import logging
+import os
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 import aiohttp
 import dotenv
+from aiolimiter import AsyncLimiter
 from pydantic import ConfigDict, TypeAdapter
 
 from paper.asap.model import Paper as ASAPPaper
@@ -38,8 +40,6 @@ from paper.util import (
 )
 
 MAX_CONCURRENT_REQUESTS = 10
-SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
-
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 MAX_RETRIES = 5
 RETRY_DELAY = 5  # Initial delay in seconds
@@ -47,6 +47,11 @@ BACKOFF_FACTOR = 2  # Exponential backoff factor
 
 S2_SEARCH_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 
+LIMITER = (
+    asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+    if os.environ.get("USE_SEMAPHORE", "1") == "1"
+    else AsyncLimiter(1, 1)
+)
 logger = logging.getLogger(__name__)
 
 
@@ -71,7 +76,7 @@ async def _fetch_paper_info(
     }
     headers = {"x-api-key": api_key}
 
-    async with SEMAPHORE:
+    async with LIMITER:
         attempt = 0
         delay = RETRY_DELAY
         while attempt < MAX_RETRIES:
