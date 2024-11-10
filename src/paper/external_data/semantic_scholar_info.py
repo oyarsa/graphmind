@@ -37,6 +37,8 @@ from paper.util import (
 )
 
 MAX_CONCURRENT_REQUESTS = 10
+SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 MAX_RETRIES = 5
 RETRY_DELAY = 5  # Initial delay in seconds
@@ -59,7 +61,6 @@ async def _fetch_paper_info(
     api_key: str,
     paper_title: str,
     fields: Sequence[str],
-    semaphore: asyncio.Semaphore,
 ) -> dict[str, Any] | None:
     """Fetch paper information for a given title. Takes only the best title match."""
     params = {
@@ -69,7 +70,7 @@ async def _fetch_paper_info(
     }
     headers = {"x-api-key": api_key}
 
-    async with semaphore:
+    async with SEMAPHORE:
         attempt = 0
         delay = RETRY_DELAY
         while attempt < MAX_RETRIES:
@@ -151,9 +152,8 @@ async def _download_paper_info(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
         connector=aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS),
     ) as session:
-        semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
         tasks = [
-            _fetch_paper_info(session, api_key, paper.title, fields, semaphore)
+            _fetch_paper_info(session, api_key, paper.title, fields)
             for paper in papers_asap
         ]
         task_results = list(await gather(tasks, desc="Downloading paper info"))
