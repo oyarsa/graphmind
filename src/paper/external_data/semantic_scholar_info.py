@@ -21,14 +21,12 @@ The resulting files (under `output_dir`) are:
 
 import asyncio
 import logging
-import os
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 import aiohttp
 import dotenv
-from aiolimiter import AsyncLimiter
 from pydantic import ConfigDict, TypeAdapter
 
 from paper.asap.model import Paper as ASAPPaper
@@ -40,6 +38,7 @@ from paper.util import (
     arun_safe,
     display_params,
     ensure_envvar,
+    get_limiter,
     setup_logging,
 )
 
@@ -51,11 +50,7 @@ BACKOFF_FACTOR = 2  # Exponential backoff factor
 
 S2_SEARCH_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 
-LIMITER = (
-    asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
-    if os.environ.get("USE_SEMAPHORE", "1") == "1"
-    else AsyncLimiter(1, 1)
-)
+LIMITER = get_limiter(MAX_CONCURRENT_REQUESTS)
 logger = logging.getLogger(__name__)
 
 
