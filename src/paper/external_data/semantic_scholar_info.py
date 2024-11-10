@@ -129,7 +129,12 @@ async def _fetch_paper_info(
 
 
 async def _download_paper_info(
-    input_file: Path, fields_str: str, output_path: Path, api_key: str, min_fuzzy: int
+    input_file: Path,
+    fields_str: str,
+    output_path: Path,
+    api_key: str,
+    min_fuzzy: int,
+    limit_papers: int | None,
 ) -> None:
     """Download paper information for multiple titles.
 
@@ -141,6 +146,7 @@ async def _download_paper_info(
     """
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
     papers_asap = TypeAdapter(list[ASAPPaper]).validate_json(input_file.read_bytes())
+    papers_asap = papers_asap[:limit_papers]
 
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
@@ -224,6 +230,13 @@ def main() -> None:
         default=80,
         help="Minimum fuzz ratio of titles to filter",
     )
+    parser.add_argument(
+        "--limit",
+        "-n",
+        type=int,
+        default=None,
+        help="Maximum number of papers to query",
+    )
     args = parser.parse_args()
 
     dotenv.load_dotenv()
@@ -237,6 +250,7 @@ def main() -> None:
         args.output_path,
         api_key,
         args.min_fuzzy,
+        args.limit,
     )
 
 
