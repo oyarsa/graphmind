@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Annotated
+from typing import Annotated, Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from paper.asap.model import Paper as ASAPPaper
 from paper.util import fuzzy_partial_ratio
 
 
@@ -63,6 +64,44 @@ class Author(BaseModel):
     name: str | None
     # Semantic Scholar's unique ID for the author.
     author_id: Annotated[str | None, Field(alias="authorId")]
+
+
+class ASAPPaperMaybeS2(ASAPPaper):
+    s2: Paper | None
+    fuzz_ratio: int
+
+    @classmethod
+    def from_asap(cls, asap: ASAPPaper, s2_result: dict[str, Any] | None) -> Self:
+        """Create new paper from an existing ASAP paper and the S2 API result."""
+        return cls(
+            title=asap.title,
+            abstract=asap.abstract,
+            reviews=asap.reviews,
+            sections=asap.sections,
+            approval=asap.approval,
+            references=asap.references,
+            s2=Paper.model_validate(s2_result) if s2_result else None,
+            fuzz_ratio=title_ratio(asap.title, s2_result["title"]) if s2_result else 0,
+        )
+
+
+class ASAPPaperWithS2(ASAPPaper):
+    s2: Paper
+    fuzz_ratio: int
+
+    @classmethod
+    def from_maybe(cls, maybe: ASAPPaperMaybeS2, s2: Paper) -> Self:
+        """Create an object that _definitely_ has S2 data from one that _maybe_ does."""
+        return cls(
+            title=maybe.title,
+            abstract=maybe.abstract,
+            reviews=maybe.reviews,
+            sections=maybe.sections,
+            approval=maybe.approval,
+            references=maybe.references,
+            s2=s2,
+            fuzz_ratio=maybe.fuzz_ratio,
+        )
 
 
 def title_ratio(title1: str, title2: str) -> int:

@@ -27,11 +27,13 @@ from typing import Any
 
 import aiohttp
 import dotenv
-from pydantic import ConfigDict, TypeAdapter
+from pydantic import TypeAdapter
 
 from paper.asap.model import Paper as ASAPPaper
-from paper.external_data.semantic_scholar_model import Paper as S2Paper
-from paper.external_data.semantic_scholar_model import title_ratio
+from paper.external_data.semantic_scholar_model import (
+    ASAPPaperMaybeS2,
+    ASAPPaperWithS2,
+)
 from paper.progress import gather
 from paper.util import (
     HelpOnErrorArgumentParser,
@@ -39,6 +41,7 @@ from paper.util import (
     display_params,
     ensure_envvar,
     get_limiter,
+    save_data,
     setup_logging,
 )
 
@@ -52,13 +55,6 @@ S2_SEARCH_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 
 LIMITER = get_limiter(MAX_CONCURRENT_REQUESTS)
 logger = logging.getLogger(__name__)
-
-
-class ASAPPaperWithS2(ASAPPaper):
-    model_config = ConfigDict(frozen=True)
-
-    s2: S2Paper | None
-    fuzz_ratio: int
 
 
 async def _fetch_paper_info(
@@ -165,20 +161,13 @@ async def _download_paper_info(
         ]
         task_results = list(await gather(tasks, desc="Downloading paper info"))
         results = [
-            ASAPPaperWithS2(
-                title=paper.title,
-                abstract=paper.abstract,
-                reviews=paper.reviews,
-                sections=paper.sections,
-                approval=paper.approval,
-                references=paper.references,
-                s2=S2Paper.model_validate(result) if result else None,
-                fuzz_ratio=title_ratio(paper.title, result["title"]) if result else 0,
-            )
+            ASAPPaperMaybeS2.from_asap(paper, result)
             for paper, result in zip(papers_asap, task_results)
         ]
 
-    results_valid = [result for result in results if result.s2]
+    results_valid = [
+        ASAPPaperWithS2.from_maybe(result, result.s2) for result in results if result.s2
+    ]
     results_filtered = [
         paper
         for paper in results_valid
@@ -197,15 +186,9 @@ async def _download_paper_info(
     logger.info(f"> {len(results_filtered)/len(results):.2%} papers filtered")
 
     output_path.mkdir(parents=True, exist_ok=True)
-    _save_result(output_path, "full.json", results)
-    _save_result(output_path, "valid.json", results_valid)
-    _save_result(output_path, "filtered.json", results_filtered)
-
-
-def _save_result(path: Path, name: str, data: list[ASAPPaperWithS2]) -> None:
-    (path / name).write_bytes(
-        TypeAdapter(list[ASAPPaperWithS2]).dump_json(data, indent=2)
-    )
+    save_data(output_path / "full.json", results)
+    save_data(output_path / "valid.json", results_valid)
+    save_data(output_path / "filtered.json", results_filtered)
 
 
 def main() -> None:
