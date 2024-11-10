@@ -296,7 +296,7 @@ async def _fetch_paper_recommendations(
             return []
 
         if data := result.get("recommendedPapers"):
-            return data
+            return [S2Paper.model_validate(paper) for paper in data]
 
     except Exception as e:
         print(f"Paper '{paper.title}' failed after {MAX_RETRIES} tries:")
