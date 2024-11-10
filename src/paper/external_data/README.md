@@ -17,4 +17,10 @@ with having the files on the cloud instead of locally.
 - [`semantic_scholar_areas.py`](semantic_scholar_areas.py): Download papers belonging to
   ICLR primary areas from the Semantic Scholar API.
 - [`semantic_scholar_info.py`](semantic_scholar_info.py): Download paper information
-  from the Semantic Scholar API.
+  from the Semantic Scholar (S2) API.
+- [`semantic_scholar_model.py`](semantic_scholar_model.py): Data models for types
+  returned by the Semantic Scholar API.
+- [`semantic_scholar_recommended.py`](semantic_scholar_recommended.py): Download paper
+  recommendations for papers in the ASAP dataset.
+- [`semantic_scholar_references.py`](semantic_scholar_references.py): Download paper
+  information from the Semantic Scholar API.
