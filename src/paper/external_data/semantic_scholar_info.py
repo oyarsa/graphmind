@@ -17,6 +17,7 @@ The resulting files are:
 
 import asyncio
 import json
+import logging
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -25,7 +26,13 @@ import aiohttp
 import dotenv
 
 from paper.progress import gather
-from paper.util import HelpOnErrorArgumentParser, arun_safe, ensure_envvar, fuzzy_ratio
+from paper.util import (
+    HelpOnErrorArgumentParser,
+    arun_safe,
+    ensure_envvar,
+    fuzzy_ratio,
+    setup_logging,
+)
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -33,8 +40,9 @@ MAX_RETRIES = 5
 RETRY_DELAY = 5  # Initial delay in seconds
 BACKOFF_FACTOR = 2  # Exponential backoff factor
 
-
 S2_SEARCH_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
+
+logger = logging.getLogger(__name__)
 
 
 async def _fetch_paper_info(
@@ -65,7 +73,7 @@ async def _fetch_paper_info(
                         if data.get("data"):
                             return {"title_query": paper_title} | data["data"][0]
                         else:
-                            print(f"No results found for title: {paper_title}")
+                            logger.debug(f"No results found for title: {paper_title}")
                             return None
                     elif response.status == 429:
                         retry_after = response.headers.get("Retry-After")
@@ -75,7 +83,7 @@ async def _fetch_paper_info(
                         else:
                             wait_time = delay
                             wait_source = "Custom"
-                        print(
+                        logger.debug(
                             f"Rate limited (429) when fetching '{paper_title}'. "
                             f"Retrying after {wait_time} ({wait_source}) seconds..."
                         )
@@ -83,19 +91,19 @@ async def _fetch_paper_info(
                         delay *= BACKOFF_FACTOR  # Exponential backoff
                     else:
                         error_text = await response.text()
-                        print(
+                        logger.warning(
                             f"Error fetching data for '{paper_title}': HTTP {response.status} - {error_text}"
                         )
                         return None
             except aiohttp.ClientError as e:
-                print(
+                logger.debug(
                     f"Network error fetching '{paper_title}': {e}. Retrying..."
                     f" (Attempt {attempt + 1}/{MAX_RETRIES})"
                 )
                 await asyncio.sleep(delay)
                 delay *= BACKOFF_FACTOR
             except TimeoutError:
-                print(
+                logger.debug(
                     f"Timeout error fetching '{paper_title}'. Retrying..."
                     f" (Attempt {attempt + 1}/{MAX_RETRIES})"
                 )
@@ -104,7 +112,9 @@ async def _fetch_paper_info(
 
             attempt += 1
 
-        print(f"Failed to fetch data for '{paper_title}' after {MAX_RETRIES} attempts.")
+        logger.warning(
+            f"Failed to fetch data for '{paper_title}' after {MAX_RETRIES} attempts."
+        )
         return None
 
 
@@ -151,9 +161,9 @@ async def _download_paper_info(
         if paper["fuzz_ratio"] >= min_fuzzy and paper["abstract"]
     ]
 
-    print(len(results), "papers")
-    print(len(results_valid), "valid")
-    print(
+    logger.info(len(results), "papers")
+    logger.info(len(results_valid), "valid")
+    logger.info(
         len(results_filtered),
         f"filtered (non-emtpy abstract and fuzz ratio >= {min_fuzzy})",
     )
@@ -206,6 +216,7 @@ def main() -> None:
 
     dotenv.load_dotenv()
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
+    setup_logging()
 
     arun_safe(
         _download_paper_info,
