@@ -7,6 +7,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from paper.util import fuzzy_partial_ratio
+
 
 class Paper(BaseModel):
     """Paper returned by the Semantic Scholar API. Everything's optional but `corpusId`.
@@ -61,3 +63,16 @@ class Author(BaseModel):
     name: str | None
     # Semantic Scholar's unique ID for the author.
     author_id: Annotated[str | None, Field(alias="authorId")]
+
+
+def title_ratio(title1: str, title2: str) -> int:
+    """Calculate fuzzy ratio between paper titles.
+
+    Calculates the partial ratio between clean titles. Clean titles are case-folded and
+    stripped.
+    """
+    return fuzzy_partial_ratio(_clean_title(title1), _clean_title(title2))
+
+
+def _clean_title(title: str) -> str:
+    return title.casefold().strip()

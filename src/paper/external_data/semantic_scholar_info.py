@@ -28,12 +28,12 @@ from pydantic import ConfigDict, TypeAdapter
 
 from paper.asap.model import Paper as ASAPPaper
 from paper.external_data.semantic_scholar_model import Paper as S2Paper
+from paper.external_data.semantic_scholar_model import title_ratio
 from paper.progress import gather
 from paper.util import (
     HelpOnErrorArgumentParser,
     arun_safe,
     ensure_envvar,
-    fuzzy_ratio,
     setup_logging,
 )
 
@@ -167,7 +167,7 @@ async def _download_paper_info(
                 approval=paper.approval,
                 references=paper.references,
                 s2=S2Paper.model_validate(result) if result else None,
-                fuzz_ratio=fuzzy_ratio(paper.title, result["title"]) if result else 0,
+                fuzz_ratio=title_ratio(paper.title, result["title"]) if result else 0,
             )
             for paper, result in zip(papers_asap, task_results)
         ]

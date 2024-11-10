@@ -29,6 +29,14 @@ def fuzzy_ratio(s1: str, s2: str) -> int:
     return fuzz.ratio(s1, s2)  # type: ignore
 
 
+def fuzzy_partial_ratio(s1: str, s2: str) -> int:
+    """Calculates the partial fuzzy matching ratio between s1 and s2 as integer in 0-100.
+
+    Type-safe wrapper around thefuzz.fuzz.partial_ratio.
+    """
+    return fuzz.partial_ratio(s1, s2)  # type: ignore
+
+
 class Timer:
     """Track time elapsed. Can be used as a context manager to time its block."""
 

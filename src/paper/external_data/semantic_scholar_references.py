@@ -26,12 +26,12 @@ from typing import Any
 import aiohttp
 import dotenv
 
+from paper.external_data.semantic_scholar_model import title_ratio
 from paper.progress import gather
 from paper.util import (
     HelpOnErrorArgumentParser,
     arun_safe,
     ensure_envvar,
-    fuzzy_ratio,
     setup_logging,
 )
 
@@ -163,7 +163,7 @@ async def _download_paper_info(
         results = list(await gather(tasks, desc="Downloading paper info"))
 
     results_valid = [
-        result | {"fuzz_ratio": fuzzy_ratio(result["title_query"], result["title"])}
+        result | {"fuzz_ratio": title_ratio(result["title_query"], result["title"])}
         for result in results
         if result
     ]
