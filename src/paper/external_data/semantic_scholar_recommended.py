@@ -4,6 +4,9 @@ The input is the output of the `paper.external_data.semantic_scholar_info` scrip
 we have the S2 information for the paper. We need this for the paperId, which the
 recommendation endpoint uses as input.
 
+The recommendations API offers two pools to get recommendations from: "recent" and
+"all-cs". For each paper, we query both pools and return the union of papers.
+
 The output is two files:
 - papers_with_recommendations.json: full data - each paper with its list of
   recommendations
@@ -85,14 +88,6 @@ def main() -> None:
         help="Comma-separated list of fields to retrieve.",
     )
     parser.add_argument(
-        "--from",
-        dest="from_",
-        type=str,
-        default="recent",
-        help="Pool to recommend papers from",
-        choices=VALID_FROM,
-    )
-    parser.add_argument(
         "--limit-papers",
         type=int,
         default=None,
@@ -110,7 +105,6 @@ def main() -> None:
         download_paper_recomendation,
         args.input_file,
         args.fields,
-        args.from_,
         args.output_dir,
         args.limit_papers,
         args.limit_recommendations,
@@ -120,7 +114,6 @@ def main() -> None:
 async def download_paper_recomendation(
     input_file: Path,
     fields_str: str,
-    from_: str,
     output_dir: Path,
     limit_papers: int | None,
     limit_recommendations: int,
@@ -157,7 +150,7 @@ async def download_paper_recomendation(
     papers = load_data(input_file, ASAPPaperWithS2)[:limit_papers]
 
     papers_with_recommendations = await _fetch_recommendations(
-        api_key, papers, fields, from_, limit_recommendations
+        api_key, papers, fields, limit_recommendations
     )
     papers_unique = _merge_papers(papers_with_recommendations)
 
@@ -177,7 +170,6 @@ async def _fetch_recommendations(
     api_key: str,
     papers: Sequence[ASAPPaperWithS2],
     fields: Sequence[str],
-    from_: str,
     limit_recommendations: int,
 ) -> list[PaperWithRecommendations]:
     """Fetch recommendations from each paper.
@@ -197,7 +189,7 @@ async def _fetch_recommendations(
     ) as session:
         tasks = [
             _fetch_paper_recommendations(
-                session, paper.s2, fields, from_, limit_recommendations
+                session, paper.s2, fields, limit_recommendations
             )
             for paper in papers
         ]
@@ -259,8 +251,51 @@ async def _fetch_paper_recommendations(
     session: aiohttp.ClientSession,
     paper: S2Paper,
     fields: Iterable[str],
-    from_: str,
     limit_recommendations: int,
+) -> list[S2Paper]:
+    """Fetch paper recommendations from a paper in all VALID_FROM pools.
+
+    Args:
+        session: Client session. Assumes a the API key has been set in the headers.
+        paper: S2 paper to be queried through its paperId.
+        fields: List of fields to retrieve. Restrict this only to the bare essentials
+            to ensure the payloads are lightweight.
+        limit_recommendations: Maximum number of recommendations per paper.
+            Must be <= 500.
+
+    Returns:
+        List of S2 recommended papers. If there was an error, prints it and returns an
+        empty list.
+    """
+    output: list[S2Paper] = []
+    for from_ in VALID_FROM:
+        results = await _fetch_paper_recommendations_from(
+            session, paper, fields, limit_recommendations, from_=from_
+        )
+        output.extend(results)
+
+    return _deduplicate_papers(output)
+
+
+def _deduplicate_papers(papers: Iterable[S2Paper]) -> list[S2Paper]:
+    """Remove duplicate papers by paper_id."""
+    seen: set[str] = set()
+    output: list[S2Paper] = []
+
+    for paper in papers:
+        if paper.paper_id not in seen:
+            seen.add(paper.paper_id)
+            output.append(paper)
+
+    return output
+
+
+async def _fetch_paper_recommendations_from(
+    session: aiohttp.ClientSession,
+    paper: S2Paper,
+    fields: Iterable[str],
+    limit_recommendations: int,
+    from_: str,
 ) -> list[S2Paper]:
     """Fetch paper recommendations for a paper. Only returns data from `fields`.
 
