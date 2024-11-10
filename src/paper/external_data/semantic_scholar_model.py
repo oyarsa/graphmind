@@ -112,7 +112,8 @@ class PaperWithRecommendations(BaseModel):
 
 
 class PaperRecommended(Paper):
-    sources: Sequence[str]
+    sources_asap: Sequence[str]
+    sources_s2: Sequence[str]
 
 
 def title_ratio(title1: str, title2: str) -> int:

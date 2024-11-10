@@ -223,13 +223,17 @@ def _merge_papers(papers: Iterable[PaperWithRecommendations]) -> list[PaperRecom
         List of the unique S2 papers with the name of the papers that led to them.
     """
     paper_idx: dict[str, S2Paper] = {}
-    paper_sources: defaultdict[str, set[str]] = defaultdict(set)
+    paper_sources_asap: defaultdict[str, set[str]] = defaultdict(set)
+    paper_sources_s2: defaultdict[str, set[str]] = defaultdict(set)
 
     for main_paper in papers:
         for paper in main_paper.recommendations:
             if paper.paper_id not in paper_idx:
                 paper_idx[paper.paper_id] = paper
-            paper_sources[paper.paper_id].add(main_paper.main_paper.title)
+
+            paper_sources_asap[paper.paper_id].add(main_paper.main_paper.title)
+            if s2_title := main_paper.main_paper.s2.title:
+                paper_sources_s2[paper.paper_id].add(s2_title)
 
     return [
         PaperRecommended(
@@ -244,7 +248,8 @@ def _merge_papers(papers: Iterable[PaperWithRecommendations]) -> list[PaperRecom
             citation_count=paper.citation_count,
             influential_citation_count=paper.influential_citation_count,
             tldr=paper.tldr,
-            sources=sorted(paper_sources[paper.paper_id]),
+            sources_asap=sorted(paper_sources_asap[paper.paper_id]),
+            sources_s2=sorted(paper_sources_s2[paper.paper_id]),
         )
         for paper in paper_idx.values()
     ]
