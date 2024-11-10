@@ -24,7 +24,10 @@ from typing import Any
 
 import aiohttp
 import dotenv
+from pydantic import ConfigDict, TypeAdapter
 
+from paper.asap.model import Paper as ASAPPaper
+from paper.external_data.semantic_scholar_model import Paper as S2Paper
 from paper.progress import gather
 from paper.util import (
     HelpOnErrorArgumentParser,
@@ -43,6 +46,13 @@ BACKOFF_FACTOR = 2  # Exponential backoff factor
 S2_SEARCH_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 
 logger = logging.getLogger(__name__)
+
+
+class PaperExtended(ASAPPaper):
+    model_config = ConfigDict(frozen=True)
+
+    s2: S2Paper | None
+    fuzz_ratio: int
 
 
 async def _fetch_paper_info(
@@ -119,11 +129,7 @@ async def _fetch_paper_info(
 
 
 async def _download_paper_info(
-    input_file: Path,
-    fields_str: str,
-    output_path: Path,
-    api_key: str,
-    min_fuzzy: int | None,
+    input_file: Path, fields_str: str, output_path: Path, api_key: str, min_fuzzy: int
 ) -> None:
     """Download paper information for multiple titles.
 
@@ -134,10 +140,7 @@ async def _download_paper_info(
     to minimise the bandwidth required.
     """
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
-    papers: list[dict[str, Any]] = json.loads(input_file.read_text())
-    unique_titles: set[str] = {
-        reference["title"] for paper in papers for reference in paper["references"]
-    }
+    papers_asap = TypeAdapter(list[ASAPPaper]).validate_json(input_file.read_bytes())
 
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
@@ -145,20 +148,29 @@ async def _download_paper_info(
     ) as session:
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
         tasks = [
-            _fetch_paper_info(session, api_key, title, fields, semaphore)
-            for title in unique_titles
+            _fetch_paper_info(session, api_key, paper.title, fields, semaphore)
+            for paper in papers_asap
         ]
-        results = list(await gather(tasks, desc="Downloading paper info"))
+        task_results = list(await gather(tasks, desc="Downloading paper info"))
+        results = [
+            PaperExtended(
+                title=paper.title,
+                abstract=paper.abstract,
+                reviews=paper.reviews,
+                sections=paper.sections,
+                approval=paper.approval,
+                references=paper.references,
+                s2=S2Paper.model_validate(result) if result else None,
+                fuzz_ratio=fuzzy_ratio(paper.title, result["title"]) if result else 0,
+            )
+            for paper, result in zip(papers_asap, task_results)
+        ]
 
-    results_valid = [
-        result | {"fuzz_ratio": fuzzy_ratio(result["title_query"], result["title"])}
-        for result in results
-        if result
-    ]
+    results_valid = [result for result in results if result.s2]
     results_filtered = [
         paper
         for paper in results_valid
-        if paper["fuzz_ratio"] >= min_fuzzy and paper["abstract"]
+        if paper.fuzz_ratio >= min_fuzzy and paper.s2 and paper.s2.abstract
     ]
 
     logger.info(len(results), "papers")
