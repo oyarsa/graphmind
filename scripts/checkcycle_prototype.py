@@ -1,4 +1,4 @@
-"""Demonstrate that a cycle is possible in a graph with the following rules:
+"""Demonstrate that a cycle is possible in a graph with the following rules.
 
 - It's a directed graph.
 - If A->B exists, B->A cannot exist.

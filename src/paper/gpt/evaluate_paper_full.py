@@ -122,10 +122,11 @@ async def evaluate_papers(
     Args:
         model: GPT model code. Must support Structured Outputs.
         data_path: Path to the JSON file containing the input papers data.
-        limit: Number of papers to process. Defaults to 1 example. If None, process all.
+        limit_papers: Number of papers to process. Defaults to 1 example. If None,
+            process all.
         graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
             `_GRAPH_USER_PROMPTS` for available options or `list_prompts` for more.
-        classify_user_prompt_key: Key to the user prompt to use for graph extraction. See
+        user_prompt_key: Key to the user prompt to use for graph extraction. See
             `_CLASSIFY_USER_PROMPTS` for available options or `list_prompts` for more.
         display: If True, show each graph on screen. This suspends the process until
             the plot is closed.
@@ -247,6 +248,7 @@ async def _classify_papers(
         papers: Papers from the ASAP-Review dataset to classify
         output_intermediate_file: File to write new results after each task is completed
         demonstrations: Text of demonstrations for few-shot prompting
+        seed: Seed for the OpenAI API call
 
     Returns:
         List of classified papers wrapped in a GPTResult.

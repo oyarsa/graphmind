@@ -49,7 +49,9 @@ select = [
     "UP",
     "W",
     "ERA",
-    "D100",
+    "D",
+    "D401",     # Docstring first line must be in imperative mood
+    "D400",     # Docstring first line must end in period
 ]
 ignore = [
     "PLR0911",  # Too many return statements
@@ -60,8 +62,13 @@ ignore = [
     "E501",     # Line too long (let ruff format take care of this)
     "TRY003",   # Long messages outside exception class
     "SIM108",   # Use ternary operation instead of if-else block
-    "ISC001"    # Incompatible with the formatter
+    "ISC001",   # Incompatible with the formatter
+    "D202",     # Allow empty lines between function docstring and body
+    "D1",       # Allow undocumented items
 ]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.pyright]
 # Ruff also handles this, and it needs to be enabled there for fixAll to fix it,

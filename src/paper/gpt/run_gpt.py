@@ -45,6 +45,7 @@ def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     usage object from the OpenAI result.
 
     Args:
+        model: OpenAI model key
         prompt_tokens: the input tokens for the API
         completion_tokens: the output tokens from the API
 
@@ -238,6 +239,11 @@ def get_remaining_items[T: BaseModel, U: BaseModel](
         continue_papers_file: File with the previously processed items. If this is None
             and `output_intermediate_file` exists, it will be set to that.
         original: Items read for the original dataset file.
+        clean_run: If true, ignores the previous results and returns all input items.
+        continue_key: Key function to use to identify entries in the previous results.
+        original_key: Key function to use to identify entries in the original data.
+            The output of `continue_key` and `original_key` is what decides whether the
+            item will be processed.
 
     Returns:
         Remaining items to be processed.

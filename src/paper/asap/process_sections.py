@@ -84,7 +84,7 @@ def _groupby[T, K](
 
 
 def group_sections(sections: Iterable[dict[str, str]]) -> list[PaperSection]:
-    """Combine subsections with the same main heading number into a single section.
+    r"""Combine subsections with the same main heading number into a single section.
 
     Combines the text of each matching subsection into a single block.
     Ignores sections with letter headings (e.g., appendix).

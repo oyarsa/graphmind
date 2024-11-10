@@ -260,6 +260,7 @@ def confirm_action(message: str, *, auto_confirm: bool) -> bool:
 
     Args:
         message: The confirmation message to show.
+        auto_confirm: If true, skips asking the user for confirmation and just do it.
 
     Returns:
         True if confirmed, False otherwise.
@@ -317,7 +318,7 @@ def drop_table(athena: AthenaWrapper, name: str) -> None:
 
 
 def create_joined_table(athena: AthenaWrapper, name: str) -> None:
-    """Creates the final joined table by joining papers and abstracts.
+    """Create the final joined table by joining papers and abstracts.
 
     If it already exists, it's dropped and its associated files are deleted.
     """

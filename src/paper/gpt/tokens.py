@@ -3,7 +3,7 @@
 Supports the following modes:
 - evaluate_paper_full: full text-based paper evaluation
 
-TODO:
+Todo:
 - extract_graph: extract entity graph from paper text
 - evaluate_paper_graph: graph-based paper evaluation
 

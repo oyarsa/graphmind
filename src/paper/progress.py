@@ -11,7 +11,7 @@ from tqdm.asyncio import tqdm_asyncio
 def as_completed[T](
     tasks: Iterable[Awaitable[T]], **kwargs: Any
 ) -> Iterable[Awaitable[T]]:
-    """Returns iterator overs `tasks` as they are completed, showing a progress bar.
+    """Return iterator overs `tasks` as they are completed, showing a progress bar.
 
     Tasks returned by the iterator still need to be `await`ed.
     Type-safe wrapper around `tqdm.asyncio.as_completed`. `kwargs` are forwarded to it.
@@ -36,8 +36,8 @@ def filebar(*, desc: str, size: int) -> tqdm_asyncio[Any]:
     """Progress bar for file downloads based on the file size and human-readable.
 
     Args:
-        total: Size of the file in bytes.
         desc: Description text to print in the progress bar.
+        size: Size of the file in bytes.
     """
     return tqdm_asyncio(
         total=size, unit="iB", unit_scale=True, desc=desc, unit_divisor=1024

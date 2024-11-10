@@ -326,9 +326,7 @@ def _save_graphs(
     """Save results as a JSON file with the prompts and graphs in GraphML format.
 
     Args:
-        papers: Papers used to generate the graph
-        graphs: Graphs generated from the paper. Must match the respective paper in
-            `papers`
+        paper_graphs: Papers and the graphs generated from them.
         output_dir: Where the graph and image wll be persisted. The graph is saved as
             GraphML and the image as PNG.
     """
@@ -369,10 +367,8 @@ def _display_graphs(
 
     Args:
         model: GPT model used to generate the Graph
-        graph_user_prompt: Key to the prompt used to generate the Graph
-        papers: Papers used to generate the graph
-        graphs: Graphs generated from the paper. Must match the respective paper in
-            `papers`
+        graph_user_prompt_key: Key to the prompt used to generate the Graph
+        paper_graphs: Papers and the graphs generated from them
         output_dir: Where the graph and image wll be persisted. The graph is saved as
             GraphML and the image as PNG.
         display_gui: If True, show the graph on screen. This suspends the process until
@@ -432,6 +428,7 @@ async def extract_graph(
         continue_papers_file: If provided, check for entries in the input data. If they
             are there, we use those results and skip processing them.
         clean_run: If True, ignore `continue_papers` and run everything from scratch.
+        seed: Seed for the OpenAI API call
 
     Returns:
         None. The output is saved to disk.

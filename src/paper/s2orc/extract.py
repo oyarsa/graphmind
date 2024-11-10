@@ -83,7 +83,7 @@ def extract_data(input_files: Iterable[Path], output_dir: Path) -> None:
     Only keep those that contain the title and annotations (e.g. abstract, venue, text).
 
     Args:
-        files: Input gzipped files to process
+        input_files: Input gzipped files to process
         output_dir: Directory where processed files will be saved
     """
     output_dir.mkdir(parents=True, exist_ok=True)

@@ -361,7 +361,7 @@ async def _fetch_area_year_range(
 
 
 def _clean_query(query: str) -> str:
-    """Replace anything that aren't letters or whitespace with space"""
+    """Replace anything that aren't letters or whitespace with space."""
     query = "".join(c if c.isalnum() or c.isspace() else " " for c in query)
     return " ".join(query.split())
 

@@ -22,7 +22,7 @@ from thefuzz import fuzz  # type: ignore
 
 
 def fuzzy_ratio(s1: str, s2: str) -> int:
-    """Calculates the fuzzy matching ratio between s1 and s2 as integer in 0-100.
+    """Calculate the fuzzy matching ratio between s1 and s2 as integer in 0-100.
 
     Type-safe wrapper around thefuzz.fuzz.ratio.
     """
@@ -30,7 +30,7 @@ def fuzzy_ratio(s1: str, s2: str) -> int:
 
 
 def fuzzy_partial_ratio(s1: str, s2: str) -> int:
-    """Calculates the partial fuzzy matching ratio between s1 and s2 as integer in 0-100.
+    """Calculate the partial fuzzy matching ratio between s1 and s2 as integer in 0-100.
 
     Type-safe wrapper around thefuzz.fuzz.partial_ratio.
     """
@@ -313,7 +313,7 @@ class HelpOnErrorArgumentParser(argparse.ArgumentParser):
         allow_abbrev: bool = False,
         exit_on_error: bool = True,
     ) -> None:
-        """Overrides `ArgumentParser.__init__` to make `description` the first parameter.
+        """Override `ArgumentParser.__init__` to make `description` the first parameter.
 
         Sets default `formatter_class` to be `ArgumentDefaultsRawDescriptionFormatter`
         since we're using the full module docstring as usage text, and includes the
@@ -414,7 +414,7 @@ def arun_safe[**P, R](
     parameters.
 
     Args:
-        func: Function that's called with `args` and `kwargs`. The return value is
+        async_func: Function that's called with `args` and `kwargs`. The return value is
             returned if the user doesn't quit.
         args: Positional arguments for `func`.
         kwargs: Keyword arguments for `func`.

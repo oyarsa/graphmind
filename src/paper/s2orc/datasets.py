@@ -143,9 +143,9 @@ async def _download_file(
     url: str, path: Path, session: aiohttp.ClientSession, semaphore: asyncio.Semaphore
 ) -> None:
     """Download a file from the given URL with a human-readable progress bar.
-    The file is first downloaded to a .part file and then renamed.
 
-    This function is a wrapper around _download_file that handles retries and errors.
+    The file is first downloaded to a .part file and then renamed. This function is a
+    wrapper around _download_file that handles retries and errors.
     """
     async with semaphore:
         part_path = path.with_suffix(path.suffix + ".part")
