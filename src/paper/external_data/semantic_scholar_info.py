@@ -2,15 +2,16 @@
 
 The input is the output of the ASAP pipeline[1], asap_filtered.json.
 
-The script then queries the S2 API from the titles. S2 does their own paper title
-matching, so we just take the best match directly. We then save the entire output
-to a JSON file along with the original query title.
+We take the titles of all the ASAP paper, then queries the S2 search API with it. S2
+does their own paper title matching, so we just take the best match directly. We then
+save the entire output to a JSON file along with the original data from ASAP. The data
+has the same shape as the input ASAP Paper, with the S2 data under a new `s2` key.
 
-The resulting files are:
-- semantic_scholar_full.json: the whole output from the S2 API
-- semantic_scholar_best.json: the valid (non-empty) results with fuzzy ratio
-- semantic_scholar_final.json: the valid results with a non-empty abstract
-  and fuzzy ratio above a minium (default: 80).
+The resulting files (under `output_dir`) are:
+- full.json: all the input data, optionally with the S2 data if it could be found.
+- valid.json: only entries with valid (non-empty) results with fuzzy ratio.
+- final.json: the valid results with a non-empty abstract and fuzzy ratio above a
+  minimum (default: 80).
 
 [1] See paper.asap.preprocess.
 """
@@ -191,7 +192,7 @@ async def _download_paper_info(
 
     output_path.mkdir(parents=True, exist_ok=True)
     _save_result(output_path, "full.json", results)
-    _save_result(output_path, "best.json", results_valid)
+    _save_result(output_path, "valid.json", results_valid)
     _save_result(output_path, "filtered.json", results_filtered)
 
 
