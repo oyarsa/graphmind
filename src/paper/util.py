@@ -445,6 +445,9 @@ def save_data[T: BaseModel](path: Path, data: Sequence[T]) -> None:
             exist.
         data: The data to be saved. Must be non-empty.
     """
+    if not data:
+        raise ValueError("Cannot save empty data")
+
     path.parent.mkdir(parents=True, exist_ok=True)
     type_ = type(data[0])
     path.write_bytes(TypeAdapter(Sequence[type_]).dump_json(data, indent=2))
