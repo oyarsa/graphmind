@@ -43,7 +43,7 @@ class Paper(BaseModel):
         int | None, Field(alias="influentialCitationCount")
     ]
     # The tldr paper summary.
-    tldr: Tldr | None
+    tldr: Tldr | None = None
     # Paper authors.
     authors: Sequence[Author] | None
 
