@@ -1,19 +1,22 @@
-"""Download paper information from the Semantic Scholar API.
+"""Download paper information from the Semantic Scholar (S2) API.
 
-The input is the output of the ASAP pipeline[1], asap_filtered.json.
+The input is the output of the ASAP pipeline[1], asap_filtered.json. The goal is to get
+extended information from the API (e.g. the paperId) so we can use in future queries
+(e.g. get recommendations from the paperId).
 
-We take the titles of all the ASAP paper, then queries the S2 search API with it. S2
+We take the titles of all the ASAP papers, then query the S2 search API with them. S2
 does their own paper title matching, so we just take the best match directly. We then
 save the entire output to a JSON file along with the original data from ASAP. The data
 has the same shape as the input ASAP Paper, with the S2 data under a new `s2` key.
 
 The resulting files (under `output_dir`) are:
 - full.json: all the input data, optionally with the S2 data if it could be found.
-- valid.json: only entries with valid (non-empty) results with fuzzy ratio.
-- final.json: the valid results with a non-empty abstract and fuzzy ratio above a
+- valid.json: only entries with valid (non-empty) results with fuzzy ratios[2].
+- final.json: the valid results with a non-empty abstract and fuzzy ratio[2] above a
   minimum (default: 80).
 
-[1] See paper.asap.preprocess.
+[1] See `paper.asap.preprocess`.
+[2] See `paper.util.title_ratio`.
 """
 
 import asyncio
