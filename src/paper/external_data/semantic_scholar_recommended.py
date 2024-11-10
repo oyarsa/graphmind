@@ -1,4 +1,4 @@
-"""Download paper recommendations for papers in the ASAP dataset.
+"""Download paper recommendations for ASAP papers from the Semantic Scholar API.
 
 The input is the output of the `paper.external_data.semantic_scholar_info` script, where
 we have the S2 information for the paper. We need this for the paperId, which the

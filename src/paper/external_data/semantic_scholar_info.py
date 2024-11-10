@@ -1,4 +1,4 @@
-"""Download paper information from the Semantic Scholar (S2) API.
+"""Download paper information from the Semantic Scholar API.
 
 The input is the output of the ASAP pipeline[1], asap_filtered.json. The goal is to get
 extended information from the API (e.g. the paperId) so we can use in future queries

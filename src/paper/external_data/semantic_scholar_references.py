@@ -1,10 +1,12 @@
-"""Download paper information from the Semantic Scholar API.
+"""Download information for papers referenced in ASAP using the Semantic Scholar API.
+
+We determine the list of unique papers out of all references from ASAP papers, and query
+the Semantic Scholar API for information on them (e.g. abstracts).
 
 The input is the output of the ASAP pipeline[1], asap_filtered.json.
 
-The script then queries the S2 API from the titles. S2 does their own paper title
-matching, so we just take the best match directly. We then save the entire output
-to a JSON file along with the original query title.
+S2 does their own paper title matching, so we just take the best match directly. We then
+save the entire output to a JSON file along with the original query title.
 
 The resulting files are:
 - semantic_scholar_full.json: the whole output from the S2 API
