@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import sys
 import urllib.parse
 from pathlib import Path
 
@@ -10,7 +9,7 @@ import aiohttp
 import dotenv
 
 from paper.progress import gather
-from paper.util import HelpOnErrorArgumentParser, ensure_envvar
+from paper.util import HelpOnErrorArgumentParser, die, ensure_envvar
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -74,8 +73,7 @@ async def _get_filesizes(
         Path("dataset.json").write_text(json.dumps(dataset, indent=2))
 
         if "files" not in dataset or not dataset["files"]:
-            print("No files found.")
-            sys.exit(1)
+            die("No files found.")
 
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 

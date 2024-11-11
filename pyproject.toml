@@ -23,6 +23,13 @@ dependencies = [
     "click>=8.1.7",
     "backoff>=2.2.1",
     "tiktoken>=0.8.0",
+    "aioboto3>=13.2.0",
+    "aiobotocore>=2.15.2",
+    "botocore>=1.35.36",
+    "types-aioboto3[full]>=13.2.0.post1",
+    "boto3>=1.35.36",
+    "boto3-stubs[full]>=1.35.56",
+    "aiolimiter>=1.1.0",
 ]
 
 [tool.ruff.lint.isort]
@@ -42,7 +49,9 @@ select = [
     "UP",
     "W",
     "ERA",
-    "D100",
+    "D",
+    "D401",     # Docstring first line must be in imperative mood
+    "D400",     # Docstring first line must end in period
 ]
 ignore = [
     "PLR0911",  # Too many return statements
@@ -53,8 +62,13 @@ ignore = [
     "E501",     # Line too long (let ruff format take care of this)
     "TRY003",   # Long messages outside exception class
     "SIM108",   # Use ternary operation instead of if-else block
-    "ISC001"    # Incompatible with the formatter
+    "ISC001",   # Incompatible with the formatter
+    "D202",     # Allow empty lines between function docstring and body
+    "D1",       # Allow undocumented items
 ]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.pyright]
 # Ruff also handles this, and it needs to be enabled there for fixAll to fix it,
@@ -69,6 +83,7 @@ executionEnvironments = [
 
 [tool.uv]
 dev-dependencies = [
+    "cosy",
     "ipython>=8.27.0",
     "jupyterlab>=4.2.5",
     "pandas>=2.2.3",
@@ -78,6 +93,11 @@ dev-dependencies = [
     "pytest>=8.3.3",
     "ruff>=0.6.4",
 ]
+
+[tool.uv.sources.cosy]
+git = "https://github.com/oyarsa/x.git"
+subdirectory = "cosy"
+tag = "cosy-0.1.0"
 
 [project.scripts]
 preprocess = "paper.preprocess:main"

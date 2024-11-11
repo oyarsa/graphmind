@@ -12,21 +12,37 @@ import logging
 import os
 import sys
 import time
+import traceback
 from collections.abc import Callable, Coroutine, Sequence
 from importlib import resources
 from pathlib import Path
 from typing import Any, NoReturn, Protocol, Self, override
 
 import colorlog
+from aiolimiter import AsyncLimiter
+from pydantic import BaseModel, ConfigDict, TypeAdapter
 from thefuzz import fuzz  # type: ignore
+
+type JSONPrimitive = str | bool | int | float
+type JSONArray = Sequence[JSONValue]
+type JSONObject = dict[str, JSONValue]
+type JSONValue = JSONObject | JSONArray | JSONPrimitive
 
 
 def fuzzy_ratio(s1: str, s2: str) -> int:
-    """Calculates the fuzzy matching ratio between s1 and s2 as integer in 0-100.
+    """Calculate the fuzzy matching ratio between s1 and s2 as integer in 0-100.
 
     Type-safe wrapper around thefuzz.fuzz.ratio.
     """
     return fuzz.ratio(s1, s2)  # type: ignore
+
+
+def fuzzy_partial_ratio(s1: str, s2: str) -> int:
+    """Calculate the partial fuzzy matching ratio between s1 and s2 as integer in 0-100.
+
+    Type-safe wrapper around thefuzz.fuzz.partial_ratio.
+    """
+    return fuzz.partial_ratio(s1, s2)  # type: ignore
 
 
 class Timer:
@@ -258,8 +274,25 @@ def _hash_path(path: Path, chars: int = 8) -> str:
         return hashlib.sha256(path.read_bytes()).hexdigest()[:chars]
     except IsADirectoryError:
         return "directory"
+    except FileNotFoundError:
+        return "new"
     except Exception:
         return "error"
+
+
+class ArgumentDefaultsRawDescriptionFormatter(
+    argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter
+):
+    """`formater_class` that shows the raw description text and adds default to help.
+
+    The raw description text is useful when printing pre-formatted text (e.g. bullet
+    lists, hard-wrapped text), such as when using a docstring for the `description`.
+
+    The defaults are only added to options that define a `help` text. It's added as
+    `(default: x)` at the end.
+    """
+
+    pass
 
 
 class HelpOnErrorArgumentParser(argparse.ArgumentParser):
@@ -279,7 +312,7 @@ class HelpOnErrorArgumentParser(argparse.ArgumentParser):
         parents: Sequence[argparse.ArgumentParser] = (),
         formatter_class: type[
             argparse.HelpFormatter
-        ] = argparse.RawDescriptionHelpFormatter,
+        ] = ArgumentDefaultsRawDescriptionFormatter,
         prefix_chars: str = "-",
         fromfile_prefix_chars: str | None = None,
         argument_default: Any = None,
@@ -288,18 +321,24 @@ class HelpOnErrorArgumentParser(argparse.ArgumentParser):
         allow_abbrev: bool = False,
         exit_on_error: bool = True,
     ) -> None:
-        """Overrides `ArgumentParser.__init__` to make `description` the first parameter.
+        """Override `ArgumentParser.__init__` to make `description` the first parameter.
 
-        Sets a default value for `formatter_class` to be `RawDescriptionHelpFormatter`
-        since we're using the full module docstring as usage text. Also sets
-        `allow_abbrev` to `False`, so that only real flags are accepted.
+        Sets default `formatter_class` to be `ArgumentDefaultsRawDescriptionFormatter`
+        since we're using the full module docstring as usage text, and includes the
+        default value for all flags with defined help text. Also sets `allow_abbrev` to
+        `False`, so that only real flags are accepted.
 
         The goal is to allow the most common case (use the module docstring as the
         description) to be just:
 
         Example:
             >>> parser = HelpOnErrorArgumentParser(__doc__)
+
+        If the docstring contains a line with `---`, the text after that is not included
+        in the help text.
         """
+        if description:
+            description = description.split("\n---", maxsplit=1)[0]
         super().__init__(
             prog=prog,
             usage=usage,
@@ -317,6 +356,22 @@ class HelpOnErrorArgumentParser(argparse.ArgumentParser):
         )
 
 
+def mustenv(*variables: str) -> dict[str, str]:
+    """Ensure that all environment `variables` exist and return a dict with the values.
+
+    If any variables are unset, print an error with them and exit with code 1.
+    """
+    vars_ = {var: os.environ.get(var) for var in variables}
+
+    if vars_unset := sorted(var for var, value in vars_.items() if not value):
+        die(
+            "The following required environment variables were unset:"
+            f" {", ".join(vars_unset)}."
+        )
+
+    return {var: value for var, value in vars_.items() if value}
+
+
 def ensure_envvar(name: str) -> str:
     """Get an environment variable or print a nice error if unavailable.
 
@@ -330,9 +385,7 @@ def ensure_envvar(name: str) -> str:
     Raises:
         SystemExit: if the variable isn't set, prints a nice error and quits.
     """
-    if value := os.environ.get(name):
-        return value
-    sys.exit(f"Error: environment variable {name} not set.")
+    return mustenv(name)[name]
 
 
 def run_safe[**P, R](func: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
@@ -369,9 +422,102 @@ def arun_safe[**P, R](
     parameters.
 
     Args:
-        func: Function that's called with `args` and `kwargs`. The return value is
+        async_func: Function that's called with `args` and `kwargs`. The return value is
             returned if the user doesn't quit.
         args: Positional arguments for `func`.
         kwargs: Keyword arguments for `func`.
     """
     return run_safe(asyncio.run, async_func(*args, **kwargs))
+
+
+def load_data[T: BaseModel](
+    path: Path, type_: type[T], use_alias: bool = True
+) -> list[T]:
+    """Load a list of data from JSON file in `path`.
+
+    Args:
+        path: File to read the data from. Must be a list of objects.
+        type_: Type of the objects in the list.
+        use_alias: If True, read object keys by using the real field names, not aliases.
+
+    Returns:
+        List of data with the `type_` format.
+    """
+    return TypeAdapter(
+        list[type_], config=ConfigDict(populate_by_name=not use_alias)
+    ).validate_json(path.read_bytes())
+
+
+def save_data[T: BaseModel](
+    path: Path, data: Sequence[T], use_alias: bool = True
+) -> None:
+    """Save sequence of data in a JSON file at `path`.
+
+    Args:
+        path: File where data will be saved. Creates its parent directory if it doesn't
+            exist.
+        data: The data to be saved. Must be non-empty.
+        use_alias: If True, the output object keys will use the field alias, not the
+            actual field name. Defaults to True because Pydantic will use the alias
+            when reading.
+    """
+    if not data:
+        raise ValueError("Cannot save empty data")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    type_ = type(data[0])
+    path.write_bytes(
+        TypeAdapter(Sequence[type_]).dump_json(data, indent=2, by_alias=use_alias)
+    )
+
+
+def get_limiter(
+    max_concurrent_requests: int = 1,
+    requests_per_second: float = 1,
+    use_semaphore: bool | None = None,
+) -> asyncio.Semaphore | AsyncLimiter:
+    """Create some form of requests limiter based on the `USE_SEMAPHORE` env var.
+
+    Args:
+        max_concurrent_requests: When using a semaphore, the maximum number of requests
+            (async tasks) that can execute simultaneously. The rest will wait until
+            there's room available.
+        requests_per_second: Number of requests per second that can be made.
+        use_semaphore: Which one to use. If None, will check the USE_SEMAPHORE env var.
+            If USE_SEMAPHORE is 1, use a Semaphore. Otherwise, use a rate limiter.
+
+    Use Semaphore with small batches when you're not too worried about the rate limit,
+    or Rate Limiiter when you want something more reliable.
+    """
+    if use_semaphore is None:
+        use_semaphore = os.environ.get("USE_SEMAPHORE", "1") == "1"
+
+    if use_semaphore:
+        return asyncio.Semaphore(max_concurrent_requests)
+    return AsyncLimiter(requests_per_second, 1)
+
+
+def die(message: Any, code: int = 1, prefix: str | None = "Error:") -> NoReturn:
+    """Print `message` and exit with an error.
+
+    If the SHOW_TRACE environment variable is 1 and there's an exception in flight, print
+    the full stack trace.
+
+    Args:
+        message: Message to be printed to stderr before quitting.
+        code: Error code to exit with.
+        prefix: Print before the message. Defaults to `Error: {msg}`.
+
+    Returns:
+        NoReturn: quits the program with `code`.
+    """
+    show_trace = os.environ.get("SHOW_TRACE") == "1"
+    is_exc = sys.exc_info()[1] is not None
+    if show_trace and is_exc:
+        traceback.print_exc()
+        print("", file=sys.stderr)
+
+    if prefix:
+        print(prefix, end=" ")
+    print(message, file=sys.stderr)
+    sys.exit(code)

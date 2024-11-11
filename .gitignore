@@ -167,3 +167,5 @@ output
 data
 tmp
 .aider*
+*.sqlite*
+archive/

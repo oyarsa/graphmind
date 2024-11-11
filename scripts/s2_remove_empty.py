@@ -1,4 +1,4 @@
-"""Remove "empty" (no real data) S2 results from semantic_scholar_best.json
+"""Remove "empty" (no real data) S2 results from semantic_scholar_best.json.
 
 As a result of `merge_s2_api_results.py`, which generates semantic_scholar_best.json
 some items have just a title and no other attributes. These have not matches, so we're

@@ -125,8 +125,9 @@ async def _classify_papers(
         client: OpenAI client to use GPT
         model: GPT model code to use (must support Structured Outputs)
         user_prompt: User prompt template to use for classification to be filled
-        paper_graphs: Graphs generated from the papers
+        paper_graphs: Papers and the graphs generated from them
         output_intermediate_file: File to write new results after each task is completed
+        seed: Seed for the OpenAI API call
 
     Returns:
         List of classified papers wrapped in a GPTResult.
