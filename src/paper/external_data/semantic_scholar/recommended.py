@@ -27,12 +27,12 @@ import backoff
 import dotenv
 
 from paper import progress
-from paper.external_data.semantic_scholar_model import (
+from paper.external_data.semantic_scholar.model import (
     ASAPPaperWithS2,
     PaperRecommended,
     PaperWithRecommendations,
 )
-from paper.external_data.semantic_scholar_model import Paper as S2Paper
+from paper.external_data.semantic_scholar.model import Paper as S2Paper
 from paper.util import (
     HelpOnErrorArgumentParser,
     arun_safe,
