@@ -24,3 +24,14 @@ with having the files on the cloud instead of locally.
   recommendations for ASAP papers from the Semantic Scholar API.
 - [`semantic_scholar_references.py`](semantic_scholar_references.py): Download
   information for papers referenced in ASAP using the Semantic Scholar API.
+
+## Notes
+
+We combine the outputs of `semantic_scholar_recommended` and `semantic_scholar_areas`
+into a single file: `semantic_scholar_related.json`. We want to build a dataset of
+papers related to our inputs, and `areas` and `recommended` are different approaches to
+that that we can combine. Some statistics:
+
+- `papers_recommended.json`: 95 359 unique papers
+- `papers_areas.json`: 50 372 unique papers
+- `papers_related.json`: 145 731 total papers, 141 487 unique.
