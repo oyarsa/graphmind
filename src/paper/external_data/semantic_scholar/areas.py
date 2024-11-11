@@ -155,7 +155,7 @@ async def download_paper_info(
         die(f"Invalid `limit-page`: '{limit_page}'. Must be between 1 and 100.")
 
     primary_areas: list[str] = tomllib.loads(
-        read_resource("external_data", "primary_areas.toml")
+        read_resource("external_data.semantic_scholar", "primary_areas.toml")
     )["primary_areas"][:limit_areas]
 
     area_results = await _fetch_areas(
