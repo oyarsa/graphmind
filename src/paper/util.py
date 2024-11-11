@@ -479,3 +479,9 @@ def get_limiter(
     if use_semaphore:
         return asyncio.Semaphore(max_concurrent_requests)
     return AsyncLimiter(requests_per_second, 1)
+
+
+type JSONPrimitive = str | bool | int | float
+type JSONArray = Sequence[JSONValue]
+type JSONObject = dict[str, JSONValue]
+type JSONValue = JSONObject | JSONArray | JSONPrimitive
