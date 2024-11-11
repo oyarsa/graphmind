@@ -4,12 +4,10 @@
 import json
 from pathlib import Path
 
-from paper.util import HelpOnErrorArgumentParser
-
-type JSONObject = list[JSONObject] | dict[str, JSONObject] | int | float | str | None
+from paper.util import HelpOnErrorArgumentParser, JSONValue
 
 
-def search_object(obj: JSONObject, keyword: str, current_path: str = "") -> list[str]:
+def search_object(obj: JSONValue, keyword: str, current_path: str = "") -> list[str]:
     results: list[str] = []
 
     if isinstance(obj, dict):
