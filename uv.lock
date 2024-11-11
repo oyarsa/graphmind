@@ -529,8 +529,8 @@ wheels = [
 
 [[package]]
 name = "cosy"
-version = "0.1.0"
-source = { git = "https://github.com/oyarsa/x.git?subdirectory=cosy&tag=cosy-0.1.0#3ba8cc9ed484aa7cbd367cf3d1d337fa024c0d79" }
+version = "0.2.0"
+source = { git = "https://github.com/oyarsa/x.git?subdirectory=cosy&tag=cosy-0.2.0#db0604245133ebed9497c112cb77e0fc9eab1b53" }
 dependencies = [
     { name = "pydantic" },
     { name = "rich" },
@@ -1598,7 +1598,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "cosy", git = "https://github.com/oyarsa/x.git?subdirectory=cosy&tag=cosy-0.1.0" },
+    { name = "cosy", git = "https://github.com/oyarsa/x.git?subdirectory=cosy&tag=cosy-0.2.0" },
     { name = "ipython", specifier = ">=8.27.0" },
     { name = "jupyterlab", specifier = ">=4.2.5" },
     { name = "pandas", specifier = ">=2.2.3" },

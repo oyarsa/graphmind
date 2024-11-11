@@ -97,7 +97,7 @@ dev-dependencies = [
 [tool.uv.sources.cosy]
 git = "https://github.com/oyarsa/x.git"
 subdirectory = "cosy"
-tag = "cosy-0.1.0"
+tag = "cosy-0.2.0"
 
 [project.scripts]
 preprocess = "paper.preprocess:main"
