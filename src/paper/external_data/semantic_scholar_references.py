@@ -20,7 +20,6 @@ The resulting files are:
 import asyncio
 import json
 import logging
-import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -33,6 +32,7 @@ from paper.progress import gather
 from paper.util import (
     HelpOnErrorArgumentParser,
     arun_safe,
+    die,
     ensure_envvar,
     setup_logging,
 )
@@ -151,7 +151,7 @@ async def _download_paper_info(
             reference["title"] for paper in papers for reference in paper["references"]
         }
     else:
-        sys.exit(f"Invalid mode: '{mode}'. Choose from: {_INFO_MODES}.")
+        die(f"Invalid mode: '{mode}'. Choose from: {_INFO_MODES}.")
 
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),

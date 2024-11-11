@@ -14,7 +14,6 @@ concurrent requests here, but it didn't work very well.
 from __future__ import annotations
 
 import asyncio
-import sys
 import tomllib
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
@@ -36,6 +35,7 @@ from paper.external_data.semantic_scholar_model import Paper
 from paper.util import (
     HelpOnErrorArgumentParser,
     arun_safe,
+    die,
     display_params,
     ensure_envvar,
     read_resource,
@@ -143,9 +143,7 @@ async def download_paper_info(
 
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
     if not fields:
-        sys.exit(
-            "No valid --fields. It should be a comma-separated strings of field names."
-        )
+        die("No valid --fields. It should be a comma-separated strings of field names.")
 
     if limit_year is not None and limit_year <= 0:
         limit_year = None
@@ -154,7 +152,7 @@ async def download_paper_info(
         limit_areas = None
 
     if not (1 <= limit_page <= 100):
-        sys.exit(f"Invalid `limit-page`: '{limit_page}'. Must be between 1 and 100.")
+        die(f"Invalid `limit-page`: '{limit_page}'. Must be between 1 and 100.")
 
     primary_areas: list[str] = tomllib.loads(
         read_resource("external_data", "primary_areas.toml")

@@ -12,6 +12,7 @@ import logging
 import os
 import sys
 import time
+import traceback
 from collections.abc import Callable, Coroutine, Sequence
 from importlib import resources
 from pathlib import Path
@@ -21,6 +22,11 @@ import colorlog
 from aiolimiter import AsyncLimiter
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from thefuzz import fuzz  # type: ignore
+
+type JSONPrimitive = str | bool | int | float
+type JSONArray = Sequence[JSONValue]
+type JSONObject = dict[str, JSONValue]
+type JSONValue = JSONObject | JSONArray | JSONPrimitive
 
 
 def fuzzy_ratio(s1: str, s2: str) -> int:
@@ -358,8 +364,8 @@ def mustenv(*variables: str) -> dict[str, str]:
     vars_ = {var: os.environ.get(var) for var in variables}
 
     if vars_unset := sorted(var for var, value in vars_.items() if not value):
-        sys.exit(
-            "Error: the following required environment variables were unset:"
+        die(
+            "The following required environment variables were unset:"
             f" {", ".join(vars_unset)}."
         )
 
@@ -491,7 +497,27 @@ def get_limiter(
     return AsyncLimiter(requests_per_second, 1)
 
 
-type JSONPrimitive = str | bool | int | float
-type JSONArray = Sequence[JSONValue]
-type JSONObject = dict[str, JSONValue]
-type JSONValue = JSONObject | JSONArray | JSONPrimitive
+def die(message: Any, code: int = 1, prefix: str | None = "Error:") -> NoReturn:
+    """Print `message` and exit with an error.
+
+    If the SHOW_TRACE environment variable is 1 and there's an exception in flight, print
+    the full stack trace.
+
+    Args:
+        message: Message to be printed to stderr before quitting.
+        code: Error code to exit with.
+        prefix: Print before the message. Defaults to `Error: {msg}`.
+
+    Returns:
+        NoReturn: quits the program with `code`.
+    """
+    show_trace = os.environ.get("SHOW_TRACE") == "1"
+    is_exc = sys.exc_info()[1] is not None
+    if show_trace and is_exc:
+        traceback.print_exc()
+        print("", file=sys.stderr)
+
+    if prefix:
+        print(prefix, end=" ")
+    print(message, file=sys.stderr)
+    sys.exit(code)

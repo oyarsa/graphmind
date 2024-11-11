@@ -19,7 +19,6 @@ Requires the following environment variables:
 from __future__ import annotations
 
 import contextlib
-import sys
 import textwrap
 import time
 from dataclasses import dataclass
@@ -31,7 +30,7 @@ import typer
 from dotenv import load_dotenv
 from tqdm import tqdm
 
-from paper.util import mustenv
+from paper.util import die, mustenv
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -355,12 +354,6 @@ def echo(message: Any) -> None:
     """Print `message` to stderr with a timestamp."""
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     typer.echo(f"[{ts}] {message}", err=True)
-
-
-def die(message: Any, code: int = 1) -> None:
-    """`echo(message)` and exit with error `code`."""
-    echo(message)
-    sys.exit(code)
 
 
 if __name__ == "__main__":

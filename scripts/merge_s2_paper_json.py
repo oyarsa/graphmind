@@ -5,12 +5,11 @@ Every object in both files should either have a `paper_id` or `paperId` key.
 
 import copy
 import json
-import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
-from paper.util import HelpOnErrorArgumentParser, JSONObject, JSONValue
+from paper.util import HelpOnErrorArgumentParser, JSONObject, JSONValue, die
 
 
 def merge_values(val1: JSONValue, val2: JSONValue) -> Any:
@@ -89,7 +88,7 @@ def main(file1_path: Path, file2_path: Path, output_path: Path) -> None:
 
     # Validate input format
     if not isinstance(papers1, list) or not isinstance(papers2, list):
-        sys.exit("Both JSON files must contain arrays at the root level")
+        die("Both JSON files must contain arrays at the root level")
 
     papers1 = cast(list[JSONObject], papers1)
     papers2 = cast(list[JSONObject], papers2)
@@ -97,7 +96,7 @@ def main(file1_path: Path, file2_path: Path, output_path: Path) -> None:
     _check_paper_id(file2_path, papers2)
 
     if not papers1 or not papers2:
-        sys.exit("Input files must be non-empty.")
+        die("Input files must be non-empty.")
 
     merged_papers = merge_paper_lists(papers1, papers2)
     print(f"{len(papers1)=}")
@@ -113,7 +112,7 @@ def main(file1_path: Path, file2_path: Path, output_path: Path) -> None:
 def _check_paper_id(file: Path, papers: list[JSONObject]) -> None:
     """Check whether all objects in the file have the `paperId` key."""
     if not all("paperId" in paper for paper in papers):
-        sys.exit(f"All objects in file '{file}' must contain a paperId key")
+        die(f"All objects in file '{file}' must contain a paperId key")
 
 
 if __name__ == "__main__":

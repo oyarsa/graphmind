@@ -17,7 +17,6 @@ The output is two files:
 from __future__ import annotations
 
 import asyncio
-import sys
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -37,6 +36,7 @@ from paper.external_data.semantic_scholar_model import Paper as S2Paper
 from paper.util import (
     HelpOnErrorArgumentParser,
     arun_safe,
+    die,
     display_params,
     ensure_envvar,
     get_limiter,
@@ -134,15 +134,13 @@ async def download_paper_recomendation(
 
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
     if not fields:
-        sys.exit(
-            "No valid --fields. It should be a comma-separated strings of field names."
-        )
+        die("No valid --fields. It should be a comma-separated strings of field names.")
 
     if limit_papers is not None and limit_papers <= 0:
-        sys.exit(f"Paper limit should be non-negative. Got {limit_papers}.")
+        die(f"Paper limit should be non-negative. Got {limit_papers}.")
 
     if not (1 <= limit_recommendations <= 500):
-        sys.exit(
+        die(
             "Paper recommendations limit should be between 1 and 500. Got"
             f" '{limit_recommendations}'."
         )

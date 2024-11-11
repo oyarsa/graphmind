@@ -3,7 +3,6 @@
 import argparse
 import asyncio
 import json
-import sys
 import urllib.parse
 from collections.abc import Coroutine
 from pathlib import Path
@@ -13,7 +12,7 @@ import dotenv
 from tqdm.asyncio import tqdm
 
 from paper.progress import gather
-from paper.util import HelpOnErrorArgumentParser, arun_safe, ensure_envvar
+from paper.util import HelpOnErrorArgumentParser, arun_safe, die, ensure_envvar
 
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file
@@ -124,7 +123,7 @@ async def _download(
         (output_path / "dataset.json").write_text(json.dumps(dataset, indent=2))
 
         if "files" not in dataset or not dataset["files"]:
-            sys.exit("No files found.")
+            die("No files found.")
 
         output_path.mkdir(exist_ok=True)
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_DOWNLOADS)

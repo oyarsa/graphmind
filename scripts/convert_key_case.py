@@ -9,11 +9,10 @@ that's not the case for everything, so we might have to convert.
 """
 
 import json
-import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from paper.util import HelpOnErrorArgumentParser, JSONArray, JSONObject, JSONValue
+from paper.util import HelpOnErrorArgumentParser, JSONArray, JSONObject, JSONValue, die
 
 
 def main() -> None:
@@ -61,9 +60,7 @@ def convert_file(input_path: Path, output_path: Path, mode: str) -> None:
         mode: Key transformation mode. See `VALID_MODES`.
     """
     if mode not in VALID_MODES:
-        sys.exit(
-            f"Invalid transformation mode: '{mode}'. Must be one of {VALID_MODES}."
-        )
+        die(f"Invalid transformation mode: '{mode}'. Must be one of {VALID_MODES}.")
     transform = VALID_MODES[mode]
 
     try:
@@ -73,11 +70,11 @@ def convert_file(input_path: Path, output_path: Path, mode: str) -> None:
 
         print(f"Successfully converted '{input_path}' to '{output_path}'.")
     except FileNotFoundError:
-        sys.exit(f"Error: File '{input_path}' was not found.")
+        die(f"File '{input_path}' was not found.")
     except json.JSONDecodeError as e:
-        sys.exit(f"Error: File '{input_path}' contains invalid JSON: {e}")
+        die(f"File '{input_path}' contains invalid JSON: {e}")
     except Exception as e:
-        sys.exit(f"An unexpected error occurred: {e}")
+        die(f"An unexpected error occurred: {e}")
 
 
 def transform_array(arr: JSONArray, transform: Callable[[str], str]) -> JSONArray:
