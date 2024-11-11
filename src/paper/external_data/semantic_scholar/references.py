@@ -1,25 +1,24 @@
-"""Download paper information from the Semantic Scholar API.
+"""Download information for papers referenced in ASAP using the Semantic Scholar API.
 
-The input is the output of the ASAP pipeline[1], asap_filtered.json. The goal is to get
-extended information from the API (e.g. the paperId) so we can use in future queries
-(e.g. get recommendations from the paperId).
+We determine the list of unique papers out of all references from ASAP papers, and query
+the Semantic Scholar API for information on them (e.g. abstracts).
 
-We take the titles of all the ASAP papers, then query the S2 search API with them. S2
-does their own paper title matching, so we just take the best match directly. We then
-save the entire output to a JSON file along with the original data from ASAP. The data
-has the same shape as the input ASAP Paper, with the S2 data under a new `s2` key.
+The input is the output of the ASAP pipeline[1], asap_filtered.json.
 
-The resulting files (under `output_dir`) are:
-- full.json: all the input data, optionally with the S2 data if it could be found.
-- valid.json: only entries with valid (non-empty) results with fuzzy ratios[2].
-- final.json: the valid results with a non-empty abstract and fuzzy ratio[2] above a
-  minimum (default: 80).
+S2 does their own paper title matching, so we just take the best match directly. We then
+save the entire output to a JSON file along with the original query title.
 
-[1] See `paper.asap.preprocess`.
-[2] See `paper.util.title_ratio`.
+The resulting files are:
+- semantic_scholar_full.json: the whole output from the S2 API
+- semantic_scholar_best.json: the valid (non-empty) results with fuzzy ratio
+- semantic_scholar_final.json: the valid results with a non-empty abstract
+  and fuzzy ratio above a minium (default: 80).
+
+[1] See paper.asap.preprocess.
 """
 
 import asyncio
+import json
 import logging
 from collections.abc import Sequence
 from pathlib import Path
@@ -27,21 +26,14 @@ from typing import Any
 
 import aiohttp
 import dotenv
-from pydantic import TypeAdapter
 
-from paper.asap.model import Paper as ASAPPaper
-from paper.external_data.semantic_scholar_model import (
-    ASAPPaperMaybeS2,
-    ASAPPaperWithS2,
-)
+from paper.external_data.semantic_scholar.model import title_ratio
 from paper.progress import gather
 from paper.util import (
     HelpOnErrorArgumentParser,
     arun_safe,
-    display_params,
+    die,
     ensure_envvar,
-    get_limiter,
-    save_data,
     setup_logging,
 )
 
@@ -53,7 +45,6 @@ BACKOFF_FACTOR = 2  # Exponential backoff factor
 
 S2_SEARCH_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 
-LIMITER = get_limiter(MAX_CONCURRENT_REQUESTS)
 logger = logging.getLogger(__name__)
 
 
@@ -62,6 +53,7 @@ async def _fetch_paper_info(
     api_key: str,
     paper_title: str,
     fields: Sequence[str],
+    semaphore: asyncio.Semaphore,
 ) -> dict[str, Any] | None:
     """Fetch paper information for a given title. Takes only the best title match."""
     params = {
@@ -71,7 +63,7 @@ async def _fetch_paper_info(
     }
     headers = {"x-api-key": api_key}
 
-    async with LIMITER:
+    async with semaphore:
         attempt = 0
         delay = RETRY_DELAY
         while attempt < MAX_RETRIES:
@@ -129,13 +121,16 @@ async def _fetch_paper_info(
         return None
 
 
+_INFO_MODES = ["main", "references"]
+
+
 async def _download_paper_info(
     input_file: Path,
+    mode: str,
     fields_str: str,
     output_path: Path,
     api_key: str,
-    min_fuzzy: int,
-    limit_papers: int | None,
+    min_fuzzy: int | None,
 ) -> None:
     """Download paper information for multiple titles.
 
@@ -145,50 +140,58 @@ async def _download_paper_info(
     The API allows us to specify the returned fields, so pass just the relevant ones
     to minimise the bandwidth required.
     """
-    logger.info(display_params())
-
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
-    papers_asap = TypeAdapter(list[ASAPPaper]).validate_json(input_file.read_bytes())
-    papers_asap = papers_asap[:limit_papers]
+    papers: list[dict[str, Any]] = json.loads(input_file.read_text())
+
+    mode = mode.lower().strip()
+    if mode == "main":
+        unique_titles: set[str] = {paper["title"] for paper in papers}
+    elif mode == "references":
+        unique_titles: set[str] = {
+            reference["title"] for paper in papers for reference in paper["references"]
+        }
+    else:
+        die(f"Invalid mode: '{mode}'. Choose from: {_INFO_MODES}.")
 
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
         connector=aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS),
     ) as session:
+        semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
         tasks = [
-            _fetch_paper_info(session, api_key, paper.title, fields)
-            for paper in papers_asap
+            _fetch_paper_info(session, api_key, title, fields, semaphore)
+            for title in unique_titles
         ]
-        task_results = list(await gather(tasks, desc="Downloading paper info"))
-        results = [
-            ASAPPaperMaybeS2.from_asap(paper, result)
-            for paper, result in zip(papers_asap, task_results)
-        ]
+        results = list(await gather(tasks, desc="Downloading paper info"))
 
     results_valid = [
-        ASAPPaperWithS2.from_maybe(result, result.s2) for result in results if result.s2
+        result | {"fuzz_ratio": title_ratio(result["title_query"], result["title"])}
+        for result in results
+        if result
     ]
     results_filtered = [
         paper
         for paper in results_valid
-        if paper.fuzz_ratio >= min_fuzzy and paper.s2 and paper.s2.abstract
+        if paper["fuzz_ratio"] >= min_fuzzy and paper["abstract"]
     ]
 
-    logger.info(f"{len(results)} papers")
+    logger.info(len(results), "papers")
+    logger.info(len(results_valid), "valid")
     logger.info(
-        f"{len(results_valid)} valid (non-null results)"
-        f" - {len(results_valid)/len(results):.2%} papers found something"
+        len(results_filtered),
+        f"filtered (non-emtpy abstract and fuzz ratio >= {min_fuzzy})",
     )
-    logger.info(
-        f"{len(results_filtered)} filtered (non-empty abstract and fuzz ratio"
-        f" >= {min_fuzzy})"
-    )
-    logger.info(f"> {len(results_filtered)/len(results):.2%} papers filtered")
 
     output_path.mkdir(parents=True, exist_ok=True)
-    save_data(output_path / "full.json", results)
-    save_data(output_path / "valid.json", results_valid)
-    save_data(output_path / "filtered.json", results_filtered)
+    (output_path / "semantic_scholar_full.json").write_text(
+        json.dumps(results, indent=2)
+    )
+    (output_path / "semantic_scholar_best.json").write_text(
+        json.dumps(results_valid, indent=2)
+    )
+    (output_path / "semantic_scholar_final.json").write_text(
+        json.dumps(results_filtered, indent=2)
+    )
 
 
 def main() -> None:
@@ -196,6 +199,12 @@ def main() -> None:
     parser.add_argument("input_file", type=Path, help="Input file (asap_filtered.json)")
     parser.add_argument(
         "output_path", type=Path, help="Directory to save the downloaded information"
+    )
+    parser.add_argument(
+        "--mode",
+        choices=_INFO_MODES,
+        required=True,
+        help="Download information from main papers or their references (required)",
     )
     parser.add_argument(
         "--fields",
@@ -223,13 +232,6 @@ def main() -> None:
         default=80,
         help="Minimum fuzz ratio of titles to filter",
     )
-    parser.add_argument(
-        "--limit",
-        "-n",
-        type=int,
-        default=None,
-        help="Maximum number of papers to query",
-    )
     args = parser.parse_args()
 
     dotenv.load_dotenv()
@@ -239,11 +241,11 @@ def main() -> None:
     arun_safe(
         _download_paper_info,
         args.input_file,
+        args.mode,
         args.fields,
         args.output_path,
         api_key,
         args.min_fuzzy,
-        args.limit,
     )
 
 

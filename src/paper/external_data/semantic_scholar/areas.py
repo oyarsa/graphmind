@@ -30,8 +30,8 @@ from rich.table import Table
 from tqdm import tqdm
 
 from paper import progress
-from paper.external_data.semantic_scholar_info import S2_SEARCH_BASE_URL
-from paper.external_data.semantic_scholar_model import Paper
+from paper.external_data.semantic_scholar.info import S2_SEARCH_BASE_URL
+from paper.external_data.semantic_scholar.model import Paper
 from paper.util import (
     HelpOnErrorArgumentParser,
     arun_safe,
