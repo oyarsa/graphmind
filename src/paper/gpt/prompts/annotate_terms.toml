@@ -1,0 +1,18 @@
+[[prompts]]
+name = "sentence"
+type = "context"
+prompt = """The following data contains a paper title and its abstract. Your task is to \
+identify two types of terms:
+
+- Those used to describe the problem the paper tackles.
+- Those used to describe the methods, techniques and solutions used to solve the problem.
+
+There are multiple terms of each type. Each term can contain one or more words.
+
+#####
+-Data-
+Title: {title}
+Abstract: {title}
+#####
+Output:
+"""

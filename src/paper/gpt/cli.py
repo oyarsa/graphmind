@@ -9,7 +9,13 @@
 import asyncio
 import logging
 
-from paper.gpt import classify_contexts, evaluate_paper_full, extract_graph, tokens
+from paper.gpt import (
+    annotate_terms,
+    classify_contexts,
+    evaluate_paper_full,
+    extract_graph,
+    tokens,
+)
 from paper.util import HelpOnErrorArgumentParser, setup_logging
 
 logger = logging.getLogger(__name__)
@@ -51,6 +57,14 @@ def main() -> None:
         description="Estimate input tokens for task and prompts with provided arguments",
     )
     tokens.setup_cli_parser(tokens_parser)
+
+    # 'annotate_terms'
+    annotate_parser = subparsers.add_parser(
+        "annotate_terms",
+        help="Annotate S2 Papers with key terms for problems and methods",
+        description="Annotate S2 Papers with key terms with provided arguments",
+    )
+    annotate_terms.setup_cli_parser(annotate_parser)
 
     args = parser.parse_args()
     setup_logging()
