@@ -347,9 +347,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
 
     # 'run' subcommand parser
     run_parser = subparsers.add_parser(
-        "run",
-        help="Run paper classification",
-        description="Run paper classification with the provided arguments.",
+        "run", help="Run paper classification", description=__doc__
     )
 
     # Add original arguments to the 'run' subcommand

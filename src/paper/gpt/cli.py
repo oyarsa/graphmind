@@ -16,7 +16,7 @@ from paper.gpt import (
     extract_graph,
     tokens,
 )
-from paper.util import HelpOnErrorArgumentParser, setup_logging
+from paper.util import HelpOnErrorArgumentParser, doc_summary, setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -25,46 +25,28 @@ def main() -> None:
     parser = HelpOnErrorArgumentParser(__doc__)
 
     subparsers = parser.add_subparsers(title="commands", dest="command", required=True)
+    subcommands = [
+        ("graph", "Extract graph from papers.", extract_graph),
+        ("context", "Classify paper citations using full text.", classify_contexts),
+        ("eval_full", "Evaluate paper using full text.", evaluate_paper_full),
+        (
+            "terms",
+            "Annotate S2 papers with key terms for problems and methods",
+            annotate_terms,
+        ),
+    ]
+    for name, help, module in subcommands:
+        cmd_parser = subparsers.add_parser(
+            name, help=help, description=doc_summary(module)
+        )
+        module.setup_cli_parser(cmd_parser)
 
-    # 'graph' subcommand parser
-    graph_parser = subparsers.add_parser(
-        "graph",
-        help="Run graph extraction",
-        description="Run graph extraction with the provided arguments.",
-    )
-    extract_graph.setup_cli_parser(graph_parser)
-
-    # 'context' subcommand parser
-    context_parser = subparsers.add_parser(
-        "context",
-        help="Run context classification",
-        description="Run context classification with the provided arguments.",
-    )
-    classify_contexts.setup_cli_parser(context_parser)
-
-    # 'evaluate_paper_full'
-    eval_full_parser = subparsers.add_parser(
-        "eval_full",
-        help="Run paper evaluation from full text",
-        description="Run paper evaluation from full text with the provided arguments",
-    )
-    evaluate_paper_full.setup_cli_parser(eval_full_parser)
-
-    # 'tokens'
     tokens_parser = subparsers.add_parser(
         "tokens",
-        help="Estimate input tokens for task and prompts",
-        description="Estimate input tokens for task and prompts with provided arguments",
+        help="Estimate input tokens for tasks and prompts.",
+        description=tokens.__doc__,
     )
     tokens.setup_cli_parser(tokens_parser)
-
-    # 'annotate_terms'
-    annotate_parser = subparsers.add_parser(
-        "annotate_terms",
-        help="Annotate S2 Papers with key terms for problems and methods",
-        description="Annotate S2 Papers with key terms with provided arguments",
-    )
-    annotate_terms.setup_cli_parser(annotate_parser)
 
     args = parser.parse_args()
     setup_logging()

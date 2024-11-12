@@ -99,7 +99,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
 
     # Fulltext subcommand
     parser_fulltext = subparsers.add_parser(
-        "eval_full", help="Full text-based paper evaluation"
+        "eval_full", help="Estimate full text-based paper evaluation."
     )
     parser_fulltext.add_argument(
         "input_file", type=Path, help="Input dataset JSON file (asap_filtered.json)"

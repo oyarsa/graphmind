@@ -528,9 +528,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
 
     # 'run' subcommand parser
     run_parser = subparsers.add_parser(
-        "run",
-        help="Run the main extraction process",
-        description="Run the main extraction process with the provided arguments.",
+        "run", help="Extract graphs from papers.", description=__doc__
     )
 
     # Add original arguments to the 'run' subcommand
@@ -604,8 +602,8 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
         "prompts",
-        help="List available prompts",
-        description="List available prompts. Use --detail for more information.",
+        help="List available prompts.",
+        description="List available prompts.",
     )
     prompts_parser.add_argument(
         "--detail",
