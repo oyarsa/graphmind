@@ -13,12 +13,13 @@ break in the future, as it won't be maintained.
 import json
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import habanero  # type: ignore
+import typer
 from tqdm import tqdm
 
-from paper.util import HelpOnErrorArgumentParser, fuzzy_ratio, run_safe
+from paper.util import fuzzy_ratio, run_safe
 
 
 class CrossrefClient:
@@ -95,45 +96,39 @@ def download(
     (output_path / "crossref_best.json").write_text(json.dumps(output_best))
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument("input_file", type=Path, help="Input file (asap_filtered.json)")
-    parser.add_argument(
-        "output_path", type=Path, help="Directory to save the downloaded information"
-    )
-    parser.add_argument(
-        "--fields",
-        type=str,
-        default="title,author,published,abstract",
-        help="Comma-separated list of fields to retrieve",
-    )
-    parser.add_argument(
-        "--ratio", type=int, default=30, help="Minimum ratio for fuzzy matching"
-    )
-    parser.add_argument(
-        "--mailto",
-        type=str,
-        default=None,
-        help="Email to add to request header. Increases reputation and rate limit.",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=10,
-        help="Maximum number of papers returned for each query",
-    )
-    args = parser.parse_args()
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
 
-    run_safe(
-        download,
-        args.input_file,
-        args.fields,
-        args.output_path,
-        args.ratio,
-        args.mailto,
-        args.limit,
-    )
+
+@app.command(help=__doc__)
+def main(
+    input_file: Annotated[
+        Path, typer.Argument(help="Input file (asap_filtered.json).")
+    ],
+    output_path: Annotated[
+        Path, typer.Argument(help="Directory to save the downloaded information.")
+    ],
+    fields: Annotated[
+        str, typer.Option(help="Comma-separated list of fields to retrieve.")
+    ] = "title,author,published,abstract",
+    ratio: Annotated[int, typer.Option(help="Minimum ratio for fuzzy matching")] = 30,
+    mailto: Annotated[
+        str | None,
+        typer.Option(
+            help="Email to add request header. Increases reputation and rate limit."
+        ),
+    ] = None,
+    limit: Annotated[
+        int, typer.Option(help="Maximum number of papers returned for each query")
+    ] = 10,
+) -> None:
+    run_safe(download, input_file, fields, output_path, ratio, mailto, limit)
 
 
 if __name__ == "__main__":
-    main()
+    app()
