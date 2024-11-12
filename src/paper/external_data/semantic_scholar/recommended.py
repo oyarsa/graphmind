@@ -20,11 +20,12 @@ import asyncio
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import aiohttp
 import backoff
 import dotenv
+import typer
 
 from paper import progress
 from paper.external_data.semantic_scholar.model import (
@@ -34,7 +35,6 @@ from paper.external_data.semantic_scholar.model import (
 )
 from paper.external_data.semantic_scholar.model import Paper as S2Paper
 from paper.util import (
-    HelpOnErrorArgumentParser,
     arun_safe,
     die,
     display_params,
@@ -56,58 +56,62 @@ REQUESTS_PER_SECOND = 1
 LIMITER = get_limiter(MAX_CONCURRENT_REQUESTS, REQUESTS_PER_SECOND)
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument(
-        "input_file",
-        type=Path,
-        help="The path to the JSON file containing papers with S2 data and paper_id.",
-    )
-    parser.add_argument(
-        "output_dir",
-        type=Path,
-        help="Path to output directory to save the downloaded papers.",
-    )
-    parser.add_argument(
-        "--fields",
-        type=str,
-        default=",".join(
-            (
-                "paperId",
-                "corpusId",
-                "url",
-                "title",
-                "authors",
-                "year",
-                "abstract",
-                "referenceCount",
-                "citationCount",
-                "influentialCitationCount",
-            )
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__)
+def main(
+    input_file: Annotated[
+        Path,
+        typer.Argument(
+            help="The path to the JSON file containing papers with S2 data and paper_id"
         ),
-        help="Comma-separated list of fields to retrieve.",
-    )
-    parser.add_argument(
-        "--limit-papers",
-        type=int,
-        default=None,
-        help="Number of papers to download recommendations from.",
-    )
-    parser.add_argument(
-        "--limit-recommendations",
-        type=int,
-        default=100,
-        help="Number of recommendations per paper. Must be <=500.",
-    )
-    args = parser.parse_args()
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Argument(help="Path to output directory to save the downloaded papers"),
+    ],
+    fields: Annotated[
+        str,
+        typer.Option(help="Comma-separated list of fields to retrieve"),
+    ] = ",".join(
+        (
+            "paperId",
+            "corpusId",
+            "url",
+            "title",
+            "authors",
+            "year",
+            "abstract",
+            "referenceCount",
+            "citationCount",
+            "influentialCitationCount",
+        )
+    ),
+    limit_papers: Annotated[
+        int | None,
+        typer.Option(help="Number of papers to download recommendations from"),
+    ] = None,
+    limit_recommendations: Annotated[
+        int,
+        typer.Option(help="Number of recommendations per paper.", max=500),
+    ] = 100,
+) -> None:
+    dotenv.load_dotenv()
 
     arun_safe(
         download_paper_recomendation,
-        args.input_file,
-        args.fields,
-        args.output_dir,
-        args.limit_papers,
-        args.limit_recommendations,
+        input_file,
+        fields,
+        output_dir,
+        limit_papers,
+        limit_recommendations,
     )
 
 
@@ -363,4 +367,4 @@ async def _fetch_with_retries(
 
 
 if __name__ == "__main__":
-    main()
+    app()

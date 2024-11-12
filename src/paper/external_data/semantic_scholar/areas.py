@@ -18,11 +18,12 @@ import tomllib
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import aiohttp
 import backoff
 import dotenv
+import typer
 from aiolimiter import AsyncLimiter
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from rich.console import Console
@@ -32,14 +33,7 @@ from tqdm import tqdm
 from paper import progress
 from paper.external_data.semantic_scholar.info import S2_SEARCH_BASE_URL
 from paper.external_data.semantic_scholar.model import Paper
-from paper.util import (
-    HelpOnErrorArgumentParser,
-    arun_safe,
-    die,
-    display_params,
-    ensure_envvar,
-    read_resource,
-)
+from paper.util import arun_safe, die, display_params, ensure_envvar, read_resource
 
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 MAX_RETRIES = 5
@@ -47,73 +41,73 @@ REQUESTS_PER_SECOND = 1
 RATE_LIMITER = AsyncLimiter(1, 1)
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument(
-        "output_file", type=Path, help="Path to output JSON with the downloaded papers."
-    )
-    parser.add_argument(
-        "--fields",
-        type=str,
-        default=",".join(
-            (
-                "paperId",
-                "corpusId",
-                "url",
-                "title",
-                "authors",
-                "year",
-                "abstract",
-                "referenceCount",
-                "citationCount",
-                "influentialCitationCount",
-                "tldr",
-            )
-        ),
-        help="Comma-separated list of fields to retrieve.",
-    )
-    parser.add_argument(
-        "--years",
-        nargs="+",
-        type=str,
-        default=["2017"],
-        help="List of year ranges to fetch papers. Can be like `2017-2022` or `2010`",
-    )
-    parser.add_argument(
-        "--limit-year",
-        type=int,
-        default=10,
-        help="Number of papers per year range per primary area. Set to 0 for all.",
-    )
-    parser.add_argument(
-        "--limit-page",
-        type=int,
-        default=100,
-        help="Number of papers per queried page. Must be <=100.",
-    )
-    parser.add_argument(
-        "--limit-areas",
-        type=int,
-        default=None,
-        help="Number of areas to query.",
-    )
-    parser.add_argument(
-        "--min-citations",
-        type=int,
-        default=10,
-        help="Minimum number of incoming citations for papers to include.",
-    )
-    args = parser.parse_args()
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
 
+
+@app.command(help=__doc__)
+def main(
+    output_file: Annotated[
+        Path, typer.Argument(help="Path to output JSON with the downloaded papers.")
+    ],
+    fields: Annotated[
+        str, typer.Option(help="Command-separate list of fields to retrieve.")
+    ] = ",".join(
+        (
+            "paperId",
+            "corpusId",
+            "url",
+            "title",
+            "authors",
+            "year",
+            "abstract",
+            "referenceCount",
+            "citationCount",
+            "influentialCitationCount",
+            "tldr",
+        )
+    ),
+    years: Annotated[
+        list[str],
+        typer.Option(
+            help="List of year ranges to fetch papers. Can be like `2017-2022` or `2010`."
+        ),
+    ] = ["2017"],
+    limit_year: Annotated[
+        int,
+        typer.Option(
+            help="Number of papers per year range per primary area. Set to 0 for all."
+        ),
+    ] = 10,
+    limit_page: Annotated[
+        int,
+        typer.Option(help="Number of papers per queried page.", max=100),
+    ] = 100,
+    limit_areas: Annotated[
+        int | None,
+        typer.Option(help="Number of areas to query."),
+    ] = None,
+    min_citations: Annotated[
+        int,
+        typer.Option(
+            help="Minimum number of incoming citations for papers to include."
+        ),
+    ] = 10,
+) -> None:
     arun_safe(
         download_paper_info,
-        args.fields,
-        args.output_file,
-        args.years,
-        args.limit_year,
-        args.limit_page,
-        args.limit_areas,
-        args.min_citations,
+        fields,
+        output_file,
+        years,
+        limit_year,
+        limit_page,
+        limit_areas,
+        min_citations,
     )
 
 
@@ -436,4 +430,4 @@ class PaperOutput(Paper):
 
 
 if __name__ == "__main__":
-    main()
+    app()

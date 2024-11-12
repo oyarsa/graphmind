@@ -22,15 +22,16 @@ import json
 import logging
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import aiohttp
+import click
 import dotenv
+import typer
 
 from paper.external_data.semantic_scholar.model import title_ratio
 from paper.progress import gather
 from paper.util import (
-    HelpOnErrorArgumentParser,
     arun_safe,
     die,
     ensure_envvar,
@@ -194,60 +195,64 @@ async def _download_paper_info(
     )
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument("input_file", type=Path, help="Input file (asap_filtered.json)")
-    parser.add_argument(
-        "output_path", type=Path, help="Directory to save the downloaded information"
-    )
-    parser.add_argument(
-        "--mode",
-        choices=_INFO_MODES,
-        required=True,
-        help="Download information from main papers or their references (required)",
-    )
-    parser.add_argument(
-        "--fields",
-        type=str,
-        default=",".join(
-            (
-                "paperId",
-                "corpusId",
-                "url",
-                "title",
-                "authors",
-                "year",
-                "abstract",
-                "referenceCount",
-                "citationCount",
-                "influentialCitationCount",
-                "tldr",
-            )
-        ),
-        help="Comma-separated list of fields to retrieve",
-    )
-    parser.add_argument(
-        "--min-fuzzy",
-        type=int,
-        default=80,
-        help="Minimum fuzz ratio of titles to filter",
-    )
-    args = parser.parse_args()
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
 
+
+@app.command(help=__doc__)
+def main(
+    input_file: Annotated[Path, typer.Argument(help="Input file (asap_filtered.json)")],
+    output_path: Annotated[
+        Path, typer.Argument(help="Directory to save the downloaded information")
+    ],
+    mode: Annotated[
+        str,
+        typer.Option(
+            help="Download information from main papers or their references",
+            click_type=click.Choice(["main", "references"]),
+        ),
+    ] = "references",
+    fields: Annotated[
+        str,
+        typer.Option(help="Comma-separated list of fields to retrieve"),
+    ] = ",".join(
+        (
+            "paperId",
+            "corpusId",
+            "url",
+            "title",
+            "authors",
+            "year",
+            "abstract",
+            "referenceCount",
+            "citationCount",
+            "influentialCitationCount",
+            "tldr",
+        )
+    ),
+    min_fuzzy: Annotated[
+        int, typer.Option(help="Minimum fuzz ratio of titles to filter", max=100)
+    ] = 80,
+) -> None:
     dotenv.load_dotenv()
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
     setup_logging()
 
     arun_safe(
         _download_paper_info,
-        args.input_file,
-        args.mode,
-        args.fields,
-        args.output_path,
+        input_file,
+        mode,
+        fields,
+        output_path,
         api_key,
-        args.min_fuzzy,
+        min_fuzzy,
     )
 
 
 if __name__ == "__main__":
-    main()
+    app()
