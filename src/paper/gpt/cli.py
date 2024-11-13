@@ -135,6 +135,8 @@ def main() -> None:
                     args.user_prompt,
                     args.continue_papers,
                     args.clean_run,
+                    args.log,
+                    args.detailed_log,
                 )
             )
 

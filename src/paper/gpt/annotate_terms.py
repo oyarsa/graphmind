@@ -12,11 +12,13 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Self, override
+from typing import Any, Self, override
 
 import dotenv
 from openai import AsyncClient, AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field
+from rich.console import Console
+from rich.table import Table
 
 from paper import progress
 from paper.external_data.semantic_scholar.model import Paper
@@ -71,6 +73,8 @@ def main() -> None:
                 args.user_prompt,
                 args.continue_papers,
                 args.clean_run,
+                args.log,
+                args.detailed_log,
             )
         )
 
@@ -134,6 +138,18 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Start from scratch, ignoring existing intermediate results",
     )
+    run_parser.add_argument(
+        "--log",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Show term log",
+    )
+    run_parser.add_argument(
+        "--detailed-log",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Show detailed term log",
+    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -157,6 +173,8 @@ async def annotate_papers_terms(
     user_prompt_key: str,
     continue_papers_file: Path | None,
     clean_run: bool,
+    show_log: bool,
+    show_detailed_log: bool,
 ) -> None:
     """Extract problem and method terms from each paper.
 
@@ -174,6 +192,9 @@ async def annotate_papers_terms(
         continue_papers_file: File with the intermediate results from a previous run
             that we want to continue.
         clean_run: If True, we ignore `continue_papers_file` and start from scratch.
+        show_log: Show log of term count for each paper and type of term.
+            Note: the types of terms vary by output type.
+        show_detailed_log: Show log of each term value for papers and type of term.
     """
     logger.info(display_params())
 
@@ -233,16 +254,8 @@ async def annotate_papers_terms(
     save_data(output_dir / "results.json", output.result)
     assert len(papers) == len(output.result)
 
-
-class PaperAnnotatedTerms[T: GPTTermBase](Record):
-    """S2 Paper with its annotated key terms. Includes GPT prompts used."""
-
-    terms: T
-    paper: Paper
-
-    @property
-    def id(self) -> int:
-        return self.paper.id
+    if show_log or show_detailed_log:
+        _log_table_stats(output.result, detail=show_detailed_log)
 
 
 class GPTTermBase(BaseModel, ABC):
@@ -297,6 +310,17 @@ _TERM_TYPES: Mapping[str, type[GPTTermBase]] = {
     "simple-terms": GPTSimpleTerms,
     "multi-terms": GPTMultiTerms,
 }
+
+
+class PaperAnnotatedTerms[T: GPTTermBase](Record):
+    """S2 Paper with its annotated key terms. Includes GPT prompts used."""
+
+    terms: T
+    paper: Paper
+
+    @property
+    def id(self) -> int:
+        return self.paper.id
 
 
 async def _annotate_papers_terms[T: GPTTermBase](
@@ -358,6 +382,40 @@ async def _annotate_paper_term_single[T: GPTTermBase](
         ),
         cost=result.cost,
     )
+
+
+def _log_table_stats(
+    results: Sequence[PromptResult[PaperAnnotatedTerms[GPTTermBase]]], detail: bool
+) -> None:
+    if not results:
+        logger.warning("Cannot log stats from empty results.")
+        return
+    try:
+        columns = results[0].item.terms.model_dump().keys()
+    except Exception:
+        logger.exception("Could not get the term keys")
+        return
+
+    table = Table("paper", *columns)
+
+    for result in results:
+        terms = result.item.terms.model_dump()
+        row = [
+            result.item.paper.title,
+            *(_format_col(terms[col], detail) for col in columns),
+        ]
+        table.add_row(*map(str, row))
+
+    console = Console()
+    with console.capture() as capture:
+        console.print(table)
+    logger.info("\n%s\n", capture.get())
+
+
+def _format_col(col: Sequence[Any], detail: bool) -> str:
+    if detail:
+        return f"({len(col)})\n{"\n".join(col)}"
+    return str(len(col))
 
 
 def list_prompts(detail: bool) -> None:
