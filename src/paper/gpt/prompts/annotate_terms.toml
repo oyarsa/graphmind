@@ -1,6 +1,6 @@
 [[prompts]]
-name = "sentence"
-type = "context"
+name = "simple"
+type = "terms"
 prompt = """The following data contains a paper title and its abstract. Your task is to \
 identify two types of terms:
 

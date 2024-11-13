@@ -121,6 +121,23 @@ def main() -> None:
         else:  # other commands
             pass
 
+    elif args.command == "terms":
+        if args.subcommand == "prompts":
+            annotate_terms.list_prompts(detail=args.detail)
+        elif args.subcommand == "run":
+            asyncio.run(
+                annotate_terms.annotate_papers_terms(
+                    args.input_file,
+                    args.output_dir,
+                    args.limit,
+                    args.model,
+                    args.seed,
+                    args.user_prompt,
+                    args.continue_papers,
+                    args.clean_run,
+                )
+            )
+
 
 if __name__ == "__main__":
     main()

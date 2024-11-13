@@ -13,7 +13,6 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import dotenv
-import typer
 from openai import AsyncClient, AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -42,14 +41,6 @@ from paper.util import (
 
 logger = logging.getLogger(__name__)
 
-app = typer.Typer(
-    context_settings={"help_option_names": ["-h", "--help"]},
-    add_completion=False,
-    rich_markup_mode="rich",
-    pretty_exceptions_show_locals=False,
-    no_args_is_help=True,
-)
-
 
 _SYSTEM_PROMPT = """\
 You are a helpful assistant that can read scientific papers and identify the key terms \
@@ -71,7 +62,7 @@ def main() -> None:
         asyncio.run(
             annotate_papers_terms(
                 args.input_file,
-                args.output_file,
+                args.output_dir,
                 args.limit,
                 args.model,
                 args.seed,
@@ -100,9 +91,9 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         help="The path to the JSON file containing the papers data (S2 `Paper` format).",
     )
     run_parser.add_argument(
-        "output_file",
+        "output_dir",
         type=Path,
-        help="The path to the output JSON file with the annotated terms.",
+        help="The path to the output directory where files will be saved.",
     )
     run_parser.add_argument(
         "--model",
@@ -126,8 +117,8 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         "--user-prompt",
         type=str,
         choices=sorted(_ANN_USER_PROMPTS),
-        default="sentence",
-        help="The user prompt to use for context classification.",
+        default="simple",
+        help="The user prompt to use term annotation.",
     )
     run_parser.add_argument(
         "--continue-papers",
@@ -193,8 +184,8 @@ async def annotate_papers_terms(
     if limit_papers == 0:
         limit_papers = None
 
-    env = mustenv("OPENAI_API_CLIENT")
-    client = AsyncOpenAI(api_key=env["OPENAI_API_CLIENT"])
+    env = mustenv("OPENAI_API_KEY")
+    client = AsyncOpenAI(api_key=env["OPENAI_API_KEY"])
     user_prompt = _ANN_USER_PROMPTS[user_prompt_key]
 
     papers = load_data(input_file, Paper)[:limit_papers]
@@ -320,5 +311,3 @@ async def _annotate_paper_term_single(
 
 def list_prompts(detail: bool) -> None:
     print_prompts("TERM ANNOTATION PROMPTS", _ANN_USER_PROMPTS, detail=detail)
-
-    app()
