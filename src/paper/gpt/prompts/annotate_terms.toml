@@ -40,11 +40,11 @@ Extract these categories of scientific terms:
 
 3. METRICS: Specific measures used to evaluate results
    - Include quantitative measures and evaluation criteria
-   - Example: "accuracy", "F1-score", "ROUGE"
+   - Example: "accuracy", "F1-score", "ROUGE", BERTScore
 
 4. RESOURCES: Resources and data used
    - Include datasets, tools, and resources
-   - Example: "ACL papers", "PubMed abstracts"
+   - Example: "ACL papers", "PubMed abstracts", "SQuAD", "MNLI"
 
 5. RELATIONS: Identify relationships between terms, especially:
    - Which methods are used for which tasks
@@ -58,6 +58,7 @@ Guidelines:
 - Focus especially on identifying clear "used-for" relationships between methods and \
 tasks
 - Do not include generic research terms unless part of a specific technical phrase
+- Every category should include at least one term, preferably many
 
 #####
 -Data-
