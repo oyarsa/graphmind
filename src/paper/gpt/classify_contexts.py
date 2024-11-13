@@ -42,6 +42,7 @@ from paper.gpt.run_gpt import (
 from paper.progress import as_completed
 from paper.util import (
     HelpOnErrorArgumentParser,
+    Record,
     Timer,
     display_params,
     ensure_envvar,
@@ -82,10 +83,8 @@ class Reference(BaseModel):
     )
 
 
-class PaperOutput(BaseModel):
+class PaperOutput(Record):
     """Paper where its references have contexts with polarity."""
-
-    model_config = ConfigDict(frozen=True)
 
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")

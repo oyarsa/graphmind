@@ -7,6 +7,8 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from paper.util import Record
+
 
 # Models from the ASAP files after exctraction (e.g. asap_filtered.json)
 class ContextPolarity(enum.StrEnum):
@@ -87,10 +89,8 @@ class ReferenceWithAbstract(PaperReference):
     s2title: str = Field(description="Title from the S2 data")
 
 
-class PaperWithFullReference(BaseModel):
+class PaperWithFullReference(Record):
     """Paper from ASAP where the references contain their abstract."""
-
-    model_config = ConfigDict(frozen=True)
 
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")

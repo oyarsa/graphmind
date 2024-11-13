@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, computed_field, model_validator
 
 from paper import hierarchical_graph
 from paper.asap.model import PaperReview
+from paper.util import Record
 
 
 class EntityType(StrEnum):
@@ -36,9 +37,7 @@ class Entity(BaseModel):
     type: EntityType
 
 
-class Graph(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
+class Graph(Record):
     title: str
     abstract: str
     entities: Sequence[Entity]
@@ -294,14 +293,12 @@ class RatingEvaluationStrategy(StrEnum):
                 return sum(approvals) >= len(approvals) / 2
 
 
-class Paper(BaseModel):
+class Paper(Record):
     """ASAP-Review paper with only currently useful fields.
 
     Check the ASAP-Review dataset to see what else is available, and use
     paper.asap.extract and asap.filter to add them to this dataset.
     """
-
-    model_config = ConfigDict(frozen=True)
 
     title: str
     abstract: str
@@ -345,7 +342,7 @@ class PromptResult[T](BaseModel):
     prompt: Prompt
 
 
-class PaperGraph(BaseModel):
+class PaperGraph(Record):
     paper: Paper
     graph: PromptResult[Graph]
 

@@ -13,7 +13,8 @@ import os
 import sys
 import time
 import traceback
-from collections.abc import Callable, Coroutine, Sequence
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Coroutine, Hashable, Sequence
 from importlib import resources
 from pathlib import Path
 from typing import Any, NoReturn, Protocol, Self, override
@@ -535,3 +536,11 @@ def doc_summary(obj: object) -> str | None:
     if doc := obj.__doc__:
         return doc.splitlines()[0]
     return None
+
+
+class Record(BaseModel, ABC):
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
+
+    @property
+    @abstractmethod
+    def id(self) -> Hashable: ...

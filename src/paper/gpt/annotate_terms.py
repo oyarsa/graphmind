@@ -31,6 +31,7 @@ from paper.gpt.run_gpt import (
 )
 from paper.util import (
     HelpOnErrorArgumentParser,
+    Record,
     Timer,
     display_params,
     load_data,
@@ -233,10 +234,8 @@ async def annotate_papers_terms(
     assert len(papers) == len(output.result)
 
 
-class PaperAnnotatedTerms(BaseModel):
+class PaperAnnotatedTerms(Record):
     """S2 Paper with its annotated key terms. Includes GPT prompts used."""
-
-    model_config = ConfigDict(frozen=True)
 
     terms: GPTTerms
     paper: Paper

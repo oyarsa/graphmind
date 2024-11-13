@@ -4,7 +4,7 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 import backoff
 import openai
@@ -13,6 +13,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from paper.gpt.model import PromptResult
 from paper.rate_limiter import ChatRateLimiter
+from paper.util import Record
 
 logger = logging.getLogger(__name__)
 
@@ -212,16 +213,7 @@ class RemainingItems[T, U]:
     done: list[T]
 
 
-class HasId(Protocol):
-    @property
-    def id(self) -> int: ...
-
-
-def get_id(x: HasId) -> int:
-    return x.id
-
-
-def get_remaining_items[T: HasId, U: HasId](
+def get_remaining_items[T: Record, U: Record](
     continue_type_: type[T],
     output_intermediate_file: Path,
     continue_papers_file: Path | None,
@@ -251,12 +243,12 @@ def get_remaining_items[T: HasId, U: HasId](
     if continue_papers_file is None and output_intermediate_file.is_file():
         continue_papers_file = output_intermediate_file
 
-    continue_papers: list[PromptResult[T]] = []
+    continue_papers: Sequence[PromptResult[T]] = []
     if continue_papers_file:
         logger.info("Continuing items from: %s", continue_papers_file)
         try:
             continue_papers = TypeAdapter(
-                list[PromptResult[continue_type_]]
+                Sequence[PromptResult[continue_type_]]
             ).validate_json(continue_papers_file.read_bytes())
         except Exception:
             logger.exception("Error reading previous files")

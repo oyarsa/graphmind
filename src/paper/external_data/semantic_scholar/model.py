@@ -8,17 +8,15 @@ from typing import Annotated, Any, Self
 from pydantic import BaseModel, ConfigDict, Field
 
 from paper.asap.model import Paper as ASAPPaper
-from paper.util import fuzzy_partial_ratio
+from paper.util import Record, fuzzy_partial_ratio
 
 
-class Paper(BaseModel):
+class Paper(Record):
     """Paper returned by the Semantic Scholar API. Everything's optional but `paperId`.
 
     This is to avoid validation errors in the middle of the download. We'll only save
     those with non-empty `abstract`, though.
     """
-
-    model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     # Semantic Scholar's primary unique identifier for a paper.
     paper_id: Annotated[str, Field(alias="paperId")]
