@@ -36,7 +36,6 @@ from paper.gpt.run_gpt import (
     MODELS_ALLOWED,
     GPTResult,
     append_intermediate_result,
-    get_id,
     get_remaining_items,
     run_gpt,
 )
@@ -298,13 +297,7 @@ async def classify_contexts(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
     papers_remaining = get_remaining_items(
-        PaperOutput,
-        output_intermediate_file,
-        continue_papers_file,
-        papers,
-        clean_run,
-        continue_key=get_id,
-        original_key=get_id,
+        PaperOutput, output_intermediate_file, continue_papers_file, papers, clean_run
     )
     if not papers_remaining.remaining:
         logger.info(
@@ -429,6 +422,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         "-m",
         type=str,
         default="gpt-4o-mini",
+        choices=MODELS_ALLOWED,
         help="The model to use for the extraction. Defaults to %(default)s.",
     )
     run_parser.add_argument(

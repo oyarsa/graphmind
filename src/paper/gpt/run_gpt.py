@@ -1,7 +1,7 @@
 """Interact with the OpenAI API."""
 
 import logging
-from collections.abc import Callable, Hashable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -221,15 +221,12 @@ def get_id(x: HasId) -> int:
     return x.id
 
 
-def get_remaining_items[T: BaseModel, U: BaseModel](
+def get_remaining_items[T: HasId, U: HasId](
     continue_type_: type[T],
     output_intermediate_file: Path,
     continue_papers_file: Path | None,
     original: Sequence[U],
     clean_run: bool,
-    *,
-    continue_key: Callable[[T], Hashable],
-    original_key: Callable[[U], Hashable],
 ) -> RemainingItems[PromptResult[T], U]:
     """Remove items that were previously processed from this run's input list.
 
@@ -264,16 +261,14 @@ def get_remaining_items[T: BaseModel, U: BaseModel](
         except Exception:
             logger.exception("Error reading previous files")
 
-    continue_paper_ids = {continue_key(paper.item) for paper in continue_papers}
+    continue_paper_ids = {paper.item.id for paper in continue_papers}
     # Split into papers that _are_ in the continue file.
     done = [
-        next(c for c in continue_papers if continue_key(c.item) == original_key(paper))
+        next(c for c in continue_papers if c.item.id == paper.id)
         for paper in original
-        if original_key(paper) in continue_paper_ids
+        if paper.id in continue_paper_ids
     ]
     # And those that _are not_.
-    remaining = [
-        paper for paper in original if original_key(paper) not in continue_paper_ids
-    ]
+    remaining = [paper for paper in original if paper.id not in continue_paper_ids]
 
     return RemainingItems(remaining=remaining, done=done)

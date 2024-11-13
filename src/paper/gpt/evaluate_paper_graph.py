@@ -17,7 +17,6 @@ from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import (
     GPTResult,
     append_intermediate_result,
-    get_id,
     get_remaining_items,
     run_gpt,
 )
@@ -59,8 +58,6 @@ async def evaluate_graphs(
         continue_papers_file,
         paper_graphs,
         clean_run=clean_run,
-        continue_key=get_id,
-        original_key=get_id,
     )
     if not papers_remaining.remaining:
         logger.info(

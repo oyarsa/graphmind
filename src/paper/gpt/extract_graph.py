@@ -41,7 +41,6 @@ from paper.gpt.run_gpt import (
     MODELS_ALLOWED,
     GPTResult,
     append_intermediate_result,
-    get_id,
     get_remaining_items,
     run_gpt,
 )
@@ -451,13 +450,7 @@ async def extract_graph(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
     papers_remaining = get_remaining_items(
-        Graph,
-        output_intermediate_file,
-        continue_papers_file,
-        papers,
-        clean_run,
-        continue_key=get_id,
-        original_key=get_id,
+        Graph, output_intermediate_file, continue_papers_file, papers, clean_run
     )
     if not papers_remaining.remaining:
         logger.info("No items left to process. They're all on the `continues` file.")
