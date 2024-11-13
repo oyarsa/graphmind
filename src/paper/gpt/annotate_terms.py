@@ -9,8 +9,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-from collections.abc import Sequence
+from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Self, override
 
 import dotenv
 from openai import AsyncClient, AsyncOpenAI
@@ -42,11 +44,11 @@ from paper.util import (
 logger = logging.getLogger(__name__)
 
 
-_SYSTEM_PROMPT = """\
+_TERM_SYSTEM_PROMPT = """\
 You are a helpful assistant that can read scientific papers and identify the key terms \
 used to describe the problems tackled by the paper and the terms used for the methods.
 """
-_ANN_USER_PROMPTS = load_prompts("annotate_terms")
+_TERM_USER_PROMPTS = load_prompts("annotate_terms")
 
 
 def main() -> None:
@@ -116,7 +118,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     run_parser.add_argument(
         "--user-prompt",
         type=str,
-        choices=sorted(_ANN_USER_PROMPTS),
+        choices=sorted(_TERM_USER_PROMPTS),
         default="simple",
         help="The user prompt to use term annotation.",
     )
@@ -186,14 +188,15 @@ async def annotate_papers_terms(
 
     env = mustenv("OPENAI_API_KEY")
     client = AsyncOpenAI(api_key=env["OPENAI_API_KEY"])
-    user_prompt = _ANN_USER_PROMPTS[user_prompt_key]
+    user_prompt = _TERM_USER_PROMPTS[user_prompt_key]
+    type_ = _TERM_TYPES[user_prompt.type_name]
 
     papers = load_data(input_file, Paper)[:limit_papers]
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
     papers_remaining = get_remaining_items(
-        PaperAnnotatedTerms,
+        PaperAnnotatedTerms[type_],
         output_intermediate_file,
         continue_papers_file,
         papers,
@@ -215,7 +218,13 @@ async def annotate_papers_terms(
     papers = load_data(input_file, Paper)[:limit_papers]
     with Timer() as timer:
         output = await _annotate_papers_terms(
-            client, model, papers, user_prompt, output_intermediate_file, seed=seed
+            client,
+            model,
+            papers,
+            user_prompt,
+            output_intermediate_file,
+            type_,
+            seed=seed,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -225,10 +234,10 @@ async def annotate_papers_terms(
     assert len(papers) == len(output.result)
 
 
-class PaperAnnotatedTerms(Record):
+class PaperAnnotatedTerms[T: GPTTermBase](Record):
     """S2 Paper with its annotated key terms. Includes GPT prompts used."""
 
-    terms: GPTTerms
+    terms: T
     paper: Paper
 
     @property
@@ -236,7 +245,13 @@ class PaperAnnotatedTerms(Record):
         return self.paper.id
 
 
-class GPTTerms(BaseModel):
+class GPTTermBase(BaseModel, ABC):
+    @classmethod
+    @abstractmethod
+    def empty(cls) -> Self: ...
+
+
+class GPTSimpleTerms(GPTTermBase):
     """Terms used to describe the paper problems and the applied methods."""
 
     model_config = ConfigDict(frozen=True)
@@ -249,22 +264,57 @@ class GPTTerms(BaseModel):
         " problem."
     )
 
+    @override
+    @classmethod
+    def empty(cls) -> Self:
+        return cls(problem=[], methods=[])
 
-async def _annotate_papers_terms(
+
+class GPTTermRelation(BaseModel):
+    """Represents a relation between two scientific terms."""
+
+    term1: str
+    relation_type: str
+    term2: str
+
+
+class GPTMultiTerms(GPTTermBase):
+    """Structured output for scientific term extraction."""
+
+    tasks: Sequence[str]
+    methods: Sequence[str]
+    metrics: Sequence[str]
+    resources: Sequence[str]
+    relations: Sequence[GPTTermRelation]
+
+    @override
+    @classmethod
+    def empty(cls) -> Self:
+        return cls(tasks=[], methods=[], metrics=[], resources=[], relations=[])
+
+
+_TERM_TYPES: Mapping[str, type[GPTTermBase]] = {
+    "simple-terms": GPTSimpleTerms,
+    "multi-terms": GPTMultiTerms,
+}
+
+
+async def _annotate_papers_terms[T: GPTTermBase](
     client: AsyncClient,
     model: str,
     papers: Sequence[Paper],
-    user_prompt_template: PromptTemplate,
+    user_prompt: PromptTemplate,
     output_intermediate_path: Path,
+    type_: type[T],
     *,
     seed: int,
-) -> GPTResult[list[PromptResult[PaperAnnotatedTerms]]]:
+) -> GPTResult[list[PromptResult[PaperAnnotatedTerms[T]]]]:
     """Annotate papers to add key terms. Runs multiple tasks concurrently."""
-    ann_outputs: list[PromptResult[PaperAnnotatedTerms]] = []
+    ann_outputs: list[PromptResult[PaperAnnotatedTerms[T]]] = []
     total_cost = 0
 
     tasks = [
-        _annotate_paper_term_single(client, model, seed, paper, user_prompt_template)
+        _annotate_paper_term_single(client, model, seed, paper, user_prompt, type_)
         for paper in papers
     ]
 
@@ -274,40 +324,41 @@ async def _annotate_papers_terms(
 
         ann_outputs.append(result.result)
         append_intermediate_result(
-            PaperAnnotatedTerms, output_intermediate_path, result.result
+            PaperAnnotatedTerms[type_], output_intermediate_path, result.result
         )
 
     return GPTResult(result=ann_outputs, cost=total_cost)
 
 
-async def _annotate_paper_term_single(
+async def _annotate_paper_term_single[T: GPTTermBase](
     client: AsyncClient,
     model: str,
     seed: int,
     paper: Paper,
-    user_prompt_template: PromptTemplate,
-) -> GPTResult[PromptResult[PaperAnnotatedTerms]]:
+    user_prompt: PromptTemplate,
+    type_: type[T],
+) -> GPTResult[PromptResult[PaperAnnotatedTerms[T]]]:
     """Annotate a single paper with its key terms."""
-    user_prompt_text = user_prompt_template.template.format(
+    user_prompt_text = user_prompt.template.format(
         title=paper.title, abstract=paper.abstract
     )
     result = await run_gpt(
-        GPTTerms,
+        type_,
         client,
-        _SYSTEM_PROMPT,
+        _TERM_SYSTEM_PROMPT,
         user_prompt_text,
         model,
         seed=seed,
     )
-    terms = result.result if result.result else GPTTerms(problem=[], methods=[])
+    terms = result.result if result.result else type_.empty()
     return GPTResult(
         result=PromptResult(
             item=PaperAnnotatedTerms(terms=terms, paper=paper),
-            prompt=Prompt(user=user_prompt_text, system=_SYSTEM_PROMPT),
+            prompt=Prompt(user=user_prompt_text, system=_TERM_SYSTEM_PROMPT),
         ),
         cost=result.cost,
     )
 
 
 def list_prompts(detail: bool) -> None:
-    print_prompts("TERM ANNOTATION PROMPTS", _ANN_USER_PROMPTS, detail=detail)
+    print_prompts("TERM ANNOTATION PROMPTS", _TERM_USER_PROMPTS, detail=detail)
