@@ -12,6 +12,7 @@ import logging
 from collections.abc import Sequence
 from pathlib import Path
 
+import dotenv
 import typer
 from openai import AsyncClient, AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,10 +20,19 @@ from pydantic import BaseModel, ConfigDict, Field
 from paper import progress
 from paper.external_data.semantic_scholar.model import Paper
 from paper.gpt.model import Prompt, PromptResult
-from paper.gpt.prompts import load_prompts, print_prompts
-from paper.gpt.run_gpt import MODELS_ALLOWED, GPTResult, run_gpt
+from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
+from paper.gpt.run_gpt import (
+    MODEL_SYNONYMS,
+    MODELS_ALLOWED,
+    GPTResult,
+    append_intermediate_result,
+    get_remaining_items,
+    run_gpt,
+)
 from paper.util import (
     HelpOnErrorArgumentParser,
+    Timer,
+    display_params,
     load_data,
     mustenv,
     save_data,
@@ -65,6 +75,8 @@ def main() -> None:
                 args.model,
                 args.seed,
                 args.user_prompt,
+                args.continue_papers,
+                args.clean_run,
             )
         )
 
@@ -116,6 +128,18 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         default="sentence",
         help="The user prompt to use for context classification.",
     )
+    run_parser.add_argument(
+        "--continue-papers",
+        type=Path,
+        default=None,
+        help="Path to file with data from a previous run",
+    )
+    run_parser.add_argument(
+        "--clean-run",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Start from scratch, ignoring existing intermediate results",
+    )
 
     # 'prompts' subcommand parser
     prompts_parser = subparsers.add_parser(
@@ -132,36 +156,81 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
 
 async def annotate_papers_terms(
     input_file: Path,
-    output_file: Path,
+    output_dir: Path,
     limit_papers: int | None,
     model: str,
     seed: int,
     user_prompt_key: str,
+    continue_papers_file: Path | None,
+    clean_run: bool,
 ) -> None:
     """Extract problem and method terms from each paper.
 
     Args:
         input_file: JSON with input data.
             Array of `paper.external_data.semantic_scholar.model.Paper`.
-        output_file: File to save the output JSON data. See `PaperTermAnnotated`.
+        output_dir: Directory to save output files, including final and intermedaite
+            results.
         limit_papers: How many papers to process. 0 or None means all papers.
         model: Name of the OpenAI API model to use.
             See `papers.gpt.run_gpt.MODELS_ALLOWED` for the allowed ones.
         seed: Random generator seed to pass to the model to try to get some
             reproducibility.
         user_prompt_key: Key of the prompt to use in the annotation prompt mapping.
+        continue_papers_file: File with the intermediate results from a previous run
+            that we want to continue.
+        clean_run: If True, we ignore `continue_papers_file` and start from scratch.
     """
-    env = mustenv("OPENAI_API_CLIENT")
-    client = AsyncOpenAI(api_key=env["OPENAI_API_CLIENT"])
+    logger.info(display_params())
+
+    dotenv.load_dotenv()
+
+    model = MODEL_SYNONYMS.get(model, model)
+    if model not in MODELS_ALLOWED:
+        raise ValueError(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
     if limit_papers == 0:
         limit_papers = None
 
-    data = load_data(input_file, Paper)[:limit_papers]
-    output = await _annotate_papers_terms(client, model, seed, data, user_prompt_key)
+    env = mustenv("OPENAI_API_CLIENT")
+    client = AsyncOpenAI(api_key=env["OPENAI_API_CLIENT"])
+    user_prompt = _ANN_USER_PROMPTS[user_prompt_key]
 
+    papers = load_data(input_file, Paper)[:limit_papers]
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_intermediate_file = output_dir / "results.tmp.json"
+    papers_remaining = get_remaining_items(
+        PaperAnnotatedTerms,
+        output_intermediate_file,
+        continue_papers_file,
+        papers,
+        clean_run,
+    )
+    if not papers_remaining.remaining:
+        logger.info(
+            "No items left to process. They're all on the `continues` file. Exiting."
+        )
+        return
+
+    if clean_run:
+        logger.info("Clean run: ignoring `continue` file and using the whole data.")
+    else:
+        logger.info(
+            "Skipping %d items from the `continue` file.", len(papers_remaining.done)
+        )
+
+    papers = load_data(input_file, Paper)[:limit_papers]
+    with Timer() as timer:
+        output = await _annotate_papers_terms(
+            client, model, papers, user_prompt, output_intermediate_file, seed=seed
+        )
+
+    logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${output.cost:.10f}")
-    save_data(output_file, output.result)
+
+    save_data(output_dir / "results.json", output.result)
+    assert len(papers) == len(output.result)
 
 
 class PaperAnnotatedTerms(BaseModel):
@@ -169,8 +238,12 @@ class PaperAnnotatedTerms(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    terms: PromptResult[GPTTerms]
+    terms: GPTTerms
     paper: Paper
+
+    @property
+    def id(self) -> int:
+        return self.paper.id
 
 
 class GPTTerms(BaseModel):
@@ -190,32 +263,42 @@ class GPTTerms(BaseModel):
 async def _annotate_papers_terms(
     client: AsyncClient,
     model: str,
-    seed: int,
     papers: Sequence[Paper],
-    user_prompt_key: str,
-) -> GPTResult[list[PaperAnnotatedTerms]]:
+    user_prompt_template: PromptTemplate,
+    output_intermediate_path: Path,
+    *,
+    seed: int,
+) -> GPTResult[list[PromptResult[PaperAnnotatedTerms]]]:
     """Annotate papers to add key terms. Runs multiple tasks concurrently."""
-    tasks = [
-        _annotate_paper_term_single(client, model, seed, paper, user_prompt_key)
-        for paper in papers
-    ]
-    results = await progress.gather(tasks, desc="Extracting paper terms")
-
-    output: list[PaperAnnotatedTerms] = []
+    ann_outputs: list[PromptResult[PaperAnnotatedTerms]] = []
     total_cost = 0
 
-    for terms, paper in zip(results, papers):
-        output.append(PaperAnnotatedTerms(terms=terms.result, paper=paper))
-        total_cost += terms.cost
+    tasks = [
+        _annotate_paper_term_single(client, model, seed, paper, user_prompt_template)
+        for paper in papers
+    ]
 
-    return GPTResult(result=output, cost=total_cost)
+    for task in progress.as_completed(tasks, desc="Extracting paper terms"):
+        result = await task
+        total_cost += result.cost
+
+        ann_outputs.append(result.result)
+        append_intermediate_result(
+            PaperAnnotatedTerms, output_intermediate_path, result.result
+        )
+
+    return GPTResult(result=ann_outputs, cost=total_cost)
 
 
 async def _annotate_paper_term_single(
-    client: AsyncClient, model: str, seed: int, paper: Paper, user_prompt_key: str
-) -> GPTResult[PromptResult[GPTTerms]]:
+    client: AsyncClient,
+    model: str,
+    seed: int,
+    paper: Paper,
+    user_prompt_template: PromptTemplate,
+) -> GPTResult[PromptResult[PaperAnnotatedTerms]]:
     """Annotate a single paper with its key terms."""
-    user_prompt_text = _ANN_USER_PROMPTS[user_prompt_key].template.format(
+    user_prompt_text = user_prompt_template.template.format(
         title=paper.title, abstract=paper.abstract
     )
     result = await run_gpt(
@@ -229,7 +312,8 @@ async def _annotate_paper_term_single(
     terms = result.result if result.result else GPTTerms(problem=[], methods=[])
     return GPTResult(
         result=PromptResult(
-            item=terms, prompt=Prompt(user=user_prompt_text, system=_SYSTEM_PROMPT)
+            item=PaperAnnotatedTerms(terms=terms, paper=paper),
+            prompt=Prompt(user=user_prompt_text, system=_SYSTEM_PROMPT),
         ),
         cost=result.cost,
     )

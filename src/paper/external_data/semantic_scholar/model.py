@@ -47,6 +47,10 @@ class Paper(BaseModel):
     # Paper authors.
     authors: Sequence[Author] | None
 
+    @property
+    def id(self) -> int:
+        return hash(self.paper_id)
+
 
 class Tldr(BaseModel):
     model_config = ConfigDict(frozen=True)
