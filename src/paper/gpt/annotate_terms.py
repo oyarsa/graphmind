@@ -12,7 +12,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Self, override
+from typing import Annotated, Any, Self, override
 
 import dotenv
 from openai import AsyncClient, AsyncOpenAI
@@ -284,21 +284,41 @@ class GPTSimpleTerms(GPTTermBase):
 
 
 class GPTTermRelation(BaseModel):
-    """Represents a relation between two scientific terms."""
+    """Represents a directed relation between two scientific terms.
 
-    term1: str
-    relation_type: str
-    term2: str
+    Relations are head --type-> tail.
+    """
+
+    head: Annotated[str, Field(description="Head term of the relation.")]
+    tail: Annotated[str, Field(description="Tail term of the relation.")]
+    type: Annotated[
+        str, Field(description="Type of relationship between the two terms.")
+    ]
 
 
 class GPTMultiTerms(GPTTermBase):
     """Structured output for scientific term extraction."""
 
-    tasks: Sequence[str]
-    methods: Sequence[str]
-    metrics: Sequence[str]
-    resources: Sequence[str]
-    relations: Sequence[GPTTermRelation]
+    tasks: Annotated[
+        Sequence[str],
+        Field(description="Core problems, objectives or applications addressed."),
+    ]
+    methods: Annotated[
+        Sequence[str],
+        Field(
+            description="Technical approaches, algorithms, or frameworks used/proposed."
+        ),
+    ]
+    metrics: Annotated[
+        Sequence[str], Field(description="Evaluation metrics and measures mentioned.")
+    ]
+    resources: Annotated[
+        Sequence[str], Field(description="Datasets, resources, or tools utilised.")
+    ]
+    relations: Annotated[
+        Sequence[GPTTermRelation],
+        Field(description="Directed relations between terms."),
+    ]
 
     @override
     @classmethod
