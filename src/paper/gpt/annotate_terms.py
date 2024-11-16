@@ -75,7 +75,6 @@ def main() -> None:
                 args.continue_papers,
                 args.clean_run,
                 args.log,
-                args.detailed_log,
             )
         )
 
@@ -141,15 +140,10 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     )
     run_parser.add_argument(
         "--log",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Show term log",
-    )
-    run_parser.add_argument(
-        "--detailed-log",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Show detailed term log",
+        nargs="?",
+        const="simple",
+        choices=["simple", "detail"],
+        help='Enable logging (simple by default, or specify "detail")',
     )
 
     # 'prompts' subcommand parser
@@ -174,8 +168,7 @@ async def annotate_papers_terms(
     user_prompt_key: str,
     continue_papers_file: Path | None,
     clean_run: bool,
-    show_log: bool,
-    show_detailed_log: bool,
+    show_log: str | None,
 ) -> None:
     """Extract problem and method terms from each paper.
 
@@ -193,9 +186,9 @@ async def annotate_papers_terms(
         continue_papers_file: File with the intermediate results from a previous run
             that we want to continue.
         clean_run: If True, we ignore `continue_papers_file` and start from scratch.
-        show_log: Show log of term count for each paper and type of term.
+        show_log: Show log of term count for each paper and type of term. If None, the
+            log isn't shown. Otherwise, the level of detail depend on the flag value.
             Note: the types of terms vary by output type.
-        show_detailed_log: Show log of each term value for papers and type of term.
     """
     logger.info(display_params())
 
@@ -255,8 +248,8 @@ async def annotate_papers_terms(
     save_data(output_dir / "results.json", output.result)
     assert len(papers) == len(output.result)
 
-    if show_log or show_detailed_log:
-        _log_table_stats(output.result, detail=show_detailed_log)
+    if show_log:
+        _log_table_stats(output.result, detail=show_log == "detail")
 
 
 class GPTTermBase(BaseModel, ABC):
