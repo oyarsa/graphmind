@@ -1,7 +1,7 @@
 """Interact with the OpenAI API."""
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -17,23 +17,23 @@ from paper.util import Record
 
 logger = logging.getLogger(__name__)
 
-MODEL_SYNONYMS = {
+MODEL_SYNONYMS: Mapping[str, str] = {
     "4o-mini": "gpt-4o-mini-2024-07-18",
     "gpt-4o-mini": "gpt-4o-mini-2024-07-18",
     "4o": "gpt-4o-2024-08-06",
     "gpt-4o": "gpt-4o-2024-08-06",
 }
 # Include the synonyms and their keys in the allowed models
-MODELS_ALLOWED = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.values())
+MODELS_ALLOWED: Sequence[str] = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.values())
 
 # Cost in $ per 1M tokens: (input cost, output cost)
 # From https://openai.com/api/pricing/
-MODEL_COSTS = {
+MODEL_COSTS: Mapping[str, tuple[float, float]] = {
     "gpt-4o-mini-2024-07-18": (0.15, 0.6),
     "gpt-4o-2024-08-06": (2.5, 10),
 }
 
-rate_limiters: dict[str, Any] = {
+RATE_LIMITERS: Mapping[str, ChatRateLimiter] = {
     "gpt-4o-mini": ChatRateLimiter(request_limit=5_000, token_limit=4_000_000),
     "gpt-4o": ChatRateLimiter(request_limit=5_000, token_limit=800_000),
 }
@@ -139,7 +139,7 @@ async def run_gpt[T: BaseModel](
         "temperature": temperature,
     }
     rate_limiter = None
-    for limit_model, limiter in rate_limiters.items():
+    for limit_model, limiter in RATE_LIMITERS.items():
         if model.startswith(limit_model):
             rate_limiter = limiter
     assert rate_limiter is not None
