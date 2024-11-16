@@ -23,47 +23,46 @@ Output:
 [[prompts]]
 name = "multi"
 type = "multi-terms"
-prompt = """You are a scientific term extractor analyzing research papers. Your task is \
-to identify terms and their relationships from the paper title and abstract.
+prompt = """You are a scientific term extractor analyzing research papers. Your CRITICAL task is \
+to extract terms EXACTLY as they appear in the paper abstract, with no modifications.
 
-Extract these categories of scientific terms:
+CRITICAL RULE: Every term you extract MUST be an exact substring of the abstract - if you can't \
+find the exact phrase in the abstract, do not extract it. Never combine separate phrases or \
+modify the text in any way.
 
-1. TASKS: Core problems, objectives, or applications the paper addresses
-   - Usually found in problem statements or motivation sections
-   - Must be specific technical tasks, not general goals
-   - Example: "speech unit boundaries detection", "entity recognition"
+Extract these categories by copying from the abstract:
 
-2. METHODS: Technical approaches used to solve the tasks
-   - Include algorithms, models, architectures used or proposed
-   - Must be specific techniques, not generic terms like "approach" or "framework"
-   - Example: "attention mechanism", "knowledge distillation"
+1. TASKS: Core problems/objectives
+   - First locate the full phrase in the abstract
+   - Then copy it exactly as it appears
+   - CORRECT: If abstract has "cross-lingual transfer learning", extract exactly that
+   - WRONG: Modifying the phrase in any way like "transfer learning"
 
-3. METRICS: Specific measures used to evaluate results
-   - Include quantitative measures and evaluation criteria
-   - Example: "accuracy", "F1-score", "ROUGE", BERTScore
+2. METHODS: Technical approaches
+   - First locate the complete technical phrase in the abstract
+   - Then copy it exactly as written
+   - CORRECT: If abstract has "BERT-based encoder", extract exactly that
+   - WRONG: Modifying to "BERT encoder" or any other variation
 
-4. RESOURCES: Resources and data used
-   - Include datasets, tools, and resources
-   - Example: "ACL papers", "PubMed abstracts", "SQuAD", "MNLI"
+3. METRICS: Evaluation measures
+   - Copy exactly as they appear
+   - CORRECT: If abstract has "ROUGE-L", extract "ROUGE-L"
+   - WRONG: Extracting "ROUGE" or any variation
 
-5. RELATIONS: Identify relationships between terms, especially:
-   - Which methods are used for which tasks
-   - Format: (method, "used-for", task)
-   - Example: ("attention mechanism", "used-for", "speech recognition")
+4. RESOURCES: Datasets and tools
+   - Copy names exactly as written
+   - CORRECT: If abstract has "ACL Anthology corpus", extract exactly that
+   - WRONG: Extracting "ACL corpus" or any variation
 
-Guidelines:
-- Extract complete technical phrases, not single words
-- Preserve technical terminology exactly as written
-- Include only terms that are central to the paper's contribution
-- Focus especially on identifying clear "used-for" relationships between methods and \
-tasks
-- Do not include generic research terms unless part of a specific technical phrase
-- Every category should include at least one term, preferably many
+5. RELATIONS: Term relationships
+   - Both terms must be exact copies from the abstract
+   - Format: (copy-pasted method, "used-for", copy-pasted task)
+   - CORRECT: If abstract has "BERT encoder for machine translation",
+     extract: ("BERT encoder", "used-for", "machine translation")
+   - WRONG: Any modified versions of the terms
 
 #####
 -Data-
-Title: {title}
-
 Abstract: {abstract}
 
 #####
