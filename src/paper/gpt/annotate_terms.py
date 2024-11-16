@@ -17,7 +17,7 @@ from typing import Annotated, Any, Self, override
 
 import dotenv
 from openai import AsyncClient, AsyncOpenAI
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 from rich.console import Console
 from rich.table import Table
 
@@ -265,7 +265,7 @@ class GPTTermBase(BaseModel, ABC):
     def empty(cls) -> Self: ...
 
     @abstractmethod
-    def validate_(self, text: str | None) -> str:
+    def validate_entities(self, text: str | None) -> str:
         """Validate if all extracted entities are exact substrings of the `text`."""
         ...
 
@@ -289,7 +289,7 @@ class GPTSimpleTerms(GPTTermBase):
         return cls(problem=[], methods=[])
 
     @override
-    def validate_(self, text: str | None) -> str:
+    def validate_entities(self, text: str | None) -> str:
         if not text:
             return "Empty text."
 
@@ -344,7 +344,7 @@ class GPTMultiTerms(GPTTermBase):
         return cls(tasks=[], methods=[], metrics=[], resources=[], relations=[])
 
     @override
-    def validate_(self, text: str | None) -> str:
+    def validate_entities(self, text: str | None) -> str:
         if not text:
             return "Empty text."
 
@@ -390,6 +390,11 @@ class PaperAnnotatedTerms[T: GPTTermBase](Record):
     @property
     def id(self) -> int:
         return self.paper.id
+
+    @computed_field
+    @property
+    def valid(self) -> str:
+        return self.terms.validate_entities(self.paper.abstract)
 
 
 async def _annotate_papers_terms[T: GPTTermBase](
@@ -472,7 +477,9 @@ def _log_table_stats(
         row = [
             result.item.paper.title,
             *(_format_col(terms[col], detail) for col in columns),
-            _format_valid(result.item.terms.validate_(result.item.paper.abstract)),
+            _format_valid(
+                result.item.terms.validate_entities(result.item.paper.abstract)
+            ),
         ]
         table.add_row(*map(str, row))
 
