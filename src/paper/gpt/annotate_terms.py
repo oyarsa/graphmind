@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import itertools
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
@@ -263,6 +264,11 @@ class GPTTermBase(BaseModel, ABC):
     @abstractmethod
     def empty(cls) -> Self: ...
 
+    @abstractmethod
+    def validate_(self, text: str | None) -> str:
+        """Validate if all extracted entities are exact substrings of the `text`."""
+        ...
+
 
 class GPTSimpleTerms(GPTTermBase):
     """Terms used to describe the paper problems and the applied methods."""
@@ -281,6 +287,18 @@ class GPTSimpleTerms(GPTTermBase):
     @classmethod
     def empty(cls) -> Self:
         return cls(problem=[], methods=[])
+
+    @override
+    def validate_(self, text: str | None) -> str:
+        if not text:
+            return "Empty text."
+
+        text = text.lower()
+        for entity in itertools.chain(self.problem, self.methods):
+            if entity.lower() not in text:
+                return f"Entity not in text: '{entity}'."
+
+        return "Valid."
 
 
 class GPTTermRelation(BaseModel):
@@ -324,6 +342,37 @@ class GPTMultiTerms(GPTTermBase):
     @classmethod
     def empty(cls) -> Self:
         return cls(tasks=[], methods=[], metrics=[], resources=[], relations=[])
+
+    @override
+    def validate_(self, text: str | None) -> str:
+        if not text:
+            return "Empty text."
+
+        text = text.lower()
+        violations: list[str] = []
+
+        entities = list(
+            itertools.chain(self.tasks, self.methods, self.metrics, self.resources)
+        )
+        for entity in entities:
+            if entity.lower() not in text:
+                violations.append(f"Entity: '{entity}'.")
+
+        for relation in self.relations:
+            if relation.head.lower() not in text:
+                violations.append(f"Head: '{relation.head}'")
+            if relation.tail.lower() not in text:
+                violations.append(f"Tail: '{relation.tail}'")
+
+        if not violations:
+            return "Valid."
+
+        count = len(entities) + len(self.relations) * 2
+        pct = len(violations) / count
+        return (
+            f"({len(violations)}/{count} {pct:.0%})\n- {violations[0]}"
+            f"\n- {violations[-1]}"
+        )
 
 
 _TERM_TYPES: Mapping[str, type[GPTTermBase]] = {
@@ -411,18 +460,19 @@ def _log_table_stats(
         logger.warning("Cannot log stats from empty results.")
         return
     try:
-        columns = results[0].item.terms.model_dump().keys()
+        columns = results[0].item.terms.model_dump().keys() - {"relations"}
     except Exception:
         logger.exception("Could not get the term keys")
         return
 
-    table = Table("paper", *columns)
+    table = Table("paper", *columns, "validation")
 
     for result in results:
         terms = result.item.terms.model_dump()
         row = [
             result.item.paper.title,
             *(_format_col(terms[col], detail) for col in columns),
+            _format_valid(result.item.terms.validate_(result.item.paper.abstract)),
         ]
         table.add_row(*map(str, row))
 
@@ -434,8 +484,13 @@ def _log_table_stats(
 
 def _format_col(col: Sequence[Any], detail: bool) -> str:
     if detail:
-        return f"({len(col)})\n{"\n".join(col)}"
+        return "\n".join(f"{i}. {c}" for i, c in enumerate(col, 1)) or "-"
     return str(len(col))
+
+
+def _format_valid(valid: str) -> str:
+    colour = "green" if "valid" in valid.lower() else "red"
+    return f"[{colour}]{valid}"
 
 
 def list_prompts(detail: bool) -> None:
