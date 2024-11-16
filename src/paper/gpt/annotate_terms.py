@@ -12,6 +12,8 @@ import itertools
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any, Self, override
 
@@ -40,6 +42,7 @@ from paper.util import (
     display_params,
     load_data,
     mustenv,
+    safediv,
     save_data,
     setup_logging,
 )
@@ -140,10 +143,10 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     )
     run_parser.add_argument(
         "--log",
-        nargs="?",
-        const="simple",
-        choices=["simple", "detail"],
-        help='Enable logging (simple by default, or specify "detail")',
+        default=DetailOptions.NONE,
+        type=DetailOptions,
+        choices=list(DetailOptions),
+        help="How much detail to show in output logging",
     )
 
     # 'prompts' subcommand parser
@@ -168,7 +171,7 @@ async def annotate_papers_terms(
     user_prompt_key: str,
     continue_papers_file: Path | None,
     clean_run: bool,
-    show_log: str | None,
+    show_log: DetailOptions,
 ) -> None:
     """Extract problem and method terms from each paper.
 
@@ -186,9 +189,11 @@ async def annotate_papers_terms(
         continue_papers_file: File with the intermediate results from a previous run
             that we want to continue.
         clean_run: If True, we ignore `continue_papers_file` and start from scratch.
-        show_log: Show log of term count for each paper and type of term. If None, the
-            log isn't shown. Otherwise, the level of detail depend on the flag value.
-            Note: the types of terms vary by output type.
+        show_log: Show log of term count for each paper and type of term. If NONE, show
+            only statistics on entity validation. If TABLE, shows a summary table of
+            each term type. If DETAIL, shows detailed information on the extracted
+            entities. Note: the types of terms vary by output type, dependent on the
+            prompt.
     """
     logger.info(display_params())
 
@@ -249,7 +254,18 @@ async def annotate_papers_terms(
     assert len(papers) == len(output.result)
 
     if show_log:
-        _log_table_stats(output.result, detail=show_log == "detail")
+        _log_table_stats(output.result, detail=show_log)
+
+
+@dataclass(frozen=True, kw_only=True)
+class EntityValidation:
+    violations: Sequence[str]
+    entities: int
+    entities_invalid: int
+
+    @property
+    def valid(self) -> bool:
+        return self.entities_invalid == 0
 
 
 class GPTTermBase(BaseModel, ABC):
@@ -258,8 +274,16 @@ class GPTTermBase(BaseModel, ABC):
     def empty(cls) -> Self: ...
 
     @abstractmethod
-    def validate_entities(self, text: str | None) -> str:
-        """Validate if all extracted entities are exact substrings of the `text`."""
+    def validate_entities(self, text: str) -> EntityValidation:
+        """Validate if all extracted entities are exact substrings of the `text`.
+
+        Args:
+            text: Text from where the entities were extracted.
+
+        Returns:
+            Validation result with the message, the number of entities and
+            valid entities.
+        """
         ...
 
 
@@ -282,16 +306,25 @@ class GPTSimpleTerms(GPTTermBase):
         return cls(problem=[], methods=[])
 
     @override
-    def validate_entities(self, text: str | None) -> str:
+    def validate_entities(self, text: str) -> EntityValidation:
         if not text:
-            return "Empty text."
+            return EntityValidation(
+                violations=["Empty text."], entities=0, entities_invalid=0
+            )
 
         text = text.lower()
-        for entity in itertools.chain(self.problem, self.methods):
-            if entity.lower() not in text:
-                return f"Entity not in text: '{entity}'."
+        violations: list[str] = []
 
-        return "Valid."
+        entities = list(itertools.chain(self.problem, self.methods))
+        for entity in entities:
+            if entity.lower() not in text:
+                violations.append(f"Entity not in text: '{entity}'.")
+
+        return EntityValidation(
+            violations=violations,
+            entities=len(entities),
+            entities_invalid=len(violations),
+        )
 
 
 class GPTTermRelation(BaseModel):
@@ -337,34 +370,33 @@ class GPTMultiTerms(GPTTermBase):
         return cls(tasks=[], methods=[], metrics=[], resources=[], relations=[])
 
     @override
-    def validate_entities(self, text: str | None) -> str:
+    def validate_entities(self, text: str) -> EntityValidation:
         if not text:
-            return "Empty text."
+            return EntityValidation(
+                violations=["Empty text."], entities=0, entities_invalid=0
+            )
 
-        text = text.lower()
+        text = text.casefold()
         violations: list[str] = []
 
         entities = list(
             itertools.chain(self.tasks, self.methods, self.metrics, self.resources)
         )
         for entity in entities:
-            if entity.lower() not in text:
+            if entity.casefold() not in text:
                 violations.append(f"Entity: '{entity}'.")
 
         for relation in self.relations:
-            if relation.head.lower() not in text:
+            if relation.head.casefold() not in text:
                 violations.append(f"Head: '{relation.head}'")
-            if relation.tail.lower() not in text:
+            if relation.tail.casefold() not in text:
                 violations.append(f"Tail: '{relation.tail}'")
 
-        if not violations:
-            return "Valid."
-
-        count = len(entities) + len(self.relations) * 2
-        pct = len(violations) / count
-        return (
-            f"({len(violations)}/{count} {pct:.0%})\n- {violations[0]}"
-            f"\n- {violations[-1]}"
+        entities_num = len(entities) + len(self.relations) * 2
+        return EntityValidation(
+            violations=violations,
+            entities=entities_num,
+            entities_invalid=len(violations),
         )
 
 
@@ -386,8 +418,8 @@ class PaperAnnotatedTerms[T: GPTTermBase](Record):
 
     @computed_field
     @property
-    def valid(self) -> str:
-        return self.terms.validate_entities(self.paper.abstract)
+    def valid(self) -> EntityValidation:
+        return self.terms.validate_entities(self.paper.abstract or "")
 
 
 async def _annotate_papers_terms[T: GPTTermBase](
@@ -451,8 +483,15 @@ async def _annotate_paper_term_single[T: GPTTermBase](
     )
 
 
+class DetailOptions(StrEnum):
+    NONE = "none"
+    TABLE = "table"
+    DETAIL = "detail"
+
+
 def _log_table_stats(
-    results: Sequence[PromptResult[PaperAnnotatedTerms[GPTTermBase]]], detail: bool
+    results: Sequence[PromptResult[PaperAnnotatedTerms[GPTTermBase]]],
+    detail: DetailOptions,
 ) -> None:
     if not results:
         logger.warning("Cannot log stats from empty results.")
@@ -465,32 +504,54 @@ def _log_table_stats(
 
     table = Table("paper", *columns, "validation")
 
+    valid_full_count = 0
+    invalid_count = 0
+    entities_all = 0
     for result in results:
         terms = result.item.terms.model_dump()
+        valid_result = result.item.terms.validate_entities(
+            result.item.paper.abstract or ""
+        )
+        invalid_count += valid_result.entities_invalid
+        entities_all += valid_result.entities
+
+        e_all = valid_result.entities
+        e_inv = valid_result.entities_invalid
+        valid_msg = f"{e_inv}/{e_all} ({safediv(e_inv, e_all):.2%})"
+
         row = [
             result.item.paper.title,
             *(_format_col(terms[col], detail) for col in columns),
-            _format_valid(
-                result.item.terms.validate_entities(result.item.paper.abstract)
-            ),
+            _format_valid_msg(valid_msg, valid_result.valid),
         ]
+        valid_full_count += valid_result.entities_invalid == 0
         table.add_row(*map(str, row))
 
-    console = Console()
-    with console.capture() as capture:
-        console.print(table)
-    logger.info("\n%s\n", capture.get())
+    if detail is not DetailOptions.NONE:
+        console = Console()
+        with console.capture() as capture:
+            console.print(table)
+        logger.info("\n%s\n", capture.get())
+
+    logger.info(
+        f"Full valid: {valid_full_count}/{len(results)}"
+        f" ({safediv(valid_full_count, len(results)):.2%})"
+    )
+    logger.info(
+        f"Invalid overall: {invalid_count}/{entities_all}"
+        f" ({safediv(invalid_count, entities_all):.2%})"
+    )
 
 
-def _format_col(col: Sequence[Any], detail: bool) -> str:
-    if detail:
+def _format_col(col: Sequence[Any], detail: DetailOptions) -> str:
+    if detail is DetailOptions.DETAIL:
         return "\n".join(f"{i}. {c}" for i, c in enumerate(col, 1)) or "-"
     return str(len(col))
 
 
-def _format_valid(valid: str) -> str:
-    colour = "green" if "valid" in valid.lower() else "red"
-    return f"[{colour}]{valid}"
+def _format_valid_msg(msg: str, valid: bool) -> str:
+    colour = "green" if valid else "red"
+    return f"[{colour}]{msg}"
 
 
 def list_prompts(detail: bool) -> None:
