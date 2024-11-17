@@ -126,7 +126,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
         "--user-prompt",
         type=str,
         choices=sorted(_TERM_USER_PROMPTS),
-        default="simple",
+        default="multi",
         help="The user prompt to use term annotation.",
     )
     run_parser.add_argument(
@@ -269,6 +269,8 @@ class EntityValidation:
 
 
 class GPTTermBase(BaseModel, ABC):
+    model_config = ConfigDict(frozen=True)
+
     @classmethod
     @abstractmethod
     def empty(cls) -> Self: ...
@@ -285,46 +287,6 @@ class GPTTermBase(BaseModel, ABC):
             valid entities.
         """
         ...
-
-
-class GPTSimpleTerms(GPTTermBase):
-    """Terms used to describe the paper problems and the applied methods."""
-
-    model_config = ConfigDict(frozen=True)
-
-    problem: Sequence[str] = Field(
-        description="Terms used to describe the problem tackled by the paper."
-    )
-    methods: Sequence[str] = Field(
-        description="Terms used to describe the methods used to solve the paper"
-        " problem."
-    )
-
-    @override
-    @classmethod
-    def empty(cls) -> Self:
-        return cls(problem=[], methods=[])
-
-    @override
-    def validate_entities(self, text: str) -> EntityValidation:
-        if not text:
-            return EntityValidation(
-                violations=["Empty text."], entities=0, entities_invalid=0
-            )
-
-        text = text.lower()
-        violations: list[str] = []
-
-        entities = list(itertools.chain(self.problem, self.methods))
-        for entity in entities:
-            if entity.lower() not in text:
-                violations.append(f"Entity not in text: '{entity}'.")
-
-        return EntityValidation(
-            violations=violations,
-            entities=len(entities),
-            entities_invalid=len(violations),
-        )
 
 
 class GPTTermRelation(BaseModel):
@@ -401,7 +363,6 @@ class GPTMultiTerms(GPTTermBase):
 
 
 _TERM_TYPES: Mapping[str, type[GPTTermBase]] = {
-    "simple-terms": GPTSimpleTerms,
     "multi-terms": GPTMultiTerms,
 }
 
