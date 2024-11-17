@@ -140,6 +140,10 @@ def build_semantic_graph(
 def build_knowledge_graph(papers: Iterable[Paper]) -> Graph:
     """Build knowledge graph connecting terms across papers.
 
+    The entities in the scientific terms (both the terms themselves and relations heads
+    and tails) are casefolded. If they are present in the abstract (also casefolded),
+    they are added (in original form) to the graph.
+
     Args:
         papers: Iterable of papers with their terms and context.
 
@@ -149,23 +153,29 @@ def build_knowledge_graph(papers: Iterable[Paper]) -> Graph:
     graph = Graph()
 
     for paper in papers:
-        # Add nodes for each type of term
-        for task in paper.terms.tasks:
-            graph.add_node(task, type="task")
-        for method in paper.terms.methods:
-            graph.add_node(method, type="method")
-        for metric in paper.terms.metrics:
-            graph.add_node(metric, type="metric")
-        for resource in paper.terms.resources:
-            graph.add_node(resource, type="material")
+        abstract_folded = paper.abstract.casefold()
 
-        # Add edges from explicit relations
+        entities_types = [
+            (paper.terms.tasks, "task"),
+            (paper.terms.methods, "method"),
+            (paper.terms.metrics, "metric"),
+            (paper.terms.resources, "material"),
+        ]
+        for entities, type in entities_types:
+            for entity in entities:
+                entity_f = entity.casefold()
+                if entity_f in abstract_folded:
+                    graph.add_node(entity, type=type)
+
         for relation in paper.terms.relations:
-            graph.add_edge(
-                relation.term1,
-                relation.term2,
-                type=relation.relation_type,
-                paper_id=paper.id,
-            )
+            head_valid = relation.head.casefold() in abstract_folded
+            tail_valid = relation.tail.casefold() in abstract_folded
+            if head_valid and tail_valid:
+                graph.add_edge(
+                    relation.head,
+                    relation.tail,
+                    type=relation.type,
+                    paper_id=paper.id,
+                )
 
     return graph
