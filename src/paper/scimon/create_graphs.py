@@ -1,30 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
-from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 
-
-class Relation:
-    """Represents a relation between two terms."""
-
-    term1: str
-    relation_type: str
-    term2: str
-
-
-class ScientificTerms(BaseModel):
-    """Structured representation of key scientific terms from a paper."""
-
-    tasks: Sequence[str]
-    methods: Sequence[str]
-    metrics: Sequence[str]
-    resources: Sequence[str]
-    relations: Sequence[Relation]
+from paper.scimon.model import Paper
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -89,15 +72,6 @@ class Graph:
         self.edges[source].add(edge)
 
 
-@dataclass(frozen=True, kw_only=True)
-class Paper:
-    """Container for paper data."""
-
-    id: str
-    terms: ScientificTerms
-    context: str
-
-
 def compute_embedding_similarity(
     emb1: npt.NDArray[np.float64], emb2: npt.NDArray[np.float64]
 ) -> float:
@@ -132,18 +106,18 @@ def build_semantic_graph(
     # Create nodes and compute embeddings
     for paper in papers:
         for relation in paper.terms.relations:
-            if relation.relation_type == "used-for":
+            if relation.type == "used-for":
                 base_input = (
-                    f"{relation.term1} is used for {relation.term2} "
+                    f"{relation.head} is used for {relation.tail} "
                     f"context: {paper.context}"
                 )
-                node_id = f"paper_{paper.id}_{relation.term1}_{relation.term2}"
+                node_id = f"paper_{paper.id}_{relation.head}_{relation.tail}"
 
                 graph.add_node(
                     node_id,
                     paper_id=paper.id,
-                    term1=relation.term1,
-                    term2=relation.term2,
+                    term1=relation.head,
+                    term2=relation.tail,
                     context=paper.context,
                     base_input=base_input,
                 )
