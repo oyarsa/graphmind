@@ -23,7 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 from rich.console import Console
 from rich.table import Table
 
-from paper import progress
+from paper import progress, scimon
 from paper.external_data.semantic_scholar.model import Paper
 from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
@@ -288,6 +288,9 @@ class GPTTermBase(BaseModel, ABC):
         """
         ...
 
+    @abstractmethod
+    def to_scimon(self) -> scimon.Terms: ...
+
 
 class GPTTermRelation(BaseModel):
     """Represents a directed relation between two scientific terms.
@@ -361,6 +364,21 @@ class GPTMultiTerms(GPTTermBase):
             entities_invalid=len(violations),
         )
 
+    @override
+    def to_scimon(self) -> scimon.Terms:
+        return scimon.Terms(
+            tasks=self.tasks,
+            methods=self.methods,
+            metrics=self.metrics,
+            resources=self.resources,
+            relations=[
+                scimon.Relation(
+                    head=relation.head, tail=relation.tail, type=relation.type
+                )
+                for relation in self.relations
+            ],
+        )
+
 
 _TERM_TYPES: Mapping[str, type[GPTTermBase]] = {
     "multi-terms": GPTMultiTerms,
@@ -381,6 +399,19 @@ class PaperAnnotatedTerms[T: GPTTermBase](Record):
     @property
     def valid(self) -> EntityValidation:
         return self.terms.validate_entities(self.paper.abstract or "")
+
+
+def paper_annotated_to_graph_paper(
+    ann: PaperAnnotatedTerms[GPTTermBase],
+) -> scimon.Paper:
+    abstract = ann.paper.abstract or "<no abstract>"
+    return scimon.Paper(
+        id=ann.id,
+        terms=ann.terms.to_scimon(),
+        abstract=abstract,
+        context=abstract,
+        target=abstract,
+    )
 
 
 async def _annotate_papers_terms[T: GPTTermBase](
