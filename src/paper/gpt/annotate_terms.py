@@ -374,7 +374,7 @@ class PaperAnnotatedTerms[T: GPTTermBase](Record):
     paper: Paper
 
     @property
-    def id(self) -> int:
+    def id(self) -> str:
         return self.paper.id
 
     @computed_field

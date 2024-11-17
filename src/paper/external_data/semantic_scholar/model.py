@@ -46,8 +46,8 @@ class Paper(Record):
     authors: Sequence[Author] | None
 
     @property
-    def id(self) -> int:
-        return hash(self.paper_id)
+    def id(self) -> str:
+        return self.paper_id
 
 
 class Tldr(BaseModel):
