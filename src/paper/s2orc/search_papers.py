@@ -6,6 +6,8 @@ names to search as a JSON list.
 
 from __future__ import annotations
 
+import copy
+import heapq
 import json
 import re
 from collections.abc import Iterable
@@ -19,7 +21,7 @@ import typer
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
 
-from paper.util import TopKSet, fuzzy_ratio
+from paper.util import fuzzy_ratio
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -120,7 +122,7 @@ def _search_papers_fuzzy(
 def _search_paper_fuzzy(
     query: str, papers_s2orc: set[str], min_fuzzy: int, output_intermediate_file: Path
 ) -> Paper | None:
-    matches = TopKSet(PaperMatch, 5)
+    matches = TopKSet(k=5)
 
     for s2orc in papers_s2orc:
         score = fuzzy_ratio(query, s2orc)
@@ -157,6 +159,58 @@ def _preprocess_title(title: str) -> str:
     words = text.split()
     words = [w for w in words if w not in _STOP_WORDS]
     return " ".join(words)
+
+
+class TopKSet:
+    """Set that keeps the top K `PaperMatch`es.
+
+    If the collection has less than K items, it accepts any new item. Once K is reached,
+    only items that are larger than the smallest of the current items on the list are
+    added.
+
+    Items added are also added to a set to make them unique. Note that this means that
+    `T` must be hashable.
+
+    Access the items on the list via the `items` property, which returns a new list.
+    """
+
+    def __init__(self, *, k: int) -> None:
+        """Initialise TopK list.
+
+        Args:
+            type_: Type of the elements of the list.
+            k: How many items to keep.
+        """
+        self.k = k
+        self.data: list[PaperMatch] = []
+        self.seen: set[PaperMatch] = set()
+
+    def add(self, item: PaperMatch) -> None:
+        """Add new item to collection, depending on the value of `item`.
+
+        - If we have less than k items, just add it.
+        - If the new item is larger than the smallest in the list, replace it.
+        - Otherwise, ignore it.
+        """
+        if item in self.seen:
+            return
+        self.seen.add(item)
+
+        if len(self.data) < self.k:
+            heapq.heappush(self.data, item)
+        elif item > self.data[0]:
+            heapq.heapreplace(self.data, item)
+
+    @property
+    def items(self) -> list[PaperMatch]:
+        """Items from the collection in a new list, sorted by descending value.
+
+        Both the list and the items are new, so no modifications will affect the
+        collection.
+
+        NB: The list is new by construction, and the items are copied with `deepcopy`.
+        """
+        return [copy.deepcopy(item) for item in sorted(self.data, reverse=True)]
 
 
 if __name__ == "__main__":
