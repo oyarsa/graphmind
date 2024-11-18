@@ -148,17 +148,21 @@ async def download_paper_recomendation(
         api_key, papers, fields, limit_recommendations
     )
     papers_unique = _merge_papers(papers_with_recommendations)
+    papers_unique_valid = [
+        paper for paper in papers_unique if paper.abstract and paper.year
+    ]
 
     print(
         "Total papers:",
         sum(len(paper.recommendations) for paper in papers_with_recommendations),
     )
     print("Unique papers:", len(papers_unique))
+    print("Unique valid papers (non-empty abstract):", len(papers_unique_valid))
 
     save_data(
         output_dir / "papers_with_recommendations.json", papers_with_recommendations
     )
-    save_data(output_dir / "papers_recommended.json", papers_unique)
+    save_data(output_dir / "papers_recommended.json", papers_unique_valid)
 
 
 async def _fetch_recommendations(
