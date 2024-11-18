@@ -550,9 +550,9 @@ def _log_table_stats(
         ]
         valid_full_count += valid_result.entities_invalid == 0
         table.add_row(*map(str, row))
+    console = Console()
 
     if detail is not DetailOptions.NONE:
-        console = Console()
         with console.capture() as capture:
             console.print(table)
         logger.info("\n%s\n", capture.get())
@@ -579,9 +579,18 @@ def _log_table_stats(
         f"Invalid overall: {invalid_count}/{entities_all}"
         f" ({safediv(invalid_count, entities_all):.2%})"
     )
-    logger.info("Term counts per paper (mean ± stdev):")
+    table_counts = Table("Term", "Sum", "Mean", "Stdev", title="Term stats")
     for col in term_averages:
-        logger.info(f"  {col}: {term_averages[col]:.2f} ± {term_stdevs[col]:.2f}")
+        table_counts.add_row(
+            col,
+            str(sum(term_lengths[col])),
+            f"{term_averages[col]:.2f}",
+            f"{term_stdevs[col]:.2f}",
+        )
+
+    with console.capture() as capture:
+        console.print(table_counts)
+    logger.info("\n%s", capture.get())
 
 
 def _format_col(col: Sequence[Any], detail: DetailOptions) -> str:
