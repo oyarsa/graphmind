@@ -83,7 +83,7 @@ def main(
         typer.Option(
             help="List of year ranges to fetch papers. Can be like `2017-2022` or `2010`."
         ),
-    ] = ["2017"],
+    ] = [str(y) for y in range(2012, 2021)],
     limit_year: Annotated[
         int,
         typer.Option(
