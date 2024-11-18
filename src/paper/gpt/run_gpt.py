@@ -12,7 +12,7 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from paper.gpt.model import PromptResult
-from paper.rate_limiter import ChatRateLimiter
+from paper.util.rate_limiter import ChatRateLimiter
 from paper.util.serde import Record
 
 logger = logging.getLogger(__name__)
