@@ -121,7 +121,6 @@ async def run_gpt[T: BaseModel](
 
     Raises:
         ValueError: if the `model` is invalid (see `MODELS_ALLOWED`).
-        RetryError: if the the client should retry the request
     """
     if model not in MODELS_ALLOWED:
         raise ValueError(
@@ -153,15 +152,12 @@ async def run_gpt[T: BaseModel](
     if completion is None:
         return GPTResult(result=None, cost=0)
 
-    usage = completion.usage
-    if usage is not None:
+    if usage := completion.usage:
         cost = calc_cost(model, usage.prompt_tokens, usage.completion_tokens)
     else:
         cost = 0
 
-    parsed = completion.choices[0].message.parsed
-
-    return GPTResult(result=parsed, cost=cost)
+    return GPTResult(result=completion.choices[0].message.parsed, cost=cost)
 
 
 def append_intermediate_result[T: BaseModel](
