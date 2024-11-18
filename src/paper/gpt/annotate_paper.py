@@ -73,7 +73,7 @@ def main() -> None:
         list_prompts(detail=args.detail)
     elif args.subcommand == "run":
         asyncio.run(
-            annotate_papers_terms(
+            annotate_papers(
                 args.input_file,
                 args.output_dir,
                 args.limit,
@@ -175,7 +175,7 @@ def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
     )
 
 
-async def annotate_papers_terms(
+async def annotate_papers(
     input_file: Path,
     output_dir: Path,
     limit_papers: int | None,
@@ -232,7 +232,7 @@ async def annotate_papers_terms(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
     papers_remaining = get_remaining_items(
-        PaperAnnotatedTerms[term_type],
+        PaperAnnotated[term_type],
         output_intermediate_file,
         continue_papers_file,
         papers,
@@ -252,7 +252,7 @@ async def annotate_papers_terms(
         )
 
     with Timer() as timer:
-        output = await _annotate_papers_terms(
+        output = await _annotate_papers(
             client,
             model,
             papers_remaining.remaining,
@@ -417,7 +417,7 @@ _TERM_TYPES: Mapping[str, type[GPTTermBase]] = {
 }
 
 
-class PaperAnnotatedTerms[T: GPTTermBase](Record):
+class PaperAnnotated[T: GPTTermBase](Record):
     """S2 Paper with its annotated key terms. Includes GPT prompts used."""
 
     terms: T
@@ -445,7 +445,7 @@ class PaperAnnotatedTerms[T: GPTTermBase](Record):
         )
 
 
-async def _annotate_papers_terms[T: GPTTermBase](
+async def _annotate_papers[T: GPTTermBase](
     client: AsyncClient,
     model: str,
     papers: Sequence[S2Paper],
@@ -455,13 +455,13 @@ async def _annotate_papers_terms[T: GPTTermBase](
     term_type: type[T],
     *,
     seed: int,
-) -> GPTResult[list[PromptResult[PaperAnnotatedTerms[T]]]]:
+) -> GPTResult[list[PromptResult[PaperAnnotated[T]]]]:
     """Annotate papers to add key terms. Runs multiple tasks concurrently."""
-    ann_outputs: list[PromptResult[PaperAnnotatedTerms[T]]] = []
+    ann_outputs: list[PromptResult[PaperAnnotated[T]]] = []
     total_cost = 0
 
     tasks = [
-        _annotate_paper_term_single(
+        _annotate_paper_single(
             client, model, seed, paper, user_prompt_term, user_prompt_split, term_type
         )
         for paper in papers
@@ -473,13 +473,13 @@ async def _annotate_papers_terms[T: GPTTermBase](
 
         ann_outputs.append(result.result)
         append_intermediate_result(
-            PaperAnnotatedTerms[term_type], output_intermediate_path, result.result
+            PaperAnnotated[term_type], output_intermediate_path, result.result
         )
 
     return GPTResult(result=ann_outputs, cost=total_cost)
 
 
-async def _annotate_paper_term_single[T: GPTTermBase](
+async def _annotate_paper_single[T: GPTTermBase](
     client: AsyncClient,
     model: str,
     seed: int,
@@ -487,7 +487,7 @@ async def _annotate_paper_term_single[T: GPTTermBase](
     user_prompt_term: PromptTemplate,
     user_prompt_split: PromptTemplate,
     term_type: type[T],
-) -> GPTResult[PromptResult[PaperAnnotatedTerms[T]]]:
+) -> GPTResult[PromptResult[PaperAnnotated[T]]]:
     """Annotate a single paper with its key terms."""
     split_prompt_text = user_prompt_term.template.format(
         title=paper.title, abstract=paper.abstract
@@ -519,7 +519,7 @@ async def _annotate_paper_term_single[T: GPTTermBase](
 
     return GPTResult(
         result=PromptResult(
-            item=PaperAnnotatedTerms(
+            item=PaperAnnotated(
                 terms=terms,
                 paper=paper,
                 context=split.context,
@@ -538,7 +538,7 @@ class DetailOptions(StrEnum):
 
 
 def _log_table_stats(
-    results: Sequence[PromptResult[PaperAnnotatedTerms[GPTTermBase]]],
+    results: Sequence[PromptResult[PaperAnnotated[GPTTermBase]]],
     detail: DetailOptions,
 ) -> None:
     if not results:

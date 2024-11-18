@@ -10,7 +10,7 @@ import asyncio
 import logging
 
 from paper.gpt import (
-    annotate_terms,
+    annotate_paper,
     classify_contexts,
     evaluate_paper_full,
     extract_graph,
@@ -31,8 +31,8 @@ def main() -> None:
         ("eval_full", "Evaluate paper using full text.", evaluate_paper_full),
         (
             "terms",
-            "Annotate S2 papers with key terms for problems and methods",
-            annotate_terms,
+            "Annotate S2 papers with key terms and split abstract.",
+            annotate_paper,
         ),
     ]
     for name, help, module in subcommands:
@@ -125,10 +125,10 @@ def main() -> None:
 
     elif args.command == "terms":
         if args.subcommand == "prompts":
-            annotate_terms.list_prompts(detail=args.detail)
+            annotate_paper.list_prompts(detail=args.detail)
         elif args.subcommand == "run":
             asyncio.run(
-                annotate_terms.annotate_papers_terms(
+                annotate_paper.annotate_papers(
                     args.input_file,
                     args.output_dir,
                     args.limit,
