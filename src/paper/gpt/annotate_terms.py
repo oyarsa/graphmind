@@ -524,6 +524,10 @@ def _log_table_stats(
             console.print(table)
         logger.info("\n%s\n", capture.get())
 
+    # Calculate averages for each term type
+    term_totals = {col: sum(len(result.item.terms.model_dump()[col]) for result in results) for col in columns}
+    term_averages = {col: safediv(total, len(results)) for col, total in term_totals.items()}
+    
     logger.info(
         f"Full valid: {valid_full_count}/{len(results)}"
         f" ({safediv(valid_full_count, len(results)):.2%})"
@@ -532,6 +536,9 @@ def _log_table_stats(
         f"Invalid overall: {invalid_count}/{entities_all}"
         f" ({safediv(invalid_count, entities_all):.2%})"
     )
+    logger.info("Average counts per paper:")
+    for col, avg in term_averages.items():
+        logger.info(f"  {col}: {avg:.2f}")
 
 
 def _format_col(col: Sequence[Any], detail: DetailOptions) -> str:
