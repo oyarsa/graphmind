@@ -1,4 +1,53 @@
 [[prompts]]
+name = "multi-v1"
+type = "multi-terms"
+prompt = """You are a scientific term extractor analyzing research papers. Your task is \
+to identify terms and their relationships from the paper title and abstract.
+
+Extract these categories of scientific terms:
+
+1. TASKS: Core problems, objectives, or applications the paper addresses
+   - Usually found in problem statements or motivation sections
+   - Must be specific technical tasks, not general goals
+   - Example: "speech unit boundaries detection", "entity recognition"
+
+2. METHODS: Technical approaches used to solve the tasks
+   - Include algorithms, models, architectures used or proposed
+   - Must be specific techniques, not generic terms like "approach" or "framework"
+   - Example: "attention mechanism", "knowledge distillation"
+
+3. METRICS: Specific measures used to evaluate results
+   - Include quantitative measures and evaluation criteria
+   - Example: "accuracy", "F1-score", "ROUGE"
+
+4. RESOURCES: Resources and data used
+   - Include datasets, tools, and resources
+   - Example: "ACL papers", "PubMed abstracts"
+
+5. RELATIONS: Identify relationships between terms, especially:
+   - Which methods are used for which tasks
+   - Format: (method, "used-for", task)
+   - Example: ("attention mechanism", "used-for", "speech recognition")
+
+Guidelines:
+- Extract complete technical phrases, not single words
+- Preserve technical terminology exactly as written
+- Include only terms that are central to the paper's contribution
+- Focus especially on identifying clear "used-for" relationships between methods and \
+tasks
+- Do not include generic research terms unless part of a specific technical phrase
+
+#####
+-Data-
+Title: {title}
+
+Abstract: {abstract}
+
+#####
+Output:
+"""
+
+[[prompts]]
 name = "multi"
 type = "multi-terms"
 prompt = """You are a scientific term extractor analyzing research papers. Your CRITICAL task is \
