@@ -31,18 +31,13 @@ import typer
 from pydantic import TypeAdapter
 
 from paper.asap.model import Paper as ASAPPaper
+from paper.external_data.semantic_scholar.limiter import get_limiter
 from paper.external_data.semantic_scholar.model import (
     ASAPPaperMaybeS2,
     ASAPPaperWithS2,
 )
 from paper.progress import gather
-from paper.util import (
-    arun_safe,
-    display_params,
-    ensure_envvar,
-    get_limiter,
-    setup_logging,
-)
+from paper.util import arun_safe, display_params, ensure_envvar, setup_logging
 from paper.util.serde import save_data
 
 MAX_CONCURRENT_REQUESTS = 10
