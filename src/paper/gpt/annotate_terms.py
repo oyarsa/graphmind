@@ -15,6 +15,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from statistics import mean, stdev
 from typing import Annotated, Any, Self, override
 
 import dotenv
@@ -524,10 +525,20 @@ def _log_table_stats(
             console.print(table)
         logger.info("\n%s\n", capture.get())
 
-    # Calculate averages for each term type
-    term_totals = {col: sum(len(result.item.terms.model_dump()[col]) for result in results) for col in columns}
-    term_averages = {col: safediv(total, len(results)) for col, total in term_totals.items()}
-    
+    term_lengths = {
+        col: [
+            len(terms[col])
+            for result in results
+            if (terms := result.item.terms.model_dump())
+        ]
+        for col in results[0].item.terms.model_dump()
+    }
+    term_averages = {col: mean(lengths) for col, lengths in term_lengths.items()}
+    term_stdevs = {
+        col: stdev(lengths) if len(lengths) > 1 else 0.0
+        for col, lengths in term_lengths.items()
+    }
+
     logger.info(
         f"Full valid: {valid_full_count}/{len(results)}"
         f" ({safediv(valid_full_count, len(results)):.2%})"
@@ -536,9 +547,9 @@ def _log_table_stats(
         f"Invalid overall: {invalid_count}/{entities_all}"
         f" ({safediv(invalid_count, entities_all):.2%})"
     )
-    logger.info("Average counts per paper:")
-    for col, avg in term_averages.items():
-        logger.info(f"  {col}: {avg:.2f}")
+    logger.info("Term counts per paper (mean ± stdev):")
+    for col in term_averages:
+        logger.info(f"  {col}: {term_averages[col]:.2f} ± {term_stdevs[col]:.2f}")
 
 
 def _format_col(col: Sequence[Any], detail: DetailOptions) -> str:
