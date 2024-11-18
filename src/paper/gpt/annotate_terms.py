@@ -25,8 +25,7 @@ from rich.console import Console
 from rich.table import Table
 
 from paper import scimon
-from paper.external_data.semantic_scholar.model import Paper
-from paper.gpt.model import Prompt, PromptResult
+from paper.gpt.model import Prompt, PromptResult, S2Paper
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -211,7 +210,7 @@ async def annotate_papers_terms(
     user_prompt = _TERM_USER_PROMPTS[user_prompt_key]
     type_ = _TERM_TYPES[user_prompt.type_name]
 
-    papers = load_data(input_file, Paper)[:limit_papers]
+    papers = load_data(input_file, S2Paper)[:limit_papers]
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
@@ -388,7 +387,7 @@ class PaperAnnotatedTerms[T: GPTTermBase](Record):
     """S2 Paper with its annotated key terms. Includes GPT prompts used."""
 
     terms: T
-    paper: Paper
+    paper: S2Paper
 
     @property
     def id(self) -> str:
@@ -416,7 +415,7 @@ def paper_annotated_to_graph_paper(
 async def _annotate_papers_terms[T: GPTTermBase](
     client: AsyncClient,
     model: str,
-    papers: Sequence[Paper],
+    papers: Sequence[S2Paper],
     user_prompt: PromptTemplate,
     output_intermediate_path: Path,
     type_: type[T],
@@ -448,7 +447,7 @@ async def _annotate_paper_term_single[T: GPTTermBase](
     client: AsyncClient,
     model: str,
     seed: int,
-    paper: Paper,
+    paper: S2Paper,
     user_prompt: PromptTemplate,
     type_: type[T],
 ) -> GPTResult[PromptResult[PaperAnnotatedTerms[T]]]:

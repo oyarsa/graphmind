@@ -4,12 +4,13 @@ import itertools
 from collections import Counter, defaultdict
 from collections.abc import Sequence
 from enum import StrEnum
-from typing import Self
+from typing import Annotated, Self
 
-from pydantic import BaseModel, ConfigDict, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from paper import hierarchical_graph
 from paper.asap.model import PaperReview
+from paper.external_data.semantic_scholar.model import Author, Tldr
 from paper.util.serde import Record
 
 
@@ -356,3 +357,40 @@ class PaperGraph(Record):
         if self.paper.id != self.graph.item.id:
             raise ValueError("Paper ID must match graph item ID")
         return self
+
+
+class S2Paper(Record):
+    """Paper returned by the Semantic Scholar API. Everything's optional but `paperId`.
+
+    This is to avoid validation errors in the middle of the download. We'll only save
+    those with non-empty `abstract`, though.
+    """
+
+    # Semantic Scholar's primary unique identifier for a paper.
+    paper_id: Annotated[str, Field(alias="paperId")]
+    # Semantic Scholar's secondary unique identifier for a paper.
+    corpus_id: Annotated[int | None, Field(alias="corpusId")]
+    # URL of the paper on the Semantic Scholar website.
+    url: str
+    # Title of the paper.
+    title: str
+    # The paper's abstract. Note that due to legal reasons, this may be missing even if
+    # we display an abstract on the website.
+    abstract: str
+    # The year the paper was published.
+    year: int
+    # The total number of papers this paper references.
+    reference_count: Annotated[int, Field(alias="referenceCount")]
+    # The total number of papers that reference this paper.
+    citation_count: Annotated[int, Field(alias="citationCount")]
+    # A subset of the citation count, where the cited publication has a significant
+    # impact on the citing publication.
+    influential_citation_count: Annotated[int, Field(alias="influentialCitationCount")]
+    # The tldr paper summary.
+    tldr: Tldr | None = None
+    # Paper authors.
+    authors: Sequence[Author]
+
+    @property
+    def id(self) -> str:
+        return self.paper_id
