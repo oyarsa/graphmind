@@ -7,11 +7,9 @@ contains the input paper plus the prompts used and the extracted terms.
 from __future__ import annotations
 
 import asyncio
-import itertools
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from statistics import mean, stdev
@@ -21,7 +19,7 @@ import click
 import dotenv
 import typer
 from openai import AsyncClient, AsyncOpenAI
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field
 from rich.console import Console
 from rich.table import Table
 
@@ -41,7 +39,6 @@ from paper.util import (
     display_params,
     mustenv,
     progress,
-    safediv,
     setup_logging,
 )
 from paper.util.serde import Record, load_data, save_data
@@ -276,36 +273,12 @@ class GPTAbstractSplit(BaseModel):
     ]
 
 
-@dataclass(frozen=True, kw_only=True)
-class EntityValidation:
-    violations: Sequence[str]
-    entities: int
-    entities_invalid: int
-
-    @property
-    def valid(self) -> bool:
-        return self.entities_invalid == 0
-
-
 class GPTTermBase(BaseModel, ABC):
     model_config = ConfigDict(frozen=True)
 
     @classmethod
     @abstractmethod
     def empty(cls) -> Self: ...
-
-    @abstractmethod
-    def validate_entities(self, text: str) -> EntityValidation:
-        """Validate if all extracted entities are exact substrings of the `text`.
-
-        Args:
-            text: Text from where the entities were extracted.
-
-        Returns:
-            Validation result with the message, the number of entities and
-            valid entities.
-        """
-        ...
 
     @abstractmethod
     def to_scimon(self) -> scimon.Terms: ...
@@ -351,36 +324,6 @@ class GPTMultiTerms(GPTTermBase):
         return cls(tasks=[], methods=[], metrics=[], resources=[], relations=[])
 
     @override
-    def validate_entities(self, text: str) -> EntityValidation:
-        if not text:
-            return EntityValidation(
-                violations=["Empty text."], entities=0, entities_invalid=0
-            )
-
-        text = text.casefold()
-        violations: list[str] = []
-
-        entities = list(
-            itertools.chain(self.tasks, self.methods, self.metrics, self.resources)
-        )
-        for entity in entities:
-            if entity.casefold() not in text:
-                violations.append(f"Entity: '{entity}'.")
-
-        for relation in self.relations:
-            if relation.head.casefold() not in text:
-                violations.append(f"Head: '{relation.head}'")
-            if relation.tail.casefold() not in text:
-                violations.append(f"Tail: '{relation.tail}'")
-
-        entities_num = len(entities) + len(self.relations) * 2
-        return EntityValidation(
-            violations=violations,
-            entities=entities_num,
-            entities_invalid=len(violations),
-        )
-
-    @override
     def to_scimon(self) -> scimon.Terms:
         return scimon.Terms(
             tasks=self.tasks,
@@ -410,11 +353,6 @@ class PaperAnnotated[T: GPTTermBase](Record):
     @property
     def id(self) -> str:
         return self.paper.id
-
-    @computed_field
-    @property
-    def valid(self) -> EntityValidation:
-        return self.terms.validate_entities(self.paper.abstract or "")
 
     def to_scimon(self) -> scimon.Paper:
         abstract = self.paper.abstract or "<no abstract>"
@@ -526,35 +464,22 @@ def _log_table_stats(
         logger.exception("Could not get the term keys")
         return
 
-    table = Table("paper", *columns, "validation")
-
-    valid_full_count = 0
-    invalid_count = 0
-    entities_all = 0
-    for result in results:
-        terms = result.item.terms.model_dump()
-        valid_result = result.item.terms.validate_entities(
-            result.item.paper.abstract or ""
-        )
-        invalid_count += valid_result.entities_invalid
-        entities_all += valid_result.entities
-
-        e_all = valid_result.entities
-        e_inv = valid_result.entities_invalid
-        valid_msg = f"{e_inv}/{e_all} ({safediv(e_inv, e_all):.2%})"
-
-        row = [
-            result.item.paper.title,
-            *(_format_col(terms[col], detail) for col in columns),
-            _format_valid_msg(valid_msg, valid_result.valid),
-        ]
-        valid_full_count += valid_result.entities_invalid == 0
-        table.add_row(*map(str, row))
     console = Console()
 
     if detail is not DetailOptions.NONE:
+        table_papers = Table("paper", *columns, title="Paper results")
+
+        for result in results:
+            terms = result.item.terms.model_dump()
+
+            row = [
+                result.item.paper.title,
+                *(_format_col(terms[col], detail) for col in columns),
+            ]
+            table_papers.add_row(*map(str, row))
+
         with console.capture() as capture:
-            console.print(table)
+            console.print(table_papers)
         logger.info("\n%s\n", capture.get())
 
     term_lengths = {
@@ -571,14 +496,6 @@ def _log_table_stats(
         for col, lengths in term_lengths.items()
     }
 
-    logger.info(
-        f"Full valid: {valid_full_count}/{len(results)}"
-        f" ({safediv(valid_full_count, len(results)):.2%})"
-    )
-    logger.info(
-        f"Invalid overall: {invalid_count}/{entities_all}"
-        f" ({safediv(invalid_count, entities_all):.2%})"
-    )
     table_counts = Table("Term", "Sum", "Mean", "Stdev", title="Term stats")
     for col in term_averages:
         table_counts.add_row(
@@ -597,11 +514,6 @@ def _format_col(col: Sequence[Any], detail: DetailOptions) -> str:
     if detail is DetailOptions.DETAIL:
         return "\n".join(f"{i}. {c}" for i, c in enumerate(col, 1)) or "-"
     return str(len(col))
-
-
-def _format_valid_msg(msg: str, valid: bool) -> str:
-    colour = "green" if valid else "red"
-    return f"[{colour}]{msg}"
 
 
 @app.command(help="List available prompts.")
