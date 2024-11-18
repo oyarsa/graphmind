@@ -101,7 +101,7 @@ subdirectory = "cosy"
 tag = "cosy-0.2.0"
 
 [project.scripts]
-preprocess = "paper.preprocess:main"
+preprocess = "paper.preprocess:app"
 gpt = "paper.gpt.cli:app"
 
 [build-system]

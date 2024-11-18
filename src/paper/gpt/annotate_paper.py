@@ -111,14 +111,14 @@ def run(
         ),
     ] = "gpt-4o-mini",
     seed: Annotated[int, typer.Option(help="Seed to set in the OpenAI call.")] = 0,
-    user_prompt_term: Annotated[
+    prompt_term: Annotated[
         str,
         typer.Option(
             help="User prompt to use for term annotation.",
             click_type=click.Choice(sorted(_TERM_USER_PROMPTS)),
         ),
     ] = "multi",
-    user_prompt_split: Annotated[
+    prompt_split: Annotated[
         str,
         typer.Option(
             help="User prompt to use for abstract splitting.",
@@ -145,8 +145,8 @@ def run(
             limit,
             model,
             seed,
-            user_prompt_term,
-            user_prompt_split,
+            prompt_term,
+            prompt_split,
             continue_papers,
             clean_run,
             log,

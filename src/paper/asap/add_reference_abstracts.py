@@ -54,7 +54,9 @@ Diagram for this pipeline:
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Annotated
 
+import typer
 from pydantic import TypeAdapter
 from tqdm import tqdm
 
@@ -65,7 +67,7 @@ from paper.asap.model import (
     ReferenceEnriched,
     S2Paper,
 )
-from paper.util import HelpOnErrorArgumentParser, fuzzy_ratio
+from paper.util import fuzzy_ratio
 
 
 def _match_paper_external(
@@ -144,23 +146,32 @@ def add_references(
     )
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument("papers", type=Path, help="Path to ASAP filtered papers file")
-    parser.add_argument("external", type=Path, help="Path to S2 reference papers file")
-    parser.add_argument("output", type=Path, help="Path to output JSON file")
-    parser.add_argument(
-        "--min-score",
-        type=int,
-        default=80,
-        help="Minimum fuzzy score to match an external paper",
-    )
-    parser.add_argument(
-        "--limit", "-n", type=int, default=None, help="Maximum source papers to process"
-    )
-    args = parser.parse_args()
-    add_references(args.papers, args.external, args.output, args.min_score, args.limit)
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    papers: Annotated[Path, typer.Argument(help="Path to ASAP filtered papers file.")],
+    external: Annotated[Path, typer.Argument(help="Path to S2 reference papers file.")],
+    output: Annotated[Path, typer.Argument(help="Path to output JSON file.")],
+    min_score: Annotated[
+        int, typer.Option(help="Minimum fuzzy score to match an external paper.")
+    ] = 80,
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit", "-n", help="Limit on the number of source papers to process."
+        ),
+    ] = None,
+) -> None:
+    add_references(papers, external, output, min_score, limit)
 
 
 if __name__ == "__main__":
-    main()
+    app()

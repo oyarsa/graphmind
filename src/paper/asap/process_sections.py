@@ -3,11 +3,12 @@
 import json
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
+from typing import Annotated
 
+import typer
 from pydantic import TypeAdapter
 
 from paper.asap.model import PaperSection
-from paper.util import HelpOnErrorArgumentParser
 
 
 def _merge_section(subsections: Sequence[PaperSection]) -> PaperSection | None:
@@ -143,21 +144,28 @@ def process_sections(infile: Path, outfile: Path, limit: int | None = None) -> N
     )
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument("input", type=Path, help="Path input to JSON file")
-    parser.add_argument("output", type=Path, help="Path output JSON file")
-    parser.add_argument(
-        "--limit",
-        "-n",
-        type=int,
-        default=None,
-        help="Limit the number of items to process",
-    )
-    args = parser.parse_args()
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
 
-    process_sections(args.input, args.output, args.limit)
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    input: Annotated[Path, typer.Argument(help="Path input to JSON file.")],
+    output: Annotated[Path, typer.Argument(help="Path output to JSON file.")],
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit", "-n", help="Limit on the number of source papers to process."
+        ),
+    ] = None,
+) -> None:
+    process_sections(input, output, limit)
 
 
 if __name__ == "__main__":
-    main()
+    app()

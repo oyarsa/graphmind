@@ -1,18 +1,18 @@
 """List and download Semantic Scholar datasets."""
 
-import argparse
 import asyncio
 import json
 import urllib.parse
 from collections.abc import Coroutine
 from pathlib import Path
+from typing import Annotated
 
 import aiohttp
 import dotenv
+import typer
 from tqdm.asyncio import tqdm
 
 from paper.util import (
-    HelpOnErrorArgumentParser,
     arun_safe,
     die,
     ensure_envvar,
@@ -24,47 +24,28 @@ DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file
 MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds
 
-
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    # List command
-    list_parser = subparsers.add_parser("list", help="List available datasets")
-    list_parser.add_argument(
-        "--json",
-        action=argparse.BooleanOptionalAction,
-        help="Output data in JSON format instead of plain text",
-    )
-
-    # Download command
-    download_parser = subparsers.add_parser("download", help="Download a dataset")
-    download_parser.add_argument(
-        "dataset_name",
-        type=str,
-        help="Name of the dataset to download",
-    )
-    download_parser.add_argument(
-        "output_path",
-        type=Path,
-        help="Directory to save the downloaded files",
-    )
-    download_parser.add_argument(
-        "--limit",
-        "-n",
-        type=int,
-        help="Limit the number of files to download. Useful for testing.",
-    )
-
-    args = parser.parse_args()
-
-    if args.command == "list":
-        asyncio.run(list_datasets(args.json))
-    elif args.command == "download":
-        download_dataset(args.dataset_name, args.output_path, args.limit)
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
 
 
-async def list_datasets(show_json: bool) -> None:
+@app.command(name="list", help="List available datasets.")
+def list_datasets(
+    show_json: Annotated[
+        bool,
+        typer.Option(
+            "--json", help="Output data in JSON format instead of plain text."
+        ),
+    ] = False,
+) -> None:
+    asyncio.run(_list_datasets(show_json))
+
+
+async def _list_datasets(show_json: bool) -> None:
     """List available datasets from the Semantic Scholar API."""
     async with aiohttp.ClientSession() as session:
         # Get latest release ID
@@ -90,7 +71,23 @@ async def list_datasets(show_json: bool) -> None:
             print(dataset["name"], dataset["description"].strip(), sep="\n", end="\n\n")
 
 
-def download_dataset(dataset_name: str, output_path: Path, limit: int | None) -> None:
+@app.command(name="download", help="Download a dataset.", no_args_is_help=True)
+def download_dataset(
+    dataset_name: Annotated[
+        str, typer.Argument(help="Name of the dataset to download.")
+    ],
+    output_path: Annotated[
+        Path, typer.Argument(help="Directory to save the downloaded files.")
+    ],
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit",
+            "-n",
+            help="Limit the number of files to download. Useful for testing.",
+        ),
+    ] = None,
+) -> None:
     """Download dataset files from the Semantic Scholar API to the output path.
 
     Prevents the user from accidentally exiting the script with Ctrl+C. Instead, it asks
@@ -202,4 +199,4 @@ async def _try_download_file(
 
 
 if __name__ == "__main__":
-    main()
+    app()
