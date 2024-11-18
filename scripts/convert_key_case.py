@@ -12,7 +12,8 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
-from paper.util import HelpOnErrorArgumentParser, JSONArray, JSONObject, JSONValue, die
+from paper.util import HelpOnErrorArgumentParser, die
+from paper.util.serde import JSONArray, JSONObject, JSONValue
 
 
 def main() -> None:

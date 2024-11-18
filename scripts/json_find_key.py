@@ -4,7 +4,8 @@
 import json
 from pathlib import Path
 
-from paper.util import HelpOnErrorArgumentParser, JSONValue
+from paper.util import HelpOnErrorArgumentParser
+from paper.util.serde import JSONValue
 
 
 def search_object(obj: JSONValue, keyword: str, current_path: str = "") -> list[str]:

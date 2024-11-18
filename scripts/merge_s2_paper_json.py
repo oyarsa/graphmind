@@ -9,7 +9,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
-from paper.util import HelpOnErrorArgumentParser, JSONObject, JSONValue, die
+from paper.util import HelpOnErrorArgumentParser, die
+from paper.util.serde import JSONObject, JSONValue
 
 
 def merge_values(val1: JSONValue, val2: JSONValue) -> Any:

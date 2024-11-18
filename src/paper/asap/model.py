@@ -7,7 +7,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from paper.util import Record
+from paper.util.serde import Record
 
 
 # Models from the ASAP files after exctraction (e.g. asap_filtered.json)

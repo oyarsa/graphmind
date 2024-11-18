@@ -37,15 +37,13 @@ from paper.gpt.run_gpt import (
 )
 from paper.util import (
     HelpOnErrorArgumentParser,
-    Record,
     Timer,
     display_params,
-    load_data,
     mustenv,
     safediv,
-    save_data,
     setup_logging,
 )
+from paper.util.serde import Record, load_data, save_data
 
 logger = logging.getLogger(__name__)
 

@@ -41,9 +41,9 @@ from paper.util import (
     display_params,
     ensure_envvar,
     get_limiter,
-    save_data,
     setup_logging,
 )
+from paper.util.serde import save_data
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request

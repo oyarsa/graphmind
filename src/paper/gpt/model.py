@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, computed_field, model_validator
 
 from paper import hierarchical_graph
 from paper.asap.model import PaperReview
-from paper.util import Record
+from paper.util.serde import Record
 
 
 class EntityType(StrEnum):

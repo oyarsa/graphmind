@@ -8,7 +8,8 @@ from typing import Annotated, Any, Self
 from pydantic import BaseModel, ConfigDict, Field
 
 from paper.asap.model import Paper as ASAPPaper
-from paper.util import Record, fuzzy_partial_ratio
+from paper.util import fuzzy_partial_ratio
+from paper.util.serde import Record
 
 
 class Paper(Record):

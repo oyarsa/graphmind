@@ -42,13 +42,13 @@ from paper.gpt.run_gpt import (
 from paper.progress import as_completed
 from paper.util import (
     HelpOnErrorArgumentParser,
-    Record,
     Timer,
     display_params,
     ensure_envvar,
     safediv,
     setup_logging,
 )
+from paper.util.serde import Record
 
 logger = logging.getLogger(__name__)
 
