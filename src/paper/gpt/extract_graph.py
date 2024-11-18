@@ -6,7 +6,6 @@ Can also classify a paper into approved/not-approved using the generated graph.
 
 from __future__ import annotations
 
-import argparse
 import asyncio
 import logging
 import tomllib
@@ -14,9 +13,11 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import override
+from typing import Annotated, override
 
+import click
 import dotenv
+import typer
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from rich.console import Console
@@ -45,7 +46,6 @@ from paper.gpt.run_gpt import (
     run_gpt,
 )
 from paper.util import (
-    HelpOnErrorArgumentParser,
     Timer,
     display_params,
     ensure_envvar,
@@ -387,6 +387,80 @@ def _display_graphs(
             logger.exception("Error visualising graph")
 
 
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def run(
+    data_path: Annotated[
+        Path,
+        typer.Argument(help="The path to the JSON file containig the papers data."),
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Argument(
+            help="The path to the output directory where files will be saved."
+        ),
+    ],
+    model: Annotated[
+        str, typer.Option("--model", "-m", help="The model to use for the extraction.")
+    ] = "gpt-4o-mini",
+    limit: Annotated[
+        int | None, typer.Option(help="Limit to the number of papers to process.")
+    ] = None,
+    graph_user_prompt: Annotated[
+        str,
+        typer.Option(
+            help="The user prompt to use for the graph extraction.",
+            click_type=click.Choice(sorted(_GRAPH_USER_PROMPTS)),
+        ),
+    ] = "simple",
+    classify_user_prompt: Annotated[
+        str,
+        typer.Option(
+            help="The user prompt to use for paper classification.",
+            click_type=click.Choice(sorted(CLASSIFY_USER_PROMPTS)),
+        ),
+    ] = "simple",
+    display: Annotated[bool, typer.Option(help="Display the extracted graph")] = False,
+    classify: Annotated[
+        bool, typer.Option(help="Classify the papers based on the extracted entities.")
+    ] = False,
+    continue_papers: Annotated[
+        Path | None,
+        typer.Option(help="Path to file with data from a previous run."),
+    ] = None,
+    clean_run: Annotated[
+        bool,
+        typer.Option(
+            help="Start from scratch, ignoring existing intermediate results."
+        ),
+    ] = False,
+    seed: Annotated[int, typer.Option(help="Seed to set in the OpenAI call.")] = 0,
+) -> None:
+    asyncio.run(
+        extract_graph(
+            model,
+            data_path,
+            limit,
+            graph_user_prompt,
+            classify_user_prompt,
+            display,
+            output_dir,
+            classify,
+            continue_papers,
+            clean_run,
+            seed,
+        )
+    )
+
+
 async def extract_graph(
     model: str,
     data_path: Path,
@@ -513,126 +587,17 @@ def _display_validation(results: Iterable[PromptResult[Graph]]) -> None:
     Console().print(valid_table)
 
 
-def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
-    # Create subparsers for 'run' and 'prompts' subcommands
-    subparsers = parser.add_subparsers(
-        title="subcommands", dest="subcommand", required=True
-    )
-
-    # 'run' subcommand parser
-    run_parser = subparsers.add_parser(
-        "run", help="Extract graphs from papers.", description=__doc__
-    )
-
-    # Add original arguments to the 'run' subcommand
-    run_parser.add_argument(
-        "data_path",
-        type=Path,
-        help="The path to the JSON file containing the papers data.",
-    )
-    run_parser.add_argument(
-        "output_dir",
-        type=Path,
-        help="The path to the output directory where files will be saved.",
-    )
-    run_parser.add_argument(
-        "--model",
-        "-m",
-        type=str,
-        default="gpt-4o-mini",
-        choices=MODELS_ALLOWED,
-        help="The model to use for the extraction.",
-    )
-    run_parser.add_argument(
-        "--limit",
-        "-n",
-        type=int,
-        default=1,
-        help="The number of papers to process. Defaults to 1 example.",
-    )
-    run_parser.add_argument(
-        "--graph-user-prompt",
-        type=str,
-        choices=_GRAPH_USER_PROMPTS.keys(),
-        default="simple",
-        help="The user prompt to use for the graph extraction. Defaults to %(default)s.",
-    )
-    run_parser.add_argument(
-        "--classify-user-prompt",
-        type=str,
-        choices=_GRAPH_USER_PROMPTS.keys(),
-        default="simple",
-        help="The user prompt to use for paper classification. Defaults to %(default)s.",
-    )
-    run_parser.add_argument(
-        "--display",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Display the extracted graph.",
-    )
-    run_parser.add_argument(
-        "--classify",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Classify the papers based on the extracted entities.",
-    )
-    run_parser.add_argument(
-        "--continue-papers",
-        type=Path,
-        default=None,
-        help="Path to file with data from a previous run",
-    )
-    run_parser.add_argument(
-        "--clean-run",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Start from scratch, ignoring existing intermediate results",
-    )
-    run_parser.add_argument(
-        "--seed", default=0, type=int, help="Seed to set in OpenAI call"
-    )
-
-    # 'prompts' subcommand parser
-    prompts_parser = subparsers.add_parser(
-        "prompts",
-        help="List available prompts.",
-        description="List available prompts.",
-    )
-    prompts_parser.add_argument(
-        "--detail",
-        action="store_true",
-        help="Provide detailed descriptions of the prompts.",
-    )
-
-
+@app.callback()
 def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    setup_cli_parser(parser)
-
-    args = parser.parse_args()
     setup_logging()
 
-    if args.subcommand == "prompts":
-        list_prompts(detail=args.detail)
-    elif args.subcommand == "run":
-        asyncio.run(
-            extract_graph(
-                args.model,
-                args.data_path,
-                args.limit,
-                args.graph_user_prompt,
-                args.classify_user_prompt,
-                args.display,
-                args.output_dir,
-                args.classify,
-                args.continue_papers,
-                args.clean_run,
-                args.seed,
-            )
-        )
 
-
-def list_prompts(detail: bool) -> None:
+@app.command(help="List available prompts.")
+def prompts(
+    detail: Annotated[
+        bool, typer.Option(help="Show full description of the prompts.")
+    ] = False,
+) -> None:
     items = [
         ("GRAPH EXTRACTION PROMPTS", _GRAPH_USER_PROMPTS),
         ("CLASSIFICATION PROMPTS", CLASSIFY_USER_PROMPTS),
@@ -640,7 +605,3 @@ def list_prompts(detail: bool) -> None:
     for title, prompts in items:
         print_prompts(title, prompts, detail=detail)
         print()
-
-
-if __name__ == "__main__":
-    main()

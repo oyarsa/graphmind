@@ -102,7 +102,7 @@ tag = "cosy-0.2.0"
 
 [project.scripts]
 preprocess = "paper.preprocess:main"
-gpt = "paper.gpt.cli:main"
+gpt = "paper.gpt.cli:app"
 
 [build-system]
 requires = ["hatchling"]

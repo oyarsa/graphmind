@@ -6,7 +6,6 @@ contains the input paper plus the prompts used and the extracted terms.
 
 from __future__ import annotations
 
-import argparse
 import asyncio
 import itertools
 import logging
@@ -18,7 +17,9 @@ from pathlib import Path
 from statistics import mean, stdev
 from typing import Annotated, Any, Self, override
 
+import click
 import dotenv
+import typer
 from openai import AsyncClient, AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 from rich.console import Console
@@ -36,7 +37,6 @@ from paper.gpt.run_gpt import (
     run_gpt,
 )
 from paper.util import (
-    HelpOnErrorArgumentParser,
     Timer,
     display_params,
     mustenv,
@@ -62,116 +62,98 @@ describe the paper background context, and which describe the paper goals and ta
 _SPLIT_USER_PROMPTS = load_prompts("split_abstract")
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    setup_cli_parser(parser)
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
 
-    args = parser.parse_args()
+
+@app.callback()
+def main() -> None:
     setup_logging()
 
-    if args.subcommand == "prompts":
-        list_prompts(detail=args.detail)
-    elif args.subcommand == "run":
-        asyncio.run(
-            annotate_papers(
-                args.input_file,
-                args.output_dir,
-                args.limit,
-                args.model,
-                args.seed,
-                args.user_prompt_term,
-                args.user_prompt_split,
-                args.continue_papers,
-                args.clean_run,
-                args.log,
-            )
+
+class DetailOptions(StrEnum):
+    NONE = "none"
+    TABLE = "table"
+    DETAIL = "detail"
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def run(
+    input_file: Annotated[
+        Path,
+        typer.Argument(
+            help="The path to the JSON file containing the papers data (S2Paper format)."
+        ),
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Argument(
+            help="The path to the output directory where files will be saved."
+        ),
+    ],
+    limit: Annotated[
+        int,
+        typer.Option(
+            "--limit",
+            "-n",
+            help="The number of papers to process. Set to 0 for all papers.",
+        ),
+    ] = 0,
+    model: Annotated[
+        str,
+        typer.Option(
+            "--model",
+            "-m",
+            help="The model to use for the annotation.",
+            click_type=click.Choice(MODELS_ALLOWED),
+        ),
+    ] = "gpt-4o-mini",
+    seed: Annotated[int, typer.Option(help="Seed to set in the OpenAI call.")] = 0,
+    user_prompt_term: Annotated[
+        str,
+        typer.Option(
+            help="User prompt to use for term annotation.",
+            click_type=click.Choice(sorted(_TERM_USER_PROMPTS)),
+        ),
+    ] = "multi",
+    user_prompt_split: Annotated[
+        str,
+        typer.Option(
+            help="User prompt to use for abstract splitting.",
+            click_type=click.Choice(sorted(_SPLIT_USER_PROMPTS)),
+        ),
+    ] = "simple",
+    continue_papers: Annotated[
+        Path | None, typer.Option(help="Path to file with data from a previous run.")
+    ] = None,
+    clean_run: Annotated[
+        bool,
+        typer.Option(
+            help="Start from scratch, ignoring existing intermediate results."
+        ),
+    ] = False,
+    log: Annotated[
+        DetailOptions, typer.Option(help="How much detail to show in output logging.")
+    ] = DetailOptions.NONE,
+) -> None:
+    asyncio.run(
+        annotate_papers(
+            input_file,
+            output_dir,
+            limit,
+            model,
+            seed,
+            user_prompt_term,
+            user_prompt_split,
+            continue_papers,
+            clean_run,
+            log,
         )
-
-
-def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
-    # Create subparsers for 'run' and 'prompts' subcommands
-    subparsers = parser.add_subparsers(
-        title="subcommands", dest="subcommand", required=True
-    )
-
-    # 'run' subcommand parser
-    run_parser = subparsers.add_parser(
-        "run", help="Run the term annotation process", description=__doc__
-    )
-
-    # Add original arguments to the 'run' subcommand
-    run_parser.add_argument(
-        "input_file",
-        type=Path,
-        help="The path to the JSON file containing the papers data (S2 `Paper` format).",
-    )
-    run_parser.add_argument(
-        "output_dir",
-        type=Path,
-        help="The path to the output directory where files will be saved.",
-    )
-    run_parser.add_argument(
-        "--model",
-        "-m",
-        type=str,
-        default="gpt-4o-mini",
-        choices=MODELS_ALLOWED,
-        help="The model to use for the annotation.",
-    )
-    run_parser.add_argument(
-        "--limit",
-        "-n",
-        type=int,
-        default=1,
-        help="The number of papers to process. Defaults to 1. Set to 0 for all papers.",
-    )
-    run_parser.add_argument(
-        "--seed", default=0, type=int, help="Seed to set in OpenAI call"
-    )
-    run_parser.add_argument(
-        "--user-prompt-term",
-        type=str,
-        choices=sorted(_TERM_USER_PROMPTS),
-        default="multi",
-        help="The user prompt to use for term annotation.",
-    )
-    run_parser.add_argument(
-        "--user-prompt-split",
-        type=str,
-        choices=sorted(_SPLIT_USER_PROMPTS),
-        default="simple",
-        help="The user prompt to use for abstract splitting.",
-    )
-    run_parser.add_argument(
-        "--continue-papers",
-        type=Path,
-        default=None,
-        help="Path to file with data from a previous run",
-    )
-    run_parser.add_argument(
-        "--clean-run",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Start from scratch, ignoring existing intermediate results",
-    )
-    run_parser.add_argument(
-        "--log",
-        default=DetailOptions.NONE,
-        type=DetailOptions,
-        choices=list(DetailOptions),
-        help="How much detail to show in output logging",
-    )
-
-    # 'prompts' subcommand parser
-    prompts_parser = subparsers.add_parser(
-        "prompts",
-        help="List available prompts",
-        description="List available prompts. Use --detail for more information.",
-    )
-    prompts_parser.add_argument(
-        "--detail",
-        action="store_true",
-        help="Provide detailed descriptions of the prompts.",
     )
 
 
@@ -531,12 +513,6 @@ async def _annotate_paper_single[T: GPTTermBase](
     )
 
 
-class DetailOptions(StrEnum):
-    NONE = "none"
-    TABLE = "table"
-    DETAIL = "detail"
-
-
 def _log_table_stats(
     results: Sequence[PromptResult[PaperAnnotated[GPTTermBase]]],
     detail: DetailOptions,
@@ -619,5 +595,10 @@ def _format_valid_msg(msg: str, valid: bool) -> str:
     return f"[{colour}]{msg}"
 
 
-def list_prompts(detail: bool) -> None:
+@app.command(help="List available prompts.")
+def prompts(
+    detail: Annotated[
+        bool, typer.Option(help="Show full description of the prompts.")
+    ] = False,
+) -> None:
     print_prompts("TERM ANNOTATION PROMPTS", _TERM_USER_PROMPTS, detail=detail)

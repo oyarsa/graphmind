@@ -30,7 +30,7 @@ app = typer.Typer(
 )
 
 
-@app.command(help=__doc__)
+@app.command(help=__doc__, no_args_is_help=True)
 def main(
     input_file: Annotated[
         Path, typer.Argument(help="Input JSON with paper data (asap_filtered.json)")
