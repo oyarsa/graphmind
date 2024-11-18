@@ -16,7 +16,7 @@ from paper.gpt import (
     extract_graph,
     tokens,
 )
-from paper.util import HelpOnErrorArgumentParser, doc_summary, setup_logging
+from paper.util import HelpOnErrorArgumentParser, setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,9 @@ def main() -> None:
     ]
     for name, help, module in subcommands:
         cmd_parser = subparsers.add_parser(
-            name, help=help, description=doc_summary(module)
+            name,
+            help=help,
+            description=module.__doc__.splitlines()[0] if module.__doc__ else None,
         )
         module.setup_cli_parser(cmd_parser)
 

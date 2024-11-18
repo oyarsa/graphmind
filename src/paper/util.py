@@ -464,20 +464,6 @@ def die(message: Any, code: int = 1, prefix: str | None = "Error:") -> NoReturn:
     sys.exit(code)
 
 
-def doc_summary(obj: object) -> str | None:
-    """Get summary line of an object's docstring.
-
-    Args:
-        obj: The object itself. Pass a module to get the module docstring.
-
-    Returns:
-        The first line of the docstring, if non-empty. Otherwise, returns None.
-    """
-    if doc := obj.__doc__:
-        return doc.splitlines()[0]
-    return None
-
-
 class Record(BaseModel, ABC):
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
