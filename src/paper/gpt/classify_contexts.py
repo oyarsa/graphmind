@@ -39,12 +39,12 @@ from paper.gpt.run_gpt import (
     get_remaining_items,
     run_gpt,
 )
-from paper.progress import as_completed
 from paper.util import (
     HelpOnErrorArgumentParser,
     Timer,
     display_params,
     ensure_envvar,
+    progress,
     safediv,
     setup_logging,
 )
@@ -250,7 +250,9 @@ async def _classify_contexts(
         _classify_paper(client, limit_references, model, paper, user_prompt, seed=seed)
         for paper in papers
     ]
-    for task in as_completed(tasks, desc="Classifying paper reference contexts"):
+    for task in progress.as_completed(
+        tasks, desc="Classifying paper reference contexts"
+    ):
         result = await task
         total_cost += result.cost
 

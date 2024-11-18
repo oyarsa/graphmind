@@ -20,8 +20,7 @@ from paper.gpt.run_gpt import (
     get_remaining_items,
     run_gpt,
 )
-from paper.progress import as_completed
-from paper.util import Timer
+from paper.util import Timer, progress
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +137,7 @@ async def _classify_papers(
         for pg in paper_graphs
     ]
 
-    for task in as_completed(tasks, desc="Classifying papers"):
+    for task in progress.as_completed(tasks, desc="Classifying papers"):
         result = await task
         total_cost += result.cost
 

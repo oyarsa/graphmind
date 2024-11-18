@@ -27,7 +27,6 @@ import backoff
 import dotenv
 import typer
 
-from paper import progress
 from paper.external_data.semantic_scholar.limiter import get_limiter
 from paper.external_data.semantic_scholar.model import (
     ASAPPaperWithS2,
@@ -35,7 +34,7 @@ from paper.external_data.semantic_scholar.model import (
     PaperWithRecommendations,
 )
 from paper.external_data.semantic_scholar.model import Paper as S2Paper
-from paper.util import arun_safe, die, display_params, ensure_envvar
+from paper.util import arun_safe, die, display_params, ensure_envvar, progress
 from paper.util.serde import load_data, save_data
 
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request

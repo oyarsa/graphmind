@@ -30,10 +30,16 @@ from rich.console import Console
 from rich.table import Table
 from tqdm import tqdm
 
-from paper import progress
 from paper.external_data.semantic_scholar.info import S2_SEARCH_BASE_URL
 from paper.external_data.semantic_scholar.model import Paper
-from paper.util import arun_safe, die, display_params, ensure_envvar, read_resource
+from paper.util import (
+    arun_safe,
+    die,
+    display_params,
+    ensure_envvar,
+    progress,
+    read_resource,
+)
 
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 MAX_RETRIES = 5

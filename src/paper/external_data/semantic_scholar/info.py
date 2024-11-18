@@ -36,8 +36,7 @@ from paper.external_data.semantic_scholar.model import (
     ASAPPaperMaybeS2,
     ASAPPaperWithS2,
 )
-from paper.progress import gather
-from paper.util import arun_safe, display_params, ensure_envvar, setup_logging
+from paper.util import arun_safe, display_params, ensure_envvar, progress, setup_logging
 from paper.util.serde import save_data
 
 MAX_CONCURRENT_REQUESTS = 10
@@ -154,7 +153,7 @@ async def _download_paper_info(
             _fetch_paper_info(session, api_key, paper.title, fields)
             for paper in papers_asap
         ]
-        task_results = list(await gather(tasks, desc="Downloading paper info"))
+        task_results = list(await progress.gather(tasks, desc="Downloading paper info"))
         results = [
             ASAPPaperMaybeS2.from_asap(paper, result)
             for paper, result in zip(papers_asap, task_results)

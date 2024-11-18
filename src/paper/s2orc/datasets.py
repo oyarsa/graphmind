@@ -11,8 +11,13 @@ import aiohttp
 import dotenv
 from tqdm.asyncio import tqdm
 
-from paper.progress import gather
-from paper.util import HelpOnErrorArgumentParser, arun_safe, die, ensure_envvar
+from paper.util import (
+    HelpOnErrorArgumentParser,
+    arun_safe,
+    die,
+    ensure_envvar,
+    progress,
+)
 
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file
@@ -135,7 +140,7 @@ async def _download(
 
             tasks.append(_download_file(url, file_path, session, semaphore))
 
-        await gather(tasks, desc="Overall progress")
+        await progress.gather(tasks, desc="Overall progress")
 
 
 async def _download_file(

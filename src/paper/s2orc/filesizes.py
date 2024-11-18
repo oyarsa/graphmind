@@ -8,8 +8,7 @@ from pathlib import Path
 import aiohttp
 import dotenv
 
-from paper.progress import gather
-from paper.util import HelpOnErrorArgumentParser, die, ensure_envvar
+from paper.util import HelpOnErrorArgumentParser, die, ensure_envvar, progress
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -79,7 +78,7 @@ async def _get_filesizes(
 
         files = dataset["files"][:limit]
         tasks = [_get_file_size(url, session, semaphore) for url in files]
-        file_sizes = await gather(tasks, desc="Getting file sizes")
+        file_sizes = await progress.gather(tasks, desc="Getting file sizes")
 
         total_size_gb = sum(_bytes_to_gib(size) for size in file_sizes)
         info: list[dict[str, str | float]] = []

@@ -35,8 +35,7 @@ import typer
 from dotenv import load_dotenv
 from types_aiobotocore_s3.client import S3Client
 
-from paper import progress
-from paper.util import arun_safe, mustenv
+from paper.util import arun_safe, mustenv, progress
 
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file

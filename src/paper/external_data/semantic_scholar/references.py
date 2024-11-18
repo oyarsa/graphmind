@@ -30,13 +30,7 @@ import dotenv
 import typer
 
 from paper.external_data.semantic_scholar.model import title_ratio
-from paper.progress import gather
-from paper.util import (
-    arun_safe,
-    die,
-    ensure_envvar,
-    setup_logging,
-)
+from paper.util import arun_safe, die, ensure_envvar, progress, setup_logging
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -163,7 +157,7 @@ async def _download_paper_info(
             _fetch_paper_info(session, api_key, title, fields, semaphore)
             for title in unique_titles
         ]
-        results = list(await gather(tasks, desc="Downloading paper info"))
+        results = list(await progress.gather(tasks, desc="Downloading paper info"))
 
     results_valid = [
         result | {"fuzz_ratio": title_ratio(result["title_query"], result["title"])}

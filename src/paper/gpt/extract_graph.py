@@ -44,12 +44,12 @@ from paper.gpt.run_gpt import (
     get_remaining_items,
     run_gpt,
 )
-from paper.progress import as_completed
 from paper.util import (
     HelpOnErrorArgumentParser,
     Timer,
     display_params,
     ensure_envvar,
+    progress,
     read_resource,
     setup_logging,
 )
@@ -308,7 +308,7 @@ async def _generate_graphs(
         for example in data
     ]
 
-    for task in as_completed(tasks, desc="Extracting graphs"):
+    for task in progress.as_completed(tasks, desc="Extracting graphs"):
         result = await task
         total_cost += result.cost
 

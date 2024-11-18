@@ -23,7 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 from rich.console import Console
 from rich.table import Table
 
-from paper import progress, scimon
+from paper import scimon
 from paper.external_data.semantic_scholar.model import Paper
 from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
@@ -40,6 +40,7 @@ from paper.util import (
     Timer,
     display_params,
     mustenv,
+    progress,
     safediv,
     setup_logging,
 )
