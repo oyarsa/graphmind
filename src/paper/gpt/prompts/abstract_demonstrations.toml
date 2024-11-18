@@ -1,0 +1,14 @@
+[[prompts]]
+name = "simple"
+type = "n/a"
+prompt = """
+-Abstract:
+{abstract}
+
+-Background:
+{background}
+
+-Target:
+{target}
+"""
+

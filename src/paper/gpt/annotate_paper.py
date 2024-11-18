@@ -51,11 +51,12 @@ used to describe the problems tackled by the paper and the terms used for the me
 """
 _TERM_USER_PROMPTS = load_prompts("annotate_terms")
 
-_SPLIT_SYSTEM_PROMPT = """\
+_ABS_SYSTEM_PROMPT = """\
 You are a helpful assistant that can read a paper abstract and identify which sentences \
 describe the paper background context, and which describe the paper goals and target.
 """
-_SPLIT_USER_PROMPTS = load_prompts("split_abstract")
+_ABS_USER_PROMPTS = load_prompts("abstract_classification")
+_ABS_DEMO_PROMPTS = load_prompts("abstract_demonstrations")
 
 
 app = typer.Typer(
@@ -117,11 +118,26 @@ def run(
             click_type=click.Choice(sorted(_TERM_USER_PROMPTS)),
         ),
     ] = "multi",
-    prompt_split: Annotated[
+    prompt_abstract: Annotated[
         str,
         typer.Option(
             help="User prompt to use for abstract classification.",
-            click_type=click.Choice(sorted(_SPLIT_USER_PROMPTS)),
+            click_type=click.Choice(sorted(_ABS_USER_PROMPTS)),
+        ),
+    ] = "simple",
+    abstract_demonstrations: Annotated[
+        Path | None,
+        typer.Option(
+            "--abstract-demos",
+            help="Path to demonstrations containing data for abstract classification.",
+        ),
+    ] = None,
+    abstract_demonstrations_prompt: Annotated[
+        str,
+        typer.Option(
+            "--abstract-demo-prompt",
+            help="Prompt used to create abstract classification demonstrations",
+            click_type=click.Choice(sorted(_ABS_DEMO_PROMPTS)),
         ),
     ] = "simple",
     continue_papers: Annotated[
@@ -145,7 +161,9 @@ def run(
             model,
             seed,
             prompt_term,
-            prompt_split,
+            prompt_abstract,
+            abstract_demonstrations,
+            abstract_demonstrations_prompt,
             continue_papers,
             clean_run,
             log,
@@ -160,7 +178,9 @@ async def annotate_papers(
     model: str,
     seed: int,
     user_prompt_term_key: str,
-    user_prompt_split_key: str,
+    user_prompt_abstract_key: str,
+    abstract_demonstrations_path: Path | None,
+    abstract_demonstrations_prompt: str,
     continue_papers_file: Path | None,
     clean_run: bool,
     show_log: DetailOptions,
@@ -178,7 +198,11 @@ async def annotate_papers(
         seed: Random generator seed to pass to the model to try to get some
             reproducibility.
         user_prompt_term_key: Key of the prompt to use in the annotation prompt mapping.
-        user_prompt_split_key: Key of the prompt to use in the abstract classification.
+        user_prompt_abstract_key: Key of the prompt to use in the abstract
+            classification.
+        abstract_demonstrations_path: If present, path to data that will be used to
+            construct abstract classification demonstrations.
+        abstract_demonstrations_prompt: Prompt to build the demonstrations string.
         continue_papers_file: File with the intermediate results from a previous run
             that we want to continue.
         clean_run: If True, we ignore `continue_papers_file` and start from scratch.
@@ -202,7 +226,7 @@ async def annotate_papers(
     env = mustenv("OPENAI_API_KEY")
     client = AsyncOpenAI(api_key=env["OPENAI_API_KEY"])
     user_prompt_terms = _TERM_USER_PROMPTS[user_prompt_term_key]
-    user_prompt_split = _SPLIT_USER_PROMPTS[user_prompt_split_key]
+    user_prompt_abstract = _ABS_USER_PROMPTS[user_prompt_abstract_key]
 
     papers = load_data(input_file, S2Paper)[:limit_papers]
 
@@ -228,13 +252,21 @@ async def annotate_papers(
             "Skipping %d items from the `continue` file.", len(papers_remaining.done)
         )
 
+    abstract_demonstrations = _format_abstract_demonstrations(
+        load_data(abstract_demonstrations_path, AbstractDemonstration)
+        if abstract_demonstrations_path
+        else [],
+        _ABS_DEMO_PROMPTS[abstract_demonstrations_prompt],
+    )
+
     with Timer() as timer:
         output = await _annotate_papers(
             client,
             model,
             papers_remaining.remaining,
             user_prompt_terms,
-            user_prompt_split,
+            user_prompt_abstract,
+            abstract_demonstrations,
             output_intermediate_file,
             seed=seed,
         )
@@ -249,7 +281,7 @@ async def annotate_papers(
         _log_table_stats(output.result, detail=show_log)
 
 
-class GPTAbstractSplit(BaseModel):
+class GPTAbstractClassify(BaseModel):
     """Describes the division of the paper abstract in two groups of sentences."""
 
     model_config = ConfigDict(frozen=True)
@@ -345,7 +377,8 @@ async def _annotate_papers(
     model: str,
     papers: Sequence[S2Paper],
     user_prompt_term: PromptTemplate,
-    user_prompt_split: PromptTemplate,
+    user_prompt_abstract: PromptTemplate,
+    abstract_demonstrations: str,
     output_intermediate_path: Path,
     *,
     seed: int,
@@ -356,7 +389,13 @@ async def _annotate_papers(
 
     tasks = [
         _annotate_paper_single(
-            client, model, seed, paper, user_prompt_term, user_prompt_split
+            client,
+            model,
+            seed,
+            paper,
+            user_prompt_term,
+            user_prompt_abstract,
+            abstract_demonstrations,
         )
         for paper in papers
     ]
@@ -379,17 +418,18 @@ async def _annotate_paper_single(
     seed: int,
     paper: S2Paper,
     user_prompt_term: PromptTemplate,
-    user_prompt_split: PromptTemplate,
+    user_prompt_abstract: PromptTemplate,
+    abstract_demonstrations: str,
 ) -> GPTResult[PromptResult[PaperAnnotated[GPTTerms]]]:
     """Annotate a single paper with its key terms."""
-    split_prompt_text = user_prompt_term.template.format(
+    term_prompt_text = user_prompt_term.template.format(
         title=paper.title, abstract=paper.abstract
     )
     result_term = await run_gpt(
         GPTTerms,
         client,
         _TERM_SYSTEM_PROMPT,
-        split_prompt_text,
+        term_prompt_text,
         model,
         seed=seed,
     )
@@ -399,19 +439,21 @@ async def _annotate_paper_single(
         else GPTTerms(tasks=[], methods=[], metrics=[], resources=[], relations=[])
     )
 
-    split_prompt_text = user_prompt_split.template.format(abstract=paper.abstract)
-    result_split = await run_gpt(
-        GPTAbstractSplit,
+    abstract_prompt_text = user_prompt_abstract.template.format(
+        demonstrations=abstract_demonstrations, abstract=paper.abstract
+    )
+    result_abstract = await run_gpt(
+        GPTAbstractClassify,
         client,
-        _SPLIT_SYSTEM_PROMPT,
-        split_prompt_text,
+        _ABS_SYSTEM_PROMPT,
+        abstract_prompt_text,
         model,
         seed=seed,
     )
-    split = (
-        result_split.result
-        if result_split.result
-        else GPTAbstractSplit(background="", target="")
+    abstract = (
+        result_abstract.result
+        if result_abstract.result
+        else GPTAbstractClassify(background="", target="")
     )
 
     return GPTResult(
@@ -419,10 +461,10 @@ async def _annotate_paper_single(
             item=PaperAnnotated(
                 terms=terms,
                 paper=paper,
-                background=split.background,
-                target=split.target,
+                background=abstract.background,
+                target=abstract.target,
             ),
-            prompt=Prompt(user=split_prompt_text, system=_TERM_SYSTEM_PROMPT),
+            prompt=Prompt(user=abstract_prompt_text, system=_TERM_SYSTEM_PROMPT),
         ),
         cost=result_term.cost,
     )
@@ -499,6 +541,31 @@ class AbstractDemonstration(BaseModel):
     abstract: str
     background: str
     target: str
+
+
+def _format_abstract_demonstrations(
+    data: Sequence[AbstractDemonstration], prompt: PromptTemplate
+) -> str:
+    if not data:
+        return ""
+
+    output = [
+        "-Demonstrations-",
+        "",
+        "The following are examples of abstracts and their correct classification into"
+        " background and target.",
+        "",
+        "\n------\n".join(
+            prompt.template.format(
+                abstract=entry.abstract,
+                background=entry.background,
+                target=entry.target,
+            )
+            for entry in data
+        ),
+        "------",
+    ]
+    return "\n".join(output)
 
 
 @app.command(help="List available prompts.")

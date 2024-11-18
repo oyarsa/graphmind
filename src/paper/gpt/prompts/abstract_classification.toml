@@ -1,0 +1,22 @@
+[[prompts]]
+name = "simple"
+type = "abstract-split"
+prompt = """
+Given the paper abstract, extract the sentences that describe the paper's background \
+context (e.g. the problem setup or task), and which describe the paper's target (e.g. \
+methods or objectives).
+
+The output will contain two fields: `context` and `target`. For each of them, collect \
+the sentences of the appropriate type. The output should be the relevant sentences \
+combined for each type. Between the two types, all sentences in the abstract should be \
+covered. No sentence in the abstract should be missing from the output.
+
+#####
+{demonstrations}
+-Data-
+
+Abstract: {abstract}
+
+#####
+Output:
+"""

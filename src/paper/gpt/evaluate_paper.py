@@ -71,7 +71,7 @@ def display_metrics(
     return "\n".join(output)
 
 
-EVALUATE_DEMONSTRATION_PROMPTS = load_prompts("demonstrations")
+EVALUATE_DEMONSTRATION_PROMPTS = load_prompts("eval_demonstrations")
 
 
 class DemonstrationType(StrEnum):
