@@ -93,7 +93,7 @@ def build_semantic_graph(
     """Build semantic similarity graph from papers.
 
     Args:
-        papers: Iterable of papers with their terms and context.
+        papers: Iterable of papers with their terms and background.
         encoder: SentenceTransformer model for computing embeddings.
 
     Returns:
@@ -107,7 +107,7 @@ def build_semantic_graph(
     for paper in papers:
         for relation in paper.terms.relations:
             base_input = (
-                f"'{relation.head}' -> '{relation.tail}' | context: {paper.context}"
+                f"'{relation.head}' -> '{relation.tail}' | context: {paper.background}"
             )
             node_id = f"paper_{paper.id}_{relation.head}_{relation.tail}"
 
@@ -116,7 +116,7 @@ def build_semantic_graph(
                 paper_id=paper.id,
                 term1=relation.head,
                 term2=relation.tail,
-                context=paper.context,
+                context=paper.background,
                 base_input=base_input,
             )
 

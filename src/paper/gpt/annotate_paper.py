@@ -120,7 +120,7 @@ def run(
     prompt_split: Annotated[
         str,
         typer.Option(
-            help="User prompt to use for abstract splitting.",
+            help="User prompt to use for abstract classification.",
             click_type=click.Choice(sorted(_SPLIT_USER_PROMPTS)),
         ),
     ] = "simple",
@@ -178,7 +178,7 @@ async def annotate_papers(
         seed: Random generator seed to pass to the model to try to get some
             reproducibility.
         user_prompt_term_key: Key of the prompt to use in the annotation prompt mapping.
-        user_prompt_split_key: Key of the prompt to use in the abstract splitting.
+        user_prompt_split_key: Key of the prompt to use in the abstract classification.
         continue_papers_file: File with the intermediate results from a previous run
             that we want to continue.
         clean_run: If True, we ignore `continue_papers_file` and start from scratch.
@@ -254,7 +254,7 @@ class GPTAbstractSplit(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    context: Annotated[
+    background: Annotated[
         str,
         Field(
             description="Sentences that describe the background context from the paper,"
@@ -322,7 +322,7 @@ class PaperAnnotated(Record):
 
     terms: GPTTerms
     paper: S2Paper
-    context: str
+    background: str
     target: str
 
     @property
@@ -335,7 +335,7 @@ class PaperAnnotated(Record):
             id=self.id,
             terms=self.terms.to_scimon(),
             abstract=abstract,
-            context=self.context,
+            background=self.background,
             target=self.target,
         )
 
@@ -411,7 +411,7 @@ async def _annotate_paper_single(
     split = (
         result_split.result
         if result_split.result
-        else GPTAbstractSplit(context="", target="")
+        else GPTAbstractSplit(background="", target="")
     )
 
     return GPTResult(
@@ -419,7 +419,7 @@ async def _annotate_paper_single(
             item=PaperAnnotated(
                 terms=terms,
                 paper=paper,
-                context=split.context,
+                background=split.background,
                 target=split.target,
             ),
             prompt=Prompt(user=split_prompt_text, system=_TERM_SYSTEM_PROMPT),
@@ -491,6 +491,14 @@ def _format_col(col: Sequence[Any], detail: DetailOptions) -> str:
     if detail is DetailOptions.DETAIL:
         return "\n".join(f"{i}. {c}" for i, c in enumerate(col, 1)) or "-"
     return str(len(col))
+
+
+class AbstractDemonstration(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    abstract: str
+    background: str
+    target: str
 
 
 @app.command(help="List available prompts.")

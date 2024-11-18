@@ -31,6 +31,6 @@ class Paper(BaseModel):
 
     id: str
     terms: Terms
-    context: str
+    background: str
     target: str
     abstract: str
