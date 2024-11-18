@@ -106,23 +106,21 @@ def build_semantic_graph(
     # Create nodes and compute embeddings
     for paper in papers:
         for relation in paper.terms.relations:
-            if relation.type == "used-for":
-                base_input = (
-                    f"{relation.head} is used for {relation.tail} "
-                    f"context: {paper.context}"
-                )
-                node_id = f"paper_{paper.id}_{relation.head}_{relation.tail}"
+            base_input = (
+                f"'{relation.head}' -> '{relation.tail}' | context: {paper.context}"
+            )
+            node_id = f"paper_{paper.id}_{relation.head}_{relation.tail}"
 
-                graph.add_node(
-                    node_id,
-                    paper_id=paper.id,
-                    term1=relation.head,
-                    term2=relation.tail,
-                    context=paper.context,
-                    base_input=base_input,
-                )
+            graph.add_node(
+                node_id,
+                paper_id=paper.id,
+                term1=relation.head,
+                term2=relation.tail,
+                context=paper.context,
+                base_input=base_input,
+            )
 
-                node_embeddings[node_id] = encoder.encode(base_input).numpy()  # type: ignore
+            node_embeddings[node_id] = encoder.encode(base_input).numpy()  # type: ignore
 
     # Create edges based on semantic similarity
     for node1_id in graph.nodes:
@@ -171,11 +169,6 @@ def build_knowledge_graph(papers: Iterable[Paper]) -> Graph:
             head_valid = relation.head.casefold() in abstract_folded
             tail_valid = relation.tail.casefold() in abstract_folded
             if head_valid and tail_valid:
-                graph.add_edge(
-                    relation.head,
-                    relation.tail,
-                    type=relation.type,
-                    paper_id=paper.id,
-                )
+                graph.add_edge(relation.head, relation.tail, paper_id=paper.id)
 
     return graph

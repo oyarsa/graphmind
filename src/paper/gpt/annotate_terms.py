@@ -298,9 +298,6 @@ class GPTTermRelation(BaseModel):
 
     head: Annotated[str, Field(description="Head term of the relation.")]
     tail: Annotated[str, Field(description="Tail term of the relation.")]
-    type: Annotated[
-        str, Field(description="Type of relationship between the two terms.")
-    ]
 
 
 class GPTMultiTerms(GPTTermBase):
@@ -370,9 +367,7 @@ class GPTMultiTerms(GPTTermBase):
             metrics=self.metrics,
             resources=self.resources,
             relations=[
-                scimon.Relation(
-                    head=relation.head, tail=relation.tail, type=relation.type
-                )
+                scimon.Relation(head=relation.head, tail=relation.tail)
                 for relation in self.relations
             ],
         )

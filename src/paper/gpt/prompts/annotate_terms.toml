@@ -26,15 +26,15 @@ Extract these categories of scientific terms:
 
 5. RELATIONS: Identify relationships between terms, especially:
    - Which methods are used for which tasks
-   - Format: (method, "used-for", task)
-   - Example: ("attention mechanism", "used-for", "speech recognition")
+   - Format: (method, task)
+   - Example: ("attention mechanism", "speech recognition")
 
 Guidelines:
 - A term can be in only one of the categories
 - Extract complete technical phrases, not single words
 - Preserve technical terminology exactly as written
 - Include only terms that are central to the paper's contribution
-- Focus especially on identifying clear "used-for" relationships between methods and \
+- Focus especially on identifying clear "used for" relationships between methods and \
 tasks
 - Do not include generic research terms unless part of a specific technical phrase
 
@@ -84,9 +84,9 @@ Extract these categories by copying from the abstract:
 
 5. RELATIONS: Term relationships
    - Both terms must be exact copies from the abstract
-   - Format: (copy-pasted method, "used-for", copy-pasted task)
+   - Format: (copy-pasted method, copy-pasted task)
    - CORRECT: If abstract has "BERT encoder for machine translation",
-     extract: ("BERT encoder", "used-for", "machine translation")
+     extract: ("BERT encoder", "machine translation")
    - WRONG: Any modified versions of the terms
 
 #####
@@ -122,34 +122,34 @@ Extract these categories:
   - For each method, identify the task(s) it addresses
   - Example: If abstract has "Hessian-free optimization for training neural networks"
     - Extract method: "Hessian-free optimization"
-    - Create relation: ("Hessian-free optimization", "used-for", "training neural networks")
+    - Create relation: ("Hessian-free optimization", "training neural networks")
 
 3. METRICS: Evaluation measures
   - Include all quantitative measures
   - For each metric, identify the task it evaluates
   - Example: If abstract mentions "accuracy for machine translation"
     - Extract metric: "accuracy"
-    - Create relation: ("accuracy", "used-for", "machine translation")
+    - Create relation: ("accuracy", "machine translation")
 
 4. RESOURCES: Datasets and tools
   - Include datasets, code, benchmarks
   - For each resource, identify the task it supports
   - Example: If abstract mentions "using WordNet for word sense disambiguation"
     - Extract resource: "WordNet"
-    - Create relation: ("WordNet", "used-for", "word sense disambiguation")
+    - Create relation: ("WordNet", "word sense disambiguation")
 
 5. RELATIONS: Term relationships
-  - Create "used-for" relations between:
+  - Create "used for" relations between:
     - Each method and its corresponding task(s)
     - Each metric and the task(s) it evaluates
     - Each resource and the task(s) it supports
   - Both terms must be exact copies from the abstract
-  - Format: (source_term, "used-for", target_task)
+  - Format: (source_term, target_task)
 
 VERIFICATION STEPS:
-1. For each method: Is there at least one "used-for" relation to a task?
-2. For each metric: Is there at least one "used-for" relation to a task?
-3. For each resource: Is there at least one "used-for" relation to a task?
+1. For each method: Is there at least one "used for" relation to a task?
+2. For each metric: Is there at least one "used for" relation to a task?
+3. For each resource: Is there at least one "used for" relation to a task?
 4. For each term: Does it contain an abbreviation that you can expand?
 5. For each combination of terms: Do different words refer to the same entity? Can they be merged?
 

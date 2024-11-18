@@ -10,7 +10,6 @@ class Relation(BaseModel):
 
     head: str
     tail: str
-    type: str
 
 
 class Terms(BaseModel):
