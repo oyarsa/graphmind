@@ -53,6 +53,7 @@ select = [
     "D",
     "D401",     # Docstring first line must be in imperative mood
     "D400",     # Docstring first line must end in period
+    "D100",     # All modules must have docstrings
 ]
 ignore = [
     "PLR0911",  # Too many return statements

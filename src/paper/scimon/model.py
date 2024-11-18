@@ -1,3 +1,5 @@
+"""Entities in the SciMON baseline reproduction."""
+
 from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict

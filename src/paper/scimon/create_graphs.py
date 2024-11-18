@@ -1,3 +1,5 @@
+"""Create semantic, knowledge and citation graphs from terms extracted from papers."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping

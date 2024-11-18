@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from enum import StrEnum
 import random
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
 import aiohttp
-import click
 import typer
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
