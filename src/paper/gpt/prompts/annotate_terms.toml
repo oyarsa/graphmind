@@ -1,5 +1,5 @@
 [[prompts]]
-name = "multi-v1"
+name = "multi-v2"
 type = "multi-terms"
 prompt = """You are a scientific term extractor analyzing research papers. Your task is \
 to identify terms and their relationships from the paper title and abstract.
@@ -30,6 +30,7 @@ Extract these categories of scientific terms:
    - Example: ("attention mechanism", "used-for", "speech recognition")
 
 Guidelines:
+- A term can be in only one of the categories
 - Extract complete technical phrases, not single words
 - Preserve technical terminology exactly as written
 - Include only terms that are central to the paper's contribution
@@ -48,7 +49,7 @@ Output:
 """
 
 [[prompts]]
-name = "multi"
+name = "multi-v1"
 type = "multi-terms"
 prompt = """You are a scientific term extractor analyzing research papers. Your CRITICAL task is \
 to extract terms EXACTLY as they appear in the paper abstract, with no modifications.
@@ -87,6 +88,70 @@ Extract these categories by copying from the abstract:
    - CORRECT: If abstract has "BERT encoder for machine translation",
      extract: ("BERT encoder", "used-for", "machine translation")
    - WRONG: Any modified versions of the terms
+
+#####
+-Data-
+Abstract: {abstract}
+
+#####
+Output:
+"""
+
+[[prompts]]
+name = "multi-v3"
+type = "multi-terms"
+prompt = """You are a scientific term extractor analyzing research papers. Extract terms as they \
+appear in the abstract. Minimize modifications to the terms, unless it is to comply with the rules.
+
+CRITICAL RULES:
+1. Every term must be an exact substring of the abstract
+2. When mulitple terms refer to the same entity, use a common term for all of them
+3. When a term contains an abbreviation, expand the abbreviation
+4. For each method identified, determine what task(s) it helps accomplish
+5. For each metric identified, determine what task(s) it evaluates
+6. For each resource identified, determine what task(s) it supports
+
+Extract these categories:
+
+1. TASKS: Core problems/objectives
+  - Include both explicit and implicit tasks
+  - Example: "cross-entropy training of deep neural networks" → extract exactly that
+
+2. METHODS: Technical approaches
+  - Include algorithms, frameworks, and specific techniques
+  - For each method, identify the task(s) it addresses
+  - Example: If abstract has "Hessian-free optimization for training neural networks"
+    - Extract method: "Hessian-free optimization"
+    - Create relation: ("Hessian-free optimization", "used-for", "training neural networks")
+
+3. METRICS: Evaluation measures
+  - Include all quantitative measures
+  - For each metric, identify the task it evaluates
+  - Example: If abstract mentions "accuracy for machine translation"
+    - Extract metric: "accuracy"
+    - Create relation: ("accuracy", "used-for", "machine translation")
+
+4. RESOURCES: Datasets and tools
+  - Include datasets, code, benchmarks
+  - For each resource, identify the task it supports
+  - Example: If abstract mentions "using WordNet for word sense disambiguation"
+    - Extract resource: "WordNet"
+    - Create relation: ("WordNet", "used-for", "word sense disambiguation")
+
+5. RELATIONS: Term relationships
+  - Create "used-for" relations between:
+    - Each method and its corresponding task(s)
+    - Each metric and the task(s) it evaluates
+    - Each resource and the task(s) it supports
+  - Both terms must be exact copies from the abstract
+  - Format: (source_term, "used-for", target_task)
+
+VERIFICATION STEPS:
+1. For each method: Is there at least one "used-for" relation to a task?
+2. For each metric: Is there at least one "used-for" relation to a task?
+3. For each resource: Is there at least one "used-for" relation to a task?
+4. For each term: Does it contain an abbreviation that you can expand?
+5. For each combination of terms: Do different words refer to the same entity? Can they be merged?
 
 #####
 -Data-
