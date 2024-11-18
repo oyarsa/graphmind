@@ -235,12 +235,11 @@ async def annotate_papers_terms(
             "Skipping %d items from the `continue` file.", len(papers_remaining.done)
         )
 
-    papers = load_data(input_file, Paper)[:limit_papers]
     with Timer() as timer:
         output = await _annotate_papers_terms(
             client,
             model,
-            papers,
+            papers_remaining.remaining,
             user_prompt,
             output_intermediate_file,
             type_,
