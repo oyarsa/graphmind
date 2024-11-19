@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
 from statistics import mean, stdev
-from typing import Annotated, Any, Self, override
+from typing import Annotated, Any
 
 import click
 import dotenv
@@ -203,7 +202,6 @@ async def annotate_papers(
     env = mustenv("OPENAI_API_KEY")
     client = AsyncOpenAI(api_key=env["OPENAI_API_KEY"])
     user_prompt_terms = _TERM_USER_PROMPTS[user_prompt_term_key]
-    term_type = _TERM_TYPES[user_prompt_terms.type_name]
     user_prompt_split = _SPLIT_USER_PROMPTS[user_prompt_split_key]
 
     papers = load_data(input_file, S2Paper)[:limit_papers]
@@ -211,7 +209,7 @@ async def annotate_papers(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
     papers_remaining = get_remaining_items(
-        PaperAnnotated[term_type],
+        PaperAnnotated,
         output_intermediate_file,
         continue_papers_file,
         papers,
@@ -238,7 +236,6 @@ async def annotate_papers(
             user_prompt_terms,
             user_prompt_split,
             output_intermediate_file,
-            term_type,
             seed=seed,
         )
 
@@ -273,17 +270,6 @@ class GPTAbstractSplit(BaseModel):
     ]
 
 
-class GPTTermBase(BaseModel, ABC):
-    model_config = ConfigDict(frozen=True)
-
-    @classmethod
-    @abstractmethod
-    def empty(cls) -> Self: ...
-
-    @abstractmethod
-    def to_scimon(self) -> scimon.Terms: ...
-
-
 class GPTTermRelation(BaseModel):
     """Represents a directed relation between two scientific terms.
 
@@ -294,7 +280,7 @@ class GPTTermRelation(BaseModel):
     tail: Annotated[str, Field(description="Tail term of the relation.")]
 
 
-class GPTMultiTerms(GPTTermBase):
+class GPTTerms(BaseModel):
     """Structured output for scientific term extraction."""
 
     tasks: Annotated[
@@ -318,12 +304,6 @@ class GPTMultiTerms(GPTTermBase):
         Field(description="Directed relations between terms."),
     ]
 
-    @override
-    @classmethod
-    def empty(cls) -> Self:
-        return cls(tasks=[], methods=[], metrics=[], resources=[], relations=[])
-
-    @override
     def to_scimon(self) -> scimon.Terms:
         return scimon.Terms(
             tasks=self.tasks,
@@ -337,15 +317,10 @@ class GPTMultiTerms(GPTTermBase):
         )
 
 
-_TERM_TYPES: Mapping[str, type[GPTTermBase]] = {
-    "multi-terms": GPTMultiTerms,
-}
-
-
-class PaperAnnotated[T: GPTTermBase](Record):
+class PaperAnnotated(Record):
     """S2 Paper with its annotated key terms. Includes GPT prompts used."""
 
-    terms: T
+    terms: GPTTerms
     paper: S2Paper
     context: str
     target: str
@@ -365,24 +340,23 @@ class PaperAnnotated[T: GPTTermBase](Record):
         )
 
 
-async def _annotate_papers[T: GPTTermBase](
+async def _annotate_papers(
     client: AsyncClient,
     model: str,
     papers: Sequence[S2Paper],
     user_prompt_term: PromptTemplate,
     user_prompt_split: PromptTemplate,
     output_intermediate_path: Path,
-    term_type: type[T],
     *,
     seed: int,
-) -> GPTResult[list[PromptResult[PaperAnnotated[T]]]]:
+) -> GPTResult[list[PromptResult[PaperAnnotated[GPTTerms]]]]:
     """Annotate papers to add key terms. Runs multiple tasks concurrently."""
-    ann_outputs: list[PromptResult[PaperAnnotated[T]]] = []
+    ann_outputs: list[PromptResult[PaperAnnotated[GPTTerms]]] = []
     total_cost = 0
 
     tasks = [
         _annotate_paper_single(
-            client, model, seed, paper, user_prompt_term, user_prompt_split, term_type
+            client, model, seed, paper, user_prompt_term, user_prompt_split
         )
         for paper in papers
     ]
@@ -393,34 +367,37 @@ async def _annotate_papers[T: GPTTermBase](
 
         ann_outputs.append(result.result)
         append_intermediate_result(
-            PaperAnnotated[term_type], output_intermediate_path, result.result
+            PaperAnnotated, output_intermediate_path, result.result
         )
 
     return GPTResult(result=ann_outputs, cost=total_cost)
 
 
-async def _annotate_paper_single[T: GPTTermBase](
+async def _annotate_paper_single(
     client: AsyncClient,
     model: str,
     seed: int,
     paper: S2Paper,
     user_prompt_term: PromptTemplate,
     user_prompt_split: PromptTemplate,
-    term_type: type[T],
-) -> GPTResult[PromptResult[PaperAnnotated[T]]]:
+) -> GPTResult[PromptResult[PaperAnnotated[GPTTerms]]]:
     """Annotate a single paper with its key terms."""
     split_prompt_text = user_prompt_term.template.format(
         title=paper.title, abstract=paper.abstract
     )
     result_term = await run_gpt(
-        term_type,
+        GPTTerms,
         client,
         _TERM_SYSTEM_PROMPT,
         split_prompt_text,
         model,
         seed=seed,
     )
-    terms = result_term.result if result_term.result else term_type.empty()
+    terms = (
+        result_term.result
+        if result_term.result
+        else GPTTerms(tasks=[], methods=[], metrics=[], resources=[], relations=[])
+    )
 
     split_prompt_text = user_prompt_split.template.format(abstract=paper.abstract)
     result_split = await run_gpt(
@@ -452,7 +429,7 @@ async def _annotate_paper_single[T: GPTTermBase](
 
 
 def _log_table_stats(
-    results: Sequence[PromptResult[PaperAnnotated[GPTTermBase]]],
+    results: Sequence[PromptResult[PaperAnnotated[GPTTerms]]],
     detail: DetailOptions,
 ) -> None:
     if not results:
