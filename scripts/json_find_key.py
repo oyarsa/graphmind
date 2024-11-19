@@ -3,8 +3,10 @@
 
 import json
 from pathlib import Path
+from typing import Annotated
 
-from paper.util import HelpOnErrorArgumentParser
+import typer
+
 from paper.util.serde import JSONValue
 
 
@@ -25,7 +27,22 @@ def search_object(obj: JSONValue, keyword: str, current_path: str = "") -> list[
     return results
 
 
-def main(paths: list[Path], keyword: str) -> None:
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    keyword: Annotated[str, typer.Argument(help="Keyword to search for in JSON keys")],
+    paths: Annotated[
+        list[Path], typer.Argument(help="List of paths to search for JSON files")
+    ] = [Path(".")],
+) -> None:
     keyword = keyword.lower().replace(" ", "")
 
     for path in paths:
@@ -43,10 +60,4 @@ def main(paths: list[Path], keyword: str) -> None:
 
 
 if __name__ == "__main__":
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument("keyword", type=str, help="Keyword to search for in JSON keys")
-    parser.add_argument(
-        "paths", nargs="+", type=Path, help="List of paths to search for JSON files"
-    )
-    args = parser.parse_args()
-    main(args.paths, args.keyword)
+    app()

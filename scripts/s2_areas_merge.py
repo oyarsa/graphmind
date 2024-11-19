@@ -41,14 +41,27 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
+import typer
 from pydantic import BaseModel, Field, TypeAdapter
 from rich.console import Console
 from rich.table import Table
 
-from paper.util import HelpOnErrorArgumentParser
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
 
 
-def main(input_files: list[Path], output_path: Path) -> None:
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    input_files: Annotated[
+        list[Path], typer.Argument(help="Input JSON files to process.")
+    ],
+    output_path: Annotated[Path, typer.Argument(help="Output JSON file path.")],
+) -> None:
     """Process multiple JSON files and generate a consolidated output file.
 
     Takes a list of input JSON file paths and an output path, processes all files,
@@ -164,13 +177,4 @@ class AreaPapers(BaseModel):
 
 
 if __name__ == "__main__":
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument(
-        "input_files", nargs="+", type=Path, help="Input JSON files to process"
-    )
-    parser.add_argument(
-        "--output", "-o", required=True, type=Path, help="Output JSON file path"
-    )
-
-    args = parser.parse_args()
-    main(args.input_files, args.output)
+    app()

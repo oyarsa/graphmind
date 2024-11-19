@@ -10,12 +10,13 @@ original script did.
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
+import typer
 from tqdm import tqdm
 
 from paper.external_data.crossref import get_best_paper
-from paper.util import HelpOnErrorArgumentParser, run_safe
+from paper.util import run_safe
 
 
 def download(
@@ -49,21 +50,27 @@ def download(
     output_file.write_text(json.dumps(output_best))
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument(
-        "input_file", type=Path, help="File containing paper titles, one per line"
-    )
-    parser.add_argument(
-        "output_file", type=Path, help="Directory to save the downloaded information"
-    )
-    parser.add_argument(
-        "--ratio", type=int, default=30, help="Minimum ratio for fuzzy matching"
-    )
-    args = parser.parse_args()
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
 
-    run_safe(download, args.input_file, args.output_file, args.ratio)
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    input_file: Annotated[
+        Path, typer.Argument(help="File containing paper titles, one per line.")
+    ],
+    output_file: Annotated[
+        Path, typer.Argument(help="File to save the downloaded information.")
+    ],
+    ratio: Annotated[int, typer.Option(help="Minimum ratio for fuzzy matching.")] = 30,
+) -> None:
+    run_safe(download, input_file, output_file, ratio)
 
 
 if __name__ == "__main__":
-    main()
+    app()

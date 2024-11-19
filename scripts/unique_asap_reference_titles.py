@@ -8,10 +8,10 @@ The input JSON file should have the following structure (nested):
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Annotated
 
+import typer
 from pydantic import BaseModel, TypeAdapter
-
-from paper.util import HelpOnErrorArgumentParser
 
 
 class Reference(BaseModel):
@@ -26,7 +26,20 @@ class Data(BaseModel):
     paper: Paper
 
 
-def main(infile: Path, outfile: Path) -> None:
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    infile: Annotated[Path, typer.Argument(help="Path to the input JSON file.")],
+    outfile: Annotated[Path, typer.Argument(help="Path to the output JSON file.")],
+) -> None:
     data = TypeAdapter(list[Data]).validate_json(infile.read_bytes())
     titles = set(p.title.strip() for d in data for p in d.paper.references)
 
@@ -37,8 +50,4 @@ def main(infile: Path, outfile: Path) -> None:
 
 
 if __name__ == "__main__":
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument("infile", type=Path, help="Path to the input JSON file")
-    parser.add_argument("outfile", type=Path, help="Path to the output JSON file")
-    args = parser.parse_args()
-    main(args.infile, args.outfile)
+    app()

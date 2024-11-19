@@ -11,26 +11,13 @@ that's not the case for everything, so we might have to convert.
 import json
 from collections.abc import Callable
 from pathlib import Path
+from typing import Annotated
 
-from paper.util import HelpOnErrorArgumentParser, die
+import click
+import typer
+
+from paper.util import die
 from paper.util.serde import JSONArray, JSONObject, JSONValue
-
-
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument("input_file", type=Path, help="Path to the input JSON file")
-    parser.add_argument(
-        "output_file", type=Path, help="Path where the transformed JSON will be saved"
-    )
-    parser.add_argument(
-        "--mode",
-        choices=sorted(VALID_MODES),
-        help="How to transform the keys",
-        required=True,
-    )
-
-    args = parser.parse_args()
-    convert_file(args.input_file, args.output_file, args.mode)
 
 
 def convert_snake_to_camel_case(snake_str: str) -> str:
@@ -51,8 +38,29 @@ VALID_MODES = {
     "c2s": convert_camel_to_snake_case,
 }
 
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
 
-def convert_file(input_path: Path, output_path: Path, mode: str) -> None:
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    input_path: Annotated[Path, typer.Argument(help="Path to the input JSON file.")],
+    output_path: Annotated[
+        Path, typer.Argument(help="Path where the transformed JSON will be saved.")
+    ],
+    mode: Annotated[
+        str,
+        typer.Option(
+            help="How to transform the keys.",
+            click_type=click.Choice(sorted(VALID_MODES)),
+        ),
+    ],
+) -> None:
     """Convert a JSON file with snake_case keys to camelCase.
 
     Args:
@@ -134,4 +142,4 @@ def transform_object(obj: JSONObject, transform: Callable[[str], str]) -> JSONOb
 
 
 if __name__ == "__main__":
-    main()
+    app()

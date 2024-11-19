@@ -9,11 +9,29 @@ Note: the correct version of the API script is already available, so this is a o
 
 import json
 from pathlib import Path
+from typing import Annotated
 
-from paper.util import HelpOnErrorArgumentParser
+import typer
+
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
 
 
-def main(titles_file: Path, api_result_file: Path, output_file: Path) -> None:
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    titles_file: Annotated[Path, typer.Argument(help="Path to ASAP Titles JSON file.")],
+    api_result_file: Annotated[
+        Path, typer.Argument(help="Path to Semantic Scholar API results JSON file.")
+    ],
+    output_file: Annotated[
+        Path, typer.Argument(help="Path to output merged JSON file.")
+    ],
+) -> None:
     titles = json.loads(titles_file.read_text())
     api_result = json.loads(api_result_file.read_text())
 
@@ -30,11 +48,4 @@ def main(titles_file: Path, api_result_file: Path, output_file: Path) -> None:
 
 
 if __name__ == "__main__":
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument("titles", type=Path, help="Path to ASAP Titles JSON file")
-    parser.add_argument(
-        "api_result", type=Path, help="Path to Semantic Scholar API results JSON file"
-    )
-    parser.add_argument("output", type=Path, help="Path to output merged JSON file")
-    args = parser.parse_args()
-    main(args.titles, args.api_result, args.output)
+    app()

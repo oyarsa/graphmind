@@ -7,9 +7,11 @@ import copy
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
-from paper.util import HelpOnErrorArgumentParser, die
+import typer
+
+from paper.util import die
 from paper.util.serde import JSONObject, JSONValue
 
 
@@ -66,7 +68,21 @@ def merge_paper_lists(
     return list(merged_dict.values())
 
 
-def main(file1_path: Path, file2_path: Path, output_path: Path) -> None:
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    file1_path: Annotated[Path, typer.Argument(help="Path to first JSON file")],
+    file2_path: Annotated[Path, typer.Argument(help="Path to second JSON file")],
+    output_path: Annotated[Path, typer.Argument(help="Output file path.")],
+) -> None:
     """Merge two JSON files containing arrays of paper objects.
 
     Quits with an error message if either file:
@@ -117,10 +133,4 @@ def _check_paper_id(file: Path, papers: list[JSONObject]) -> None:
 
 
 if __name__ == "__main__":
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument("file1", type=Path, help="Path to first JSON file")
-    parser.add_argument("file2", type=Path, help="Path to second JSON file")
-    parser.add_argument("output", type=Path, help="Output file path (optional)")
-    args = parser.parse_args()
-
-    main(args.file1, args.file2, args.output)
+    app()
