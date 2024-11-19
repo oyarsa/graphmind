@@ -116,26 +116,25 @@ class TLDR(BaseModel):
 
 
 class S2Paper(BaseModel):
-    """Paper from the S2 API.
-
-    Attributes:
-        title_query: The original title used to query the API.
-        title: Actual title of the paper in the API.
-        abstract: Full text of the paper abstract.
-        reference_count: How many references the current paper cites (outgoing).
-        citation_count: How many papers cite the current paper (incoming).
-        influential_citation_count: See https://www.semanticscholar.org/faq#influential-citations.
-        tldr: Machine-generated TLDR of the paper. Not available for everything.
-
-    NB: We got more data from the API, but this is what's relevant here. See also
-    `paper.external_data.semantic_scholar`.
-    """
+    """Paper from the S2 API."""
 
     model_config = ConfigDict(frozen=True)
 
     title_query: str = Field(description="Title used in the API query (from ASAP)")
     title: str = Field(description="Title from the S2 data")
+    paper_id: str = Field(
+        alias="paperId",
+        description="Semantic Scholar's primary unique identifier for a paper",
+    )
+    corpus_id: int | None = Field(
+        alias="corpusId",
+        description="Semantic Scholar's secondary unique identifier for a paper",
+    )
+    url: str | None = Field(
+        description="URL of the paper on the Semantic Scholar website"
+    )
     abstract: str = Field(description="Abstract text")
+    year: int | None = Field(description="Year the paper was published")
     reference_count: int = Field(
         alias="referenceCount", description="Number of papers this paper references"
     )
@@ -147,6 +146,16 @@ class S2Paper(BaseModel):
         description="Number of influential papers (see docstring) that cite this paper",
     )
     tldr: TLDR | None = Field(description="Machine-generated summary of this paper")
+    authors: Sequence[S2Author] | None = Field(description="Paper authors")
+
+
+class S2Author(BaseModel):
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
+
+    name: str | None = Field(description="Author's name")
+    author_id: str | None = Field(
+        alias="authorId", description="Semantic Scholar's unique ID for the author"
+    )
 
 
 class ReferenceEnriched(PaperReference):
