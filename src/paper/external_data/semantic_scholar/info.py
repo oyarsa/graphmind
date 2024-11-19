@@ -15,7 +15,7 @@ be different.
 
 The resulting files are:
 - semantic_scholar_full.json: the whole output from the S2 API.
-- semantic_scholar_best.json: the valid (non-empty) results with fuzzy ratio.
+- semantic_scholar_valid.json: the valid (non-empty) results with fuzzy ratio.
 - semantic_scholar_final.json: the valid results with a non-empty abstract
   and fuzzy ratio above a minium (default: 80).
 
@@ -186,7 +186,7 @@ async def _download_paper_info(
     (output_path / "semantic_scholar_full.json").write_text(
         json.dumps(results, indent=2)
     )
-    (output_path / "semantic_scholar_best.json").write_text(
+    (output_path / "semantic_scholar_valid.json").write_text(
         json.dumps(results_valid, indent=2)
     )
     (output_path / "semantic_scholar_final.json").write_text(
