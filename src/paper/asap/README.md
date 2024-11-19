@@ -5,8 +5,10 @@ only entries that have ratings in their reviews will be used.
 
 ## Usage
 
-- Download the dataset from [Google Drive](https://drive.usercontent.google.com/download?id=1nJdljy468roUcKLbVwWUhMs7teirah75&export=download&authuser=0).
-- Extract it to the `data` folder.
+- Download the dataset from Google Drive.
+```bash
+$ uv run src/paper/asap/download.py data/asap
+```
 - Run the merge script on the ICLR dataset. Saves a single `output.json` file with the
 merged data.
 ```bash

@@ -31,6 +31,7 @@ dependencies = [
     "boto3-stubs[full]>=1.35.56",
     "aiolimiter>=1.1.0",
     "sentence-transformers>=3.3.0",
+    "gdown>=5.2.0",
 ]
 
 [tool.ruff.lint.isort]

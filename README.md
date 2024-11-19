@@ -35,8 +35,8 @@ Use the `uv run preprocess` command to access both S2ORC and ASAP dataset prepro
 $ mkdir data output
 
 # > Preprocess ASAP dataset
-# Download the dataset from Google Drive: https://drive.usercontent.google.com/download?id=1nJdljy468roUcKLbVwWUhMs7teirah75&export=download&authuser=0
-# Extract to `data/asap`.
+# Download the dataset from Google Drive.
+$ uv run src/paper/asap/download.py data/asap
 # Output will be saved to `output`. The final file is `output/asap_filtered.json`.
 $ uv run preprocess asap data/asap output
 
