@@ -7,7 +7,7 @@ from typing import Annotated, Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from paper.asap.model import Paper as ASAPPaper
+import paper.asap.model as asap
 from paper.util import fuzzy_partial_ratio
 from paper.util.serde import Record
 
@@ -69,12 +69,12 @@ class Author(BaseModel):
     author_id: Annotated[str | None, Field(alias="authorId")]
 
 
-class ASAPPaperMaybeS2(ASAPPaper):
+class ASAPPaperMaybeS2(asap.Paper):
     s2: Paper | None
     fuzz_ratio: int
 
     @classmethod
-    def from_asap(cls, asap: ASAPPaper, s2_result: dict[str, Any] | None) -> Self:
+    def from_asap(cls, asap: asap.Paper, s2_result: dict[str, Any] | None) -> Self:
         """Create new paper from an existing ASAP paper and the S2 API result."""
         return cls(
             title=asap.title,
@@ -88,7 +88,7 @@ class ASAPPaperMaybeS2(ASAPPaper):
         )
 
 
-class ASAPPaperWithS2(ASAPPaper):
+class ASAPPaperWithS2(asap.Paper):
     s2: Paper
     fuzz_ratio: int
 
@@ -125,8 +125,30 @@ def title_ratio(title1: str, title2: str) -> int:
     Calculates the partial ratio between clean titles. Clean titles are case-folded and
     stripped.
     """
-    return fuzzy_partial_ratio(_clean_title(title1), _clean_title(title2))
+    return fuzzy_partial_ratio(clean_title(title1), clean_title(title2))
 
 
-def _clean_title(title: str) -> str:
-    return title.casefold().strip()
+def clean_title(title: str) -> str:
+    """Clean a paper title by casefolding and removing extraneous whitespace."""
+    return " ".join(title.casefold().strip().split())
+
+
+class ASAPWithFullS2(Record):
+    """ASAP main paper where references have the full S2 data."""
+
+    title: str = Field(description="Paper title")
+    abstract: str = Field(description="Abstract text")
+    reviews: Sequence[asap.PaperReview] = Field(description="Feedback from a reviewer")
+    sections: Sequence[asap.PaperSection] = Field(
+        description="Sections in the paper text"
+    )
+    approval: bool = Field(
+        description="Approval decision - whether the paper was approved"
+    )
+    references: Sequence[asap.S2Paper] = Field(
+        description="References made in the paper with full S2 data"
+    )
+
+    @property
+    def id(self) -> int:
+        return hash(self.title + self.abstract)
