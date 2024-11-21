@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
 from statistics import mean, stdev
-from typing import Annotated, Any
+from typing import Annotated, Any, Self
 
 import click
 import dotenv
@@ -187,6 +187,9 @@ async def annotate_papers(
 ) -> None:
     """Extract problem and method terms from each paper.
 
+    Papers whose extractions are invalid - terms are invalid, or empty background or
+    target - are discarded.
+
     Args:
         input_file: JSON with input data.
             Array of `paper.external_data.semantic_scholar.model.Paper`.
@@ -270,15 +273,20 @@ async def annotate_papers(
             output_intermediate_file,
             seed=seed,
         )
+    output_valid = [ann for ann in output.result if ann.item.is_valid()]
 
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${output.cost:.10f}")
 
-    save_data(output_dir / "results.json", output.result)
+    logger.info("All results: %d", len(output.result))
+    logger.info("Valid results: %d", len(output_valid))
+
+    save_data(output_dir / "results_all.json", output.result)
+    save_data(output_dir / "results_valid.json", output_valid)
     assert len(papers) == len(output.result)
 
     if show_log:
-        _log_table_stats(output.result, detail=show_log)
+        _log_table_stats(output_valid, detail=show_log)
 
 
 class GPTAbstractClassify(BaseModel):
@@ -301,6 +309,10 @@ class GPTAbstractClassify(BaseModel):
         ),
     ]
 
+    @classmethod
+    def empty(cls) -> Self:
+        return cls(background="", target="")
+
 
 class GPTTermRelation(BaseModel):
     """Represents a directed relation between two scientific terms.
@@ -308,12 +320,16 @@ class GPTTermRelation(BaseModel):
     Relations are head --type-> tail.
     """
 
+    model_config = ConfigDict(frozen=True)
+
     head: Annotated[str, Field(description="Head term of the relation.")]
     tail: Annotated[str, Field(description="Tail term of the relation.")]
 
 
 class GPTTerms(BaseModel):
     """Structured output for scientific term extraction."""
+
+    model_config = ConfigDict(frozen=True)
 
     tasks: Annotated[
         Sequence[str],
@@ -348,6 +364,18 @@ class GPTTerms(BaseModel):
             ],
         )
 
+    @classmethod
+    def empty(cls) -> Self:
+        return cls(tasks=(), methods=(), metrics=(), resources=(), relations=())
+
+    def is_valid(self) -> bool:
+        """Check if relations and at least two term lists are non-empty."""
+        if not self.relations:
+            return False
+
+        term_lists = [self.tasks, self.methods, self.metrics, self.resources]
+        return sum(bool(term_list) for term_list in term_lists) >= 2
+
 
 class PaperAnnotated(Record):
     """S2 Paper with its annotated key terms. Includes GPT prompts used."""
@@ -370,6 +398,13 @@ class PaperAnnotated(Record):
             background=self.background,
             target=self.target,
         )
+
+    def is_valid(self) -> bool:
+        """Check that `terms` are valid, and `background` and `target` are non-empty.
+
+        For `terms`, see GPTTerms.is_valid.
+        """
+        return self.terms.is_valid() and bool(self.background) and bool(self.target)
 
 
 async def _annotate_papers(
@@ -433,11 +468,7 @@ async def _annotate_paper_single(
         model,
         seed=seed,
     )
-    terms = (
-        result_term.result
-        if result_term.result
-        else GPTTerms(tasks=[], methods=[], metrics=[], resources=[], relations=[])
-    )
+    terms = result_term.result if result_term.result else GPTTerms.empty()
 
     abstract_prompt_text = user_prompt_abstract.template.format(
         demonstrations=abstract_demonstrations, abstract=paper.abstract
@@ -453,7 +484,7 @@ async def _annotate_paper_single(
     abstract = (
         result_abstract.result
         if result_abstract.result
-        else GPTAbstractClassify(background="", target="")
+        else GPTAbstractClassify.empty()
     )
 
     return GPTResult(
@@ -574,4 +605,11 @@ def prompts(
         bool, typer.Option(help="Show full description of the prompts.")
     ] = False,
 ) -> None:
-    print_prompts("TERM ANNOTATION PROMPTS", _TERM_USER_PROMPTS, detail=detail)
+    items = [
+        ("TERM ANNOTATION PROMPTS", _TERM_USER_PROMPTS),
+        ("ABSTRACT CLASSIFICATION PROMPTS", _ABS_USER_PROMPTS),
+        ("ABSTRACT DEMONSTRATION PROMPTS", _ABS_DEMO_PROMPTS),
+    ]
+    for title, prompts in items:
+        print_prompts(title, prompts, detail=detail)
+        print()
