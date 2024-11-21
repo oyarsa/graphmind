@@ -207,10 +207,10 @@ async def annotate_papers(
             that we want to continue.
         clean_run: If True, we ignore `continue_papers_file` and start from scratch.
         show_log: Show log of term count for each paper and type of term. If NONE, show
-            only statistics on entity validation. If TABLE, shows a summary table of
-            each term type. If DETAIL, shows detailed information on the extracted
-            entities. Note: the types of terms vary by output type, dependent on the
-            prompt.
+            only statistics on the quantities of extracted terms. If TABLE, shows a
+            summary table of each term type. If DETAIL, shows detailed information on
+            the extracted entities. Note: the types of terms vary by output type,
+            dependent on the prompt.
     """
     logger.info(display_params())
 
