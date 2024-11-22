@@ -79,9 +79,8 @@ class Graph:
             for neighbour in self.edges[node]:
                 if neighbour not in visited and _dfs(neighbour):
                     return True
-                elif neighbour in recursion_stack:
-                    cycle.append(neighbour)
-                    return True
+                cycle.append(neighbour)
+                return True
 
             recursion_stack.pop()
             cycle.pop()

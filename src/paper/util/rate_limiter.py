@@ -170,11 +170,11 @@ class ContextManager:
     def __enter__(self) -> None:
         self.rate_limiter.wait_for_capacity_sync(self.num_tokens)
 
-    def __exit__(self, *exc: Any) -> bool:
+    def __exit__(self, *exc: object) -> bool:
         return False
 
     async def __aenter__(self) -> None:
         await self.rate_limiter.wait_for_capacity(self.num_tokens)
 
-    async def __aexit__(self, *exc: Any) -> bool:
+    async def __aexit__(self, *exc: object) -> bool:
         return False

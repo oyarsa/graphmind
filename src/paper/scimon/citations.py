@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Annotated, Any, Self
+from typing import Annotated, Self
 
 import typer
 from tqdm import tqdm
@@ -117,7 +117,7 @@ class TitleEncoder:
         """Start encoder's context."""
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, *args: object) -> None:
         """Close encoder's context."""
         return self._encoder.__exit__(*args)
 

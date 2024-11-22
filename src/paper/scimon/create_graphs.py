@@ -33,7 +33,7 @@ class Edge:
 class Graph:
     """A graph representation using adjacency lists."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.nodes: dict[str, Node] = {}
         self.edges: dict[str, set[Edge]] = {}
 

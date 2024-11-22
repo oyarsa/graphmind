@@ -41,7 +41,7 @@ def main(
     outfile: Annotated[Path, typer.Argument(help="Path to the output JSON file.")],
 ) -> None:
     data = TypeAdapter(list[Data]).validate_json(infile.read_bytes())
-    titles = set(p.title.strip() for d in data for p in d.paper.references)
+    titles = {p.title.strip() for d in data for p in d.paper.references}
 
     print(f"Found {len(titles)} unique titles")
 

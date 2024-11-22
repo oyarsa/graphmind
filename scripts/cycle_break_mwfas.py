@@ -14,7 +14,7 @@ from itertools import combinations
 
 
 class Graph:
-    def __init__(self):
+    def __init__(self) -> None:
         self.nodes: set[int] = set()
         self.edges: defaultdict[int, list[tuple[int, int]]] = defaultdict(list)
 

@@ -75,7 +75,7 @@ app = typer.Typer(
 @app.command(help=__doc__)
 def main(
     base_path: Annotated[Path, typer.Argument(help="Base path of the experiments")],
-):
+) -> None:
     metrics_data = parse_metrics(base_path)
     table = create_table(metrics_data)
 

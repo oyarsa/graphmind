@@ -58,8 +58,7 @@ def get_best_paper(
 
     if best_paper:
         return {"fuzz_ratio": best_ratio} | best_paper
-    else:
-        return None
+    return None
 
 
 def download(

@@ -32,29 +32,61 @@ dependencies = [
     "aiolimiter>=1.1.0",
     "sentence-transformers>=3.3.0",
     "gdown>=5.2.0",
+    "aiofiles>=24.1.0",
+    "pandas>=2.2.3",
 ]
+
+[dependency-groups]
+dev = [
+    "cosy",
+    "ipython>=8.27.0",
+    "jupyterlab>=4.2.5",
+    "pdoc>=15.0.0",
+    "pre-commit>=3.8.0",
+    "pyright>=1.1.389",
+    "pytest>=8.3.3",
+    "ruff>=0.8",
+]
+
+[tool.uv.sources.cosy]
+git = "https://github.com/oyarsa/x.git"
+subdirectory = "cosy"
+tag = "cosy-0.2.0"
+
+[project.scripts]
+preprocess = "paper.preprocess:app"
+gpt = "paper.gpt.cli:app"
 
 [tool.ruff.lint.isort]
 known-first-party = ["paper"]
 
 [tool.ruff.lint]
 select = [
-    "E",
-    "F",
-    "I",
-    "ISC",
-    "N",
-    "PL",
-    "RUF",
-    "SIM",
-    "TRY",
-    "UP",
-    "W",
-    "ERA",
-    "D",
-    "D401",     # Docstring first line must be in imperative mood
-    "D400",     # Docstring first line must end in period
-    "D100",     # All modules must have docstrings
+    "E",        # Code style
+    "W",        # Code style
+    "F",        # Pyflakes
+    "I",        # Imports
+    "ISC",      # Implicit string concat
+    "N",        # PEP-8 naming
+    "PL",       # Pylint
+    "RUF",      # Ruff-specific
+    "SIM",      # Simplify
+    "TRY",      # Exceptions
+    "UP",       # Upgrade to new constructs
+    "ERA",      # Commented-out code
+    "D",        # Documentation
+    "FURB",     # Modernisation
+    "PTH",      # Pathlib usage
+    "RET",      # Unnecessary elses
+    "G",        # Logging format
+    "DTZ",      # Timezones
+    "B",        # Likely bugs
+    "C",        # Comprehensions
+    "ASYNC",    # Async pitfalls
+    "EXE",      # Executable (shebang)S
+    "ANN",      # Type annotations
+    "PYI",      # Appropriate type hints for specifc cases
+    "PERF",     # Performance anti-patterns
 ]
 ignore = [
     "PLR0911",  # Too many return statements
@@ -66,8 +98,16 @@ ignore = [
     "TRY003",   # Long messages outside exception class
     "SIM108",   # Use ternary operation instead of if-else block
     "ISC001",   # Incompatible with the formatter
-    "D202",     # Allow empty lines between function docstring and body
-    "D1",       # Allow undocumented items
+    "D202",     # Empty lines between function docstring and body
+    "D1",       # Undocumented items
+    "PTH123",   # `open` instead of `Path.open`
+    "G004",     # f-strings in logging
+    "B905",     # `zip` without `strict`
+    "C901",     # "too complex" functions
+    "ASYNC110", # 'asyncio.sleep' in loop
+    "PERF401",  # Manual list comprehensions
+    "ANN401",   # Any
+    "PLC0206",  # Dictionary iteration without items
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -83,28 +123,6 @@ typeCheckingMode = "strict"
 executionEnvironments = [
   { root = "tests", reportPrivateUsage = false }
 ]
-
-[tool.uv]
-dev-dependencies = [
-    "cosy",
-    "ipython>=8.27.0",
-    "jupyterlab>=4.2.5",
-    "pandas>=2.2.3",
-    "pdoc>=15.0.0",
-    "pre-commit>=3.8.0",
-    "pyright>=1.1.385",
-    "pytest>=8.3.3",
-    "ruff>=0.6.4",
-]
-
-[tool.uv.sources.cosy]
-git = "https://github.com/oyarsa/x.git"
-subdirectory = "cosy"
-tag = "cosy-0.2.0"
-
-[project.scripts]
-preprocess = "paper.preprocess:app"
-gpt = "paper.gpt.cli:app"
 
 [build-system]
 requires = ["hatchling"]

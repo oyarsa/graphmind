@@ -69,7 +69,7 @@ class GPTResult[T]:
 
 
 @backoff.on_exception(backoff.expo, openai.APIError, max_tries=5, logger=logger)
-async def _call_gpt(
+async def _call_gpt(  # noqa: ANN202
     rate_limiter: Any, client: AsyncOpenAI, chat_params: dict[str, Any]
 ):
     try:

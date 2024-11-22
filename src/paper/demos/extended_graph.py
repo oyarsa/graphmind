@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Plot representation of a graph with different node types."""
 
 from pathlib import Path

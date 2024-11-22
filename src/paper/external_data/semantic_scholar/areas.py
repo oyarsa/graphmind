@@ -79,11 +79,11 @@ def main(
         )
     ),
     years: Annotated[
-        list[str],
+        Sequence[str],
         typer.Option(
             help="List of year ranges to fetch papers. Can be like `2017-2022` or `2010`."
         ),
-    ] = [str(y) for y in range(2012, 2021)],
+    ] = tuple(str(y) for y in range(2012, 2021)),
     limit_year: Annotated[
         int,
         typer.Option(
@@ -213,7 +213,7 @@ async def _fetch_areas(
         headers={"x-api-key": api_key},
         raise_for_status=True,
     ) as session:
-        area_results = [
+        return [
             AreaResult(
                 area=area,
                 papers=await _fetch_area(
@@ -228,8 +228,6 @@ async def _fetch_areas(
             )
             for area in tqdm(primary_areas, desc="Querying areas")
         ]
-
-    return area_results
 
 
 async def _fetch_area(

@@ -253,7 +253,7 @@ async def evaluate_papers(
     results_items = [result.item for result in results_all]
 
     metrics = calculate_paper_metrics(results_items)
-    logger.info(display_metrics(metrics, results_items) + "\n")
+    logger.info("%s\n", display_metrics(metrics, results_items))
 
     assert len(results_all) == len(papers)
     (output_dir / "result.json").write_bytes(

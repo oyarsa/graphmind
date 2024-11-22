@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Extract ACL-related papers from gzipped JSON files."""
 
 import gzip

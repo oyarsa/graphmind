@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Build an index from multiple gz-compressed JSON files containing paper data.
 
 The index is a JSON file containing an object with fields `title` -> `file name`.

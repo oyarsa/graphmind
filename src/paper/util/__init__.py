@@ -13,6 +13,7 @@ import traceback
 from collections.abc import Callable, Coroutine
 from importlib import resources
 from pathlib import Path
+from types import TracebackType
 from typing import Any, NoReturn, Self
 
 import colorlog
@@ -59,7 +60,7 @@ class Timer:
         self,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
-        traceback: Any,
+        traceback: TracebackType | None,
     ) -> None:
         """Stop the timer when exiting the context."""
         self.stop()
@@ -304,7 +305,7 @@ def die(message: Any, code: int = 1, prefix: str | None = "Error:") -> NoReturn:
     is_exc = sys.exc_info()[1] is not None
     if show_trace and is_exc:
         traceback.print_exc()
-        print("", file=sys.stderr)
+        print(file=sys.stderr)
 
     if prefix:
         print(prefix, end=" ")

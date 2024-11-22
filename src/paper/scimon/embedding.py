@@ -39,7 +39,7 @@ class Encoder:
         """Start multiprocessing pool."""
         return self
 
-    def __exit__(self, *_: Any) -> None:
+    def __exit__(self, *_: object) -> None:
         """Close multiprocessing pool."""
         self._model.stop_multi_process_pool(self._pool)
 

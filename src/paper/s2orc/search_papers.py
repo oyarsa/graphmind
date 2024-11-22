@@ -69,7 +69,7 @@ def main(
     papers: list[str] = json.loads(papers_file.read_bytes())
 
     processed_s2orc = set([_preprocess_title(t) for t in s2orc_index][:num_s2orc])
-    processed_query = set(_preprocess_title(t) for t in papers)
+    processed_query = {_preprocess_title(t) for t in papers}
 
     print(f"{len(processed_s2orc)=}")
     print(f"{len(processed_query)=}")

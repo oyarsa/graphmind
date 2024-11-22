@@ -2,6 +2,7 @@
 """Search JSON files for objects with matching keys."""
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
 
@@ -40,8 +41,8 @@ app = typer.Typer(
 def main(
     keyword: Annotated[str, typer.Argument(help="Keyword to search for in JSON keys")],
     paths: Annotated[
-        list[Path], typer.Argument(help="List of paths to search for JSON files")
-    ] = [Path(".")],
+        Sequence[Path], typer.Argument(help="List of paths to search for JSON files")
+    ] = (Path(),),
 ) -> None:
     keyword = keyword.lower().replace(" ", "")
 

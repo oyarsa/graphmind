@@ -22,7 +22,7 @@ import contextlib
 import textwrap
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 import boto3
@@ -352,7 +352,7 @@ def create_joined_table(athena: AthenaWrapper, name: str) -> None:
 
 def echo(message: Any) -> None:
     """Print `message` to stderr with a timestamp."""
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
     typer.echo(f"[{ts}] {message}", err=True)
 
 

@@ -7,6 +7,7 @@ from collections.abc import Coroutine
 from pathlib import Path
 from typing import Annotated
 
+import aiofiles
 import aiohttp
 import dotenv
 import typer
@@ -183,19 +184,17 @@ async def _try_download_file(
     ) as response:
         total_size = int(response.headers.get("content-length", 0))
 
-        with (
-            open(part_path, "wb") as file,
-            tqdm(
+        async with aiofiles.open(part_path, "wb") as file:
+            with tqdm(
                 desc=str(display_path),
                 total=total_size,
                 unit="iB",
                 unit_scale=True,
                 unit_divisor=1024,
-            ) as progress_bar,
-        ):
-            async for chunk in response.content.iter_chunked(1024):
-                size = file.write(chunk)
-                progress_bar.update(size)
+            ) as progress_bar:
+                async for chunk in response.content.iter_chunked(1024):
+                    size = await file.write(chunk)
+                    progress_bar.update(size)
 
 
 if __name__ == "__main__":

@@ -75,10 +75,10 @@ async def _fetch_paper_info(
                         data = await response.json()
                         if data.get("data"):
                             return {"title_query": paper_title} | data["data"][0]
-                        else:
-                            logger.debug(f"No results found for title: {paper_title}")
-                            return None
-                    elif response.status == 429:
+                        logger.debug(f"No results found for title: {paper_title}")
+                        return None
+
+                    if response.status == 429:
                         retry_after = response.headers.get("Retry-After")
                         if retry_after:
                             wait_time = int(retry_after)
