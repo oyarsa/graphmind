@@ -96,21 +96,16 @@ class Graph:
     @classmethod
     def from_terms(cls, encoder: emb.Encoder, terms: Sequence[GPTTerms]) -> Self:
         """Build a graph from a collection of GPTTerms."""
-        logger.debug("Cleaning relation heads.")
-        nodes = [
-            _process_text(relation.head)
-            for term in terms
-            for relation in term.relations
-        ]
+        logger.debug("Building node and edge lists.")
 
-        logger.debug("Encoding nodes.")
-        embeddings = encoder.encode_multi(nodes)
-
-        logger.debug("Building edge lists.")
         edge_list: defaultdict[str, list[str]] = defaultdict(list)
         for term in terms:
             for relation in term.relations:
                 edge_list[_process_text(relation.head)].append(relation.tail)
+        nodes = list(edge_list)
+
+        logger.debug("Encoding nodes.")
+        embeddings = encoder.encode_multi(nodes)
 
         logger.debug("Done.")
         return cls(
