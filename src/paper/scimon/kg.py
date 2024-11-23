@@ -4,8 +4,8 @@ The input is the output of `paper.gpt.annotate_paper`. Since we use the direct o
 of the script, it's wrapped: `run_gpt.PromptResult[annotate_paper.PaperAnnotated]`.
 
 Since we're interested on building the graphs from the relations, we ignore the terms
-from `PaperAnnotated.GPTTerms`, and focus only on the relations. We might be able to use
-the terms someday.
+from `PaperAnnotated.GPTTerms`, and focus only on the relations. The terms are used
+for the semantic graph (`paper.scimon.semantic`).
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Self
 
-import numpy as np
 import typer
 from openai import BaseModel
 from pydantic import ConfigDict
@@ -176,10 +175,9 @@ class GraphData(BaseModel):
 
     def to_graph(self, encoder: emb.Encoder) -> Graph:
         """Initialise Graph from data object."""
-        embeddings: emb.Matrix = np.zeros(10, dtype=float)
         return Graph(
             nodes=self.nodes,
-            embeddings=embeddings,
+            embeddings=self.embeddings.to_matrix(),
             edge_list=self.edge_list,
             encoder=encoder,
         )
