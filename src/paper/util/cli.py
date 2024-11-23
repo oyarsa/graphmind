@@ -3,7 +3,10 @@
 import os
 import sys
 import traceback
+from collections.abc import Iterable
 from typing import Any, NoReturn
+
+import click
 
 
 def die(message: Any, code: int = 1, prefix: str | None = "Error:") -> NoReturn:
@@ -30,3 +33,8 @@ def die(message: Any, code: int = 1, prefix: str | None = "Error:") -> NoReturn:
         print(prefix, end=" ")
     print(message, file=sys.stderr)
     sys.exit(code)
+
+
+def choice(choices: Iterable[str]) -> click.Choice:
+    """Create a `click.Choice` by sorting an iterable."""
+    return click.Choice(sorted(choices))
