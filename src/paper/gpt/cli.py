@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
-    add_completion=False,
     rich_markup_mode="rich",
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,
