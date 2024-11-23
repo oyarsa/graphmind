@@ -6,6 +6,7 @@ from paper.asap import preprocess as asap
 from paper.s2orc import preprocess as s2orc
 
 app = typer.Typer(
+    name="preprocess",
     context_settings={"help_option_names": ["-h", "--help"]},
     add_completion=False,
     rich_markup_mode="rich",

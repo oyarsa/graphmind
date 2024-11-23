@@ -77,6 +77,8 @@ $ uv run graph-gpt run --help
 $ uv run graph-gpt prompts --help
 ```
 
+For more information, see [`gpt/README.md`](./src/paper/gpt/README.md).
+
 ## Development Environment
 
 When running commands, use `uv run`:

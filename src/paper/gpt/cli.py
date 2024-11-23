@@ -21,6 +21,7 @@ from paper.gpt import (
 logger = logging.getLogger(__name__)
 
 app = typer.Typer(
+    name="gpt",
     context_settings={"help_option_names": ["-h", "--help"]},
     rich_markup_mode="rich",
     pretty_exceptions_show_locals=False,
