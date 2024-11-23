@@ -11,7 +11,7 @@ from typing import Annotated, Any, cast
 
 import typer
 
-from paper.util import die
+from paper.util.cli import die
 from paper.util.serde import JSONObject, JSONValue
 
 

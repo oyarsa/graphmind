@@ -10,7 +10,8 @@ import aiohttp
 import dotenv
 import typer
 
-from paper.util import die, ensure_envvar, progress
+from paper.util import ensure_envvar, progress
+from paper.util.cli import die
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request

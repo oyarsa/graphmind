@@ -16,7 +16,7 @@ from typing import Annotated
 import click
 import typer
 
-from paper.util import die
+from paper.util.cli import die
 from paper.util.serde import JSONArray, JSONObject, JSONValue
 
 

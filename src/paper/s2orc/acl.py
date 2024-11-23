@@ -11,7 +11,7 @@ from typing import Annotated
 import typer
 from semanticscholar import SemanticScholar
 
-from paper.util import die
+from paper.util.cli import die
 
 # From https://aclanthology.org/
 _ACL_CONFERENCES = [

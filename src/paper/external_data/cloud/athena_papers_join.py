@@ -30,7 +30,8 @@ import typer
 from dotenv import load_dotenv
 from tqdm import tqdm
 
-from paper.util import die, mustenv
+from paper.util import mustenv
+from paper.util.cli import die
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

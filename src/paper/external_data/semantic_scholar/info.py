@@ -35,7 +35,8 @@ import dotenv
 import typer
 
 from paper.external_data.semantic_scholar.model import title_ratio
-from paper.util import arun_safe, die, ensure_envvar, progress, setup_logging
+from paper.util import arun_safe, ensure_envvar, progress, setup_logging
+from paper.util.cli import die
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request

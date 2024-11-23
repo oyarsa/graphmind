@@ -13,12 +13,8 @@ import dotenv
 import typer
 from tqdm.asyncio import tqdm
 
-from paper.util import (
-    arun_safe,
-    die,
-    ensure_envvar,
-    progress,
-)
+from paper.util import arun_safe, ensure_envvar, progress
+from paper.util.cli import die
 
 MAX_CONCURRENT_DOWNLOADS = 10
 DOWNLOAD_TIMEOUT = 3600  # 1 hour timeout for each file
