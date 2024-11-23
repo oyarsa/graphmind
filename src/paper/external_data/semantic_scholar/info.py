@@ -26,17 +26,16 @@ import asyncio
 import json
 import logging
 from collections.abc import Sequence
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any
 
 import aiohttp
-import click
 import dotenv
 import typer
 
 from paper.external_data.semantic_scholar.model import title_ratio
 from paper.util import arun_safe, ensure_envvar, progress, setup_logging
-from paper.util.cli import die
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -122,12 +121,14 @@ async def _fetch_paper_info(
         return None
 
 
-_INFO_MODES = ["main", "references"]
+class InfoMode(StrEnum):
+    MAIN = "main"
+    REFERENCES = "references"
 
 
 async def _download_paper_info(
     input_file: Path,
-    mode: str,
+    mode: InfoMode,
     fields_str: str,
     output_path: Path,
     api_key: str,
@@ -144,15 +145,15 @@ async def _download_paper_info(
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
     papers: list[dict[str, Any]] = json.loads(input_file.read_text())
 
-    mode = mode.lower().strip()
-    if mode == "main":
-        unique_titles: set[str] = {paper["title"] for paper in papers}
-    elif mode == "references":
-        unique_titles: set[str] = {
-            reference["title"] for paper in papers for reference in paper["references"]
-        }
-    else:
-        die(f"Invalid mode: '{mode}'. Choose from: {_INFO_MODES}.")
+    match mode:
+        case InfoMode.MAIN:
+            unique_titles: set[str] = {paper["title"] for paper in papers}
+        case InfoMode.REFERENCES:
+            unique_titles: set[str] = {
+                reference["title"]
+                for paper in papers
+                for reference in paper["references"]
+            }
 
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
@@ -213,12 +214,9 @@ def main(
         Path, typer.Argument(help="Directory to save the downloaded information.")
     ],
     mode: Annotated[
-        str,
-        typer.Option(
-            help="Download information from main papers or their references.",
-            click_type=click.Choice(["main", "references"]),
-        ),
-    ] = "references",
+        InfoMode,
+        typer.Option(help="Download information from main papers or their references."),
+    ] = InfoMode.REFERENCES,
     fields: Annotated[
         str,
         typer.Option(help="Comma-separated list of fields to retrieve."),

@@ -10,33 +10,31 @@ that's not the case for everything, so we might have to convert.
 
 import json
 from collections.abc import Callable
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
-import click
 import typer
 
 from paper.util.cli import die
 from paper.util.serde import JSONArray, JSONObject, JSONValue
 
 
-def convert_snake_to_camel_case(snake_str: str) -> str:
-    """Convert a snake_case string to camelCase."""
-    components = snake_str.split("_")
-    return components[0] + "".join(x.title() for x in components[1:])
+class ConvertMode(StrEnum):
+    SNAKE_TO_CAMEL = "snake_to_camel"
+    CAMEL_TO_SNAKE = "camel_to_snake"
 
+    def convert(self, text: str) -> str:
+        """Convert `text` according to the mode."""
+        match self:
+            case self.SNAKE_TO_CAMEL:
+                components = text.split("_")
+                return components[0] + "".join(x.title() for x in components[1:])
+            case self.CAMEL_TO_SNAKE:
+                return "".join(
+                    f"_{char.lower()}" if char.isupper() else char for char in text
+                ).lstrip("_")
 
-def convert_camel_to_snake_case(camel_case: str) -> str:
-    """Convert a camelCase string to snake_case."""
-    return "".join(
-        f"_{char.lower()}" if char.isupper() else char for char in camel_case
-    ).lstrip("_")
-
-
-VALID_MODES = {
-    "s2c": convert_snake_to_camel_case,
-    "c2s": convert_camel_to_snake_case,
-}
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -54,11 +52,8 @@ def main(
         Path, typer.Argument(help="Path where the transformed JSON will be saved.")
     ],
     mode: Annotated[
-        str,
-        typer.Option(
-            help="How to transform the keys.",
-            click_type=click.Choice(sorted(VALID_MODES)),
-        ),
+        ConvertMode,
+        typer.Option(help="How to transform the keys."),
     ],
 ) -> None:
     """Convert a JSON file with snake_case keys to camelCase.
@@ -68,13 +63,9 @@ def main(
         output_path: Path where the transformed JSON will be saved.
         mode: Key transformation mode. See `VALID_MODES`.
     """
-    if mode not in VALID_MODES:
-        die(f"Invalid transformation mode: '{mode}'. Must be one of {VALID_MODES}.")
-    transform = VALID_MODES[mode]
-
     try:
         data: JSONArray = json.loads(input_path.read_text())
-        transformed_data = transform_array(data, transform)
+        transformed_data = transform_array(data, mode.convert)
         output_path.write_text(json.dumps(transformed_data, indent=2))
 
         print(f"Successfully converted '{input_path}' to '{output_path}'.")
