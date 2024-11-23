@@ -14,7 +14,6 @@ from pathlib import Path
 from statistics import mean, stdev
 from typing import Annotated, Any, Self
 
-import click
 import dotenv
 import typer
 from openai import AsyncClient, AsyncOpenAI
@@ -35,6 +34,7 @@ from paper.gpt.run_gpt import (
 )
 from paper.util import (
     Timer,
+    cli,
     display_params,
     mustenv,
     progress,
@@ -107,7 +107,7 @@ def run(
             "--model",
             "-m",
             help="The model to use for the annotation.",
-            click_type=click.Choice(MODELS_ALLOWED),
+            click_type=cli.choice(MODELS_ALLOWED),
         ),
     ] = "gpt-4o-mini",
     seed: Annotated[int, typer.Option(help="Seed to set in the OpenAI call.")] = 0,
@@ -115,14 +115,14 @@ def run(
         str,
         typer.Option(
             help="User prompt to use for term annotation.",
-            click_type=click.Choice(sorted(_TERM_USER_PROMPTS)),
+            click_type=cli.choice(_TERM_USER_PROMPTS),
         ),
     ] = "multi",
     prompt_abstract: Annotated[
         str,
         typer.Option(
             help="User prompt to use for abstract classification.",
-            click_type=click.Choice(sorted(_ABS_USER_PROMPTS)),
+            click_type=cli.choice(_ABS_USER_PROMPTS),
         ),
     ] = "simple",
     abstract_demonstrations: Annotated[
@@ -137,7 +137,7 @@ def run(
         typer.Option(
             "--abstract-demo-prompt",
             help="Prompt used to create abstract classification demonstrations",
-            click_type=click.Choice(sorted(_ABS_DEMO_PROMPTS)),
+            click_type=cli.choice(_ABS_DEMO_PROMPTS),
         ),
     ] = "simple",
     continue_papers: Annotated[

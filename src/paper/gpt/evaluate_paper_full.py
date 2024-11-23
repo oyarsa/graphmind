@@ -35,7 +35,6 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
 
-import click
 import dotenv
 import typer
 from openai import AsyncOpenAI
@@ -59,7 +58,14 @@ from paper.gpt.run_gpt import (
     get_remaining_items,
     run_gpt,
 )
-from paper.util import Timer, display_params, ensure_envvar, progress, setup_logging
+from paper.util import (
+    Timer,
+    cli,
+    display_params,
+    ensure_envvar,
+    progress,
+    setup_logging,
+)
 
 logger = logging.getLogger(__name__)
 FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
@@ -97,7 +103,7 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for classification.",
-            click_type=click.Choice(sorted(FULL_CLASSIFY_USER_PROMPTS)),
+            click_type=cli.choice(FULL_CLASSIFY_USER_PROMPTS),
         ),
     ] = "simple",
     continue_papers: Annotated[
@@ -116,7 +122,7 @@ def run(
         str,
         typer.Option(
             help="User prompt to use for building the few-shot demonstrations.",
-            click_type=click.Choice(sorted(EVALUATE_DEMONSTRATION_PROMPTS)),
+            click_type=cli.choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "simple",
 ) -> None:

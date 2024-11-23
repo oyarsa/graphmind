@@ -15,7 +15,6 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Annotated, override
 
-import click
 import dotenv
 import typer
 from openai import AsyncOpenAI
@@ -47,6 +46,7 @@ from paper.gpt.run_gpt import (
 )
 from paper.util import (
     Timer,
+    cli,
     display_params,
     ensure_envvar,
     progress,
@@ -418,14 +418,14 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for the graph extraction.",
-            click_type=click.Choice(sorted(_GRAPH_USER_PROMPTS)),
+            click_type=cli.choice(_GRAPH_USER_PROMPTS),
         ),
     ] = "simple",
     classify_user_prompt: Annotated[
         str,
         typer.Option(
             help="The user prompt to use for paper classification.",
-            click_type=click.Choice(sorted(CLASSIFY_USER_PROMPTS)),
+            click_type=cli.choice(CLASSIFY_USER_PROMPTS),
         ),
     ] = "simple",
     display: Annotated[bool, typer.Option(help="Display the extracted graph")] = False,

@@ -17,7 +17,6 @@ import logging
 from pathlib import Path
 from typing import Annotated
 
-import click
 import pandas as pd  # type: ignore
 import tiktoken
 import typer
@@ -34,7 +33,7 @@ from paper.gpt.evaluate_paper_full import FULL_CLASSIFY_USER_PROMPTS as FULLTEXT
 from paper.gpt.evaluate_paper_full import format_template as format_fulltext
 from paper.gpt.model import Paper
 from paper.gpt.run_gpt import MODEL_SYNONYMS, MODELS_ALLOWED
-from paper.util import display_params, setup_logging
+from paper.util import cli, display_params, setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +57,7 @@ def fulltext(
         typer.Option(
             "--user",
             help="Input data prompt.",
-            click_type=click.Choice(sorted(FULLTEXT_PROMPTS)),
+            click_type=cli.choice(FULLTEXT_PROMPTS),
         ),
     ],
     demo_prompt_key: Annotated[
@@ -66,7 +65,7 @@ def fulltext(
         typer.Option(
             "--demo",
             help="Demonstration prompt.",
-            click_type=click.Choice(sorted(DEMO_PROMPTS)),
+            click_type=cli.choice(DEMO_PROMPTS),
         ),
     ],
     demonstrations_file: Annotated[

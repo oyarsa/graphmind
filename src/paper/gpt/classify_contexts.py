@@ -17,7 +17,6 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
-import click
 import dotenv
 import typer
 from openai import AsyncOpenAI
@@ -43,6 +42,7 @@ from paper.gpt.run_gpt import (
 )
 from paper.util import (
     Timer,
+    cli,
     display_params,
     ensure_envvar,
     progress,
@@ -424,7 +424,7 @@ def run(
             "--model",
             "-m",
             help="The model to use for the extraction.",
-            click_type=click.Choice(MODELS_ALLOWED),
+            click_type=cli.choice(MODELS_ALLOWED),
         ),
     ] = "gpt-4o-mini",
     limit_papers: Annotated[
@@ -435,7 +435,7 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for context classification.",
-            click_type=click.Choice(sorted(_CONTEXT_USER_PROMPTS)),
+            click_type=cli.choice(_CONTEXT_USER_PROMPTS),
         ),
     ] = "sentence",
     limit_references: Annotated[
