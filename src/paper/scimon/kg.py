@@ -140,6 +140,7 @@ class Graph:
             embeddings=emb.MatrixData.from_matrix(self._embeddings),
             edge_list=self._edge_list,
             nodes=self._nodes,
+            encoder_model=self._encoder.model_name,
         )
 
 
@@ -167,9 +168,21 @@ class GraphData(BaseModel):
     embeddings: emb.MatrixData
     edge_list: Mapping[str, Sequence[str]]
     nodes: Sequence[str]
+    encoder_model: str
 
     def to_graph(self, encoder: emb.Encoder) -> Graph:
-        """Initialise Graph from data object."""
+        """Initialise Graph from data object.
+
+        Raises:
+            ValueError: `encoder` model is different from the one that generated the
+            graph.
+        """
+        if encoder.model_name != self.encoder_model:
+            raise ValueError(
+                f"Incompatible encoder. Expected '{self.encoder_model}', got"
+                f" '{encoder.model_name}'"
+            )
+
         return Graph(
             nodes=self.nodes,
             embeddings=self.embeddings.to_matrix(),

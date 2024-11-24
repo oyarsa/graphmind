@@ -21,6 +21,7 @@ class Encoder:
         _hard_suppress_warning("multiprocessing.resource_tracker", "UserWarning")
         from sentence_transformers import SentenceTransformer
 
+        self.model_name = model_name
         self._model = SentenceTransformer(model_name)
 
         # Used for parallel processing.
