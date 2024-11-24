@@ -1,4 +1,4 @@
-"""Diff between two prompt texts."""
+"""Diff between two prompt texts (`gpt.prompts.PromptTemplate`)."""
 
 from __future__ import annotations
 

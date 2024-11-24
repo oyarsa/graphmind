@@ -1,4 +1,4 @@
-"""Remove cycles from a graph through by removing the Minimum Weight Feedback Arc Set.
+"""Remove cycles from a graph by removing the Minimum Weight Feedback Arc Set.
 
 Given a directed graph of weighted edges that might contain cycles, find the subset
 of edges that when removed, undo all the cycles in a way that the sum of weights of

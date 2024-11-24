@@ -1,5 +1,5 @@
-# pyright: strict
 """Search JSON files for objects with matching keys."""
+# pyright: strict
 
 import json
 from collections.abc import Sequence
