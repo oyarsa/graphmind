@@ -108,7 +108,7 @@ class Graph(BaseModel):
         return cls(edge_list=id_to_cited, nodes=sorted(id_to_cited))
 
     def query(self, paper_id: int, k: int) -> Sequence[Citation]:
-        """Get top K reference papers by title similarity from an ASAP paper `id`."""
+        """Get top `k` reference papers by title similarity from an ASAP paper `id`."""
         return self.edge_list[paper_id][:k]
 
 

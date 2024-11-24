@@ -16,6 +16,12 @@
 - source: ./external_data/semantic_scholar/construct_dataset.py
   target: ./scimon/citations.py
 
+- source: ./external_data/semantic_scholar/construct_dataset.py
+  target: ./scimon/build.py
+
+- source: ./gpt/annotate_paper.py
+  target: ./scimon/build.py
+
 - source: allenai/CSAbstruct
   target: ./gpt/annotate_paper.py
 
