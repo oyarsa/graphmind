@@ -42,8 +42,8 @@ def main(
 
     deps = [
         Dependency(
-            source=_file_to_pkg(entry["source"]),
-            target=_file_to_pkg(entry["target"]),
+            source=_file_to_module(entry["source"]),
+            target=_file_to_module(entry["target"]),
             detail=entry.get("detail"),
         )
         for entry in data
@@ -159,7 +159,7 @@ def display_graph(
     )
 
     # Determine node colors
-    node_colors = []
+    node_colors: list[str] = []
     for node in graph.nodes():
         if graph.in_degree(node) == 0:  # Root node
             node_colors.append("red")
@@ -183,30 +183,24 @@ def display_graph(
         graph,
         pos,
         labels=labels,
-        font_size=12,
+        font_size=8,
         font_weight="bold",
         font_family="sans-serif",
         bbox={"facecolor": "white", "edgecolor": "lightgray", "alpha": 0.8, "pad": 3.0},
     )
 
-    plt.title("Dependency Graph", pad=20, size=16)
-    plt.margins(x=0.2, y=0.2)
+    plt.title("Data Dependency Graph", pad=20, size=16)
     plt.axis("off")
     plt.tight_layout()
 
     if save_file:
-        plt.savefig(
-            save_file,
-            bbox_inches="tight",
-            metadata={"Creator": "", "Producer": ""},
-            facecolor="white",
-            edgecolor="none",
-        )
+        plt.savefig(save_file)
     if show:
         plt.show()
 
 
-def _file_to_pkg(file: str) -> str:
+def _file_to_module(file: str) -> str:
+    """Convert path to script to its module name."""
     return file.removeprefix("./").removesuffix(".py").replace("/", ".")
 
 
