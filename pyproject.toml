@@ -100,7 +100,12 @@ ignore = [
     "SIM108",   # Use ternary operation instead of if-else block
     "ISC001",   # Incompatible with the formatter
     "D202",     # Empty lines between function docstring and body
-    "D1",       # Undocumented items
+    "D101",     # Undocumented items
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
     "PTH123",   # `open` instead of `Path.open`
     "G004",     # f-strings in logging
     "B905",     # `zip` without `strict`
