@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from rich.console import Console
 from rich.table import Table
 
-from paper import scimon
+import paper.scimon.model as scimon
 from paper.gpt.model import Prompt, PromptResult, S2Paper
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
