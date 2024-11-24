@@ -109,6 +109,7 @@ ignore = [
     "PERF401",  # Manual list comprehensions
     "ANN401",   # Any
     "PLC0206",  # Dictionary iteration without items
+    "N999",     # False positive on `paper-hypergraph` (the module is named `paper`)
 ]
 
 [tool.ruff.lint.pydocstyle]

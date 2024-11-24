@@ -26,7 +26,11 @@ below.
 - **ASAP-Review**: dataset with full content and ratings for ICLR 2017-2022 papers. See
   [asap README](/src/paper/asap/README.md) for more information.
 - **CSAbstruct**: abstract classification dataset we use for demonstrations in
-  [gpt.annotate_paper](/src/paper/gpt/demonstrations.py).
+  [gpt.annotate_paper](/src/paper/gpt/demonstrations.py). See
+  [their repository](https://github.com/allenai/sequential_sentence_classification/tree/cf5ad6c663550dd8203f148cd703768d9ee86ff4)
+
+See [our data dependency graph](./assets/data-dependency-graph.png) for an overview
+on how our data pipeline works.
 
 Use the `uv run preprocess` command to access both S2ORC and ASAP dataset preprocessing:
 

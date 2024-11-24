@@ -1,0 +1,58 @@
+- source: ./asap/filter.py
+  target: ./gpt/extract_graph.py
+
+- source: ./external_data/semantic_scholar/info.py
+  target: ./gpt/classify_contexts.py
+
+- source: ./asap/filter.py
+  target: ./gpt/evaluate_paper_full.py
+
+- source: ./gpt/annotate_paper.py
+  target: ./scimon/semantic.py
+
+- source: ./gpt/annotate_paper.py
+  target: ./scimon/kg.py
+
+- source: ./external_data/semantic_scholar/construct_dataset.py
+  target: ./scimon/citations.py
+
+- source: allenai/CSAbstruct
+  target: ./gpt/annotate_paper.py
+
+- source: ./external_data/semantic_scholar/areas.py
+  target: ./gpt/annotate_paper.py
+
+- source: ./external_data/semantic_scholar/recommended.py
+  target: ./gpt/annotate_paper.py
+
+- source: ./external_data/semantic_scholar/primary_areas.toml
+  target: ./external_data/semantic_scholar/areas.py
+
+- source: ./external_data/semantic_scholar/info.py
+  target: ./external_data/semantic_scholar/recommended.py
+  detail: main
+
+- source: ICLR2024/CallForPapers
+  target: ./external_data/semantic_scholar/primary_areas.toml
+
+- source: ./asap/filter.py
+  target: ./external_data/semantic_scholar/construct_dataset.py
+
+- source: ./external_data/semantic_scholar/recommended.py
+  target: ./external_data/semantic_scholar/construct_dataset.py
+
+- source: ./external_data/semantic_scholar/info.py
+  target: ./external_data/semantic_scholar/construct_dataset.py
+  detail: references
+
+- source: ./asap/filter.py
+  target: ./external_data/semantic_scholar/info.py
+
+- source: ./asap/extract.py
+  target: ./asap/filter.py
+
+- source: ./asap/merge.py
+  target: ./asap/extract.py
+
+- source: neulab/ReviewAdvisor
+  target: ./asap/merge.py
