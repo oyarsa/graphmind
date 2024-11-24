@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Annotated, Self
+from typing import Annotated
 
 import typer
 from tqdm import tqdm
@@ -53,14 +53,14 @@ def main(
 
     asap_papers = load_data(input_file, s2.ASAPWithFullS2)
 
-    with TitleEncoder(model_name) as encoder:
-        asap_topk_refs = _keep_top_k_titles(asap_papers, encoder, k)
+    with emb.Encoder(model_name) as encoder:
+        asap_topk_refs = keep_to_k(asap_papers, encoder, k)
 
     save_data(output_file, asap_topk_refs)
 
 
-def _keep_top_k_titles(
-    asap_papers: Iterable[s2.ASAPWithFullS2], encoder: TitleEncoder, k: int
+def keep_to_k(
+    asap_papers: Iterable[s2.ASAPWithFullS2], encoder: emb.Encoder, k: int
 ) -> list[s2.ASAPWithFullS2]:
     """For each ASAP paper, keep top K references by title embedding similarity.
 
@@ -72,10 +72,10 @@ def _keep_top_k_titles(
     output: list[s2.ASAPWithFullS2] = []
 
     for asap_paper in tqdm(asap_papers, desc="Processing ASAP papers"):
-        asap_embedding = encoder.encode(asap_paper.title)
+        asap_embedding = encode_title(encoder, asap_paper.title)
 
-        s2_embeddings = encoder.encode_multi(
-            s2.title_query for s2 in asap_paper.references
+        s2_embeddings = encode_titles(
+            encoder, (s2.title_query for s2 in asap_paper.references)
         )
         s2_similarities = emb.similarities(asap_embedding, s2_embeddings)
 
@@ -92,34 +92,20 @@ def _keep_top_k_titles(
     return output
 
 
-class TitleEncoder:
-    def __init__(self, model_name: str) -> None:
-        self._encoder = emb.Encoder(model_name)
-        self._encoder.__enter__()
+def encode_title(encoder: emb.Encoder, title_raw: str) -> emb.Vector:
+    """Clean and encode title as a vector.
 
-    def encode(self, title_raw: str) -> emb.Vector:
-        """Clean and encode title as a vector.
+    Title is cleaned-up with `s2.clean_title` first.
+    """
+    return encoder.encode(s2.clean_title(title_raw))
 
-        Title is cleaned-up with `s2.clean_title` first.
-        """
-        return self._encoder.encode(s2.clean_title(title_raw))
 
-    def encode_multi(self, titles_raw: Iterable[str]) -> emb.Matrix:
-        """Clean and parallel encode multiple titles as vectors.
+def encode_titles(encoder: emb.Encoder, titles_raw: Iterable[str]) -> emb.Matrix:
+    """Clean and parallel encode multiple titles as vectors.
 
-        Titles are cleaned-up with `s2.clean_title` first.
-        """
-        return self._encoder.encode_multi(
-            [s2.clean_title(title_raw) for title_raw in titles_raw]
-        )
-
-    def __enter__(self) -> Self:
-        """Start encoder's context."""
-        return self
-
-    def __exit__(self, *args: object) -> None:
-        """Close encoder's context."""
-        return self._encoder.__exit__(*args)
+    Titles are cleaned-up with `s2.clean_title` first.
+    """
+    return encoder.encode_multi([s2.clean_title(title_raw) for title_raw in titles_raw])
 
 
 if __name__ == "__main__":
