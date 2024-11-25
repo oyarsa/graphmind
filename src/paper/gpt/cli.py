@@ -7,6 +7,8 @@
 """
 
 import logging
+from collections.abc import Iterable
+from types import ModuleType
 
 import typer
 
@@ -20,19 +22,31 @@ from paper.gpt import (
 
 logger = logging.getLogger(__name__)
 
-app = typer.Typer(
-    name="gpt",
-    context_settings={"help_option_names": ["-h", "--help"]},
-    rich_markup_mode="rich",
-    pretty_exceptions_show_locals=False,
-    no_args_is_help=True,
-    help=__doc__,
-)
 
-subcommands = [
+def new_app(
+    app_name: str, subcommands: Iterable[tuple[str, str, ModuleType]]
+) -> typer.Typer:
+    app = typer.Typer(
+        name=app_name,
+        context_settings={"help_option_names": ["-h", "--help"]},
+        rich_markup_mode="rich",
+        pretty_exceptions_show_locals=False,
+        no_args_is_help=True,
+        help=__doc__,
+    )
+    for name, help, module in subcommands:
+        app.add_typer(
+            module.app,
+            name=name,
+            short_help=help,
+            help=module.__doc__.splitlines()[0] if module.__doc__ else None,
+        )
+    return app
+
+
+main_subcommands = [
     ("graph", "Extract graph from papers.", extract_graph),
     ("context", "Classify paper citations using full text.", classify_contexts),
-    ("eval_full", "Evaluate paper using full text.", evaluate_paper_full),
     (
         "terms",
         "Annotate S2 papers with key terms and split abstract.",
@@ -40,10 +54,14 @@ subcommands = [
     ),
     ("tokens", "Estimate input tokens for tasks and prompts.", tokens),
 ]
-for name, help, module in subcommands:
-    app.add_typer(
-        module.app,
-        name=name,
-        short_help=help,
-        help=module.__doc__.splitlines()[0] if module.__doc__ else None,
-    )
+app = new_app("gpt", main_subcommands)
+
+evals_subcommands = [
+    ("full", "Evaluate paper using full text.", evaluate_paper_full),
+]
+
+app.add_typer(
+    new_app("eval", evals_subcommands),
+    name="eval",
+    help="Evaluate a paper",
+)
