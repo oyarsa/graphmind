@@ -38,6 +38,7 @@ from paper.util import (
     cli,
     display_params,
     ensure_envvar,
+    hashstr,
     progress,
     safediv,
     setup_logging,
@@ -92,8 +93,8 @@ class PaperOutput(Record):
     references: Sequence[Reference] = Field(description="References made in the paper")
 
     @property
-    def id(self) -> int:
-        return hash(self.title + self.abstract)
+    def id(self) -> str:
+        return hashstr(self.title + self.abstract)
 
 
 _CONTEXT_SYSTEM_PROMPT = (

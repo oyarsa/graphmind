@@ -8,7 +8,7 @@ from typing import Annotated, Any, Self
 from pydantic import BaseModel, ConfigDict, Field
 
 from paper import asap
-from paper.util import fuzzy_partial_ratio
+from paper.util import fuzzy_partial_ratio, hashstr
 from paper.util.serde import Record
 
 
@@ -150,5 +150,5 @@ class ASAPWithFullS2(Record):
     )
 
     @property
-    def id(self) -> int:
-        return hash(self.title + self.abstract)
+    def id(self) -> str:
+        return hashstr(self.title + self.abstract)

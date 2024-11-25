@@ -1,7 +1,7 @@
 """Tools for serialisation and deserialisation of Pydantic objects."""
 
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter
@@ -17,7 +17,7 @@ class Record(BaseModel, ABC):
 
     @property
     @abstractmethod
-    def id(self) -> Hashable: ...
+    def id(self) -> str: ...
 
 
 def load_data[T: BaseModel](

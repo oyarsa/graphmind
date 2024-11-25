@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validat
 
 import paper.external_data.semantic_scholar as s2
 from paper import asap, hierarchical_graph
+from paper.util import hashstr
 from paper.util.serde import Record
 
 
@@ -46,8 +47,8 @@ class Graph(Record):
     relationships: Sequence[Relationship]
 
     @property
-    def id(self) -> int:
-        return hash(self.title + self.abstract)
+    def id(self) -> str:
+        return hashstr(self.title + self.abstract)
 
     @computed_field
     @property
@@ -309,8 +310,8 @@ class Paper(Record):
     approval: bool
 
     @property
-    def id(self) -> int:
-        return hash(self.title + self.abstract)
+    def id(self) -> str:
+        return hashstr(self.title + self.abstract)
 
     def is_approved(
         self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.DEFAULT
@@ -350,7 +351,7 @@ class PaperGraph(Record):
 
     @computed_field
     @property
-    def id(self) -> int:
+    def id(self) -> str:
         return self.paper.id
 
     @model_validator(mode="after")

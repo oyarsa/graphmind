@@ -7,6 +7,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from paper.util import hashstr
 from paper.util.serde import Record
 
 
@@ -104,8 +105,8 @@ class PaperWithFullReference(Record):
     )
 
     @property
-    def id(self) -> int:
-        return hash(self.title + self.abstract)
+    def id(self) -> str:
+        return hashstr(self.title + self.abstract)
 
 
 class TLDR(BaseModel):

@@ -302,3 +302,8 @@ def git_commit() -> str:
         ).stdout.strip()
     except subprocess.CalledProcessError:
         return "<no repo>"
+
+
+def hashstr(s: str) -> str:
+    """Hash string using sha256."""
+    return hashlib.sha256(s.encode()).hexdigest()

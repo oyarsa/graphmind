@@ -66,13 +66,13 @@ def main(
 class Graph(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    title_to_id: Mapping[str, int]
+    title_to_id: Mapping[str, str]
     """Mapping from paper `title` to its `id`.
 
     This is meant for testing; use the paper_id directly for querying, as there can be
     duplicates by `title`, but the `id` is always unique.
     """
-    edge_list: Mapping[int, Sequence[Citation]]
+    edge_list: Mapping[str, Sequence[Citation]]
     """Mapping of ASAP paper `id` to list of cited papers."""
 
     @classmethod
@@ -84,8 +84,8 @@ class Graph(BaseModel):
         Cleans up the titles with `s2.clean_title`, then compares the ASAP `title` with
         the S2 `title_query`.
         """
-        title_to_id: dict[str, int] = {}
-        id_to_cited: dict[int, list[Citation]] = {}
+        title_to_id: dict[str, str] = {}
+        id_to_cited: dict[str, list[Citation]] = {}
 
         logger.debug("Processing papers.")
         for asap_paper in asap_papers:
@@ -117,12 +117,12 @@ class Graph(BaseModel):
         """
         return self.query(self.title_to_id[title], k)
 
-    def query(self, paper_id: int, k: int) -> QueryResult:
+    def query(self, paper_id: str, k: int) -> QueryResult:
         """Get top `k` cited papers by title similarity from an ASAP paper `id`."""
         return QueryResult(citations=self.edge_list[paper_id][:k])
 
     @property
-    def nodes(self) -> Sequence[int]:
+    def nodes(self) -> Sequence[str]:
         """Nodes are paper ids."""
         return sorted(self.edge_list)
 
