@@ -12,13 +12,15 @@ This takes two inputs:
 
 from __future__ import annotations
 
+import json
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
 import typer
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 import paper.external_data.semantic_scholar.model as s2
 from paper.gpt.annotate_paper import PaperAnnotated
@@ -28,7 +30,7 @@ from paper.scimon import embedding as emb
 from paper.util import display_params, setup_logging
 from paper.util.serde import load_data
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("paper.scimon.build")
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -57,8 +59,6 @@ def main(
     setup_logging()
     logger.info(display_params())
 
-    logger.debug("Starting.")
-
     logger.debug("Loading data.")
 
     data = load_data(annotated_file, PromptResult[PaperAnnotated])
@@ -78,10 +78,11 @@ def main(
         semantic=semantic_graph.to_data(),
         citations=citation_graph,
     )
-    output_file.write_text(graph_data.model_dump_json(indent=2))
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(graph_data.model_dump_json(indent=2))
 
     logger.debug("Testing loading the graph from saved data.")
-    _test_load(output_file, model_name)
+    _test_load(output, model_name)
 
 
 class SciMONData(BaseModel):
@@ -112,17 +113,34 @@ def _test_load(path: Path, model: str) -> None:
 
     with emb.Encoder(model) as encoder:
         graph = data.to_graph(encoder)
-        logger.info("KG: %s", graph.kg.query("machine learning"))
-        logger.info(
-            "Semantic: %s",
-            graph.semantic.query(
-                "We present a family of subgradient methods",
-                "stochastic optimization",
-                "gradient-based learning",
-            ),
+
+        kg_result = graph.kg.query("machine learning")
+        logger.info("KG: %s", kg_result.model_dump_json(indent=2))
+
+        semantic_result = graph.semantic.query(
+            "We present a family of subgradient methods",
+            "stochastic optimization",
+            "gradient-based learning",
         )
-        cnode = graph.citations.nodes[0]
-        logger.info("Citations: %d -> %s", cnode, graph.citations.query(cnode, 3))
+        semantic_view = {
+            "match": semantic_result.match,
+            "paper_name": semantic_result.paper.paper.title,
+            "score": semantic_result.score,
+            "terms": semantic_result.paper.terms.model_dump(),
+            "background": semantic_result.paper.background,
+            "target": semantic_result.paper.target,
+        }
+        logger.info("Semantic: %s", json.dumps(semantic_view, indent=2))
+
+        ctitle, cnode = next(iter(graph.citations.title_to_id.items()))
+        citation_result = graph.citations.query(cnode, 3)
+        logger.info(
+            "Citations: %s -> %s",
+            ctitle,
+            TypeAdapter(Sequence[citations.Citation])
+            .dump_json(citation_result, indent=2)
+            .decode(),
+        )
 
 
 if __name__ == "__main__":
