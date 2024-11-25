@@ -61,8 +61,8 @@ def main(
 class Graph:
     _nodes: Sequence[str]
     """Nodes are base inputs constructed from backgrounds by prompts."""
-    _node_to_paper: Mapping[str, PaperAnnotated]
-    """Mapping of nodes to annotated papers."""
+    _node_to_targets: Mapping[str, Sequence[str]]
+    """Mapping of nodes to the paper target terms (relation tails)."""
     _encoder: emb.Encoder
     """Encoder used to convert text nodes to vectors."""
     _embeddings: emb.Matrix
@@ -73,12 +73,12 @@ class Graph:
         *,
         nodes: Sequence[str],
         embeddings: emb.Matrix,
-        node_to_paper: Mapping[str, PaperAnnotated],
+        node_to_targets: Mapping[str, Sequence[str]],
         encoder: emb.Encoder,
     ) -> None:
         self._nodes = nodes
         self._embeddings = embeddings
-        self._node_to_paper = node_to_paper
+        self._node_to_targets = node_to_targets
         self._encoder = encoder
 
     @classmethod
@@ -88,15 +88,15 @@ class Graph:
         """Build a semantic graph from annotated papers."""
         logger.debug("Building nodes and edge lists.")
 
-        node_to_paper = {
-            base_input: ann
+        node_to_targets = {
+            base_input: ann.target_terms()
             for ann in annotated
             for relation in ann.terms.relations
             for base_input in _make_base_inputs(
                 ann.background, relation.head, relation.tail
             )
         }
-        nodes = list(node_to_paper)
+        nodes = list(node_to_targets)
 
         logger.debug("Encoding nodes.")
         embeddings = encoder.encode_multi(nodes)
@@ -104,7 +104,7 @@ class Graph:
         logger.debug("Done.")
         return cls(
             nodes=nodes,
-            node_to_paper=node_to_paper,
+            node_to_targets=node_to_targets,
             encoder=encoder,
             embeddings=embeddings,
         )
@@ -130,13 +130,13 @@ class Graph:
 
         node = self._nodes[best]
         score = similarities[best]
-        return QueryResult(match=node, paper=self._node_to_paper[node], score=score)
+        return QueryResult(match=node, targets=self._node_to_targets[node], score=score)
 
     def to_data(self) -> GraphData:
         """Convert Graph to a data object."""
         return GraphData(
             embeddings=emb.MatrixData.from_matrix(self._embeddings),
-            node_to_paper=self._node_to_paper,
+            node_to_targets=self._node_to_targets,
             nodes=self._nodes,
             encoder_model=self._encoder.model_name,
         )
@@ -148,7 +148,7 @@ class QueryResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     match: str
-    paper: PaperAnnotated
+    targets: Sequence[str]
     score: float
 
 
@@ -156,7 +156,7 @@ class GraphData(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     embeddings: emb.MatrixData
-    node_to_paper: Mapping[str, PaperAnnotated]
+    node_to_targets: Mapping[str, Sequence[str]]
     nodes: Sequence[str]
     encoder_model: str
 
@@ -175,7 +175,7 @@ class GraphData(BaseModel):
         return Graph(
             nodes=self.nodes,
             embeddings=self.embeddings.to_matrix(),
-            node_to_paper=self.node_to_paper,
+            node_to_targets=self.node_to_targets,
             encoder=encoder,
         )
 

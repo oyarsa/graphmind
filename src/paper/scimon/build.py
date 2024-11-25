@@ -12,15 +12,13 @@ This takes two inputs:
 
 from __future__ import annotations
 
-import json
 import logging
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
 import typer
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict
 
 import paper.external_data.semantic_scholar.model as s2
 from paper.gpt.annotate_paper import PaperAnnotated
@@ -118,19 +116,11 @@ def _test_load(path: Path, model: str) -> None:
         logger.info("KG: %s", kg_result.model_dump_json(indent=2))
 
         semantic_result = graph.semantic.query(
-            "We present a family of subgradient methods",
-            "stochastic optimization",
-            "gradient-based learning",
+            background="We present a family of subgradient methods",
+            source="stochastic optimization",
+            target="gradient-based learning",
         )
-        semantic_view = {
-            "match": semantic_result.match,
-            "paper_name": semantic_result.paper.paper.title,
-            "score": semantic_result.score,
-            "terms": semantic_result.paper.terms.model_dump(),
-            "background": semantic_result.paper.background,
-            "target": semantic_result.paper.target,
-        }
-        logger.info("Semantic: %s", json.dumps(semantic_view, indent=2))
+        logger.info("Semantic: %s", semantic_result.model_dump_json(indent=2))
 
         ctitle, cnode = next(iter(graph.citations.title_to_id.items()))
         citation_result = graph.citations.query(cnode, 3)
