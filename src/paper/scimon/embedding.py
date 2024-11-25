@@ -19,6 +19,7 @@ class Encoder:
         # `sentence_transformers` has a bug where they don't clean up their semaphores
         # properly, so we suppress this.
         _hard_suppress_warning("multiprocessing.resource_tracker", "UserWarning")
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
         from sentence_transformers import SentenceTransformer
 
         self.model_name = model_name
@@ -32,7 +33,7 @@ class Encoder:
         return cast(Vector, self._model.encode(text))  # type: ignore
 
     def encode_multi(self, texts: Sequence[str]) -> Matrix:
-        """Clean and parallel encode multiple texts as vectors."""
+        """Encode multiple texts as vectors in parallel."""
         embeddings = self._model.encode_multi_process(texts, self._pool)  # type: ignore
         return cast(Matrix, embeddings)
 
