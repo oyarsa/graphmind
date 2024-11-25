@@ -13,18 +13,17 @@ This takes two inputs:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
 import typer
-from pydantic import BaseModel, ConfigDict
 
 import paper.external_data.semantic_scholar.model as s2
 from paper.gpt.annotate_paper import PaperAnnotated
 from paper.gpt.run_gpt import PromptResult
 from paper.scimon import citations, kg, semantic
 from paper.scimon import embedding as emb
+from paper.scimon.model import GraphData
 from paper.util import display_params, setup_logging
 from paper.util.serde import load_data
 
@@ -71,10 +70,11 @@ def main(
         semantic_graph = semantic.Graph.from_annotated(encoder, ann)
         citation_graph = citations.Graph.from_papers(encoder, asap_papers)
 
-    graph_data = SciMONData(
+    graph_data = GraphData(
         kg=kg_graph.to_data(),
         semantic=semantic_graph.to_data(),
         citations=citation_graph,
+        encoder_model=model_name,
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(graph_data.model_dump_json(indent=2))
@@ -83,31 +83,9 @@ def main(
     _test_load(output, model_name)
 
 
-class SciMONData(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    kg: kg.GraphData
-    semantic: semantic.GraphData
-    citations: citations.Graph
-
-    def to_graph(self, encoder: emb.Encoder) -> Graph:
-        return Graph(
-            kg=self.kg.to_graph(encoder),
-            semantic=self.semantic.to_graph(encoder),
-            citations=self.citations,
-        )
-
-
-@dataclass(frozen=True, kw_only=True)
-class Graph:
-    kg: kg.Graph
-    semantic: semantic.Graph
-    citations: citations.Graph
-
-
 def _test_load(path: Path, model: str) -> None:
     """Test if graph data stored in `path` loads into a valid graph. Tests all three."""
-    data = SciMONData.model_validate_json(path.read_text())
+    data = GraphData.model_validate_json(path.read_text())
 
     with emb.Encoder(model) as encoder:
         graph = data.to_graph(encoder)
