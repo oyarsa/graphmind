@@ -20,7 +20,6 @@ from typing import Annotated, Self
 import typer
 from openai import BaseModel
 from pydantic import ConfigDict
-from tqdm import tqdm
 
 import paper.external_data.semantic_scholar.model as s2
 from paper.scimon import embedding as emb
@@ -67,8 +66,8 @@ def main(
 class Graph(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    nodes: Sequence[int]
-    """Nodes are the ASAP paper `id`s."""
+    title_to_id: Mapping[str, int]
+    """Mapping from paper title to its `id`."""
     edge_list: Mapping[int, Sequence[Citation]]
     """Mapping of ASAP paper `id` to list of cited papers."""
 
@@ -81,9 +80,12 @@ class Graph(BaseModel):
         Cleans up the titles with `s2.clean_title`, then compares the ASAP `title` with
         the S2 `title_query`.
         """
+        title_to_id: dict[str, int] = {}
         id_to_cited: dict[int, list[Citation]] = {}
 
-        for asap_paper in tqdm(asap_papers, desc="Processing ASAP papers"):
+        logger.debug("Processing papers.")
+        for asap_paper in asap_papers:
+            title_to_id[asap_paper.title] = asap_paper.id
             asap_embedding = encoder.encode(s2.clean_title(asap_paper.title))
 
             s2_embeddings = encoder.encode_multi(
@@ -105,11 +107,18 @@ class Graph(BaseModel):
                 )
             ]
 
-        return cls(edge_list=id_to_cited, nodes=sorted(id_to_cited))
+        logger.debug("Done.")
+
+        return cls(edge_list=id_to_cited, title_to_id=title_to_id)
 
     def query(self, paper_id: int, k: int) -> Sequence[Citation]:
         """Get top `k` reference papers by title similarity from an ASAP paper `id`."""
         return self.edge_list[paper_id][:k]
+
+    @property
+    def nodes(self) -> Sequence[int]:
+        """Nodes are paper ids."""
+        return sorted(self.edge_list)
 
 
 class Citation(Record):
