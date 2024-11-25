@@ -67,7 +67,11 @@ class Graph(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     title_to_id: Mapping[str, int]
-    """Mapping from paper title to its `id`."""
+    """Mapping from paper `title` to its `id`.
+
+    This is meant for testing; use the paper_id directly for querying, as there can be
+    duplicates by `title`, but the `id` is always unique.
+    """
     edge_list: Mapping[int, Sequence[Citation]]
     """Mapping of ASAP paper `id` to list of cited papers."""
 
@@ -94,12 +98,7 @@ class Graph(BaseModel):
             s2_similarities = emb.similarities(asap_embedding, s2_embeddings)
 
             id_to_cited[asap_paper.id] = [
-                Citation(
-                    title_s2=paper.title,
-                    title_asap=paper.title_query,
-                    paper_id=paper.paper_id,
-                    score=score,
-                )
+                Citation(title=paper.title, paper_id=paper.paper_id, score=score)
                 for paper, score in sorted(
                     zip(asap_paper.references, s2_similarities),
                     key=lambda x: x[1],
@@ -110,6 +109,13 @@ class Graph(BaseModel):
         logger.debug("Done.")
 
         return cls(edge_list=id_to_cited, title_to_id=title_to_id)
+
+    def query_title(self, title: str, k: int) -> QueryResult:
+        """Get top `k` cited papers by title similarity from an ASAP paper `title`.
+
+        Note: prefer `query` for actual usage. See `title_to_id`.
+        """
+        return self.query(self.title_to_id[title], k)
 
     def query(self, paper_id: int, k: int) -> QueryResult:
         """Get top `k` cited papers by title similarity from an ASAP paper `id`."""
@@ -122,8 +128,7 @@ class Graph(BaseModel):
 
 
 class Citation(Record):
-    title_s2: str
-    title_asap: str
+    title: str
     paper_id: str
     score: float
 

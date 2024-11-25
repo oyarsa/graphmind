@@ -122,8 +122,8 @@ def _test_load(path: Path, model: str) -> None:
         )
         logger.info("Semantic: %s", semantic_result.model_dump_json(indent=2))
 
-        ctitle, cnode = next(iter(graph.citations.title_to_id.items()))
-        citation_result = graph.citations.query(cnode, 3)
+        ctitle = "BLOCK-DIAGONAL HESSIAN-FREE OPTIMIZATION"
+        citation_result = graph.citations.query_title(ctitle, 3)
         logger.info(
             "Citations: %s -> %s", ctitle, citation_result.model_dump_json(indent=2)
         )
