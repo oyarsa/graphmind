@@ -130,9 +130,7 @@ class Graph:
 
         node = self._nodes[best]
         score = similarities[best]
-        return QueryResult(
-            base_input=node, paper=self._node_to_paper[node], score=score
-        )
+        return QueryResult(match=node, paper=self._node_to_paper[node], score=score)
 
     def to_data(self) -> GraphData:
         """Convert Graph to a data object."""
@@ -149,7 +147,7 @@ class QueryResult(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    base_input: str
+    match: str
     paper: PaperAnnotated
     score: float
 
