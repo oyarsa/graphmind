@@ -7,6 +7,7 @@ import hashlib
 import inspect
 import logging
 import os
+import subprocess
 import sys
 import time
 from collections.abc import Callable, Coroutine
@@ -194,6 +195,7 @@ def display_params() -> str:
 
     return (
         "CONFIG:\n"
+        f"Git commit: {git_commit()}\n"
         + "\n".join(f"{key}: {value}" for key, value in result.items())
         + "\n"
     )
@@ -286,3 +288,17 @@ def arun_safe[**P, R](
         kwargs: Keyword arguments for `func`.
     """
     return run_safe(asyncio.run, async_func(*args, **kwargs))
+
+
+def git_commit() -> str:
+    """Return the current git commit hash, or '<no repo>' if not in a repository."""
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=Path.cwd(),
+        ).stdout.strip()
+    except subprocess.CalledProcessError:
+        return "<no repo>"
