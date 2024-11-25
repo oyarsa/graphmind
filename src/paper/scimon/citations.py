@@ -111,9 +111,9 @@ class Graph(BaseModel):
 
         return cls(edge_list=id_to_cited, title_to_id=title_to_id)
 
-    def query(self, paper_id: int, k: int) -> Sequence[Citation]:
-        """Get top `k` reference papers by title similarity from an ASAP paper `id`."""
-        return self.edge_list[paper_id][:k]
+    def query(self, paper_id: int, k: int) -> QueryResult:
+        """Get top `k` cited papers by title similarity from an ASAP paper `id`."""
+        return QueryResult(citations=self.edge_list[paper_id][:k])
 
     @property
     def nodes(self) -> Sequence[int]:
@@ -130,6 +130,12 @@ class Citation(Record):
     @property
     def id(self) -> str:
         return self.paper_id
+
+
+class QueryResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    citations: Sequence[Citation]
 
 
 if __name__ == "__main__":

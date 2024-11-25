@@ -125,11 +125,7 @@ def _test_load(path: Path, model: str) -> None:
         ctitle, cnode = next(iter(graph.citations.title_to_id.items()))
         citation_result = graph.citations.query(cnode, 3)
         logger.info(
-            "Citations: %s -> %s",
-            ctitle,
-            TypeAdapter(Sequence[citations.Citation])
-            .dump_json(citation_result, indent=2)
-            .decode(),
+            "Citations: %s -> %s", ctitle, citation_result.model_dump_json(indent=2)
         )
 
 
