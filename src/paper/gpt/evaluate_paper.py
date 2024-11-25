@@ -136,3 +136,17 @@ def format_demonstrations(
         )
 
     return f"\n{"-" * 50}\n".join(output_all)
+
+
+class GPTFull(BaseModel):
+    """Decision on if the paper should be published and the reason for the decision."""
+
+    model_config = ConfigDict(frozen=True)
+
+    rationale: str = Field(description="How you reached your approval decision.")
+    approved: bool = Field(description="If the paper was approved for publication.")
+
+
+CLASSIFY_TYPES = {
+    "full": GPTFull,
+}

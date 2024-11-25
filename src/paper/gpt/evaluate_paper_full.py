@@ -38,9 +38,10 @@ from typing import Annotated
 import dotenv
 import typer
 from openai import AsyncOpenAI
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import TypeAdapter
 
 from paper.gpt.evaluate_paper import (
+    CLASSIFY_TYPES,
     EVALUATE_DEMONSTRATION_PROMPTS,
     Demonstration,
     PaperResult,
@@ -163,9 +164,6 @@ async def evaluate_papers(
 
     The papers should come from the ASAP-Review dataset as processed by the
     paper.asap module.
-
-    The classification part is optional. It uses the generated graphs as input as saves
-    the results (metrics and predictions) to {output_dir}/classification.
 
     Args:
         model: GPT model code. Must support Structured Outputs.
@@ -313,20 +311,6 @@ async def _classify_papers(
     return GPTResult(results, total_cost)
 
 
-class GPTFull(BaseModel):
-    """Decision on if the paper should be published and the reason for the decision."""
-
-    model_config = ConfigDict(frozen=True)
-
-    rationale: str = Field(description="How you reached your approval decision.")
-    approved: bool = Field(description="If the paper was approved for publication.")
-
-
-_CLASSIFY_TYPES = {
-    "full": GPTFull,
-}
-
-
 _FULL_CLASSIFY_SYSTEM_PROMPT = (
     "Give an approval or rejection to a paper submitted to a high-quality scientific"
     " conference."
@@ -354,7 +338,7 @@ async def _classify_paper(
 ) -> GPTResult[PromptResult[PaperResult]]:
     user_prompt_text = format_template(user_prompt, paper, demonstrations)
     result = await run_gpt(
-        _CLASSIFY_TYPES[user_prompt.type_name],
+        CLASSIFY_TYPES[user_prompt.type_name],
         client,
         _FULL_CLASSIFY_SYSTEM_PROMPT,
         user_prompt_text,
