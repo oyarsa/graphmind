@@ -1,0 +1,19 @@
+[[prompts]]
+name = "simple"
+type = "full"
+prompt = """
+TODO.
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+Associated terms:
+{terms}
+
+#####
+Output:
+"""

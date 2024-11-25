@@ -23,7 +23,7 @@ from paper.gpt.annotate_paper import PaperAnnotated
 from paper.gpt.run_gpt import PromptResult
 from paper.scimon import citations, kg, semantic
 from paper.scimon import embedding as emb
-from paper.scimon.model import GraphData
+from paper.scimon.graph import Graph, GraphData
 from paper.util import display_params, setup_logging
 from paper.util.serde import load_data
 
@@ -70,12 +70,13 @@ def main(
         semantic_graph = semantic.Graph.from_annotated(encoder, ann)
         citation_graph = citations.Graph.from_papers(encoder, asap_papers)
 
-    graph_data = GraphData(
-        kg=kg_graph.to_data(),
-        semantic=semantic_graph.to_data(),
+    graph = Graph(
+        kg=kg_graph,
+        semantic=semantic_graph,
         citations=citation_graph,
         encoder_model=model_name,
     )
+    graph_data = GraphData.from_graph(graph)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(graph_data.model_dump_json(indent=2))
 

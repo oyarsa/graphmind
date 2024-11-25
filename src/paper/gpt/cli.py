@@ -16,6 +16,7 @@ from paper.gpt import (
     annotate_paper,
     classify_contexts,
     evaluate_paper_full,
+    evaluate_paper_scimon,
     extract_graph,
     tokens,
 )
@@ -58,6 +59,11 @@ app = new_app("gpt", main_subcommands)
 
 evals_subcommands = [
     ("full", "Evaluate paper using full text.", evaluate_paper_full),
+    (
+        "scimon",
+        "Evaluate paper using SciMON graphs-extracted terms.",
+        evaluate_paper_scimon,
+    ),
 ]
 
 app.add_typer(

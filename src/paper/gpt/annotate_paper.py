@@ -21,8 +21,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from rich.console import Console
 from rich.table import Table
 
-from paper import asap
 from paper.gpt.model import (
+    Paper,
     PaperAnnotated,
     PaperTerms,
     PaperToAnnotate,
@@ -95,7 +95,7 @@ class PaperType(StrEnum):
             case self.S2:
                 return S2Paper
             case self.ASAP:
-                return asap.Paper
+                return Paper
 
 
 @app.command(help=__doc__, no_args_is_help=True)
