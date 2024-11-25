@@ -41,10 +41,14 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def main(
-    annotated_file: Annotated[Path, typer.Argument(help="File with annotated papers.")],
-    asap_file: Annotated[Path, typer.Argument(help="File with ASAP and references")],
-    output_file: Annotated[
-        Path, typer.Argument(help="Output file with the constructed KG graph.")
+    annotated_file: Annotated[
+        Path, typer.Option("--ann", help="File with annotated papers.")
+    ],
+    asap_file: Annotated[
+        Path, typer.Option("--asap", help="File with ASAP and references.")
+    ],
+    output: Annotated[
+        Path, typer.Option(help="Output file with the constructed graphs.")
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
