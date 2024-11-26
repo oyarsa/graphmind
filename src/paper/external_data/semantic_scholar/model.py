@@ -152,3 +152,9 @@ class ASAPWithFullS2(Record):
     @property
     def id(self) -> str:
         return hashstr(self.title + self.abstract)
+
+
+class PaperArea(Paper):
+    model_config = ConfigDict(frozen=True)
+
+    areas: Sequence[str]

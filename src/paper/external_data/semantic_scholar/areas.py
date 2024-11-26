@@ -31,7 +31,7 @@ from rich.table import Table
 from tqdm import tqdm
 
 from paper.external_data.semantic_scholar.info import S2_SEARCH_BASE_URL
-from paper.external_data.semantic_scholar.model import Paper
+from paper.external_data.semantic_scholar.model import PaperArea, Paper
 from paper.util import arun_safe, display_params, ensure_envvar, progress, read_resource
 from paper.util.cli import die
 
@@ -173,7 +173,7 @@ async def download_paper_info(
     print("Unique papers:", len(papers))
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    output_file.write_bytes(TypeAdapter(list[PaperOutput]).dump_json(papers, indent=2))
+    output_file.write_bytes(TypeAdapter(list[PaperArea]).dump_json(papers, indent=2))
 
 
 async def _fetch_areas(
@@ -376,7 +376,7 @@ async def _fetch_with_retries(
         return await response.json()
 
 
-def _merge_areas(areas: Sequence[AreaResult]) -> list[PaperOutput]:
+def _merge_areas(areas: Sequence[AreaResult]) -> list[PaperArea]:
     """Merge papers across `areas` by `paper_id`, keeping track of their area sources.
 
     Ignores papers where the `abstract` is null or empty.
@@ -396,7 +396,7 @@ def _merge_areas(areas: Sequence[AreaResult]) -> list[PaperOutput]:
             paper_areas[paper.paper_id].add(area.area)
 
     return [
-        PaperOutput.model_construct(
+        PaperArea.model_construct(
             paper_id=paper.paper_id,
             corpus_id=paper.corpus_id,
             url=paper.url,
@@ -419,12 +419,6 @@ class AreaResult(BaseModel):
 
     area: str
     papers: Sequence[Paper]
-
-
-class PaperOutput(Paper):
-    model_config = ConfigDict(frozen=True)
-
-    areas: Sequence[str]
 
 
 if __name__ == "__main__":
