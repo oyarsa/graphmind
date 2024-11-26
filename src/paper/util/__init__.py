@@ -304,6 +304,24 @@ def git_commit() -> str:
         return "<no repo>"
 
 
+def git_root() -> Path:
+    """Return the absolute path to the root of the current git repository.
+
+    Raises:
+        subprocess.SubprocessError: If the current directory is not part of a git
+            repository.
+    """
+    try:
+        git_root = subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"], text=True
+        ).strip()
+        return Path(git_root).absolute()
+    except subprocess.CalledProcessError as e:
+        raise subprocess.SubprocessError(
+            "Current directory is not part of a git repository"
+        ) from e
+
+
 def hashstr(s: str) -> str:
     """Hash string using sha256."""
     return hashlib.sha256(s.encode()).hexdigest()
