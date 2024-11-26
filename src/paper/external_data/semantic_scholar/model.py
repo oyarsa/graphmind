@@ -7,7 +7,7 @@ from typing import Annotated, Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
-import paper.asap.model as asap
+from paper import asap
 from paper.util import fuzzy_partial_ratio
 from paper.util.serde import Record
 

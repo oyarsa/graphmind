@@ -26,8 +26,8 @@ from typing import Annotated
 
 import typer
 
-import paper.asap.model as asap
-import paper.external_data.semantic_scholar.model as s2
+from paper import asap
+from paper.external_data import semantic_scholar as s2
 from paper.util.serde import load_data, save_data
 
 app = typer.Typer(

@@ -22,7 +22,7 @@ import typer
 from openai import BaseModel
 from pydantic import ConfigDict
 
-from paper.gpt.model import PaperAnnotated, PaperTerms
+from paper.gpt import PaperAnnotated, PaperTerms
 from paper.gpt.run_gpt import PromptResult
 from paper.scimon import embedding as emb
 from paper.util import setup_logging

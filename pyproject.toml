@@ -115,6 +115,7 @@ ignore = [
     "ANN401",   # Any
     "PLC0206",  # Dictionary iteration without items
     "N999",     # False positive on `paper-hypergraph` (the module is named `paper`)
+    "PLC0414",  # Allow redundant alias to re-export items
 ]
 
 [tool.ruff.lint.pydocstyle]

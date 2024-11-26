@@ -18,7 +18,7 @@ from typing import Annotated
 
 import typer
 
-import paper.external_data.semantic_scholar.model as s2
+import paper.external_data.semantic_scholar as s2
 from paper.gpt.annotate_paper import PaperAnnotated
 from paper.gpt.run_gpt import PromptResult
 from paper.scimon import citations, kg, semantic

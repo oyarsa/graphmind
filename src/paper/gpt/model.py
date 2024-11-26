@@ -10,9 +10,8 @@ from typing import Annotated, Self
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
-from paper import hierarchical_graph
-from paper.asap.model import PaperReview
-from paper.external_data.semantic_scholar.model import Author, Tldr
+import paper.external_data.semantic_scholar as s2
+from paper import asap, hierarchical_graph
 from paper.util.serde import Record
 
 
@@ -305,7 +304,7 @@ class Paper(Record):
 
     title: str
     abstract: str
-    reviews: Sequence[PaperReview]
+    reviews: Sequence[asap.PaperReview]
     sections: Sequence[PaperSection]
     approval: bool
 
@@ -389,9 +388,9 @@ class S2Paper(Record):
     # impact on the citing publication.
     influential_citation_count: Annotated[int, Field(alias="influentialCitationCount")]
     # The tldr paper summary.
-    tldr: Tldr | None = None
+    tldr: s2.Tldr | None = None
     # Paper authors.
-    authors: Sequence[Author]
+    authors: Sequence[s2.Author]
 
     @property
     def id(self) -> str:

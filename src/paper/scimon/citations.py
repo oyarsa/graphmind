@@ -21,7 +21,7 @@ import typer
 from openai import BaseModel
 from pydantic import ConfigDict
 
-import paper.external_data.semantic_scholar.model as s2
+import paper.external_data.semantic_scholar as s2
 from paper.scimon import embedding as emb
 from paper.util import display_params
 from paper.util.serde import Record, load_data

@@ -22,14 +22,7 @@ import typer
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
-from paper import evaluation_metrics
-from paper.asap.model import (
-    ContextPolarityBinary,
-    PaperReview,
-    PaperSection,
-    PaperWithFullReference,
-)
-from paper.asap.model import PaperWithFullReference as PaperInput
+from paper import asap, evaluation_metrics
 from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
@@ -60,11 +53,11 @@ class ContextClassified(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     text: str = Field(description="Full text of the context mention")
-    gold: ContextPolarityBinary | None = Field(
+    gold: asap.ContextPolarityBinary | None = Field(
         description="Whether the citation context is annotated as positive or negative."
         " Can be absent for unannotated data."
     )
-    prediction: ContextPolarityBinary = Field(
+    prediction: asap.ContextPolarityBinary = Field(
         description="Whether the citation context is predicted positive or negative"
     )
 
@@ -89,8 +82,10 @@ class PaperOutput(Record):
 
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
-    reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
-    sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
+    reviews: Sequence[asap.PaperReview] = Field(description="Feedback from a reviewer")
+    sections: Sequence[asap.PaperSection] = Field(
+        description="Sections in the paper text"
+    )
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"
     )
@@ -118,7 +113,7 @@ class GPTContext(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     text: str = Field(description="Full text of the context mention")
-    polarity: ContextPolarityBinary = Field(
+    polarity: asap.ContextPolarityBinary = Field(
         description="Whether the citation context is positive or negative"
     )
 
@@ -132,7 +127,7 @@ async def _classify_paper(
     client: AsyncOpenAI,
     limit_references: int | None,
     model: str,
-    paper: PaperWithFullReference,
+    paper: asap.PaperWithFullReference,
     user_prompt: PromptTemplate,
     *,
     seed: int,
@@ -180,7 +175,7 @@ async def _classify_paper(
                 classified_contexts.append(
                     ContextClassified(
                         text=context.sentence,
-                        gold=ContextPolarityBinary.from_trinary(context.polarity)
+                        gold=asap.ContextPolarityBinary.from_trinary(context.polarity)
                         if context.polarity is not None
                         else None,
                         prediction=gpt_context.polarity,
@@ -226,7 +221,7 @@ async def _classify_contexts(
     client: AsyncOpenAI,
     model: str,
     user_prompt: PromptTemplate,
-    papers: Sequence[PaperInput],
+    papers: Sequence[asap.PaperWithFullReference],
     limit_references: int | None,
     output_intermediate_path: Path,
     *,
@@ -291,7 +286,9 @@ async def classify_contexts(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    data = TypeAdapter(list[PaperInput]).validate_json(data_path.read_bytes())
+    data = TypeAdapter(list[asap.PaperWithFullReference]).validate_json(
+        data_path.read_bytes()
+    )
 
     papers = data[:limit_papers]
     user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
@@ -364,8 +361,10 @@ def show_classified_stats(
             for context in reference.contexts:
                 all_contexts.append(context)
                 if context.gold is not None:
-                    y_true.append(context.gold is ContextPolarityBinary.POSITIVE)
-                    y_pred.append(context.prediction is ContextPolarityBinary.POSITIVE)
+                    y_true.append(context.gold is asap.ContextPolarityBinary.POSITIVE)
+                    y_pred.append(
+                        context.prediction is asap.ContextPolarityBinary.POSITIVE
+                    )
 
     output = [
         f"Total contexts: {len(all_contexts)}",
@@ -386,7 +385,8 @@ def show_classified_stats(
 
     # No entries with gold annotation
     positive = sum(
-        context.prediction is ContextPolarityBinary.POSITIVE for context in all_contexts
+        context.prediction is asap.ContextPolarityBinary.POSITIVE
+        for context in all_contexts
     )
     negative = len(all_contexts) - positive
     output += [
