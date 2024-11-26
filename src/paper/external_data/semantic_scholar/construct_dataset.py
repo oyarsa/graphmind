@@ -6,6 +6,8 @@ The inputs are the ASAP dataset and results from the S2 API:
   `external_data.semantic_scholar.recommended`.
 - semantic_scholar_final.json: S2 information on papers referenced by the ASAP ones.
   Output of `external_data.semantic_scholar.info`.
+- asap_areas.json: Result of searches where queries are ICLR subject areas. Output of
+  `external_data.semantic_scholar.areas`. Optional.
 
 This will build two files:
 - asap_with_s2_references.json: ASAP papers enriched the (whole) full data of the
@@ -59,6 +61,10 @@ def main(
             "--recommended", help="File with recommended papers (s2.PaperRecommended)."
         ),
     ],
+    areas_file: Annotated[
+        Path | None,
+        typer.Option("--areas", help="File with area search results (s2.PaperArea)."),
+    ],
     output_dir: Annotated[
         Path,
         typer.Option(
@@ -85,13 +91,14 @@ def main(
     asap_papers = load_data(asap_file, asap.Paper)
     reference_papers = load_data(references_file, asap.S2Paper)
     recommended_papers = load_data(recommended_file, s2.PaperRecommended)
+    area_papers = load_data(areas_file, s2.PaperArea) if areas_file else []
 
     asap_augmented = _augment_asap(asap_papers, reference_papers, min_references)[
         :num_asap
     ]
     s2_references = _unique_asap_refs(asap_augmented)
     recommended_filtered = _filter_recommended(asap_papers, recommended_papers)
-    related_papers = s2_references + recommended_filtered
+    related_papers = s2_references + recommended_filtered + area_papers
 
     output_dir.mkdir(parents=True, exist_ok=True)
     save_data(output_dir / "asap_with_s2_references.json", asap_augmented)
