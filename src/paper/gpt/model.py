@@ -449,11 +449,14 @@ class PaperTerms(BaseModel):
         return sum(bool(term_list) for term_list in term_lists) >= 2
 
 
+type PaperToAnnotate = S2Paper | asap.Paper
+
+
 class PaperAnnotated(Record):
     """S2 Paper with its annotated key terms. Includes GPT prompts used."""
 
     terms: PaperTerms
-    paper: S2Paper
+    paper: PaperToAnnotate
     background: str
     target: str
 

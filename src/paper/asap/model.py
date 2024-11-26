@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Sequence
+from typing import override
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -63,9 +64,7 @@ class PaperReview(BaseModel):
     rationale: str = Field(description="Explanation given for the rating")
 
 
-class Paper(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
+class Paper(Record):
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
     reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
@@ -76,6 +75,11 @@ class Paper(BaseModel):
     references: Sequence[PaperReference] = Field(
         description="References made in the paper"
     )
+
+    @property
+    @override
+    def id(self) -> str:
+        return hashstr(self.title + self.abstract)
 
 
 # Models after enrichment of references with data from the S2 API
@@ -105,6 +109,7 @@ class PaperWithFullReference(Record):
     )
 
     @property
+    @override
     def id(self) -> str:
         return hashstr(self.title + self.abstract)
 

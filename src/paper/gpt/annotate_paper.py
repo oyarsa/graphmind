@@ -21,7 +21,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from rich.console import Console
 from rich.table import Table
 
-from paper.gpt.model import PaperAnnotated, PaperTerms, Prompt, PromptResult, S2Paper
+from paper import asap
+from paper.gpt.model import (
+    PaperAnnotated,
+    PaperTerms,
+    PaperToAnnotate,
+    Prompt,
+    PromptResult,
+    S2Paper,
+)
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -78,6 +86,18 @@ class DetailOptions(StrEnum):
     DETAIL = "detail"
 
 
+class PaperType(StrEnum):
+    S2 = "s2"
+    ASAP = "asap"
+
+    def get_type(self) -> type[PaperToAnnotate]:
+        match self:
+            case self.S2:
+                return S2Paper
+            case self.ASAP:
+                return asap.Paper
+
+
 @app.command(help=__doc__, no_args_is_help=True)
 def run(
     input_file: Annotated[
@@ -91,6 +111,9 @@ def run(
         typer.Argument(
             help="The path to the output directory where files will be saved."
         ),
+    ],
+    paper_type: Annotated[
+        PaperType, typer.Option(help="Type of paper for the input data")
     ],
     limit: Annotated[
         int,
@@ -166,6 +189,7 @@ def run(
             continue_papers,
             clean_run,
             log,
+            paper_type,
         )
     )
 
@@ -183,6 +207,7 @@ async def annotate_papers(
     continue_papers_file: Path | None,
     clean_run: bool,
     show_log: DetailOptions,
+    paper_type: PaperType,
 ) -> None:
     """Extract problem and method terms from each paper.
 
@@ -213,6 +238,7 @@ async def annotate_papers(
             summary table of each term type. If DETAIL, shows detailed information on
             the extracted entities. Note: the types of terms vary by output type,
             dependent on the prompt.
+        paper_type: Type of the paper input data.
     """
     logger.info(display_params())
 
@@ -230,7 +256,7 @@ async def annotate_papers(
     user_prompt_terms = _TERM_USER_PROMPTS[user_prompt_term_key]
     user_prompt_abstract = _ABS_USER_PROMPTS[user_prompt_abstract_key]
 
-    papers = load_data(input_file, S2Paper)[:limit_papers]
+    papers = load_data(input_file, paper_type.get_type())
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
@@ -316,7 +342,7 @@ class GPTAbstractClassify(BaseModel):
 async def _annotate_papers(
     client: AsyncClient,
     model: str,
-    papers: Sequence[S2Paper],
+    papers: Sequence[PaperToAnnotate],
     user_prompt_term: PromptTemplate,
     user_prompt_abstract: PromptTemplate,
     abstract_demonstrations: str,
@@ -357,7 +383,7 @@ async def _annotate_paper_single(
     client: AsyncClient,
     model: str,
     seed: int,
-    paper: S2Paper,
+    paper: PaperToAnnotate,
     user_prompt_term: PromptTemplate,
     user_prompt_abstract: PromptTemplate,
     abstract_demonstrations: str,
