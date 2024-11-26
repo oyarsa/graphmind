@@ -85,20 +85,18 @@ def find_root_nodes(deps: Sequence[Dependency]) -> set[str]:
 def display_graph(
     deps: Sequence[Dependency], *, show: bool, save_file: Path | None
 ) -> None:
-    """Create and display a directed graph.
-
-    Uses custom vertical layout and fixed root positions.
-    """
     graph: nx.DiGraph[str] = nx.DiGraph()
+    edge_labels: dict[tuple[str, str], str] = {}
 
     for dep in deps:
         graph.add_edge(dep.source, dep.target)
+        if dep.detail:
+            edge_labels[(dep.source, dep.target)] = dep.detail
 
-    # Calculate levels for each node based on longest path from root
+    # Calculate levels using longest path from roots
     roots = [n for n, d in graph.in_degree() if d == 0]
     levels: dict[str, int] = {}
     for node in graph.nodes():
-        # Find the longest path length to any root
         max_dist = 0
         for root in roots:
             try:
@@ -109,71 +107,70 @@ def display_graph(
                 continue
         levels[node] = max_dist
 
-    # Create position dictionary
-    pos: dict[str, tuple[int, int]] = {}
-    level_counts: dict[str, int] = {}  # Count nodes at each level
-    level_current: dict[str, int] = {}  # Current count at each level
+    # Position nodes with more spacing
+    pos: dict[str, tuple[float, float]] = {}
+    level_nodes: dict[int, list[str]] = {}
 
-    # Count nodes per level
-    for level in levels.values():
-        level_counts[level] = level_counts.get(level, 0) + 1
-        level_current[level] = 0
+    # Group nodes by level
+    for node, level in levels.items():
+        if level not in level_nodes:
+            level_nodes[level] = []
+        level_nodes[level].append(node)
 
-    # Custom positioning for root nodes
-    root_positions = {
-        "neulab.ReviewAdvisor": -0.5,  # Position on the left
-        "ICLR2024.CallForPapers": 0.5,  # Position on the right
-    }
+    # Position nodes level by level
+    max_width = max(len(nodes) for nodes in level_nodes.values())
+    for level, nodes in level_nodes.items():
+        nodes.sort()  # Sort nodes alphabetically for consistent layout
+        for i, node in enumerate(nodes):
+            # Center nodes at each level
+            x = (i - (len(nodes) - 1) / 2) * 1.5  # Increased horizontal spacing
+            y = -level * 2.5  # Increased vertical spacing
+            pos[node] = (x, y)
 
-    # Position nodes
-    sorted_nodes = sorted(levels.items(), key=lambda x: (x[1], x[0]))
-    for node, level in sorted_nodes:
-        count = level_counts[level]
-        current = level_current[level]
-
-        if level == 1 and node in root_positions:
-            # Use predetermined position for root nodes
-            x = root_positions[node]
-        # Calculate x position to center nodes at each level
-        elif count > 1:
-            x = current - (count - 1) / 2
-        else:
-            x = 0
-
-        pos[node] = (x, -level)  # Negative level for top-to-bottom layout
-        level_current[level] += 1
-
-    # Draw the graph
-    plt.figure(figsize=(20, 9))
+    # Setup larger figure
+    plt.figure(figsize=(24, 13))
     plt.clf()
 
-    # Draw edges
+    # Draw edges with less curvature and thicker arrows
     nx.draw_networkx_edges(
         graph,
         pos,
         edge_color="gray",
-        alpha=0.6,
+        alpha=0.7,
         arrows=True,
-        arrowsize=15,
-        connectionstyle="arc3,rad=0.1",
+        arrowsize=20,
+        width=1.5,
+        connectionstyle="arc3,rad=0.05",  # Reduced curve
+        min_target_margin=25,  # Space for arrows
     )
 
-    # Determine node colors
-    node_colors: list[str] = []
-    for node in graph.nodes():
-        if graph.in_degree(node) == 0:  # Root node
-            node_colors.append("red")
-        elif graph.out_degree(node) == 0:  # Leaf node
-            node_colors.append("green")
-        else:  # Internal node
-            node_colors.append("lightblue")
+    # Add edge labels if present
+    if edge_labels:
+        nx.draw_networkx_edge_labels(
+            graph,
+            pos,
+            edge_labels=edge_labels,
+            font_size=8,
+            bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.8, "pad": 2},
+            label_pos=0.6,
+        )
 
-    # Draw nodes
+    # Node colors
+    node_colors = [
+        "red"
+        if graph.in_degree(node) == 0
+        else "green"
+        if graph.out_degree(node) == 0
+        else "lightblue"
+        for node in graph.nodes()
+    ]
+
+    # Draw larger nodes
     nx.draw_networkx_nodes(
-        graph, pos, node_color=node_colors, node_size=2500, alpha=0.7, linewidths=1.5
+        graph, pos, node_color=node_colors, node_size=3000, alpha=0.8, linewidths=2
     )
 
-    # Improve label clarity
+    # Clearer labels with more padding
     labels = {
         node: "\n".join(node.split(".")[-2:]) if "." in node else node
         for node in graph.nodes()
@@ -183,18 +180,18 @@ def display_graph(
         graph,
         pos,
         labels=labels,
-        font_size=8,
+        font_size=10,
         font_weight="bold",
         font_family="sans-serif",
-        bbox={"facecolor": "white", "edgecolor": "lightgray", "alpha": 0.8, "pad": 3.0},
+        bbox={"facecolor": "white", "edgecolor": "lightgray", "alpha": 0.9, "pad": 6.0},
     )
 
-    plt.title("Data Dependency Graph", pad=20, size=16)
+    plt.title("Data Dependency Graph", pad=20, size=18)
     plt.axis("off")
-    plt.tight_layout()
+    plt.tight_layout(pad=2.0)
 
     if save_file:
-        plt.savefig(save_file)
+        plt.savefig(save_file, dpi=300, bbox_inches="tight")
     if show:
         plt.show()
 

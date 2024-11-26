@@ -12,9 +12,11 @@
 
 - source: ./gpt/annotate_paper.py
   target: ./scimon/build.py
+  detail: related
 
 - source: ./gpt/annotate_paper.py
   target: ./gpt/evaluate_paper_scimon.py
+  detail: main
 
 - source: ./scimon/build.py
   target: ./gpt/evaluate_paper_scimon.py
@@ -26,6 +28,9 @@
   target: ./gpt/annotate_paper.py
 
 - source: ./external_data/semantic_scholar/recommended.py
+  target: ./gpt/annotate_paper.py
+
+- source: ./asap/filter.py
   target: ./gpt/annotate_paper.py
 
 - source: ./external_data/semantic_scholar/primary_areas.toml
