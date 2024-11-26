@@ -28,7 +28,7 @@ from paper.gpt.evaluate_paper import (
     display_metrics,
     format_demonstrations,
 )
-from paper.gpt.model import Paper, PaperTerms, Prompt, PromptResult
+from paper.gpt.model import ASAPAnnotated, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -46,7 +46,7 @@ from paper.util import (
     progress,
     setup_logging,
 )
-from paper.util.serde import Record, load_data
+from paper.util.serde import load_data
 
 logger = logging.getLogger(__name__)
 
@@ -359,19 +359,6 @@ def format_template(
         demonstrations=demonstrations,
         terms="\n".join(f"- {term}" for term in graph.query_all(ann)),
     )
-
-
-class ASAPAnnotated(Record):
-    """ASAP Paper with its annotated key terms. Includes GPT prompts used."""
-
-    terms: PaperTerms
-    paper: Paper
-    background: str
-    target: str
-
-    @property
-    def id(self) -> str:
-        return self.paper.id
 
 
 @app.command(help="List available prompts.")

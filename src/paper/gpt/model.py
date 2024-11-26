@@ -474,3 +474,16 @@ class PaperAnnotated(Record):
     def target_terms(self) -> list[str]:
         """Get target terms from the paper, i.e. unique tail nodes from the relations."""
         return sorted({r.tail for r in self.terms.relations})
+
+
+class ASAPAnnotated(Record):
+    """ASAP Paper with its annotated key terms. Includes GPT prompts used."""
+
+    terms: PaperTerms
+    paper: Paper
+    background: str
+    target: str
+
+    @property
+    def id(self) -> str:
+        return self.paper.id

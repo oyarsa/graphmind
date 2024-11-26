@@ -20,7 +20,6 @@ from typing import Annotated
 import pandas as pd  # type: ignore
 import tiktoken
 import typer
-from pydantic import TypeAdapter
 
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS as DEMO_PROMPTS,
@@ -31,9 +30,15 @@ from paper.gpt.evaluate_paper import (
 )
 from paper.gpt.evaluate_paper_full import FULL_CLASSIFY_USER_PROMPTS as FULLTEXT_PROMPTS
 from paper.gpt.evaluate_paper_full import format_template as format_fulltext
-from paper.gpt.model import Paper
+from paper.gpt.evaluate_paper_scimon import (
+    SCIMON_CLASSIFY_USER_PROMPTS as SCIMON_PROMPTS,
+)
+from paper.gpt.evaluate_paper_scimon import format_template as format_scimon
+from paper.gpt.model import ASAPAnnotated, Paper
 from paper.gpt.run_gpt import MODEL_SYNONYMS, MODELS_ALLOWED
+from paper.scimon.graph import graph_from_json
 from paper.util import cli, display_params, setup_logging
+from paper.util.serde import load_data
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +49,11 @@ app = typer.Typer(
     rich_markup_mode="rich",
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,
+    help=__doc__,
 )
 
 
-@app.command(help=__doc__, no_args_is_help=True)
+@app.command(help="Estimate tokens for full-text evaluation", no_args_is_help=True)
 def fulltext(
     input_file: Annotated[
         Path, typer.Argument(help="Input dataset JSON file (asap_filtered.json)")
@@ -88,19 +94,83 @@ def fulltext(
     if model not in MODELS_ALLOWED:
         raise SystemExit(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
-    input_data = TypeAdapter(list[Paper]).validate_json(input_file.read_bytes())[:limit]
+    input_data = load_data(input_file, Paper)[:limit]
     input_prompt = FULLTEXT_PROMPTS[user_prompt_key]
 
     demonstration_data = (
-        TypeAdapter(list[Demonstration]).validate_json(demonstrations_file.read_bytes())
-        if demonstrations_file is not None
-        else []
+        load_data(demonstrations_file, Demonstration) if demonstrations_file else []
     )
     demonstration_prompt = DEMO_PROMPTS[demo_prompt_key]
     demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
 
     prompts = [
         format_fulltext(input_prompt, paper, demonstrations) for paper in input_data
+    ]
+
+    tokeniser = tiktoken.encoding_for_model(model)
+    tokens = [len(tokeniser.encode(prompt)) for prompt in prompts]
+    logger.info(
+        "Token stats:\n%s\n",
+        pd.Series(tokens).describe().astype(int).to_string(),  # type: ignore
+    )
+
+
+@app.command(help="Estimate tokens for SciMON-based evaluation", no_args_is_help=True)
+def scimon(
+    input_file: Annotated[
+        Path, typer.Argument(help="Input dataset JSON file (annotated ASAP)")
+    ],
+    graph_file: Annotated[Path, typer.Argument(help="Path to SciMON graph")],
+    user_prompt_key: Annotated[
+        str,
+        typer.Option(
+            "--user",
+            help="Input data prompt.",
+            click_type=cli.choice(SCIMON_PROMPTS),
+        ),
+    ],
+    demo_prompt_key: Annotated[
+        str,
+        typer.Option(
+            "--demo",
+            help="Demonstration prompt.",
+            click_type=cli.choice(DEMO_PROMPTS),
+        ),
+    ],
+    demonstrations_file: Annotated[
+        Path | None, typer.Option(help="Path to demonstrations file")
+    ] = None,
+    model: Annotated[
+        str, typer.Option("--model", "-m", help="Which model's tokeniser to use.")
+    ] = "gpt-4o-mini",
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit", "-n", help="Limit on the number of entities to process."
+        ),
+    ] = None,
+) -> None:
+    """Estimate tokens for full text-based paper evaluation."""
+    logger.info(display_params())
+
+    model = MODEL_SYNONYMS.get(model, model)
+    if model not in MODELS_ALLOWED:
+        raise SystemExit(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
+
+    input_data = load_data(input_file, ASAPAnnotated)[:limit]
+    input_prompt = SCIMON_PROMPTS[user_prompt_key]
+
+    demonstration_data = (
+        load_data(demonstrations_file, Demonstration) if demonstrations_file else []
+    )
+    demonstration_prompt = DEMO_PROMPTS[demo_prompt_key]
+    demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
+
+    graph = graph_from_json(graph_file)
+
+    prompts = [
+        format_scimon(input_prompt, paper, graph, demonstrations)
+        for paper in input_data
     ]
 
     tokeniser = tiktoken.encoding_for_model(model)
