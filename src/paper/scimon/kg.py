@@ -22,7 +22,7 @@ import typer
 from openai import BaseModel
 from pydantic import ConfigDict
 
-from paper.gpt.annotate_paper import GPTTerms, PaperAnnotated
+from paper.gpt.model import PaperAnnotated, PaperTerms
 from paper.gpt.run_gpt import PromptResult
 from paper.scimon import embedding as emb
 from paper.util import setup_logging
@@ -94,7 +94,7 @@ class Graph:
         self._encoder = encoder
 
     @classmethod
-    def from_terms(cls, encoder: emb.Encoder, terms: Sequence[GPTTerms]) -> Self:
+    def from_terms(cls, encoder: emb.Encoder, terms: Sequence[PaperTerms]) -> Self:
         """Build a graph from a collection of GPTTerms."""
         logger.debug("Building node and edge lists.")
 

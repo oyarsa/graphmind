@@ -1,5 +1,7 @@
 """Common types used to represent entities in the GPT-based extraction tools."""
 
+from __future__ import annotations
+
 import itertools
 from collections import Counter, defaultdict
 from collections.abc import Sequence
@@ -394,3 +396,78 @@ class S2Paper(Record):
     @property
     def id(self) -> str:
         return self.paper_id
+
+
+class PaperTermRelation(BaseModel):
+    """Represents a directed 'used for' relation between two scientific terms.
+
+    Relations are always (head, used-for, tail).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    head: Annotated[str, Field(description="Head term of the relation.")]
+    tail: Annotated[str, Field(description="Tail term of the relation.")]
+
+
+class PaperTerms(BaseModel):
+    """Structured output for scientific term extraction."""
+
+    model_config = ConfigDict(frozen=True)
+
+    tasks: Annotated[
+        Sequence[str],
+        Field(description="Core problems, objectives or applications addressed."),
+    ]
+    methods: Annotated[
+        Sequence[str],
+        Field(
+            description="Technical approaches, algorithms, or frameworks used/proposed."
+        ),
+    ]
+    metrics: Annotated[
+        Sequence[str], Field(description="Evaluation metrics and measures mentioned.")
+    ]
+    resources: Annotated[
+        Sequence[str], Field(description="Datasets, resources, or tools utilised.")
+    ]
+    relations: Annotated[
+        Sequence[PaperTermRelation],
+        Field(description="Directed relations between terms."),
+    ]
+
+    @classmethod
+    def empty(cls) -> Self:
+        return cls(tasks=(), methods=(), metrics=(), resources=(), relations=())
+
+    def is_valid(self) -> bool:
+        """Check if relations and at least two term lists are non-empty."""
+        if not self.relations:
+            return False
+
+        term_lists = [self.tasks, self.methods, self.metrics, self.resources]
+        return sum(bool(term_list) for term_list in term_lists) >= 2
+
+
+class PaperAnnotated(Record):
+    """S2 Paper with its annotated key terms. Includes GPT prompts used."""
+
+    terms: PaperTerms
+    paper: S2Paper
+    background: str
+    target: str
+
+    @property
+    def id(self) -> str:
+        return self.paper.id
+
+    def is_valid(self) -> bool:
+        """Check that `terms` are valid, and `background` and `target` are non-empty.
+
+        For `terms`, see GPTTerms.is_valid.
+        """
+        return self.terms.is_valid() and bool(self.background) and bool(self.target)
+
+    def target_terms(self) -> list[str]:
+        """Get target terms from the paper, i.e. unique tail nodes from the relations."""
+        return sorted({r.tail for r in self.terms.relations})

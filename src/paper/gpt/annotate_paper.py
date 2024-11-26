@@ -21,8 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from rich.console import Console
 from rich.table import Table
 
-import paper.scimon.model as scimon
-from paper.gpt.model import Prompt, PromptResult, S2Paper
+from paper.gpt.model import PaperAnnotated, PaperTerms, Prompt, PromptResult, S2Paper
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -40,7 +39,7 @@ from paper.util import (
     progress,
     setup_logging,
 )
-from paper.util.serde import Record, load_data, save_data
+from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -314,103 +313,6 @@ class GPTAbstractClassify(BaseModel):
         return cls(background="", target="")
 
 
-class GPTTermRelation(BaseModel):
-    """Represents a directed relation between two scientific terms.
-
-    Relations are head --type-> tail.
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    head: Annotated[str, Field(description="Head term of the relation.")]
-    tail: Annotated[str, Field(description="Tail term of the relation.")]
-
-
-class GPTTerms(BaseModel):
-    """Structured output for scientific term extraction."""
-
-    model_config = ConfigDict(frozen=True)
-
-    tasks: Annotated[
-        Sequence[str],
-        Field(description="Core problems, objectives or applications addressed."),
-    ]
-    methods: Annotated[
-        Sequence[str],
-        Field(
-            description="Technical approaches, algorithms, or frameworks used/proposed."
-        ),
-    ]
-    metrics: Annotated[
-        Sequence[str], Field(description="Evaluation metrics and measures mentioned.")
-    ]
-    resources: Annotated[
-        Sequence[str], Field(description="Datasets, resources, or tools utilised.")
-    ]
-    relations: Annotated[
-        Sequence[GPTTermRelation],
-        Field(description="Directed relations between terms."),
-    ]
-
-    def to_scimon(self) -> scimon.Terms:
-        return scimon.Terms(
-            tasks=self.tasks,
-            methods=self.methods,
-            metrics=self.metrics,
-            resources=self.resources,
-            relations=[
-                scimon.Relation(head=relation.head, tail=relation.tail)
-                for relation in self.relations
-            ],
-        )
-
-    @classmethod
-    def empty(cls) -> Self:
-        return cls(tasks=(), methods=(), metrics=(), resources=(), relations=())
-
-    def is_valid(self) -> bool:
-        """Check if relations and at least two term lists are non-empty."""
-        if not self.relations:
-            return False
-
-        term_lists = [self.tasks, self.methods, self.metrics, self.resources]
-        return sum(bool(term_list) for term_list in term_lists) >= 2
-
-
-class PaperAnnotated(Record):
-    """S2 Paper with its annotated key terms. Includes GPT prompts used."""
-
-    terms: GPTTerms
-    paper: S2Paper
-    background: str
-    target: str
-
-    @property
-    def id(self) -> str:
-        return self.paper.id
-
-    def to_scimon(self) -> scimon.Paper:
-        abstract = self.paper.abstract or "<no abstract>"
-        return scimon.Paper(
-            id=self.id,
-            terms=self.terms.to_scimon(),
-            abstract=abstract,
-            background=self.background,
-            target=self.target,
-        )
-
-    def is_valid(self) -> bool:
-        """Check that `terms` are valid, and `background` and `target` are non-empty.
-
-        For `terms`, see GPTTerms.is_valid.
-        """
-        return self.terms.is_valid() and bool(self.background) and bool(self.target)
-
-    def target_terms(self) -> list[str]:
-        """Get target terms from the paper, i.e. unique tail nodes from the relations."""
-        return sorted({r.tail for r in self.terms.relations})
-
-
 async def _annotate_papers(
     client: AsyncClient,
     model: str,
@@ -421,9 +323,9 @@ async def _annotate_papers(
     output_intermediate_path: Path,
     *,
     seed: int,
-) -> GPTResult[list[PromptResult[PaperAnnotated[GPTTerms]]]]:
+) -> GPTResult[list[PromptResult[PaperAnnotated[PaperTerms]]]]:
     """Annotate papers to add key terms. Runs multiple tasks concurrently."""
-    ann_outputs: list[PromptResult[PaperAnnotated[GPTTerms]]] = []
+    ann_outputs: list[PromptResult[PaperAnnotated[PaperTerms]]] = []
     total_cost = 0
 
     tasks = [
@@ -459,20 +361,20 @@ async def _annotate_paper_single(
     user_prompt_term: PromptTemplate,
     user_prompt_abstract: PromptTemplate,
     abstract_demonstrations: str,
-) -> GPTResult[PromptResult[PaperAnnotated[GPTTerms]]]:
+) -> GPTResult[PromptResult[PaperAnnotated[PaperTerms]]]:
     """Annotate a single paper with its key terms."""
     term_prompt_text = user_prompt_term.template.format(
         title=paper.title, abstract=paper.abstract
     )
     result_term = await run_gpt(
-        GPTTerms,
+        PaperTerms,
         client,
         _TERM_SYSTEM_PROMPT,
         term_prompt_text,
         model,
         seed=seed,
     )
-    terms = result_term.result if result_term.result else GPTTerms.empty()
+    terms = result_term.result if result_term.result else PaperTerms.empty()
 
     abstract_prompt_text = user_prompt_abstract.template.format(
         demonstrations=abstract_demonstrations, abstract=paper.abstract
@@ -506,7 +408,7 @@ async def _annotate_paper_single(
 
 
 def _log_table_stats(
-    results: Sequence[PromptResult[PaperAnnotated[GPTTerms]]],
+    results: Sequence[PromptResult[PaperAnnotated[PaperTerms]]],
     detail: DetailOptions,
 ) -> None:
     if not results:
