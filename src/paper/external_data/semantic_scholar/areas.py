@@ -31,7 +31,7 @@ from rich.table import Table
 from tqdm import tqdm
 
 from paper.external_data.semantic_scholar.info import S2_SEARCH_BASE_URL
-from paper.external_data.semantic_scholar.model import PaperArea, Paper
+from paper.external_data.semantic_scholar.model import Paper, PaperArea
 from paper.util import arun_safe, display_params, ensure_envvar, progress, read_resource
 from paper.util.cli import die
 

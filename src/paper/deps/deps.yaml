@@ -3,6 +3,7 @@
 
 - source: ./external_data/semantic_scholar/info.py
   target: ./gpt/classify_contexts.py
+  detail: references
 
 - source: ./asap/filter.py
   target: ./gpt/evaluate_paper_full.py
@@ -25,12 +26,9 @@
   target: ./gpt/annotate_paper.py
 
 - source: ./external_data/semantic_scholar/areas.py
-  target: ./gpt/annotate_paper.py
+  target: ./external_data/semantic_scholar/construct_dataset.py
 
-- source: ./external_data/semantic_scholar/recommended.py
-  target: ./gpt/annotate_paper.py
-
-- source: ./asap/filter.py
+- source: ./external_data/semantic_scholar/construct_dataset.py
   target: ./gpt/annotate_paper.py
 
 - source: ./external_data/semantic_scholar/primary_areas.toml

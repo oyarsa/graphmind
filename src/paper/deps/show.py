@@ -1,15 +1,11 @@
-"""Build dependency graph from dependency file.
+"""Build dependency graph from dependency file using Mermaid."""
 
-Display the graph and/or save to a file.
-"""
-
+import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, no_type_check
+from typing import Annotated
 
-import matplotlib.pyplot as plt
-import networkx as nx
 import typer
 import yaml
 
@@ -24,21 +20,18 @@ app = typer.Typer(
 )
 
 
-_DEPS_FILE = read_resource("deps", "deps.yaml")
+_DEPENDENCIES_DATA = read_resource("deps", "deps.yaml")
 
 
 @app.command(help=__doc__)
 def main(
+    output_file: Annotated[Path, typer.Argument(help="File to save the graph.")],
     input_file: Annotated[
         Path | None,
         typer.Argument(help="Dependecy YAML file. Defaults to `paper.deps.deps.yaml`."),
     ] = None,
-    show: Annotated[bool, typer.Option(help="Show dependency graph.")] = False,
-    save: Annotated[
-        Path | None, typer.Option(help="File to save the dependency graph")
-    ] = None,
 ) -> None:
-    data = yaml.safe_load(input_file.read_text() if input_file else _DEPS_FILE)
+    data = yaml.safe_load(input_file.read_text() if input_file else _DEPENDENCIES_DATA)
 
     deps = [
         Dependency(
@@ -52,14 +45,16 @@ def main(
     for i, item in enumerate(deps, start=1):
         print(f"{i}. {item}")
 
-    root_nodes = find_root_nodes(deps)
-    if root_nodes:
-        print("\nRoot nodes (no parents):")
-        for node in sorted(root_nodes):
-            print(f"- {node}")
+    root_nodes, leaf_nodes = _find_roots_and_leaves(deps)
+    print("\nRoot nodes (no parents):")
+    for node in sorted(root_nodes):
+        print(f"- {node}")
 
-    if show or save:
-        display_graph(deps, show=show, save_file=save)
+    print("\nLeaf nodes (no childer):")
+    for node in sorted(leaf_nodes):
+        print(f"- {node}")
+
+    _save_mermaid(_generate_mermaid(deps), output_file)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -74,131 +69,80 @@ class Dependency:
     """Extra information, such as the subcommand used."""
 
 
-def find_root_nodes(deps: Sequence[Dependency]) -> set[str]:
-    """Find nodes that don't have any parent nodes (root nodes)."""
-    all_nodes = {dep.source for dep in deps} | {dep.target for dep in deps}
-    has_parent = {dep.target for dep in deps}
-    return all_nodes - has_parent
-
-
-@no_type_check
-def display_graph(
-    deps: Sequence[Dependency], *, show: bool, save_file: Path | None
-) -> None:
-    graph: nx.DiGraph[str] = nx.DiGraph()
-    edge_labels: dict[tuple[str, str], str] = {}
-
-    for dep in deps:
-        graph.add_edge(dep.source, dep.target)
-        if dep.detail:
-            edge_labels[(dep.source, dep.target)] = dep.detail
-
-    # Calculate levels using longest path from roots
-    roots = [n for n, d in graph.in_degree() if d == 0]
-    levels: dict[str, int] = {}
-    for node in graph.nodes():
-        max_dist = 0
-        for root in roots:
-            try:
-                paths = list(nx.all_simple_paths(graph, root, node))
-                if paths:
-                    max_dist = max(max_dist, len(max(paths, key=len)))
-            except nx.NetworkXNoPath:
-                continue
-        levels[node] = max_dist
-
-    # Position nodes with more spacing
-    pos: dict[str, tuple[float, float]] = {}
-    level_nodes: dict[int, list[str]] = {}
-
-    # Group nodes by level
-    for node, level in levels.items():
-        if level not in level_nodes:
-            level_nodes[level] = []
-        level_nodes[level].append(node)
-
-    # Position nodes level by level
-    max_width = max(len(nodes) for nodes in level_nodes.values())
-    for level, nodes in level_nodes.items():
-        nodes.sort()  # Sort nodes alphabetically for consistent layout
-        for i, node in enumerate(nodes):
-            # Center nodes at each level
-            x = (i - (len(nodes) - 1) / 2) * 1.5  # Increased horizontal spacing
-            y = -level * 2.5  # Increased vertical spacing
-            pos[node] = (x, y)
-
-    # Setup larger figure
-    plt.figure(figsize=(24, 13))
-    plt.clf()
-
-    # Draw edges with less curvature and thicker arrows
-    nx.draw_networkx_edges(
-        graph,
-        pos,
-        edge_color="gray",
-        alpha=0.7,
-        arrows=True,
-        arrowsize=20,
-        width=1.5,
-        connectionstyle="arc3,rad=0.05",  # Reduced curve
-        min_target_margin=25,  # Space for arrows
-    )
-
-    # Add edge labels if present
-    if edge_labels:
-        nx.draw_networkx_edge_labels(
-            graph,
-            pos,
-            edge_labels=edge_labels,
-            font_size=8,
-            bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.8, "pad": 2},
-            label_pos=0.6,
-        )
-
-    # Node colors
-    node_colors = [
-        "red"
-        if graph.in_degree(node) == 0
-        else "green"
-        if graph.out_degree(node) == 0
-        else "lightblue"
-        for node in graph.nodes()
-    ]
-
-    # Draw larger nodes
-    nx.draw_networkx_nodes(
-        graph, pos, node_color=node_colors, node_size=3000, alpha=0.8, linewidths=2
-    )
-
-    # Clearer labels with more padding
-    labels = {
-        node: "\n".join(node.split(".")[-2:]) if "." in node else node
-        for node in graph.nodes()
-    }
-
-    nx.draw_networkx_labels(
-        graph,
-        pos,
-        labels=labels,
-        font_size=10,
-        font_weight="bold",
-        font_family="sans-serif",
-        bbox={"facecolor": "white", "edgecolor": "lightgray", "alpha": 0.9, "pad": 6.0},
-    )
-
-    plt.title("Data Dependency Graph", pad=20, size=18)
-    plt.axis("off")
-    plt.tight_layout(pad=2.0)
-
-    if save_file:
-        plt.savefig(save_file, dpi=300, bbox_inches="tight")
-    if show:
-        plt.show()
-
-
 def _file_to_module(file: str) -> str:
     """Convert path to script to its module name."""
     return file.removeprefix("./").removesuffix(".py").replace("/", ".")
+
+
+def _find_roots_and_leaves(deps: Sequence[Dependency]) -> tuple[set[str], set[str]]:
+    """Find nodes that don't have any parents (roots) or children (leaves)."""
+    all_nodes = {dep.source for dep in deps} | {dep.target for dep in deps}
+    has_parent = {dep.target for dep in deps}
+    has_child = {dep.source for dep in deps}
+
+    roots = all_nodes - has_parent
+    leaves = all_nodes - has_child
+    return roots, leaves
+
+
+def _generate_mermaid(deps: Sequence[Dependency]) -> str:
+    """Generate a Mermaid graph diagram from dependencies."""
+    name_to_id: dict[str, int] = {}
+    next_id = 0
+
+    lines = ["graph TD"]
+    for dep in deps:
+        src_id = name_to_id.setdefault(dep.source, (next_id := next_id + 1))
+        tgt_id = name_to_id.setdefault(dep.target, (next_id := next_id + 1))
+
+        lines.append(
+            f'    {src_id}["{dep.source}"]-->|"{dep.detail}"|{tgt_id}["{dep.target}"]'
+            if dep.detail
+            else f'    {src_id}["{dep.source}"]-->{tgt_id}["{dep.target}"]'
+        )
+
+    lines.append("")
+    lines.append("    classDef root fill:#FFB6C1")
+    lines.append("    classDef leaf fill:#90EE90")
+
+    roots, leaves = _find_roots_and_leaves(deps)
+    for class_, nodes in [("root", roots), ("leaf", leaves)]:
+        lines.extend(f"    class {name_to_id[node]} {class_}" for node in nodes)
+
+    return "\n".join(lines)
+
+
+def _save_mermaid(diagram: str, output_file: Path) -> None:
+    """Convert a Mermaid diagram string to an image using `mermaid-cli`.
+
+    Requires `mermaid-cli` to be installed manually. You can do that with:
+
+        npm install -g @mermaid-js/mermaid-cli
+
+    Args:
+        diagram: String containing Mermaid diagram content.
+        output_file: Path where output image should be saved. The extension dictates the
+            file type.
+
+    Raises:
+        FileNotFoundError: If `mmdc` command is not found.
+        subprocess.CalledProcessError: If conversion fails, or any other error from
+            `mmdc`.
+    """
+    try:
+        subprocess.run(
+            ["mmdc", "-i", "-", "-o", str(output_file), "-w", "3200", "-H", "2400"],
+            input=diagram.encode(),
+            check=True,
+        )
+    except FileNotFoundError:
+        print(
+            "mermaid-cli not found. Install with: npm install -g @mermaid-js/mermaid-cli"
+        )
+        raise
+    except subprocess.CalledProcessError as e:
+        print(f"mermaid-cli failed with error:\n{e.stderr.decode() if e.stderr else e}")
+        raise
 
 
 if __name__ == "__main__":
