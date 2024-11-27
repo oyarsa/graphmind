@@ -7,10 +7,11 @@ import hashlib
 import inspect
 import logging
 import os
+import random
 import subprocess
 import sys
 import time
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Iterable
 from importlib import resources
 from pathlib import Path
 from types import TracebackType
@@ -325,3 +326,14 @@ def git_root() -> Path:
 def hashstr(s: str) -> str:
     """Hash string using sha256."""
     return hashlib.sha256(s.encode()).hexdigest()
+
+
+def shuffled[T](iterable: Iterable[T]) -> list[T]:
+    """Returns a shallow copy of the contents in `iterable` shuffled as a list.
+
+    This uses standard library's `random`. You can use `random.seed` to initialise the
+    seed for this.
+    """
+    lst = list(iterable)
+    random.shuffle(lst)
+    return lst

@@ -66,7 +66,9 @@ from paper.util import (
     ensure_envvar,
     progress,
     setup_logging,
+    shuffled,
 )
+from paper.util.serde import load_data
 
 logger = logging.getLogger(__name__)
 FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
@@ -207,10 +209,7 @@ async def evaluate_papers(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
-    random.shuffle(data)
-
-    papers = data[:limit_papers]
+    papers = shuffled(load_data(data_path, Paper))[:limit_papers]
     user_prompt = FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
