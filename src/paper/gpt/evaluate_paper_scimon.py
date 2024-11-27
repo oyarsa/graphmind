@@ -16,7 +16,6 @@ from typing import Annotated
 import dotenv
 import typer
 from openai import AsyncOpenAI
-from pydantic import TypeAdapter
 
 from paper import scimon
 from paper.gpt.evaluate_paper import (
@@ -208,9 +207,7 @@ async def evaluate_papers(
     user_prompt = SCIMON_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
-        TypeAdapter(list[Demonstration]).validate_json(demonstrations_file.read_bytes())
-        if demonstrations_file is not None
-        else []
+        load_data(demonstrations_file, Demonstration) if demonstrations_file else []
     )
     demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
     demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
@@ -306,10 +303,10 @@ async def _classify_papers(
     return GPTResult(results, total_cost)
 
 
-_SCIMON_CLASSIFY_SYSTEM_PROMPT = (
-    "Give an approval or rejection to a paper submitted to a high-quality scientific"
-    " conference."
-)
+_SCIMON_CLASSIFY_SYSTEM_PROMPT = """\
+Given inspiration sentences from related papers, give an approval or rejection decision \
+to a paper submitted to a high-quality scientific conference.
+"""
 
 
 async def _classify_paper(
