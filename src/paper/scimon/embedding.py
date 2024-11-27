@@ -3,7 +3,7 @@
 import base64
 import os
 from collections.abc import Sequence
-from typing import Any, Literal, Self, cast
+from typing import Self, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -11,7 +11,6 @@ from pydantic import BaseModel, ConfigDict
 
 type Vector = npt.NDArray[np.float32]
 type Matrix = npt.NDArray[np.float32]
-type SentenceTransformerPool = dict[Literal["input", "output", "processes"], Any]
 
 
 class Encoder:
@@ -34,8 +33,7 @@ class Encoder:
 
     def encode_multi(self, texts: Sequence[str]) -> Matrix:
         """Encode multiple texts as vectors in parallel."""
-        embeddings = self._model.encode_multi_process(texts, self._pool)  # type: ignore
-        return cast(Matrix, embeddings)
+        return cast(Matrix, self._model.encode_multi_process(texts, self._pool))  # type: ignore
 
     def __enter__(self) -> Self:
         """Start multiprocessing pool."""
@@ -94,6 +92,8 @@ def similarities(vector: Vector, matrix: Matrix) -> npt.NDArray[np.float32]:
 
 
 class MatrixData(BaseModel):
+    """Data object used to serialise a numpy matrix as JSON."""
+
     model_config = ConfigDict(frozen=True)
 
     shape: Sequence[int]

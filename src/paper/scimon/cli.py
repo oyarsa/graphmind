@@ -5,6 +5,7 @@
   prompt-based based inputs.
 - citations: citation graph. Papers are connected to their top K citations by cosine
   similarity between the titles.
+- build: Build all three graphs and store them in a single object and file.
 
 Embeddings are generated with SentenceTransformer. The default model is
 `all-mpnet-base-v2`.
@@ -12,7 +13,7 @@ Embeddings are generated with SentenceTransformer. The default model is
 
 import typer
 
-from paper.scimon import citations, kg, semantic
+from paper.scimon import build, citations, kg, semantic
 
 app = typer.Typer(
     name="gpt",
@@ -28,6 +29,7 @@ subcommands = [
     ("kg", kg),
     ("semantic", semantic),
     ("citations", citations),
+    ("build", build),
 ]
 for name, module in subcommands:
     app.command(name=name, help=module.__doc__, no_args_is_help=True)(module.main)
