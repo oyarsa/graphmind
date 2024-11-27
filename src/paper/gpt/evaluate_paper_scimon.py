@@ -1,7 +1,7 @@
 """Evaluate a paper's approval based on SciMON inspiration text.
 
-The input is a `gpt.Paper` annotated through `gpt.annotate_paper` and the SciMON graph
-created by `scimon.build`.
+The input is a `gpt.Paper` annotated through `gpt.annotate_paper` (i.e.
+`gpt.PromptResult[ASAPAnnotated]`) and the SciMON graph created by `scimon.build`.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ from paper.util import (
     progress,
     setup_logging,
 )
-from paper.util.serde import load_data
+from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -63,18 +63,21 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def run(
-    paper_path: Annotated[
+    annotated_file: Annotated[
         Path,
-        typer.Argument(help="JSON file containing the annotated papers data."),
+        typer.Option(
+            "--ann", help="JSON file containing the annotated ASAP papers data."
+        ),
     ],
-    graph_path: Annotated[
+    graph_file: Annotated[
         Path,
-        typer.Argument(help="JSON file containing the SciMON graphs."),
+        typer.Option("--graph", help="JSON file containing the SciMON graphs."),
     ],
     output_dir: Annotated[
         Path,
-        typer.Argument(
-            help="The path to the output directory where the files will be saved."
+        typer.Option(
+            "--output",
+            help="The path to the output directory where the files will be saved.",
         ),
     ],
     model: Annotated[
@@ -110,13 +113,13 @@ def run(
             help="User prompt to use for building the few-shot demonstrations.",
             click_type=cli.choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
-    ] = "simple",
+    ] = "abstract",
 ) -> None:
     asyncio.run(
         evaluate_papers(
             model,
-            paper_path,
-            graph_path,
+            annotated_file,
+            graph_file,
             limit_papers,
             user_prompt,
             output_dir,
@@ -136,8 +139,8 @@ def main() -> None:
 
 async def evaluate_papers(
     model: str,
-    data_path: Path,
-    graph_path: Path,
+    ann_file: Path,
+    graph_file: Path,
     limit_papers: int | None,
     user_prompt_key: str,
     output_dir: Path,
@@ -153,8 +156,8 @@ async def evaluate_papers(
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        data_path: Path to the JSON file containing the input papers data.
-        graph_path: Path to the JSON file containing the SciMON graph data.
+        ann_file: Path to the JSON file containing the annotated papers.
+        graph_file: Path to the JSON file containing the SciMON graph data.
         limit_papers: Number of papers to process. Defaults to 1 example. If None,
             process all.
         graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
@@ -194,11 +197,11 @@ async def evaluate_papers(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    graph = scimon.graph_from_json(graph_path)
-    paper_data = load_data(data_path, ASAPAnnotated)
+    graph = scimon.graph_from_json(graph_file)
+    paper_data = load_data(ann_file, PromptResult[ASAPAnnotated])
     random.shuffle(paper_data)
 
-    papers = paper_data[:limit_papers]
+    papers = [paper.item for paper in paper_data[:limit_papers]]
     user_prompt = SCIMON_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
@@ -249,13 +252,9 @@ async def evaluate_papers(
     logger.info("%s\n", display_metrics(metrics, results_items))
 
     assert len(results_all) == len(papers)
-    (output_dir / "result.json").write_bytes(
-        TypeAdapter(list[PromptResult[PaperResult]]).dump_json(results_all, indent=2)
-    )
-    (output_dir / "result_items.json").write_bytes(
-        TypeAdapter(list[PaperResult]).dump_json(results_items, indent=2)
-    )
-    (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
+    save_data(output_dir / "result.json", results_all)
+    save_data(output_dir / "result_items.json", results_items)
+    save_data(output_dir / "metrics.json", metrics)
 
 
 async def _classify_papers(
