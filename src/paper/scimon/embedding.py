@@ -1,16 +1,20 @@
 """Tools to generate embeddings from text using SentenceTransformers."""
 
 import base64
+import logging
 import os
 from collections.abc import Sequence
 from typing import Self, cast
 
 import numpy as np
 import numpy.typing as npt
+import torch
 from pydantic import BaseModel, ConfigDict
 
 type Vector = npt.NDArray[np.float32]
 type Matrix = npt.NDArray[np.float32]
+
+logger = logging.getLogger(__name__)
 
 
 class Encoder:
@@ -19,7 +23,9 @@ class Encoder:
     Supports both single-item query and multipe-items queries in parallel.
     """
 
-    def __init__(self, model_name: str = "all-mpnet-base-v2") -> None:
+    def __init__(
+        self, model_name: str = "all-mpnet-base-v2", device: str | None = None
+    ) -> None:
         # `sentence_transformers` has a bug where they don't clean up their semaphores
         # properly, so we suppress this.
         _hard_suppress_warning("multiprocessing.resource_tracker", "UserWarning")
@@ -27,7 +33,9 @@ class Encoder:
         from sentence_transformers import SentenceTransformer
 
         self.model_name = model_name
-        self._model = SentenceTransformer(model_name)
+        self._model = SentenceTransformer(
+            model_name, device=device or _get_best_device()
+        )
 
         # Used for parallel processing.
         self._pool = self._model.start_multi_process_pool()
@@ -38,6 +46,7 @@ class Encoder:
 
     def encode_multi(self, texts: Sequence[str]) -> Matrix:
         """Encode multiple texts as vectors in parallel."""
+        logger.debug("Encoding %d texts.", len(texts))
         return cast(Matrix, self._model.encode_multi_process(texts, self._pool))  # type: ignore
 
     def __enter__(self) -> Self:
@@ -122,3 +131,12 @@ class MatrixData(BaseModel):
         bytes_data = base64.b64decode(self.data.encode("utf-8"))
         matrix = np.frombuffer(bytes_data, dtype=np.dtype(self.dtype))
         return matrix.reshape(self.shape)
+
+
+def _get_best_device() -> str | None:
+    """Use "CUDA" if available, then "MPS" (Apple Silicon), or whatever is the default."""
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return None
