@@ -22,7 +22,9 @@ the fields; I need to add them there.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import math
+import random
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
@@ -61,16 +63,16 @@ def main(
             "--recommended", help="File with recommended papers (s2.PaperRecommended)."
         ),
     ],
-    areas_file: Annotated[
-        Path | None,
-        typer.Option("--areas", help="File with area search results (s2.PaperArea)."),
-    ],
     output_dir: Annotated[
         Path,
         typer.Option(
             "--output", help="Path to directory where all files will be saved."
         ),
     ],
+    areas_file: Annotated[
+        Path | None,
+        typer.Option("--areas", help="File with area search results (s2.PaperArea)."),
+    ] = None,
     min_references: Annotated[
         int,
         typer.Option(
@@ -93,15 +95,16 @@ def main(
     recommended_papers = load_data(recommended_file, s2.PaperRecommended)
     area_papers = load_data(areas_file, s2.PaperArea) if areas_file else []
 
-    asap_augmented = _augment_asap(asap_papers, reference_papers, min_references)[
-        :num_asap
-    ]
-    s2_references = _unique_asap_refs(asap_augmented)
+    asap_augmented = _augment_asap(asap_papers, reference_papers, min_references)
+    asap_sampled = (
+        _fair_sample(asap_augmented, num_asap) if num_asap else asap_augmented
+    )
+    s2_references = _unique_asap_refs(asap_sampled)
     recommended_filtered = _filter_recommended(asap_papers, recommended_papers)
     related_papers = s2_references + recommended_filtered + area_papers
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    save_data(output_dir / "asap_with_s2_references.json", asap_augmented)
+    save_data(output_dir / "asap_with_s2_references.json", asap_sampled)
     save_data(output_dir / "asap_related.json", related_papers)
 
 
@@ -140,6 +143,26 @@ def _augment_asap(
             )
 
     return augmented_papers
+
+
+def _fair_sample(data: Sequence[s2.ASAPWithFullS2], n: int) -> list[s2.ASAPWithFullS2]:
+    """Sample n/2 entries from approved and not approved.
+
+    The goal is the output will always contain balanced classes. This is necessary
+    because the dataset has more approvals than rejections.
+
+    Args:
+        data: Papers to draw from. We use `random.sample` for this.
+        n: Number of total entries in the output. We do ceil(n/2) for the number of
+            entries per class.
+
+    Returns:
+        Dataset where the number of approvals and rejections is the same.
+    """
+    approved = [x for x in data if x.approval]
+    rejected = [x for x in data if not x.approval]
+    k = math.ceil(n / 2)
+    return random.sample(approved, k=k) + random.sample(rejected, k=k)
 
 
 def _filter_recommended(
