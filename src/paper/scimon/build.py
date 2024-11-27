@@ -58,9 +58,8 @@ def main(
 
     logger.debug("Loading data.")
 
-    data = load_data(annotated_file, PromptResult[PaperAnnotated])
+    ann = PromptResult.unwrap(load_data(annotated_file, PromptResult[PaperAnnotated]))
     asap_papers = load_data(asap_file, s2.ASAPWithFullS2)
-    ann = [x.item for x in data]
     terms = [x.terms for x in ann]
 
     logger.debug("Initialising encoder.")

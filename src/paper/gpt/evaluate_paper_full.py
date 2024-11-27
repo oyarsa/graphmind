@@ -253,7 +253,7 @@ async def evaluate_papers(
     logger.info(f"Total cost: ${results.cost:.10f}")
 
     results_all = papers_remaining.done + results.result
-    results_items = [result.item for result in results_all]
+    results_items = PromptResult.unwrap(results_all)
 
     metrics = calculate_paper_metrics(results_items)
     logger.info("%s\n", display_metrics(metrics, results_items))

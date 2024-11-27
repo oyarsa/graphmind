@@ -45,6 +45,7 @@ from paper.util import (
     ensure_envvar,
     progress,
     setup_logging,
+    shuffled,
 )
 from paper.util.serde import load_data, save_data
 
@@ -198,10 +199,10 @@ async def evaluate_papers(
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
     graph = scimon.graph_from_json(graph_file)
-    paper_data = load_data(ann_file, PromptResult[ASAPAnnotated])
-    random.shuffle(paper_data)
+    papers = shuffled(
+        PromptResult.unwrap(load_data(ann_file, PromptResult[ASAPAnnotated]))
+    )[:limit_papers]
 
-    papers = [paper.item for paper in paper_data[:limit_papers]]
     user_prompt = SCIMON_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
@@ -246,7 +247,7 @@ async def evaluate_papers(
     logger.info(f"Total cost: ${results.cost:.10f}")
 
     results_all = papers_remaining.done + results.result
-    results_items = [result.item for result in results_all]
+    results_items = PromptResult.unwrap(results_all)
 
     metrics = calculate_paper_metrics(results_items)
     logger.info("%s\n", display_metrics(metrics, results_items))

@@ -78,7 +78,7 @@ async def evaluate_graphs(
             seed=seed,
         )
 
-    results_items = [result.item for result in results.result]
+    results_items = PromptResult.unwrap(results.result)
     metrics = calculate_paper_metrics(results_items)
     logger.info(display_metrics(metrics, results_items))
 

@@ -47,8 +47,7 @@ def main(
     setup_logging()
 
     logger.debug("Loading data.")
-    data = load_data(input_file, PromptResult[PaperAnnotated])
-    annotated = [x.item for x in data]
+    annotated = PromptResult.unwrap(load_data(input_file, PromptResult[PaperAnnotated]))
 
     logger.debug("Initialising encoder.")
     with emb.Encoder(model_name) as encoder:

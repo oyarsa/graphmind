@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import itertools
 from collections import Counter, defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from enum import StrEnum
 from typing import Annotated, Self
 
@@ -343,6 +343,10 @@ class PromptResult[T](BaseModel):
 
     item: T
     prompt: Prompt
+
+    @classmethod
+    def unwrap[U](cls, data: Iterable[PromptResult[U]]) -> list[U]:
+        return [x.item for x in data]
 
 
 class PaperGraph(Record):
