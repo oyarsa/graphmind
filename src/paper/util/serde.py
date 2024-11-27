@@ -39,23 +39,25 @@ def load_data[T: BaseModel](
 
 
 def save_data[T: BaseModel](
-    path: Path, data: Sequence[T], use_alias: bool = True
+    path: Path, data: Sequence[T] | T, use_alias: bool = True
 ) -> None:
-    """Save sequence of data in a JSON file at `path`.
+    """Save data in JSON file at `path`. Can be a single Pydantic object or a Sequence.
 
     Args:
         path: File where data will be saved. Creates its parent directory if it doesn't
             exist.
-        data: The data to be saved. Must be non-empty.
+        data: The data to be saved. If it's a sequence, it must be non-empty.
         use_alias: If True, the output object keys will use the field alias, not the
-            actual field name. Defaults to True because Pydantic will use the alias
-            when reading.
+            actual field name.
     """
     if not data:
         raise ValueError("Cannot save empty data")
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    type_ = type(data[0])
-    path.write_bytes(
-        TypeAdapter(Sequence[type_]).dump_json(data, indent=2, by_alias=use_alias)
-    )
+    if isinstance(data, Sequence):
+        type_ = type(data[0])
+        path.write_bytes(
+            TypeAdapter(Sequence[type_]).dump_json(data, indent=2, by_alias=use_alias)
+        )
+    else:
+        path.write_text(data.model_dump_json(indent=2, by_alias=use_alias))
