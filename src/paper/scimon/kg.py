@@ -75,7 +75,7 @@ class Graph:
     """Nodes are relation heads after processing."""
     _embeddings: emb.Matrix
     """Nodes converted to vectors. Each row corresponds to an element in `_nodes`."""
-    _edge_list: Mapping[str, Sequence[str]]
+    _head_to_tails: Mapping[str, Sequence[str]]
     """Mapping of processed text (relation head) to list of normal text (tails)."""
     _encoder: emb.Encoder
     """Encoder used to convert text nodes to vectors."""
@@ -85,12 +85,12 @@ class Graph:
         *,
         nodes: Sequence[str],
         embeddings: emb.Matrix,
-        edge_list: Mapping[str, Sequence[str]],
+        head_to_tails: Mapping[str, Sequence[str]],
         encoder: emb.Encoder,
     ) -> None:
         self._nodes = nodes
         self._embeddings = embeddings
-        self._edge_list = edge_list
+        self._head_to_tails = head_to_tails
         self._encoder = encoder
 
     @classmethod
@@ -98,18 +98,21 @@ class Graph:
         """Build a graph from a collection of GPTTerms."""
         logger.debug("Building node and edge lists.")
 
-        edge_list: defaultdict[str, list[str]] = defaultdict(list)
+        head_to_tails: defaultdict[str, list[str]] = defaultdict(list)
         for term in terms:
             for relation in term.relations:
-                edge_list[_process_text(relation.head)].append(relation.tail)
-        nodes = list(edge_list)
+                head_to_tails[_process_text(relation.head)].append(relation.tail)
+        nodes = list(head_to_tails)
 
         logger.debug("Encoding nodes.")
         embeddings = encoder.encode_multi(nodes)
 
         logger.debug("Done.")
         return cls(
-            nodes=nodes, embeddings=embeddings, edge_list=edge_list, encoder=encoder
+            nodes=nodes,
+            embeddings=embeddings,
+            head_to_tails=head_to_tails,
+            encoder=encoder,
         )
 
     def query(self, text: str) -> QueryResult:
@@ -119,9 +122,9 @@ class Graph:
         similarity. The text is preprocessed first.
         """
         processed = _process_text(text)
-        if edges := self._edge_list.get(processed):
+        if neighbours := self._head_to_tails.get(processed):
             return QueryResult(
-                match=processed, nodes=edges, source=QuerySource.EXACT, score=1
+                match=processed, nodes=neighbours, source=QuerySource.EXACT, score=1
             )
 
         node_embedding = self._encoder.encode(processed)
@@ -131,14 +134,17 @@ class Graph:
         node = self._nodes[best]
         score = similarities[best]
         return QueryResult(
-            match=node, nodes=self._edge_list[node], source=QuerySource.SIM, score=score
+            match=node,
+            nodes=self._head_to_tails[node],
+            source=QuerySource.SIM,
+            score=score,
         )
 
     def to_data(self) -> GraphData:
         """Convert Graph to a data object."""
         return GraphData(
             embeddings=emb.MatrixData.from_matrix(self._embeddings),
-            edge_list=self._edge_list,
+            head_to_tails=self._head_to_tails,
             nodes=self._nodes,
             encoder_model=self._encoder.model_name,
         )
@@ -166,7 +172,7 @@ class GraphData(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     embeddings: emb.MatrixData
-    edge_list: Mapping[str, Sequence[str]]
+    head_to_tails: Mapping[str, Sequence[str]]
     nodes: Sequence[str]
     encoder_model: str
 
@@ -186,7 +192,7 @@ class GraphData(BaseModel):
         return Graph(
             nodes=self.nodes,
             embeddings=self.embeddings.to_matrix(),
-            edge_list=self.edge_list,
+            head_to_tails=self.head_to_tails,
             encoder=encoder,
         )
 

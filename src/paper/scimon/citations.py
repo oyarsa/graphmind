@@ -72,7 +72,7 @@ class Graph(BaseModel):
     This is meant for testing; use the paper_id directly for querying, as there can be
     duplicates by `title`, but the `id` is always unique.
     """
-    edge_list: Mapping[str, Sequence[Citation]]
+    id_to_cited: Mapping[str, Sequence[Citation]]
     """Mapping of ASAP paper `id` to list of cited papers."""
 
     @classmethod
@@ -108,7 +108,7 @@ class Graph(BaseModel):
 
         logger.debug("Done.")
 
-        return cls(edge_list=id_to_cited, title_to_id=title_to_id)
+        return cls(id_to_cited=id_to_cited, title_to_id=title_to_id)
 
     def query_title(self, title: str, k: int) -> QueryResult:
         """Get top `k` cited papers by title similarity from an ASAP paper `title`.
@@ -119,12 +119,12 @@ class Graph(BaseModel):
 
     def query(self, paper_id: str, k: int) -> QueryResult:
         """Get top `k` cited papers by title similarity from an ASAP paper `id`."""
-        return QueryResult(citations=self.edge_list[paper_id][:k])
+        return QueryResult(citations=self.id_to_cited[paper_id][:k])
 
     @property
     def nodes(self) -> Sequence[str]:
         """Nodes are paper ids."""
-        return sorted(self.edge_list)
+        return sorted(self.id_to_cited)
 
 
 class Citation(Record):
