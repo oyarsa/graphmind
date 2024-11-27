@@ -84,14 +84,17 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def run(
-    data_path: Annotated[
+    asap_path: Annotated[
         Path,
-        typer.Argument(help="The path to the JSON file containing the papers data."),
+        typer.Option(
+            "--asap", help="The path to the JSON file containing the ASAP papers data."
+        ),
     ],
     output_dir: Annotated[
         Path,
-        typer.Argument(
-            help="The path to the output directory where the files will be saved."
+        typer.Option(
+            "--output",
+            help="The path to the output directory where the files will be saved.",
         ),
     ],
     model: Annotated[
@@ -108,7 +111,7 @@ def run(
             help="The user prompt to use for classification.",
             click_type=cli.choice(FULL_CLASSIFY_USER_PROMPTS),
         ),
-    ] = "simple",
+    ] = "simple-abs",
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run.")
     ] = None,
@@ -127,12 +130,12 @@ def run(
             help="User prompt to use for building the few-shot demonstrations.",
             click_type=cli.choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
-    ] = "simple",
+    ] = "abstract",
 ) -> None:
     asyncio.run(
         evaluate_papers(
             model,
-            data_path,
+            asap_path,
             limit_papers,
             user_prompt,
             output_dir,
@@ -152,7 +155,7 @@ def main() -> None:
 
 async def evaluate_papers(
     model: str,
-    data_path: Path,
+    asap_path: Path,
     limit_papers: int | None,
     user_prompt_key: str,
     output_dir: Path,
@@ -169,7 +172,7 @@ async def evaluate_papers(
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        data_path: Path to the JSON file containing the input papers data.
+        asap_path: Path to the JSON file containing the input papers data.
         limit_papers: Number of papers to process. Defaults to 1 example. If None,
             process all.
         graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
@@ -209,7 +212,7 @@ async def evaluate_papers(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    papers = shuffled(load_data(data_path, Paper))[:limit_papers]
+    papers = shuffled(load_data(asap_path, Paper))[:limit_papers]
     user_prompt = FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
