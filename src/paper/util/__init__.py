@@ -41,9 +41,10 @@ def fuzzy_partial_ratio(s1: str, s2: str) -> int:
 class Timer:
     """Track time elapsed. Can be used as a context manager to time its block."""
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         self._start_time = 0
         self._elapsed_seconds = 0
+        self.name = name
 
     def start(self) -> None:
         """(Re)start the timer."""
@@ -88,6 +89,10 @@ class Timer:
             parts.append(f"{seconds:.2f}s")
 
         return " ".join(parts)
+
+    def __str__(self) -> str:
+        """Return "{name} took {time}"."""
+        return f"{self.name} took {self.human}"
 
 
 def setup_logging() -> None:
