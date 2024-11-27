@@ -32,7 +32,8 @@ import typer
 
 from paper import asap
 from paper import semantic_scholar as s2
-from paper.util.serde import load_data, save_data
+from paper.util import display_params
+from paper.util.serde import Record, load_data, save_data
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -80,7 +81,7 @@ def main(
             help="Minimum number of matched S2 references for a paper to be added to"
             " the citation-augmented dataset.",
         ),
-    ] = 10,
+    ] = 5,
     num_asap: Annotated[
         int | None,
         typer.Option(
@@ -94,6 +95,9 @@ def main(
     ] = 0,
 ) -> None:
     """Combine reference and recommended papers data into a dataset."""
+    params = display_params()
+    print(params)
+
     random.seed(seed)
 
     asap_papers = load_data(asap_file, asap.Paper)
@@ -107,11 +111,19 @@ def main(
     )
     s2_references = _unique_asap_refs(asap_sampled)
     recommended_filtered = _filter_recommended(asap_papers, recommended_papers)
-    related_papers = s2_references + recommended_filtered + area_papers
+    related_papers = _dedup_related(s2_references + recommended_filtered + area_papers)
+
+    print(f"Augmented ASAP with S2 references: {len(asap_augmented)}")
+    print(f"Sampled ASAP with S2 references: {len(asap_sampled)}")
+    print(f"S2 references: {len(s2_references)}")
+    print(f"Filtered recommended papers: {len(recommended_filtered)}")
+    print(f"Area papers: {len(area_papers)}")
+    print(f"Unique related papers: {len(related_papers)}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     save_data(output_dir / "asap_with_s2_references.json", asap_sampled)
     save_data(output_dir / "asap_related.json", related_papers)
+    (output_dir / "params.txt").write_text(params)
 
 
 def _augment_asap(
@@ -185,11 +197,7 @@ def _filter_recommended(
     return [
         rec
         for rec in recommended_papers
-        if any(
-            s2.clean_title(source)
-            for source in rec.sources_asap
-            if source in asap_titles
-        )
+        if any(s2.clean_title(source) in asap_titles for source in rec.sources_asap)
     ]
 
 
@@ -208,6 +216,24 @@ def _unique_asap_refs(asap_papers: Iterable[s2.ASAPWithFullS2]) -> list[asap.S2P
             ref_papers.append(ref)
 
     return ref_papers
+
+
+def _dedup_related[T: Record](papers: Sequence[T]) -> Sequence[T]:
+    """Deduplicate related papers by their respective IDs.
+
+    It doesn't really care about the concrete type of the paper as long as it has an `id`
+    property.
+    """
+    output: list[T] = []
+    seen_ids: set[str] = set()
+
+    for paper in papers:
+        if paper.id in seen_ids:
+            continue
+        seen_ids.add(paper.id)
+        output.append(paper)
+
+    return output
 
 
 if __name__ == "__main__":

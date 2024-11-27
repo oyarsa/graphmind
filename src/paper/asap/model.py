@@ -138,10 +138,8 @@ class TLDR(BaseModel):
     text: str | None
 
 
-class S2Paper(BaseModel):
+class S2Paper(Record):
     """Paper from the S2 API."""
-
-    model_config = ConfigDict(frozen=True)
 
     title_query: str = Field(description="Title used in the API query (from ASAP)")
     title: str = Field(description="Title from the S2 data")
@@ -170,6 +168,11 @@ class S2Paper(BaseModel):
     )
     tldr: TLDR | None = Field(description="Machine-generated summary of this paper")
     authors: Sequence[S2Author] | None = Field(description="Paper authors")
+
+    @property
+    def id(self) -> str:
+        """Identify paper by the S2 API paper ID."""
+        return self.paper_id
 
 
 class S2Author(BaseModel):
