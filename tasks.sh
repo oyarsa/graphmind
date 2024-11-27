@@ -12,11 +12,8 @@ help() {
 	printf "\n"
 	printf "Available tasks:\n"
 	printf "  setup   Set up the development environment\n"
-	printf "  check   Run linters and tests\n"
 	printf "  lint    Run ruff check, ruff format, and pyright\n"
-	printf "  tests   Run tests\n"
 	printf "  help    Show this help message\n"
-	printf "  webdoc  Open the module documentation on the browser\n"
 	printf "  clidoc  Generate CLI documentation file\n"
 }
 
@@ -54,18 +51,6 @@ lint() {
 	uv run ruff check . --fix
 	uv run ruff format .
 	uv run pyright .
-}
-
-tests() {
-	uv run pytest tests --quiet
-}
-
-check() {
-	lint && tests
-}
-
-webdoc() {
-	uv run pdoc paper --docformat google
 }
 
 watch() {

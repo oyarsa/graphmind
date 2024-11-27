@@ -16,11 +16,6 @@ import typer
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from rich.console import Console
 from rich.table import Table
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    precision_recall_fscore_support,
-)
 
 from paper.gpt.model import RatingEvaluationStrategy
 
@@ -40,13 +35,47 @@ class Approvals(BaseModel):
     gold: bool
 
 
+def confusion_matrix(y_true: Sequence[int], y_pred: Sequence[int]) -> list[list[int]]:
+    """Calculate confusion matrix between true and predicted values."""
+    matrix = [[0, 0], [0, 0]]  # [[TN, FP], [FN, TP]]
+    for t, p in zip(y_true, y_pred):
+        matrix[t][p] += 1
+    return matrix
+
+
+def precision_recall_f1(
+    y_true: Sequence[int], y_pred: Sequence[int], average: str = "binary"
+) -> tuple[float, float, float]:
+    """Calculate precision, recall and F1 score."""
+    if average != "binary":
+        raise ValueError("Only binary average is supported")
+
+    cm = confusion_matrix(y_true, y_pred)
+    tp, fp, fn = cm[1][1], cm[0][1], cm[1][0]
+
+    p = tp / (tp + fp) if tp + fp > 0 else 0
+    r = tp / (tp + fn) if tp + fn > 0 else 0
+    f1 = 2 * (p * r) / (p + r) if p + r > 0 else 0
+
+    return p, r, f1
+
+
 def calculate_metrics(
     y_true: Sequence[int], y_pred: Sequence[int]
 ) -> tuple[float, float, float, float]:
-    accuracy = accuracy_score(y_true, y_pred)
-    precision, recall, f1, _ = precision_recall_fscore_support(
-        y_true, y_pred, average="binary"
-    )
+    """Calculate accuracy, precision, recall and F1 score.
+
+    `y_true` and `y_pred` must sequences of 1s and 0s of the same length.
+    """
+    if len(y_true) != len(y_pred):
+        raise ValueError("y_true and y_pred must have the same length.")
+
+    for label, ys in [("y_true", y_true), ("y_pred", y_pred)]:
+        if any(x not in [0, 1] for x in ys):
+            raise ValueError(f"{label} must be a sequence of 1s and 0s")
+
+    accuracy = sum(t == p for t, p in zip(y_true, y_pred)) / len(y_true)
+    precision, recall, f1 = precision_recall_f1(y_true, y_pred, average="binary")
     return accuracy, precision, recall, f1
 
 
@@ -56,8 +85,8 @@ def print_confusion_matrix(
     cm = confusion_matrix(y_true, y_pred)
 
     table = Table("Gold\\Pred", "True", "False", title=f"\n{strategy_name} vs Gold")
-    table.add_row("True", str(cm[1, 1]), str(cm[1, 0]))
-    table.add_row("False", str(cm[0, 1]), str(cm[0, 0]))
+    table.add_row("True", str(cm[1][1]), str(cm[1][0]))
+    table.add_row("False", str(cm[0][1]), str(cm[0][0]))
 
     Console().print(table)
 

@@ -16,7 +16,6 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
-import click
 import typer
 from pydantic import TypeAdapter
 
@@ -26,7 +25,7 @@ from paper.asap.model import (
     PaperWithReferenceEnriched,
     ReferenceEnriched,
 )
-from paper.util import Timer
+from paper.util import Timer, cli
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -252,7 +251,7 @@ Context
     with Timer() as timer:
         answer = typer.prompt(
             "What is the polarity of this context?",
-            type=click.Choice(["p", "u", "n", "q"]),
+            type=cli.choice(["p", "u", "n", "q"]),
         )
     if answer == "q":
         return None

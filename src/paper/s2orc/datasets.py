@@ -1,13 +1,13 @@
 """List and download Semantic Scholar datasets."""
 
 import asyncio
+import io
 import json
 import urllib.parse
 from collections.abc import Coroutine
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Self
 
-import aiofiles
 import aiohttp
 import dotenv
 import typer
@@ -180,7 +180,7 @@ async def _try_download_file(
     ) as response:
         total_size = int(response.headers.get("content-length", 0))
 
-        async with aiofiles.open(part_path, "wb") as file:
+        async with AsyncFile(part_path) as file:
             with tqdm(
                 desc=str(display_path),
                 total=total_size,
@@ -191,6 +191,30 @@ async def _try_download_file(
                 async for chunk in response.content.iter_chunked(1024):
                     size = await file.write(chunk)
                     progress_bar.update(size)
+
+
+class AsyncFile:
+    """Async wrapper around writing bytes to a file."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.file = None
+        self.loop = asyncio.get_event_loop()
+
+    async def __aenter__(self) -> Self:
+        def _open() -> io.BufferedWriter:
+            return open(self.path, "wb")
+
+        self.file = await self.loop.run_in_executor(None, _open)
+        return self
+
+    async def __aexit__(self, *_: object) -> bool | None:
+        assert self.file
+        await self.loop.run_in_executor(None, self.file.close)
+
+    async def write(self, data: bytes) -> int:
+        assert self.file
+        return await self.loop.run_in_executor(None, self.file.write, data)
 
 
 if __name__ == "__main__":

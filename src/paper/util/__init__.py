@@ -11,13 +11,12 @@ import random
 import subprocess
 import sys
 import time
-from collections.abc import Callable, Coroutine, Iterable
+from collections.abc import Callable, Coroutine, Iterable, Mapping
 from importlib import resources
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Self
 
-import colorlog
 from thefuzz import fuzz  # type: ignore
 
 from paper.util import cli
@@ -104,6 +103,27 @@ def setup_logging() -> None:
     _setup_logging("__main__")  # This one's for when a script is called directly
 
 
+class ColoredFormatter(logging.Formatter):
+    """Custom logging formatter to add colors to log levels."""
+
+    # Define ANSI color codes
+    COLORS: Mapping[str, str] = {
+        "DEBUG": "\033[36m",  # Cyan
+        "INFO": "\033[32m",  # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
+        "CRITICAL": "\033[41m",  # Red background
+    }
+    RESET = "\033[0m"
+
+    def format(self, record: logging.LogRecord) -> str:
+        log_color = self.COLORS.get(record.levelname, self.RESET)
+        record.log_color = log_color
+        record.reset = self.RESET
+        formatted_message = super().format(record)
+        return f"{log_color}{formatted_message}{self.RESET}"
+
+
 def _setup_logging(logger_name: str) -> None:
     """Initialise a logger printing colourful output to stderr.
 
@@ -116,14 +136,19 @@ def _setup_logging(logger_name: str) -> None:
     """
     logger = logging.getLogger(logger_name)
 
+    # Set the log level from the environment variable or default to INFO
     level = os.environ.get("LOG_LEVEL", "INFO").upper()
     logger.setLevel(level)
-    handler = colorlog.StreamHandler()
 
-    fmt = "%(log_color)s%(asctime)s | %(levelname)s | %(name)s:%(lineno)d | %(message)s"
+    # Create a stream handler
+    handler = logging.StreamHandler(sys.stderr)
+
+    # Define the log format and date format
+    fmt = "%(log_color)s%(asctime)s | %(levelname)s | %(name)s:%(lineno)d | %(message)s%(reset)s"
     datefmt = "%Y-%m-%d %H:%M:%S"
-    handler.setFormatter(colorlog.ColoredFormatter(fmt=fmt, datefmt=datefmt))
 
+    # Set the custom formatter
+    handler.setFormatter(ColoredFormatter(fmt=fmt, datefmt=datefmt))
     logger.addHandler(handler)
 
 
