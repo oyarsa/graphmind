@@ -86,7 +86,7 @@ def main(
 
 def _test_load(path: Path, model: str) -> None:
     """Test if graph data stored in `path` loads into a valid graph. Tests all three."""
-    data = GraphData.model_validate_json(path.read_text())
+    data = load_data(path, GraphData, single=True)
 
     with emb.Encoder(model) as encoder:
         graph = data.to_graph(encoder)

@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict
 import paper.scimon.embedding as emb
 from paper.gpt.model import PaperTerms
 from paper.scimon import citations, kg, semantic
+from paper.util.serde import load_data
 
 
 class GraphData(BaseModel):
@@ -94,6 +95,6 @@ class Graph:
         return sorted(set(kg_terms + semantic_terms + citation_terms))
 
 
-def graph_from_json(json_path: Path) -> Graph:
-    """Read graph from a JSON file. See `GraphData`."""
-    return GraphData.model_validate_json(json_path.read_bytes()).to_graph()
+def graph_from_json(file: Path) -> Graph:
+    """Read graph from a JSON `file`. See `GraphData`."""
+    return load_data(file, GraphData, single=True).to_graph()
