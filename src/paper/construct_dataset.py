@@ -14,10 +14,6 @@ This will build two files:
   S2 papers.
 - asap_related.json: papers related to the input ASAP papers. This includes both
   reference and recommended papers.
-
-TODO: This currently uses asap.S2Paper to represent the S2 output, since that has
-`title_query`, which s2.Paper does not have. However, asap.S2Paper doesn't have all
-the fields; I need to add them there.
 """
 
 from __future__ import annotations

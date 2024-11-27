@@ -1,5 +1,6 @@
 """Interact with the OpenAI API."""
 
+import asyncio
 import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -42,6 +43,20 @@ RATE_LIMITERS: Mapping[str, ChatRateLimiter] = {
 }
 """Rate limiters for each supported model."""
 
+GPT_REASONABLE_SIMULTANEOUS_REQUESTS = 100
+"""Empirically established number of simultaneous requests to GPT API."""
+GPT_SEMAPHORE = asyncio.Semaphore(GPT_REASONABLE_SIMULTANEOUS_REQUESTS)
+"""Semaphore to control the number of simultaneous requests to the GPT API.
+
+This isn't the same as a rate limiter, so we use both. The rate limiter ensures we don't
+get 429 errors from the API. This semaphore is so we don't make thousands of requests to
+the API at the same time, as that kind of breaks the rate limiter and leads to deadlocks.
+
+This should be used in the client code around the `run_gpt` case, and all the requests
+must be made in the same block. This doesn't matter if you only make one request per
+async task, but in cases where there are more, grouping them avoids deadlocks.
+"""
+
 
 def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     """Calculate API request based on the model and input/output tokens.
@@ -77,12 +92,8 @@ async def _call_gpt(  # noqa: ANN202
     rate_limiter: Any, client: AsyncOpenAI, chat_params: dict[str, Any]
 ):
     try:
-        # FIX: This hangs when the input is too long, but everything runs without it,
-        # suggesting the problem is in the token allocation.
-        # I can either try to fix the problem in the RateLimiter, or figure something
-        # else out. The input is too long when both main paper and demonstrations give
-        # the full paper as content, but since that performs pretty badly anyway, this
-        # is not urgent.
+        # Reminder: the rate limiter by itself isn't enough. The client code must also
+        # wrap its GPT calss in `GPT_SEMAPHORE`.
         async with rate_limiter.limit(**chat_params):
             return await client.beta.chat.completions.parse(**chat_params)
     except openai.APIError as e:
@@ -104,6 +115,10 @@ async def run_gpt[T: BaseModel](
     temperature: float = 0,
 ) -> GPTResult[T | None]:
     """Run the GPT query and return a parsed object of `class_` using Structured Outputs.
+
+    NOTE: You must group all calls inside an async task in the same block and wrap it
+    in `GPT_SEMAPHORE`. If you don't, you'll likely run into deadlocks once you start
+    making thousands of concurrent requests.
 
     See also: https://platform.openai.com/docs/guides/structured-outputs
 

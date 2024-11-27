@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from rich.console import Console
 from rich.table import Table
 
+from paper import semantic_scholar as s2
 from paper.gpt.model import (
     Paper,
     PaperAnnotated,
@@ -28,10 +29,10 @@ from paper.gpt.model import (
     PaperToAnnotate,
     Prompt,
     PromptResult,
-    S2Paper,
 )
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
+    GPT_SEMAPHORE,
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
@@ -105,7 +106,7 @@ class PaperType(StrEnum):
         """Returns concrete model type for the paper."""
         match self:
             case self.S2:
-                return S2Paper
+                return s2.Paper
             case self.ASAP:
                 return Paper
 
@@ -269,7 +270,7 @@ async def annotate_papers(
     user_prompt_terms = _TERM_USER_PROMPTS[user_prompt_term_key]
     user_prompt_abstract = _ABS_USER_PROMPTS[user_prompt_abstract_key]
 
-    papers = load_data(input_file, paper_type.get_type())
+    papers = load_data(input_file, paper_type.get_type())[:limit_papers]
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
@@ -406,27 +407,29 @@ async def _annotate_paper_single(
     term_prompt_text = user_prompt_term.template.format(
         title=paper.title, abstract=paper.abstract
     )
-    result_term = await run_gpt(
-        PaperTerms,
-        client,
-        _TERM_SYSTEM_PROMPT,
-        term_prompt_text,
-        model,
-        seed=seed,
-    )
-    terms = result_term.result or PaperTerms.empty()
-
     abstract_prompt_text = user_prompt_abstract.template.format(
         demonstrations=abstract_demonstrations, abstract=paper.abstract
     )
-    result_abstract = await run_gpt(
-        GPTAbstractClassify,
-        client,
-        _ABS_SYSTEM_PROMPT,
-        abstract_prompt_text,
-        model,
-        seed=seed,
-    )
+
+    async with GPT_SEMAPHORE:
+        result_term = await run_gpt(
+            PaperTerms,
+            client,
+            _TERM_SYSTEM_PROMPT,
+            term_prompt_text,
+            model,
+            seed=seed,
+        )
+        result_abstract = await run_gpt(
+            GPTAbstractClassify,
+            client,
+            _ABS_SYSTEM_PROMPT,
+            abstract_prompt_text,
+            model,
+            seed=seed,
+        )
+
+    terms = result_term.result or PaperTerms.empty()
     abstract = result_abstract.result or GPTAbstractClassify.empty()
 
     return GPTResult(

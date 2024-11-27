@@ -490,7 +490,7 @@ class PaperTerms(BaseModel):
         return sum(bool(term_list) for term_list in term_lists) >= 2
 
 
-type PaperToAnnotate = S2Paper | Paper
+type PaperToAnnotate = s2.Paper | Paper
 
 
 class PaperAnnotated(Record):
