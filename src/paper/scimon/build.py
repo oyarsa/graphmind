@@ -24,7 +24,7 @@ from paper.gpt.run_gpt import PromptResult
 from paper.scimon import citations, kg, semantic
 from paper.scimon import embedding as emb
 from paper.scimon.graph import Graph, GraphData
-from paper.util import display_params, setup_logging
+from paper.util import Timer, display_params, setup_logging
 from paper.util.serde import load_data
 
 logger = logging.getLogger("paper.scimon.build")
@@ -65,9 +65,18 @@ def main(
     logger.debug("Initialising encoder.")
     with emb.Encoder(model_name) as encoder:
         logger.debug("Building graphs")
-        kg_graph = kg.Graph.from_terms(encoder, terms)
-        semantic_graph = semantic.Graph.from_annotated(encoder, ann)
-        citation_graph = citations.Graph.from_papers(encoder, asap_papers)
+
+        with Timer("KG") as timer_kg:
+            kg_graph = kg.Graph.from_terms(encoder, terms)
+        logger.info(timer_kg)
+
+        with Timer("Semantic") as timer_semantic:
+            semantic_graph = semantic.Graph.from_annotated(encoder, ann)
+        logger.info(timer_semantic)
+
+        with Timer("Citation") as timer_citation:
+            citation_graph = citations.Graph.from_papers(encoder, asap_papers)
+        logger.info(timer_citation)
 
     graph = Graph(
         kg=kg_graph,
