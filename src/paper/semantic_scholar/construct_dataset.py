@@ -89,7 +89,12 @@ def main(
             " recommendations data."
         ),
     ] = None,
+    seed: Annotated[
+        int, typer.Option(help="Seed used for `random` when sampling.")
+    ] = 0,
 ) -> None:
+    random.seed(seed)
+
     asap_papers = load_data(asap_file, asap.Paper)
     reference_papers = load_data(references_file, asap.S2Paper)
     recommended_papers = load_data(recommended_file, s2.PaperRecommended)
@@ -97,7 +102,7 @@ def main(
 
     asap_augmented = _augment_asap(asap_papers, reference_papers, min_references)
     asap_sampled = (
-        _fair_sample(asap_augmented, num_asap) if num_asap else asap_augmented
+        _balanced_sample(asap_augmented, num_asap) if num_asap else asap_augmented
     )
     s2_references = _unique_asap_refs(asap_sampled)
     recommended_filtered = _filter_recommended(asap_papers, recommended_papers)
@@ -145,8 +150,10 @@ def _augment_asap(
     return augmented_papers
 
 
-def _fair_sample(data: Sequence[s2.ASAPWithFullS2], n: int) -> list[s2.ASAPWithFullS2]:
-    """Sample n/2 entries from approved and not approved.
+def _balanced_sample(
+    data: Sequence[s2.ASAPWithFullS2], n: int
+) -> list[s2.ASAPWithFullS2]:
+    """Sample balanced entries from approved and rejected.
 
     The goal is the output will always contain balanced classes. This is necessary
     because the dataset has more approvals than rejections.
