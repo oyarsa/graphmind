@@ -62,22 +62,26 @@ def main(
     asap_papers = load_data(asap_file, s2.ASAPWithFullS2)
     terms = [x.terms for x in ann]
 
-    logger.debug("Initialising encoder.")
+    logger.info("Initialising encoder.")
     with emb.Encoder(model_name) as encoder:
-        logger.debug("Building graphs")
+        logger.info("Building graphs")
 
+        logger.info("Building KG: %d terms", len(terms))
         with Timer("KG") as timer_kg:
             kg_graph = kg.Graph.from_terms(encoder, terms)
         logger.info(timer_kg)
 
+        logger.info("Building Semantic: %d annotations", len(ann))
         with Timer("Semantic") as timer_semantic:
             semantic_graph = semantic.Graph.from_annotated(encoder, ann)
         logger.info(timer_semantic)
 
+        logger.info("Building Citation: %d papers", len(asap_papers))
         with Timer("Citation") as timer_citation:
             citation_graph = citations.Graph.from_papers(encoder, asap_papers)
         logger.info(timer_citation)
 
+    logger.info("Saving graphs")
     graph = Graph(
         kg=kg_graph,
         semantic=semantic_graph,

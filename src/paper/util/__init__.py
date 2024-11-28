@@ -114,7 +114,7 @@ class ColoredFormatter(logging.Formatter):
     # Define ANSI color codes
     COLORS: Mapping[str, str] = {
         "DEBUG": "\033[36m",  # Cyan
-        "INFO": "\033[32m",  # Green
+        "INFO": "\033[0m",  # Green
         "WARNING": "\033[33m",  # Yellow
         "ERROR": "\033[31m",  # Red
         "CRITICAL": "\033[41m",  # Red background
