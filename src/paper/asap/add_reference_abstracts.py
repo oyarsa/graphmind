@@ -11,15 +11,15 @@ no papers from S2 clear that threshold for a given reference, the reference is r
 The ASAP papers used as input come from the ASAP preprocess pipeline, finishing with
 paper.asap.filter (asap_filtered.json).
 
-The S2 results come from paper.external_data.semantic_scholar. Note that the
-S2 script also uses the result of the ASAP pipeline, asap_filtered.json.
+The S2 results come from paper.semantic_scholar. Note that the S2 script also uses the
+result of the ASAP pipeline, asap_filtered.json.
 
 Since the S2 script takes a long time to run, it cannot be used in the middle of the
 pipeline, so this whole part needs to be run manually. The order is:
 
 - `uv run src/paper/asap/pipeline.py data/asap output`:
     - generates output/asap_filtered.json
-- `uv run src/paper/external_data/semantic_scholar.py
+- `uv run src/paper/semantic_scholar/info.py
     output/asap_filtered.json output`:
     - uses `output/asap_filtered.json` to generate `semantic_scholar_filtered.json`
 - `uv run src/paper/asap/add_reference_abstracts.py output/asap_filtered.json
@@ -35,8 +35,8 @@ Diagram for this pipeline:
 +-----------------------------------+
   |
   |     +---------------------+     +---------------------+     +---------------------+
-  +---->| asap_filtered.json  |---->| external_data/      |---->| semantic_scholar_   |
-        +---------------------+     | semantic_scholar.py |     | filtered.json       |
+  +---->| asap_filtered.json  |---->| semantic_scholar/   |---->| semantic_scholar_   |
+        +---------------------+     | info.py             |     | filtered.json       |
           |                         +---------------------+     +---------------------+
           |                                                               |
           |     +---------------------+                                   |

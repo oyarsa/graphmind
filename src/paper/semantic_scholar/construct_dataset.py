@@ -3,11 +3,11 @@
 The inputs are the ASAP dataset and results from the S2 API:
 - asap_final.json: ASAP main papers. Output of `paper.asap.preprocess`.
 - papers_recommended.json: S2 recommended papers based on the ASAP papers. Output of
-  `external_data.semantic_scholar.recommended`.
+  `semantic_scholar.recommended`.
 - semantic_scholar_final.json: S2 information on papers referenced by the ASAP ones.
-  Output of `external_data.semantic_scholar.info`.
+  Output of `semantic_scholar.info`.
 - asap_areas.json: Result of searches where queries are ICLR subject areas. Output of
-  `external_data.semantic_scholar.areas`. Optional.
+  `semantic_scholar.areas`. Optional.
 
 This will build two files:
 - asap_with_s2_references.json: ASAP papers enriched the (whole) full data of the
@@ -31,7 +31,7 @@ from typing import Annotated
 import typer
 
 from paper import asap
-from paper.external_data import semantic_scholar as s2
+from paper import semantic_scholar as s2
 from paper.util.serde import load_data, save_data
 
 app = typer.Typer(

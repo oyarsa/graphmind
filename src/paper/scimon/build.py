@@ -7,7 +7,7 @@ This takes two inputs:
 - Annotated papers wrapped in prompts (gpt.PromptResult[PaperAnnotated]) from
   `paper.gpt.annotate_paper`.
 - ASAP papers with full S2 reference data (s2.ASAPWithFullS2) from
-  `external_data.semantic_scholar.info`.
+  `semantic_scholar.info`.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from typing import Annotated
 
 import typer
 
-import paper.external_data.semantic_scholar as s2
+import paper.semantic_scholar as s2
 from paper.gpt.annotate_paper import PaperAnnotated
 from paper.gpt.run_gpt import PromptResult
 from paper.scimon import citations, kg, semantic

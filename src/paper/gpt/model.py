@@ -10,7 +10,7 @@ from typing import Annotated, Self
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
-import paper.external_data.semantic_scholar as s2
+import paper.semantic_scholar as s2
 from paper import asap, hierarchical_graph
 from paper.util import hashstr
 from paper.util.serde import Record

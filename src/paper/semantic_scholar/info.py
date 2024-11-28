@@ -34,7 +34,7 @@ import aiohttp
 import dotenv
 import typer
 
-from paper.external_data.semantic_scholar.model import title_ratio
+from paper.semantic_scholar.model import title_ratio
 from paper.util import arun_safe, ensure_envvar, progress, setup_logging
 
 MAX_CONCURRENT_REQUESTS = 10

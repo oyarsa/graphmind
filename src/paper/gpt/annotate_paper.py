@@ -1,7 +1,7 @@
 """Extract key terms for problems and methods from S2 Papers.
 
-Input is a JSON array of `paper.external_data.semantic_scholar.model.Paper`. Output
-contains the input paper plus the prompts used and the extracted terms.
+Input is a JSON array of `paper.semantic_scholar.model.Paper`. Output contains the input
+paper plus the prompts used and the extracted terms.
 """
 
 from __future__ import annotations
@@ -216,7 +216,7 @@ async def annotate_papers(
 
     Args:
         input_file: JSON with input data.
-            Array of `paper.external_data.semantic_scholar.model.Paper`.
+            Array of `paper.semantic_scholar.model.Paper`.
         output_dir: Directory to save output files, including final and intermedaite
             results.
         limit_papers: How many papers to process. 0 or None means all papers.

@@ -5,7 +5,7 @@ a SentenceTransformer, then keeping a sorted list by similarity. At query time, 
 can specify the number of most similar papers to retrieve. SciMON uses the
 `all-mpnet-base-v2` model and K = 5.
 
-Takes as input the output of `external_data.semantic_scholar.construct_daset`: the file
+Takes as input the output of `semantic_scholar.construct_daset`: the file
 `asap_with_s2_references.json` of type `s2.ASAPWithFullS2`. The similarity is calculated
 between the ASAP `title` and the S2 `title_query`.
 """
@@ -21,7 +21,7 @@ import typer
 from openai import BaseModel
 from pydantic import ConfigDict
 
-import paper.external_data.semantic_scholar as s2
+import paper.semantic_scholar as s2
 from paper.scimon import embedding as emb
 from paper.util import display_params
 from paper.util.serde import Record, load_data

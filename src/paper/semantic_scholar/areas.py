@@ -30,8 +30,8 @@ from rich.console import Console
 from rich.table import Table
 from tqdm import tqdm
 
-from paper.external_data.semantic_scholar.info import S2_SEARCH_BASE_URL
-from paper.external_data.semantic_scholar.model import Paper, PaperArea
+from paper.semantic_scholar.info import S2_SEARCH_BASE_URL
+from paper.semantic_scholar.model import Paper, PaperArea
 from paper.util import arun_safe, display_params, ensure_envvar, progress, read_resource
 from paper.util.cli import die
 
@@ -149,7 +149,7 @@ async def download_paper_info(
         die(f"Invalid `limit-page`: '{limit_page}'. Must be between 1 and 100.")
 
     primary_areas: list[str] = tomllib.loads(
-        read_resource("external_data.semantic_scholar", "primary_areas.toml")
+        read_resource("semantic_scholar", "primary_areas.toml")
     )["primary_areas"][:limit_areas]
 
     area_results = await _fetch_areas(

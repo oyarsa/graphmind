@@ -1,8 +1,8 @@
 """Download paper recommendations for ASAP papers from the Semantic Scholar API.
 
-The input is the output of the `paper.external_data.semantic_scholar_info` script, where
-we have the S2 information for the paper. We need this for the paperId, which the
-recommendation endpoint uses as input.
+The input is the output of the `paper.semantic_scholar.info` script, where we have the
+S2 information for the paper. We need this for the paperId, which the recommendation
+endpoint uses as input.
 
 The recommendations API offers two pools to get recommendations from: "recent" and
 "all-cs". For each paper, we query both pools and return the union of papers.
@@ -27,13 +27,13 @@ import backoff
 import dotenv
 import typer
 
-from paper.external_data.semantic_scholar.limiter import get_limiter
-from paper.external_data.semantic_scholar.model import (
+from paper.semantic_scholar.limiter import get_limiter
+from paper.semantic_scholar.model import (
     ASAPPaperWithS2,
     PaperRecommended,
     PaperWithRecommendations,
 )
-from paper.external_data.semantic_scholar.model import Paper as S2Paper
+from paper.semantic_scholar.model import Paper as S2Paper
 from paper.util import arun_safe, display_params, ensure_envvar, progress
 from paper.util.cli import die
 from paper.util.serde import load_data, save_data
