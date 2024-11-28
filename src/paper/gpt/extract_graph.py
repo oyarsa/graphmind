@@ -340,16 +340,15 @@ def _save_graphs(
 
     output: list[Output] = []
 
-    for pg in paper_graphs:
-        output.append(
-            Output(
-                paper=pg.paper.title,
-                graphml=graph_to_digraph(pg.graph.item).graphml(),
-                graph=pg.graph.item,
-                prompt=pg.graph.prompt,
-            )
+    output.extend(
+        Output(
+            paper=pg.paper.title,
+            graphml=graph_to_digraph(pg.graph.item).graphml(),
+            graph=pg.graph.item,
+            prompt=pg.graph.prompt,
         )
-
+        for pg in paper_graphs
+    )
     (output_dir / "result_graphs.json").write_bytes(
         TypeAdapter(list[Output]).dump_json(output, indent=2)
     )

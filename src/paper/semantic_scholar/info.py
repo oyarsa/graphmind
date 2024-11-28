@@ -79,8 +79,7 @@ async def _fetch_paper_info(
                         return None
 
                     if response.status == 429:
-                        retry_after = response.headers.get("Retry-After")
-                        if retry_after:
+                        if retry_after := response.headers.get("Retry-After"):
                             wait_time = int(retry_after)
                             wait_source = "Retry-After"
                         else:

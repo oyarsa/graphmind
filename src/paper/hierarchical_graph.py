@@ -227,6 +227,8 @@ class DiGraph:
                 pos[node] = (x_pos, y_pos)
                 colors[node] = color_map[type_]
 
+        # Adjust box size based on content
+        box_width = 1.0
         # Draw nodes
         for node, (x, y) in pos.items():
             # Get node info
@@ -242,8 +244,6 @@ class DiGraph:
                 wrapped_detail = textwrap.fill(str(detail), width=30)
                 detail_lines = len(wrapped_detail.split("\n"))
 
-            # Adjust box size based on content
-            box_width = 1.0
             box_height = 0.3 + (num_lines * 0.15) + (detail_lines * 0.12)
 
             # Create node box

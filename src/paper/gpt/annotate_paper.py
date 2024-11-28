@@ -400,7 +400,7 @@ async def _annotate_paper_single(
         model,
         seed=seed,
     )
-    terms = result_term.result if result_term.result else PaperTerms.empty()
+    terms = result_term.result or PaperTerms.empty()
 
     abstract_prompt_text = user_prompt_abstract.template.format(
         demonstrations=abstract_demonstrations, abstract=paper.abstract
@@ -413,11 +413,7 @@ async def _annotate_paper_single(
         model,
         seed=seed,
     )
-    abstract = (
-        result_abstract.result
-        if result_abstract.result
-        else GPTAbstractClassify.empty()
-    )
+    abstract = result_abstract.result or GPTAbstractClassify.empty()
 
     return GPTResult(
         result=PromptResult(

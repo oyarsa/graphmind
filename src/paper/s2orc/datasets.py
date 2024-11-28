@@ -146,7 +146,7 @@ async def _download_file(
     wrapper around _download_file that handles retries and errors.
     """
     async with semaphore:
-        part_path = path.with_suffix(path.suffix + ".part")
+        part_path = path.with_suffix(f"{path.suffix}.part")
 
         for attempt in range(MAX_RETRIES):
             try:

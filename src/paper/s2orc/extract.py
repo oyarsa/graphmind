@@ -17,12 +17,12 @@ from tqdm import tqdm
 
 def _extract_annotation(text: str, annotations: dict[str, str], key: str) -> str | None:
     """Extract annotation segment from text using start and end indices."""
-    annotation_idxs_str = annotations.get(key)
-    if not annotation_idxs_str:
+    annotation_idxs = annotations.get(key)
+    if not annotation_idxs:
         return None
 
     try:
-        annotation_idxs = json.loads(annotation_idxs_str)
+        annotation_idxs = json.loads(annotation_idxs)
     except json.JSONDecodeError:
         return None
 

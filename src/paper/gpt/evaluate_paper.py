@@ -124,17 +124,16 @@ def format_demonstrations(
     elif len(negatives) > len(positives):
         interleaved.extend(negatives[len(positives) :])
 
-    for demo in interleaved:
-        output_all.append(
-            prompt.template.format(
-                title=demo.title,
-                abstract=demo.abstract,
-                main_text=demo.text,
-                decision=demo.approval,
-                rationale=demo.rationale,
-            )
+    output_all.extend(
+        prompt.template.format(
+            title=demo.title,
+            abstract=demo.abstract,
+            main_text=demo.text,
+            decision=demo.approval,
+            rationale=demo.rationale,
         )
-
+        for demo in interleaved
+    )
     return f"\n{"-" * 50}\n".join(output_all)
 
 

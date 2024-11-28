@@ -104,9 +104,11 @@ def _extract_acl_papers(
         try:
             with gzip.open(file_path, "rt", encoding="utf-8") as f:
                 data = json.load(f)
-                for paper in data:
-                    if paper.get("venue", "").strip().casefold() in acl_venues:
-                        papers.append(paper | {"source": file_path.stem})
+                papers.extend(
+                    paper | {"source": file_path.stem}
+                    for paper in data
+                    if paper.get("venue", "").strip().casefold() in acl_venues
+                )
         except (json.JSONDecodeError, OSError) as e:
             print(f"Error processing {file_path}: {e}", file=sys.stderr)
 

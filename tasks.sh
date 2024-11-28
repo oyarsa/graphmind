@@ -15,6 +15,7 @@ help() {
 	printf "  lint    Run ruff check, ruff format, and pyright\n"
 	printf "  help    Show this help message\n"
 	printf "  clidoc  Generate CLI documentation file\n"
+	printf "  sorc    Run sourcery with auto-fix\n"
 }
 
 setup() {
@@ -59,6 +60,10 @@ watch() {
 
 clidoc() {
 	uv run typer paper.gpt.cli utils docs --output src/paper/gpt/CLI.md
+}
+
+sorc() {
+	uv run sourcery review . --fix
 }
 
 if [ $# -eq 0 ]; then
