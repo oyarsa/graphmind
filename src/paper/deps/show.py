@@ -95,8 +95,9 @@ def _generate_mermaid(deps: Sequence[Dependency]) -> str:
         src_id = name_to_id.setdefault(dep.source, (next_id := next_id + 1))
         tgt_id = name_to_id.setdefault(dep.target, (next_id := next_id + 1))
 
+        detail = dep.detail.replace(r"\n", "<br>") if dep.detail else None
         lines.append(
-            f'    {src_id}["{dep.source}"]-->|"{dep.detail}"|{tgt_id}["{dep.target}"]'
+            f'    {src_id}["{dep.source}"]-->|"{detail}"|{tgt_id}["{dep.target}"]'
             if dep.detail
             else f'    {src_id}["{dep.source}"]-->{tgt_id}["{dep.target}"]'
         )
