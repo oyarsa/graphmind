@@ -22,9 +22,9 @@ import typer
 from openai import BaseModel
 from pydantic import ConfigDict
 
-from paper.gpt import PaperAnnotated, PaperTerms
-from paper.gpt.run_gpt import PromptResult
+from paper import gpt
 from paper.scimon import embedding as emb
+from paper.scimon.model import PaperTerms
 from paper.util import setup_logging
 from paper.util.serde import load_data
 
@@ -57,7 +57,7 @@ def main(
     logger.debug("Starting.")
 
     logger.debug("Loading data.")
-    data = load_data(input_file, PromptResult[PaperAnnotated])
+    data = load_data(input_file, gpt.PromptResult[gpt.PaperAnnotated])
     terms = [x.item.terms for x in data]
 
     logger.debug("Initialising encoder.")

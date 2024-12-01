@@ -15,9 +15,9 @@ import typer
 from openai import BaseModel
 from pydantic import ConfigDict
 
-from paper.gpt.annotate_paper import PaperAnnotated
-from paper.gpt.run_gpt import PromptResult
+from paper import gpt
 from paper.scimon import embedding as emb
+from paper.scimon.model import PaperAnnotated
 from paper.util import setup_logging
 from paper.util.serde import load_data
 
@@ -48,7 +48,9 @@ def main(
     setup_logging()
 
     logger.debug("Loading data.")
-    annotated = PromptResult.unwrap(load_data(input_file, PromptResult[PaperAnnotated]))
+    annotated = gpt.PromptResult.unwrap(
+        load_data(input_file, gpt.PromptResult[gpt.PaperAnnotated])
+    )
 
     logger.debug("Initialising encoder.")
     with emb.Encoder(model_name) as encoder:

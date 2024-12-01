@@ -1,12 +1,13 @@
 """Model types for SciMON graph construction."""
 
-from typing import Protocol
+from __future__ import annotations
 
-from paper.gpt.model import PaperTerms
+from collections.abc import Sequence
+from typing import Protocol
 
 
 class PaperAnnotated(Protocol):
-    """Protocol for papers with an ID, annotated terms and background."""
+    """Paper with an ID, annotated terms and background."""
 
     @property
     def terms(self) -> PaperTerms:
@@ -25,4 +26,27 @@ class PaperAnnotated(Protocol):
 
     def target_terms(self) -> list[str]:
         """Get target terms from the paper, i.e. unique tail nodes from the relations."""
+        ...
+
+
+class PaperTerms(Protocol):
+    """Annotated relations between scientific terms in a paper."""
+
+    @property
+    def relations(self) -> Sequence[PaperTermRelation]:
+        """Used-for relations between terms."""
+        ...
+
+
+class PaperTermRelation(Protocol):
+    """Directed 'used for' relation between two scientific terms (head -> tail)."""
+
+    @property
+    def head(self) -> str:
+        """Head of the relation."""
+        ...
+
+    @property
+    def tail(self) -> str:
+        """Head of the relation."""
         ...

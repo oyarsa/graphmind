@@ -4,7 +4,7 @@ The stored graph needs to be converted to a real one in memory because of how th
 embeddings are stored.
 
 This takes two inputs:
-- Annotated papers wrapped in prompts (gpt.PromptResult[PaperAnnotated]) from
+- Annotated papers wrapped in prompts (gpt.PromptResult[gpt.PaperAnnotated]) from
   `paper.gpt.annotate_paper`.
 - ASAP papers with full S2 reference data (s2.ASAPWithFullS2) from
   `semantic_scholar.info`.
@@ -19,8 +19,7 @@ from typing import Annotated
 import typer
 
 import paper.semantic_scholar as s2
-from paper.gpt.annotate_paper import PaperAnnotated
-from paper.gpt.run_gpt import PromptResult
+from paper import gpt
 from paper.scimon import citations, kg, semantic
 from paper.scimon import embedding as emb
 from paper.scimon.graph import Graph, GraphData
@@ -46,8 +45,8 @@ def main(
     asap_file: Annotated[
         Path, typer.Option("--asap", help="File with ASAP and references.")
     ],
-    output: Annotated[
-        Path, typer.Option(help="Output file with the constructed graphs.")
+    output_file: Annotated[
+        Path, typer.Option("--output", help="Output file with the constructed graphs.")
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
@@ -59,7 +58,9 @@ def main(
 
     logger.debug("Loading data.")
 
-    ann = PromptResult.unwrap(load_data(annotated_file, PromptResult[PaperAnnotated]))
+    ann = gpt.PromptResult.unwrap(
+        load_data(annotated_file, gpt.PromptResult[gpt.PaperAnnotated])
+    )
     asap_papers = load_data(asap_file, s2.ASAPWithFullS2)
     terms = [x.terms for x in ann]
 
@@ -90,35 +91,34 @@ def main(
         encoder_model=model_name,
     )
     graph_data = GraphData.from_graph(graph)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(graph_data.model_dump_json(indent=2))
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_file.write_text(graph_data.model_dump_json(indent=2))
 
     logger.debug("Testing loading the graph from saved data.")
-    _test_load(output, model_name)
+    _test_load(output_file)
 
 
-def _test_load(path: Path, model: str) -> None:
+def _test_load(path: Path) -> None:
     """Test if graph data stored in `path` loads into a valid graph. Tests all three."""
     data = load_data(path, GraphData, single=True)
 
-    with emb.Encoder(model) as encoder:
-        graph = data.to_graph(encoder)
+    graph = data.to_graph()
 
-        kg_result = graph.kg.query("machine learning")
-        logger.info("KG: %s", kg_result.model_dump_json(indent=2))
+    kg_result = graph.kg.query("machine learning")
+    logger.info("KG: %s", kg_result.model_dump_json(indent=2))
 
-        semantic_result = graph.semantic.query(
-            background="We present a family of subgradient methods",
-            source="stochastic optimization",
-            target="gradient-based learning",
-        )
-        logger.info("Semantic: %s", semantic_result.model_dump_json(indent=2))
+    semantic_result = graph.semantic.query(
+        background="We present a family of subgradient methods",
+        source="stochastic optimization",
+        target="gradient-based learning",
+    )
+    logger.info("Semantic: %s", semantic_result.model_dump_json(indent=2))
 
-        ctitle = next(iter(graph.citations.title_to_id))
-        citation_result = graph.citations.query_title(ctitle, 3)
-        logger.info(
-            "Citations: %s -> %s", ctitle, citation_result.model_dump_json(indent=2)
-        )
+    ctitle = next(iter(graph.citations.title_to_id))
+    citation_result = graph.citations.query_title(ctitle, 3)
+    logger.info(
+        "Citations: %s -> %s", ctitle, citation_result.model_dump_json(indent=2)
+    )
 
 
 if __name__ == "__main__":
