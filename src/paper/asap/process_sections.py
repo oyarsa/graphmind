@@ -164,6 +164,7 @@ def main(
         ),
     ] = None,
 ) -> None:
+    """Group paper sections by heading number and merge subsections."""
     process_sections(input, output, limit)
 
 

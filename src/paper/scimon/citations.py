@@ -53,6 +53,7 @@ def main(
         str, typer.Option("--model", help="SentenceTransformer model to use.")
     ] = "all-mpnet-base-v2",
 ) -> None:
+    """Create citations graph with the reference papers sorted by title similarity."""
     logger.info(display_params())
 
     asap_papers = load_data(input_file, s2.ASAPWithFullS2)
@@ -64,6 +65,12 @@ def main(
 
 
 class Graph(BaseModel):
+    """Citation graph that connects main ASAP titles/ids with cited paper titles.
+
+    We retrieve the top K titles by main and reference titles. We embed all of them, and
+    the K is determined at query time.
+    """
+
     model_config = ConfigDict(frozen=True)
 
     title_to_id: Mapping[str, str]
@@ -128,16 +135,21 @@ class Graph(BaseModel):
 
 
 class Citation(Record):
+    """Encoded citation with the S2 paper title, ID and similarity score."""
+
     title: str
     paper_id: str
     score: float
 
     @property
     def id(self) -> str:
+        """Identify the S2 by its paper_id from the API."""
         return self.paper_id
 
 
 class QueryResult(BaseModel):
+    """Result of the citation query: the top K cited papers."""
+
     model_config = ConfigDict(frozen=True)
 
     citations: Sequence[Citation]

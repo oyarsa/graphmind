@@ -114,6 +114,7 @@ def main(
         Path, typer.Option(help="Directory where processed files will be saved")
     ],
 ) -> None:
+    """Decompress gzipped JSON Lines files, extract data, and save as gzipped JSON."""
     extract_data(input_files, output_dir)
 
 

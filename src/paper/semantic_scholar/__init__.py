@@ -1,3 +1,5 @@
+"""Use the Semantic Scholar API to retrieve data about papers."""
+
 from paper.semantic_scholar.model import ASAPWithFullS2 as ASAPWithFullS2
 from paper.semantic_scholar.model import Author as Author
 from paper.semantic_scholar.model import Paper as Paper

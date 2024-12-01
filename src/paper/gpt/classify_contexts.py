@@ -94,6 +94,11 @@ class PaperOutput(Record):
 
     @property
     def id(self) -> str:
+        """Identify an ASAP by the combination of its `title` and `abstract`.
+
+        The `title` isn't unique by itself, but `title+abstract` is. Instead of passing
+        full text around, I hash it.
+        """
         return hashstr(self.title + self.abstract)
 
 
@@ -455,6 +460,7 @@ def run(
     ] = False,
     seed: Annotated[int, typer.Option(help="Seed to set in the OpenAI call.")] = 0,
 ) -> None:
+    """Classify reference citation contexts by polarity."""
     asyncio.run(
         classify_contexts(
             model,
@@ -472,6 +478,7 @@ def run(
 
 @app.callback()
 def main() -> None:
+    """Set up logging."""
     setup_logging()
 
 
@@ -481,6 +488,7 @@ def prompts(
         bool, typer.Option(help="Show full description of the prompts.")
     ] = False,
 ) -> None:
+    """Print the available prompt names, and optionally, the full prompt text."""
     print_prompts("CONTEXT PROMPTS", _CONTEXT_USER_PROMPTS, detail=detail)
 
 

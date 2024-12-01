@@ -95,6 +95,8 @@ async def evaluate_graphs(
 
 
 class GPTClassify(BaseModel):
+    """Output type for paper classification with approval decision and rationale."""
+
     model_config = ConfigDict(frozen=True)
 
     rationale: str

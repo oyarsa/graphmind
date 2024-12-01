@@ -121,6 +121,13 @@ async def _fetch_paper_info(
 
 
 class InfoMode(StrEnum):
+    """What kind of paper for which we want to retrieve information.
+
+    Attributes:
+        MAIN: the main ASAP papers only.
+        REFERENCES: the unique references (by title) across all ASAP papers.a
+    """
+
     MAIN = "main"
     REFERENCES = "references"
 
@@ -238,6 +245,10 @@ def main(
         int, typer.Option(help="Minimum fuzz ratio of titles to filter.", max=100)
     ] = 80,
 ) -> None:
+    """Download paper information for multiple titles.
+
+    Synchronous wrapper around `_download_paper_info`. Go there for more information.
+    """
     dotenv.load_dotenv()
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
     setup_logging()

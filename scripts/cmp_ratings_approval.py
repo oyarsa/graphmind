@@ -21,6 +21,8 @@ from paper.gpt.model import RatingEvaluationStrategy
 
 
 class InputEntry(BaseModel):
+    """Input rating data."""
+
     model_config = ConfigDict(frozen=True)
 
     ratings: Sequence[int]
@@ -28,6 +30,8 @@ class InputEntry(BaseModel):
 
 
 class Approvals(BaseModel):
+    """Information on paper approval."""
+
     model_config = ConfigDict(frozen=True)
 
     mean: bool
@@ -82,6 +86,7 @@ def calculate_metrics(
 def print_confusion_matrix(
     y_true: Sequence[int], y_pred: Sequence[int], strategy_name: str
 ) -> None:
+    """Print confusion matrix for a given rating strategy."""
     cm = confusion_matrix(y_true, y_pred)
 
     table = Table("Gold\\Pred", "True", "False", title=f"\n{strategy_name} vs Gold")
@@ -94,6 +99,7 @@ def print_confusion_matrix(
 def print_metrics(
     y_true: Sequence[int], y_pred: Sequence[int], strategy_name: str
 ) -> None:
+    """Print strategy classification metrics."""
     accuracy, precision, recall, f1 = calculate_metrics(y_true, y_pred)
 
     table = Table("Metric", "Value", title=f"\n{strategy_name} vs Gold")
@@ -116,6 +122,7 @@ app = typer.Typer(
 def main(
     input_file: Annotated[Path, typer.Argument(help="Path to input JSON file.")],
 ) -> None:
+    """Compare classification metrics between ratings evaluation strategies and approval."""
     data = TypeAdapter(list[InputEntry]).validate_json(input_file.read_bytes())
 
     approvals = [

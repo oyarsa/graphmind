@@ -48,6 +48,7 @@ def main(
     input: Annotated[Path, typer.Argument(help="Path to input (extracted) JSON file.")],
     output: Annotated[Path, typer.Argument(help="Path to output filtered JSON file.")],
 ) -> None:
+    """Remove papers whose ratings have too much variance."""
     filter_ratings(input, output)
 
 

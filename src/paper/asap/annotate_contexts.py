@@ -35,7 +35,7 @@ app = typer.Typer(
 )
 
 
-@app.command(help="Sample N citation contexts from file.")
+@app.command()
 def sample(
     input_file: Annotated[
         Path, typer.Argument(help="Path to input JSON file (ASAP with abstracts).")
@@ -46,6 +46,7 @@ def sample(
     num_samples: Annotated[int, typer.Argument(help="Number of contexts to sample.")],
     seed: Annotated[int, typer.Option(help="Random seed for sampling")] = 0,
 ) -> None:
+    """Sample N citation contexts from file."""
     random.seed(seed)
 
     input_data = TypeAdapter(list[PaperWithReferenceEnriched]).validate_json(
@@ -106,12 +107,13 @@ def sample(
     )
 
 
-@app.command(help="Annotation citation contexts polarities.")
+@app.command()
 def annotate(
     input_file: Annotated[Path, typer.Argument(help="Path to input JSON file.")],
     output_file: Annotated[Path, typer.Argument(help="Path to output JSON file.")],
     width: Annotated[int, typer.Option(help="Width to wrap displayed text.")] = 100,
 ) -> None:
+    """Annotation citation contexts polarities."""
     input_data = TypeAdapter(list[PaperWithReferenceEnriched]).validate_json(
         input_file.read_bytes()
     )
@@ -272,7 +274,8 @@ def _wrap(text: str, *, width: int) -> str:
 
 
 @app.callback(help=__doc__)
-def doc() -> None:  # Empty callback just for top-level documentation
+def doc() -> None:
+    """Empty callback just for top-level documentation."""
     pass
 
 

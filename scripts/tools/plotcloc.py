@@ -36,6 +36,7 @@ def main(
         ),
     ] = Path(),
 ) -> None:
+    """Analyse Python files and plot CLOC stats."""
     files = [
         FileStats(path=path, loc=_count_lines(path))
         for path in dir.rglob("*.py")
@@ -54,6 +55,8 @@ def main(
 
 @dataclass(frozen=True, kw_only=True)
 class FileStats:
+    """Python file path and its number of lines."""
+
     path: Path
     loc: int
 
@@ -69,6 +72,8 @@ def _count_lines(file_path: Path) -> int:
 
 @dataclass(frozen=True, kw_only=True)
 class Share:
+    """How much a given file's number of lines contributes to the total."""
+
     file: str
     code: int
     pct: float

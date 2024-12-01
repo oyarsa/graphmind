@@ -99,6 +99,10 @@ def main(
         ),
     ] = 10,
 ) -> None:
+    """Download papers belonging to ICLR primary areas from the Semantic Scholar API.
+
+    Synchronous wrapper around `download_paper_info`. Go there for more details.
+    """
     arun_safe(
         download_paper_info,
         fields,
@@ -415,6 +419,8 @@ def _merge_areas(areas: Sequence[AreaResult]) -> list[PaperArea]:
 
 
 class AreaResult(BaseModel):
+    """Result of area query with the query itself and returned S2 Papers."""
+
     model_config = ConfigDict(frozen=True)
 
     area: str

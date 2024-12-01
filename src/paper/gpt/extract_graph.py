@@ -58,10 +58,18 @@ logger = logging.getLogger(__name__)
 
 
 class GPTGraphBase(BaseModel, ABC):
+    """Base class for all output GPT graph types.
+
+    This means we can offer varying output types depending on the prompt, as long as
+    they are all Pydantic models (required by `openai` structured output) and can be
+    converted to `Graph`, which is what we'll evaluate.
+    """
+
     model_config = ConfigDict(frozen=True)
 
     @abstractmethod
-    def to_graph(self, title: str, abstract: str) -> Graph: ...
+    def to_graph(self, title: str, abstract: str) -> Graph:
+        """Convert to concrete graph."""
 
 
 class IndexedEntity(BaseModel):
@@ -443,6 +451,7 @@ def run(
     ] = False,
     seed: Annotated[int, typer.Option(help="Seed to set in the OpenAI call.")] = 0,
 ) -> None:
+    """Extract graphs from the papers in the dataset and (optionally) classify them."""
     asyncio.run(
         extract_graph(
             model,
@@ -588,6 +597,7 @@ def _display_validation(results: Iterable[PromptResult[Graph]]) -> None:
 
 @app.callback()
 def main() -> None:
+    """Set up logging."""
     setup_logging()
 
 
@@ -597,6 +607,7 @@ def prompts(
         bool, typer.Option(help="Show full description of the prompts.")
     ] = False,
 ) -> None:
+    """Print the available prompt names, and optionally, the full prompt text."""
     items = [
         ("GRAPH EXTRACTION PROMPTS", _GRAPH_USER_PROMPTS),
         ("CLASSIFICATION PROMPTS", CLASSIFY_USER_PROMPTS),

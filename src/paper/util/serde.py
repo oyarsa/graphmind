@@ -14,11 +14,14 @@ type JSONValue = JSONObject | JSONArray | JSONPrimitive
 
 
 class Record(BaseModel, ABC):
+    """Immutable model type with a unique ID."""
+
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     @property
     @abstractmethod
-    def id(self) -> str: ...
+    def id(self) -> str:
+        """Unique identifcation for the object."""
 
 
 @overload

@@ -14,6 +14,11 @@ type Matrix = npt.NDArray[np.float32]
 
 
 class Encoder:
+    """SentenceTransformer-based text to vector encoder.
+
+    Support sboth single-item query and multipe-items queries in parallel.
+    """
+
     def __init__(self, model_name: str = "all-mpnet-base-v2") -> None:
         # `sentence_transformers` has a bug where they don't clean up their semaphores
         # properly, so we suppress this.

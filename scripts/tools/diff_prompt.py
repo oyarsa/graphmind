@@ -29,6 +29,7 @@ def main(
         bool, typer.Option("--side-by-side", "-s", help="Show side-by-side diff")
     ] = False,
 ) -> None:
+    """Diff between two prompt texts (`gpt.prompts.PromptTemplate`)."""
     prompts: list[dict[str, str]] = tomllib.loads(prompt_file.read_text())["prompts"]
 
     prompt1 = _get_prompt(prompts, name1)

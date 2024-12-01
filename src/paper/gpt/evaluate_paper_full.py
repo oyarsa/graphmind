@@ -132,6 +132,7 @@ def run(
         ),
     ] = "abstract",
 ) -> None:
+    """Evaluate a paper's approval based on its full-body text."""
     asyncio.run(
         evaluate_papers(
             model,
@@ -150,6 +151,7 @@ def run(
 
 @app.callback()
 def main() -> None:
+    """Set up logging."""
     setup_logging()
 
 
@@ -373,6 +375,7 @@ def prompts(
         bool, typer.Option(help="Show full description of the prompts.")
     ] = False,
 ) -> None:
+    """Print the available prompt names, and optionally, the full prompt text."""
     print_prompts("FULL PAPER EVALUATION", FULL_CLASSIFY_USER_PROMPTS, detail=detail)
 
 

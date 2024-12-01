@@ -52,6 +52,7 @@ scimon = "paper.scimon.cli:app"
 known-first-party = ["paper"]
 
 [tool.ruff.lint]
+exclude = ["notebooks/*"]
 select = [
     "E",        # Code style
     "W",        # Code style
@@ -79,33 +80,29 @@ select = [
     "PYI",      # Appropriate type hints for specifc cases
     "PERF",     # Performance anti-patterns
 ]
+# I try to enable as many reasonable rules as possible, but sometimes it's too much:
 ignore = [
+    "ANN401",   # Allow usage of Any
+    "ASYNC110", # 'asyncio.sleep' in loop
+    "B905",     # `zip` without `strict`
+    "C901",     # "too complex" functions
+    "D107",
+    "D202",     # Empty lines between function docstring and body
+    "E501",     # Line too long (let ruff format take care of this)
+    "G004",     # f-strings in logging
+    "ISC001",   # Incompatible with the formatter
+    "N999",     # False positive on `paper-hypergraph` (the module is named `paper`)
+    "PERF401",  # Manual list comprehensions
+    "PLC0206",  # Dictionary iteration without items
+    "PLC0414",  # Allow redundant alias to re-export items
     "PLR0911",  # Too many return statements
     "PLR0912",  # Too many branches
     "PLR0913",  # Too many arguments
     "PLR0915",  # Too many statements
     "PLR2004",  # Magic value used in comparison
-    "E501",     # Line too long (let ruff format take care of this)
-    "TRY003",   # Long messages outside exception class
+    "PTH123",   # Allow `open(p)` instead of `Path(p).open`
     "SIM108",   # Use ternary operation instead of if-else block
-    "ISC001",   # Incompatible with the formatter
-    "D202",     # Empty lines between function docstring and body
-    "D101",     # Undocumented items
-    "D102",
-    "D103",
-    "D104",
-    "D105",
-    "D107",
-    "PTH123",   # `open` instead of `Path.open`
-    "G004",     # f-strings in logging
-    "B905",     # `zip` without `strict`
-    "C901",     # "too complex" functions
-    "ASYNC110", # 'asyncio.sleep' in loop
-    "PERF401",  # Manual list comprehensions
-    "ANN401",   # Any
-    "PLC0206",  # Dictionary iteration without items
-    "N999",     # False positive on `paper-hypergraph` (the module is named `paper`)
-    "PLC0414",  # Allow redundant alias to re-export items
+    "TRY003",   # Long messages outside exception class
 ]
 
 [tool.ruff.lint.pydocstyle]

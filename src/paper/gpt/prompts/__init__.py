@@ -8,6 +8,8 @@ from paper.util import read_resource
 
 @dataclass(frozen=True)
 class PromptTemplate:
+    """Prompt loaded from file with its name, the output type and template text."""
+
     name: str
     type_name: str
     template: str
@@ -32,6 +34,7 @@ def load_prompts(name: str) -> dict[str, PromptTemplate]:
 def print_prompts(
     title: str, prompts: dict[str, PromptTemplate], *, detail: bool
 ) -> None:
+    """Print the prompt names and types. Optionally, print the full template text."""
     if detail:
         print(">>>", title)
     else:

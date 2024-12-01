@@ -136,6 +136,7 @@ def main(
         ),
     ] = None,
 ) -> None:
+    """Get the size of the files from the S2ORC from the Semantic Scholar API."""
     get_filesizes(dataset_name, output_file, limit)
 
 

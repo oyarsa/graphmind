@@ -14,7 +14,7 @@ from collections.abc import Iterable
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Annotated, Any, no_type_check
+from typing import Annotated, no_type_check
 
 import pandas as pd  # type: ignore
 import typer
@@ -33,6 +33,8 @@ app = typer.Typer(
 
 
 class PaperMatch(BaseModel):
+    """Match between ASAP query title and its S2ORC counterpart with its score."""
+
     model_config = ConfigDict(frozen=True)
 
     title_query: str
@@ -40,10 +42,13 @@ class PaperMatch(BaseModel):
     score: int
 
     def __lt__(self, other: PaperMatch) -> bool:
+        """Compare matches by score. If that's a tie, lexicographically by `title_s2orc`."""
         return (self.score, self.title_s2orc) < (other.score, other.title_s2orc)
 
 
 class Paper(BaseModel):
+    """Paper match with its original title query and the matched S2ORC papers."""
+
     model_config = ConfigDict(frozen=True)
 
     query: str
@@ -65,6 +70,8 @@ def main(
         typer.Option(help="Number of papers from S2ORC to use (for testing)."),
     ] = None,
 ) -> None:
+    """Search paper titles in S2ORC dataset by title."""
+
     s2orc_index: dict[str, str] = json.loads(s2orc_index_file.read_bytes())
     papers: list[str] = json.loads(papers_file.read_bytes())
 
@@ -91,7 +98,8 @@ def main(
 
 
 @no_type_check
-def describe(x: Iterable[Any]) -> str:
+def describe(x: Iterable[float]) -> str:
+    """Get descriptive statistics about numeric iterable."""
     return pd.Series(x).describe()
 
 

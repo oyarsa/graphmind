@@ -51,6 +51,7 @@ def main(
         ),
     ] = False,
 ) -> None:
+    """Create Athena tables for S2ORC datasets."""
     asyncio.run(_main(confirm))
 
 
@@ -110,6 +111,8 @@ async def _main(confirm: bool) -> None:
 
 
 class AthenaWrapper:
+    """Wrap Athena and S3 sessions for common operations."""
+
     def __init__(
         self,
         *,
@@ -125,6 +128,10 @@ class AthenaWrapper:
         self._region = region
 
     async def __aenter__(self) -> Self:
+        """Open Athena and S3 sessions.
+
+        Ensures the S3 bucket exists, creating it if not.
+        """
         self._athena = await self._session.client(  # type: ignore
             "athena", region_name=self._region
         ).__aenter__()
@@ -137,10 +144,12 @@ class AthenaWrapper:
     async def __aexit__(
         self, exc_type: object, exc_val: object, exc_tb: object
     ) -> bool | None:
+        """Close Athena and S3 sessions."""
         await self._athena.__aexit__(exc_type, exc_val, exc_tb)
         await self._s3.__aexit__(exc_type, exc_val, exc_tb)
 
     async def clean_location(self, prefix: str) -> None:
+        """Delete all objects with a given `prefix`."""
         paginator = self._s3.get_paginator("list_objects_v2")
         if not prefix.endswith("/"):
             prefix = f"{prefix}/"
@@ -177,6 +186,7 @@ class AthenaWrapper:
         echo(f"Cleanup complete for prefix '{prefix}'")
 
     async def execute_query(self, query: str, *, show_progress: bool = False) -> None:
+        """Execute an SQL query and save to the specified output bucket."""
         output_bucket_url = f"s3://{self._output_bucket}"
         query = query.format(database=self._database, output_bucket=output_bucket_url)
 

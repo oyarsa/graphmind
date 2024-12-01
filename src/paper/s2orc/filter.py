@@ -153,6 +153,7 @@ def main(
         Path, typer.Argument(help="Path to save the output .json.gz file.")
     ],
 ) -> None:
+    """Extract ACL-related papers from gzipped JSON files."""
     filter_papers(input_directory, output_file)
 
 

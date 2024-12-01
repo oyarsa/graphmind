@@ -27,6 +27,7 @@ def main(
         typer.Argument(help="Input file (ASAP merged) to calculate statistics from."),
     ],
 ) -> None:
+    """Calculate total and average number of unique reference contexts per paper in ASAP."""
     counts_unique: list[int] = []
     all_unique: set[str] = set()
 

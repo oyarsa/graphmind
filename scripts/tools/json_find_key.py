@@ -12,6 +12,7 @@ from paper.util.serde import JSONValue
 
 
 def search_object(obj: JSONValue, keyword: str, current_path: str = "") -> list[str]:
+    """Recursively search the JSON object for a key matching key word."""
     results: list[str] = []
 
     if isinstance(obj, dict):
@@ -44,6 +45,7 @@ def main(
         Sequence[Path], typer.Argument(help="List of paths to search for JSON files")
     ] = (Path(),),
 ) -> None:
+    """Find key matches to the keyword in the JSON files in `path`."""
     keyword = keyword.lower().replace(" ", "")
 
     for path in paths:

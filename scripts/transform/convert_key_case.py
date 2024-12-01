@@ -21,6 +21,8 @@ from paper.util.serde import JSONArray, JSONObject, JSONValue
 
 
 class ConvertMode(StrEnum):
+    """Convert from snake_case to CamelCase, or vice-versa."""
+
     SNAKE_TO_CAMEL = "snake_to_camel"
     CAMEL_TO_SNAKE = "camel_to_snake"
 

@@ -93,6 +93,7 @@ def main(
         int | None, typer.Option(help="Limit on the number of papers to process.")
     ] = None,
 ) -> None:
+    """Merge paper content and review JSON files into a single JSON file."""
     merge_content_review(path, output, max_papers)
 
 

@@ -25,6 +25,7 @@ app = typer.Typer(
 def main(
     input_file: Annotated[Path, typer.Argument(help="Input JSON file.")],
 ) -> None:
+    """Count number of context items in data file. Optonally, show polarity frequencies."""
     papers = TypeAdapter(list[PaperWithReferenceEnriched]).validate_json(
         input_file.read_text()
     )

@@ -15,7 +15,7 @@ from paper.util.serde import load_data
 
 
 class GraphData(BaseModel):
-    """Serialisation format for `Graph`."""
+    """Serialisation format for `Graph`. Uses each subgraph's data format."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -55,16 +55,28 @@ class GraphData(BaseModel):
 
 
 class Annotated(Protocol):
+    """Protocol for papers with an ID, annotated terms and background."""
+
     @property
-    def terms(self) -> PaperTerms: ...
+    def terms(self) -> PaperTerms:
+        """Extracted terms and relations."""
+        ...
+
     @property
-    def id(self) -> str: ...
+    def id(self) -> str:
+        """Unique identifier for the paper."""
+        ...
+
     @property
-    def background(self) -> str: ...
+    def background(self) -> str:
+        """Background information from the paper (its problem, task, etc.)."""
+        ...
 
 
 @dataclass(frozen=True, kw_only=True)
 class Graph:
+    """Collection of KG, Semantic and Citations graph that can be queried together."""
+
     CITATION_DEFAULT_K: ClassVar[int] = 5
 
     kg: kg.Graph

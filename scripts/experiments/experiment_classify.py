@@ -43,6 +43,7 @@ def main(
         bool, typer.Option(help="Clean existing results before running experiments.")
     ] = False,
 ) -> None:
+    """Run multiple classification experiments across configuration combinations."""
     print(f"Output directory: {base_output}")
 
     if clean:

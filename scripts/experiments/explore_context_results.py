@@ -28,6 +28,7 @@ def main(
         typer.Argument(help="Path to the output file from context classification."),
     ],
 ) -> None:
+    """Show statistics from context classification results."""
     input_data = TypeAdapter(list[PromptResult[PaperOutput]]).validate_json(
         input_file.read_bytes()
     )

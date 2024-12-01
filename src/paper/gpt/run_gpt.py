@@ -205,6 +205,8 @@ def append_intermediate_result[T: BaseModel](
 
 @dataclass(frozen=True, kw_only=True)
 class RemainingItems[T, U]:
+    """Contains `done` items loaded from intermediate files and those `remaining`."""
+
     remaining: list[U]
     done: list[T]
 

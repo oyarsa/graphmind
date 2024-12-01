@@ -44,6 +44,7 @@ def main(
         str, typer.Option("--model", help="SentenceTransformer model to use.")
     ] = "all-mpnet-base-v2",
 ) -> None:
+    """Build a semantic graph from extracted terms and backgrounds from papers."""
     setup_logging()
 
     logger.debug("Loading data.")
@@ -58,6 +59,12 @@ def main(
 
 
 class Graph:
+    """Semantic graph where nodes connections are made by cosine similarity.
+
+    Uses a relations heads and contexts to build representations, with the output being
+    the tails of the retrieved relations.
+    """
+
     _nodes: Sequence[str]
     """Nodes are base inputs constructed from backgrounds by prompts."""
     _node_to_targets: Mapping[str, Sequence[str]]
@@ -152,6 +159,12 @@ class QueryResult(BaseModel):
 
 
 class GraphData(BaseModel):
+    """Serialisation format for the graph.
+
+    The graph includes an encoder and embedding matrices. We convert the latter to a
+    text-based representation. We don't store the encoder, only its model name.
+    """
+
     model_config = ConfigDict(frozen=True)
 
     embeddings: emb.MatrixData

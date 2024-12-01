@@ -72,6 +72,7 @@ def eval_full(
 def new_eval_full_demonstration(
     paper: Paper, type_: eval.DemonstrationType
 ) -> eval.Demonstration:
+    """Construct demonstration for full paper evaluation."""
     chosen_func = min if type_ is eval.DemonstrationType.NEGATIVE else max
     chosen = chosen_func(paper.reviews, key=lambda x: x.rating)
 
@@ -87,6 +88,8 @@ def new_eval_full_demonstration(
 
 
 class CSAbstructEntry(BaseModel):
+    """Entry from the CSAbstruct dataset used for abstract sentence classification."""
+
     model_config = ConfigDict(frozen=True)
 
     sentences: list[str]
@@ -129,6 +132,8 @@ CSABSTRUCT_BASE_URL = "https://raw.githubusercontent.com/allenai/sequential_sent
 
 
 class CSAbstructSplit(StrEnum):
+    """Which data split of the CSAbstruct dataset to use to build demonstrations."""
+
     DEV = "dev"
     TRAIN = "train"
     TEST = "test"

@@ -170,6 +170,7 @@ def main(
         ),
     ] = None,
 ) -> None:
+    """Add abstracts from S2 papers to the ASAP references."""
     add_references(papers, external, output, min_score, limit)
 
 

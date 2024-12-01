@@ -31,6 +31,7 @@ def main(
         typer.Argument(help="Dependecy YAML file. Defaults to `paper.deps.deps.yaml`."),
     ] = None,
 ) -> None:
+    """Build dependency graph from dependency file using Mermaid and save to output."""
     data = yaml.safe_load(input_file.read_text() if input_file else _DEPENDENCIES_DATA)
 
     deps = [

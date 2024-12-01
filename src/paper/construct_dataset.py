@@ -93,6 +93,7 @@ def main(
         int, typer.Option(help="Seed used for `random` when sampling.")
     ] = 0,
 ) -> None:
+    """Combine reference and recommended papers data into a dataset."""
     random.seed(seed)
 
     asap_papers = load_data(asap_file, asap.Paper)

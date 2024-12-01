@@ -11,6 +11,7 @@ from rich.table import Table
 
 
 def parse_metrics(base_path: Path) -> list[dict[str, Any]]:
+    """Parse metrics and results files from an experiment run."""
     metrics_data: list[dict[str, Any]] = []
 
     for dir in base_path.iterdir():
@@ -35,6 +36,7 @@ def parse_metrics(base_path: Path) -> list[dict[str, Any]]:
 
 
 def count_contexts(data: Iterable[dict[str, Any]]) -> int:
+    """Count total number of contexts across all papers and references."""
     return sum(
         len(reference["contexts"])
         for paper in data
@@ -43,6 +45,7 @@ def count_contexts(data: Iterable[dict[str, Any]]) -> int:
 
 
 def create_table(metrics_data: Sequence[dict[str, Any]]) -> Table:
+    """Create pretty table with metrics from an experiment run."""
     table = Table(title="Context classification results")
 
     info_columns = ["prompt", "context", "model", "n"]
@@ -76,6 +79,7 @@ app = typer.Typer(
 def main(
     base_path: Annotated[Path, typer.Argument(help="Base path of the experiments")],
 ) -> None:
+    """Show table with metrics from an experiment run."""
     metrics_data = parse_metrics(base_path)
     table = create_table(metrics_data)
 

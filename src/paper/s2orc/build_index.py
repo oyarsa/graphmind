@@ -68,6 +68,7 @@ def main(
         typer.Option("--limit", "-n", help="Limit on the number of files to process."),
     ] = None,
 ) -> None:
+    """Build an index from multiple gz-compressed JSON files containing paper data."""
     process_papers(input_dir, output_file, limit)
 
 

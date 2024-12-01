@@ -128,6 +128,7 @@ def main(
     input: Annotated[Path, typer.Argument(help="Path to input (filtered) JSON file.")],
     output: Annotated[Path, typer.Argument(help="Path to output extracted JSON file.")],
 ) -> None:
+    """Extract interesting information from the merged ASAP JSON file."""
     extract_interesting(input, output)
 
 

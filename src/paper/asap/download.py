@@ -26,6 +26,7 @@ def main(
         Path, typer.Argument(help="Directory to extract the dataset contents")
     ],
 ) -> None:
+    """Download ASAP dataset from Google Drive."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with (

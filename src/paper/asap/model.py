@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import enum
 from collections.abc import Sequence
+from enum import StrEnum
 from typing import override
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -13,18 +13,23 @@ from paper.util.serde import Record
 
 
 # Models from the ASAP files after exctraction (e.g. asap_filtered.json)
-class ContextPolarity(enum.StrEnum):
-    POSITIVE = enum.auto()
-    NEGATIVE = enum.auto()
-    NEUTRAL = enum.auto()
+class ContextPolarity(StrEnum):
+    """Human-classified polarity of citation context."""
+
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
+    NEUTRAL = "neutral"
 
 
-class ContextPolarityBinary(enum.StrEnum):
-    POSITIVE = enum.auto()
-    NEGATIVE = enum.auto()
+class ContextPolarityBinary(StrEnum):
+    """Binary polarity where "neutral" is converted to "positive"."""
+
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
 
     @classmethod
     def from_trinary(cls, polarity: ContextPolarity) -> ContextPolarityBinary:
+        """Converts "neutral" polarity to "positive"."""
         return (
             cls.POSITIVE
             if polarity in (ContextPolarity.POSITIVE, ContextPolarity.NEUTRAL)
@@ -33,6 +38,8 @@ class ContextPolarityBinary(enum.StrEnum):
 
 
 class CitationContext(BaseModel):
+    """Citation context sentence with its (optional) predicted/annotated polarity."""
+
     sentence: str = Field(description="Context sentence the from ASAP data")
     polarity: ContextPolarity | None = Field(
         description="Polarity of the citation context between main and reference papers."
@@ -40,6 +47,8 @@ class CitationContext(BaseModel):
 
 
 class PaperReference(BaseModel):
+    """Paper metadata with its contexts."""
+
     model_config = ConfigDict(frozen=True)
 
     title: str = Field(description="Title of the citation in the paper references")
@@ -51,6 +60,8 @@ class PaperReference(BaseModel):
 
 
 class PaperSection(BaseModel):
+    """Section of an ASAP full paper with its heading and context text."""
+
     model_config = ConfigDict(frozen=True)
 
     heading: str = Field(description="Section heading")
@@ -58,6 +69,8 @@ class PaperSection(BaseModel):
 
 
 class PaperReview(BaseModel):
+    """Peer review of an ASAP paper with a 1-10 rating and rationale."""
+
     model_config = ConfigDict(frozen=True)
 
     rating: int = Field(description="Rating given by the review (1 to 10)")
@@ -65,6 +78,8 @@ class PaperReview(BaseModel):
 
 
 class Paper(Record):
+    """ASAP paper with all available fields."""
+
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
     reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
@@ -115,6 +130,8 @@ class PaperWithFullReference(Record):
 
 
 class TLDR(BaseModel):
+    """AI-generated one-sentence paper summary."""
+
     model_config = ConfigDict(frozen=True)
 
     model: str
@@ -156,6 +173,8 @@ class S2Paper(BaseModel):
 
 
 class S2Author(BaseModel):
+    """Author information from the S2 API."""
+
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     name: str | None = Field(description="Author's name")

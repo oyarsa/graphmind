@@ -39,6 +39,7 @@ def list_datasets(
         ),
     ] = False,
 ) -> None:
+    """List all available S2ORC datasets."""
     asyncio.run(_list_datasets(show_json))
 
 
@@ -202,6 +203,12 @@ class AsyncFile:
         self.loop = asyncio.get_event_loop()
 
     async def __aenter__(self) -> Self:
+        """Asynchronously open file.
+
+        Returns:
+            File object that can `write` bytes to file.
+        """
+
         def _open() -> io.BufferedWriter:
             return open(self.path, "wb")
 
@@ -209,10 +216,12 @@ class AsyncFile:
         return self
 
     async def __aexit__(self, *_: object) -> bool | None:
+        """Close the file asynchronously."""
         assert self.file
         await self.loop.run_in_executor(None, self.file.close)
 
     async def write(self, data: bytes) -> int:
+        """Asynchronously write `data` to file and return the count of written bytes."""
         assert self.file
         return await self.loop.run_in_executor(None, self.file.write, data)
 

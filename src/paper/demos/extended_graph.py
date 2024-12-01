@@ -20,6 +20,7 @@ app = typer.Typer(
 def main(
     output: Annotated[Path | None, typer.Argument(help="Path to save the figure.")],
 ) -> None:
+    """Plot representation of a graph with different node types."""
     node_names = {
         "title": {
             "main": "Weak Reward Model Transforms Generative Models into Robust Causal"

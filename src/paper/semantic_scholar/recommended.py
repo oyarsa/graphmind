@@ -97,6 +97,10 @@ def main(
         typer.Option(help="Number of recommendations per paper.", max=500),
     ] = 100,
 ) -> None:
+    """Download recommended papers for each paper in the ASAP dataset.
+
+    Synchronous wrapper around `download_paper_recomendation`. Go there for details.
+    """
     dotenv.load_dotenv()
 
     arun_safe(

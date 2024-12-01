@@ -53,6 +53,7 @@ def main(
         str, typer.Option("--model", help="SentenceTransformer model to use.")
     ] = "all-mpnet-base-v2",
 ) -> None:
+    """Build the three SciMON graphs (KG, semantic and citations) as a single structure."""
     setup_logging()
     logger.info(display_params())
 

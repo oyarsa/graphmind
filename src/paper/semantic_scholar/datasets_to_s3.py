@@ -74,6 +74,7 @@ def main(
         typer.Option("--max-files", "-n", help="Maximum number of files to process."),
     ] = None,
 ) -> None:
+    """Stream S2ORC datasets to AWS S3, or upload already-downloaded data."""
     arun_safe(_main, dataset_name, local_path, max_files)
 
 

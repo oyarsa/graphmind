@@ -24,7 +24,7 @@ from paper.gpt import (
 logger = logging.getLogger(__name__)
 
 
-def new_app(
+def _new_app(
     app_name: str, subcommands: Iterable[tuple[str, str, ModuleType]]
 ) -> typer.Typer:
     app = typer.Typer(
@@ -55,7 +55,7 @@ main_subcommands = [
     ),
     ("tokens", "Estimate input tokens for tasks and prompts.", tokens),
 ]
-app = new_app("gpt", main_subcommands)
+app = _new_app("gpt", main_subcommands)
 
 evals_subcommands = [
     ("full", "Evaluate paper using full text.", evaluate_paper_full),
@@ -67,7 +67,7 @@ evals_subcommands = [
 ]
 
 app.add_typer(
-    new_app("eval", evals_subcommands),
+    _new_app("eval", evals_subcommands),
     name="eval",
     help="Evaluate a paper",
 )

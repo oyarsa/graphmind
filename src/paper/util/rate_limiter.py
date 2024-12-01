@@ -35,12 +35,16 @@ _GPT_TOKENISER = tiktoken.get_encoding("cl100k_base")
 
 
 class Message(TypedDict):
+    """Message sent to the OpenAI API."""
+
     role: str
     content: str
     name: str | None
 
 
 class Bucket:
+    """Bucket used to track capacity in the leaky bucket algorithm."""
+
     def __init__(self, rate_limit: float, bucket_size_in_seconds: float) -> None:
         self._bucket_size_in_seconds = bucket_size_in_seconds
         self._rate_per_sec: float = rate_limit / 60
@@ -48,6 +52,7 @@ class Bucket:
         self._last_checked: float = time.time()
 
     def get_capacity(self, current_time: float) -> float:
+        """Calculate how much capacity was obtained throughout the elapsed time."""
         time_passed = current_time - self._last_checked
         return min(
             self._rate_per_sec * self._bucket_size_in_seconds,
@@ -55,11 +60,18 @@ class Bucket:
         )
 
     def set_capacity(self, new_capacity: float, current_time: float) -> None:
+        """Set capacity to new value and the last check tie to the curent time."""
         self._last_checked = current_time
         self._capacity = new_capacity
 
 
 class Buckets:
+    """Collection of mulitple leaky buckets, usually one per type of limit.
+
+    E.g. one for requests per time, and another for tokens per time. All of them need
+    to be filled for a request to be made.
+    """
+
     def __init__(self, buckets: list[Bucket]) -> None:
         self.buckets = buckets
 
@@ -91,12 +103,14 @@ class Buckets:
     def wait_for_capacity_sync(
         self, amounts: list[float], sleep_interval: float = 0.1
     ) -> None:
+        """Loop and sleep until the required amounts per bucket has been filled."""
         while not self._has_capacity(amounts):
             time.sleep(sleep_interval)
 
     async def wait_for_capacity(
         self, amounts: list[float], sleep_interval: float = 0.1
     ) -> None:
+        """Loop and async sleep until the required amounts per bucket has been filled."""
         while not self._has_capacity(amounts):
             await asyncio.sleep(sleep_interval)
 
@@ -168,13 +182,17 @@ class ContextManager:
         self.rate_limiter = rate_limiter
 
     def __enter__(self) -> None:
+        """Enter the context and wait for the rate limiter to acquire the capacity."""
         self.rate_limiter.wait_for_capacity_sync(self.num_tokens)
 
     def __exit__(self, *exc: object) -> bool:
+        """Leave the context. Does nothing."""
         return False
 
     async def __aenter__(self) -> None:
+        """Enter the context and await for the rate limiter to acquire the capacity."""
         await self.rate_limiter.wait_for_capacity(self.num_tokens)
 
     async def __aexit__(self, *exc: object) -> bool:
+        """Leave the context. Does nothing."""
         return False

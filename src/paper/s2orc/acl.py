@@ -109,6 +109,7 @@ def main(
         int, typer.Option("--limit", "-n", help="Number of papers to display")
     ] = 10,
 ) -> None:
+    """Get ACL Anthology paper information from Semantic Scholar API."""
     search_papers(query, conferences, year, limit)
 
 

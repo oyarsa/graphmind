@@ -23,11 +23,15 @@ logger = logging.getLogger(__name__)
 
 
 class GraphError(Exception):
+    """Base class for all graph-related exceptions."""
+
     pass
 
 
 @dataclass(frozen=True)
 class Node:
+    """Graph node with `name` (text), `type` and optional `detail` sentence."""
+
     name: str
     type: str
     detail: str = ""
@@ -35,6 +39,8 @@ class Node:
 
 @dataclass(frozen=True)
 class Edge:
+    """Graph edge where `source` and `target` nodes."""
+
     source: str
     target: str
 
@@ -333,6 +339,7 @@ class DiGraph:
             plt.show()
 
     def has_cycle(self) -> bool:
+        """Returns True if the graph has a cycle."""
         return not nx.is_directed_acyclic_graph(self._nxgraph)
 
     def save(self, path: Path) -> None:
@@ -370,6 +377,7 @@ def main(
         bool, typer.Option(help="Don't display the visualisation in the GUI")
     ] = True,
 ) -> None:
+    """Visualise (GUI or file) the hierarchical graph from `file`."""
     graph = DiGraph.load(graph_file)
     graph.visualise_hierarchy(display_gui=show, img_path=output)
 

@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class Metrics(BaseModel):
+    """Classification metrics."""
+
     model_config = ConfigDict(frozen=True)
 
     precision: float
@@ -14,6 +16,7 @@ class Metrics(BaseModel):
     accuracy: float
 
     def __str__(self) -> str:
+        """Display metrics, one per line."""
         return "\n".join(
             (
                 f"P   : {self.precision:.4f}",

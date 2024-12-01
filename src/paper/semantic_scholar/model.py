@@ -48,10 +48,13 @@ class Paper(Record):
 
     @property
     def id(self) -> str:
+        """Identify the S2 paper by the S2 paper ID."""
         return self.paper_id
 
 
 class Tldr(BaseModel):
+    """AI-generated one-sentence paper summary."""
+
     model_config = ConfigDict(frozen=True)
 
     # The tldr model version number: https://github.com/allenai/scitldr
@@ -61,6 +64,8 @@ class Tldr(BaseModel):
 
 
 class Author(BaseModel):
+    """Author information from the S2 API."""
+
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     # Author's name.
@@ -70,6 +75,8 @@ class Author(BaseModel):
 
 
 class ASAPPaperMaybeS2(asap.Paper):
+    """ASAP paper that may or may not have associated S2 paper information."""
+
     s2: Paper | None
     fuzz_ratio: int
 
@@ -89,6 +96,8 @@ class ASAPPaperMaybeS2(asap.Paper):
 
 
 class ASAPPaperWithS2(asap.Paper):
+    """ASAP paper with associated S2 paper information."""
+
     s2: Paper
     fuzz_ratio: int
 
@@ -108,6 +117,8 @@ class ASAPPaperWithS2(asap.Paper):
 
 
 class PaperWithRecommendations(BaseModel):
+    """ASAP paper with a list of recommendations from the S2 API."""
+
     model_config = ConfigDict(frozen=True)
 
     main_paper: ASAPPaperWithS2
@@ -115,6 +126,13 @@ class PaperWithRecommendations(BaseModel):
 
 
 class PaperRecommended(Paper):
+    """S2 paper recommended from ASAP papers.
+
+    Attributes:
+        sources_asap: ASAP titles for the the papers that led to this.
+        sources_s2: S2 titles for the the papers that led to this.
+    """
+
     sources_asap: Sequence[str]
     sources_s2: Sequence[str]
 
@@ -151,10 +169,17 @@ class ASAPWithFullS2(Record):
 
     @property
     def id(self) -> str:
+        """Identify an ASAP by the combination of its `title` and `abstract`.
+
+        The `title` isn't unique by itself, but `title+abstract` is. Instead of passing
+        full text around, I hash it.
+        """
         return hashstr(self.title + self.abstract)
 
 
 class PaperArea(Paper):
+    """S2 paper with the areas that led to it."""
+
     model_config = ConfigDict(frozen=True)
 
     areas: Sequence[str]

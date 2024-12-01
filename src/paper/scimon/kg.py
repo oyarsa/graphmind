@@ -52,6 +52,7 @@ def main(
     ] = "all-mpnet-base-v2",
     query: Annotated[str | None, typer.Option(help="Test query for the graph")] = None,
 ) -> None:
+    """Build a KG graph from extracted terms from papers."""
     setup_logging()
     logger.debug("Starting.")
 
@@ -71,6 +72,12 @@ def main(
 
 
 class Graph:
+    """Conventional graph created by used-for relations.
+
+    Querying the graph can be made by exact match between nodes in the graph and a query
+    term. Failing that, we retrieve the closest match by semantic similarity.
+    """
+
     _nodes: Sequence[str]
     """Nodes are relation heads after processing."""
     _embeddings: emb.Matrix
@@ -151,6 +158,8 @@ class Graph:
 
 
 class QuerySource(StrEnum):
+    """Where the query results came from: exact term match, or closest similarity."""
+
     EXACT = "exact"
     """Term matches a node in the graph exactly (after pre-processing)."""
     SIM = "sim"
@@ -169,6 +178,12 @@ class QueryResult(BaseModel):
 
 
 class GraphData(BaseModel):
+    """Serialisation format for the graph.
+
+    The graph includes an encoder and embedding matrices. We convert the latter to a
+    text-based representation. We don't store the encoder, only its model name.
+    """
+
     model_config = ConfigDict(frozen=True)
 
     embeddings: emb.MatrixData

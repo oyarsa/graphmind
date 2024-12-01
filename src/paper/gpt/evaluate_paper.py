@@ -21,6 +21,8 @@ class PaperResult(Paper):
 
 
 class Labels(NamedTuple):
+    """Prediction and ground truth labels."""
+
     y_preds: Sequence[bool]
     y_trues: Sequence[bool]
 
@@ -75,11 +77,15 @@ EVALUATE_DEMONSTRATION_PROMPTS = load_prompts("eval_demonstrations")
 
 
 class DemonstrationType(StrEnum):
+    """Whether the demonstration is of an approved (positive) or reject (negative) paper."""
+
     POSITIVE = "positive"
     NEGATIVE = "negative"
 
 
 class Demonstration(BaseModel):
+    """Demonstration paper with full information and approval demonstration type."""
+
     model_config = ConfigDict(frozen=True)
 
     title: str = Field(description="Paper title")

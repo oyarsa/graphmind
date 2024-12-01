@@ -77,20 +77,32 @@ app = typer.Typer(
 
 @app.callback()
 def main() -> None:
+    """Set up logging."""
     setup_logging()
 
 
 class DetailOptions(StrEnum):
+    """Detail level for output information.
+
+    Attributes:
+        NONE: doesn't print a table.
+        TABLE: prints table with summary of paper counts.
+        DETAIL: prints table with full extracted papers.
+    """
+
     NONE = "none"
     TABLE = "table"
     DETAIL = "detail"
 
 
 class PaperType(StrEnum):
+    """Whether the paper came from the S2 API or ASAP dataset."""
+
     S2 = "s2"
     ASAP = "asap"
 
     def get_type(self) -> type[PaperToAnnotate]:
+        """Returns concrete model type for the paper."""
         match self:
             case self.S2:
                 return S2Paper
@@ -175,6 +187,7 @@ def run(
         DetailOptions, typer.Option(help="How much detail to show in output logging.")
     ] = DetailOptions.NONE,
 ) -> None:
+    """Extract key terms for problems and methods from S2 Papers."""
     asyncio.run(
         annotate_papers(
             input_file,
@@ -336,6 +349,7 @@ class GPTAbstractClassify(BaseModel):
 
     @classmethod
     def empty(cls) -> Self:
+        """Instance with empty strings for background and target."""
         return cls(background="", target="")
 
 
@@ -495,6 +509,8 @@ def _format_col(col: Sequence[Any], detail: DetailOptions) -> str:
 
 
 class AbstractDemonstration(BaseModel):
+    """Prompt demonstration from an existing abstract extraction from CSAbstruct."""
+
     model_config = ConfigDict(frozen=True)
 
     abstract: str
@@ -533,6 +549,7 @@ def prompts(
         bool, typer.Option(help="Show full description of the prompts.")
     ] = False,
 ) -> None:
+    """Print the available prompt names, and optionally, the full prompt text."""
     items = [
         ("TERM ANNOTATION PROMPTS", _TERM_USER_PROMPTS),
         ("ABSTRACT CLASSIFICATION PROMPTS", _ABS_USER_PROMPTS),

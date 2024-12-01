@@ -183,4 +183,5 @@ def scimon(
 
 @app.callback()
 def main() -> None:
+    """Set up logging."""
     setup_logging()

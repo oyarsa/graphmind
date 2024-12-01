@@ -14,6 +14,8 @@ from itertools import combinations
 
 
 class Graph:
+    """Directed graph with cycle detection."""
+
     def __init__(self) -> None:
         self.nodes: set[int] = set()
         self.edges: defaultdict[int, list[tuple[int, int]]] = defaultdict(list)
@@ -93,6 +95,7 @@ def min_weight_feedback_arc_set_naive(graph: Graph) -> Graph:
 
 
 def generate_test_cases() -> list[Graph]:
+    """Generate test cases to test cycle breaking."""
     test_cases: list[Graph] = []
 
     # Test case 1: Simple cycle
@@ -130,6 +133,7 @@ def generate_test_cases() -> list[Graph]:
 
 
 def main() -> None:
+    """Test cycle breaking across test cases."""
     graph_examples = generate_test_cases()
 
     for i, graph_old in enumerate(graph_examples, 1):
