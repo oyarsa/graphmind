@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, Protocol, Self
+from typing import ClassVar, Self
 
 from pydantic import BaseModel, ConfigDict
 
 import paper.scimon.embedding as emb
-from paper.gpt.model import PaperTerms
 from paper.scimon import citations, kg, semantic
+from paper.scimon.model import PaperAnnotated
 from paper.util.serde import load_data
 
 
@@ -29,7 +29,7 @@ class GraphData(BaseModel):
 
         Args:
             encoder: Encoder object to be used by the graph to encode text. If not given,
-                will create one from the one specified in the data.
+                will create one from the `encoder_model` name specified in the data.
 
         Returns:
             A functioning graph, ready to be queried.
@@ -54,25 +54,6 @@ class GraphData(BaseModel):
         )
 
 
-class Annotated(Protocol):
-    """Protocol for papers with an ID, annotated terms and background."""
-
-    @property
-    def terms(self) -> PaperTerms:
-        """Extracted terms and relations."""
-        ...
-
-    @property
-    def id(self) -> str:
-        """Unique identifier for the paper."""
-        ...
-
-    @property
-    def background(self) -> str:
-        """Background information from the paper (its problem, task, etc.)."""
-        ...
-
-
 @dataclass(frozen=True, kw_only=True)
 class Graph:
     """Collection of KG, Semantic and Citations graph that can be queried together."""
@@ -84,7 +65,7 @@ class Graph:
     citations: citations.Graph
     encoder_model: str
 
-    def query_all(self, ann: Annotated, k: int = CITATION_DEFAULT_K) -> list[str]:
+    def query_all(self, ann: PaperAnnotated, k: int = CITATION_DEFAULT_K) -> list[str]:
         """Retrieve terms from the annotated paper using all three graphs.
 
         KG and Semantic graphs use the `terms` relations. Citations uses the paper `id`.
@@ -108,5 +89,8 @@ class Graph:
 
 
 def graph_from_json(file: Path) -> Graph:
-    """Read graph from a JSON `file`. See `GraphData`."""
+    """Read full `Graph` from a JSON `file`.
+
+    See `GraphData` for more info.
+    """
     return load_data(file, GraphData, single=True).to_graph()

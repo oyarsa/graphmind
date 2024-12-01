@@ -139,7 +139,7 @@ class Graph:
         return QueryResult(match=node, targets=self._node_to_targets[node], score=score)
 
     def to_data(self) -> GraphData:
-        """Convert Graph to a data object."""
+        """Convert semantic Graph to a data object."""
         return GraphData(
             embeddings=emb.MatrixData.from_matrix(self._embeddings),
             node_to_targets=self._node_to_targets,
@@ -159,10 +159,10 @@ class QueryResult(BaseModel):
 
 
 class GraphData(BaseModel):
-    """Serialisation format for the graph.
+    """Serialisation format for Semantic the graph.
 
-    The graph includes an encoder and embedding matrices. We convert the latter to a
-    text-based representation. We don't store the encoder, only its model name.
+    The Semantic graph includes an encoder and embedding matrices. We convert the latter
+    to a text-based representation. We don't store the encoder, only its model name.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -173,7 +173,7 @@ class GraphData(BaseModel):
     encoder_model: str
 
     def to_graph(self, encoder: emb.Encoder) -> Graph:
-        """Initialise Graph from data object.
+        """Initialise Semantic Graph from data object.
 
         Raises:
             ValueError: `encoder` model is different from the one that generated the

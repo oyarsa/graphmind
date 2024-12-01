@@ -98,11 +98,12 @@ class Timer:
 def setup_logging() -> None:
     """Initialise `paper` and `__main__` loggers, printing colourful output to stderr.
 
-    Uses `LOG_LEVEL` environment variable to set the level. By default, it's INFO. Use
-    the standard level names (see documentation for `logging` module).
+    Uses `LOG_LEVEL` environment variable to set the minimum level. By default, it's INFO.
+    Use the standard level names (see documentation for `logging` module). The output to
+    the terminal has different colours per log level.
 
     This function initialises both the package's root logger `paper` and the `__main__`
-    logger.
+    logger, in case you're running a script directly.
     """
     _setup_logging("paper")  # Set up loggers for imported packages
     _setup_logging("__main__")  # This one's for when a script is called directly
@@ -111,7 +112,6 @@ def setup_logging() -> None:
 class ColoredFormatter(logging.Formatter):
     """Custom logging formatter to add colors to log levels."""
 
-    # Define ANSI color codes
     COLORS: Mapping[str, str] = {
         "DEBUG": "\033[36m",  # Cyan
         "INFO": "\033[0m",  # Green
@@ -119,6 +119,7 @@ class ColoredFormatter(logging.Formatter):
         "ERROR": "\033[31m",  # Red
         "CRITICAL": "\033[41m",  # Red background
     }
+    """ANSI colour codes for each log level."""
     RESET = "\033[0m"
 
     def format(self, record: logging.LogRecord) -> str:
@@ -360,7 +361,7 @@ def hashstr(s: str) -> str:
 
 
 def shuffled[T](iterable: Iterable[T]) -> list[T]:
-    """Returns a shallow copy of the contents in `iterable` shuffled as a list.
+    """Return a shallow copy of the contents in `iterable` shuffled as a list.
 
     This uses standard library's `random`. You can use `random.seed` to initialise the
     seed for this.

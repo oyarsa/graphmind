@@ -23,20 +23,24 @@ MODEL_SYNONYMS: Mapping[str, str] = {
     "4o": "gpt-4o-2024-08-06",
     "gpt-4o": "gpt-4o-2024-08-06",
 }
-# Include the synonyms and their keys in the allowed models
+"""Mapping between short and common model names and their full verisoned names."""
 MODELS_ALLOWED: Sequence[str] = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.values())
+"""All allowed model names, including synonyms and full names."""
 
-# Cost in $ per 1M tokens: (input cost, output cost)
-# From https://openai.com/api/pricing/
 MODEL_COSTS: Mapping[str, tuple[float, float]] = {
     "gpt-4o-mini-2024-07-18": (0.15, 0.6),
     "gpt-4o-2024-08-06": (2.5, 10),
 }
+"""Cost in $ per 1M tokens: (input cost, output cost).
+
+From https://openai.com/api/pricing/
+"""
 
 RATE_LIMITERS: Mapping[str, ChatRateLimiter] = {
     "gpt-4o-mini": ChatRateLimiter(request_limit=5_000, token_limit=4_000_000),
     "gpt-4o": ChatRateLimiter(request_limit=5_000, token_limit=800_000),
 }
+"""Rate limiters for each supported model."""
 
 
 def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
@@ -218,7 +222,12 @@ def get_remaining_items[T: Record, U: Record](
     original: Sequence[U],
     clean_run: bool,
 ) -> RemainingItems[PromptResult[T], U]:
-    """Remove items that were previously processed from this run's input list.
+    """Split items that were previously processed from this run's input list.
+
+    Loads data from the intermediate file, then removes the items from the input list
+    that appear there. The check is done by the record `id`. The existing items are
+    returned as `done`, and the ones left to process as `remaining`. The `done` list
+    only contains values in the input data, not all values in the intermediate file.
 
     Args:
         continue_type_: Pydantic type for the output items that will be read.
@@ -227,13 +236,9 @@ def get_remaining_items[T: Record, U: Record](
             and `output_intermediate_file` exists, it will be set to that.
         original: Items read for the original dataset file.
         clean_run: If true, ignores the previous results and returns all input items.
-        continue_key: Key function to use to identify entries in the previous results.
-        original_key: Key function to use to identify entries in the original data.
-            The output of `continue_key` and `original_key` is what decides whether the
-            item will be processed.
 
     Returns:
-        Remaining items to be processed.
+        Done and remaining items as separated lists.
     """
     if clean_run:
         return RemainingItems(remaining=list(original), done=[])

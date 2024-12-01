@@ -42,7 +42,7 @@ def load_data[T: BaseModel](
     use_alias: bool = True,
     single: bool = False,
 ) -> list[T] | T:
-    """Load data from the JSON `file`: a single object (if `single=True`) or a list.
+    """Load data from the JSON `file`: a list of objects or a single one if `single=True`.
 
     Args:
         file: File to read the data from. Must be a list of objects.

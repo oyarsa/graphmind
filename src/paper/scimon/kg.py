@@ -102,7 +102,7 @@ class Graph:
 
     @classmethod
     def from_terms(cls, encoder: emb.Encoder, terms: Sequence[PaperTerms]) -> Self:
-        """Build a graph from a collection of GPTTerms."""
+        """Build a graph from a collection of annotated `PaperTerms`."""
         logger.debug("Building node and edge lists.")
 
         head_to_tails: defaultdict[str, list[str]] = defaultdict(list)
@@ -123,10 +123,10 @@ class Graph:
         )
 
     def query(self, text: str) -> QueryResult:
-        """Get neighbours of the best-matching node.
+        """Get neighbours of the best-matching node. Text is normalised.
 
-        If the text exists exactly, use that. If not, get the most similar by vector
-        similarity. The text is preprocessed first.
+        If there is an exact match, use it. If not, get the most similar by vector
+        similarity.
         """
         processed = _process_text(text)
         if neighbours := self._head_to_tails.get(processed):
@@ -148,7 +148,7 @@ class Graph:
         )
 
     def to_data(self) -> GraphData:
-        """Convert Graph to a data object."""
+        """Convert KG Graph to a data object."""
         return GraphData(
             embeddings=emb.MatrixData.from_matrix(self._embeddings),
             head_to_tails=self._head_to_tails,
@@ -163,7 +163,7 @@ class QuerySource(StrEnum):
     EXACT = "exact"
     """Term matches a node in the graph exactly (after pre-processing)."""
     SIM = "sim"
-    """Term doesn't match anything, so we take the node with highest similarity."""
+    """Term doesn't have exact matches, so we take the node with highest similarity."""
 
 
 class QueryResult(BaseModel):
@@ -175,12 +175,13 @@ class QueryResult(BaseModel):
     nodes: Sequence[str]
     source: QuerySource
     score: float
+    """Similarity score. If the match is exact, this is always 1."""
 
 
 class GraphData(BaseModel):
-    """Serialisation format for the graph.
+    """Serialisation format for the KG graph.
 
-    The graph includes an encoder and embedding matrices. We convert the latter to a
+    The KG graph includes an encoder and embedding matrices. We convert the latter to a
     text-based representation. We don't store the encoder, only its model name.
     """
 
@@ -192,7 +193,7 @@ class GraphData(BaseModel):
     encoder_model: str
 
     def to_graph(self, encoder: emb.Encoder) -> Graph:
-        """Initialise Graph from data object.
+        """Initialise KG Graph from data object.
 
         Raises:
             ValueError: `encoder` model is different from the one that generated the

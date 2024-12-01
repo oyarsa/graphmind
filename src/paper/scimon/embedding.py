@@ -16,7 +16,7 @@ type Matrix = npt.NDArray[np.float32]
 class Encoder:
     """SentenceTransformer-based text to vector encoder.
 
-    Support sboth single-item query and multipe-items queries in parallel.
+    Supports both single-item query and multipe-items queries in parallel.
     """
 
     def __init__(self, model_name: str = "all-mpnet-base-v2") -> None:
@@ -61,8 +61,8 @@ def _hard_suppress_warning(name: str, type: str) -> None:
 def similarities(vector: Vector, matrix: Matrix) -> npt.NDArray[np.float32]:
     """Calculate cosine similarity between a `vector` and a `matrix`.
 
-    The `vector` will have shape (dim,), and matrices (N, dim), where N is the number of
-    entries. The output should be a vector of floats with N elements.
+    The `vector` will have shape `(dim,)`, and matrices `(N, dim)`, where N is the number
+    of entries. The output should be a vector of floats with N elements.
 
     Raises:
         ValueError: if vector or matrix have the wrong shape.
@@ -101,13 +101,16 @@ class MatrixData(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    shape: Sequence[int]
+    shape: list[int]
+    """Shape of the matrix as expected by numpy."""
     dtype: str
+    """Underlying numpy data type of the matrix."""
     data: str
+    """Matrix data encoded as base 64 bytes in UTF-8."""
 
     @classmethod
     def from_matrix(cls, matrix: Matrix) -> Self:
-        """Serialise a embedding matrix to a base64-encoded byte string with metadata."""
+        """Serialise an embedding matrix to a base64-encoded byte string with metadata."""
         return cls(
             shape=list(matrix.shape),
             dtype=str(matrix.dtype),

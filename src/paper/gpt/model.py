@@ -367,7 +367,7 @@ class Prompt(BaseModel):
 
 
 class PromptResult[T](BaseModel):
-    """Wrapper around an API response with the full prompt that generated it."""
+    """Wrapper around a GPT API response with the full prompt that generated it."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -530,3 +530,7 @@ class ASAPAnnotated(Record):
     def id(self) -> str:
         """Identify annotated ASAP paper by the underlying ID."""
         return self.paper.id
+
+    def target_terms(self) -> list[str]:
+        """Get target terms from the paper, i.e. unique tail nodes from the relations."""
+        return sorted({r.tail for r in self.terms.relations})

@@ -84,7 +84,7 @@ class DemonstrationType(StrEnum):
 
 
 class Demonstration(BaseModel):
-    """Demonstration paper with full information and approval demonstration type."""
+    """Paper for evaluation demos with full information and demonstration type."""
 
     model_config = ConfigDict(frozen=True)
 
