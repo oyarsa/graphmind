@@ -101,7 +101,13 @@ class Graph:
         self._encoder = encoder
 
     @classmethod
-    def from_terms(cls, encoder: emb.Encoder, terms: Sequence[PaperTerms]) -> Self:
+    def from_terms(
+        cls,
+        encoder: emb.Encoder,
+        terms: Sequence[PaperTerms],
+        *,
+        progress: bool = False,
+    ) -> Self:
         """Build a graph from a collection of annotated `PaperTerms`."""
         logger.debug("Building node and edge lists.")
 
@@ -112,7 +118,7 @@ class Graph:
         nodes = list(head_to_tails)
 
         logger.debug("Encoding nodes.")
-        embeddings = encoder.encode(nodes)
+        embeddings = encoder.batch_encode(nodes, progress=progress)
 
         logger.debug("Done.")
         return cls(

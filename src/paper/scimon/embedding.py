@@ -1,7 +1,9 @@
 """Tools to generate embeddings from text using SentenceTransformers."""
 
 import base64
+import itertools
 import logging
+import math
 import os
 from collections.abc import Sequence
 from typing import Self, cast, overload
@@ -10,6 +12,7 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from pydantic import BaseModel, ConfigDict
+from tqdm import tqdm
 
 type Vector = npt.NDArray[np.float32]
 type Matrix = npt.NDArray[np.float32]
@@ -49,6 +52,27 @@ class Encoder:
                 return cast(Vector, self._model.encode(text))  # type: ignore
             case Sequence():
                 return cast(Matrix, self._model.encode(text))  # type: ignore
+
+    def batch_encode(
+        self, texts: Sequence[str], batch_size: int = 128, *, progress: bool = False
+    ) -> Matrix:
+        """Split `texts` into batches of `batch_size` and encode each separately.
+
+        Args:
+            texts: Strings to encode.
+            batch_size: Number of items per batch.
+            progress: If True, use `tqdm` to show a progress bar for the process.
+
+        Returns:
+            The encoded vectors stacked as a single matrix.
+        """
+        batches = itertools.batched(texts, n=batch_size)
+
+        if progress:
+            batch_num = math.ceil(len(texts) / batch_size)
+            batches = tqdm(batches, total=batch_num, desc="Batch text encoding")
+
+        return np.vstack([self.encode(batch) for batch in batches])
 
 
 def similarities(vector: Vector, matrix: Matrix) -> npt.NDArray[np.float32]:

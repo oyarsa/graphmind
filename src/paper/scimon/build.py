@@ -24,7 +24,7 @@ from paper.scimon import citations, kg, semantic
 from paper.scimon import embedding as emb
 from paper.scimon.graph import Graph, GraphData
 from paper.util import Timer, display_params, setup_logging
-from paper.util.serde import load_data
+from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger("paper.scimon.build")
 
@@ -72,12 +72,12 @@ def main(
 
     logger.info("Building Semantic: %d annotations", len(ann))
     with Timer("Semantic") as timer_semantic:
-        semantic_graph = semantic.Graph.from_annotated(encoder, ann)
+        semantic_graph = semantic.Graph.from_annotated(encoder, ann, progress=True)
     logger.info(timer_semantic)
 
     logger.info("Building KG: %d terms", len(terms))
     with Timer("KG") as timer_kg:
-        kg_graph = kg.Graph.from_terms(encoder, terms)
+        kg_graph = kg.Graph.from_terms(encoder, terms, progress=True)
     logger.info(timer_kg)
 
     logger.info("Building Citation: %d papers", len(asap_papers))

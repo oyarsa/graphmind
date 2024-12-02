@@ -6,23 +6,20 @@ of the script, it's wrapped: `run_gpt.PromptResult[annotate_paper.PaperAnnotated
 
 from __future__ import annotations
 
-import itertools
 import logging
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Annotated, Self
 
-import numpy as np
 import typer
 from openai import BaseModel
 from pydantic import ConfigDict
-from tqdm import tqdm
 
 from paper import gpt
 from paper.scimon import embedding as emb
 from paper.scimon.model import PaperAnnotated
 from paper.util import setup_logging
-from paper.util.serde import load_data
+from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +43,12 @@ def main(
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
     ] = "all-mpnet-base-v2",
+    limit: Annotated[
+        int | None, typer.Option(help="Maximum number of papers to process.")
+    ] = None,
+    batch_size: Annotated[
+        int, typer.Option("--batch_size", help="Encoding batch size.")
+    ] = 128,
 ) -> None:
     """Build a semantic graph from extracted terms and backgrounds from papers."""
     setup_logging()
@@ -53,15 +56,17 @@ def main(
     logger.debug("Loading data.")
     annotated = gpt.PromptResult.unwrap(
         load_data(input_file, gpt.PromptResult[gpt.PaperAnnotated])
-    )
+    )[:limit]
 
     logger.debug("Initialising encoder.")
     encoder = emb.Encoder(model_name)
 
     logger.debug("Constructing graph from annotated paper.")
-    graph = Graph.from_annotated(encoder, annotated)
+    graph = Graph.from_annotated(
+        encoder, annotated, batch_size=batch_size, progress=True
+    )
 
-    output_file.write_text(graph.to_data().model_dump_json(indent=2))
+    save_data(output_file, graph.to_data())
 
 
 class Graph:
@@ -95,7 +100,12 @@ class Graph:
 
     @classmethod
     def from_annotated(
-        cls, encoder: emb.Encoder, annotated: Sequence[PaperAnnotated]
+        cls,
+        encoder: emb.Encoder,
+        annotated: Sequence[PaperAnnotated],
+        *,
+        batch_size: int = 128,
+        progress: bool = False,
     ) -> Self:
         """Build a semantic graph from annotated papers."""
         logger.debug("Building nodes and edge lists.")
@@ -110,8 +120,8 @@ class Graph:
         }
         nodes = list(node_to_targets)
 
-        logger.debug("Encoding nodes.")
-        embeddings = encoder.encode(nodes)
+        logger.debug("Encoding %d nodes.", len(nodes))
+        embeddings = encoder.batch_encode(nodes, batch_size, progress=progress)
 
         logger.debug("Done.")
         return cls(
