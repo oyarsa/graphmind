@@ -355,12 +355,26 @@ def format_template(
     prompt: PromptTemplate, ann: ASAPAnnotated, graph: scimon.Graph, demonstrations: str
 ) -> str:
     """Format evaluation template using annotated terms and `demonstrations`."""
+    result = graph.query_all(ann)
+
+    terms = "\n".join(
+        f"Related {desc} ({len(terms)}):\n{_bullets(terms)}\n"
+        for desc, terms in [
+            ("paper titles", result.citations),
+            ("backgrounds", result.semantic),
+        ]
+    )
+
     return prompt.template.format(
         title=ann.paper.title,
         abstract=ann.paper.abstract,
         demonstrations=demonstrations,
-        terms="\n".join(f"- {term}" for term in graph.query_all(ann)),
+        terms=terms,
     )
+
+
+def _bullets(items: Iterable[str]) -> str:
+    return "\n".join(f"- {item}" for item in items)
 
 
 @app.command(help="List available prompts.")

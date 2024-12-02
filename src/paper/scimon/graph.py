@@ -88,6 +88,20 @@ class Graph:
             item.title for item in self.citations.query(ann.id, k).citations
         ]
         return sorted(set(kg_terms + semantic_terms + citation_terms))
+        return QueryResult(
+            citations=sorted(citation_terms),
+            kg=sorted(kg_terms),
+            semantic=sorted(semantic_terms - kg_terms),
+        )
+
+
+@dataclass(frozen=True, kw_only=True)
+class QueryResult:
+    """Query results across graphs, delimited by where they came from."""
+
+    citations: Sequence[str]
+    kg: Sequence[str]
+    semantic: Sequence[str]
 
 
 def graph_from_json(file: Path) -> Graph:

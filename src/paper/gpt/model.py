@@ -517,6 +517,11 @@ class PaperAnnotated(Record):
         """Get target terms from the paper, i.e. unique tail nodes from the relations."""
         return sorted({r.tail for r in self.terms.relations})
 
+    @property
+    def title(self) -> str:
+        """Title of the underlying paper, or '<unknown>' if absent."""
+        return self.paper.title or "<unknown>"
+
 
 class ASAPAnnotated(Record):
     """ASAP Paper with its annotated key terms. Includes GPT prompts used."""
@@ -534,3 +539,8 @@ class ASAPAnnotated(Record):
     def target_terms(self) -> list[str]:
         """Get target terms from the paper, i.e. unique tail nodes from the relations."""
         return sorted({r.tail for r in self.terms.relations})
+
+    @property
+    def title(self) -> str:
+        """Title of the underlying paper."""
+        return self.paper.title

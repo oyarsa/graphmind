@@ -10,6 +10,11 @@ class PaperAnnotated(Protocol):
     """Paper with an ID, annotated terms and background."""
 
     @property
+    def title(self) -> str:
+        """Paper title."""
+        ...
+
+    @property
     def terms(self) -> PaperTerms:
         """Terms and relations extracted from paper."""
         ...
