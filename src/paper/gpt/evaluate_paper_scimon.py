@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
@@ -30,6 +30,7 @@ from paper.gpt.evaluate_paper import (
 from paper.gpt.model import ASAPAnnotated, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
+    GPT_SEMAPHORE,
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
@@ -66,7 +67,7 @@ def run(
     annotated_file: Annotated[
         Path,
         typer.Option(
-            "--ann", help="JSON file containing the annotated ASAP papers data."
+            "--ann-asap", help="JSON file containing the annotated ASAP papers data."
         ),
     ],
     graph_file: Annotated[
@@ -320,14 +321,16 @@ async def _classify_paper(
     seed: int,
 ) -> GPTResult[PromptResult[PaperResult]]:
     user_prompt_text = format_template(user_prompt, ann, graph, demonstrations)
-    result = await run_gpt(
-        CLASSIFY_TYPES[user_prompt.type_name],
-        client,
-        _SCIMON_CLASSIFY_SYSTEM_PROMPT,
-        user_prompt_text,
-        model,
-        seed=seed,
-    )
+
+    async with GPT_SEMAPHORE:
+        result = await run_gpt(
+            CLASSIFY_TYPES[user_prompt.type_name],
+            client,
+            _SCIMON_CLASSIFY_SYSTEM_PROMPT,
+            user_prompt_text,
+            model,
+            seed=seed,
+        )
     classified = result.result
 
     return GPTResult(
