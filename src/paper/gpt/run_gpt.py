@@ -44,7 +44,11 @@ RATE_LIMITERS: Mapping[str, ChatRateLimiter] = {
 """Rate limiters for each supported model."""
 
 GPT_REASONABLE_SIMULTANEOUS_REQUESTS = 100
-"""Empirically established number of simultaneous requests to GPT API."""
+"""Empirically established number of simultaneous requests to GPT API.
+
+This seems to be a number that doesn't break the rate limiter, but is high enough to
+still deliver good performance.
+"""
 GPT_SEMAPHORE = asyncio.Semaphore(GPT_REASONABLE_SIMULTANEOUS_REQUESTS)
 """Semaphore to control the number of simultaneous requests to the GPT API.
 
@@ -94,8 +98,8 @@ async def _call_gpt(  # noqa: ANN202
     try:
         # Reminder: the rate limiter by itself isn't enough. The client code must also
         # wrap its GPT calss in `GPT_SEMAPHORE`.
-        async with rate_limiter.limit(**chat_params):
-            return await client.beta.chat.completions.parse(**chat_params)
+        # async with rate_limiter.limit(**chat_params):
+        return await client.beta.chat.completions.parse(**chat_params)
     except openai.APIError as e:
         logger.warning("\nCaught an API error: %s", e)
         raise
