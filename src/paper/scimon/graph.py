@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar, Self
@@ -12,6 +14,8 @@ import paper.scimon.embedding as emb
 from paper.scimon import citations, kg, semantic
 from paper.scimon.model import PaperAnnotated
 from paper.util.serde import load_data
+
+logger = logging.getLogger(__name__)
 
 
 class GraphData(BaseModel):
@@ -67,27 +71,40 @@ class Graph:
     citations: citations.Graph
     encoder_model: str
 
-    def query_all(self, ann: PaperAnnotated, k: int = CITATION_DEFAULT_K) -> list[str]:
+    def query_all(
+        self, ann: PaperAnnotated, use_kg: bool = False, k: int = CITATION_DEFAULT_K
+    ) -> QueryResult:
         """Retrieve terms from the annotated paper using all three graphs.
 
         KG and Semantic graphs use the `terms` relations. Citations uses the paper `id`.
+
+        Note: each node only appears once across each graph. Citation nodes are paper
+        titles, so it doesn't intersect with the other two. Both KG and Semantic nodes
+        are relation tails, so it's possible that some appear in both. However, we make
+        sure that if a node appears in the KG results, it won't appear in the Semantic
+        results.
         """
-        kg_terms = [
-            node
-            for relation in ann.terms.relations
-            for node in self.kg.query(relation.head).nodes
-        ]
-        semantic_terms = [
+
+        if use_kg:
+            kg_terms = {
+                node
+                for relation in ann.terms.relations
+                for node in self.kg.query(relation.head).nodes
+            }
+        else:
+            kg_terms: set[str] = set()
+
+        semantic_terms = {
             target
             for relation in ann.terms.relations
             for target in self.semantic.query(
                 ann.background, relation.head, relation.tail
             ).targets
-        ]
-        citation_terms = [
+        }
+        citation_terms = {
             item.title for item in self.citations.query(ann.id, k).citations
-        ]
-        return sorted(set(kg_terms + semantic_terms + citation_terms))
+        }
+
         return QueryResult(
             citations=sorted(citation_terms),
             kg=sorted(kg_terms),
