@@ -61,8 +61,8 @@ def main(
     terms = [x.item.terms for x in data]
 
     logger.debug("Initialising encoder.")
-    with emb.Encoder(model_name) as encoder:
-        graph = Graph.from_terms(encoder, terms)
+    encoder = emb.Encoder(model_name)
+    graph = Graph.from_terms(encoder, terms)
 
     if query:
         result = graph.query(query)
@@ -112,7 +112,7 @@ class Graph:
         nodes = list(head_to_tails)
 
         logger.debug("Encoding nodes.")
-        embeddings = encoder.encode_multi(nodes)
+        embeddings = encoder.encode(nodes)
 
         logger.debug("Done.")
         return cls(

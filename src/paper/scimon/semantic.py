@@ -6,14 +6,17 @@ of the script, it's wrapped: `run_gpt.PromptResult[annotate_paper.PaperAnnotated
 
 from __future__ import annotations
 
+import itertools
 import logging
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Annotated, Self
 
+import numpy as np
 import typer
 from openai import BaseModel
 from pydantic import ConfigDict
+from tqdm import tqdm
 
 from paper import gpt
 from paper.scimon import embedding as emb
@@ -53,9 +56,10 @@ def main(
     )
 
     logger.debug("Initialising encoder.")
-    with emb.Encoder(model_name) as encoder:
-        logger.debug("Constructing graph from annotated paper.")
-        graph = Graph.from_annotated(encoder, annotated)
+    encoder = emb.Encoder(model_name)
+
+    logger.debug("Constructing graph from annotated paper.")
+    graph = Graph.from_annotated(encoder, annotated)
 
     output_file.write_text(graph.to_data().model_dump_json(indent=2))
 
@@ -107,7 +111,7 @@ class Graph:
         nodes = list(node_to_targets)
 
         logger.debug("Encoding nodes.")
-        embeddings = encoder.encode_multi(nodes)
+        embeddings = encoder.encode(nodes)
 
         logger.debug("Done.")
         return cls(

@@ -4,7 +4,7 @@ import base64
 import logging
 import os
 from collections.abc import Sequence
-from typing import Self, cast
+from typing import Self, cast, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -28,7 +28,6 @@ class Encoder:
     ) -> None:
         # `sentence_transformers` has a bug where they don't clean up their semaphores
         # properly, so we suppress this.
-        _hard_suppress_warning("multiprocessing.resource_tracker", "UserWarning")
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
         from sentence_transformers import SentenceTransformer
 
@@ -37,34 +36,19 @@ class Encoder:
             model_name, device=device or _get_best_device()
         )
 
-        # Used for parallel processing.
-        self._pool = self._model.start_multi_process_pool()
+    @overload
+    def encode(self, text: str) -> Vector: ...
 
-    def encode(self, text: str) -> Vector:
-        """Encode text as a vector."""
-        return cast(Vector, self._model.encode(text))  # type: ignore
+    @overload
+    def encode(self, text: Sequence[str]) -> Matrix: ...
 
-    def encode_multi(self, texts: Sequence[str]) -> Matrix:
-        """Encode multiple texts as vectors in parallel."""
-        logger.debug("Encoding %d texts.", len(texts))
-        return cast(Matrix, self._model.encode_multi_process(texts, self._pool))  # type: ignore
-
-    def __enter__(self) -> Self:
-        """Start multiprocessing pool."""
-        return self
-
-    def __exit__(self, *_: object) -> None:
-        """Close multiprocessing pool."""
-        self._model.stop_multi_process_pool(self._pool)
-
-
-def _hard_suppress_warning(name: str, type: str) -> None:
-    """Suppress warning by adding it to `PYTHONWARNINGS`."""
-    old_warnings = os.environ.get("PYTHONWARNINGS")
-    new_filter = f"ignore::{type}:{name}"
-    os.environ["PYTHONWARNINGS"] = (
-        f"{old_warnings},{new_filter}" if old_warnings else new_filter
-    )
+    def encode(self, text: str | Sequence[str]) -> Vector | Matrix:
+        """Encode text string as a vector, or sequence of texts as a matrix."""
+        match text:
+            case str():
+                return cast(Vector, self._model.encode(text))  # type: ignore
+            case Sequence():
+                return cast(Matrix, self._model.encode(text))  # type: ignore
 
 
 def similarities(vector: Vector, matrix: Matrix) -> npt.NDArray[np.float32]:

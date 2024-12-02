@@ -58,8 +58,8 @@ def main(
 
     asap_papers = load_data(input_file, s2.ASAPWithFullS2)
 
-    with emb.Encoder(model_name) as encoder:
-        graph = Graph.from_papers(encoder, asap_papers)
+    encoder = emb.Encoder(model_name)
+    graph = Graph.from_papers(encoder, asap_papers)
 
     output_file.write_text(graph.model_dump_json(indent=2))
 
@@ -99,7 +99,7 @@ class Graph(BaseModel):
             title_to_id[asap_paper.title] = asap_paper.id
             asap_embedding = encoder.encode(s2.clean_title(asap_paper.title))
 
-            s2_embeddings = encoder.encode_multi(
+            s2_embeddings = encoder.encode(
                 [s2.clean_title(r.title_query) for r in asap_paper.references]
             )
             s2_similarities = emb.similarities(asap_embedding, s2_embeddings)
