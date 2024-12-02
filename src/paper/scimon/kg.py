@@ -14,7 +14,6 @@ import logging
 import re
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
-from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Self
 
@@ -129,29 +128,14 @@ class Graph:
         )
 
     def query(self, text: str) -> QueryResult:
-        """Get neighbours of the best-matching node. Text is normalised.
+        """Get neighbours of the node matching `text`.
 
-        If there is an exact match, use it. If not, get the most similar by vector
-        similarity.
+        If there isn't a match, returns an empty list.
         """
         processed = _process_text(text)
         if neighbours := self._head_to_tails.get(processed):
-            return QueryResult(
-                match=processed, nodes=neighbours, source=QuerySource.EXACT, score=1
-            )
-
-        node_embedding = self._encoder.encode(processed)
-        similarities = emb.similarities(node_embedding, self._embeddings)
-        best = int(similarities.argmax())
-
-        node = self._nodes[best]
-        score = similarities[best]
-        return QueryResult(
-            match=node,
-            nodes=self._head_to_tails[node],
-            source=QuerySource.SIM,
-            score=score,
-        )
+            return QueryResult(match=processed, nodes=neighbours)
+        return QueryResult(match=processed, nodes=[])
 
     def to_data(self) -> GraphData:
         """Convert KG Graph to a data object."""
@@ -163,15 +147,6 @@ class Graph:
         )
 
 
-class QuerySource(StrEnum):
-    """Where the query results came from: exact term match, or closest similarity."""
-
-    EXACT = "exact"
-    """Term matches a node in the graph exactly (after pre-processing)."""
-    SIM = "sim"
-    """Term doesn't have exact matches, so we take the node with highest similarity."""
-
-
 class QueryResult(BaseModel):
     """Result of querying the graph. Source depends on how the answer was obtained."""
 
@@ -179,9 +154,6 @@ class QueryResult(BaseModel):
 
     match: str
     nodes: Sequence[str]
-    source: QuerySource
-    score: float
-    """Similarity score. If the match is exact, this is always 1."""
 
 
 class GraphData(BaseModel):
