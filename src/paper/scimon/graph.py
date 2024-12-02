@@ -23,6 +23,7 @@ class GraphData(BaseModel):
     semantic: semantic.GraphData
     citations: citations.Graph
     encoder_model: str
+    metadata: str | None = None
 
     def to_graph(self, encoder: emb.Encoder | None = None) -> Graph:
         """Convert this data to a functioning graph.
@@ -44,13 +45,14 @@ class GraphData(BaseModel):
         )
 
     @classmethod
-    def from_graph(cls, graph: Graph) -> Self:
+    def from_graph(cls, graph: Graph, metadata: str | None = None) -> Self:
         """Convert a graph object to data to be serialised."""
         return cls(
             kg=graph.kg.to_data(),
             semantic=graph.semantic.to_data(),
             citations=graph.citations,
             encoder_model=graph.encoder_model,
+            metadata=metadata,
         )
 
 

@@ -54,7 +54,8 @@ def main(
 ) -> None:
     """Build the three SciMON graphs (KG, semantic and citations) as a single structure."""
     setup_logging()
-    logger.info(display_params())
+    params = display_params()
+    logger.info(params)
 
     logger.debug("Loading data.")
 
@@ -91,9 +92,8 @@ def main(
         citations=citation_graph,
         encoder_model=model_name,
     )
-    graph_data = GraphData.from_graph(graph)
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    output_file.write_text(graph_data.model_dump_json(indent=2))
+    graph_data = GraphData.from_graph(graph, metadata=params)
+    save_data(output_file, graph_data)
 
     logger.debug("Testing loading the graph from saved data.")
     _test_load(output_file)
