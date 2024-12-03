@@ -12,8 +12,7 @@ from pathlib import Path
 from typing import Annotated, Self
 
 import typer
-from openai import BaseModel
-from pydantic import ConfigDict
+from pydantic import BaseModel, ConfigDict
 
 from paper import gpt
 from paper.scimon import embedding as emb

@@ -18,8 +18,7 @@ from pathlib import Path
 from typing import Annotated, Self
 
 import typer
-from openai import BaseModel
-from pydantic import ConfigDict
+from pydantic import BaseModel, ConfigDict
 
 import paper.semantic_scholar as s2
 from paper.scimon import embedding as emb
