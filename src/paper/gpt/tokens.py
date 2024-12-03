@@ -34,6 +34,7 @@ from paper.gpt.evaluate_paper_scimon import (
     SCIMON_CLASSIFY_USER_PROMPTS as SCIMON_PROMPTS,
 )
 from paper.gpt.evaluate_paper_scimon import format_template as format_scimon
+from paper.gpt.evaluate_paper_scimon import query_papers
 from paper.gpt.model import ASAPAnnotated, Paper
 from paper.gpt.run_gpt import MODEL_SYNONYMS, MODELS_ALLOWED
 from paper.scimon.graph import graph_from_json
@@ -157,7 +158,7 @@ def scimon(
     if model not in MODELS_ALLOWED:
         raise SystemExit(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
-    input_data = load_data(input_file, ASAPAnnotated)[:limit]
+    anns = load_data(input_file, ASAPAnnotated)[:limit]
     input_prompt = SCIMON_PROMPTS[user_prompt_key]
 
     demonstration_data = (
@@ -169,8 +170,8 @@ def scimon(
     graph = graph_from_json(graph_file)
 
     prompts = [
-        format_scimon(input_prompt, paper, graph, demonstrations)
-        for paper in input_data
+        format_scimon(input_prompt, ann_result, demonstrations)
+        for ann_result in query_papers(graph, anns)
     ]
 
     tokeniser = tiktoken.encoding_for_model(model)
