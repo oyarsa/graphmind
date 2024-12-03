@@ -51,6 +51,7 @@ def main(
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
     ] = "all-mpnet-base-v2",
+    test: Annotated[bool, typer.Option(help="Test graph saving and loading.")] = False,
 ) -> None:
     """Build the three SciMON graphs (KG, semantic and citations) as a single structure."""
     setup_logging()
@@ -95,8 +96,9 @@ def main(
     graph_data = GraphData.from_graph(graph, metadata=params)
     save_data(output_file, graph_data)
 
-    logger.debug("Testing loading the graph from saved data.")
-    _test_load(output_file)
+    if test:
+        logger.debug("Testing loading the graph from saved data.")
+        _test_load(output_file)
 
 
 def _test_load(path: Path) -> None:
