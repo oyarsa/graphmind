@@ -514,8 +514,8 @@ class PaperAnnotated(Record):
         return self.terms.is_valid() and bool(self.background) and bool(self.target)
 
     def target_terms(self) -> list[str]:
-        """Get target terms from the paper, i.e. unique tail nodes from the relations."""
-        return sorted({r.tail for r in self.terms.relations})
+        """Get unique target terms (tasks) from the paper."""
+        return sorted(set(self.terms.tasks))
 
     @property
     def title(self) -> str:
@@ -537,8 +537,8 @@ class ASAPAnnotated(Record):
         return self.paper.id
 
     def target_terms(self) -> list[str]:
-        """Get target terms from the paper, i.e. unique tail nodes from the relations."""
-        return sorted({r.tail for r in self.terms.relations})
+        """Get unique target terms (tasks) from the paper."""
+        return sorted(set(self.terms.tasks))
 
     @property
     def title(self) -> str:

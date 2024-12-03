@@ -110,8 +110,9 @@ class Graph:
         logger.debug("Building nodes and edge lists.")
 
         node_to_targets = {
-            base_input: ann.target_terms()
+            base_input: target_terms
             for ann in annotated
+            if (target_terms := ann.target_terms())
             for relation in ann.terms.relations
             for base_input in _make_base_inputs(
                 ann.background, relation.head, relation.tail
