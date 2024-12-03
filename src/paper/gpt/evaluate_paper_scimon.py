@@ -1,7 +1,8 @@
-"""Evaluate a paper's approval based on SciMON inspiration text.
+"""Evaluate a paper's approval based on annotated papers with SciMON-derived terms.
 
-The input is a `gpt.Paper` annotated through `gpt.annotate_paper` (i.e.
-`gpt.PromptResult[ASAPAnnotated]`) and the SciMON graph created by `scimon.build`.
+The input is the output of `scimon.query_asap`, i.e. the output of `gpt.annotate_paper`
+(papers with extracted scientific terms) with the related terms extracted through the
+SciMON graph created by `scimon.build`.
 """
 
 from __future__ import annotations
@@ -10,8 +11,6 @@ import asyncio
 import logging
 import random
 from collections.abc import Iterable, Sequence
-from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
@@ -29,7 +28,7 @@ from paper.gpt.evaluate_paper import (
     display_metrics,
     format_demonstrations,
 )
-from paper.gpt.model import ASAPAnnotated, Prompt, PromptResult
+from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     GPT_SEMAPHORE,
@@ -40,7 +39,6 @@ from paper.gpt.run_gpt import (
     get_remaining_items,
     run_gpt,
 )
-from paper.scimon.graph import graph_from_json
 from paper.util import (
     Timer,
     cli,
@@ -67,15 +65,12 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def run(
-    annotated_file: Annotated[
+    ann_graph_file: Annotated[
         Path,
         typer.Option(
-            "--ann-asap", help="JSON file containing the annotated ASAP papers data."
+            "--ann-graph",
+            help="JSON file containing the annotated ASAP papers with graph results.",
         ),
-    ],
-    graph_file: Annotated[
-        Path,
-        typer.Option("--graph", help="JSON file containing the SciMON graphs."),
     ],
     output_dir: Annotated[
         Path,
@@ -123,8 +118,7 @@ def run(
     asyncio.run(
         evaluate_papers(
             model,
-            annotated_file,
-            graph_file,
+            ann_graph_file,
             limit_papers,
             user_prompt,
             output_dir,
@@ -145,8 +139,7 @@ def main() -> None:
 
 async def evaluate_papers(
     model: str,
-    ann_file: Path,
-    graph_file: Path,
+    ann_graph_file: Path,
     limit_papers: int | None,
     user_prompt_key: str,
     output_dir: Path,
@@ -162,8 +155,8 @@ async def evaluate_papers(
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        ann_file: Path to the JSON file containing the annotated papers.
-        graph_file: Path to the JSON file containing the SciMON graph data.
+        ann_graph_file: Path to the JSON file containing the annotated papers with their
+            graph data.
         limit_papers: Number of papers to process. Defaults to 1 example. If None,
             process all.
         graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
@@ -203,9 +196,9 @@ async def evaluate_papers(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    papers = shuffled(
-        PromptResult.unwrap(load_data(ann_file, PromptResult[ASAPAnnotated]))
-    )[:limit_papers]
+    papers = shuffled(load_data(ann_graph_file, scimon.AnnotatedGraphResult))[
+        :limit_papers
+    ]
 
     user_prompt = SCIMON_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
@@ -241,7 +234,6 @@ async def evaluate_papers(
             papers_remaining.remaining,
             output_intermediate_file,
             demonstrations,
-            graph_file,
             seed=seed,
         )
 
@@ -264,10 +256,9 @@ async def _classify_papers(
     client: AsyncOpenAI,
     model: str,
     user_prompt: PromptTemplate,
-    papers: Sequence[ASAPAnnotated],
+    ann_graphs: Sequence[scimon.AnnotatedGraphResult],
     output_intermediate_file: Path,
     demonstrations: str,
-    graph_file: Path,
     *,
     seed: int,
 ) -> GPTResult[list[PromptResult[PaperResult]]]:
@@ -277,10 +268,9 @@ async def _classify_papers(
         client: OpenAI client to use GPT.
         model: GPT model code to use (must support Structured Outputs).
         user_prompt: User prompt template to use for classification to be filled.
-        papers: Papers from the ASAP-Review dataset to classify.
+        ann_graphs: Annotated ASAP papers with their graph data.
         output_intermediate_file: File to write new results after each task is completed.
         demonstrations: Text of demonstrations for few-shot prompting.
-        graph_file: JSON file with SciMON graph with KG, semantic and citation.
         seed: Seed for the OpenAI API call.
 
     Returns:
@@ -290,8 +280,10 @@ async def _classify_papers(
     total_cost = 0
 
     tasks = [
-        _classify_paper(client, model, result, user_prompt, demonstrations, seed=seed)
-        for result in await _query_papers_async(graph_file, papers)
+        _classify_paper(
+            client, model, ann_graph, user_prompt, demonstrations, seed=seed
+        )
+        for ann_graph in ann_graphs
     ]
 
     for task in progress.as_completed(tasks, desc="Classifying papers"):
@@ -310,46 +302,10 @@ to a paper submitted to a high-quality scientific conference.
 """
 
 
-@dataclass(frozen=True, kw_only=True)
-class AnnotatedGraphResult:
-    """Annotated ASAP paper and graph terms queried from it."""
-
-    ann: ASAPAnnotated
-    result: scimon.QueryResult
-
-
-async def _query_papers_async(
-    graph_file: Path, anns: Sequence[ASAPAnnotated]
-) -> list[AnnotatedGraphResult]:
-    """Query all annotated papers from graph.
-
-    This process is CPU-bound, so we run this run in a multiprocessing executor so we
-    don't block the loop.
-    """
-    with ProcessPoolExecutor() as executor:
-        return await asyncio.get_running_loop().run_in_executor(
-            executor, _query_papers, graph_file, anns
-        )
-
-
-def _query_papers(
-    graph_file: Path, anns: Sequence[ASAPAnnotated]
-) -> list[AnnotatedGraphResult]:
-    """Load graph from path and query all annotated papers."""
-    return query_papers(graph_from_json(graph_file), anns)
-
-
-def query_papers(
-    graph: scimon.Graph, anns: Sequence[ASAPAnnotated]
-) -> list[AnnotatedGraphResult]:
-    """Query all annotated papers from graph."""
-    return [AnnotatedGraphResult(ann=ann, result=graph.query_all(ann)) for ann in anns]
-
-
 async def _classify_paper(
     client: AsyncOpenAI,
     model: str,
-    ann_result: AnnotatedGraphResult,
+    ann_result: scimon.AnnotatedGraphResult,
     user_prompt: PromptTemplate,
     demonstrations: str,
     *,
@@ -389,7 +345,7 @@ async def _classify_paper(
 
 
 def format_template(
-    prompt: PromptTemplate, ann_result: AnnotatedGraphResult, demonstrations: str
+    prompt: PromptTemplate, ann_result: scimon.AnnotatedGraphResult, demonstrations: str
 ) -> str:
     """Format evaluation template using annotated terms, graphs and `demonstrations`."""
     terms = "\n".join(

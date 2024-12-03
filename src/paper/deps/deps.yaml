@@ -26,10 +26,13 @@
   detail: related
 
 - source: ./gpt/annotate_paper.py
-  target: ./gpt/evaluate_paper_scimon.py
+  target: ./scimon/query_asap.py
   detail: main
 
 - source: ./scimon/build.py
+  target: ./scimon/query_asap.py
+
+- source: ./scimon/query_asap.py
   target: ./gpt/evaluate_paper_scimon.py
 
 - source: allenai/CSAbstruct

@@ -21,6 +21,7 @@ import pandas as pd  # type: ignore
 import tiktoken
 import typer
 
+from paper import scimon
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS as DEMO_PROMPTS,
 )
@@ -34,10 +35,8 @@ from paper.gpt.evaluate_paper_scimon import (
     SCIMON_CLASSIFY_USER_PROMPTS as SCIMON_PROMPTS,
 )
 from paper.gpt.evaluate_paper_scimon import format_template as format_scimon
-from paper.gpt.evaluate_paper_scimon import query_papers
-from paper.gpt.model import ASAPAnnotated, Paper
+from paper.gpt.model import Paper
 from paper.gpt.run_gpt import MODEL_SYNONYMS, MODELS_ALLOWED
-from paper.scimon.graph import graph_from_json
 from paper.util import cli, display_params, setup_logging
 from paper.util.serde import load_data
 
@@ -70,13 +69,13 @@ def fulltext(
     demo_prompt_key: Annotated[
         str,
         typer.Option(
-            "--demo",
+            "--demo-prompt",
             help="Demonstration prompt.",
             click_type=cli.choice(DEMO_PROMPTS),
         ),
     ],
     demonstrations_file: Annotated[
-        Path | None, typer.Option(help="Path to demonstrations file")
+        Path | None, typer.Option("--demo-file", help="Path to demonstrations file")
     ] = None,
     model: Annotated[
         str, typer.Option("--model", "-m", help="Which model's tokeniser to use.")
@@ -116,12 +115,18 @@ def fulltext(
     )
 
 
-@app.command(help="Estimate tokens for SciMON-based evaluation", no_args_is_help=True)
-def scimon(
+@app.command(
+    name="scimon",
+    help="Estimate tokens for SciMON-based evaluation",
+    no_args_is_help=True,
+)
+def scimon_(
     input_file: Annotated[
-        Path, typer.Argument(help="Input dataset JSON file (annotated ASAP)")
+        Path,
+        typer.Argument(
+            help="Input dataset JSON file (annotated ASAP with graph data.)"
+        ),
     ],
-    graph_file: Annotated[Path, typer.Argument(help="Path to SciMON graph")],
     user_prompt_key: Annotated[
         str,
         typer.Option(
@@ -133,13 +138,13 @@ def scimon(
     demo_prompt_key: Annotated[
         str,
         typer.Option(
-            "--demo",
+            "--demo-prompt",
             help="Demonstration prompt.",
             click_type=cli.choice(DEMO_PROMPTS),
         ),
     ],
     demonstrations_file: Annotated[
-        Path | None, typer.Option(help="Path to demonstrations file")
+        Path | None, typer.Option("--demo-file", help="Path to demonstrations file")
     ] = None,
     model: Annotated[
         str, typer.Option("--model", "-m", help="Which model's tokeniser to use.")
@@ -158,7 +163,7 @@ def scimon(
     if model not in MODELS_ALLOWED:
         raise SystemExit(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
-    anns = load_data(input_file, ASAPAnnotated)[:limit]
+    anns = load_data(input_file, scimon.AnnotatedGraphResult)[:limit]
     input_prompt = SCIMON_PROMPTS[user_prompt_key]
 
     demonstration_data = (
@@ -167,11 +172,8 @@ def scimon(
     demonstration_prompt = DEMO_PROMPTS[demo_prompt_key]
     demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
 
-    graph = graph_from_json(graph_file)
-
     prompts = [
-        format_scimon(input_prompt, ann_result, demonstrations)
-        for ann_result in query_papers(graph, anns)
+        format_scimon(input_prompt, ann_result, demonstrations) for ann_result in anns
     ]
 
     tokeniser = tiktoken.encoding_for_model(model)

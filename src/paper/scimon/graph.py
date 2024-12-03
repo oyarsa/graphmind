@@ -11,9 +11,10 @@ from typing import ClassVar, Self
 from pydantic import BaseModel, ConfigDict
 
 import paper.scimon.embedding as emb
+from paper import gpt
 from paper.scimon import citations, kg, semantic
 from paper.scimon.model import PaperAnnotated
-from paper.util.serde import load_data
+from paper.util.serde import Record, load_data
 
 logger = logging.getLogger(__name__)
 
@@ -112,13 +113,26 @@ class Graph:
         )
 
 
-@dataclass(frozen=True, kw_only=True)
-class QueryResult:
+class QueryResult(BaseModel):
     """Query results across graphs, delimited by where they came from."""
+
+    model_config = ConfigDict(frozen=True)
 
     citations: Sequence[str]
     kg: Sequence[str]
     semantic: Sequence[str]
+
+
+class AnnotatedGraphResult(Record):
+    """Annotated ASAP paper and graph terms queried from it."""
+
+    ann: gpt.ASAPAnnotated
+    result: QueryResult
+
+    @property
+    def id(self) -> str:
+        """Identify the graph result as the underlying annotated paper's ID."""
+        return self.ann.id
 
 
 def graph_from_json(file: Path) -> Graph:

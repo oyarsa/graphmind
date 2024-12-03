@@ -13,7 +13,7 @@ Embeddings are generated with SentenceTransformer. The default model is
 
 import typer
 
-from paper.scimon import build, citations, kg, semantic
+from paper.scimon import build, citations, kg, query_asap, semantic
 
 app = typer.Typer(
     name="gpt",
@@ -30,6 +30,7 @@ subcommands = [
     ("semantic", semantic),
     ("citations", citations),
     ("build", build),
+    ("query-asap", query_asap),
 ]
 for name, module in subcommands:
     app.command(name=name, help=module.__doc__, no_args_is_help=True)(module.main)
