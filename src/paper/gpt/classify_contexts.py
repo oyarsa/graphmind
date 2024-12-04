@@ -4,23 +4,24 @@ Each paper contains many references. These can appear in one or more citation co
 inside the text. Each citation context can be classified by polarity (positive vs
 negative).
 
-NB: We do concurrent requests (mediated by a rate limiter). Unfortunately, that doesn't
-work very well with OpenAI's client. This means you'll likely see a lot of
-openai.APIConnectionError thrown around. Most requests will go through, so you'll just
-have to run the script again until you get everything. See also the `--continue-papers`
-option.
+Here, these references contain data from the S2 API, so we want to keep that, in addition
+to the context and its class.
+
+Data:
+- input: asap.PaperWithS2Refs
+- output: PaperWithContextClassfied
 """
 
 import asyncio
 import logging
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Self
 
 import dotenv
 import typer
 from openai import AsyncOpenAI
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, computed_field
 
 from paper import asap, evaluation_metrics
 from paper.gpt.model import Prompt, PromptResult
@@ -46,366 +47,6 @@ from paper.util import (
 from paper.util.serde import Record, load_data
 
 logger = logging.getLogger(__name__)
-
-
-class ContextClassified(BaseModel):
-    """Context from a paper reference with its classified polarity."""
-
-    model_config = ConfigDict(frozen=True)
-
-    text: str = Field(description="Full text of the context mention")
-    gold: asap.ContextPolarityBinary | None = Field(
-        description="Whether the citation context is annotated as positive or negative."
-        " Can be absent for unannotated data."
-    )
-    prediction: asap.ContextPolarityBinary = Field(
-        description="Whether the citation context is predicted positive or negative"
-    )
-
-
-class Reference(Record):
-    """Paper reference where its contexts are enriched with polarity."""
-
-    title: str = Field(description="Title of the citation in the paper references")
-    s2title: str = Field(description="Title of the citation in the S2 data")
-    year: int = Field(description="Year of publication")
-    authors: Sequence[str] = Field(description="Author names")
-    abstract: str = Field(description="Abstract text")
-    contexts: Sequence[ContextClassified] = Field(
-        description="Citation contexts from this reference"
-    )
-    paper_id: str = Field(description="Paper ID in the S2 API")
-
-    @property
-    def id(self) -> str:
-        """Identify the reference by its S2 API ID."""
-        return self.paper_id
-
-
-class PaperOutput(Record):
-    """Paper where its references have contexts with polarity."""
-
-    title: str = Field(description="Paper title")
-    abstract: str = Field(description="Abstract text")
-    reviews: Sequence[asap.PaperReview] = Field(description="Feedback from a reviewer")
-    sections: Sequence[asap.PaperSection] = Field(
-        description="Sections in the paper text"
-    )
-    approval: bool = Field(
-        description="Approval decision - whether the paper was approved"
-    )
-    references: Sequence[Reference] = Field(description="References made in the paper")
-
-    @property
-    def id(self) -> str:
-        """Identify an ASAP by the combination of its `title` and `abstract`.
-
-        The `title` isn't unique by itself, but `title+abstract` is. Instead of passing
-        full text around, I hash it.
-        """
-        return hashstr(self.title + self.abstract)
-
-
-_CONTEXT_SYSTEM_PROMPT = (
-    "Classify the context polarity between the main paper and its citation."
-)
-
-_CONTEXT_USER_PROMPTS = load_prompts("classify_contexts")
-
-
-class GPTContext(BaseModel):
-    """Context from a paper reference with GPT-classified polarity.
-
-    NB: This is currently identical to the main type (PaperContextClassified). They're
-    separate on purpose.
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    text: str = Field(description="Full text of the context mention")
-    polarity: asap.ContextPolarityBinary = Field(
-        description="Whether the citation context is positive or negative"
-    )
-
-
-_CONTEXT_TYPES = {
-    "context": GPTContext,
-}
-
-
-async def _classify_paper(
-    client: AsyncOpenAI,
-    limit_references: int | None,
-    model: str,
-    paper: asap.PaperWithFullReference,
-    user_prompt: PromptTemplate,
-    *,
-    seed: int,
-) -> GPTResult[PromptResult[PaperOutput]]:
-    """Classify the contexts for the paper's references by polarity.
-
-    Polarity (ContextPolarity): positive (supports argument) or negative (counterpoint).
-
-    The returned object `PaperOutput` is very similar to the input `PaperInput`, but
-    the references are different. Instead of the contexts being only strings, they
-    are now `ContextClassified`, containing the original text plus the predicted
-    polarity.
-    """
-
-    classified_references: list[Reference] = []
-    user_prompt_save = None
-    total_cost = 0
-
-    references = paper.references[:limit_references]
-    for reference in references:
-        classified_contexts: list[ContextClassified] = []
-
-        for context in reference.contexts:
-            user_prompt_text = user_prompt.template.format(
-                main_title=paper.title,
-                main_abstract=paper.abstract,
-                reference_title=reference.s2title,
-                reference_abstract=reference.abstract,
-                context=context.sentence,
-            )
-            if not user_prompt_save:
-                user_prompt_save = user_prompt_text
-
-            result = await run_gpt(
-                _CONTEXT_TYPES[user_prompt.type_name],
-                client,
-                _CONTEXT_SYSTEM_PROMPT,
-                user_prompt_text,
-                model,
-                seed=seed,
-            )
-            total_cost += result.cost
-
-            if gpt_context := result.result:
-                classified_contexts.append(
-                    ContextClassified(
-                        text=context.sentence,
-                        gold=asap.ContextPolarityBinary.from_trinary(context.polarity)
-                        if context.polarity is not None
-                        else None,
-                        prediction=gpt_context.polarity,
-                    )
-                )
-
-        classified_references.append(
-            Reference(
-                title=reference.title,
-                year=reference.year,
-                authors=reference.authors,
-                abstract=reference.abstract,
-                s2title=reference.s2title,
-                contexts=classified_contexts,
-                paper_id=reference.paper_id,
-            )
-        )
-
-    # Some references might have fewer contexts after classification, but all
-    # references should be in the output.
-    if len(classified_references) != len(references):
-        logger.warning(
-            "Paper %r has %d references but only %d were classified.",
-            paper.title,
-            len(references),
-            len(classified_references),
-        )
-
-    result = PromptResult(
-        prompt=Prompt(system=_CONTEXT_SYSTEM_PROMPT, user=user_prompt_save or ""),
-        item=PaperOutput(
-            title=paper.title,
-            abstract=paper.abstract,
-            reviews=paper.reviews,
-            sections=paper.sections,
-            approval=paper.approval,
-            references=classified_references,
-        ),
-    )
-    return GPTResult(result, total_cost)
-
-
-async def _classify_contexts(
-    client: AsyncOpenAI,
-    model: str,
-    user_prompt: PromptTemplate,
-    papers: Sequence[asap.PaperWithFullReference],
-    limit_references: int | None,
-    output_intermediate_path: Path,
-    *,
-    seed: int,
-) -> GPTResult[list[PromptResult[PaperOutput]]]:
-    """Classify the contexts for each papers' references by polarity.
-
-    Polarity (ContextPolarity): positive (supports argument) or negative (counterpoint).
-
-    The returned object `PaperOutput` is very similar to the input `PaperInput`, but the
-    references are different. Instead of the contexts being only strings, they are now
-    `ContextClassified`, containing the original text plus the predicted polarity.
-
-    Requests to the OpenAI API are made concurrently, respecting the rate limits. As
-    each request is completed, the result is saved to an intermediate file. Once all
-    are done, a full result is returned.
-    """
-    paper_outputs: list[PromptResult[PaperOutput]] = []
-    total_cost = 0
-
-    tasks = [
-        _classify_paper(client, limit_references, model, paper, user_prompt, seed=seed)
-        for paper in papers
-    ]
-    for task in progress.as_completed(
-        tasks, desc="Classifying paper reference contexts"
-    ):
-        result = await task
-        total_cost += result.cost
-
-        paper_outputs.append(result.result)
-        append_intermediate_result(PaperOutput, output_intermediate_path, result.result)
-
-    return GPTResult(paper_outputs, total_cost)
-
-
-async def classify_contexts(
-    model: str,
-    data_path: Path,
-    limit_papers: int | None,
-    user_prompt_key: str,
-    output_dir: Path,
-    limit_references: int | None,
-    continue_papers_file: Path | None,
-    clean_run: bool,
-    seed: int,
-) -> None:
-    """Classify reference citation contexts by polarity."""
-    logger.info(display_params())
-
-    dotenv.load_dotenv()
-
-    model = MODEL_SYNONYMS.get(model, model)
-    if model not in MODELS_ALLOWED:
-        raise ValueError(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
-
-    if limit_papers == 0:
-        limit_papers = None
-
-    if limit_references == 0:
-        limit_references = None
-
-    client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
-
-    data = load_data(data_path, asap.PaperWithFullReference)
-
-    papers = data[:limit_papers]
-    user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_intermediate_file = output_dir / "results.tmp.json"
-    papers_remaining = get_remaining_items(
-        PaperOutput, output_intermediate_file, continue_papers_file, papers, clean_run
-    )
-    if not papers_remaining.remaining:
-        logger.info(
-            "No items left to process. They're all on the `continues` file. Exiting."
-        )
-        return
-
-    if clean_run:
-        logger.info("Clean run: ignoring `continue` file and using the whole data.")
-    else:
-        logger.info(
-            "Skipping %d items from the `continue` file.", len(papers_remaining.done)
-        )
-
-    with Timer() as timer:
-        results = await _classify_contexts(
-            client,
-            model,
-            user_prompt,
-            papers_remaining.remaining,
-            limit_references,
-            output_intermediate_file,
-            seed=seed,
-        )
-
-    logger.info(f"Time elapsed: {timer.human}")
-    logger.info(f"Total cost: ${results.cost:.10f}")
-
-    results_all = papers_remaining.done + results.result
-    stats, metrics = show_classified_stats(result.item for result in results_all)
-    logger.info("Classification metrics:\n%s\n", stats)
-
-    assert len(results_all) == len(papers)
-    (output_dir / "result.json").write_bytes(
-        TypeAdapter(list[PromptResult[PaperOutput]]).dump_json(results_all, indent=2)
-    )
-    (output_dir / "output.txt").write_text(stats)
-    if metrics is not None:
-        (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
-
-
-# TODO:This one is a bit messy. Refactor it.
-def show_classified_stats(
-    data: Iterable[PaperOutput],
-) -> tuple[str, evaluation_metrics.Metrics | None]:
-    """Evaluate the annotation results and print statistics.
-
-    If the data includes gold annotation, calculate evaluation metrics. If not,
-    render frequency statistics.
-
-    Returns:
-        If the data includes gold annotation, render evaluation metrics and frequency
-        pred/gold frequency information. Also return the calculated metrics.
-        Otherwise, render basic frequency information and don't return metrics.
-    """
-    all_contexts: list[ContextClassified] = []
-    y_true: list[bool] = []
-    y_pred: list[bool] = []
-
-    for paper in data:
-        for reference in paper.references:
-            for context in reference.contexts:
-                all_contexts.append(context)
-                if context.gold is not None:
-                    y_true.append(context.gold is asap.ContextPolarityBinary.POSITIVE)
-                    y_pred.append(
-                        context.prediction is asap.ContextPolarityBinary.POSITIVE
-                    )
-
-    output = [
-        f"Total contexts: {len(all_contexts)}",
-        "",
-    ]
-
-    if y_true:
-        metrics = evaluation_metrics.calculate_metrics(y_true, y_pred)
-        output += [
-            str(metrics),
-            "",
-            f"Gold (P/N): {sum(y_true)}/{len(y_true) - sum(y_true)}"
-            f" ({safediv(sum(y_true),len(y_true)):.2%})",
-            f"Pred (P/N): {sum(y_pred)}/{len(y_pred) - sum(y_pred)}"
-            f" ({safediv(sum(y_pred),len(y_pred)):.2%})",
-        ]
-        return "\n".join(output), metrics
-
-    # No entries with gold annotation
-    positive = sum(
-        context.prediction is asap.ContextPolarityBinary.POSITIVE
-        for context in all_contexts
-    )
-    negative = len(all_contexts) - positive
-    output += [
-        "No gold values to calculate metrics.",
-        f"Positive: {positive} ({safediv(positive , len(all_contexts)):.2%})",
-        f"Negative {negative} ({safediv(negative , len(all_contexts)):.2%})",
-    ]
-    return "\n".join(output), None
-
-
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     add_completion=False,
@@ -413,6 +54,9 @@ app = typer.Typer(
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,
 )
+
+
+_CONTEXT_USER_PROMPTS = load_prompts("classify_contexts")
 
 
 @app.command(help=__doc__, no_args_is_help=True)
@@ -477,6 +121,371 @@ def run(
             seed,
         )
     )
+
+
+async def classify_contexts(
+    model: str,
+    data_path: Path,
+    limit_papers: int | None,
+    user_prompt_key: str,
+    output_dir: Path,
+    limit_references: int | None,
+    continue_papers_file: Path | None,
+    clean_run: bool,
+    seed: int,
+) -> None:
+    """Classify reference citation contexts by polarity."""
+    logger.info(display_params())
+
+    dotenv.load_dotenv()
+
+    model = MODEL_SYNONYMS.get(model, model)
+    if model not in MODELS_ALLOWED:
+        raise ValueError(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
+
+    if limit_papers == 0:
+        limit_papers = None
+
+    if limit_references == 0:
+        limit_references = None
+
+    client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
+
+    data = load_data(data_path, asap.PaperWithS2Refs)
+
+    papers = data[:limit_papers]
+    user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_intermediate_file = output_dir / "results.tmp.json"
+    papers_remaining = get_remaining_items(
+        PaperWithContextClassfied,
+        output_intermediate_file,
+        continue_papers_file,
+        papers,
+        clean_run,
+    )
+    if not papers_remaining.remaining:
+        logger.info(
+            "No items left to process. They're all on the `continues` file. Exiting."
+        )
+        return
+
+    if clean_run:
+        logger.info("Clean run: ignoring `continue` file and using the whole data.")
+    else:
+        logger.info(
+            "Skipping %d items from the `continue` file.", len(papers_remaining.done)
+        )
+
+    with Timer() as timer:
+        results = await _classify_contexts(
+            client,
+            model,
+            user_prompt,
+            papers_remaining.remaining,
+            limit_references,
+            output_intermediate_file,
+            seed=seed,
+        )
+
+    logger.info(f"Time elapsed: {timer.human}")
+    logger.info(f"Total cost: ${results.cost:.10f}")
+
+    results_all = papers_remaining.done + results.result
+    stats, metrics = show_classified_stats(result.item for result in results_all)
+    logger.info("Classification metrics:\n%s\n", stats)
+
+    assert len(results_all) == len(papers)
+    (output_dir / "result.json").write_bytes(
+        TypeAdapter(list[PromptResult[PaperWithContextClassfied]]).dump_json(
+            results_all, indent=2
+        )
+    )
+    (output_dir / "output.txt").write_text(stats)
+    if metrics is not None:
+        (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
+
+
+class ContextClassified(BaseModel):
+    """Context from a paper reference with its classified polarity."""
+
+    model_config = ConfigDict(frozen=True)
+
+    text: str = Field(description="Full text of the context mention")
+    gold: asap.ContextPolarityBinary | None = Field(
+        description="Whether the citation context is annotated as positive or negative."
+        " Can be absent for unannotated data."
+    )
+    prediction: asap.ContextPolarityBinary = Field(
+        description="Whether the citation context is predicted positive or negative"
+    )
+
+
+class S2ReferenceClassified(asap.S2Paper):
+    """S2 paper as a reference with the classified contexts."""
+
+    contexts: Sequence[ContextClassified]
+
+    @classmethod
+    def from_(
+        cls, paper: asap.S2Paper, *, contexts: Sequence[ContextClassified]
+    ) -> Self:
+        """Create new instance by copying data from S2Paper, in addition to the contexts."""
+        return cls.model_validate(paper.model_dump() | {"contexts": contexts})
+
+    @computed_field
+    @property
+    def polarity(self) -> asap.ContextPolarityBinary:
+        """Overall polarity of the reference.
+
+        If there are more negative contexts than positive, the whole reference is
+        negative. Otherwise, it's positive.
+        """
+        preds = [c.prediction for c in self.contexts]
+        return (
+            asap.ContextPolarityBinary.NEGATIVE
+            if preds.count(asap.ContextPolarityBinary.NEGATIVE) > len(preds) / 2
+            else asap.ContextPolarityBinary.POSITIVE
+        )
+
+
+class PaperWithContextClassfied(Record):
+    """ASAP Paper with S2 references with classified contexts."""
+
+    title: str = Field(description="Paper title")
+    abstract: str = Field(description="Abstract text")
+    reviews: Sequence[asap.PaperReview] = Field(description="Feedback from a reviewer")
+    sections: Sequence[asap.PaperSection] = Field(
+        description="Sections in the paper text"
+    )
+    approval: bool = Field(
+        description="Approval decision - whether the paper was approved"
+    )
+    references: Sequence[S2ReferenceClassified] = Field(
+        description="S2 paper referenced in the paper with their contexts classified."
+    )
+
+    @property
+    def id(self) -> str:
+        """Identify an ASAP by the combination of its `title` and `abstract`.
+
+        The `title` isn't unique by itself, but `title+abstract` is. Instead of passing
+        full text around, I hash it.
+        """
+        return hashstr(self.title + self.abstract)
+
+
+class GPTContext(BaseModel):
+    """Context from a paper reference with GPT-classified polarity.
+
+    NB: This is currently identical to the main type (PaperContextClassified). They're
+    separate on purpose.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    text: str = Field(description="Full text of the context mention")
+    polarity: asap.ContextPolarityBinary = Field(
+        description="Whether the citation context is positive or negative"
+    )
+
+
+_CONTEXT_TYPES = {
+    "context": GPTContext,
+}
+_CONTEXT_SYSTEM_PROMPT = (
+    "Classify the context polarity between the main paper and its citation."
+)
+
+
+async def _classify_paper(
+    client: AsyncOpenAI,
+    limit_references: int | None,
+    model: str,
+    paper: asap.PaperWithS2Refs,
+    user_prompt: PromptTemplate,
+    *,
+    seed: int,
+) -> GPTResult[PromptResult[PaperWithContextClassfied]]:
+    """Classify the contexts for the paper's references by polarity.
+
+    Polarity (ContextPolarity): positive (supports argument) or negative (counterpoint).
+
+    The returned object `PaperOutput` is very similar to the input `PaperInput`, but
+    the references are different. Instead of the contexts being only strings, they
+    are now `ContextClassified`, containing the original text plus the predicted
+    polarity.
+    """
+
+    classified_references: list[S2ReferenceClassified] = []
+    user_prompt_save = None
+    total_cost = 0
+
+    references = paper.references[:limit_references]
+    for reference in references:
+        classified_contexts: list[ContextClassified] = []
+
+        for context in reference.contexts:
+            user_prompt_text = user_prompt.template.format(
+                main_title=paper.title,
+                main_abstract=paper.abstract,
+                reference_title=reference.title,
+                reference_abstract=reference.abstract,
+                context=context.sentence,
+            )
+            if not user_prompt_save:
+                user_prompt_save = user_prompt_text
+
+            result = await run_gpt(
+                _CONTEXT_TYPES[user_prompt.type_name],
+                client,
+                _CONTEXT_SYSTEM_PROMPT,
+                user_prompt_text,
+                model,
+                seed=seed,
+            )
+            total_cost += result.cost
+
+            if gpt_context := result.result:
+                classified_contexts.append(
+                    ContextClassified(
+                        text=context.sentence,
+                        gold=asap.ContextPolarityBinary.from_trinary(context.polarity)
+                        if context.polarity is not None
+                        else None,
+                        prediction=gpt_context.polarity,
+                    )
+                )
+
+        classified_references.append(
+            S2ReferenceClassified.from_(reference, contexts=classified_contexts)
+        )
+
+    # Some references might have fewer contexts after classification, but all
+    # references should be in the output.
+    if len(classified_references) != len(references):
+        logger.warning(
+            "Paper %r has %d references but only %d were classified.",
+            paper.title,
+            len(references),
+            len(classified_references),
+        )
+
+    result = PromptResult(
+        prompt=Prompt(system=_CONTEXT_SYSTEM_PROMPT, user=user_prompt_save or ""),
+        item=PaperWithContextClassfied(
+            title=paper.title,
+            abstract=paper.abstract,
+            reviews=paper.reviews,
+            sections=paper.sections,
+            approval=paper.approval,
+            references=classified_references,
+        ),
+    )
+    return GPTResult(result, total_cost)
+
+
+async def _classify_contexts(
+    client: AsyncOpenAI,
+    model: str,
+    user_prompt: PromptTemplate,
+    papers: Sequence[asap.PaperWithS2Refs],
+    limit_references: int | None,
+    output_intermediate_path: Path,
+    *,
+    seed: int,
+) -> GPTResult[list[PromptResult[PaperWithContextClassfied]]]:
+    """Classify the contexts for each papers' references by polarity.
+
+    Polarity (ContextPolarity): positive (supports argument) or negative (counterpoint).
+
+    The returned object `PaperOutput` is very similar to the input `PaperInput`, but the
+    references are different. Instead of the contexts being only strings, they are now
+    `ContextClassified`, containing the original text plus the predicted polarity.
+
+    Requests to the OpenAI API are made concurrently, respecting the rate limits. As
+    each request is completed, the result is saved to an intermediate file. Once all
+    are done, a full result is returned.
+    """
+    paper_outputs: list[PromptResult[PaperWithContextClassfied]] = []
+    total_cost = 0
+
+    tasks = [
+        _classify_paper(client, limit_references, model, paper, user_prompt, seed=seed)
+        for paper in papers
+    ]
+    for task in progress.as_completed(
+        tasks, desc="Classifying paper reference contexts"
+    ):
+        result = await task
+        total_cost += result.cost
+
+        paper_outputs.append(result.result)
+        append_intermediate_result(
+            PaperWithContextClassfied, output_intermediate_path, result.result
+        )
+
+    return GPTResult(paper_outputs, total_cost)
+
+
+# TODO:This one is a bit messy. Refactor it.
+def show_classified_stats(
+    data: Iterable[PaperWithContextClassfied],
+) -> tuple[str, evaluation_metrics.Metrics | None]:
+    """Evaluate the annotation results and print statistics.
+
+    If the data includes gold annotation, calculate evaluation metrics. If not,
+    render frequency statistics.
+
+    Returns:
+        If the data includes gold annotation, render evaluation metrics and frequency
+        pred/gold frequency information. Also return the calculated metrics.
+        Otherwise, render basic frequency information and don't return metrics.
+    """
+    all_contexts: list[ContextClassified] = []
+    y_true: list[bool] = []
+    y_pred: list[bool] = []
+
+    for paper in data:
+        for reference in paper.references:
+            for context in reference.contexts:
+                all_contexts.append(context)
+                if context.gold is not None:
+                    y_true.append(context.gold is asap.ContextPolarityBinary.POSITIVE)
+                    y_pred.append(
+                        context.prediction is asap.ContextPolarityBinary.POSITIVE
+                    )
+
+    output = [
+        f"Total contexts: {len(all_contexts)}",
+        "",
+    ]
+
+    if y_true:
+        metrics = evaluation_metrics.calculate_metrics(y_true, y_pred)
+        output += [
+            str(metrics),
+            "",
+            f"Gold (P/N): {sum(y_true)}/{len(y_true) - sum(y_true)}"
+            f" ({safediv(sum(y_true),len(y_true)):.2%})",
+            f"Pred (P/N): {sum(y_pred)}/{len(y_pred) - sum(y_pred)}"
+            f" ({safediv(sum(y_pred),len(y_pred)):.2%})",
+        ]
+        return "\n".join(output), metrics
+
+    # No entries with gold annotation
+    positive = sum(
+        context.prediction is asap.ContextPolarityBinary.POSITIVE
+        for context in all_contexts
+    )
+    negative = len(all_contexts) - positive
+    output += [
+        "No gold values to calculate metrics.",
+        f"Positive: {positive} ({safediv(positive , len(all_contexts)):.2%})",
+        f"Negative {negative} ({safediv(negative , len(all_contexts)):.2%})",
+    ]
+    return "\n".join(output), None
 
 
 @app.callback()

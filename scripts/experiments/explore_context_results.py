@@ -10,7 +10,7 @@ from typing import Annotated
 import typer
 from pydantic import TypeAdapter
 
-from paper.gpt.classify_contexts import PaperOutput, show_classified_stats
+from paper.gpt.classify_contexts import PaperWithContextClassfied, show_classified_stats
 from paper.gpt.run_gpt import PromptResult
 
 app = typer.Typer(
@@ -29,9 +29,9 @@ def main(
     ],
 ) -> None:
     """Show statistics from context classification results."""
-    input_data = TypeAdapter(list[PromptResult[PaperOutput]]).validate_json(
-        input_file.read_bytes()
-    )
+    input_data = TypeAdapter(
+        list[PromptResult[PaperWithContextClassfied]]
+    ).validate_json(input_file.read_bytes())
 
     papers = [result.item for result in input_data]
     print(f"Papers: {len(papers)}")
