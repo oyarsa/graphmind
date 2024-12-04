@@ -107,6 +107,12 @@ class ReferenceWithAbstract(PaperReference):
 
     abstract: str = Field(description="Abstract text")
     s2title: str = Field(description="Title from the S2 data")
+    paper_id: str = Field(description="Paper ID in the S2 API")
+
+    @property
+    def id(self) -> str:
+        """Identify the reference by its S2 API ID."""
+        return self.paper_id
 
 
 class PaperWithFullReference(Record):

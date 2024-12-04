@@ -63,10 +63,8 @@ class ContextClassified(BaseModel):
     )
 
 
-class Reference(BaseModel):
+class Reference(Record):
     """Paper reference where its contexts are enriched with polarity."""
-
-    model_config = ConfigDict(frozen=True)
 
     title: str = Field(description="Title of the citation in the paper references")
     s2title: str = Field(description="Title of the citation in the S2 data")
@@ -76,6 +74,12 @@ class Reference(BaseModel):
     contexts: Sequence[ContextClassified] = Field(
         description="Citation contexts from this reference"
     )
+    paper_id: str = Field(description="Paper ID in the S2 API")
+
+    @property
+    def id(self) -> str:
+        """Identify the reference by its S2 API ID."""
+        return self.paper_id
 
 
 class PaperOutput(Record):
@@ -196,6 +200,7 @@ async def _classify_paper(
                 abstract=reference.abstract,
                 s2title=reference.s2title,
                 contexts=classified_contexts,
+                paper_id=reference.paper_id,
             )
         )
 
