@@ -20,8 +20,8 @@ from typing import Annotated, Self
 import typer
 from pydantic import BaseModel, ConfigDict
 
+from paper import embedding as emb
 from paper import gpt
-from paper.scimon import embedding as emb
 from paper.scimon.model import PaperTerms
 from paper.util import setup_logging
 from paper.util.serde import load_data

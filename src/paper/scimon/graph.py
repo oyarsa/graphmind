@@ -10,7 +10,7 @@ from typing import ClassVar, Self
 
 from pydantic import BaseModel, ConfigDict
 
-import paper.scimon.embedding as emb
+from paper import embedding as emb
 from paper import gpt
 from paper.scimon import citations, kg, semantic
 from paper.scimon.model import PaperAnnotated

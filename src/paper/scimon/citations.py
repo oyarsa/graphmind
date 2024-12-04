@@ -21,7 +21,7 @@ import typer
 from pydantic import BaseModel, ConfigDict
 
 import paper.semantic_scholar as s2
-from paper.scimon import embedding as emb
+from paper import embedding as emb
 from paper.util import display_params
 from paper.util.serde import Record, load_data
 
