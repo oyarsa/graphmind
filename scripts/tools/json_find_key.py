@@ -1,8 +1,8 @@
 """Search JSON files for objects with matching keys."""
 # pyright: strict
 
+import contextlib
 import json
-from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
 
@@ -12,13 +12,16 @@ from paper.util.serde import JSONValue
 
 
 def search_object(obj: JSONValue, keyword: str, current_path: str = "") -> list[str]:
-    """Recursively search the JSON object for a key matching key word."""
+    """Recursively search the JSON object for a key matching key word.
+
+    Assumes `keyword` is normalised. Normalises the object keys before comparison.
+    """
     results: list[str] = []
 
     if isinstance(obj, dict):
         for key, value in obj.items():
             new_path = f"{current_path}.{key}" if current_path else key
-            if keyword in key.lower().replace(" ", ""):
+            if keyword in _normalise_key(key):
                 results.append(new_path)
             results.extend(search_object(value, keyword, new_path))
     elif isinstance(obj, list):
@@ -40,26 +43,38 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def main(
-    keyword: Annotated[str, typer.Argument(help="Keyword to search for in JSON keys")],
+    keyword: Annotated[
+        str, typer.Option("--keyword", "-k", help="Keyword to search for in JSON keys")
+    ],
     paths: Annotated[
-        Sequence[Path], typer.Argument(help="List of paths to search for JSON files")
-    ] = (Path(),),
+        list[Path] | None,
+        typer.Option("--paths", "-p", help="List of paths to search for JSON files"),
+    ] = None,
+    show_matches: Annotated[
+        bool,
+        typer.Option("--matches", "-m", help="Print each match, not just the paths."),
+    ] = False,
 ) -> None:
     """Find key matches to the keyword in the JSON files in `path`."""
-    keyword = keyword.lower().replace(" ", "")
+    keyword = _normalise_key(keyword)
+    paths = paths or [Path()]
 
-    for path in paths:
+    for path in paths or [Path()]:
         for file_path in path.rglob("*.json"):
-            data = json.loads(file_path.read_text())
+            with contextlib.suppress(Exception):
+                data = json.loads(file_path.read_text())
+                matches = search_object(data, keyword)
+                if not matches:
+                    continue
 
-            matches = search_object(data, keyword)
-            if not matches:
-                continue
+                print(file_path)
+                if show_matches:
+                    for match in matches:
+                        print(f"  - {match}")
 
-            print(file_path)
-            for match in matches:
-                print(f"  {match}")
-            print()
+
+def _normalise_key(key: str) -> str:
+    return key.strip().casefold().replace(" ", "")
 
 
 if __name__ == "__main__":
