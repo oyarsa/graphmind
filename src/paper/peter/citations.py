@@ -1,0 +1,126 @@
+"""Build citations graph from ASAP data with S2 papers and context polarities."""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Self
+
+from pydantic import BaseModel, ConfigDict
+from tqdm import tqdm
+
+from paper import asap, gpt
+from paper import embedding as emb
+from paper import semantic_scholar as s2
+from paper.util.serde import Record
+
+logger = logging.getLogger(__name__)
+
+
+class Graph(BaseModel):
+    """Citation graph where paper citations are organised by title similarity."""
+
+    model_config = ConfigDict(frozen=True)
+
+    title_to_id: Mapping[str, str]
+    """ASAP paper titles to IDs."""
+    id_polarity_to_cited: Mapping[
+        tuple[str, asap.ContextPolarityBinary], Sequence[Citation]
+    ]
+    """ASAP paper IDs and context polarity to cited papers.
+
+    Sorted by similarity score (descending).
+    """
+
+    @classmethod
+    def from_papers(
+        cls,
+        encoder: emb.Encoder,
+        asap_papers: Iterable[gpt.PaperWithContextClassfied],
+        progress: bool = False,
+    ) -> Self:
+        """For each ASAP paper, sort cited papers by title similarity.
+
+        Cleans up the titles with `s2.clean_title`, then compares the ASAP `title` with
+        the S2 `title_query`.
+        """
+        title_to_id: dict[str, str] = {}
+        id_polarity_to_cited: dict[
+            tuple[str, asap.ContextPolarityBinary], list[Citation]
+        ] = {}
+
+        logger.debug("Processing papers.")
+        if progress:
+            asap_papers = tqdm(asap_papers)
+
+        for asap_paper in asap_papers:
+            title_to_id[asap_paper.title] = asap_paper.id
+            asap_embedding = encoder.encode(s2.clean_title(asap_paper.title))
+
+            s2_embeddings = encoder.encode(
+                [s2.clean_title(r.title) for r in asap_paper.references]
+            )
+            s2_similarities = emb.similarities(asap_embedding, s2_embeddings)
+
+            for polarity in asap.ContextPolarityBinary:
+                id_polarity_to_cited[asap_paper.id, polarity] = [
+                    Citation(
+                        score=score,
+                        title=paper.title,
+                        abstract=paper.abstract,
+                        paper_id=paper.id,
+                        polarity=polarity,
+                    )
+                    for paper, score in sorted(
+                        zip(asap_paper.references, s2_similarities),
+                        key=lambda x: x[1],
+                        reverse=True,
+                    )
+                    if paper.polarity is polarity
+                ]
+
+        logger.debug("Done processing papers.")
+
+        return cls(id_polarity_to_cited=id_polarity_to_cited, title_to_id=title_to_id)
+
+    def query_title(self, title: str, k: int) -> QueryResult:
+        """Get top `k` cited papers by title similarity from an ASAP paper `title`.
+
+        Note: prefer `query` for actual usage. See `title_to_id`.
+        """
+        return self.query(self.title_to_id[title], k)
+
+    def query(self, paper_id: str, k: int) -> QueryResult:
+        """Get top `k` cited papers by title similarity from an ASAP paper `id`.
+
+        Returns `k` papers from each polarity.
+        """
+        positive, negative = (
+            self.id_polarity_to_cited[paper_id, polarity][:k]
+            for polarity in (asap.ContextPolarityBinary)
+        )
+        return QueryResult(positive=positive, negative=negative)
+
+
+class Citation(Record):
+    """S2 paper cited by the ASAP paper with the title similarity score and polarity."""
+
+    score: float
+    paper_id: str
+    title: str
+    abstract: str
+    polarity: asap.ContextPolarityBinary
+
+    @property
+    def id(self) -> str:
+        """Identify the Citation by its underlying paper ID."""
+        return self.paper_id
+
+
+class QueryResult(BaseModel):
+    """Result of the citation query: the top K cited papers."""
+
+    model_config = ConfigDict(frozen=True)
+
+    positive: Sequence[Citation]
+    negative: Sequence[Citation]
