@@ -1663,7 +1663,6 @@ dev = [
     { name = "pre-commit" },
     { name = "pyright" },
     { name = "ruff" },
-    { name = "sourcery" },
 ]
 
 [package.metadata]
@@ -1697,7 +1696,6 @@ dev = [
     { name = "pre-commit", specifier = ">=3.8.0" },
     { name = "pyright", specifier = ">=1.1.389" },
     { name = "ruff", specifier = ">=0.8" },
-    { name = "sourcery", specifier = ">=1.25.0" },
 ]
 
 [[package]]
@@ -2488,16 +2486,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d7/ce/fbaeed4f9fb8b2daa961f90591662df6a86c1abf25c548329a86920aedfb/soupsieve-2.6.tar.gz", hash = "sha256:e2e68417777af359ec65daac1057404a3c8a5455bb8abc36f1a9866ab1a51abb", size = 101569 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/c2/fe97d779f3ef3b15f05c94a2f1e3d21732574ed441687474db9d342a7315/soupsieve-2.6-py3-none-any.whl", hash = "sha256:e72c4ff06e4fb6e4b5a9f0f55fe6e81514581fca1515028625d0f299c602ccc9", size = 36186 },
-]
-
-[[package]]
-name = "sourcery"
-version = "1.25.0"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fa/12/d39f0e3ddc27fbb8c3b906043f062f35dfb141da8554572ad4d2870706e4/sourcery-1.25.0-py2.py3-none-macosx_10_9_universal2.whl", hash = "sha256:b7b54e7bd30dac1145d0a82b78a6935779397141f7a4c907af0b55d31fd59948", size = 103659627 },
-    { url = "https://files.pythonhosted.org/packages/74/7e/bb80391bad90cfb56d520884d9d1693beeb24eec97b2182a82d88dd58264/sourcery-1.25.0-py2.py3-none-manylinux1_x86_64.whl", hash = "sha256:5e6aecf938dbef4f5e2d7c434393cbb6934c6942b1371eac94e9ddff27e13bd1", size = 133025603 },
-    { url = "https://files.pythonhosted.org/packages/d8/d6/a9d2d008a7cdda611a71de02a0eee52a425e838ea98e64039f7e2f697ad2/sourcery-1.25.0-py2.py3-none-win_amd64.whl", hash = "sha256:f74976ab5b296bbe7542584f71379f2879d162bb42bdd3366ad639b5d0ccf7c6", size = 101419677 },
 ]
 
 [[package]]
