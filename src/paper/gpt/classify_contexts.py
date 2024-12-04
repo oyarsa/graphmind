@@ -43,7 +43,7 @@ from paper.util import (
     safediv,
     setup_logging,
 )
-from paper.util.serde import Record
+from paper.util.serde import Record, load_data
 
 logger = logging.getLogger(__name__)
 
@@ -297,9 +297,7 @@ async def classify_contexts(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    data = TypeAdapter(list[asap.PaperWithFullReference]).validate_json(
-        data_path.read_bytes()
-    )
+    data = load_data(data_path, asap.PaperWithFullReference)
 
     papers = data[:limit_papers]
     user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]

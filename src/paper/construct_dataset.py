@@ -126,27 +126,27 @@ def _augment_asap(
     asap_papers: Iterable[asap.Paper],
     s2_papers: Iterable[asap.S2Paper],
     min_references: int,
-) -> list[s2.ASAPWithFullS2]:
+) -> list[asap.PaperWithS2Refs]:
     """Augment all references in each ASAP paper with their full S2 data.
 
     Matches S2 and ASAP data by ASAP paper `title` and S2 `title_query`. It's possible
     that some references can't be matched, so we keep only ASAP papers with at least
     `min_references`.
     """
-    augmented_papers: list[s2.ASAPWithFullS2] = []
+    augmented_papers: list[asap.PaperWithS2Refs] = []
     s2_papers_from_query = {
         s2.clean_title(paper.title_query): paper for paper in s2_papers
     }
 
     for asap_paper in asap_papers:
         s2_references = [
-            s2_paper
+            asap.S2Reference.from_(s2_paper, ref.contexts)
             for ref in asap_paper.references
             if (s2_paper := s2_papers_from_query.get(s2.clean_title(ref.title)))
         ]
         if len(s2_references) >= min_references:
             augmented_papers.append(
-                s2.ASAPWithFullS2(
+                asap.PaperWithS2Refs(
                     title=asap_paper.title,
                     abstract=asap_paper.abstract,
                     reviews=asap_paper.reviews,
@@ -160,8 +160,8 @@ def _augment_asap(
 
 
 def _balanced_sample(
-    data: Sequence[s2.ASAPWithFullS2], n: int
-) -> list[s2.ASAPWithFullS2]:
+    data: Sequence[asap.PaperWithS2Refs], n: int
+) -> list[asap.PaperWithS2Refs]:
     """Sample balanced entries from approved and rejected.
 
     The goal is the output will always contain balanced classes. This is necessary
@@ -197,7 +197,9 @@ def _filter_recommended(
     ]
 
 
-def _unique_asap_refs(asap_papers: Iterable[s2.ASAPWithFullS2]) -> list[asap.S2Paper]:
+def _unique_asap_refs(
+    asap_papers: Iterable[asap.PaperWithS2Refs],
+) -> list[asap.S2Paper]:
     """Get all unique referenced papers from ASAP based on reference's `title_query`."""
     seen_queries: set[str] = set()
     ref_papers: list[asap.S2Paper] = []
