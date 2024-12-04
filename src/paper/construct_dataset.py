@@ -11,9 +11,10 @@ The inputs are the ASAP dataset and results from the S2 API:
 
 This will build two files:
 - asap_with_s2_references.json: ASAP papers enriched the (whole) full data of the
-  S2 papers.
+  S2 papers. Type: asap.PaperWithS2Refs.
 - asap_related.json: papers related to the input ASAP papers. This includes both
-  reference and recommended papers.
+  reference and recommended papers. Type: s2.Paper. It's technically a union of other
+  types too, but they all fit s2.Paper.
 """
 
 from __future__ import annotations
