@@ -237,7 +237,7 @@ class S2Reference(S2Paper):
     contexts: Sequence[CitationContext]
 
     @classmethod
-    def from_(cls, paper: S2Paper, contexts: Sequence[CitationContext]) -> Self:
+    def from_(cls, paper: S2Paper, *, contexts: Sequence[CitationContext]) -> Self:
         """Create new instance by copying data from S2Paper, in addition to the contexts."""
         return cls.model_validate(paper.model_dump() | {"contexts": contexts})
 

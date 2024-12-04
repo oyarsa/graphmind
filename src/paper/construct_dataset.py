@@ -141,7 +141,7 @@ def _augment_asap(
 
     for asap_paper in asap_papers:
         s2_references = [
-            asap.S2Reference.from_(s2_paper, ref.contexts)
+            asap.S2Reference.from_(s2_paper, contexts=ref.contexts)
             for ref in asap_paper.references
             if (s2_paper := s2_papers_from_query.get(s2.clean_title(ref.title)))
         ]
