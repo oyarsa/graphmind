@@ -3,6 +3,7 @@
 import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
@@ -20,19 +21,34 @@ app = typer.Typer(
 )
 
 
-_DEPENDENCIES_DATA = read_resource("deps", "deps.yaml")
+class Method(StrEnum):
+    """Method for which to plot the dependencies."""
+
+    PETER = "peter"
+    SCIMON = "scimon"
+
+    def data(self) -> str:
+        """Contents of the dependency file."""
+        return read_resource("deps", f"deps-{self.value}.yaml")
 
 
 @app.command(help=__doc__)
 def main(
-    output_file: Annotated[Path, typer.Argument(help="File to save the graph.")],
-    input_file: Annotated[
-        Path | None,
-        typer.Argument(help="Dependecy YAML file. Defaults to `paper.deps.deps.yaml`."),
-    ] = None,
+    method: Annotated[
+        Method,
+        typer.Option(
+            "--method", "-m", help="What method for which to plot the dependencies"
+        ),
+    ],
+    output_file: Annotated[
+        Path, typer.Option("--output", "-o", help="File to save the graph.")
+    ],
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show extra information.")
+    ] = False,
 ) -> None:
     """Build dependency graph from dependency file using Mermaid and save to output."""
-    data = yaml.safe_load(input_file.read_text() if input_file else _DEPENDENCIES_DATA)
+    data = yaml.safe_load(method.data())
 
     deps = [
         Dependency(
@@ -43,17 +59,18 @@ def main(
         for entry in data
     ]
 
-    for i, item in enumerate(deps, start=1):
-        print(f"{i}. {item}")
+    if verbose:
+        for i, item in enumerate(deps, start=1):
+            print(f"{i}. {item}")
 
-    root_nodes, leaf_nodes = _find_roots_and_leaves(deps)
-    print("\nRoot nodes (no parents):")
-    for node in sorted(root_nodes):
-        print(f"- {node}")
+        root_nodes, leaf_nodes = _find_roots_and_leaves(deps)
+        print("\nRoot nodes (no parents):")
+        for node in sorted(root_nodes):
+            print(f"- {node}")
 
-    print("\nLeaf nodes (no childer):")
-    for node in sorted(leaf_nodes):
-        print(f"- {node}")
+        print("\nLeaf nodes (no children):")
+        for node in sorted(leaf_nodes):
+            print(f"- {node}")
 
     _save_mermaid(_generate_mermaid(deps), output_file)
 
