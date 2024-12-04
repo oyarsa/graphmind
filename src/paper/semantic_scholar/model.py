@@ -87,6 +87,7 @@ class ASAPPaperMaybeS2(asap.Paper):
             title=asap.title,
             abstract=asap.abstract,
             reviews=asap.reviews,
+            authors=asap.authors,
             sections=asap.sections,
             approval=asap.approval,
             references=asap.references,
@@ -108,6 +109,7 @@ class ASAPPaperWithS2(asap.Paper):
             title=maybe.title,
             abstract=maybe.abstract,
             reviews=maybe.reviews,
+            authors=maybe.authors,
             sections=maybe.sections,
             approval=maybe.approval,
             references=maybe.references,
@@ -157,6 +159,7 @@ class ASAPWithFullS2(Record):
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
     reviews: Sequence[asap.PaperReview] = Field(description="Feedback from a reviewer")
+    authors: Sequence[str] = Field(description="Names of the authors")
     sections: Sequence[asap.PaperSection] = Field(
         description="Sections in the paper text"
     )

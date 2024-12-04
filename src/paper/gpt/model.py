@@ -325,6 +325,7 @@ class Paper(Record):
     title: str
     abstract: str
     reviews: Sequence[asap.PaperReview]
+    authors: Sequence[str]
     sections: Sequence[PaperSection]
     approval: bool
 

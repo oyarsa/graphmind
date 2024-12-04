@@ -151,6 +151,7 @@ def _augment_asap(
                     title=asap_paper.title,
                     abstract=asap_paper.abstract,
                     reviews=asap_paper.reviews,
+                    authors=asap_paper.authors,
                     sections=asap_paper.sections,
                     approval=asap_paper.approval,
                     references=s2_references,

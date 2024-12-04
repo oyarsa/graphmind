@@ -83,6 +83,7 @@ class Paper(Record):
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
     reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
+    authors: Sequence[str] = Field(description="Names of the authors")
     sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"
@@ -121,6 +122,7 @@ class PaperWithFullReference(Record):
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
     reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
+    authors: Sequence[str] = Field(description="Names of the authors")
     sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"
@@ -222,6 +224,7 @@ class PaperWithReferenceEnriched(BaseModel):
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
     reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
+    authors: Sequence[str] = Field(description="Names of the authors")
     sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"
@@ -248,6 +251,7 @@ class PaperWithS2Refs(Record):
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
     reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
+    authors: Sequence[str] = Field(description="Names of the authors")
     sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"

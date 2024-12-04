@@ -131,6 +131,7 @@ def add_references(
             title=paper.title,
             abstract=paper.abstract,
             reviews=paper.reviews,
+            authors=paper.authors,
             sections=paper.sections,
             approval=paper.approval,
             references=[

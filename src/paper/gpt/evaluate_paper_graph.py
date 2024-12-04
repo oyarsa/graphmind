@@ -178,6 +178,7 @@ async def _classify_paper(
                 title=pg.paper.title,
                 abstract=pg.paper.abstract,
                 reviews=pg.paper.reviews,
+                authors=pg.paper.authors,
                 sections=pg.paper.sections,
                 approval=pg.paper.approval,
                 y_true=pg.paper.is_approved(),

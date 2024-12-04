@@ -256,6 +256,7 @@ class PaperWithContextClassfied(Record):
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
     reviews: Sequence[asap.PaperReview] = Field(description="Feedback from a reviewer")
+    authors: Sequence[str] = Field(description="Names of the authors")
     sections: Sequence[asap.PaperSection] = Field(
         description="Sections in the paper text"
     )
@@ -378,6 +379,7 @@ async def _classify_paper(
             title=paper.title,
             abstract=paper.abstract,
             reviews=paper.reviews,
+            authors=paper.authors,
             sections=paper.sections,
             approval=paper.approval,
             references=classified_references,

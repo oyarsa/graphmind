@@ -90,6 +90,7 @@ def _process_paper(item: dict[str, Any]) -> Paper | None:
         reviews=reviews,
         sections=sections,
         approval=_parse_approval(item["approval"]),
+        authors=item["authors"],
         references=_process_references(paper),
     )
 

@@ -97,6 +97,7 @@ def sample(
                     title=paper.title,
                     abstract=paper.abstract,
                     reviews=paper.reviews,
+                    authors=paper.authors,
                     sections=paper.sections,
                     approval=paper.approval,
                 )
@@ -202,6 +203,7 @@ def _annotate(
             title=paper.title,
             abstract=paper.abstract,
             reviews=paper.reviews,
+            authors=paper.authors,
             sections=paper.sections,
             approval=paper.approval,
         )

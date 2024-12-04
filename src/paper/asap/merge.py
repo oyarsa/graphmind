@@ -54,7 +54,7 @@ def merge_content_review(path: Path, output_path: Path, max_papers: int | None) 
 
             content = _safe_load_json(content_file)["metadata"]
             review = _safe_load_json(review_file)["reviews"]
-            approval = _safe_load_json(paper_file)["decision"]
+            paper = _safe_load_json(paper_file)
 
             # We only want entries that have ratings in their reviews and titles
             if all("rating" in r for r in review) and content.get("title"):
@@ -63,7 +63,8 @@ def merge_content_review(path: Path, output_path: Path, max_papers: int | None) 
                         "paper": content,
                         "review": review,
                         "source": dir.name,
-                        "approval": approval,
+                        "approval": paper["decision"],
+                        "authors": paper["authors"],
                     }
                 )
                 count += 1
