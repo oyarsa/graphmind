@@ -18,9 +18,8 @@ from typing import Annotated
 
 import typer
 
-import paper.semantic_scholar as s2
+from paper import asap, gpt
 from paper import embedding as emb
-from paper import gpt
 from paper.scimon import citations, kg, semantic
 from paper.scimon.graph import Graph, GraphData
 from paper.util import Timer, display_params, setup_logging
@@ -63,7 +62,7 @@ def main(
     ann = gpt.PromptResult.unwrap(
         load_data(annotated_file, gpt.PromptResult[gpt.PaperAnnotated])
     )
-    asap_papers = load_data(asap_file, s2.ASAPWithFullS2)
+    asap_papers = load_data(asap_file, asap.PaperWithS2Refs)
     terms = [x.terms for x in ann]
 
     logger.info("Initialising encoder.")

@@ -6,8 +6,8 @@ can specify the number of most similar papers to retrieve. SciMON uses the
 `all-mpnet-base-v2` model and K = 5.
 
 Takes as input the output of `semantic_scholar.construct_daset`: the file
-`asap_with_s2_references.json` of type `s2.ASAPWithFullS2`. The similarity is calculated
-between the ASAP `title` and the S2 `title_query`.
+`asap_with_s2_references.json` of type `asap.PaperWithS2Refs`. The similarity is
+calculated between the ASAP `title` and the S2 `title_query`.
 """
 
 from __future__ import annotations
@@ -15,12 +15,13 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Annotated, Self
+from typing import Annotated, Protocol, Self
 
 import typer
 from pydantic import BaseModel, ConfigDict
 
 import paper.semantic_scholar as s2
+from paper import asap
 from paper import embedding as emb
 from paper.util import display_params
 from paper.util.serde import Record, load_data
@@ -55,12 +56,50 @@ def main(
     """Create citations graph with the reference papers sorted by title similarity."""
     logger.info(display_params())
 
-    asap_papers = load_data(input_file, s2.ASAPWithFullS2)
+    asap_papers = load_data(input_file, asap.PaperWithS2Refs)
 
     encoder = emb.Encoder(model_name)
     graph = Graph.from_papers(encoder, asap_papers)
 
     output_file.write_text(graph.model_dump_json(indent=2))
+
+
+class ASAPPaper(Protocol):
+    """ASAP-shaped paper with title, id and references."""
+
+    @property
+    def title(self) -> str:
+        """Title of the paper in the ASAP dataset."""
+        ...
+
+    @property
+    def id(self) -> str:
+        """Unique identifier of the paper."""
+        ...
+
+    @property
+    def references(self) -> Iterable[S2Reference]:
+        """Other papers cited by this paper."""
+        ...
+
+
+class S2Reference(Protocol):
+    """S2-shaped paper referenced in an ASAP paper."""
+
+    @property
+    def paper_id(self) -> str:
+        """Unique identifier of the paper."""
+        ...
+
+    @property
+    def title(self) -> str:
+        """Paper title in the S2 API."""
+        ...
+
+    @property
+    def title_query(self) -> str:
+        """Title of the paper in the ASAP dataset used to query S2."""
+        ...
 
 
 class Graph(BaseModel):
@@ -83,7 +122,7 @@ class Graph(BaseModel):
 
     @classmethod
     def from_papers(
-        cls, encoder: emb.Encoder, asap_papers: Iterable[s2.ASAPWithFullS2]
+        cls, encoder: emb.Encoder, asap_papers: Iterable[ASAPPaper]
     ) -> Self:
         """For each ASAP paper, sort cited papers by title similarity.
 
