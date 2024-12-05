@@ -1,10 +1,12 @@
 """Build dependency graph from dependency file using Mermaid."""
 
 import subprocess
-from collections import defaultdict
+import sys
+from collections import defaultdict, deque
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import Annotated
 
@@ -42,17 +44,25 @@ def main(
         ),
     ],
     output_file: Annotated[
-        Path, typer.Option("--output", "-o", help="File to save the graph.")
-    ],
+        Path | None, typer.Option("--output", "-o", help="File to save the graph.")
+    ] = None,
     verbose: Annotated[
-        bool, typer.Option("--verbose", "-v", help="Show extra information.")
+        bool,
+        typer.Option(
+            "--verbose", "-v", help="Show extra information about dependency relations."
+        ),
     ] = False,
     target: Annotated[
         str | None,
-        typer.Option("--target", "-t", help="Show paths to this target node"),
+        typer.Option("--target", "-t", help="Show paths to this target node."),
     ] = None,
 ) -> None:
     """Build dependency graph from dependency file using Mermaid and save to output."""
+    if not any((output_file, verbose, target)):
+        print("Pick at least one option: --output, --verbose or --target.")
+        print("See also: --help.")
+        sys.exit(1)
+
     data = yaml.safe_load(method.data())
 
     deps = [
@@ -78,11 +88,13 @@ def main(
             print(f"- {node}")
 
     if target:
-        path = find_paths_to_node(deps, target)
+        path = _find_paths_to_node(deps, target)
         print(f"\nRequired execution order to reach {target}:")
-        print("\n".join(path))
+        print("\n".join(f"- {node}" for node in path))
 
-    _save_mermaid(_generate_mermaid(deps), output_file)
+    if output_file:
+        print()
+        _save_mermaid(_generate_mermaid(deps), output_file)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -97,15 +109,15 @@ class Dependency:
     """Extra information, such as the subcommand used."""
 
 
-def find_paths_to_node(deps: Sequence[Dependency], target_node: str) -> list[str]:
-    """Find a single path that includes all dependencies to reach the target node."""
-    from collections import deque
+def _find_paths_to_node(deps: Sequence[Dependency], target_node: str) -> list[str]:
+    """Find a sorted path that includes all dependencies to reach the target node.
 
-    # Build forward and reverse adjacency lists
-    graph: dict[str, set[str]] = defaultdict(set)
+    The path is sorted through topological sort. The last element is the target node.
+    """
+
+    # Build reverse adjacency list to find required nodes
     reverse_graph: dict[str, set[str]] = defaultdict(set)
     for dep in deps:
-        graph[dep.source].add(dep.target)
         reverse_graph[dep.target].add(dep.source)
 
     # Find all required nodes by working backwards from target
@@ -118,26 +130,13 @@ def find_paths_to_node(deps: Sequence[Dependency], target_node: str) -> list[str
                 required.add(parent)
                 queue.append(parent)
 
-    # Topological sort of required nodes
-    in_degree: dict[str, int] = defaultdict(int)
-    for node in required:
-        for child in graph[node]:
-            if child in required:
-                in_degree[child] += 1
+    # Build graph of only required nodes for topological sort
+    graph: dict[str, set[str]] = defaultdict(set)
+    for dep in deps:
+        if dep.source in required and dep.target in required:
+            graph[dep.source].add(dep.target)
 
-    queue = deque([node for node in required if in_degree[node] == 0])
-    result: list[str] = []
-
-    while queue:
-        node = queue.popleft()
-        result.append(node)
-        for child in graph[node]:
-            if child in required:
-                in_degree[child] -= 1
-                if in_degree[child] == 0:
-                    queue.append(child)
-
-    return result
+    return list(reversed(list(TopologicalSorter(graph).static_order())))
 
 
 def _file_to_module(file: str) -> str:
