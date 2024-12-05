@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Protocol, Self
 
 from pydantic import BaseModel, ConfigDict
@@ -11,40 +12,74 @@ from paper import embedding as emb
 from paper.util.serde import Record
 
 
+@dataclass(frozen=True, kw_only=True)
+class _Components:
+    """Elements of a graph with nodes, node embeddings and node to data mapping."""
+
+    nodes: Sequence[str]
+    """Sentence nodes."""
+    embeddings: emb.Matrix
+    """Pre-computed embeddings for nodes. Same order as `nodes`."""
+    node_to_paper: Mapping[str, _PaperRelated]
+    """Mapping from node to its original paper."""
+
+    @classmethod
+    def from_node_paper(
+        cls, encoder: emb.Encoder, node_to_paper: Mapping[str, _PaperRelated]
+    ) -> Self:
+        """Create component from mapping of node to paper with node embeddings."""
+        nodes = sorted(node_to_paper)
+        embeddings = encoder.batch_encode(nodes)
+        return cls(embeddings=embeddings, nodes=nodes, node_to_paper=node_to_paper)
+
+    def to_data(self) -> _ComponentsData:
+        """Convert components to serialisable format."""
+        return _ComponentsData(
+            embeddings=emb.MatrixData.from_matrix(self.embeddings),
+            node_to_paper=self.node_to_paper,
+            nodes=self.nodes,
+        )
+
+
+class _ComponentsData(BaseModel):
+    """Serialisation format for `_Components`.
+
+    This is needed to convert the embedding matrix to JSON.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    embeddings: emb.MatrixData
+    node_to_paper: Mapping[str, _PaperRelated]
+    nodes: Sequence[str]
+
+    def to_components(self) -> _Components:
+        """Deserialise into a real `_Components` object."""
+        return _Components(
+            embeddings=self.embeddings.to_matrix(),
+            node_to_paper=self.node_to_paper,
+            nodes=self.nodes,
+        )
+
+
 class Graph:
-    """Semantic graph that finds other papers by background or target similarity."""
+    """Semantic graph that finds other papers by background or target similarity.
+
+    - Target: methods and objectives.
+    - Background: context, problem and motivation.
+    """
 
     _encoder: emb.Encoder
     """Text encoder used to convert backgrounds and targets to vectors."""
-    _embeddings_background: emb.Matrix
-    """Pre-computed embeddings for abstract backgrounds. Same order as `_backgrounds`"""
-    _embeddings_target: emb.Matrix
-    """Pre-computed embeddings for abstract targets Same order as `_targets`."""
-    _background_to_paper: Mapping[str, PaperRelated]
-    """Mapping from paper background to its paper."""
-    _target_to_paper: Mapping[str, PaperRelated]
-    """Mapping from paper target to its paper."""
-    _backgrounds: Sequence[str]
-    """Background nodes."""
-    _targets: Sequence[str]
-    """Target nodes."""
+    _targets: _Components
+    """Target nodes: methods and objectives."""
+    _backgrounds: _Components
+    """Background nodes: context, problem and motivation."""
 
     def __init__(
-        self,
-        *,
-        encoder: emb.Encoder,
-        embeddings_background: emb.Matrix,
-        embeddings_target: emb.Matrix,
-        background_to_paper: Mapping[str, PaperRelated],
-        target_to_paper: Mapping[str, PaperRelated],
-        backgrounds: Sequence[str],
-        targets: Sequence[str],
+        self, *, encoder: emb.Encoder, targets: _Components, backgrounds: _Components
     ) -> None:
         self._encoder = encoder
-        self._embeddings_background = embeddings_background
-        self._embeddings_target = embeddings_target
-        self._background_to_paper = background_to_paper
-        self._target_to_paper = target_to_paper
         self._backgrounds = backgrounds
         self._targets = targets
 
@@ -52,64 +87,54 @@ class Graph:
     def from_sentences(
         cls, encoder: emb.Encoder, papers: Iterable[PaperAnnotated]
     ) -> Self:
-        """Build semantic graph from paper background and target."""
+        """Build semantic graph from paper backgrounds and targets."""
         background_to_paper = {
-            paper.background: PaperRelated.from_ann(paper) for paper in papers
+            paper.background: _PaperRelated.from_ann(paper) for paper in papers
         }
         target_to_paper = {
-            paper.target: PaperRelated.from_ann(paper) for paper in papers
+            paper.target: _PaperRelated.from_ann(paper) for paper in papers
         }
-
-        backgrounds = sorted(background_to_paper)
-        targets = sorted(target_to_paper)
-
-        background_embs = encoder.batch_encode(backgrounds)
-        target_embs = encoder.batch_encode(targets)
 
         return cls(
             encoder=encoder,
-            embeddings_background=background_embs,
-            embeddings_target=target_embs,
-            background_to_paper=background_to_paper,
-            target_to_paper=target_to_paper,
-            backgrounds=backgrounds,
-            targets=targets,
+            backgrounds=_Components.from_node_paper(encoder, background_to_paper),
+            targets=_Components.from_node_paper(encoder, target_to_paper),
         )
 
-    def query(self, paper: PaperAnnotated) -> QueryResult:
-        """Get related papers by background and target."""
+    def query(self, paper: PaperAnnotated, k: int = 5) -> QueryResult:
+        """Get top K related papers by background and target.
 
-        bg_emb = self._encoder.encode(paper.background)
-        bg_sim = emb.similarities(bg_emb, self._embeddings_background)
-        bg_best = int(bg_sim.argmax())
-        bg_node = self._backgrounds[bg_best]
-        bg_score = bg_sim[bg_best]
-        bg_result = self._background_to_paper[bg_node]
-
-        tgt_emb = self._encoder.encode(paper.target)
-        tgt_sim = emb.similarities(tgt_emb, self._embeddings_target)
-        tgt_best = int(tgt_sim.argmax())
-        tgt_node = self._targets[tgt_best]
-        tgt_score = tgt_sim[tgt_best]
-        tgt_result = self._target_to_paper[tgt_node]
-
+        This gets top K for each side, sorted by similarity between sides (i.e. `paper`
+        background vs the graph papers' backgrounds).
+        """
         return QueryResult(
-            backgrounds=[PaperResult.from_related(tgt_result, score=tgt_score)],
-            targets=[PaperResult.from_related(bg_result, score=bg_score)],
+            backgrounds=self._query(paper.background, self._backgrounds, k=k),
+            targets=self._query(paper.target, self._targets, k=k),
         )
+
+    def _query(
+        self, sentence: str, elements: _Components, *, k: int
+    ) -> list[PaperResult]:
+        """Get top K nodes in `elements` by similarity with `sentence`.
+
+        Results are sorted by their scores, descending.
+        """
+        embedding = self._encoder.encode(sentence)
+        sim = emb.similarities(embedding, elements.embeddings)
+
+        return [
+            PaperResult.from_related(
+                related=elements.node_to_paper[elements.nodes[idx]], score=sim[idx]
+            )
+            for idx in emb.top_k_indices(sim, k)
+        ]
 
     def to_data(self) -> GraphData:
         """Convert graph to serialisable format."""
         return GraphData(
-            background_to_paper=self._background_to_paper,
-            target_to_paper=self._target_to_paper,
-            backgrounds=self._backgrounds,
-            targets=self._targets,
+            backgrounds=self._backgrounds.to_data(),
+            targets=self._targets.to_data(),
             encoder_model=self._encoder.model_name,
-            embeddings_background=emb.MatrixData.from_matrix(
-                self._embeddings_background
-            ),
-            embeddings_target=emb.MatrixData.from_matrix(self._embeddings_target),
         )
 
 
@@ -133,12 +158,12 @@ class PaperAnnotated(Protocol):
 
     @property
     def background(self) -> str:
-        """Background context from the paper: methods, algorithms, etc."""
+        """Paper background sentences: tasks, context, motivation, etc."""
         ...
 
     @property
     def target(self) -> str:
-        """Target for the paper: datasets, problems, tasks, etc."""
+        """Paper target sentences: methods, objectives, etc."""
         ...
 
 
@@ -147,11 +172,13 @@ class QueryResult(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    targets: Sequence[PaperRelated]
-    backgrounds: Sequence[PaperRelated]
+    targets: Sequence[PaperResult]
+    """Top K similar papers by target sentence similarity."""
+    backgrounds: Sequence[PaperResult]
+    """Top K similar papers by background sentence similarity."""
 
 
-class PaperRelated(Record):
+class _PaperRelated(Record):
     """Paper stored in the semantic graph."""
 
     title: str
@@ -172,15 +199,15 @@ class PaperRelated(Record):
         return cls(title=paper.title, abstract=paper.abstract, paper_id=paper.id)
 
 
-class PaperResult(PaperRelated):
-    """Related papaer with similarity score."""
+class PaperResult(_PaperRelated):
+    """Related paper with similarity score."""
 
     score: float
 
     @classmethod
-    def from_related(cls, paper: PaperRelated, *, score: float) -> Self:
-        """Create result from paper and score."""
-        return cls.model_validate(paper.model_dump() | {"score": score})
+    def from_related(cls, *, related: _PaperRelated, score: float) -> Self:
+        """Create result from base related paper and score."""
+        return cls.model_validate(related.model_dump() | {"score": score})
 
 
 class GraphData(BaseModel):
@@ -191,39 +218,30 @@ class GraphData(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    background_to_paper: Mapping[str, PaperRelated]
-    """Mapping from paper background to its paper."""
-    target_to_paper: Mapping[str, PaperRelated]
-    """Mapping from paper target to its paper."""
-    backgrounds: Sequence[str]
-    """Background nodes."""
-    targets: Sequence[str]
+    targets: _ComponentsData
     """Target nodes."""
+    backgrounds: _ComponentsData
+    """Background nodes."""
     encoder_model: str
-    """Encoder used to generate the embeddings."""
-    embeddings_background: emb.MatrixData
-    """Embeddings for paper backgrounds. Same order as `backgrounds`."""
-    embeddings_target: emb.MatrixData
-    """Embeddings for paper targets. Same order as `targets`."""
+    """Name of the encoder model used to generate the embeddings."""
 
-    def to_graph(self, encoder: emb.Encoder) -> Graph:
-        """Initialise Semantic Graph from data object.
+    def to_graph(self, encoder: emb.Encoder | None = None) -> Graph:
+        """Initialise Semantic graph from serialised object.
 
         Raises:
             ValueError: `encoder` model is different from the one that generated the
             graph.
         """
+        if encoder is None:
+            encoder = emb.Encoder(self.encoder_model)
         if encoder.model_name != self.encoder_model:
             raise ValueError(
-                f"Incompatible encoder. Expected '{self.encoder_model}', got"
-                f" '{encoder.model_name}'"
+                f"Incompatible encoder model. Expected '{self.encoder_model}', got"
+                f" '{encoder.model_name}'."
             )
+
         return Graph(
-            background_to_paper=self.background_to_paper,
-            target_to_paper=self.target_to_paper,
-            backgrounds=self.backgrounds,
-            targets=self.targets,
+            backgrounds=self.backgrounds.to_components(),
+            targets=self.targets.to_components(),
             encoder=encoder,
-            embeddings_background=self.embeddings_background.to_matrix(),
-            embeddings_target=self.embeddings_target.to_matrix(),
         )
