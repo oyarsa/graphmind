@@ -13,7 +13,7 @@ from paper.util.serde import Record
 
 
 # Models from the ASAP files after exctraction (e.g. asap_filtered.json)
-class ContextPolarity(StrEnum):
+class ContextPolarityTrinary(StrEnum):
     """Human-classified polarity of citation context."""
 
     POSITIVE = "positive"
@@ -21,18 +21,19 @@ class ContextPolarity(StrEnum):
     NEUTRAL = "neutral"
 
 
-class ContextPolarityBinary(StrEnum):
+class ContextPolarity(StrEnum):
     """Binary polarity where "neutral" is converted to "positive"."""
 
     POSITIVE = "positive"
     NEGATIVE = "negative"
 
     @classmethod
-    def from_trinary(cls, polarity: ContextPolarity) -> ContextPolarityBinary:
+    def from_trinary(cls, polarity: ContextPolarityTrinary) -> ContextPolarity:
         """Converts "neutral" polarity to "positive"."""
         return (
             cls.POSITIVE
-            if polarity in (ContextPolarity.POSITIVE, ContextPolarity.NEUTRAL)
+            if polarity
+            in (ContextPolarityTrinary.POSITIVE, ContextPolarityTrinary.NEUTRAL)
             else cls.NEGATIVE
         )
 
@@ -41,7 +42,7 @@ class CitationContext(BaseModel):
     """Citation context sentence with its (optional) predicted/annotated polarity."""
 
     sentence: str = Field(description="Context sentence the from ASAP data")
-    polarity: ContextPolarity | None = Field(
+    polarity: ContextPolarityTrinary | None = Field(
         description="Polarity of the citation context between main and reference papers."
     )
 

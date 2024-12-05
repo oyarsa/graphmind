@@ -21,7 +21,7 @@ from pydantic import TypeAdapter
 
 from paper.asap.model import (
     CitationContext,
-    ContextPolarity,
+    ContextPolarityTrinary,
     PaperWithReferenceEnriched,
     ReferenceEnriched,
 )
@@ -229,12 +229,12 @@ def _count_contexts(data: Iterable[PaperWithReferenceEnriched]) -> int:
     )
 
 
-_ANNOTATION_CACHE: dict[str, ContextPolarity] = {}
+_ANNOTATION_CACHE: dict[str, ContextPolarityTrinary] = {}
 
 
 def _annotate_context(
     idx: int, total: int, context: CitationContext, *, width: int
-) -> ContextPolarity | None:
+) -> ContextPolarityTrinary | None:
     if polarity := _ANNOTATION_CACHE.get(context.sentence):
         return polarity
 
@@ -261,9 +261,9 @@ Context
         return None
 
     polarity = {
-        "p": ContextPolarity.POSITIVE,
-        "u": ContextPolarity.NEUTRAL,
-        "n": ContextPolarity.NEGATIVE,
+        "p": ContextPolarityTrinary.POSITIVE,
+        "u": ContextPolarityTrinary.NEUTRAL,
+        "n": ContextPolarityTrinary.NEGATIVE,
     }[answer]
     _ANNOTATION_CACHE[context.sentence] = polarity
 

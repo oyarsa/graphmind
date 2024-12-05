@@ -24,9 +24,7 @@ class Graph(BaseModel):
 
     title_to_id: Mapping[str, str]
     """ASAP paper titles to IDs."""
-    id_polarity_to_cited: Mapping[
-        tuple[str, asap.ContextPolarityBinary], Sequence[Citation]
-    ]
+    id_polarity_to_cited: Mapping[tuple[str, asap.ContextPolarity], Sequence[Citation]]
     """ASAP paper IDs and context polarity to cited papers.
 
     Sorted by similarity score (descending).
@@ -46,7 +44,7 @@ class Graph(BaseModel):
         """
         title_to_id: dict[str, str] = {}
         id_polarity_to_cited: dict[
-            tuple[str, asap.ContextPolarityBinary], list[Citation]
+            tuple[str, asap.ContextPolarity], list[Citation]
         ] = {}
 
         logger.debug("Processing papers.")
@@ -62,7 +60,7 @@ class Graph(BaseModel):
             )
             s2_similarities = emb.similarities(asap_embedding, s2_embeddings)
 
-            for polarity in asap.ContextPolarityBinary:
+            for polarity in asap.ContextPolarity:
                 id_polarity_to_cited[asap_paper.id, polarity] = [
                     Citation(
                         score=score,
@@ -97,7 +95,7 @@ class Graph(BaseModel):
         """
         positive, negative = (
             self.id_polarity_to_cited[paper_id, polarity][:k]
-            for polarity in (asap.ContextPolarityBinary)
+            for polarity in (asap.ContextPolarity)
         )
         return QueryResult(positive=positive, negative=negative)
 
@@ -109,7 +107,7 @@ class Citation(Record):
     paper_id: str
     title: str
     abstract: str
-    polarity: asap.ContextPolarityBinary
+    polarity: asap.ContextPolarity
 
     @property
     def id(self) -> str:
