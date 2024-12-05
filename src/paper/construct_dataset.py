@@ -107,7 +107,7 @@ def main(
         _balanced_sample(asap_augmented, num_asap) if num_asap else asap_augmented
     )
     s2_references = _unique_asap_refs(asap_sampled)
-    recommended_filtered = _filter_recommended(asap_papers, recommended_papers)
+    recommended_filtered = _filter_recommended(asap_sampled, recommended_papers)
     related_papers = _dedup_related(s2_references + recommended_filtered + area_papers)
 
     print(f"Augmented ASAP with S2 references: {len(asap_augmented)}")
@@ -184,7 +184,8 @@ def _balanced_sample(
 
 
 def _filter_recommended(
-    asap_papers: Iterable[asap.Paper], recommended_papers: Iterable[s2.PaperRecommended]
+    asap_papers: Iterable[asap.PaperWithS2Refs],
+    recommended_papers: Iterable[s2.PaperRecommended],
 ) -> list[s2.Paper]:
     """Keep only recommended papers from current papers in the ASAP dataset.
 
