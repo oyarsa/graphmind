@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Self
+from typing import Protocol, Self
 
 from pydantic import BaseModel, ConfigDict
 from tqdm import tqdm
 
-from paper import asap, gpt
+from paper import asap
 from paper import embedding as emb
 from paper import semantic_scholar as s2
 from paper.util.serde import Record
@@ -34,7 +34,7 @@ class Graph(BaseModel):
     def from_papers(
         cls,
         encoder: emb.Encoder,
-        asap_papers: Iterable[gpt.PaperWithContextClassfied],
+        asap_papers: Iterable[PaperWithContextClassfied],
         progress: bool = False,
     ) -> Self:
         """For each ASAP paper, sort cited papers by title similarity.
@@ -122,3 +122,54 @@ class QueryResult(BaseModel):
 
     positive: Sequence[Citation]
     negative: Sequence[Citation]
+
+
+class PaperWithContextClassfied(Protocol):
+    """Paper from ASAP with each citation polarity classified."""
+
+    @property
+    def title(self) -> str:
+        """Paper title."""
+        ...
+
+    @property
+    def id(self) -> str:
+        """Unique identifier for the paper."""
+        ...
+
+    @property
+    def references(self) -> Sequence[ReferenceClassified]:
+        """References made in the paper with their polarity."""
+        ...
+
+
+class ReferenceClassified(Protocol):
+    """Paper reference with a polarity."""
+
+    @property
+    def title_query(self) -> str:
+        """Paper title in the original ASAP reference."""
+        ...
+
+    @property
+    def title(self) -> str:
+        """Paper title in the S2 API."""
+        ...
+
+    @property
+    def id(self) -> str:
+        """Unique identifier for the reference."""
+        ...
+
+    @property
+    def abstract(self) -> str:
+        """Abstract text."""
+        ...
+
+    @property
+    def polarity(self) -> asap.ContextPolarity:
+        """Reference polarity.
+
+        Majority of all the context polarities. Ties are positive.
+        """
+        ...
