@@ -1,6 +1,7 @@
 """Build dependency graph from dependency file using Mermaid."""
 
 import subprocess
+from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -46,6 +47,10 @@ def main(
     verbose: Annotated[
         bool, typer.Option("--verbose", "-v", help="Show extra information.")
     ] = False,
+    target: Annotated[
+        str | None,
+        typer.Option("--target", "-t", help="Show paths to this target node"),
+    ] = None,
 ) -> None:
     """Build dependency graph from dependency file using Mermaid and save to output."""
     data = yaml.safe_load(method.data())
@@ -72,6 +77,11 @@ def main(
         for node in sorted(leaf_nodes):
             print(f"- {node}")
 
+    if target:
+        path = find_paths_to_node(deps, target)
+        print(f"\nRequired execution order to reach {target}:")
+        print("\n".join(path))
+
     _save_mermaid(_generate_mermaid(deps), output_file)
 
 
@@ -85,6 +95,49 @@ class Dependency:
     """Script that consumes the generated file."""
     detail: str | None
     """Extra information, such as the subcommand used."""
+
+
+def find_paths_to_node(deps: Sequence[Dependency], target_node: str) -> list[str]:
+    """Find a single path that includes all dependencies to reach the target node."""
+    from collections import deque
+
+    # Build forward and reverse adjacency lists
+    graph: dict[str, set[str]] = defaultdict(set)
+    reverse_graph: dict[str, set[str]] = defaultdict(set)
+    for dep in deps:
+        graph[dep.source].add(dep.target)
+        reverse_graph[dep.target].add(dep.source)
+
+    # Find all required nodes by working backwards from target
+    required = {target_node}
+    queue = deque([target_node])
+    while queue:
+        node = queue.popleft()
+        for parent in reverse_graph[node]:
+            if parent not in required:
+                required.add(parent)
+                queue.append(parent)
+
+    # Topological sort of required nodes
+    in_degree: dict[str, int] = defaultdict(int)
+    for node in required:
+        for child in graph[node]:
+            if child in required:
+                in_degree[child] += 1
+
+    queue = deque([node for node in required if in_degree[node] == 0])
+    result: list[str] = []
+
+    while queue:
+        node = queue.popleft()
+        result.append(node)
+        for child in graph[node]:
+            if child in required:
+                in_degree[child] -= 1
+                if in_degree[child] == 0:
+                    queue.append(child)
+
+    return result
 
 
 def _file_to_module(file: str) -> str:
