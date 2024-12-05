@@ -130,13 +130,13 @@ def _augment_asap(
 ) -> list[asap.PaperWithS2Refs]:
     """Augment all references in each ASAP paper with their full S2 data.
 
-    Matches S2 and ASAP data by ASAP paper `title` and S2 `title_query`. It's possible
+    Matches S2 and ASAP data by ASAP paper `title` and S2 `title_asap`. It's possible
     that some references can't be matched, so we keep only ASAP papers with at least
     `min_references`.
     """
     augmented_papers: list[asap.PaperWithS2Refs] = []
     s2_papers_from_query = {
-        s2.clean_title(paper.title_query): paper for paper in s2_papers
+        s2.clean_title(paper.title_asap): paper for paper in s2_papers
     }
 
     for asap_paper in asap_papers:
@@ -203,13 +203,13 @@ def _filter_recommended(
 def _unique_asap_refs(
     asap_papers: Iterable[asap.PaperWithS2Refs],
 ) -> list[asap.S2Paper]:
-    """Get all unique referenced papers from ASAP based on reference's `title_query`."""
+    """Get all unique referenced papers from ASAP based on reference's `title_asap`."""
     seen_queries: set[str] = set()
     ref_papers: list[asap.S2Paper] = []
 
     for asap_paper in asap_papers:
         for ref in asap_paper.references:
-            ref_title = s2.clean_title(ref.title_query)
+            ref_title = s2.clean_title(ref.title_asap)
             if ref_title in seen_queries:
                 continue
 

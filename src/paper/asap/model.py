@@ -150,7 +150,9 @@ class TLDR(BaseModel):
 class S2Paper(Record):
     """Paper from the S2 API."""
 
-    title_query: str = Field(description="Title used in the API query (from ASAP)")
+    title_asap: str = Field(
+        description="Title used in the API query (from ASAP)", alias="title_query"
+    )
     title: str = Field(description="Title from the S2 data")
     paper_id: str = Field(
         alias="paperId",

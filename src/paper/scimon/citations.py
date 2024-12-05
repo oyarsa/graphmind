@@ -7,7 +7,7 @@ can specify the number of most similar papers to retrieve. SciMON uses the
 
 Takes as input the output of `semantic_scholar.construct_daset`: the file
 `asap_with_s2_references.json` of type `asap.PaperWithS2Refs`. The similarity is
-calculated between the ASAP `title` and the S2 `title_query`.
+calculated between the ASAP `title` and the S2 `title_asap`.
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ class S2Reference(Protocol):
         ...
 
     @property
-    def title_query(self) -> str:
+    def title_asap(self) -> str:
         """Title of the paper in the ASAP dataset used to query S2."""
         ...
 
@@ -127,7 +127,7 @@ class Graph(BaseModel):
         """For each ASAP paper, sort cited papers by title similarity.
 
         Cleans up the titles with `s2.clean_title`, then compares the ASAP `title` with
-        the S2 `title_query`.
+        the S2 `title_asap`.
         """
         title_to_id: dict[str, str] = {}
         id_to_cited: dict[str, list[Citation]] = {}
@@ -138,7 +138,7 @@ class Graph(BaseModel):
             asap_embedding = encoder.encode(s2.clean_title(asap_paper.title))
 
             s2_embeddings = encoder.encode(
-                [s2.clean_title(r.title_query) for r in asap_paper.references]
+                [s2.clean_title(r.title_asap) for r in asap_paper.references]
             )
             s2_similarities = emb.similarities(asap_embedding, s2_embeddings)
 

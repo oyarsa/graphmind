@@ -37,7 +37,7 @@ class PaperMatch(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    title_query: str
+    title_asap: str
     title_s2orc: str
     score: int
 
@@ -135,7 +135,7 @@ def _search_paper_fuzzy(
     for s2orc in papers_s2orc:
         score = fuzzy_ratio(query, s2orc)
         if score >= min_fuzzy:
-            matches.add(PaperMatch(title_query=query, title_s2orc=s2orc, score=score))
+            matches.add(PaperMatch(title_asap=query, title_s2orc=s2orc, score=score))
 
     if items := matches.items:
         paper = Paper(query=query, matches=items)

@@ -40,7 +40,7 @@ class Graph(BaseModel):
         """For each ASAP paper, sort cited papers by title similarity.
 
         Cleans up the titles with `s2.clean_title`, then compares the ASAP `title` with
-        the S2 `title_query`.
+        the S2 `title_asap`.
         """
         title_to_id: dict[str, str] = {}
         id_polarity_to_cited: dict[
@@ -56,7 +56,7 @@ class Graph(BaseModel):
             asap_embedding = encoder.encode(s2.clean_title(asap_paper.title))
 
             s2_embeddings = encoder.encode(
-                [s2.clean_title(r.title_query) for r in asap_paper.references]
+                [s2.clean_title(r.title_asap) for r in asap_paper.references]
             )
             s2_similarities = emb.similarities(asap_embedding, s2_embeddings)
 
@@ -147,7 +147,7 @@ class ReferenceClassified(Protocol):
     """Paper reference with a polarity."""
 
     @property
-    def title_query(self) -> str:
+    def title_asap(self) -> str:
         """Paper title in the original ASAP reference."""
         ...
 
