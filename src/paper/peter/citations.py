@@ -27,7 +27,7 @@ class Graph(BaseModel):
     id_polarity_to_cited: Mapping[tuple[str, asap.ContextPolarity], Sequence[Citation]]
     """ASAP paper IDs and context polarity to cited papers.
 
-    Sorted by similarity score (descending).
+    Sorted by similarity score (descending) between paper and cited titles.
     """
 
     @classmethod
@@ -56,7 +56,7 @@ class Graph(BaseModel):
             asap_embedding = encoder.encode(s2.clean_title(asap_paper.title))
 
             s2_embeddings = encoder.encode(
-                [s2.clean_title(r.title) for r in asap_paper.references]
+                [s2.clean_title(r.title_query) for r in asap_paper.references]
             )
             s2_similarities = emb.similarities(asap_embedding, s2_embeddings)
 

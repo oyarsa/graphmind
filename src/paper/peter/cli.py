@@ -35,16 +35,15 @@ def main() -> None:
 def citations_(
     input_file: Annotated[
         Path,
-        typer.Argument(
+        typer.Option(
+            "--asap",
             help="File with ASAP papers with references with full S2 data and classified"
-            " contexts."
+            " contexts.",
         ),
     ],
     output_file: Annotated[
         Path,
-        typer.Argument(
-            help="File with ASAP papers with top K references with full S2 data."
-        ),
+        typer.Option("--output", help="Citation graph as a JSON file."),
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
