@@ -25,11 +25,15 @@ class _Components:
 
     @classmethod
     def from_node_paper(
-        cls, encoder: emb.Encoder, node_to_paper: Mapping[str, _PaperRelated]
+        cls,
+        encoder: emb.Encoder,
+        node_to_paper: Mapping[str, _PaperRelated],
+        *,
+        progress: bool = False,
     ) -> Self:
         """Create component from mapping of node to paper with node embeddings."""
         nodes = sorted(node_to_paper)
-        embeddings = encoder.batch_encode(nodes)
+        embeddings = encoder.batch_encode(nodes, progress=progress)
         return cls(embeddings=embeddings, nodes=nodes, node_to_paper=node_to_paper)
 
     def to_data(self) -> _ComponentsData:
@@ -84,8 +88,12 @@ class Graph:
         self._targets = targets
 
     @classmethod
-    def from_sentences(
-        cls, encoder: emb.Encoder, papers: Iterable[PaperAnnotated]
+    def from_papers(
+        cls,
+        encoder: emb.Encoder,
+        papers: Iterable[PaperAnnotated],
+        *,
+        progress: bool = False,
     ) -> Self:
         """Build semantic graph from paper backgrounds and targets."""
         background_to_paper = {
@@ -97,8 +105,12 @@ class Graph:
 
         return cls(
             encoder=encoder,
-            backgrounds=_Components.from_node_paper(encoder, background_to_paper),
-            targets=_Components.from_node_paper(encoder, target_to_paper),
+            backgrounds=_Components.from_node_paper(
+                encoder, background_to_paper, progress=progress
+            ),
+            targets=_Components.from_node_paper(
+                encoder, target_to_paper, progress=progress
+            ),
         )
 
     def query(self, paper: PaperAnnotated, k: int = 5) -> QueryResult:
