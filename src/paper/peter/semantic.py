@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+import logging
 from typing import Protocol, Self
 
 from pydantic import BaseModel, ConfigDict
 
 from paper import embedding as emb
 from paper.util.serde import Record
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -124,10 +127,33 @@ class Graph:
 
         This gets top K for each side, sorted by similarity between sides (i.e. `paper`
         background vs the graph papers' backgrounds).
+
+        Note that some papers may appear in both retrieved lists. Having doubled papers
+        is not informative for our goal, so we remove those before taking the top K.
+
+        Implementation note: we take the top 2K, filter out doubled papers, then take
+        top K of the result. It's theoretically possible that this would yield less than
+        K papers, but it's unlikely.
         """
+        # Take top 2K because we'll remove some items next.
+        matches_background = self._query(background, self._backgrounds, k=2 * k)
+        matches_target = self._query(target, self._targets, k=2 * k)
+        logger.debug("Background matches: %d.", len(matches_background))
+        logger.debug("Target matches: %d.", len(matches_target))
+
+        # Remove papers that appear in both lists
+        ids_background = {p.paper_id for p in matches_background}
+        ids_target = {p.paper_id for p in matches_target}
+        ids_common = ids_background & ids_target
+        logger.debug("Common papers: %d.", len(ids_common))
+
+        filtered_background = [p for p in matches_background if p.id not in ids_common]
+        filtered_target = [p for p in matches_target if p.id not in ids_common]
+        logger.debug("Background filtered: %d.", len(filtered_background))
+        logger.debug("Target filtered: %d.", len(filtered_target))
+
         return QueryResult(
-            backgrounds=self._query(background, self._backgrounds, k=k),
-            targets=self._query(target, self._targets, k=k),
+            backgrounds=filtered_background[:k], targets=filtered_target[:k]
         )
 
     def _query(
