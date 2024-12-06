@@ -10,8 +10,8 @@ import typer
 
 from paper import embedding as emb
 from paper import gpt
-from paper.peter import citations, semantic
-from paper.util import display_params, setup_logging
+from paper.peter import citations, graph, semantic
+from paper.util import Timer, display_params, setup_logging
 from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ def main() -> None:
     setup_logging()
 
 
-@app.command(name="citations", help="Create citations graph", no_args_is_help=True)
+@app.command(name="citations", help="Create citations graph.", no_args_is_help=True)
 def citations_(
     input_file: Annotated[
         Path,
@@ -66,7 +66,7 @@ def citations_(
     save_data(output_file, graph)
 
 
-@app.command(name="semantic", help="Create semantic graph", no_args_is_help=True)
+@app.command(name="semantic", help="Create semantic graph.", no_args_is_help=True)
 def semantic_(
     input_file: Annotated[
         Path,
@@ -100,5 +100,64 @@ def semantic_(
     save_data(output_file, graph.to_data())
 
 
-if __name__ == "__main__":
+@app.command(help="Create full graph.", no_args_is_help=True)
+def build(
+    ann_file: Annotated[
+        Path,
+        typer.Option(
+            "--ann",
+            help="File with ASAP papers with extracted backgrounds and targets.",
+        ),
+    ],
+    context_file: Annotated[
+        Path,
+        typer.Option(
+            "--context",
+            help="File with ASAP papers with classified contexts.",
+        ),
+    ],
+    output_file: Annotated[
+        Path,
+        typer.Option("--output", help="Full graph as a JSON file."),
+    ],
+    model_name: Annotated[
+        str, typer.Option("--model", help="SentenceTransformer model to use.")
+    ] = "all-mpnet-base-v2",
+) -> None:
+    """Create citations graph with the reference papers sorted by title similarity."""
+    logger.info(display_params())
+
+    logger.debug("Loading annotated papers.")
+    papers_ann = gpt.PromptResult.unwrap(
+        load_data(ann_file, gpt.PromptResult[gpt.PaperAnnotated])
+    )
+    logger.debug("Loading context papers.")
+    papers_context = gpt.PromptResult.unwrap(
+        load_data(context_file, gpt.PromptResult[gpt.PaperWithContextClassfied])
+    )
+
+    logger.debug("Loading encoder.")
+    encoder = emb.Encoder(model_name)
+
+    logger.info("Creating semantic graph.")
+    with Timer("Semantic") as timer_semantic:
+        semantic_graph = semantic.Graph.from_papers(encoder, papers_ann, progress=True)
+    logger.info(timer_semantic)
+
+    logger.info("Creating citations graph.")
+    with Timer("Citations") as timer_citations:
+        citation_graph = citations.Graph.from_papers(
+            encoder, papers_context, progress=True
+        )
+    logger.info(timer_citations)
+
+    main_graph = graph.Graph(
+        citation=citation_graph, semantic=semantic_graph, encoder_model=model_name
+    )
+
+    logger.info("Saving graph.")
+    save_data(output_file, main_graph.to_data())
+
+
+
     app()
