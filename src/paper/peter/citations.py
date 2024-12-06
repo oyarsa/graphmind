@@ -37,13 +37,18 @@ class Graph(BaseModel):
     def from_papers(
         cls,
         encoder: emb.Encoder,
-        asap_papers: Iterable[PaperWithContextClassfied],
+        papers: Iterable[PaperWithContextClassfied],
         progress: bool = False,
     ) -> Self:
         """For each ASAP paper, sort cited papers by title similarity.
 
         Cleans up the titles with `s2.clean_title`, then compares the ASAP `title` with
         the S2 `title_asap`.
+
+        Args:
+            encoder: Text to vector encoder to use on the nodes.
+            papers: Papers to be processed into graph nodes.
+            progress: If True, show a progress bar while generating node embeddings.
         """
         title_to_id: dict[str, str] = {}
         id_polarity_to_cited: dict[str, dict[asap.ContextPolarity, list[Citation]]] = (
@@ -52,9 +57,9 @@ class Graph(BaseModel):
 
         logger.debug("Processing papers.")
         if progress:
-            asap_papers = tqdm(asap_papers)
+            papers = tqdm(papers)
 
-        for asap_paper in asap_papers:
+        for asap_paper in papers:
             title_to_id[asap_paper.title] = asap_paper.id
             asap_embedding = encoder.encode(s2.clean_title(asap_paper.title))
 
