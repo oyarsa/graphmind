@@ -172,52 +172,56 @@ def query(
             help="File with ASAP papers with extracted backgrounds and targets.",
         ),
     ],
-    title: Annotated[
-        str | None,
+    titles: Annotated[
+        list[str] | None,
         typer.Option(
             help="Title of the paper to test query. If absent, use an arbitrary paper."
         ),
     ] = None,
+    num_papers: Annotated[
+        int,
+        typer.Option(
+            "--num-papers",
+            "-n",
+            help="Number of papers to query if --title isn't given",
+        ),
+    ] = 1,
 ) -> None:
-    """Query full graph to get polarised related papers."""
+    """Demonstrate the graph by querying it to get polarised related papers."""
     logger.info(display_params())
 
-    logger.debug("Loading data.")
+    logger.debug("Loading papers.")
     ann = gpt.PromptResult.unwrap(
         load_data(ann_file, gpt.PromptResult[gpt.ASAPAnnotated])
     )
-    if title is None:
-        paper = ann[0]
+
+    if not titles:
+        papers = ann[:num_papers]
     else:
-        paper = next(p for p in ann if s2.clean_title(p.title) == s2.clean_title(title))
-    logger.debug("Paper selected: %s.", paper.title)
+        papers = [
+            next(p for p in ann if s2.clean_title(p.title) == s2.clean_title(title))
+            for title in titles
+        ]
 
     logger.debug("Loading graph.")
     main_graph = graph.graph_from_json(graph_file)
 
-    logger.debug("Querying graph.")
+    for paper in papers:
+        logger.debug("Querying graph.")
 
-    time_all = 0
-    n_runs = 10
-    result = None
-    for _ in range(n_runs):
         with Timer("Graph query") as timer:
             result = main_graph.query_all(paper.id, paper.background, paper.target)
-        logger.info(timer)
-        time_all += timer.seconds
+        logger.debug(timer)
 
-    logger.info("Average out of %d runs: %f.", n_runs, time_all / n_runs)
-    assert result
-
-    print(title)
-    print()
-    for label, papers in [
-        (">> semantic_positive", result.semantic_positive),
-        (">> semantic_negative", result.semantic_negative),
-        (">> citations_positive", result.citations_positive),
-        (">> citations_negative", result.citations_negative),
-    ]:
-        print(f"{label} ({len(papers)})")
-        for p in papers:
-            print(f"- {p.title}")
+        print(paper.title)
         print()
+        for label, papers in [
+            (">> semantic_positive", result.semantic_positive),
+            (">> semantic_negative", result.semantic_negative),
+            (">> citations_positive", result.citations_positive),
+            (">> citations_negative", result.citations_negative),
+        ]:
+            print(f"{label} ({len(papers)})")
+            for p in papers:
+                print(f"- {p.title}")
+            print()

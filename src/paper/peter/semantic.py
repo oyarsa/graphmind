@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-import logging
 from typing import Protocol, Self
 
 from pydantic import BaseModel, ConfigDict
