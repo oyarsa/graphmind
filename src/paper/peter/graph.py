@@ -2,35 +2,53 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
+import itertools
+import logging
+from collections.abc import Iterable, Sequence
 from enum import StrEnum
 from pathlib import Path
 from typing import ClassVar, Protocol, Self
 
 from pydantic import BaseModel, ConfigDict
 
+from paper import embedding as emb
 from paper.peter import citations, semantic
+from paper.util import Timer
 from paper.util.serde import Record, load_data
 
+logger = logging.getLogger(__name__)
 
-@dataclass(frozen=True, kw_only=True)
+
 class Graph:
-    """Graph with citation and semantic subgraphs."""
+    """Graph to retrieve positive and negative related papers.
+
+    Uses citation and semantic subgraphs to find those related papers:
+    - Negative papers: those whose citation contexts are negative, or whose goal is the
+      same but the methods are different.
+    - Positive papers: those that positive citation contexts or share the same method
+      but have different goals.
+    """
 
     CITATION_TOP_K: ClassVar[int] = 5
     SEMANTIC_TOP_K: ClassVar[int] = 5
 
-    citation: citations.Graph
-    semantic: semantic.Graph
-    encoder_model: str
+    _citation: citations.Graph
+    _semantic: semantic.Graph
+    _encoder_model: str
+
+    def __init__(
+        self, citation: citations.Graph, semantic: semantic.Graph, encoder_model: str
+    ) -> None:
+        self._citation = citation
+        self._semantic = semantic
+        self._encoder_model = encoder_model
 
     def to_data(self) -> GraphData:
         """Convert `Graph` object to a serialisable format."""
         return GraphData(
-            semantic=self.semantic.to_data(),
-            citation=self.citation,
-            encoder_model=self.encoder_model,
+            semantic=self._semantic.to_data(),
+            citation=self._citation,
+            encoder_model=self._encoder_model,
         )
 
     def query_all(
@@ -43,8 +61,8 @@ class Graph:
         citation_k: int = CITATION_TOP_K,
     ) -> QueryResult:
         """Find papers related to `paper` through citations and semantic similarity."""
-        papers_semantic = self.semantic.query(background, target, k=semantic_k)
-        papers_citation = self.citation.query(paper_id, k=citation_k)
+        papers_semantic = self._semantic.query(background, target, k=semantic_k)
+        papers_citation = self._citation.query(paper_id, k=citation_k)
 
         return QueryResult(
             semantic_positive=[
@@ -65,6 +83,35 @@ class Graph:
             ],
         )
 
+    @classmethod
+    def from_papers(
+        cls,
+        encoder: emb.Encoder,
+        papers_ann: Iterable[semantic.PaperAnnotated],
+        papers_context: Iterable[citations.PaperWithContextClassfied],
+    ) -> Self:
+        """Create new PETER graph from annotated papers and classified contexts."""
+
+        logger.debug("Creating semantic graph.")
+        with Timer("Semantic") as timer_semantic:
+            semantic_graph = semantic.Graph.from_papers(
+                encoder, papers_ann, progress=True
+            )
+        logger.debug(timer_semantic)
+
+        logger.debug("Creating citations graph.")
+        with Timer("Citations") as timer_citations:
+            citation_graph = citations.Graph.from_papers(
+                encoder, papers_context, progress=True
+            )
+        logger.debug(timer_citations)
+
+        return cls(
+            citation=citation_graph,
+            semantic=semantic_graph,
+            encoder_model=encoder.model_name,
+        )
+
 
 class QueryResult(BaseModel):
     """Combined query results from PETER graphs."""
@@ -75,6 +122,16 @@ class QueryResult(BaseModel):
     semantic_negative: Sequence[PaperResult]
     citations_positive: Sequence[PaperResult]
     citations_negative: Sequence[PaperResult]
+
+    @property
+    def positive(self) -> Sequence[PaperResult]:
+        """Retrieve all positive papers."""
+        return list(itertools.chain(self.semantic_positive, self.citations_positive))
+
+    @property
+    def negative(self) -> Sequence[PaperResult]:
+        """Retrieve all negative papers."""
+        return list(itertools.chain(self.semantic_negative, self.citations_negative))
 
 
 class PaperResult(Record):

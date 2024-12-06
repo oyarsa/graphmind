@@ -140,21 +140,8 @@ def build(
     logger.debug("Loading encoder.")
     encoder = emb.Encoder(model_name)
 
-    logger.info("Creating semantic graph.")
-    with Timer("Semantic") as timer_semantic:
-        semantic_graph = semantic.Graph.from_papers(encoder, papers_ann, progress=True)
-    logger.info(timer_semantic)
-
-    logger.info("Creating citations graph.")
-    with Timer("Citations") as timer_citations:
-        citation_graph = citations.Graph.from_papers(
-            encoder, papers_context, progress=True
-        )
-    logger.info(timer_citations)
-
-    main_graph = graph.Graph(
-        citation=citation_graph, semantic=semantic_graph, encoder_model=model_name
-    )
+    logger.debug("Building graph.")
+    main_graph = graph.Graph.from_papers(encoder, papers_ann, papers_context)
 
     logger.info("Saving graph.")
     save_data(output_file, main_graph.to_data())
