@@ -14,9 +14,9 @@ from collections.abc import Iterable
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Annotated, no_type_check
+from typing import Annotated
 
-import pandas as pd  # type: ignore
+import polars as pl
 import typer
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
@@ -97,10 +97,10 @@ def main(
     output_file.write_bytes(TypeAdapter(list[Paper]).dump_json(matches_fuzzy, indent=2))
 
 
-@no_type_check
-def describe(x: Iterable[float]) -> str:
+def describe(values: Iterable[float]) -> str:
     """Get descriptive statistics about numeric iterable."""
-    return pd.Series(x).describe()
+    pl.Config.set_tbl_hide_column_data_types(True).set_tbl_hide_dataframe_shape(True)
+    return str(pl.Series(values).describe())
 
 
 def _search_papers_fuzzy(
