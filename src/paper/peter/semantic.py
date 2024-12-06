@@ -95,7 +95,13 @@ class Graph:
         *,
         progress: bool = False,
     ) -> Self:
-        """Build semantic graph from paper backgrounds and targets."""
+        """Build semantic graph from paper backgrounds and targets.
+
+        Args:
+            encoder: Text to vector encoder to use on the nodes.
+            papers: Papers to be processed into graph nodes.
+            progress: If True, show a progress bar while generating node embeddings.
+        """
         background_to_paper = {
             paper.background: _PaperRelated.from_ann(paper) for paper in papers
         }
@@ -113,15 +119,15 @@ class Graph:
             ),
         )
 
-    def query(self, paper: PaperAnnotated, k: int = 5) -> QueryResult:
+    def query(self, background: str, target: str, k: int) -> QueryResult:
         """Get top K related papers by background and target.
 
         This gets top K for each side, sorted by similarity between sides (i.e. `paper`
         background vs the graph papers' backgrounds).
         """
         return QueryResult(
-            backgrounds=self._query(paper.background, self._backgrounds, k=k),
-            targets=self._query(paper.target, self._targets, k=k),
+            backgrounds=self._query(background, self._backgrounds, k=k),
+            targets=self._query(target, self._targets, k=k),
         )
 
     def _query(
