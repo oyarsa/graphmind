@@ -16,6 +16,7 @@ from paper.gpt import (
     annotate_paper,
     classify_contexts,
     evaluate_paper_full,
+    evaluate_paper_peter,
     evaluate_paper_scimon,
     extract_graph,
     tokens,
@@ -63,6 +64,11 @@ evals_subcommands = [
         "scimon",
         "Evaluate paper using SciMON graphs-extracted terms.",
         evaluate_paper_scimon,
+    ),
+    (
+        "peter",
+        "Evaluate paper using PETER-query related papers.",
+        evaluate_paper_peter,
     ),
 ]
 
