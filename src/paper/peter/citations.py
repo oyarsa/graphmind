@@ -9,12 +9,12 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
+from enum import StrEnum
 from typing import Protocol, Self
 
 from pydantic import BaseModel, ConfigDict
 from tqdm import tqdm
 
-from paper import asap
 from paper import embedding as emb
 from paper.util.serde import Record
 
@@ -28,9 +28,7 @@ class Graph(BaseModel):
 
     title_to_id: Mapping[str, str]
     """ASAP paper titles to IDs."""
-    id_polarity_to_cited: Mapping[
-        str, Mapping[asap.ContextPolarity, Sequence[Citation]]
-    ]
+    id_polarity_to_cited: Mapping[str, Mapping[ContextPolarity, Sequence[Citation]]]
     """ASAP paper IDs and context polarity to cited papers.
 
     Sorted by similarity score (descending) between paper and cited titles.
@@ -54,7 +52,7 @@ class Graph(BaseModel):
             progress: If True, show a progress bar while generating node embeddings.
         """
         title_to_id: dict[str, str] = {}
-        id_polarity_to_cited: dict[str, dict[asap.ContextPolarity, list[Citation]]] = (
+        id_polarity_to_cited: dict[str, dict[ContextPolarity, list[Citation]]] = (
             defaultdict(dict)
         )
 
@@ -71,7 +69,7 @@ class Graph(BaseModel):
             )
             s2_similarities = emb.similarities(asap_embedding, s2_embeddings)
 
-            for polarity in asap.ContextPolarity:
+            for polarity in ContextPolarity:
                 id_polarity_to_cited[asap_paper.id][polarity] = [
                     Citation(
                         score=score,
@@ -85,7 +83,7 @@ class Graph(BaseModel):
                         key=lambda x: x[1],
                         reverse=True,
                     )
-                    if paper.polarity is polarity
+                    if paper.polarity.value == polarity.value
                 ]
 
         logger.debug("Done processing papers.")
@@ -106,10 +104,7 @@ class Graph(BaseModel):
         """
         positive, negative = (
             self.id_polarity_to_cited[paper_id][polarity][:k]
-            for polarity in (
-                asap.ContextPolarity.POSITIVE,
-                asap.ContextPolarity.NEGATIVE,
-            )
+            for polarity in (ContextPolarity.POSITIVE, ContextPolarity.NEGATIVE)
         )
         return QueryResult(positive=positive, negative=negative)
 
@@ -127,7 +122,7 @@ class Citation(Record):
     paper_id: str
     title: str
     abstract: str
-    polarity: asap.ContextPolarity
+    polarity: ContextPolarity
 
     @property
     def id(self) -> str:
@@ -190,9 +185,31 @@ class ReferenceClassified(Protocol):
         ...
 
     @property
-    def polarity(self) -> asap.ContextPolarity:
+    def polarity(self) -> PolarityProto:
         """Reference polarity.
 
         Majority of all the context polarities. Ties are positive.
         """
         ...
+
+
+class PolarityProto(Protocol):
+    """Protocol representing an Enum with POSITIVE/NEGATIVE members.
+
+    The goal is to decouple from the representation in other packages.
+    """
+
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
+
+    @property
+    def value(self) -> str:
+        """Get value of the enum."""
+        ...
+
+
+class ContextPolarity(StrEnum):
+    """Citation enum for polarity."""
+
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
