@@ -7,13 +7,14 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from tqdm import tqdm
 
 from paper import embedding as emb
 from paper import gpt
 from paper import semantic_scholar as s2
 from paper.peter import citations, graph, semantic
 from paper.util import Timer, display_params, setup_logging
-from paper.util.serde import load_data, save_data
+from paper.util.serde import Record, load_data, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -212,3 +213,63 @@ def query(
             for p in papers:
                 print(f"- {p.title}")
             print()
+
+
+@app.command(no_args_is_help=True)
+def asap(
+    graph_file: Annotated[
+        Path, typer.Option("--graph", help="Path to full graph file.")
+    ],
+    ann_file: Annotated[
+        Path,
+        typer.Option(
+            "--asap-ann",
+            help="File with ASAP papers with extracted backgrounds and targets.",
+        ),
+    ],
+    output_file: Annotated[
+        Path, typer.Option("--output", help="Output file to save the result data.")
+    ],
+    num_papers: Annotated[
+        int | None,
+        typer.Option(
+            "--num-papers",
+            "-n",
+            help="Number of papers to query. Defaults to all papers.",
+        ),
+    ] = None,
+) -> None:
+    """Query the graph with ASAP papers and save the results in a file.
+
+    The output file contains both the original ASAP paper and the graph query results.
+    """
+    logger.info(display_params())
+
+    logger.debug("Loading papers.")
+    papers = gpt.PromptResult.unwrap(
+        load_data(ann_file, gpt.PromptResult[gpt.ASAPAnnotated])
+    )[:num_papers]
+
+    logger.debug("Loading graph.")
+    main_graph = graph.graph_from_json(graph_file)
+
+    results = [
+        PaperResult(
+            paper=paper,
+            results=main_graph.query_all(paper.id, paper.background, paper.target),
+        )
+        for paper in tqdm(papers, desc="Querying ASAP papers.")
+    ]
+    save_data(output_file, results)
+
+
+class PaperResult(Record):
+    """ASAP paper with its related papers queried from the PETER graph."""
+
+    paper: gpt.ASAPAnnotated
+    results: graph.QueryResult
+
+    @property
+    def id(self) -> str:
+        """Identify graph result as the underlying paper's ID."""
+        return self.paper.id
