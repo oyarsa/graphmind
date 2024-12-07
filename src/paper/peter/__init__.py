@@ -2,3 +2,10 @@
 
 Use paper graphs to evaluate a paper.
 """
+
+from paper.peter.citations import PaperWithContextClassfied as PaperWithContextClassfied
+from paper.peter.graph import Graph as Graph
+from paper.peter.graph import PaperRelated as PaperRelated
+from paper.peter.graph import PaperSource as PaperSource
+from paper.peter.graph import QueryResult as QueryResult
+from paper.peter.semantic import PaperAnnotated as PaperAnnotated

@@ -1,4 +1,8 @@
-"""Build citations graph from ASAP data with S2 papers and context polarities."""
+"""Build citations graph from ASAP data with S2 papers and context polarities.
+
+Input: `PaperWithContextClassfied`.
+Output: `QueryResult` with lists of positive and negative `Citation`s.
+"""
 
 from __future__ import annotations
 
@@ -136,7 +140,10 @@ class QueryResult(BaseModel):
 
 
 class PaperWithContextClassfied(Protocol):
-    """Paper from ASAP with each citation polarity classified."""
+    """Paper from ASAP with each citation polarity classified.
+
+    Input for the PETER Citations graph.
+    """
 
     @property
     def title(self) -> str:

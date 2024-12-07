@@ -66,19 +66,19 @@ class Graph:
 
         return QueryResult(
             semantic_positive=[
-                PaperResult.from_(p, source=PaperSource.SEMANTIC)
+                PaperRelated.from_(p, source=PaperSource.SEMANTIC)
                 for p in papers_semantic.targets
             ],
             semantic_negative=[
-                PaperResult.from_(p, source=PaperSource.SEMANTIC)
+                PaperRelated.from_(p, source=PaperSource.SEMANTIC)
                 for p in papers_semantic.backgrounds
             ],
             citations_positive=[
-                PaperResult.from_(p, source=PaperSource.CITATIONS)
+                PaperRelated.from_(p, source=PaperSource.CITATIONS)
                 for p in papers_citation.positive
             ],
             citations_negative=[
-                PaperResult.from_(p, source=PaperSource.CITATIONS)
+                PaperRelated.from_(p, source=PaperSource.CITATIONS)
                 for p in papers_citation.negative
             ],
         )
@@ -118,23 +118,23 @@ class QueryResult(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    semantic_positive: Sequence[PaperResult]
-    semantic_negative: Sequence[PaperResult]
-    citations_positive: Sequence[PaperResult]
-    citations_negative: Sequence[PaperResult]
+    semantic_positive: Sequence[PaperRelated]
+    semantic_negative: Sequence[PaperRelated]
+    citations_positive: Sequence[PaperRelated]
+    citations_negative: Sequence[PaperRelated]
 
     @property
-    def positive(self) -> Sequence[PaperResult]:
+    def positive(self) -> Sequence[PaperRelated]:
         """Retrieve all positive papers."""
         return list(itertools.chain(self.semantic_positive, self.citations_positive))
 
     @property
-    def negative(self) -> Sequence[PaperResult]:
+    def negative(self) -> Sequence[PaperRelated]:
         """Retrieve all negative papers."""
         return list(itertools.chain(self.semantic_negative, self.citations_negative))
 
 
-class PaperResult(Record):
+class PaperRelated(Record):
     """S2 paper cited by the ASAP paper with the title similarity score and polarity."""
 
     source: PaperSource

@@ -1,4 +1,8 @@
-"""Build semantic graph based on backgrounds and targets."""
+"""Build semantic graph based on backgrounds and targets.
+
+Input: `PaperAnnotated`.
+Output: `QueryResult` with `targets` and `backgrounds`-related `PaperResult`.
+"""
 
 from __future__ import annotations
 
