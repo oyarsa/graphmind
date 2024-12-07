@@ -1,0 +1,30 @@
+[[prompts]]
+name = "simple"
+type = "full"
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+main paper's title and abstract and some related papers. These related papers are \
+separated by "supporting" papers (those that corroborate the paper's ideas, methods,
+approach, etc.) and "contrasting" papers (those that go against the paper's ideas).
+
+Based on this content, approve or reject the paper. First, generate the rationale for \
+your decision, then give the final decision. Keep in mind that this paper was submitted \
+to a very high-quality conference, so make sure to only approve papers that are of \
+outstanding quality.
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+Supporting papers:
+{positive}
+
+Contrasting papers:
+{negative}
+
+#####
+Output:
+"""
