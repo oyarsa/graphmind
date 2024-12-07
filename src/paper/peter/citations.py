@@ -16,7 +16,6 @@ from tqdm import tqdm
 
 from paper import asap
 from paper import embedding as emb
-from paper import semantic_scholar as s2
 from paper.util.serde import Record
 
 logger = logging.getLogger(__name__)
@@ -65,10 +64,10 @@ class Graph(BaseModel):
 
         for asap_paper in papers:
             title_to_id[asap_paper.title] = asap_paper.id
-            asap_embedding = encoder.encode(s2.clean_title(asap_paper.title))
+            asap_embedding = encoder.encode(_clean_title(asap_paper.title))
 
             s2_embeddings = encoder.encode(
-                [s2.clean_title(r.title_asap) for r in asap_paper.references]
+                [_clean_title(r.title_asap) for r in asap_paper.references]
             )
             s2_similarities = emb.similarities(asap_embedding, s2_embeddings)
 
@@ -113,6 +112,12 @@ class Graph(BaseModel):
             )
         )
         return QueryResult(positive=positive, negative=negative)
+
+
+def _clean_title(title: str) -> str:
+    title = title.strip().casefold()
+    alpha_only = "".join(c for c in title if c.isalpha() or c.isspace())
+    return " ".join(alpha_only.split())
 
 
 class Citation(Record):
