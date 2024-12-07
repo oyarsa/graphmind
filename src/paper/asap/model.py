@@ -2,25 +2,34 @@
 
 from __future__ import annotations
 
-import enum
 from collections.abc import Sequence
+from enum import StrEnum
+from typing import Self, override
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from paper.util import hashstr
+from paper.util.serde import Record
+
 
 # Models from the ASAP files after exctraction (e.g. asap_filtered.json)
-class ContextPolarity(enum.StrEnum):
-    POSITIVE = enum.auto()
-    NEGATIVE = enum.auto()
-    NEUTRAL = enum.auto()
+class ContextPolarity(StrEnum):
+    """Human-classified polarity of citation context."""
+
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
+    NEUTRAL = "neutral"
 
 
-class ContextPolarityBinary(enum.StrEnum):
-    POSITIVE = enum.auto()
-    NEGATIVE = enum.auto()
+class ContextPolarityBinary(StrEnum):
+    """Binary polarity where "neutral" is converted to "positive"."""
+
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
 
     @classmethod
     def from_trinary(cls, polarity: ContextPolarity) -> ContextPolarityBinary:
+        """Converts "neutral" polarity to "positive"."""
         return (
             cls.POSITIVE
             if polarity in (ContextPolarity.POSITIVE, ContextPolarity.NEUTRAL)
@@ -29,6 +38,8 @@ class ContextPolarityBinary(enum.StrEnum):
 
 
 class CitationContext(BaseModel):
+    """Citation context sentence with its (optional) predicted/annotated polarity."""
+
     sentence: str = Field(description="Context sentence the from ASAP data")
     polarity: ContextPolarity | None = Field(
         description="Polarity of the citation context between main and reference papers."
@@ -36,6 +47,8 @@ class CitationContext(BaseModel):
 
 
 class PaperReference(BaseModel):
+    """Paper metadata with its contexts."""
+
     model_config = ConfigDict(frozen=True)
 
     title: str = Field(description="Title of the citation in the paper references")
@@ -47,6 +60,8 @@ class PaperReference(BaseModel):
 
 
 class PaperSection(BaseModel):
+    """Section of an ASAP full paper with its heading and context text."""
+
     model_config = ConfigDict(frozen=True)
 
     heading: str = Field(description="Section heading")
@@ -54,18 +69,21 @@ class PaperSection(BaseModel):
 
 
 class PaperReview(BaseModel):
+    """Peer review of an ASAP paper with a 1-10 rating and rationale."""
+
     model_config = ConfigDict(frozen=True)
 
     rating: int = Field(description="Rating given by the review (1 to 10)")
     rationale: str = Field(description="Explanation given for the rating")
 
 
-class Paper(BaseModel):
-    model_config = ConfigDict(frozen=True)
+class Paper(Record):
+    """ASAP paper with all available fields."""
 
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
     reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
+    authors: Sequence[str] = Field(description="Names of the authors")
     sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"
@@ -73,6 +91,11 @@ class Paper(BaseModel):
     references: Sequence[PaperReference] = Field(
         description="References made in the paper"
     )
+
+    @property
+    @override
+    def id(self) -> str:
+        return hashstr(self.title + self.abstract)
 
 
 # Models after enrichment of references with data from the S2 API
@@ -85,16 +108,21 @@ class ReferenceWithAbstract(PaperReference):
 
     abstract: str = Field(description="Abstract text")
     s2title: str = Field(description="Title from the S2 data")
+    paper_id: str = Field(description="Paper ID in the S2 API")
+
+    @property
+    def id(self) -> str:
+        """Identify the reference by its S2 API ID."""
+        return self.paper_id
 
 
-class PaperWithFullReference(BaseModel):
+class PaperWithFullReference(Record):
     """Paper from ASAP where the references contain their abstract."""
-
-    model_config = ConfigDict(frozen=True)
 
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
     reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
+    authors: Sequence[str] = Field(description="Names of the authors")
     sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"
@@ -104,38 +132,38 @@ class PaperWithFullReference(BaseModel):
     )
 
     @property
-    def id(self) -> int:
-        return hash(self.title + self.abstract)
+    @override
+    def id(self) -> str:
+        return hashstr(self.title + self.abstract)
 
 
 class TLDR(BaseModel):
+    """AI-generated one-sentence paper summary."""
+
     model_config = ConfigDict(frozen=True)
 
     model: str
     text: str | None
 
 
-class S2Paper(BaseModel):
-    """Paper from the S2 API.
-
-    Attributes:
-        title_query: The original title used to query the API.
-        title: Actual title of the paper in the API.
-        abstract: Full text of the paper abstract.
-        reference_count: How many references the current paper cites (outgoing).
-        citation_count: How many papers cite the current paper (incoming).
-        influential_citation_count: See https://www.semanticscholar.org/faq#influential-citations.
-        tldr: Machine-generated TLDR of the paper. Not available for everything.
-
-    NB: We got more data from the API, but this is what's relevant here. See also
-    `paper.external_data.semantic_scholar`.
-    """
-
-    model_config = ConfigDict(frozen=True)
+class S2Paper(Record):
+    """Paper from the S2 API."""
 
     title_query: str = Field(description="Title used in the API query (from ASAP)")
     title: str = Field(description="Title from the S2 data")
+    paper_id: str = Field(
+        alias="paperId",
+        description="Semantic Scholar's primary unique identifier for a paper",
+    )
+    corpus_id: int | None = Field(
+        alias="corpusId",
+        description="Semantic Scholar's secondary unique identifier for a paper",
+    )
+    url: str | None = Field(
+        description="URL of the paper on the Semantic Scholar website"
+    )
     abstract: str = Field(description="Abstract text")
+    year: int | None = Field(description="Year the paper was published")
     reference_count: int = Field(
         alias="referenceCount", description="Number of papers this paper references"
     )
@@ -147,6 +175,23 @@ class S2Paper(BaseModel):
         description="Number of influential papers (see docstring) that cite this paper",
     )
     tldr: TLDR | None = Field(description="Machine-generated summary of this paper")
+    authors: Sequence[S2Author] | None = Field(description="Paper authors")
+
+    @property
+    def id(self) -> str:
+        """Identify paper by the S2 API paper ID."""
+        return self.paper_id
+
+
+class S2Author(BaseModel):
+    """Author information from the S2 API."""
+
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
+
+    name: str | None = Field(description="Author's name")
+    author_id: str | None = Field(
+        alias="authorId", description="Semantic Scholar's unique ID for the author"
+    )
 
 
 class ReferenceEnriched(PaperReference):
@@ -179,6 +224,7 @@ class PaperWithReferenceEnriched(BaseModel):
     title: str = Field(description="Paper title")
     abstract: str = Field(description="Abstract text")
     reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
+    authors: Sequence[str] = Field(description="Names of the authors")
     sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"
@@ -186,3 +232,39 @@ class PaperWithReferenceEnriched(BaseModel):
     references: Sequence[ReferenceEnriched] = Field(
         description="References made in the paper with their abstracts"
     )
+
+
+class S2Reference(S2Paper):
+    """S2 paper as a reference with the original contexts."""
+
+    contexts: Sequence[CitationContext]
+
+    @classmethod
+    def from_(cls, paper: S2Paper, *, contexts: Sequence[CitationContext]) -> Self:
+        """Create new instance by copying data from S2Paper, in addition to the contexts."""
+        return cls.model_validate(paper.model_dump() | {"contexts": contexts})
+
+
+class PaperWithS2Refs(Record):
+    """ASAP main paper where references have the full S2 data as well as their contexts."""
+
+    title: str = Field(description="Paper title")
+    abstract: str = Field(description="Abstract text")
+    reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
+    authors: Sequence[str] = Field(description="Names of the authors")
+    sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
+    approval: bool = Field(
+        description="Approval decision - whether the paper was approved"
+    )
+    references: Sequence[S2Reference] = Field(
+        description="References from the paper with full S2 data and citation contexts."
+    )
+
+    @property
+    def id(self) -> str:
+        """Identify an ASAP by the combination of its `title` and `abstract`.
+
+        The `title` isn't unique by itself, but `title+abstract` is. Instead of passing
+        full text around, I hash it.
+        """
+        return hashstr(self.title + self.abstract)

@@ -7,11 +7,27 @@ Uses the output of `paper.asap.merge` as input.
 
 import json
 from pathlib import Path
+from typing import Annotated
 
-from paper.util import HelpOnErrorArgumentParser
+import typer
+
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
 
 
-def main(input_file: Path) -> None:
+@app.command(help=__doc__)
+def main(
+    input_file: Annotated[
+        Path,
+        typer.Argument(help="Input file (ASAP merged) to calculate statistics from."),
+    ],
+) -> None:
+    """Calculate total and average number of unique reference contexts per paper in ASAP."""
     counts_unique: list[int] = []
     all_unique: set[str] = set()
 
@@ -32,11 +48,4 @@ def main(input_file: Path) -> None:
 
 
 if __name__ == "__main__":
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument(
-        "input",
-        type=Path,
-        help="Input file (ASAP merged) to calculate statistics from.",
-    )
-    args = parser.parse_args()
-    main(args.input)
+    app()

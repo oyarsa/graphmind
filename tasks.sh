@@ -12,11 +12,9 @@ help() {
 	printf "\n"
 	printf "Available tasks:\n"
 	printf "  setup   Set up the development environment\n"
-	printf "  check   Run linters and tests\n"
 	printf "  lint    Run ruff check, ruff format, and pyright\n"
-	printf "  tests   Run tests\n"
 	printf "  help    Show this help message\n"
-	printf "  doc     Open the module documentation on the browser\n"
+	printf "  clidoc  Generate CLI documentation file\n"
 }
 
 setup() {
@@ -55,20 +53,12 @@ lint() {
 	uv run pyright .
 }
 
-tests() {
-	uv run pytest tests --quiet
-}
-
-check() {
-	lint && tests
-}
-
-doc() {
-	uv run pdoc paper --docformat google
-}
-
 watch() {
 	watchexec --exts=py --restart 'uv run ruff check && uv run pyright'
+}
+
+clidoc() {
+	uv run typer paper.gpt.cli utils docs --output src/paper/gpt/CLI.md
 }
 
 if [ $# -eq 0 ]; then

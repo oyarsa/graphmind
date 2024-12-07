@@ -16,7 +16,6 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
-import click
 import typer
 from pydantic import TypeAdapter
 
@@ -26,7 +25,7 @@ from paper.asap.model import (
     PaperWithReferenceEnriched,
     ReferenceEnriched,
 )
-from paper.util import Timer
+from paper.util import Timer, cli
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -36,7 +35,7 @@ app = typer.Typer(
 )
 
 
-@app.command(help="Sample N citation contexts from file.")
+@app.command()
 def sample(
     input_file: Annotated[
         Path, typer.Argument(help="Path to input JSON file (ASAP with abstracts).")
@@ -47,6 +46,7 @@ def sample(
     num_samples: Annotated[int, typer.Argument(help="Number of contexts to sample.")],
     seed: Annotated[int, typer.Option(help="Random seed for sampling")] = 0,
 ) -> None:
+    """Sample N citation contexts from file."""
     random.seed(seed)
 
     input_data = TypeAdapter(list[PaperWithReferenceEnriched]).validate_json(
@@ -97,6 +97,7 @@ def sample(
                     title=paper.title,
                     abstract=paper.abstract,
                     reviews=paper.reviews,
+                    authors=paper.authors,
                     sections=paper.sections,
                     approval=paper.approval,
                 )
@@ -107,12 +108,13 @@ def sample(
     )
 
 
-@app.command(help="Annotation citation contexts polarities.")
+@app.command()
 def annotate(
     input_file: Annotated[Path, typer.Argument(help="Path to input JSON file.")],
     output_file: Annotated[Path, typer.Argument(help="Path to output JSON file.")],
     width: Annotated[int, typer.Option(help="Width to wrap displayed text.")] = 100,
 ) -> None:
+    """Annotation citation contexts polarities."""
     input_data = TypeAdapter(list[PaperWithReferenceEnriched]).validate_json(
         input_file.read_bytes()
     )
@@ -201,6 +203,7 @@ def _annotate(
             title=paper.title,
             abstract=paper.abstract,
             reviews=paper.reviews,
+            authors=paper.authors,
             sections=paper.sections,
             approval=paper.approval,
         )
@@ -252,7 +255,7 @@ Context
     with Timer() as timer:
         answer = typer.prompt(
             "What is the polarity of this context?",
-            type=click.Choice(["p", "u", "n", "q"]),
+            type=cli.choice(["p", "u", "n", "q"]),
         )
     if answer == "q":
         return None
@@ -273,7 +276,8 @@ def _wrap(text: str, *, width: int) -> str:
 
 
 @app.callback(help=__doc__)
-def doc():  # Empty callback just for top-level documentation
+def doc() -> None:
+    """Empty callback just for top-level documentation."""
     pass
 
 

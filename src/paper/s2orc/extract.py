@@ -9,21 +9,20 @@ import gzip
 import json
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
+import typer
 from tqdm import tqdm
-
-from paper.util import HelpOnErrorArgumentParser
 
 
 def _extract_annotation(text: str, annotations: dict[str, str], key: str) -> str | None:
     """Extract annotation segment from text using start and end indices."""
-    annotation_idxs_str = annotations.get(key)
-    if not annotation_idxs_str:
+    annotation_idxs = annotations.get(key)
+    if not annotation_idxs:
         return None
 
     try:
-        annotation_idxs = json.loads(annotation_idxs_str)
+        annotation_idxs = json.loads(annotation_idxs)
     except json.JSONDecodeError:
         return None
 
@@ -99,18 +98,25 @@ def extract_data(input_files: Iterable[Path], output_dir: Path) -> None:
                 json.dump(processed, f)
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument("input_files", type=Path, nargs="+", help="Input gzipped files")
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        required=True,
-        help="Directory where processed files will be saved",
-    )
-    args = parser.parse_args()
-    extract_data(args.input_files, args.output_dir)
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    input_files: Annotated[list[Path], typer.Argument(help="Input gzipped files.")],
+    output_dir: Annotated[
+        Path, typer.Option(help="Directory where processed files will be saved")
+    ],
+) -> None:
+    """Decompress gzipped JSON Lines files, extract data, and save as gzipped JSON."""
+    extract_data(input_files, output_dir)
 
 
 if __name__ == "__main__":
-    main()
+    app()

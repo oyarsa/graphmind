@@ -7,29 +7,31 @@ or in the GUI.
 # pyright: basic
 from __future__ import annotations
 
-import argparse
 import logging
 import textwrap
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Self
+from typing import Annotated, Self
 
 import matplotlib.pyplot as plt
 import networkx as nx
+import typer
 from matplotlib.patches import Rectangle
-
-from paper.util import HelpOnErrorArgumentParser
 
 logger = logging.getLogger(__name__)
 
 
 class GraphError(Exception):
+    """Base class for all graph-related exceptions."""
+
     pass
 
 
 @dataclass(frozen=True)
 class Node:
+    """Graph node with `name` (text), `type` and optional `detail` sentence."""
+
     name: str
     type: str
     detail: str = ""
@@ -37,6 +39,8 @@ class Node:
 
 @dataclass(frozen=True)
 class Edge:
+    """Graph edge where `source` and `target` nodes."""
+
     source: str
     target: str
 
@@ -229,6 +233,8 @@ class DiGraph:
                 pos[node] = (x_pos, y_pos)
                 colors[node] = color_map[type_]
 
+        # Adjust box size based on content
+        box_width = 1.0
         # Draw nodes
         for node, (x, y) in pos.items():
             # Get node info
@@ -244,8 +250,6 @@ class DiGraph:
                 wrapped_detail = textwrap.fill(str(detail), width=30)
                 detail_lines = len(wrapped_detail.split("\n"))
 
-            # Adjust box size based on content
-            box_width = 1.0
             box_height = 0.3 + (num_lines * 0.15) + (detail_lines * 0.12)
 
             # Create node box
@@ -335,6 +339,7 @@ class DiGraph:
             plt.show()
 
     def has_cycle(self) -> bool:
+        """Returns True if the graph has a cycle."""
         return not nx.is_directed_acyclic_graph(self._nxgraph)
 
     def save(self, path: Path) -> None:
@@ -353,25 +358,29 @@ class DiGraph:
         return cls(nx.read_graphml(path, node_type=str))
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(description="Visualise a hierarchical graph")
-    parser.add_argument("graph_file", type=Path, help="Path to the graph file")
-    parser.add_argument(
-        "--output",
-        "-o",
-        type=Path,
-        help="Path to save the image of the visualisation",
-    )
-    parser.add_argument(
-        "--show",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Don't display the visualisation in the GUI",
-    )
-    args = parser.parse_args()
-    graph = DiGraph.load(args.graph_file)
-    graph.visualise_hierarchy(display_gui=args.show, img_path=args.output)
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help="Visualise a hierarchical graph", no_args_is_help=True)
+def main(
+    graph_file: Annotated[Path, typer.Argument(help="Path to the graph file")],
+    output: Annotated[
+        Path | None, typer.Option(help="Path to save the image of the visualisation")
+    ] = None,
+    show: Annotated[
+        bool, typer.Option(help="Don't display the visualisation in the GUI")
+    ] = True,
+) -> None:
+    """Visualise (GUI or file) the hierarchical graph from `file`."""
+    graph = DiGraph.load(graph_file)
+    graph.visualise_hierarchy(display_gui=show, img_path=output)
 
 
 if __name__ == "__main__":
-    main()
+    app()

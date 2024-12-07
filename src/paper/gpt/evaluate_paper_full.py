@@ -28,18 +28,20 @@
 #     Gold (P/N): 25/25 (50.00%)
 #     Pred (P/N): 35/15 (70.00%)
 
-import argparse
 import asyncio
 import logging
 import random
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Annotated
 
 import dotenv
+import typer
 from openai import AsyncOpenAI
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import TypeAdapter
 
 from paper.gpt.evaluate_paper import (
+    CLASSIFY_TYPES,
     EVALUATE_DEMONSTRATION_PROMPTS,
     Demonstration,
     PaperResult,
@@ -54,54 +56,108 @@ from paper.gpt.run_gpt import (
     MODELS_ALLOWED,
     GPTResult,
     append_intermediate_result,
-    get_id,
     get_remaining_items,
     run_gpt,
 )
-from paper.progress import as_completed
 from paper.util import (
-    HelpOnErrorArgumentParser,
     Timer,
+    cli,
     display_params,
     ensure_envvar,
+    progress,
     setup_logging,
+    shuffled,
 )
+from paper.util.serde import load_data
 
 logger = logging.getLogger(__name__)
-
-
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    setup_cli_parser(parser)
-
-    args = parser.parse_args()
-    setup_logging()
-
-    if args.subcommand == "prompts":
-        list_prompts(detail=args.detail)
-    elif args.subcommand == "run":
-        asyncio.run(
-            evaluate_papers(
-                args.model,
-                args.data_path,
-                args.limit,
-                args.user_prompt,
-                args.output_dir,
-                args.continue_papers,
-                args.clean_run,
-                args.seed,
-                args.demos,
-                args.demo_prompt,
-            )
-        )
-
-
 FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
+
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def run(
+    asap_path: Annotated[
+        Path,
+        typer.Option(
+            "--asap", help="The path to the JSON file containing the ASAP papers data."
+        ),
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            help="The path to the output directory where the files will be saved.",
+        ),
+    ],
+    model: Annotated[
+        str,
+        typer.Option("--model", "-m", help="The model to use for the extraction."),
+    ] = "gpt-4o-mini",
+    limit_papers: Annotated[
+        int,
+        typer.Option("--limit", "-n", help="The number of papers to process."),
+    ] = 1,
+    user_prompt: Annotated[
+        str,
+        typer.Option(
+            help="The user prompt to use for classification.",
+            click_type=cli.choice(FULL_CLASSIFY_USER_PROMPTS),
+        ),
+    ] = "simple-abs",
+    continue_papers: Annotated[
+        Path | None, typer.Option(help="Path to file with data from a previous run.")
+    ] = None,
+    clean_run: Annotated[
+        bool,
+        typer.Option(help="Start from scratch, ignoring existing intermediate results"),
+    ] = False,
+    seed: Annotated[int, typer.Option(help="Random seed used for data shuffling.")] = 0,
+    demos: Annotated[
+        Path | None,
+        typer.Option(help="File containing demonstrations to use in few-shot prompt"),
+    ] = None,
+    demo_prompt: Annotated[
+        str,
+        typer.Option(
+            help="User prompt to use for building the few-shot demonstrations.",
+            click_type=cli.choice(EVALUATE_DEMONSTRATION_PROMPTS),
+        ),
+    ] = "abstract",
+) -> None:
+    """Evaluate a paper's approval based on its full-body text."""
+    asyncio.run(
+        evaluate_papers(
+            model,
+            asap_path,
+            limit_papers,
+            user_prompt,
+            output_dir,
+            continue_papers,
+            clean_run,
+            seed,
+            demos,
+            demo_prompt,
+        )
+    )
+
+
+@app.callback()
+def main() -> None:
+    """Set up logging."""
+    setup_logging()
 
 
 async def evaluate_papers(
     model: str,
-    data_path: Path,
+    asap_path: Path,
     limit_papers: int | None,
     user_prompt_key: str,
     output_dir: Path,
@@ -116,12 +172,9 @@ async def evaluate_papers(
     The papers should come from the ASAP-Review dataset as processed by the
     paper.asap module.
 
-    The classification part is optional. It uses the generated graphs as input as saves
-    the results (metrics and predictions) to {output_dir}/classification.
-
     Args:
         model: GPT model code. Must support Structured Outputs.
-        data_path: Path to the JSON file containing the input papers data.
+        asap_path: Path to the JSON file containing the input papers data.
         limit_papers: Number of papers to process. Defaults to 1 example. If None,
             process all.
         graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
@@ -161,10 +214,7 @@ async def evaluate_papers(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
-    random.shuffle(data)
-
-    papers = data[:limit_papers]
+    papers = shuffled(load_data(asap_path, Paper))[:limit_papers]
     user_prompt = FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
@@ -178,13 +228,7 @@ async def evaluate_papers(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
     papers_remaining = get_remaining_items(
-        PaperResult,
-        output_intermediate_file,
-        continue_papers_file,
-        papers,
-        clean_run=clean_run,
-        continue_key=get_id,
-        original_key=get_id,
+        PaperResult, output_intermediate_file, continue_papers_file, papers, clean_run
     )
     if not papers_remaining.remaining:
         logger.info(
@@ -214,10 +258,10 @@ async def evaluate_papers(
     logger.info(f"Total cost: ${results.cost:.10f}")
 
     results_all = papers_remaining.done + results.result
-    results_items = [result.item for result in results_all]
+    results_items = PromptResult.unwrap(results_all)
 
     metrics = calculate_paper_metrics(results_items)
-    logger.info(display_metrics(metrics, results_items) + "\n")
+    logger.info("%s\n", display_metrics(metrics, results_items))
 
     assert len(results_all) == len(papers)
     (output_dir / "result.json").write_bytes(
@@ -261,7 +305,7 @@ async def _classify_papers(
         for paper in papers
     ]
 
-    for task in as_completed(tasks, desc="Classifying papers"):
+    for task in progress.as_completed(tasks, desc="Classifying papers"):
         result = await task
         total_cost += result.cost
 
@@ -269,20 +313,6 @@ async def _classify_papers(
         append_intermediate_result(PaperResult, output_intermediate_file, result.result)
 
     return GPTResult(results, total_cost)
-
-
-class GPTFull(BaseModel):
-    """Decision on if the paper should be published and the reason for the decision."""
-
-    model_config = ConfigDict(frozen=True)
-
-    rationale: str = Field(description="How you reached your approval decision.")
-    approved: bool = Field(description="If the paper was approved for publication.")
-
-
-_CLASSIFY_TYPES = {
-    "full": GPTFull,
-}
 
 
 _FULL_CLASSIFY_SYSTEM_PROMPT = (
@@ -312,7 +342,7 @@ async def _classify_paper(
 ) -> GPTResult[PromptResult[PaperResult]]:
     user_prompt_text = format_template(user_prompt, paper, demonstrations)
     result = await run_gpt(
-        _CLASSIFY_TYPES[user_prompt.type_name],
+        CLASSIFY_TYPES[user_prompt.type_name],
         client,
         _FULL_CLASSIFY_SYSTEM_PROMPT,
         user_prompt_text,
@@ -327,6 +357,7 @@ async def _classify_paper(
                 title=paper.title,
                 abstract=paper.abstract,
                 reviews=paper.reviews,
+                authors=paper.authors,
                 sections=paper.sections,
                 approval=paper.approval,
                 y_true=paper.is_approved(),
@@ -339,98 +370,15 @@ async def _classify_paper(
     )
 
 
-def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
-    # Create subparsers for 'run' and 'prompts' subcommands
-    subparsers = parser.add_subparsers(
-        title="subcommands", dest="subcommand", required=True
-    )
-
-    # 'run' subcommand parser
-    run_parser = subparsers.add_parser(
-        "run",
-        help="Run paper classification",
-        description="Run paper classification with the provided arguments.",
-    )
-
-    # Add original arguments to the 'run' subcommand
-    run_parser.add_argument(
-        "data_path",
-        type=Path,
-        help="The path to the JSON file containing the papers data.",
-    )
-    run_parser.add_argument(
-        "output_dir",
-        type=Path,
-        help="The path to the output directory where files will be saved.",
-    )
-    run_parser.add_argument(
-        "--model",
-        "-m",
-        type=str,
-        default="gpt-4o-mini",
-        help="The model to use for the extraction. Defaults to %(default)s.",
-    )
-    run_parser.add_argument(
-        "--limit",
-        "-n",
-        type=int,
-        default=1,
-        help="The number of papers to process. Defaults to %(default)s example.",
-    )
-    run_parser.add_argument(
-        "--user-prompt",
-        type=str,
-        choices=FULL_CLASSIFY_USER_PROMPTS.keys(),
-        default="simple",
-        help="The user prompt to use for paper classification. Defaults to"
-        " %(default)s.",
-    )
-    run_parser.add_argument(
-        "--continue-papers",
-        type=Path,
-        default=None,
-        help="Path to file with data from a previous run",
-    )
-    run_parser.add_argument(
-        "--clean-run",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Start from scratch, ignoring existing intermediate results",
-    )
-    run_parser.add_argument(
-        "--seed", default=0, type=int, help="Random seed used for shuffling."
-    )
-    run_parser.add_argument(
-        "--demos",
-        type=Path,
-        default=None,
-        help="File containing demonstrations to use in few-shot prompt",
-    )
-    run_parser.add_argument(
-        "--demo-prompt",
-        type=str,
-        choices=EVALUATE_DEMONSTRATION_PROMPTS.keys(),
-        default="simple",
-        help="The user prompt to use for building the few-shot demonstrations. Defaults"
-        " to %(default)s.",
-    )
-
-    # 'prompts' subcommand parser
-    prompts_parser = subparsers.add_parser(
-        "prompts",
-        help="List available prompts",
-        description="List available prompts. Use --detail for more information.",
-    )
-    prompts_parser.add_argument(
-        "--detail",
-        action="store_true",
-        help="Provide detailed descriptions of the prompts.",
-    )
-
-
-def list_prompts(detail: bool) -> None:
+@app.command(help="List available prompts.")
+def prompts(
+    detail: Annotated[
+        bool, typer.Option(help="Show full description of the prompts.")
+    ] = False,
+) -> None:
+    """Print the available prompt names, and optionally, the full prompt text."""
     print_prompts("FULL PAPER EVALUATION", FULL_CLASSIFY_USER_PROMPTS, detail=detail)
 
 
 if __name__ == "__main__":
-    main()
+    app()

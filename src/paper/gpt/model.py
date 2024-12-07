@@ -1,18 +1,24 @@
 """Common types used to represent entities in the GPT-based extraction tools."""
 
+from __future__ import annotations
+
 import itertools
 from collections import Counter, defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from enum import StrEnum
-from typing import Self
+from typing import Annotated, Self
 
-from pydantic import BaseModel, ConfigDict, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
-from paper import hierarchical_graph
-from paper.asap.model import PaperReview
+import paper.semantic_scholar as s2
+from paper import asap, hierarchical_graph
+from paper.util import hashstr
+from paper.util.serde import Record
 
 
 class EntityType(StrEnum):
+    """Entity type in hierarchical graph."""
+
     TITLE = "title"
     TLDR = "tldr"
     PRIMARY_AREA = "primary_area"
@@ -23,6 +29,8 @@ class EntityType(StrEnum):
 
 
 class Relationship(BaseModel):
+    """Relationship between nodes in the hierarchical graph."""
+
     model_config = ConfigDict(frozen=True)
 
     source: str
@@ -30,14 +38,19 @@ class Relationship(BaseModel):
 
 
 class Entity(BaseModel):
+    """Entity in the hierarchical graph."""
+
     model_config = ConfigDict(frozen=True)
 
     name: str
     type: EntityType
 
 
-class Graph(BaseModel):
-    model_config = ConfigDict(frozen=True)
+class Graph(Record):
+    """GPT output graph representing the hierarchical graph.
+
+    See `valid_status` for the rules governing this graph.
+    """
 
     title: str
     abstract: str
@@ -45,8 +58,9 @@ class Graph(BaseModel):
     relationships: Sequence[Relationship]
 
     @property
-    def id(self) -> int:
-        return hash(self.title + self.abstract)
+    def id(self) -> str:
+        """Identify graph from the title and abstract of the paper that generated it."""
+        return hashstr(self.title + self.abstract)
 
     @computed_field
     @property
@@ -199,6 +213,7 @@ class Graph(BaseModel):
         return "Valid"
 
     def __str__(self) -> str:
+        """Display the entities, relationships, counts and validity of the graph."""
         type_index = list(EntityType).index
         entities = "\n".join(
             f"  {i}. {c.type} - {c.name}"
@@ -250,6 +265,7 @@ class Graph(BaseModel):
 
 
 def graph_to_digraph(graph: Graph) -> hierarchical_graph.DiGraph:
+    """Convert GPT-generated graph into a proper hierarchical graph."""
     return hierarchical_graph.DiGraph.from_elements(
         nodes=[hierarchical_graph.Node(e.name, e.type.value) for e in graph.entities],
         edges=[
@@ -263,6 +279,8 @@ def _get_nodes_of_type(graph: Graph, type_: EntityType) -> list[Entity]:
 
 
 class PaperSection(BaseModel):
+    """Section of a full paper with its headin and content text."""
+
     model_config = ConfigDict(frozen=True)
 
     heading: str
@@ -274,6 +292,8 @@ RATING_APPROVAL_THRESHOLD = 5
 
 
 class RatingEvaluationStrategy(StrEnum):
+    """What method to use when calculating the target score from a paper."""
+
     MEAN = "mean"
     """Mean rating is higher than the threshold."""
     MAJORITY = "majority"
@@ -283,6 +303,7 @@ class RatingEvaluationStrategy(StrEnum):
     DEFAULT = DECISION
 
     def is_approved(self, decision: bool, ratings: Sequence[int]) -> bool:
+        """Determine whether a paper is approved based on this strategy."""
         match self:
             case RatingEvaluationStrategy.DECISION:
                 return decision
@@ -294,34 +315,40 @@ class RatingEvaluationStrategy(StrEnum):
                 return sum(approvals) >= len(approvals) / 2
 
 
-class Paper(BaseModel):
+class Paper(Record):
     """ASAP-Review paper with only currently useful fields.
 
     Check the ASAP-Review dataset to see what else is available, and use
     paper.asap.extract and asap.filter to add them to this dataset.
     """
 
-    model_config = ConfigDict(frozen=True)
-
     title: str
     abstract: str
-    reviews: Sequence[PaperReview]
+    reviews: Sequence[asap.PaperReview]
+    authors: Sequence[str]
     sections: Sequence[PaperSection]
     approval: bool
 
     @property
-    def id(self) -> int:
-        return hash(self.title + self.abstract)
+    def id(self) -> str:
+        """Identify paper from the title and abstract."""
+        return hashstr(self.title + self.abstract)
 
     def is_approved(
         self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.DEFAULT
     ) -> bool:
+        """Determine whether a paper was approved according to the strategy.
+
+        By default, uses the `approval` field.
+        """
         return strategy.is_approved(self.approval, [r.rating for r in self.reviews])
 
     def main_text(self) -> str:
+        """Join all paper sections to form the main text."""
         return "\n".join(s.text for s in self.sections)
 
     def __str__(self) -> str:
+        """Display title, abstract, rating scores and count of words in main text."""
         main_text_words_num = len(self.main_text().split())
         return (
             f"Title: {self.title}\n"
@@ -332,6 +359,8 @@ class Paper(BaseModel):
 
 
 class Prompt(BaseModel):
+    """Prompt used in a GPT API request."""
+
     model_config = ConfigDict(frozen=True)
 
     system: str
@@ -339,23 +368,180 @@ class Prompt(BaseModel):
 
 
 class PromptResult[T](BaseModel):
+    """Wrapper around a GPT API response with the full prompt that generated it."""
+
     model_config = ConfigDict(frozen=True)
 
     item: T
     prompt: Prompt
 
+    @classmethod
+    def unwrap[U](cls, data: Iterable[PromptResult[U]]) -> list[U]:
+        """Transform an iterable of wrapped items into a list of the internal elements."""
+        return [x.item for x in data]
 
-class PaperGraph(BaseModel):
+
+class PaperGraph(Record):
+    """ASAP paper with the wrapped graph extracted from it."""
+
     paper: Paper
     graph: PromptResult[Graph]
 
     @computed_field
     @property
-    def id(self) -> int:
+    def id(self) -> str:
+        """Identify PaperGraph using the paper ID."""
         return self.paper.id
 
     @model_validator(mode="after")
     def validate_matching_ids(self) -> Self:
+        """Ensure that the graph was generated by the given paper."""
         if self.paper.id != self.graph.item.id:
             raise ValueError("Paper ID must match graph item ID")
         return self
+
+
+class S2Paper(Record):
+    """Paper returned by the Semantic Scholar API. Everything's optional but `paperId`.
+
+    This is to avoid validation errors in the middle of the download. We'll only save
+    those with non-empty `abstract`, though.
+    """
+
+    # Semantic Scholar's primary unique identifier for a paper.
+    paper_id: Annotated[str, Field(alias="paperId")]
+    # Semantic Scholar's secondary unique identifier for a paper.
+    corpus_id: Annotated[int | None, Field(alias="corpusId")]
+    # URL of the paper on the Semantic Scholar website.
+    url: str
+    # Title of the paper.
+    title: str
+    # The paper's abstract. Note that due to legal reasons, this may be missing even if
+    # we display an abstract on the website.
+    abstract: str
+    # The year the paper was published.
+    year: int
+    # The total number of papers this paper references.
+    reference_count: Annotated[int, Field(alias="referenceCount")]
+    # The total number of papers that reference this paper.
+    citation_count: Annotated[int, Field(alias="citationCount")]
+    # A subset of the citation count, where the cited publication has a significant
+    # impact on the citing publication.
+    influential_citation_count: Annotated[int, Field(alias="influentialCitationCount")]
+    # The tldr paper summary.
+    tldr: s2.Tldr | None = None
+    # Paper authors.
+    authors: Sequence[s2.Author]
+
+    @property
+    def id(self) -> str:
+        """Identify S2 paper by its ID in the API."""
+        return self.paper_id
+
+
+class PaperTermRelation(BaseModel):
+    """Represents a directed 'used for' relation between two scientific terms.
+
+    Relations are always (head, used-for, tail).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    head: Annotated[str, Field(description="Head term of the relation.")]
+    tail: Annotated[str, Field(description="Tail term of the relation.")]
+
+
+class PaperTerms(BaseModel):
+    """Structured output for scientific term extraction."""
+
+    model_config = ConfigDict(frozen=True)
+
+    tasks: Annotated[
+        Sequence[str],
+        Field(description="Core problems, objectives or applications addressed."),
+    ]
+    methods: Annotated[
+        Sequence[str],
+        Field(
+            description="Technical approaches, algorithms, or frameworks used/proposed."
+        ),
+    ]
+    metrics: Annotated[
+        Sequence[str], Field(description="Evaluation metrics and measures mentioned.")
+    ]
+    resources: Annotated[
+        Sequence[str], Field(description="Datasets, resources, or tools utilised.")
+    ]
+    relations: Annotated[
+        Sequence[PaperTermRelation],
+        Field(description="Directed relations between terms."),
+    ]
+
+    @classmethod
+    def empty(cls) -> Self:
+        """Return instance with all empty items."""
+        return cls(tasks=(), methods=(), metrics=(), resources=(), relations=())
+
+    def is_valid(self) -> bool:
+        """Check if relations and at least two term lists are non-empty."""
+        if not self.relations:
+            return False
+
+        term_lists = [self.tasks, self.methods, self.metrics, self.resources]
+        return sum(bool(term_list) for term_list in term_lists) >= 2
+
+
+type PaperToAnnotate = s2.Paper | Paper
+
+
+class PaperAnnotated(Record):
+    """`PaperToAnnotate` with its annotated key terms. Includes GPT prompts used."""
+
+    terms: PaperTerms
+    paper: PaperToAnnotate
+    background: str
+    target: str
+
+    @property
+    def id(self) -> str:
+        """Identify annotated paper by the underlying paper ID."""
+        return self.paper.id
+
+    def is_valid(self) -> bool:
+        """Check that `terms` are valid, and `background` and `target` are non-empty.
+
+        For `terms`, see GPTTerms.is_valid.
+        """
+        return self.terms.is_valid() and bool(self.background) and bool(self.target)
+
+    def target_terms(self) -> list[str]:
+        """Get unique target terms (tasks) from the paper."""
+        return sorted(set(self.terms.tasks))
+
+    @property
+    def title(self) -> str:
+        """Title of the underlying paper, or '<unknown>' if absent."""
+        return self.paper.title or "<unknown>"
+
+
+class ASAPAnnotated(Record):
+    """ASAP Paper with its annotated key terms. Includes GPT prompts used."""
+
+    terms: PaperTerms
+    paper: Paper
+    background: str
+    target: str
+
+    @property
+    def id(self) -> str:
+        """Identify annotated ASAP paper by the underlying ID."""
+        return self.paper.id
+
+    def target_terms(self) -> list[str]:
+        """Get unique target terms (tasks) from the paper."""
+        return sorted(set(self.terms.tasks))
+
+    @property
+    def title(self) -> str:
+        """Title of the underlying paper."""
+        return self.paper.title

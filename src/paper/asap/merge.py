@@ -10,9 +10,9 @@ The files must be downloaded from Google Drive. See README.md for more informati
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from paper.util import HelpOnErrorArgumentParser
+import typer
 
 
 def _safe_load_json(file_path: Path) -> Any:
@@ -54,7 +54,7 @@ def merge_content_review(path: Path, output_path: Path, max_papers: int | None) 
 
             content = _safe_load_json(content_file)["metadata"]
             review = _safe_load_json(review_file)["reviews"]
-            approval = _safe_load_json(paper_file)["decision"]
+            paper = _safe_load_json(paper_file)
 
             # We only want entries that have ratings in their reviews and titles
             if all("rating" in r for r in review) and content.get("title"):
@@ -63,7 +63,8 @@ def merge_content_review(path: Path, output_path: Path, max_papers: int | None) 
                         "paper": content,
                         "review": review,
                         "source": dir.name,
-                        "approval": approval,
+                        "approval": paper["decision"],
+                        "authors": paper["authors"],
                     }
                 )
                 count += 1
@@ -74,27 +75,28 @@ def merge_content_review(path: Path, output_path: Path, max_papers: int | None) 
     )
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument(
-        "path",
-        type=Path,
-        help="Path to directories containing files to merge",
-    )
-    parser.add_argument(
-        "output",
-        type=Path,
-        help="Output merged JSON file",
-    )
-    parser.add_argument(
-        "--max-papers",
-        type=int,
-        default=None,
-        help="Maximum number of papers to process",
-    )
-    args = parser.parse_args()
-    merge_content_review(args.path, args.output, args.max_papers)
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    path: Annotated[
+        Path, typer.Argument(help="Path to directories containing files to merge.")
+    ],
+    output: Annotated[Path, typer.Argument(help="Output merged JSON file.")],
+    max_papers: Annotated[
+        int | None, typer.Option(help="Limit on the number of papers to process.")
+    ] = None,
+) -> None:
+    """Merge paper content and review JSON files into a single JSON file."""
+    merge_content_review(path, output, max_papers)
 
 
 if __name__ == "__main__":
-    main()
+    app()

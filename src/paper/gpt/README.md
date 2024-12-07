@@ -80,19 +80,4 @@ Run `uv run gpt context --help` to see more information about the commands.
 
 ## More information
 
-See the following help commands for more information on using the tools:
-
-```console
-# General help
-$ uv run gpt --help
-
-# Graph generation tool
-$ uv run gpt graph --help
-$ uv run gpt graph run --help
-$ uv run gpt graph prompts --help
-
-# Context classification tool
-$ uv run gpt context --help
-$ uv run gpt context run --help
-$ uv run gpt context prompts --help
-```
+For full documentation on how to use the GPT tools, see [`CLI.md`](./CLI.md).

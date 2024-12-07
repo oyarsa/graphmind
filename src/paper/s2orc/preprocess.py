@@ -4,18 +4,34 @@ Consider running the scripts separately. See the README for more information.
 """
 
 from pathlib import Path
+from typing import Annotated
+
+import typer
 
 from paper.s2orc.datasets import download_dataset
 from paper.s2orc.extract import extract_data
 from paper.s2orc.filter import filter_papers
-from paper.util import HelpOnErrorArgumentParser
 
 
 def pipeline(
-    processed_dir: Path,
-    output_path: Path,
-    dataset_path: Path,
-    file_limit: int | None,
+    processed_dir: Annotated[
+        Path, typer.Argument(help="Path to save the downloaded dataset.")
+    ],
+    output_path: Annotated[
+        Path, typer.Argument(help="Path to save the S2 extracted files (JSON.GZ).")
+    ],
+    dataset_path: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to save the output (processed and filtered - ACL only) files"
+        ),
+    ],
+    file_limit: Annotated[
+        int | None,
+        typer.Option(
+            help="Limit the number of files to download. If not provided, download all."
+        ),
+    ] = None,
 ) -> None:
     """Run the complete S2ORC preprocessing pipeline.
 
@@ -41,36 +57,14 @@ def pipeline(
     print(f"\nFinal output file: {matched_papers_path}")
 
 
-def cli_parser() -> HelpOnErrorArgumentParser:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument(
-        "dataset_path",
-        type=Path,
-        help="Path to save the downloaded dataset",
-    )
-    parser.add_argument(
-        "processed_path",
-        type=Path,
-        help="Path to save the S2 extracted files (JSON.GZ)",
-    )
-    parser.add_argument(
-        "output_path",
-        type=Path,
-        help="Path to save the output (processed and filtered - ACL only) files",
-    )
-    parser.add_argument(
-        "--file-limit",
-        type=int,
-        default=None,
-        help="Limit the number of files to download. If not provided, download all.",
-    )
-    return parser
-
-
-def main() -> None:
-    args = cli_parser().parse_args()
-    pipeline(args.processed_path, args.output_path, args.dataset_path, args.file_limit)
-
-
 if __name__ == "__main__":
-    main()
+    # Defined here so that `paper.pipeline` can use the `pipeline` function directly.
+    _app = typer.Typer(
+        context_settings={"help_option_names": ["-h", "--help"]},
+        add_completion=False,
+        rich_markup_mode="rich",
+        pretty_exceptions_show_locals=False,
+        no_args_is_help=True,
+    )
+    _app.command(help=__doc__, no_args_is_help=True)(pipeline)
+    _app()

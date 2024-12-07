@@ -17,12 +17,10 @@ from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import (
     GPTResult,
     append_intermediate_result,
-    get_id,
     get_remaining_items,
     run_gpt,
 )
-from paper.progress import as_completed
-from paper.util import Timer
+from paper.util import Timer, progress
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +57,6 @@ async def evaluate_graphs(
         continue_papers_file,
         paper_graphs,
         clean_run=clean_run,
-        continue_key=get_id,
-        original_key=get_id,
     )
     if not papers_remaining.remaining:
         logger.info(
@@ -82,7 +78,7 @@ async def evaluate_graphs(
             seed=seed,
         )
 
-    results_items = [result.item for result in results.result]
+    results_items = PromptResult.unwrap(results.result)
     metrics = calculate_paper_metrics(results_items)
     logger.info(display_metrics(metrics, results_items))
 
@@ -99,6 +95,8 @@ async def evaluate_graphs(
 
 
 class GPTClassify(BaseModel):
+    """Output type for paper classification with approval decision and rationale."""
+
     model_config = ConfigDict(frozen=True)
 
     rationale: str
@@ -141,7 +139,7 @@ async def _classify_papers(
         for pg in paper_graphs
     ]
 
-    for task in as_completed(tasks, desc="Classifying papers"):
+    for task in progress.as_completed(tasks, desc="Classifying papers"):
         result = await task
         total_cost += result.cost
 
@@ -180,6 +178,7 @@ async def _classify_paper(
                 title=pg.paper.title,
                 abstract=pg.paper.abstract,
                 reviews=pg.paper.reviews,
+                authors=pg.paper.authors,
                 sections=pg.paper.sections,
                 approval=pg.paper.approval,
                 y_true=pg.paper.is_approved(),

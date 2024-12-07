@@ -11,15 +11,15 @@ no papers from S2 clear that threshold for a given reference, the reference is r
 The ASAP papers used as input come from the ASAP preprocess pipeline, finishing with
 paper.asap.filter (asap_filtered.json).
 
-The S2 results come from paper.external_data.semantic_scholar. Note that the
-S2 script also uses the result of the ASAP pipeline, asap_filtered.json.
+The S2 results come from paper.semantic_scholar. Note that the S2 script also uses the
+result of the ASAP pipeline, asap_filtered.json.
 
 Since the S2 script takes a long time to run, it cannot be used in the middle of the
 pipeline, so this whole part needs to be run manually. The order is:
 
 - `uv run src/paper/asap/pipeline.py data/asap output`:
     - generates output/asap_filtered.json
-- `uv run src/paper/external_data/semantic_scholar.py
+- `uv run src/paper/semantic_scholar/info.py
     output/asap_filtered.json output`:
     - uses `output/asap_filtered.json` to generate `semantic_scholar_filtered.json`
 - `uv run src/paper/asap/add_reference_abstracts.py output/asap_filtered.json
@@ -35,8 +35,8 @@ Diagram for this pipeline:
 +-----------------------------------+
   |
   |     +---------------------+     +---------------------+     +---------------------+
-  +---->| asap_filtered.json  |---->| external_data/      |---->| semantic_scholar_   |
-        +---------------------+     | semantic_scholar.py |     | filtered.json       |
+  +---->| asap_filtered.json  |---->| semantic_scholar/   |---->| semantic_scholar_   |
+        +---------------------+     | info.py             |     | filtered.json       |
           |                         +---------------------+     +---------------------+
           |                                                               |
           |     +---------------------+                                   |
@@ -54,7 +54,9 @@ Diagram for this pipeline:
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Annotated
 
+import typer
 from pydantic import TypeAdapter
 from tqdm import tqdm
 
@@ -65,7 +67,7 @@ from paper.asap.model import (
     ReferenceEnriched,
     S2Paper,
 )
-from paper.util import HelpOnErrorArgumentParser, fuzzy_ratio
+from paper.util import fuzzy_ratio
 
 
 def _match_paper_external(
@@ -129,6 +131,7 @@ def add_references(
             title=paper.title,
             abstract=paper.abstract,
             reviews=paper.reviews,
+            authors=paper.authors,
             sections=paper.sections,
             approval=paper.approval,
             references=[
@@ -144,23 +147,33 @@ def add_references(
     )
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument("papers", type=Path, help="Path to ASAP filtered papers file")
-    parser.add_argument("external", type=Path, help="Path to S2 reference papers file")
-    parser.add_argument("output", type=Path, help="Path to output JSON file")
-    parser.add_argument(
-        "--min-score",
-        type=int,
-        default=80,
-        help="Minimum fuzzy score to match an external paper",
-    )
-    parser.add_argument(
-        "--limit", "-n", type=int, default=None, help="Maximum source papers to process"
-    )
-    args = parser.parse_args()
-    add_references(args.papers, args.external, args.output, args.min_score, args.limit)
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    papers: Annotated[Path, typer.Argument(help="Path to ASAP filtered papers file.")],
+    external: Annotated[Path, typer.Argument(help="Path to S2 reference papers file.")],
+    output: Annotated[Path, typer.Argument(help="Path to output JSON file.")],
+    min_score: Annotated[
+        int, typer.Option(help="Minimum fuzzy score to match an external paper.")
+    ] = 80,
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit", "-n", help="Limit on the number of source papers to process."
+        ),
+    ] = None,
+) -> None:
+    """Add abstracts from S2 papers to the ASAP references."""
+    add_references(papers, external, output, min_score, limit)
 
 
 if __name__ == "__main__":
-    main()
+    app()

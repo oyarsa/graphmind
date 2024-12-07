@@ -1,14 +1,26 @@
 """Run the complete ASAP-Review preprocessing pipeline."""
 
 from pathlib import Path
+from typing import Annotated
+
+import typer
 
 from paper.asap.extract import extract_interesting
 from paper.asap.filter import filter_ratings
 from paper.asap.merge import merge_content_review
-from paper.util import HelpOnErrorArgumentParser
 
 
-def pipeline(papers_path: Path, output_path: Path, max_papers: int | None) -> None:
+def pipeline(
+    papers_path: Annotated[
+        Path, typer.Argument(help="Path to input directory containing raw ASAP files.")
+    ],
+    output_path: Annotated[
+        Path, typer.Argument(help="Path to output directory for processed files.")
+    ],
+    max_papers: Annotated[
+        int | None, typer.Argument(help="Limit on the number of papers to process.")
+    ] = None,
+) -> None:
     """Run the complete ASAP-Review preprocessing pipeline.
 
     Steps:
@@ -35,27 +47,14 @@ def pipeline(papers_path: Path, output_path: Path, max_papers: int | None) -> No
     print(f"\nFinal output file: {filtered_path}")
 
 
-def cli_parser() -> HelpOnErrorArgumentParser:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument(
-        "input", type=Path, help="Path to input directory containing raw ASAP files"
-    )
-    parser.add_argument(
-        "output", type=Path, help="Path to output directory for processed files"
-    )
-    parser.add_argument(
-        "--max-papers",
-        type=int,
-        default=None,
-        help="Maximum number of papers to process",
-    )
-    return parser
-
-
-def main() -> None:
-    args = cli_parser().parse_args()
-    pipeline(args.input, args.output, args.max_papers)
-
-
 if __name__ == "__main__":
-    main()
+    # Defined here so that `paper.pipeline` can use the `pipeline` function directly.
+    _app = typer.Typer(
+        context_settings={"help_option_names": ["-h", "--help"]},
+        add_completion=False,
+        rich_markup_mode="rich",
+        pretty_exceptions_show_locals=False,
+        no_args_is_help=True,
+    )
+    _app.command(help=__doc__, no_args_is_help=True)(pipeline)
+    _app()

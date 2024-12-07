@@ -1,10 +1,11 @@
 """Interact with the OpenAI API."""
 
+import asyncio
 import logging
-from collections.abc import Callable, Hashable, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 import backoff
 import openai
@@ -12,30 +13,53 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from paper.gpt.model import PromptResult
-from paper.rate_limiter import ChatRateLimiter
+from paper.util.rate_limiter import ChatRateLimiter
+from paper.util.serde import Record
 
 logger = logging.getLogger(__name__)
 
-MODEL_SYNONYMS = {
+MODEL_SYNONYMS: Mapping[str, str] = {
     "4o-mini": "gpt-4o-mini-2024-07-18",
     "gpt-4o-mini": "gpt-4o-mini-2024-07-18",
     "4o": "gpt-4o-2024-08-06",
     "gpt-4o": "gpt-4o-2024-08-06",
 }
-# Include the synonyms and their keys in the allowed models
-MODELS_ALLOWED = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.values())
+"""Mapping between short and common model names and their full verisoned names."""
+MODELS_ALLOWED: Sequence[str] = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.values())
+"""All allowed model names, including synonyms and full names."""
 
-# Cost in $ per 1M tokens: (input cost, output cost)
-# From https://openai.com/api/pricing/
-MODEL_COSTS = {
+MODEL_COSTS: Mapping[str, tuple[float, float]] = {
     "gpt-4o-mini-2024-07-18": (0.15, 0.6),
     "gpt-4o-2024-08-06": (2.5, 10),
 }
+"""Cost in $ per 1M tokens: (input cost, output cost).
 
-rate_limiters: dict[str, Any] = {
+From https://openai.com/api/pricing/
+"""
+
+RATE_LIMITERS: Mapping[str, ChatRateLimiter] = {
     "gpt-4o-mini": ChatRateLimiter(request_limit=5_000, token_limit=4_000_000),
     "gpt-4o": ChatRateLimiter(request_limit=5_000, token_limit=800_000),
 }
+"""Rate limiters for each supported model."""
+
+GPT_REASONABLE_SIMULTANEOUS_REQUESTS = 100
+"""Empirically established number of simultaneous requests to GPT API.
+
+This seems to be a number that doesn't break the rate limiter, but is high enough to
+still deliver good performance.
+"""
+GPT_SEMAPHORE = asyncio.Semaphore(GPT_REASONABLE_SIMULTANEOUS_REQUESTS)
+"""Semaphore to control the number of simultaneous requests to the GPT API.
+
+This isn't the same as a rate limiter, so we use both. The rate limiter ensures we don't
+get 429 errors from the API. This semaphore is so we don't make thousands of requests to
+the API at the same time, as that kind of breaks the rate limiter and leads to deadlocks.
+
+This should be used in the client code around the `run_gpt` case, and all the requests
+must be made in the same block. This doesn't matter if you only make one request per
+async task, but in cases where there are more, grouping them avoids deadlocks.
+"""
 
 
 def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
@@ -68,18 +92,14 @@ class GPTResult[T]:
 
 
 @backoff.on_exception(backoff.expo, openai.APIError, max_tries=5, logger=logger)
-async def _call_gpt(
+async def _call_gpt(  # noqa: ANN202
     rate_limiter: Any, client: AsyncOpenAI, chat_params: dict[str, Any]
 ):
     try:
-        # FIX: This hangs when the input is too long, but everything runs without it,
-        # suggesting the problem is in the token allocation.
-        # I can either try to fix the problem in the RateLimiter, or figure something
-        # else out. The input is too long when both main paper and demonstrations give
-        # the full paper as content, but since that performs pretty badly anyway, this
-        # is not urgent.
-        async with rate_limiter.limit(**chat_params):
-            return await client.beta.chat.completions.parse(**chat_params)
+        # Reminder: the rate limiter by itself isn't enough. The client code must also
+        # wrap its GPT calss in `GPT_SEMAPHORE`.
+        # async with rate_limiter.limit(**chat_params):
+        return await client.beta.chat.completions.parse(**chat_params)
     except openai.APIError as e:
         logger.warning("\nCaught an API error: %s", e)
         raise
@@ -99,6 +119,10 @@ async def run_gpt[T: BaseModel](
     temperature: float = 0,
 ) -> GPTResult[T | None]:
     """Run the GPT query and return a parsed object of `class_` using Structured Outputs.
+
+    NOTE: You must group all calls inside an async task in the same block and wrap it
+    in `GPT_SEMAPHORE`. If you don't, you'll likely run into deadlocks once you start
+    making thousands of concurrent requests.
 
     See also: https://platform.openai.com/docs/guides/structured-outputs
 
@@ -120,7 +144,6 @@ async def run_gpt[T: BaseModel](
 
     Raises:
         ValueError: if the `model` is invalid (see `MODELS_ALLOWED`).
-        RetryError: if the the client should retry the request
     """
     if model not in MODELS_ALLOWED:
         raise ValueError(
@@ -138,7 +161,7 @@ async def run_gpt[T: BaseModel](
         "temperature": temperature,
     }
     rate_limiter = None
-    for limit_model, limiter in rate_limiters.items():
+    for limit_model, limiter in RATE_LIMITERS.items():
         if model.startswith(limit_model):
             rate_limiter = limiter
     assert rate_limiter is not None
@@ -152,15 +175,12 @@ async def run_gpt[T: BaseModel](
     if completion is None:
         return GPTResult(result=None, cost=0)
 
-    usage = completion.usage
-    if usage is not None:
+    if usage := completion.usage:
         cost = calc_cost(model, usage.prompt_tokens, usage.completion_tokens)
     else:
         cost = 0
 
-    parsed = completion.choices[0].message.parsed
-
-    return GPTResult(result=parsed, cost=cost)
+    return GPTResult(result=completion.choices[0].message.parsed, cost=cost)
 
 
 def append_intermediate_result[T: BaseModel](
@@ -208,30 +228,25 @@ def append_intermediate_result[T: BaseModel](
 
 @dataclass(frozen=True, kw_only=True)
 class RemainingItems[T, U]:
+    """Contains `done` items loaded from intermediate files and those `remaining`."""
+
     remaining: list[U]
     done: list[T]
 
 
-class HasId(Protocol):
-    @property
-    def id(self) -> int: ...
-
-
-def get_id(x: HasId) -> int:
-    return x.id
-
-
-def get_remaining_items[T: BaseModel, U: BaseModel](
+def get_remaining_items[T: Record, U: Record](
     continue_type_: type[T],
     output_intermediate_file: Path,
     continue_papers_file: Path | None,
     original: Sequence[U],
     clean_run: bool,
-    *,
-    continue_key: Callable[[T], Hashable],
-    original_key: Callable[[U], Hashable],
 ) -> RemainingItems[PromptResult[T], U]:
-    """Remove items that were previously processed from this run's input list.
+    """Split items that were previously processed from this run's input list.
+
+    Loads data from the intermediate file, then removes the items from the input list
+    that appear there. The check is done by the record `id`. The existing items are
+    returned as `done`, and the ones left to process as `remaining`. The `done` list
+    only contains values in the input data, not all values in the intermediate file.
 
     Args:
         continue_type_: Pydantic type for the output items that will be read.
@@ -240,13 +255,9 @@ def get_remaining_items[T: BaseModel, U: BaseModel](
             and `output_intermediate_file` exists, it will be set to that.
         original: Items read for the original dataset file.
         clean_run: If true, ignores the previous results and returns all input items.
-        continue_key: Key function to use to identify entries in the previous results.
-        original_key: Key function to use to identify entries in the original data.
-            The output of `continue_key` and `original_key` is what decides whether the
-            item will be processed.
 
     Returns:
-        Remaining items to be processed.
+        Done and remaining items as separated lists.
     """
     if clean_run:
         return RemainingItems(remaining=list(original), done=[])
@@ -254,26 +265,24 @@ def get_remaining_items[T: BaseModel, U: BaseModel](
     if continue_papers_file is None and output_intermediate_file.is_file():
         continue_papers_file = output_intermediate_file
 
-    continue_papers: list[PromptResult[T]] = []
+    continue_papers: Sequence[PromptResult[T]] = []
     if continue_papers_file:
         logger.info("Continuing items from: %s", continue_papers_file)
         try:
             continue_papers = TypeAdapter(
-                list[PromptResult[continue_type_]]
+                Sequence[PromptResult[continue_type_]]
             ).validate_json(continue_papers_file.read_bytes())
         except Exception:
             logger.exception("Error reading previous files")
 
-    continue_paper_ids = {continue_key(paper.item) for paper in continue_papers}
+    continue_paper_ids = {paper.item.id for paper in continue_papers}
     # Split into papers that _are_ in the continue file.
     done = [
-        next(c for c in continue_papers if continue_key(c.item) == original_key(paper))
+        next(c for c in continue_papers if c.item.id == paper.id)
         for paper in original
-        if original_key(paper) in continue_paper_ids
+        if paper.id in continue_paper_ids
     ]
     # And those that _are not_.
-    remaining = [
-        paper for paper in original if original_key(paper) not in continue_paper_ids
-    ]
+    remaining = [paper for paper in original if paper.id not in continue_paper_ids]
 
     return RemainingItems(remaining=remaining, done=done)

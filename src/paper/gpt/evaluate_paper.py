@@ -21,6 +21,8 @@ class PaperResult(Paper):
 
 
 class Labels(NamedTuple):
+    """Prediction and ground truth labels."""
+
     y_preds: Sequence[bool]
     y_trues: Sequence[bool]
 
@@ -71,15 +73,19 @@ def display_metrics(
     return "\n".join(output)
 
 
-EVALUATE_DEMONSTRATION_PROMPTS = load_prompts("demonstrations")
+EVALUATE_DEMONSTRATION_PROMPTS = load_prompts("eval_demonstrations")
 
 
 class DemonstrationType(StrEnum):
+    """Whether the demonstration is of an approved (positive) or reject (negative) paper."""
+
     POSITIVE = "positive"
     NEGATIVE = "negative"
 
 
 class Demonstration(BaseModel):
+    """Paper for evaluation demos with full information and demonstration type."""
+
     model_config = ConfigDict(frozen=True)
 
     title: str = Field(description="Paper title")
@@ -124,15 +130,28 @@ def format_demonstrations(
     elif len(negatives) > len(positives):
         interleaved.extend(negatives[len(positives) :])
 
-    for demo in interleaved:
-        output_all.append(
-            prompt.template.format(
-                title=demo.title,
-                abstract=demo.abstract,
-                main_text=demo.text,
-                decision=demo.approval,
-                rationale=demo.rationale,
-            )
+    output_all.extend(
+        prompt.template.format(
+            title=demo.title,
+            abstract=demo.abstract,
+            main_text=demo.text,
+            decision=demo.approval,
+            rationale=demo.rationale,
         )
-
+        for demo in interleaved
+    )
     return f"\n{"-" * 50}\n".join(output_all)
+
+
+class GPTFull(BaseModel):
+    """Decision on if the paper should be published and the reason for the decision."""
+
+    model_config = ConfigDict(frozen=True)
+
+    rationale: str = Field(description="How you reached your approval decision.")
+    approved: bool = Field(description="If the paper was approved for publication.")
+
+
+CLASSIFY_TYPES = {
+    "full": GPTFull,
+}

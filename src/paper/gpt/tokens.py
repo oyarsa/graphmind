@@ -13,14 +13,15 @@ WON'T DO:
   the citation sentence) and it uses very few tokens.
 """
 
-import argparse
 import logging
 from pathlib import Path
+from typing import Annotated
 
 import pandas as pd  # type: ignore
 import tiktoken
-from pydantic import TypeAdapter
+import typer
 
+from paper import scimon
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS as DEMO_PROMPTS,
 )
@@ -30,20 +31,61 @@ from paper.gpt.evaluate_paper import (
 )
 from paper.gpt.evaluate_paper_full import FULL_CLASSIFY_USER_PROMPTS as FULLTEXT_PROMPTS
 from paper.gpt.evaluate_paper_full import format_template as format_fulltext
+from paper.gpt.evaluate_paper_scimon import (
+    SCIMON_CLASSIFY_USER_PROMPTS as SCIMON_PROMPTS,
+)
+from paper.gpt.evaluate_paper_scimon import format_template as format_scimon
 from paper.gpt.model import Paper
 from paper.gpt.run_gpt import MODEL_SYNONYMS, MODELS_ALLOWED
-from paper.util import HelpOnErrorArgumentParser, display_params, setup_logging
+from paper.util import cli, display_params, setup_logging
+from paper.util.serde import load_data
 
 logger = logging.getLogger(__name__)
 
 
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+    help=__doc__,
+)
+
+
+@app.command(help="Estimate tokens for full-text evaluation", no_args_is_help=True)
 def fulltext(
-    input_file: Path,
-    user_prompt_key: str,
-    demo_prompt_key: str,
-    demonstrations_file: Path | None,
-    model: str,
-    limit: int | None,
+    input_file: Annotated[
+        Path, typer.Argument(help="Input dataset JSON file (asap_filtered.json)")
+    ],
+    user_prompt_key: Annotated[
+        str,
+        typer.Option(
+            "--user",
+            help="Input data prompt.",
+            click_type=cli.choice(FULLTEXT_PROMPTS),
+        ),
+    ],
+    demo_prompt_key: Annotated[
+        str,
+        typer.Option(
+            "--demo-prompt",
+            help="Demonstration prompt.",
+            click_type=cli.choice(DEMO_PROMPTS),
+        ),
+    ],
+    demonstrations_file: Annotated[
+        Path | None, typer.Option("--demo-file", help="Path to demonstrations file")
+    ] = None,
+    model: Annotated[
+        str, typer.Option("--model", "-m", help="Which model's tokeniser to use.")
+    ] = "gpt-4o-mini",
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit", "-n", help="Limit on the number of entities to process."
+        ),
+    ] = None,
 ) -> None:
     """Estimate tokens for full text-based paper evaluation."""
     logger.info(display_params())
@@ -52,13 +94,11 @@ def fulltext(
     if model not in MODELS_ALLOWED:
         raise SystemExit(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
-    input_data = TypeAdapter(list[Paper]).validate_json(input_file.read_bytes())[:limit]
+    input_data = load_data(input_file, Paper)[:limit]
     input_prompt = FULLTEXT_PROMPTS[user_prompt_key]
 
     demonstration_data = (
-        TypeAdapter(list[Demonstration]).validate_json(demonstrations_file.read_bytes())
-        if demonstrations_file is not None
-        else []
+        load_data(demonstrations_file, Demonstration) if demonstrations_file else []
     )
     demonstration_prompt = DEMO_PROMPTS[demo_prompt_key]
     demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
@@ -75,69 +115,76 @@ def fulltext(
     )
 
 
+@app.command(
+    name="scimon",
+    help="Estimate tokens for SciMON-based evaluation",
+    no_args_is_help=True,
+)
+def scimon_(
+    input_file: Annotated[
+        Path,
+        typer.Argument(
+            help="Input dataset JSON file (annotated ASAP with graph data.)"
+        ),
+    ],
+    user_prompt_key: Annotated[
+        str,
+        typer.Option(
+            "--user",
+            help="Input data prompt.",
+            click_type=cli.choice(SCIMON_PROMPTS),
+        ),
+    ],
+    demo_prompt_key: Annotated[
+        str,
+        typer.Option(
+            "--demo-prompt",
+            help="Demonstration prompt.",
+            click_type=cli.choice(DEMO_PROMPTS),
+        ),
+    ],
+    demonstrations_file: Annotated[
+        Path | None, typer.Option("--demo-file", help="Path to demonstrations file")
+    ] = None,
+    model: Annotated[
+        str, typer.Option("--model", "-m", help="Which model's tokeniser to use.")
+    ] = "gpt-4o-mini",
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit", "-n", help="Limit on the number of entities to process."
+        ),
+    ] = None,
+) -> None:
+    """Estimate tokens for full text-based paper evaluation."""
+    logger.info(display_params())
+
+    model = MODEL_SYNONYMS.get(model, model)
+    if model not in MODELS_ALLOWED:
+        raise SystemExit(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
+
+    anns = load_data(input_file, scimon.AnnotatedGraphResult)[:limit]
+    input_prompt = SCIMON_PROMPTS[user_prompt_key]
+
+    demonstration_data = (
+        load_data(demonstrations_file, Demonstration) if demonstrations_file else []
+    )
+    demonstration_prompt = DEMO_PROMPTS[demo_prompt_key]
+    demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
+
+    prompts = [
+        format_scimon(input_prompt, ann_result, demonstrations) for ann_result in anns
+    ]
+
+    tokeniser = tiktoken.encoding_for_model(model)
+    tokens = [len(tokeniser.encode(prompt)) for prompt in prompts]
+    logger.info(
+        "Token stats:\n%s\n",
+        pd.Series(tokens).describe().astype(int).to_string(),  # type: ignore
+    )
+
+
+@app.callback()
 def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    setup_cli_parser(parser)
+    """Set up logging."""
     setup_logging()
-
-    args = parser.parse_args()
-    if args.subcommand == "eval_full":
-        fulltext(
-            args.input_file,
-            args.user_prompt_key,
-            args.demo_prompt_key,
-            args.demonstrations_file,
-            args.model,
-            args.limit,
-        )
-
-
-def setup_cli_parser(parser: argparse.ArgumentParser) -> None:
-    subparsers = parser.add_subparsers(
-        title="subcommands", dest="subcommand", required=True
-    )
-
-    # Fulltext subcommand
-    parser_fulltext = subparsers.add_parser(
-        "eval_full", help="Full text-based paper evaluation"
-    )
-    parser_fulltext.add_argument(
-        "input_file", type=Path, help="Input dataset JSON file (asap_filtered.json)"
-    )
-    parser_fulltext.add_argument(
-        "--user",
-        dest="user_prompt_key",
-        choices=sorted(FULLTEXT_PROMPTS),
-        required=True,
-        help="Input data prompt. Required.",
-    )
-    parser_fulltext.add_argument(
-        "--demo",
-        dest="demo_prompt_key",
-        choices=sorted(DEMO_PROMPTS),
-        required=True,
-        help="Demonstration prompt. Required.",
-    )
-    parser_fulltext.add_argument(
-        "--demos",
-        dest="demonstrations_file",
-        type=Path,
-        help="Path to demonstrations file",
-    )
-    parser_fulltext.add_argument(
-        "--model",
-        "-m",
-        default="gpt-4o-mini",
-        help="Which model's tokeniser to use. Default %(default)s",
-    )
-    parser_fulltext.add_argument(
-        "--limit",
-        "-n",
-        type=int,
-        default=None,
-        help="Number of entries to process. Default: all",
-    )
-
-
-if __name__ == "__main__":
-    main()

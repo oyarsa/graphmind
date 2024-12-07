@@ -1,0 +1,27 @@
+[[prompts]]
+name = "simple"
+type = "full"
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+paper's title and abstract, and some inspiration sentences from related papers. \
+These sentences are meant to aid you in understand whether the ideas in the paper are \
+novel, as papers without novel ideas should be rejected.
+
+Based on this content, approve or reject the paper. First, generate the rationale for \
+your decision, then give the final decision. Keep in mind that this paper was submitted \
+to a very high-quality conference, so make sure to only approve papers that are of \
+outstanding quality.
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+Associated terms:
+{terms}
+
+#####
+Output:
+"""

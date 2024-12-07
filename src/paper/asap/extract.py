@@ -8,13 +8,13 @@ import json
 from collections import defaultdict
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Annotated, Any, NamedTuple
 
+import typer
 from pydantic import TypeAdapter
 
 from paper.asap import process_sections
 from paper.asap.model import CitationContext, Paper, PaperReference, PaperReview
-from paper.util import HelpOnErrorArgumentParser
 
 
 def _parse_rating(rating: str) -> int | None:
@@ -90,6 +90,7 @@ def _process_paper(item: dict[str, Any]) -> Paper | None:
         reviews=reviews,
         sections=sections,
         approval=_parse_approval(item["approval"]),
+        authors=item["authors"],
         references=_process_references(paper),
     )
 
@@ -114,13 +115,23 @@ def extract_interesting(input_file: Path, output_file: Path) -> None:
     output_file.write_bytes(TypeAdapter(list[Paper]).dump_json(results_valid, indent=2))
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument("input", type=Path, help="Path to input (filtered) JSON file")
-    parser.add_argument("output", type=Path, help="Path to output extracted JSON file")
-    args = parser.parse_args()
-    extract_interesting(args.input, args.output)
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    input: Annotated[Path, typer.Argument(help="Path to input (filtered) JSON file.")],
+    output: Annotated[Path, typer.Argument(help="Path to output extracted JSON file.")],
+) -> None:
+    """Extract interesting information from the merged ASAP JSON file."""
+    extract_interesting(input, output)
 
 
 if __name__ == "__main__":
-    main()
+    app()

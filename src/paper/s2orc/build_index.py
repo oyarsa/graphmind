@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Build an index from multiple gz-compressed JSON files containing paper data.
 
 The index is a JSON file containing an object with fields `title` -> `file name`.
@@ -10,11 +9,10 @@ import gzip
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
+import typer
 from tqdm import tqdm
-
-from paper.util import HelpOnErrorArgumentParser
 
 
 def process_papers(
@@ -50,28 +48,29 @@ def process_papers(
     output_file.write_text(json.dumps(title_index, indent=2))
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument(
-        "input_directory",
-        type=Path,
-        help="Path to the directory containing data files.",
-    )
-    parser.add_argument(
-        "output_file",
-        type=Path,
-        help="Path to the output index file.",
-    )
-    parser.add_argument(
-        "--limit",
-        "-n",
-        type=int,
-        default=None,
-        help="Number of files to process (default: all)",
-    )
-    args = parser.parse_args()
-    process_papers(args.input_directory, args.output_file, args.limit)
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    input_dir: Annotated[
+        Path, typer.Argument(help="Path to the directory containing data files.")
+    ],
+    output_file: Annotated[Path, typer.Argument(help="Path to the output index file.")],
+    limit: Annotated[
+        int | None,
+        typer.Option("--limit", "-n", help="Limit on the number of files to process."),
+    ] = None,
+) -> None:
+    """Build an index from multiple gz-compressed JSON files containing paper data."""
+    process_papers(input_dir, output_file, limit)
 
 
 if __name__ == "__main__":
-    main()
+    app()

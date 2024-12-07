@@ -1,4 +1,1 @@
-"""
-.. include:: ../../README.md
-   :start-line: 2
-"""  # noqa: D205, D415, D400, D212
+"""Build graphs representing scientific papers and use them to evaluate the papers."""

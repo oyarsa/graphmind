@@ -8,63 +8,101 @@ requires-python = ">=3.12"
 dependencies = [
     "aiohttp>=3.10.5",
     "pydantic>=2.9.2",
-    "colorlog>=6.8.2",
     "matplotlib>=3.9.2",
     "networkx>=3.3",
     "openai>=1.45.0",
     "python-dotenv>=1.0.1",
     "semanticscholar>=0.8.4",
     "tqdm>=4.66.5",
-    "habanero>=1.2.6",
     "thefuzz>=0.22.1",
     "typer>=0.12.5",
-    "scikit-learn>=1.5.2",
     "rich>=13.9.2",
-    "click>=8.1.7",
     "backoff>=2.2.1",
     "tiktoken>=0.8.0",
     "aioboto3>=13.2.0",
-    "aiobotocore>=2.15.2",
-    "botocore>=1.35.36",
     "types-aioboto3[full]>=13.2.0.post1",
-    "boto3>=1.35.36",
-    "boto3-stubs[full]>=1.35.56",
     "aiolimiter>=1.1.0",
+    "sentence-transformers>=3.3.0",
+    "gdown>=5.2.0",
+    "pandas>=2.2.3",
 ]
+
+[dependency-groups]
+dev = [
+    "cosy",
+    "icecream>=2.1.3",
+    "ipython>=8.27.0",
+    "jupyterlab>=4.2.5",
+    "pre-commit>=3.8.0",
+    "pyright>=1.1.389",
+    "ruff>=0.8",
+]
+
+[tool.uv.sources.cosy]
+git = "https://github.com/oyarsa/x.git"
+subdirectory = "cosy"
+tag = "cosy-0.3.0"
+
+[project.scripts]
+preprocess = "paper.preprocess:app"
+gpt = "paper.gpt.cli:app"
+scimon = "paper.scimon.cli:app"
 
 [tool.ruff.lint.isort]
 known-first-party = ["paper"]
 
 [tool.ruff.lint]
+exclude = ["notebooks/*"]
 select = [
-    "E",
-    "F",
-    "I",
-    "ISC",
-    "N",
-    "PL",
-    "RUF",
-    "SIM",
-    "TRY",
-    "UP",
-    "W",
-    "ERA",
-    "D",
-    "D401",     # Docstring first line must be in imperative mood
-    "D400",     # Docstring first line must end in period
+    "E",        # Code style
+    "W",        # Code style
+    "F",        # Pyflakes
+    "I",        # Imports
+    "ISC",      # Implicit string concat
+    "N",        # PEP-8 naming
+    "PL",       # Pylint
+    "RUF",      # Ruff-specific
+    "SIM",      # Simplify
+    "TRY",      # Exceptions
+    "UP",       # Upgrade to new constructs
+    "ERA",      # Commented-out code
+    "D",        # Documentation
+    "FURB",     # Modernisation
+    "PTH",      # Pathlib usage
+    "RET",      # Unnecessary elses
+    "G",        # Logging format
+    "DTZ",      # Timezones
+    "B",        # Likely bugs
+    "C",        # Comprehensions
+    "ASYNC",    # Async pitfalls
+    "EXE",      # Executable (shebang)S
+    "ANN",      # Type annotations
+    "PYI",      # Appropriate type hints for specifc cases
+    "PERF",     # Performance anti-patterns
 ]
+# I try to enable as many reasonable rules as possible, but sometimes it's too much:
 ignore = [
+    "ANN401",   # Allow usage of Any
+    "ASYNC110", # 'asyncio.sleep' in loop
+    "B905",     # `zip` without `strict`
+    "C901",     # "too complex" functions
+    "D107",
+    "D202",     # Empty lines between function docstring and body
+    "E501",     # Line too long (let ruff format take care of this)
+    "G004",     # f-strings in logging
+    "ISC001",   # Incompatible with the formatter
+    "N999",     # False positive on `paper-hypergraph` (the module is named `paper`)
+    "PERF401",  # Manual list comprehensions
+    "PLC0206",  # Dictionary iteration without items
+    "PLC0414",  # Allow redundant alias to re-export items
     "PLR0911",  # Too many return statements
     "PLR0912",  # Too many branches
     "PLR0913",  # Too many arguments
     "PLR0915",  # Too many statements
     "PLR2004",  # Magic value used in comparison
-    "E501",     # Line too long (let ruff format take care of this)
-    "TRY003",   # Long messages outside exception class
+    "PTH123",   # Allow `open(p)` instead of `Path(p).open`
     "SIM108",   # Use ternary operation instead of if-else block
-    "ISC001",   # Incompatible with the formatter
-    "D202",     # Allow empty lines between function docstring and body
-    "D1",       # Allow undocumented items
+    "TRY003",   # Long messages outside exception class
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -80,28 +118,6 @@ typeCheckingMode = "strict"
 executionEnvironments = [
   { root = "tests", reportPrivateUsage = false }
 ]
-
-[tool.uv]
-dev-dependencies = [
-    "cosy",
-    "ipython>=8.27.0",
-    "jupyterlab>=4.2.5",
-    "pandas>=2.2.3",
-    "pdoc>=15.0.0",
-    "pre-commit>=3.8.0",
-    "pyright>=1.1.385",
-    "pytest>=8.3.3",
-    "ruff>=0.6.4",
-]
-
-[tool.uv.sources.cosy]
-git = "https://github.com/oyarsa/x.git"
-subdirectory = "cosy"
-tag = "cosy-0.1.0"
-
-[project.scripts]
-preprocess = "paper.preprocess:main"
-gpt = "paper.gpt.cli:main"
 
 [build-system]
 requires = ["hatchling"]

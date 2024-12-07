@@ -1,0 +1,25 @@
+[[prompts]]
+name = "simple"
+type = "abstract-split"
+prompt = """
+Given the paper abstract, your goal is to extract the paper's background context and
+target.
+
+The background context describes the problem setup, motivation, rationale, task and \
+previous knowledge.
+The target describes the methods, objectives, goals, findings, results or implications.
+
+The output will contain two fields: `background` and `target`. For each of them, collect \
+the sentences of the appropriate type. The output should be the relevant sentences \
+combined for each type. All sentences in the abstract must be either a background context \
+or a target sentence. No sentence in the abstract should be missing from the output.
+
+#####
+{demonstrations}
+-Data-
+
+Abstract: {abstract}
+
+#####
+Output:
+"""

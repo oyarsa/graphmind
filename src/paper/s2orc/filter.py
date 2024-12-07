@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Extract ACL-related papers from gzipped JSON files."""
 
 import gzip
@@ -6,10 +5,10 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Annotated
 
+import typer
 from tqdm import tqdm
-
-from paper.util import HelpOnErrorArgumentParser
 
 # ACL conference keywords
 # fmt: off
@@ -105,9 +104,11 @@ def _extract_acl_papers(
         try:
             with gzip.open(file_path, "rt", encoding="utf-8") as f:
                 data = json.load(f)
-                for paper in data:
-                    if paper.get("venue", "").strip().casefold() in acl_venues:
-                        papers.append(paper | {"source": file_path.stem})
+                papers.extend(
+                    paper | {"source": file_path.stem}
+                    for paper in data
+                    if paper.get("venue", "").strip().casefold() in acl_venues
+                )
         except (json.JSONDecodeError, OSError) as e:
             print(f"Error processing {file_path}: {e}", file=sys.stderr)
 
@@ -134,19 +135,27 @@ def filter_papers(input_directory: Path, output_file: Path) -> None:
     print(f"{len(acl_papers)} ACL-related papers extracted and saved to {output_file}")
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument(
-        "input_directory",
-        type=Path,
-        help="Path to the directory containing data files.",
-    )
-    parser.add_argument(
-        "output_file", type=Path, help="Path to save the output .json.gz file."
-    )
-    args = parser.parse_args()
-    filter_papers(args.input_directory, args.output_file)
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    input_directory: Annotated[
+        Path, typer.Argument(help="Path to the directory containing data files.")
+    ],
+    output_file: Annotated[
+        Path, typer.Argument(help="Path to save the output .json.gz file.")
+    ],
+) -> None:
+    """Extract ACL-related papers from gzipped JSON files."""
+    filter_papers(input_directory, output_file)
 
 
 if __name__ == "__main__":
-    main()
+    app()

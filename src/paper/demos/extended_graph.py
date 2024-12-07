@@ -1,13 +1,26 @@
-#!/usr/bin/env python3
 """Plot representation of a graph with different node types."""
 
 from pathlib import Path
+from typing import Annotated
+
+import typer
 
 from paper.hierarchical_graph import DiGraph, Edge, Node
-from paper.util import HelpOnErrorArgumentParser
+
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
 
 
-def main(output: Path | None) -> None:
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    output: Annotated[Path | None, typer.Argument(help="Path to save the figure.")],
+) -> None:
+    """Plot representation of a graph with different node types."""
     node_names = {
         "title": {
             "main": "Weak Reward Model Transforms Generative Models into Robust Causal"
@@ -122,7 +135,4 @@ def main(output: Path | None) -> None:
 
 
 if __name__ == "__main__":
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument("output", type=Path, help="Path to save the figure ")
-    args = parser.parse_args()
-    main(args.output)
+    app()

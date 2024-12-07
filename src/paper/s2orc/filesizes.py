@@ -4,12 +4,14 @@ import asyncio
 import json
 import urllib.parse
 from pathlib import Path
+from typing import Annotated
 
 import aiohttp
 import dotenv
+import typer
 
-from paper.progress import gather
-from paper.util import HelpOnErrorArgumentParser, die, ensure_envvar
+from paper.util import ensure_envvar, progress
+from paper.util.cli import die
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -79,7 +81,7 @@ async def _get_filesizes(
 
         files = dataset["files"][:limit]
         tasks = [_get_file_size(url, session, semaphore) for url in files]
-        file_sizes = await gather(tasks, desc="Getting file sizes")
+        file_sizes = await progress.gather(tasks, desc="Getting file sizes")
 
         total_size_gb = sum(_bytes_to_gib(size) for size in file_sizes)
         info: list[dict[str, str | float]] = []
@@ -106,23 +108,37 @@ def get_filesizes(dataset_name: str, output_path: Path, limit: int | None) -> No
     asyncio.run(_get_filesizes(dataset_name, output_path, api_key, limit))
 
 
-def main() -> None:
-    parser = HelpOnErrorArgumentParser(__doc__)
-    parser.add_argument(
-        "dataset_name", type=str, help="Name of the dataset to get the file sizes for."
-    )
-    parser.add_argument(
-        "output_file", type=Path, help="Path to JSON file with file information."
-    )
-    parser.add_argument(
-        "--limit",
-        "-n",
-        type=int,
-        help="Limit the number of files to download. Useful for testing.",
-    )
-    args = parser.parse_args()
-    get_filesizes(args.dataset_name, args.output_file, args.limit)
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+)
+
+
+@app.command(help=__doc__, no_args_is_help=True)
+def main(
+    dataset_name: Annotated[
+        str, typer.Argument(help="Name of the dataset for which to get the file sizes.")
+    ],
+    output_file: Annotated[
+        Path, typer.Argument(help="Path to JSON file with file information.")
+    ],
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit",
+            "-n",
+            typer.Option(
+                help="Limit the number of files to download. Useful for testing."
+            ),
+        ),
+    ] = None,
+) -> None:
+    """Get the size of the files from the S2ORC from the Semantic Scholar API."""
+    get_filesizes(dataset_name, output_file, limit)
 
 
 if __name__ == "__main__":
-    main()
+    app()
