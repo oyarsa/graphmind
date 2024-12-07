@@ -523,6 +523,11 @@ class PaperAnnotated(Record):
         """Title of the underlying paper, or '<unknown>' if absent."""
         return self.paper.title or "<unknown>"
 
+    @property
+    def abstract(self) -> str:
+        """Abstract of the underlying paper, or '<unknown>' if absent."""
+        return self.paper.abstract or "<unknown>"
+
 
 class ASAPAnnotated(Record):
     """ASAP Paper with its annotated key terms. Includes GPT prompts used."""

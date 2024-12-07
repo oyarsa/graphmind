@@ -14,9 +14,9 @@ from collections.abc import Iterable
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Annotated, no_type_check
+from typing import Annotated
 
-import pandas as pd  # type: ignore
+import polars as pl
 import typer
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from tqdm import tqdm
@@ -37,7 +37,7 @@ class PaperMatch(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    title_query: str
+    title_asap: str
     title_s2orc: str
     score: int
 
@@ -97,10 +97,10 @@ def main(
     output_file.write_bytes(TypeAdapter(list[Paper]).dump_json(matches_fuzzy, indent=2))
 
 
-@no_type_check
-def describe(x: Iterable[float]) -> str:
+def describe(values: Iterable[float]) -> str:
     """Get descriptive statistics about numeric iterable."""
-    return pd.Series(x).describe()
+    pl.Config.set_tbl_hide_column_data_types(True).set_tbl_hide_dataframe_shape(True)
+    return str(pl.Series(values).describe())
 
 
 def _search_papers_fuzzy(
@@ -135,7 +135,7 @@ def _search_paper_fuzzy(
     for s2orc in papers_s2orc:
         score = fuzzy_ratio(query, s2orc)
         if score >= min_fuzzy:
-            matches.add(PaperMatch(title_query=query, title_s2orc=s2orc, score=score))
+            matches.add(PaperMatch(title_asap=query, title_s2orc=s2orc, score=score))
 
     if items := matches.items:
         paper = Paper(query=query, matches=items)

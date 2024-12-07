@@ -14,10 +14,11 @@ WON'T DO:
 """
 
 import logging
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Annotated
 
-import pandas as pd  # type: ignore
+import polars as pl
 import tiktoken
 import typer
 
@@ -109,10 +110,7 @@ def fulltext(
 
     tokeniser = tiktoken.encoding_for_model(model)
     tokens = [len(tokeniser.encode(prompt)) for prompt in prompts]
-    logger.info(
-        "Token stats:\n%s\n",
-        pd.Series(tokens).describe().astype(int).to_string(),  # type: ignore
-    )
+    logger.info("Token stats:\n%s\n", _describe(tokens))
 
 
 @app.command(
@@ -178,10 +176,12 @@ def scimon_(
 
     tokeniser = tiktoken.encoding_for_model(model)
     tokens = [len(tokeniser.encode(prompt)) for prompt in prompts]
-    logger.info(
-        "Token stats:\n%s\n",
-        pd.Series(tokens).describe().astype(int).to_string(),  # type: ignore
-    )
+    logger.info("Token stats:\n%s\n", _describe(tokens))
+
+
+def _describe(values: Iterable[int]) -> str:
+    pl.Config.set_tbl_hide_column_data_types(True).set_tbl_hide_dataframe_shape(True)
+    return str(pl.Series(values).describe())
 
 
 @app.callback()

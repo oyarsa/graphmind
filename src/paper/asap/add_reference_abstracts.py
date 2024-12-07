@@ -85,7 +85,7 @@ def _match_paper_external(
     best_score = min_score
 
     for external in external_papers:
-        ratio = fuzzy_ratio(source.title, external.title_query)
+        ratio = fuzzy_ratio(source.title, external.title_asap)
         if ratio >= best_score:
             best_external = external
             best_score = ratio

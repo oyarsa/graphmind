@@ -213,11 +213,11 @@ class ContextClassified(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     text: str = Field(description="Full text of the context mention")
-    gold: asap.ContextPolarityBinary | None = Field(
+    gold: asap.ContextPolarity | None = Field(
         description="Whether the citation context is annotated as positive or negative."
         " Can be absent for unannotated data."
     )
-    prediction: asap.ContextPolarityBinary = Field(
+    prediction: asap.ContextPolarity = Field(
         description="Whether the citation context is predicted positive or negative"
     )
 
@@ -236,7 +236,7 @@ class S2ReferenceClassified(asap.S2Paper):
 
     @computed_field
     @property
-    def polarity(self) -> asap.ContextPolarityBinary:
+    def polarity(self) -> asap.ContextPolarity:
         """Overall polarity of the reference.
 
         If there are more negative contexts than positive, the whole reference is
@@ -244,9 +244,9 @@ class S2ReferenceClassified(asap.S2Paper):
         """
         preds = [c.prediction for c in self.contexts]
         return (
-            asap.ContextPolarityBinary.NEGATIVE
-            if preds.count(asap.ContextPolarityBinary.NEGATIVE) > len(preds) / 2
-            else asap.ContextPolarityBinary.POSITIVE
+            asap.ContextPolarity.NEGATIVE
+            if preds.count(asap.ContextPolarity.NEGATIVE) > len(preds) / 2
+            else asap.ContextPolarity.POSITIVE
         )
 
 
@@ -287,7 +287,7 @@ class GPTContext(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     text: str = Field(description="Full text of the context mention")
-    polarity: asap.ContextPolarityBinary = Field(
+    polarity: asap.ContextPolarity = Field(
         description="Whether the citation context is positive or negative"
     )
 
@@ -352,7 +352,7 @@ async def _classify_paper(
                 classified_contexts.append(
                     ContextClassified(
                         text=context.sentence,
-                        gold=asap.ContextPolarityBinary.from_trinary(context.polarity)
+                        gold=asap.ContextPolarity.from_trinary(context.polarity)
                         if context.polarity is not None
                         else None,
                         prediction=gpt_context.polarity,
@@ -454,10 +454,8 @@ def show_classified_stats(
             for context in reference.contexts:
                 all_contexts.append(context)
                 if context.gold is not None:
-                    y_true.append(context.gold is asap.ContextPolarityBinary.POSITIVE)
-                    y_pred.append(
-                        context.prediction is asap.ContextPolarityBinary.POSITIVE
-                    )
+                    y_true.append(context.gold is asap.ContextPolarity.POSITIVE)
+                    y_pred.append(context.prediction is asap.ContextPolarity.POSITIVE)
 
     output = [
         f"Total contexts: {len(all_contexts)}",
@@ -478,8 +476,7 @@ def show_classified_stats(
 
     # No entries with gold annotation
     positive = sum(
-        context.prediction is asap.ContextPolarityBinary.POSITIVE
-        for context in all_contexts
+        context.prediction is asap.ContextPolarity.POSITIVE for context in all_contexts
     )
     negative = len(all_contexts) - positive
     output += [

@@ -26,14 +26,14 @@
   detail: related
 
 - source: ./gpt/annotate_paper.py
-  target: ./peter/query_asap.py
+  target: ./peter/asap.py
   detail: main
 
 - source: ./peter/build.py
-  target: ./peter/query_asap.py
+  target: ./peter/asap.py
 
-- source: ./peter/query_asap.py
-  target: ./gpt/evaluate_paper_scimon.py
+- source: ./peter/asap.py
+  target: ./gpt/evaluate_paper_peter.py
 
 - source: allenai/CSAbstruct
   target: ./gpt/annotate_paper.py

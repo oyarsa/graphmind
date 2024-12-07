@@ -113,6 +113,11 @@ def similarities(vector: Vector, matrix: Matrix) -> npt.NDArray[np.float32]:
     return similarities
 
 
+def top_k_indices(vector: Vector, k: int) -> list[int]:
+    """Get the indices of the top K elements in the vector, sorted descending."""
+    return [int(x) for x in np.argsort(vector)[::-1][:k]]
+
+
 class MatrixData(BaseModel):
     """Data object used to serialise a numpy matrix as JSON."""
 
