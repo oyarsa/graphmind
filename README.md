@@ -6,10 +6,14 @@
 > This repository has been tested on macOS and Ubuntu. It should work on other Linux
 > systems, but it has not been tested on Windows. It should work on WSL.
 
-To automatically set up the environment, run:
+This project uses [`uv`](https://docs.astral.sh/uv/) to manage the development
+environment and dependencies:
 
-```bash
-./tasks.sh setup
+```console
+# Set up virtual environment and install dependencies
+$ uv sync --all-extras
+# Install pre-commit hooks
+$ uv run pre-commit install
 ```
 
 See [Development Environment](#development-environment) and
@@ -104,13 +108,13 @@ uv run src/paper/s2orc/acl.py
 See `./tasks.sh` for common development tasks. In particular, use `./tasks.sh check` to
 run the linter, formatter and type checker. Run `./tasks.sh help` to see all tasks.
 
-The `./tasks.sh setup` task sets up the full environment:
+We use the following tools for development:
 
 - [`uv`](https://docs.astral.sh/uv/): manages the project, Python environment and
   dependencies, including the development tools.
 - [`ruff`](https://docs.astral.sh/ruff/): linter and formatter.
 - [`pyright`](https://microsoft.github.io/pyright): type-checker.
-- [`pre-commit`](https://pre-commit.com/): which runs some basic checks before you
+- [`pre-commit`](https://pre-commit.com/): runs some basic checks before you
   create a commit.
 
 Please check the individual tool documentation for more information. See also
