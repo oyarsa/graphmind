@@ -1,0 +1,33 @@
+[[prompts]]
+name = "positive"
+type = "full"
+prompt = """
+TODO
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+#####
+Output:
+"""
+
+[[prompts]]
+name = "negative"
+type = "full"
+prompt = """
+TODO
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+#####
+Output:
+"""

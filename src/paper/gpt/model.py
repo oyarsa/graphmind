@@ -550,3 +550,8 @@ class ASAPAnnotated(Record):
     def title(self) -> str:
         """Title of the underlying paper."""
         return self.paper.title
+
+    @property
+    def abstract(self) -> str:
+        """Abstract of the underlying paper."""
+        return self.paper.abstract
