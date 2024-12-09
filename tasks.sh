@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
 
-usage() {
-	printf "Usage: %s <task>\n" "$0"
-	printf "Run '%s help' for a list of available tasks.\n" "$0"
-}
-
 help() {
 	printf "Usage: %s <task>\n" "$0"
 	printf "\n"
@@ -29,14 +24,14 @@ clidoc() {
 }
 
 if [ $# -eq 0 ]; then
-	usage
-	exit 1
+	help
+	exit
 fi
 
 if declare -f "$1" >/dev/null; then
 	"$1"
 else
 	printf "Error: Unknown task '%s'\n\n" "$1"
-	usage
+	help
 	exit 1
 fi
