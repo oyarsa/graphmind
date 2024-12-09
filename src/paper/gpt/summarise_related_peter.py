@@ -1,4 +1,4 @@
-"""Summarise related papers from PETER to include in main paper evaluation prompt.
+"""Summarise related papers from PETER for inclusion in main paper evaluation prompt.
 
 The input is the output of `paper.asap`, i.e. the output of `gpt.annotate_paper`
 (papers with extracted scientific terms) and `gpt.classify_contexts` (citations
@@ -65,7 +65,9 @@ app = typer.Typer(
 )
 
 
-@app.command(help=__doc__, no_args_is_help=True)
+@app.command(
+    short_help="Run related paper summarisation.", help=__doc__, no_args_is_help=True
+)
 def run(
     ann_graph_file: Annotated[
         Path,

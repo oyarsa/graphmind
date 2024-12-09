@@ -56,7 +56,7 @@ main_subcommands = [
         annotate_paper,
     ),
     ("tokens", "Estimate input tokens for tasks and prompts.", tokens),
-    ("related", "Summarise PETER related papers.", summarise_related_peter),
+    ("petersum", "Summarise PETER related papers.", summarise_related_peter),
 ]
 app = _new_app("gpt", main_subcommands)
 
