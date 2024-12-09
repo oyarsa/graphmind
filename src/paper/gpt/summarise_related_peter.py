@@ -14,9 +14,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Annotated, Self
+from typing import Annotated
 
 import dotenv
 import typer
@@ -24,7 +24,13 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
 from paper import peter
-from paper.gpt.model import ASAPAnnotated, Prompt, PromptResult
+from paper.gpt.model import (
+    ASAPAnnotated,
+    PaperRelatedSummarised,
+    PaperWithRelatedSummary,
+    Prompt,
+    PromptResult,
+)
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     GPT_SEMAPHORE,
@@ -44,7 +50,7 @@ from paper.util import (
     setup_logging,
     shuffled,
 )
-from paper.util.serde import Record, load_data, save_data
+from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +161,7 @@ async def summarise_related(
             exist, we use those results and skip processing papers in them.
         clean_run: If True, ignore `continue_papers_file` and run everything from
             scratch.
-        seed: Random seed used for input data shuffling.
+        seed: Random seed used for input data shuffling and for the GPT call.
 
     Note: See `PETER_SUMMARISE_USER_PROMPTS` for summarisation prompt options.
 
@@ -281,18 +287,6 @@ the target paper.
 """
 
 
-class PaperWithRelatedSummary(Record):
-    """ASAP paper with its related papers formatted as prompt input."""
-
-    paper: ASAPAnnotated
-    related: Sequence[PaperRelatedSummarised]
-
-    @property
-    def id(self) -> str:
-        """Identify graph result as the underlying paper's ID."""
-        return self.paper.id
-
-
 async def _summarise_paper(
     client: AsyncOpenAI,
     model: str,
@@ -376,17 +370,6 @@ async def _summarise_paper_related(
         ),
         cost=result.cost,
     )
-
-
-class PaperRelatedSummarised(peter.PaperRelated):
-    """PETER-related paper with summary."""
-
-    summary: str
-
-    @classmethod
-    def from_related(cls, related: peter.PaperRelated, summary: str) -> Self:
-        """PETER-related paper with generated summary."""
-        return cls.model_validate(related.model_dump() | {"summary": summary})
 
 
 def format_template(

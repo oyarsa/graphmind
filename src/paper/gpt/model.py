@@ -11,7 +11,7 @@ from typing import Annotated, Self
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 import paper.semantic_scholar as s2
-from paper import asap, hierarchical_graph
+from paper import asap, hierarchical_graph, peter
 from paper.util import hashstr
 from paper.util.serde import Record
 
@@ -555,3 +555,36 @@ class ASAPAnnotated(Record):
     def abstract(self) -> str:
         """Abstract of the underlying paper."""
         return self.paper.abstract
+
+
+class PaperWithRelatedSummary(Record):
+    """ASAP paper with its related papers formatted as prompt input."""
+
+    paper: ASAPAnnotated
+    related: Sequence[PaperRelatedSummarised]
+
+    @property
+    def id(self) -> str:
+        """Identify graph result as the underlying paper's ID."""
+        return self.paper.id
+
+    @property
+    def title(self) -> str:
+        """Title of the underlying paper."""
+        return self.paper.title
+
+    @property
+    def abstract(self) -> str:
+        """Abstract of the underlying paper."""
+        return self.paper.abstract
+
+
+class PaperRelatedSummarised(peter.PaperRelated):
+    """PETER-related paper with summary."""
+
+    summary: str
+
+    @classmethod
+    def from_related(cls, related: peter.PaperRelated, summary: str) -> Self:
+        """PETER-related paper with generated summary."""
+        return cls.model_validate(related.model_dump() | {"summary": summary})
