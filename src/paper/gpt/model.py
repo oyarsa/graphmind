@@ -6,14 +6,17 @@ import itertools
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from enum import StrEnum
-from typing import Annotated, Self
+from typing import TYPE_CHECKING, Annotated, Self
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 import paper.semantic_scholar as s2
-from paper import asap, hierarchical_graph, peter
+from paper import asap, hierarchical_graph
 from paper.util import hashstr
 from paper.util.serde import Record
+
+if TYPE_CHECKING:
+    from paper import peter
 
 
 class EntityType(StrEnum):
@@ -579,12 +582,28 @@ class PaperWithRelatedSummary(Record):
         return self.paper.abstract
 
 
-class PaperRelatedSummarised(peter.PaperRelated):
+class PaperRelatedSummarised(Record):
     """PETER-related paper with summary."""
 
     summary: str
 
+    paper_id: str
+    title: str
+    abstract: str
+    score: float
+
+    @property
+    def id(self) -> str:
+        """Identify the summary by its underlying paper ID."""
+        return self.paper_id
+
     @classmethod
     def from_related(cls, related: peter.PaperRelated, summary: str) -> Self:
         """PETER-related paper with generated summary."""
-        return cls.model_validate(related.model_dump() | {"summary": summary})
+        return cls(
+            summary=summary,
+            paper_id=related.paper_id,
+            title=related.title,
+            abstract=related.abstract,
+            score=related.score,
+        )
