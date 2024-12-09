@@ -1,8 +1,7 @@
 """Evaluate a paper's approval based on annotated papers with PETER-queried papers.
 
-The input is the output of `paper.asap`, i.e. the output of `gpt.annotate_paper`
-(papers with extracted scientific terms) and `gpt.classify_contexts` (citations contexts
-classified by polarity) with the related papers queried through the PETER graph.
+The input is the output of `gpt.summarise_related_peter`. This are the PETER-queried
+papers with the related papers summarised.
 
 The output is the input annotated papers with an approval/rejection label.
 """
@@ -20,7 +19,6 @@ import dotenv
 import typer
 from openai import AsyncOpenAI
 
-from paper import peter
 from paper.gpt.evaluate_paper import (
     CLASSIFY_TYPES,
     EVALUATE_DEMONSTRATION_PROMPTS,
@@ -30,7 +28,12 @@ from paper.gpt.evaluate_paper import (
     display_metrics,
     format_demonstrations,
 )
-from paper.gpt.model import Prompt, PromptResult
+from paper.gpt.model import (
+    PaperRelatedSummarised,
+    PaperWithRelatedSummary,
+    Prompt,
+    PromptResult,
+)
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     GPT_SEMAPHORE,
@@ -71,7 +74,8 @@ def run(
         Path,
         typer.Option(
             "--ann-graph",
-            help="JSON file containing the annotated ASAP papers with graph results.",
+            help="JSON file containing the annotated ASAP papers with summarised graph"
+            " results.",
         ),
     ],
     output_dir: Annotated[
@@ -116,7 +120,7 @@ def run(
         ),
     ] = "abstract",
 ) -> None:
-    """Evaluate a paper's approval based on PETER-queried related papers."""
+    """Evaluate a paper's approval based on summarised PETER-queried related papers."""
     asyncio.run(
         evaluate_papers(
             model,
@@ -151,30 +155,24 @@ async def evaluate_papers(
     demonstrations_file: Path | None,
     demo_prompt_key: str,
 ) -> None:
-    """Evaluate a paper's approval based on PETER-queried related papers.
+    """Evaluate a paper's approval based on summarised PETER-queried related papers.
 
-    The papers should come from ASAP-annotated papers from `gpt.annotate_paper`.
+    The papers should come from `gpt.summarise_related_peter`.
 
     Args:
         model: GPT model code. Must support Structured Outputs.
         ann_graph_file: Path to the JSON file containing the annotated papers with their
-            graph data.
+            graph data and summarised related papers.
         limit_papers: Number of papers to process. Defaults to 1 example. If None,
             process all.
-        graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
-            `_GRAPH_USER_PROMPTS` for available options or `list_prompts` for more.
-        user_prompt_key: Key to the user prompt to use for graph extraction. See
+        user_prompt_key: Key to the user prompt to use for paper evaluation. See
             `_CLASSIFY_USER_PROMPTS` for available options or `list_prompts` for more.
-        display: If True, show each graph on screen. This suspends the process until
-            the plot is closed.
-        output_dir: Directory to save the output files: serialised graphs (GraphML),
-            plot images (PNG) and classification results (JSON), if classification is
-            enabled.
-        classify: If True, classify the papers based on the generated graph.
+        output_dir: Directory to save the output files: intermediate and final results,
+            and classification metrics.
         continue_papers_file: If provided, check for entries in the input data. If they
             are there, we use those results and skip processing them.
         clean_run: If True, ignore `continue_papers` and run everything from scratch.
-        seed: Random seed used for shuffling.
+        seed: Random seed used for shuffling and for the GPT call.
         demonstrations_file: Path to demonstrations file for use with few-shot prompting.
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
@@ -198,7 +196,7 @@ async def evaluate_papers(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    papers = shuffled(load_data(ann_graph_file, peter.PaperResult))[:limit_papers]
+    papers = shuffled(load_data(ann_graph_file, PaperWithRelatedSummary))[:limit_papers]
 
     user_prompt = PETER_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
@@ -256,7 +254,7 @@ async def _classify_papers(
     client: AsyncOpenAI,
     model: str,
     user_prompt: PromptTemplate,
-    ann_graphs: Sequence[peter.PaperResult],
+    ann_graphs: Sequence[PaperWithRelatedSummary],
     output_intermediate_file: Path,
     demonstrations: str,
     *,
@@ -268,7 +266,7 @@ async def _classify_papers(
         client: OpenAI client to use GPT.
         model: GPT model code to use (must support Structured Outputs).
         user_prompt: User prompt template to use for classification to be filled.
-        ann_graphs: Annotated ASAP papers with their graph data.
+        ann_graphs: Annotated ASAP papers with their summarised graph data.
         output_intermediate_file: File to write new results after each task is completed.
         demonstrations: Text of demonstrations for few-shot prompting.
         seed: Seed for the OpenAI API call.
@@ -306,7 +304,7 @@ to a paper submitted to a high-quality scientific conference.
 async def _classify_paper(
     client: AsyncOpenAI,
     model: str,
-    ann_result: peter.PaperResult,
+    ann_result: PaperWithRelatedSummary,
     user_prompt: PromptTemplate,
     demonstrations: str,
     *,
@@ -347,21 +345,22 @@ async def _classify_paper(
 
 
 def format_template(
-    prompt: PromptTemplate, ann_result: peter.PaperResult, demonstrations: str
+    prompt: PromptTemplate,
+    paper_summaries: PaperWithRelatedSummary,
+    demonstrations: str,
 ) -> str:
-    """Format evaluation template using annotated terms, graphs and `demonstrations`."""
+    """Format evaluation template using summarised PETER-queried related papers."""
     return prompt.template.format(
-        title=ann_result.paper.paper.title,
-        abstract=ann_result.paper.paper.abstract,
+        title=paper_summaries.title,
+        abstract=paper_summaries.abstract,
         demonstrations=demonstrations,
-        positive=_format_papers(ann_result.results.positive),
-        negative=_format_papers(ann_result.results.negative),
+        related=_format_related(paper_summaries.related),
     )
 
 
-def _format_papers(papers: Iterable[peter.PaperRelated]) -> str:
+def _format_related(related: Iterable[PaperRelatedSummarised]) -> str:
     return "\n\n".join(
-        f"Title: {paper.title}\nAbstract: {paper.abstract}\n" for paper in papers
+        f"Title: {paper.title}\nSummary: {paper.summary}\n" for paper in related
     )
 
 
