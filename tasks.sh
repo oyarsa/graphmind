@@ -20,7 +20,10 @@ watch() {
 }
 
 clidoc() {
-	uv run typer paper.gpt.cli utils docs --output src/paper/gpt/CLI.md
+	for module in gpt peter scimon preprocess; do
+		uv run typer paper.$module.cli utils docs --output src/paper/$module/CLI.md &
+	done
+	wait
 }
 
 if [ $# -eq 0 ]; then

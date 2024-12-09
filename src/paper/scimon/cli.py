@@ -1,23 +1,11 @@
-"""CLI entrypoint for SciMON graph construction.
-
-- kg: KG graph. Terms connected by directed used-for relations.
-- semantic: semantic graph. Nodes connected by cosine similarity between embeddings from
-  prompt-based based inputs.
-- citations: citation graph. Papers are connected to their top K citations by cosine
-  similarity between the titles.
-- build: Build all three graphs and store them in a single object and file.
-
-Embeddings are generated with SentenceTransformer. The default model is
-`all-mpnet-base-v2`.
-"""
+"""Construct SciMON graphs."""
 
 import typer
 
 from paper.scimon import build, citations, kg, query_asap, semantic
 
 app = typer.Typer(
-    name="gpt",
-    add_completion=False,
+    name="scimon",
     context_settings={"help_option_names": ["-h", "--help"]},
     rich_markup_mode="rich",
     pretty_exceptions_show_locals=False,

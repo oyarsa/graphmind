@@ -24,6 +24,7 @@ $ gpt [OPTIONS] COMMAND [ARGS]...
 * `context`: Classify paper citations using full text.
 * `eval`: Evaluate a paper
 * `graph`: Extract graph from papers.
+* `petersum`: Summarise PETER related papers.
 * `terms`: Annotate S2 papers with key terms and split abstract.
 * `tokens`: Estimate input tokens for tasks and prompts.
 
@@ -214,9 +215,8 @@ $ gpt eval peter prompts [OPTIONS]
 
 Evaluate a paper's approval based on annotated papers with PETER-queried papers.
 
-The input is the output of `paper.asap`, i.e. the output of `gpt.annotate_paper`
-(papers with extracted scientific terms) and `gpt.classify_contexts` (citations contexts
-classified by polarity) with the related papers queried through the PETER graph.
+The input is the output of `gpt.summarise_related_peter`. This are the PETER-queried
+papers with the related papers summarised.
 
 The output is the input annotated papers with an approval/rejection label.
 
@@ -228,7 +228,7 @@ $ gpt eval peter run [OPTIONS]
 
 **Options**:
 
-* `--ann-graph PATH`: JSON file containing the annotated ASAP papers with graph results.  [required]
+* `--ann-graph PATH`: JSON file containing the annotated ASAP papers with summarised graph results.  [required]
 * `--output PATH`: The path to the output directory where the files will be saved.  [required]
 * `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
 * `-n, --limit INTEGER`: The number of papers to process.  [default: 1]
@@ -365,6 +365,71 @@ $ gpt graph run [OPTIONS] DATA_PATH OUTPUT_DIR
 * `--continue-papers PATH`: Path to file with data from a previous run.
 * `--clean-run / --no-clean-run`: Start from scratch, ignoring existing intermediate results.  [default: no-clean-run]
 * `--seed INTEGER`: Seed to set in the OpenAI call.  [default: 0]
+* `--help`: Show this message and exit.
+
+## `gpt petersum`
+
+Summarise related papers from PETER for inclusion in main paper evaluation prompt.
+
+**Usage**:
+
+```console
+$ gpt petersum [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `prompts`: List available prompts.
+* `run`: Run related paper summarisation.
+
+### `gpt petersum prompts`
+
+List available prompts.
+
+**Usage**:
+
+```console
+$ gpt petersum prompts [OPTIONS]
+```
+
+**Options**:
+
+* `--detail / --no-detail`: Show full description of the prompts.  [default: no-detail]
+* `--help`: Show this message and exit.
+
+### `gpt petersum run`
+
+Summarise related papers from PETER for inclusion in main paper evaluation prompt.
+
+The input is the output of `paper.asap`, i.e. the output of `gpt.annotate_paper`
+(papers with extracted scientific terms) and `gpt.classify_contexts` (citations
+contexts classified by polarity) with the related papers queried through the PETER
+graph.
+
+The output is similar to the input, but the related papers have extra summarised
+information that can be useful for evaluating papers.
+
+**Usage**:
+
+```console
+$ gpt petersum run [OPTIONS]
+```
+
+**Options**:
+
+* `--ann-graph PATH`: JSON file containing the annotated ASAP papers with graph results.  [required]
+* `--output PATH`: The path to the output directory where the files will be saved.  [required]
+* `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
+* `-n, --limit INTEGER`: The number of ASAP papers to process.  [default: 10]
+* `--positive-prompt [negative|positive]`: The summarisation prompt to use for positively related papers.  [default: positive]
+* `--negative-prompt [negative|positive]`: The summarisation prompt to use for negatively related papers.  [default: negative]
+* `--continue-papers PATH`: Path to file with data from a previous run.
+* `--clean-run / --no-clean-run`: Start from scratch, ignoring existing intermediate results  [default: no-clean-run]
+* `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
 * `--help`: Show this message and exit.
 
 ## `gpt terms`

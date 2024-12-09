@@ -82,7 +82,12 @@ $ uv run graph-gpt run --help
 $ uv run graph-gpt prompts --help
 ```
 
-For more information, see [`gpt/README.md`](./src/paper/gpt/README.md).
+For more information, see the documentation for each module:
+
+- [`preprocess/README.md`](./src/paper/preprocess/README.md).
+- [`scimon/README.md`](./src/paper/scimon/README.md).
+- [`peter/README.md`](./src/paper/peter/README.md).
+- [`gpt/README.md`](./src/paper/gpt/README.md).
 
 ## Development Environment
 
@@ -102,7 +107,10 @@ the `python`. Real example:
 uv run src/paper/s2orc/acl.py
 ```
 
-See `./tasks.sh` for common development tasks. In particular, use `./tasks.sh check` to
+See [uv's documentation](https://docs.astral.sh/uv/concepts/projects/run/) for more
+information.
+
+See `./tasks.sh` for common development tasks. In particular, use `./tasks.sh lint` to
 run the linter, formatter and type checker. Run `./tasks.sh help` to see all tasks.
 
 We use the following tools for development:
@@ -117,10 +125,11 @@ We use the following tools for development:
 Please check the individual tool documentation for more information. See also
 [CONTRIBUTING](/CONTRIBUTING.md) for in-depth information.
 
-To view the project documentation in the browser (module, functions, class, etc.), run
+The project has rich comments on every public member. You can use `pydoc` to get the
+documentation for an item:
 
-```bash
-./tasks.sh doc
+```console
+$ uv run -m pydoc paper.peter.Graph
 ```
 
 ## License

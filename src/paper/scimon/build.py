@@ -4,9 +4,9 @@ The stored graph needs to be converted to a real one in memory because of how th
 embeddings are stored.
 
 This takes two inputs:
-- Annotated papers wrapped in prompts (gpt.PromptResult[gpt.PaperAnnotated]) from
+- Annotated papers wrapped in prompts (`gpt.PromptResult[gpt.PaperAnnotated]`) from
   `paper.gpt.annotate_paper`.
-- ASAP papers with full S2 reference data (s2.ASAPWithFullS2) from
+- ASAP papers with full S2 reference data (`s2.ASAPWithFullS2`) from
   `semantic_scholar.info`.
 """
 
