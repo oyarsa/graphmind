@@ -98,8 +98,8 @@ async def _call_gpt(  # noqa: ANN202
     try:
         # Reminder: the rate limiter by itself isn't enough. The client code must also
         # wrap its GPT calss in `GPT_SEMAPHORE`.
-        # async with rate_limiter.limit(**chat_params):
-        return await client.beta.chat.completions.parse(**chat_params)
+        async with rate_limiter.limit(**chat_params):
+            return await client.beta.chat.completions.parse(**chat_params)
     except openai.APIError as e:
         logger.warning("\nCaught an API error: %s", e)
         raise
