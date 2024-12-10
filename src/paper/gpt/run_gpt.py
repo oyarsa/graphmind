@@ -39,7 +39,7 @@ From https://openai.com/api/pricing/
 """
 
 
-def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
+def _calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     """Calculate API request based on the model and input/output tokens.
 
     NB: prompt_tokens/completion_tokens is the name given to input/output tokens in the
@@ -176,7 +176,7 @@ async def run_gpt[T: BaseModel](
         return GPTResult(result=None, cost=0)
 
     if usage := completion.usage:
-        cost = calc_cost(model, usage.prompt_tokens, usage.completion_tokens)
+        cost = _calc_cost(model, usage.prompt_tokens, usage.completion_tokens)
     else:
         cost = 0
 
