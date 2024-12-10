@@ -38,30 +38,6 @@ MODEL_COSTS: Mapping[str, tuple[float, float]] = {
 From https://openai.com/api/pricing/
 """
 
-RATE_LIMITERS: Mapping[str, ChatRateLimiter] = {
-    "gpt-4o-mini": ChatRateLimiter(request_limit=5_000, token_limit=4_000_000),
-    "gpt-4o": ChatRateLimiter(request_limit=5_000, token_limit=800_000),
-}
-"""Rate limiters for each supported model."""
-
-GPT_REASONABLE_SIMULTANEOUS_REQUESTS = int(os.getenv("GPT_MAX_REQUESTS", "100"))
-"""The default is an empirically established number of simultaneous requests to GPT API.
-
-This seems to be a number that doesn't break the rate limiter, but is high enough to
-still deliver good performance.
-"""
-GPT_SEMAPHORE = asyncio.Semaphore(GPT_REASONABLE_SIMULTANEOUS_REQUESTS)
-"""Semaphore to control the number of simultaneous requests to the GPT API.
-
-This isn't the same as a rate limiter, so we use both. The rate limiter ensures we don't
-get 429 errors from the API. This semaphore is so we don't make thousands of requests to
-the API at the same time, as that kind of breaks the rate limiter and leads to deadlocks.
-
-This should be used in the client code around the `run_gpt` case, and all the requests
-must be made in the same block. This doesn't matter if you only make one request per
-async task, but in cases where there are more, grouping them avoids deadlocks.
-"""
-
 
 def calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     """Calculate API request based on the model and input/output tokens.
@@ -92,12 +68,37 @@ class GPTResult[T]:
     cost: float
 
 
+_RATE_LIMITERS: Mapping[str, ChatRateLimiter] = {
+    "gpt-4o-mini": ChatRateLimiter(request_limit=5_000, token_limit=4_000_000),
+    "gpt-4o": ChatRateLimiter(request_limit=5_000, token_limit=800_000),
+}
+"""Rate limiters for each supported model."""
+
+_GPT_REASONABLE_SIMULTANEOUS_REQUESTS = int(os.getenv("GPT_MAX_REQUESTS", "100"))
+"""The default is an empirically established number of simultaneous requests to GPT API.
+
+This seems to be a number that doesn't break the rate limiter, but is high enough to
+still deliver good performance.
+"""
+_GPT_SEMAPHORE = asyncio.Semaphore(_GPT_REASONABLE_SIMULTANEOUS_REQUESTS)
+"""Semaphore to control the number of simultaneous requests to the GPT API.
+
+This isn't the same as a rate limiter, so we use both. The rate limiter ensures we don't
+get 429 errors from the API. This semaphore is so we don't make thousands of requests to
+the API at the same time, as that kind of breaks the rate limiter and leads to deadlocks.
+
+This should be used in the client code around the `run_gpt` case, and all the requests
+must be made in the same block. This doesn't matter if you only make one request per
+async task, but in cases where there are more, grouping them avoids deadlocks.
+"""
+
+
 @backoff.on_exception(backoff.expo, openai.APIError, max_tries=5, logger=logger)
 async def _call_gpt(  # noqa: ANN202
     rate_limiter: Any, client: AsyncOpenAI, chat_params: dict[str, Any]
 ):
     try:
-        async with GPT_SEMAPHORE, rate_limiter.limit(**chat_params):
+        async with _GPT_SEMAPHORE, rate_limiter.limit(**chat_params):
             return await client.beta.chat.completions.parse(**chat_params)
     except openai.APIError as e:
         logger.warning("\nCaught an API error: %s", e)
@@ -160,7 +161,7 @@ async def run_gpt[T: BaseModel](
         "temperature": temperature,
     }
     rate_limiter = None
-    for limit_model, limiter in RATE_LIMITERS.items():
+    for limit_model, limiter in _RATE_LIMITERS.items():
         if model.startswith(limit_model):
             rate_limiter = limiter
     assert rate_limiter is not None
