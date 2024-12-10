@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict
 
 from paper import embedding as emb
 from paper.peter import citations, semantic
+from paper.peter.citations import ContextPolarity
 from paper.util import Timer
 from paper.util.serde import Record, load_data
 
@@ -66,19 +67,27 @@ class Graph:
 
         return QueryResult(
             semantic_positive=[
-                PaperRelated.from_(p, source=PaperSource.SEMANTIC)
+                PaperRelated.from_(
+                    p, source=PaperSource.SEMANTIC, polarity=ContextPolarity.POSITIVE
+                )
                 for p in papers_semantic.targets
             ],
             semantic_negative=[
-                PaperRelated.from_(p, source=PaperSource.SEMANTIC)
+                PaperRelated.from_(
+                    p, source=PaperSource.SEMANTIC, polarity=ContextPolarity.NEGATIVE
+                )
                 for p in papers_semantic.backgrounds
             ],
             citations_positive=[
-                PaperRelated.from_(p, source=PaperSource.CITATIONS)
+                PaperRelated.from_(
+                    p, source=PaperSource.CITATIONS, polarity=ContextPolarity.POSITIVE
+                )
                 for p in papers_citation.positive
             ],
             citations_negative=[
-                PaperRelated.from_(p, source=PaperSource.CITATIONS)
+                PaperRelated.from_(
+                    p, source=PaperSource.CITATIONS, polarity=ContextPolarity.NEGATIVE
+                )
                 for p in papers_citation.negative
             ],
         )
@@ -124,14 +133,14 @@ class QueryResult(BaseModel):
     citations_negative: Sequence[PaperRelated]
 
     @property
-    def positive(self) -> Sequence[PaperRelated]:
-        """Retrieve all positive papers."""
-        return list(itertools.chain(self.semantic_positive, self.citations_positive))
-
-    @property
-    def negative(self) -> Sequence[PaperRelated]:
-        """Retrieve all negative papers."""
-        return list(itertools.chain(self.semantic_negative, self.citations_negative))
+    def related(self) -> Iterable[PaperRelated]:
+        """Retrieve all related papers from all polarities."""
+        return itertools.chain(
+            self.semantic_positive,
+            self.semantic_negative,
+            self.citations_positive,
+            self.citations_negative,
+        )
 
 
 class PaperRelated(Record):
@@ -142,6 +151,7 @@ class PaperRelated(Record):
     title: str
     abstract: str
     score: float
+    polarity: ContextPolarity
 
     @property
     def id(self) -> str:
@@ -149,7 +159,9 @@ class PaperRelated(Record):
         return self.paper_id
 
     @classmethod
-    def from_(cls, paper: _PaperResult, *, source: PaperSource) -> Self:
+    def from_(
+        cls, paper: _PaperResult, *, source: PaperSource, polarity: ContextPolarity
+    ) -> Self:
         """Create concrete paper result from abstract/protocol data and a source."""
         return cls(
             paper_id=paper.paper_id,
@@ -157,6 +169,7 @@ class PaperRelated(Record):
             abstract=paper.abstract,
             score=paper.score,
             source=source,
+            polarity=polarity,
         )
 
 

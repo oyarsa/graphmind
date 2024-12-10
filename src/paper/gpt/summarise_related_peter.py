@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Annotated
 
@@ -185,8 +185,14 @@ async def summarise_related(
 
     papers = shuffled(load_data(ann_graph_file, peter.PaperResult))[:limit_papers]
 
-    prompt_positive = PETER_SUMMARISE_USER_PROMPTS[positive_prompt_key]
-    prompt_negative = PETER_SUMMARISE_USER_PROMPTS[negative_prompt_key]
+    prompt_pol = {
+        peter.ContextPolarity.POSITIVE: PETER_SUMMARISE_USER_PROMPTS[
+            positive_prompt_key
+        ],
+        peter.ContextPolarity.NEGATIVE: PETER_SUMMARISE_USER_PROMPTS[
+            negative_prompt_key
+        ],
+    }
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
@@ -212,8 +218,7 @@ async def summarise_related(
         results = await _summarise_papers(
             client,
             model,
-            prompt_positive,
-            prompt_negative,
+            prompt_pol,
             papers_remaining.remaining,
             output_intermediate_file,
             seed=seed,
@@ -233,8 +238,7 @@ async def summarise_related(
 async def _summarise_papers(
     client: AsyncOpenAI,
     model: str,
-    prompt_positive: PromptTemplate,
-    prompt_negative: PromptTemplate,
+    prompt_pol: Mapping[peter.ContextPolarity, PromptTemplate],
     ann_graphs: Iterable[peter.PaperResult],
     output_intermediate_file: Path,
     *,
@@ -245,8 +249,7 @@ async def _summarise_papers(
     Args:
         client: OpenAI client to use GPT.
         model: GPT model code to use (must support Structured Outputs).
-        prompt_positive: Prompt template for positively related papers.
-        prompt_negative: Prompt template for negatively related papers.
+        prompt_pol: Prompt templates for related papers by polarity.
         ann_graphs: Annotated ASAP papers with their graph data.
         output_intermediate_file: File to write new results after each task is completed.
         demonstrations: Text of demonstrations for few-shot prompting.
@@ -259,9 +262,7 @@ async def _summarise_papers(
     total_cost = 0
 
     tasks = [
-        _summarise_paper(
-            client, model, ann_graph, prompt_positive, prompt_negative, seed=seed
-        )
+        _summarise_paper(client, model, ann_graph, prompt_pol, seed=seed)
         for ann_graph in ann_graphs
     ]
 
@@ -289,25 +290,25 @@ async def _summarise_paper(
     client: AsyncOpenAI,
     model: str,
     ann_result: peter.PaperResult,
-    prompt_positive: PromptTemplate,
-    prompt_negative: PromptTemplate,
+    prompt_pol: Mapping[peter.ContextPolarity, PromptTemplate],
     *,
     seed: int,
 ) -> GPTResult[PromptResult[PaperWithRelatedSummary]]:
     output: list[PromptResult[PaperRelatedSummarised]] = []
     total_cost = 0
 
-    for prompt, papers in [
-        (prompt_positive, ann_result.results.positive),
-        (prompt_negative, ann_result.results.negative),
-    ]:
-        for related in papers:
-            result = await _summarise_paper_related(
-                client, model, ann_result.paper, related, prompt, seed=seed
-            )
-            total_cost += result.cost
+    for related in ann_result.results.related:
+        result = await _summarise_paper_related(
+            client,
+            model,
+            ann_result.paper,
+            related,
+            user_prompt=prompt_pol[related.polarity],
+            seed=seed,
+        )
+        total_cost += result.cost
 
-            output.append(result.result)
+        output.append(result.result)
 
     return GPTResult(
         PromptResult(

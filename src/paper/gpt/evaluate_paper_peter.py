@@ -19,6 +19,7 @@ import dotenv
 import typer
 from openai import AsyncOpenAI
 
+from paper import asap
 from paper.gpt.evaluate_paper import (
     CLASSIFY_TYPES,
     EVALUATE_DEMONSTRATION_PROMPTS,
@@ -91,7 +92,7 @@ def run(
     limit_papers: Annotated[
         int,
         typer.Option("--limit", "-n", help="The number of papers to process."),
-    ] = 1,
+    ] = 10,
     user_prompt: Annotated[
         str,
         typer.Option(
@@ -198,7 +199,11 @@ async def evaluate_papers(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    papers = shuffled(load_data(ann_graph_file, PaperWithRelatedSummary))[:limit_papers]
+    papers = shuffled(
+        PromptResult.unwrap(
+            load_data(ann_graph_file, PromptResult[PaperWithRelatedSummary])
+        )
+    )[:limit_papers]
 
     user_prompt = PETER_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
@@ -353,7 +358,16 @@ def format_template(
         title=paper_summaries.title,
         abstract=paper_summaries.abstract,
         demonstrations=demonstrations,
-        related=_format_related(paper_summaries.related),
+        positive=_format_related(
+            p
+            for p in paper_summaries.related
+            if p.polarity is asap.ContextPolarity.POSITIVE
+        ),
+        negative=_format_related(
+            p
+            for p in paper_summaries.related
+            if p.polarity is asap.ContextPolarity.NEGATIVE
+        ),
     )
 
 
