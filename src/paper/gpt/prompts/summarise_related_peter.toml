@@ -2,14 +2,24 @@
 name = "positive"
 type = "full"
 prompt = """
-TODO
+The following data contains information from a **Main Paper** and a **Related Paper**. \
+The Related Paper has a positive relation to the Main Paper. It contains supporting \
+information that strengthens the main paper claims.
+
+Your task is to generate a summary that highlights how the Related Paper supports the \
+Main Paper. Your summary should be short and concise, comprising a few sentences only.
 
 #####
-{demonstrations}
-
 -Data-
-Title: {title}
-Abstract: {abstract}
+# Main paper
+
+**Title**: {title_main}
+**Abstract**: {abstract_main}
+
+# Related paper
+
+**Title**: {title_related}
+**Abstract**: {abstract_related}
 
 #####
 Output:
@@ -19,14 +29,25 @@ Output:
 name = "negative"
 type = "full"
 prompt = """
-TODO
+The following data contains information from a **Main Paper** and a **Related Paper**. \
+The Related Paper has a negative relation to the Main Paper. It is used to contrast the \
+claims made by the Main Paper.
+
+Your task is to generate a summary that highlights how the Related Paper contrasts the \
+Main Paper. Your summary should be short and concise, comprising of a few sentences \
+only.
 
 #####
-{demonstrations}
-
 -Data-
-Title: {title}
-Abstract: {abstract}
+# Main paper
+
+**Title**: {title_main}
+**Abstract**: {abstract_main}
+
+# Related paper
+
+**Title**: {title_related}
+**Abstract**: {abstract_related}
 
 #####
 Output:
