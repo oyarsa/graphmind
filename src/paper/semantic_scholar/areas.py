@@ -5,10 +5,6 @@ The primary areas are obtained from the `paper.gpt.prompt.primary_areas.toml` fi
 For each primary area and year range, download the top `limit_year` papers by title
 similarity to the query. The year ranges can be like `2017-2022` or single values like
 `2022`. They're always strings.
-
----
-NB: The code uses aiohttp for requests, but it's actually sequential. I tried using
-concurrent requests here, but it didn't work very well.
 """
 
 from __future__ import annotations
