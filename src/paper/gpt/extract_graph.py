@@ -443,11 +443,9 @@ def run(
         Path | None,
         typer.Option(help="Path to file with data from a previous run."),
     ] = None,
-    clean_run: Annotated[
+    continue_: Annotated[
         bool,
-        typer.Option(
-            help="Start from scratch, ignoring existing intermediate results."
-        ),
+        typer.Option("--continue", help="Use existing intermediate results."),
     ] = False,
     seed: Annotated[int, typer.Option(help="Seed to set in the OpenAI call.")] = 0,
 ) -> None:
@@ -463,7 +461,7 @@ def run(
             output_dir,
             classify,
             continue_papers,
-            clean_run,
+            continue_,
             seed,
         )
     )
@@ -479,7 +477,7 @@ async def extract_graph(
     output_dir: Path,
     classify: bool,
     continue_papers_file: Path | None,
-    clean_run: bool,
+    continue_: bool,
     seed: int,
 ) -> None:
     """Extract graphs from the papers in the dataset and (maybe) classify them.
@@ -508,7 +506,7 @@ async def extract_graph(
         classify: If True, classify the papers based on the generated graph.
         continue_papers_file: If provided, check for entries in the input data. If they
             are there, we use those results and skip processing them.
-        clean_run: If True, ignore `continue_papers` and run everything from scratch.
+        continue_: Use data fromn `continue_papers`.
         seed: Seed for the OpenAI API call
 
     Returns:
@@ -532,13 +530,11 @@ async def extract_graph(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
     papers_remaining = get_remaining_items(
-        Graph, output_intermediate_file, continue_papers_file, papers, clean_run
+        Graph, output_intermediate_file, continue_papers_file, papers, continue_
     )
     if not papers_remaining.remaining:
         logger.info("No items left to process. They're all on the `continues` file.")
-    elif clean_run:
-        logger.info("Clean run: ignoring `continue` file and using the whole data.")
-    else:
+    elif continue_:
         logger.info(
             "Skipping %d items from the `continue` file.", len(papers_remaining.done)
         )
@@ -577,7 +573,7 @@ async def extract_graph(
             output_dir,
             # We always want new paper classifications after processing the graphs
             continue_papers_file=None,
-            clean_run=True,
+            continue_=True,
             seed=seed,
         )
 

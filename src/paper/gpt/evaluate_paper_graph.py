@@ -38,7 +38,7 @@ async def evaluate_graphs(
     user_prompt_key: str,
     output_dir: Path,
     continue_papers_file: Path | None,
-    clean_run: bool,
+    continue_: bool,
     seed: int,
 ) -> None:
     """Evaluate papers acceptance based on their structured graphs.
@@ -56,7 +56,7 @@ async def evaluate_graphs(
         output_intermediate_file,
         continue_papers_file,
         paper_graphs,
-        clean_run=clean_run,
+        continue_,
     )
     if not papers_remaining.remaining:
         logger.info(

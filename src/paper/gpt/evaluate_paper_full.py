@@ -14,7 +14,7 @@
 #     - user_prompt_key: simple-abs
 #     - output_dir: /Users/italo/dev/paper-hypergraph/tmp/eval-full (directory)
 #     - continue_papers_file: None
-#     - clean_run: True
+#     - continue_: False
 #     - seed: 0
 #     - demonstrations_file: /Users/italo/dev/paper-hypergraph/output/demonstrations_10.json (55baa321)
 #     - demo_prompt_key: abstract
@@ -115,9 +115,9 @@ def run(
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run.")
     ] = None,
-    clean_run: Annotated[
+    continue_: Annotated[
         bool,
-        typer.Option(help="Start from scratch, ignoring existing intermediate results"),
+        typer.Option("--continue", help="Use existing intermediate results"),
     ] = False,
     seed: Annotated[int, typer.Option(help="Random seed used for data shuffling.")] = 0,
     demos: Annotated[
@@ -141,7 +141,7 @@ def run(
             user_prompt,
             output_dir,
             continue_papers,
-            clean_run,
+            continue_,
             seed,
             demos,
             demo_prompt,
@@ -162,7 +162,7 @@ async def evaluate_papers(
     user_prompt_key: str,
     output_dir: Path,
     continue_papers_file: Path | None,
-    clean_run: bool,
+    continue_: bool,
     seed: int,
     demonstrations_file: Path | None,
     demo_prompt_key: str,
@@ -189,7 +189,7 @@ async def evaluate_papers(
         classify: If True, classify the papers based on the generated graph.
         continue_papers_file: If provided, check for entries in the input data. If they
             are there, we use those results and skip processing them.
-        clean_run: If True, ignore `continue_papers` and run everything from scratch.
+        continue_: If True, use data from `continue_papers`.
         seed: Random seed used for shuffling.
         demonstrations_file: Path to demonstrations file for use with few-shot prompting.
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
@@ -228,7 +228,7 @@ async def evaluate_papers(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
     papers_remaining = get_remaining_items(
-        PaperResult, output_intermediate_file, continue_papers_file, papers, clean_run
+        PaperResult, output_intermediate_file, continue_papers_file, papers, continue_
     )
     if not papers_remaining.remaining:
         logger.info(
@@ -236,9 +236,7 @@ async def evaluate_papers(
         )
         return
 
-    if clean_run:
-        logger.info("Clean run: ignoring `continue` file and using the whole data.")
-    else:
+    if continue_:
         logger.info(
             "Skipping %d items from the `continue` file.", len(papers_remaining.done)
         )

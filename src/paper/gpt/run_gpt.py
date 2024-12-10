@@ -239,7 +239,7 @@ def get_remaining_items[T: Record, U: Record](
     output_intermediate_file: Path,
     continue_papers_file: Path | None,
     original: Sequence[U],
-    clean_run: bool,
+    continue_: bool,
 ) -> RemainingItems[PromptResult[T], U]:
     """Split items that were previously processed from this run's input list.
 
@@ -254,12 +254,12 @@ def get_remaining_items[T: Record, U: Record](
         continue_papers_file: File with the previously processed items. If this is None
             and `output_intermediate_file` exists, it will be set to that.
         original: Items read for the original dataset file.
-        clean_run: If true, ignores the previous results and returns all input items.
+        continue_: If true, uses the previous results.
 
     Returns:
         Done and remaining items as separated lists.
     """
-    if clean_run:
+    if not continue_:
         return RemainingItems(remaining=list(original), done=[])
 
     if continue_papers_file is None and output_intermediate_file.is_file():

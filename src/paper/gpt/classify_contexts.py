@@ -101,9 +101,9 @@ def run(
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run")
     ] = None,
-    clean_run: Annotated[
+    continue_: Annotated[
         bool,
-        typer.Option(help="Start from scratch, ignoring existing intermediate results"),
+        typer.Option("--continue", help="Use existing intermediate results"),
     ] = False,
     seed: Annotated[int, typer.Option(help="Seed to set in the OpenAI call.")] = 0,
 ) -> None:
@@ -117,7 +117,7 @@ def run(
             output_dir,
             limit_references,
             continue_papers,
-            clean_run,
+            continue_,
             seed,
         )
     )
@@ -131,7 +131,7 @@ async def classify_contexts(
     output_dir: Path,
     limit_references: int | None,
     continue_papers_file: Path | None,
-    clean_run: bool,
+    continue_: bool,
     seed: int,
 ) -> None:
     """Classify reference citation contexts by polarity."""
@@ -163,7 +163,7 @@ async def classify_contexts(
         output_intermediate_file,
         continue_papers_file,
         papers,
-        clean_run,
+        continue_,
     )
     if not papers_remaining.remaining:
         logger.info(
@@ -171,9 +171,7 @@ async def classify_contexts(
         )
         return
 
-    if clean_run:
-        logger.info("Clean run: ignoring `continue` file and using the whole data.")
-    else:
+    if continue_:
         logger.info(
             "Skipping %d items from the `continue` file.", len(papers_remaining.done)
         )

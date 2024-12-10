@@ -108,9 +108,9 @@ def run(
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run.")
     ] = None,
-    clean_run: Annotated[
+    continue_: Annotated[
         bool,
-        typer.Option(help="Start from scratch, ignoring existing intermediate results"),
+        typer.Option("--continue", help="Use existing intermediate results."),
     ] = False,
     seed: Annotated[int, typer.Option(help="Random seed used for data shuffling.")] = 0,
 ) -> None:
@@ -124,7 +124,7 @@ def run(
             negative_prompt,
             output_dir,
             continue_papers,
-            clean_run,
+            continue_,
             seed,
         )
     )
@@ -144,7 +144,7 @@ async def summarise_related(
     negative_prompt_key: str,
     output_dir: Path,
     continue_papers_file: Path | None,
-    clean_run: bool,
+    continue_: bool,
     seed: int,
 ) -> None:
     """Summarise PETER-related papers.
@@ -161,8 +161,7 @@ async def summarise_related(
         output_dir: Directory to save the output files: intermediate and final results.
         continue_papers_file: If provided, check for entries in the input data. If they
             exist, we use those results and skip processing papers in them.
-        clean_run: If True, ignore `continue_papers_file` and run everything from
-            scratch.
+        continue_: If True, use existing data from `continue_papers_file`.
         seed: Random seed used for input data shuffling and for the GPT call.
 
     Note: See `PETER_SUMMARISE_USER_PROMPTS` for summarisation prompt options.
@@ -197,7 +196,7 @@ async def summarise_related(
         output_intermediate_file,
         continue_papers_file,
         papers,
-        clean_run,
+        continue_,
     )
     if not papers_remaining.remaining:
         logger.info(
@@ -205,9 +204,7 @@ async def summarise_related(
         )
         return
 
-    if clean_run:
-        logger.info("Clean run: ignoring `continue` file and using the whole data.")
-    else:
+    if continue_:
         logger.info(
             "Skipping %d items from the `continue` file.", len(papers_remaining.done)
         )
