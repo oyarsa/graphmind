@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,8 +44,8 @@ RATE_LIMITERS: Mapping[str, ChatRateLimiter] = {
 }
 """Rate limiters for each supported model."""
 
-GPT_REASONABLE_SIMULTANEOUS_REQUESTS = 100
-"""Empirically established number of simultaneous requests to GPT API.
+GPT_REASONABLE_SIMULTANEOUS_REQUESTS = int(os.getenv("GPT_MAX_REQUESTS", "100"))
+"""The default is an empirically established number of simultaneous requests to GPT API.
 
 This seems to be a number that doesn't break the rate limiter, but is high enough to
 still deliver good performance.
