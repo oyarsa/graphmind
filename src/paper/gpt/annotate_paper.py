@@ -32,7 +32,6 @@ from paper.gpt.model import (
 )
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
-    GPT_SEMAPHORE,
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
@@ -407,23 +406,22 @@ async def _annotate_paper_single(
         demonstrations=abstract_demonstrations, abstract=paper.abstract
     )
 
-    async with GPT_SEMAPHORE:
-        result_term = await run_gpt(
-            PaperTerms,
-            client,
-            _TERM_SYSTEM_PROMPT,
-            term_prompt_text,
-            model,
-            seed=seed,
-        )
-        result_abstract = await run_gpt(
-            GPTAbstractClassify,
-            client,
-            _ABS_SYSTEM_PROMPT,
-            abstract_prompt_text,
-            model,
-            seed=seed,
-        )
+    result_term = await run_gpt(
+        PaperTerms,
+        client,
+        _TERM_SYSTEM_PROMPT,
+        term_prompt_text,
+        model,
+        seed=seed,
+    )
+    result_abstract = await run_gpt(
+        GPTAbstractClassify,
+        client,
+        _ABS_SYSTEM_PROMPT,
+        abstract_prompt_text,
+        model,
+        seed=seed,
+    )
 
     terms = result_term.result or PaperTerms.empty()
     abstract = result_abstract.result or GPTAbstractClassify.empty()

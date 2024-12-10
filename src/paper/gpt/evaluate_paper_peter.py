@@ -36,7 +36,6 @@ from paper.gpt.model import (
 )
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
-    GPT_SEMAPHORE,
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
@@ -313,15 +312,14 @@ async def _classify_paper(
 ) -> GPTResult[PromptResult[PaperResult]]:
     user_prompt_text = format_template(user_prompt, ann_result, demonstrations)
 
-    async with GPT_SEMAPHORE:
-        result = await run_gpt(
-            CLASSIFY_TYPES[user_prompt.type_name],
-            client,
-            _PETER_CLASSIFY_SYSTEM_PROMPT,
-            user_prompt_text,
-            model,
-            seed=seed,
-        )
+    result = await run_gpt(
+        CLASSIFY_TYPES[user_prompt.type_name],
+        client,
+        _PETER_CLASSIFY_SYSTEM_PROMPT,
+        user_prompt_text,
+        model,
+        seed=seed,
+    )
 
     paper = ann_result.paper.paper
     classified = result.result

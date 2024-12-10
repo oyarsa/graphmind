@@ -97,9 +97,7 @@ async def _call_gpt(  # noqa: ANN202
     rate_limiter: Any, client: AsyncOpenAI, chat_params: dict[str, Any]
 ):
     try:
-        # Reminder: the rate limiter by itself isn't enough. The client code must also
-        # wrap its GPT calss in `GPT_SEMAPHORE`.
-        async with rate_limiter.limit(**chat_params):
+        async with GPT_SEMAPHORE, rate_limiter.limit(**chat_params):
             return await client.beta.chat.completions.parse(**chat_params)
     except openai.APIError as e:
         logger.warning("\nCaught an API error: %s", e)
@@ -216,7 +214,9 @@ def append_intermediate_result[T: BaseModel](
         # It's fine if the file didn't exist previously. We'll create a new one now.
         pass
     except ValidationError:
-        logger.warning("Existing intermediate file has out of date types. Ignoring it.")
+        logger.warning(
+            "Existing intermediate file has out of date types. Using a new one."
+        )
     except Exception:
         logger.exception("Error reading intermediate result file: %s", path)
 

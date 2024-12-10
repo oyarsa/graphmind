@@ -33,7 +33,6 @@ from paper.gpt.model import (
 )
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
-    GPT_SEMAPHORE,
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
@@ -348,15 +347,14 @@ async def _summarise_paper_related(
 ) -> GPTResult[PromptResult[PaperRelatedSummarised]]:
     user_prompt_text = format_template(user_prompt, paper, related)
 
-    async with GPT_SEMAPHORE:
-        result = await run_gpt(
-            GPTRelatedSummary,
-            client,
-            _PETER_SUMMARISE_SYSTEM_PROMPT,
-            user_prompt_text,
-            model,
-            seed=seed,
-        )
+    result = await run_gpt(
+        GPTRelatedSummary,
+        client,
+        _PETER_SUMMARISE_SYSTEM_PROMPT,
+        user_prompt_text,
+        model,
+        seed=seed,
+    )
 
     summary = result.result
 
