@@ -45,7 +45,7 @@ BACKOFF_FACTOR = 2  # Exponential backoff factor
 
 S2_SEARCH_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("paper.semantic_scholar.info")
 
 
 async def _fetch_paper_info(
@@ -183,11 +183,11 @@ async def _download_paper_info(
         if paper["fuzz_ratio"] >= min_fuzzy and paper["abstract"]
     ]
 
-    logger.info(len(results), "papers")
-    logger.info(len(results_valid), "valid")
+    logger.info(f"{len(results)} papers")
+    logger.info(f"{len(results_valid)} valid")
     logger.info(
-        len(results_filtered),
-        f"filtered (non-emtpy abstract and fuzz ratio >= {min_fuzzy})",
+        f"{len(results_filtered)} filtered (non-emtpy abstract and fuzz ratio >="
+        f" {min_fuzzy})",
     )
 
     output_path.mkdir(parents=True, exist_ok=True)
