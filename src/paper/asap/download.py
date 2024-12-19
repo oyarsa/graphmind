@@ -1,6 +1,7 @@
 """Download ASAP dataset from Google Drive."""
 
 # pyright: basic
+import shutil
 import tempfile
 import zipfile
 from pathlib import Path
@@ -55,7 +56,7 @@ def main(
                     temp_path = Path(temp_dir)
                     zip_ref.extract(file, temp_path)
                     source = temp_path / file
-                    source.rename(target_path)
+                    shutil.move(source, target_path)
 
     print("Download and extraction completed successfully!")
 
