@@ -139,6 +139,7 @@ async def _download_paper_info(
     output_path: Path,
     api_key: str,
     min_fuzzy: int | None,
+    limit_papers: int | None,
 ) -> None:
     """Download paper information for multiple titles.
 
@@ -149,7 +150,7 @@ async def _download_paper_info(
     to minimise the bandwidth required.
     """
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
-    papers: list[dict[str, Any]] = json.loads(input_file.read_text())
+    papers: list[dict[str, Any]] = json.loads(input_file.read_text())[:limit_papers]
 
     match mode:
         case InfoMode.MAIN:
@@ -244,6 +245,10 @@ def main(
     min_fuzzy: Annotated[
         int, typer.Option(help="Minimum fuzz ratio of titles to filter.", max=100)
     ] = 80,
+    limit: Annotated[
+        int | None,
+        typer.Option("--limit", "-n", help="Limit on the number of papers to query."),
+    ] = None,
 ) -> None:
     """Download paper information for multiple titles.
 
@@ -261,6 +266,7 @@ def main(
         output_path,
         api_key,
         min_fuzzy,
+        limit,
     )
 
 
