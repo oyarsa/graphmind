@@ -16,7 +16,7 @@ lint() {
 }
 
 watch() {
-	watchexec --exts=py --restart 'uv run ruff check && uv run pyright'
+	watchexec --exts=py --clear --restart 'uv run ruff check && uv run pyright'
 }
 
 clidoc() {
