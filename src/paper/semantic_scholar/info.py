@@ -1,11 +1,12 @@
-"""Download information for papers referenced in ASAP using the Semantic Scholar API.
+"""Download information for ASAP papers and references using the Semantic Scholar API.
 
 This has two modes:
 - main: Take the titles of the ASAP papers and query the API.
 - references: Gather the unique papers referenced by the ASAP papers and query their
   titles.
 
-The output we get from the API is the same in both cases.
+The output we get from the API is the same in both cases, but the resulting files have
+different shapes.
 
 The input is the output of the ASAP pipeline[1], asap_filtered.json.
 
@@ -13,29 +14,36 @@ S2 does their own paper title matching, so we just take the best match directly.
 save the entire output to a JSON file along with the original query title, which might
 be different.
 
-The resulting files are:
-- semantic_scholar_full.json: the whole output from the S2 API.
-- semantic_scholar_valid.json: the valid (non-empty) results with fuzzy ratio.
-- semantic_scholar_final.json: the valid results with a non-empty abstract
-  and fuzzy ratio above a minium (default: 80).
+Note that the API allows us to specify what fields we want. It's best to minimise the
+number of fields so we don't run into bandwidth issues.
+
+The resulting files in both modes are:
+- valid.json: the valid (non-empty) results with fuzzy ratio.
+- final.json: the valid results with a non-empty abstract and fuzzy ratio above a
+  minimum (default: 80).
+
+The output types are:
+- main: s2.ASAPPaperWithS2 (combines the input ASAP paper and its S2 information).
+- referencs: asap.S2Paper (only the reference S2 information with the query title).
 
 [1] See paper.asap.preprocess.
 """
 
 import asyncio
-import json
 import logging
 from collections.abc import Sequence
-from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 import aiohttp
 import dotenv
 import typer
+from pydantic import ValidationError
 
-from paper.semantic_scholar.model import title_ratio
+from paper import asap
+from paper.semantic_scholar.model import ASAPPaperWithS2, title_ratio
 from paper.util import arun_safe, ensure_envvar, progress, setup_logging
+from paper.util.serde import load_data, save_data
 
 MAX_CONCURRENT_REQUESTS = 10
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -54,8 +62,11 @@ async def _fetch_paper_info(
     paper_title: str,
     fields: Sequence[str],
     semaphore: asyncio.Semaphore,
-) -> dict[str, Any] | None:
-    """Fetch paper information for a given title. Takes only the best title match."""
+) -> asap.S2Paper | None:
+    """Fetch paper information for a given title. Takes only the best title match.
+
+    The title match is done by the S2 API, not us. It's usually pretty good.
+    """
     params = {
         "query": paper_title,
         "fields": ",".join(fields),
@@ -74,7 +85,9 @@ async def _fetch_paper_info(
                     if response.status == 200:
                         data = await response.json()
                         if data.get("data"):
-                            return {"title_query": paper_title} | data["data"][0]
+                            return asap.S2Paper.model_validate(
+                                data["data"][0] | {"title_query": paper_title}
+                            )
                         logger.debug(f"No results found for title: {paper_title}")
                         return None
 
@@ -111,6 +124,8 @@ async def _fetch_paper_info(
                 )
                 await asyncio.sleep(delay)
                 delay *= BACKOFF_FACTOR
+            except ValidationError:
+                return None
 
             attempt += 1
 
@@ -120,47 +135,76 @@ async def _fetch_paper_info(
         return None
 
 
-class InfoMode(StrEnum):
-    """What kind of paper for which we want to retrieve information.
-
-    Attributes:
-        MAIN: the main ASAP papers only.
-        REFERENCES: the unique references (by title) across all ASAP papers.a
-    """
-
-    MAIN = "main"
-    REFERENCES = "references"
-
-
-async def _download_paper_info(
+async def _download_main_info(
     input_file: Path,
-    mode: InfoMode,
     fields_str: str,
     output_path: Path,
-    api_key: str,
-    min_fuzzy: int | None,
+    min_fuzzy: int,
     limit_papers: int | None,
 ) -> None:
-    """Download paper information for multiple titles.
+    """Download paper information for main ASAP papers.
 
-    The input file is the output of the ASAP preprocessing pipeline (asap_filtered.json).
-    We obtain the unique titles from the references of all papers and get their info.
-
-    The API allows us to specify the returned fields, so pass just the relevant ones
-    to minimise the bandwidth required.
+    We obtain the unique titles from the references of all papers and get their info. We
+    store the original ASAP information alongside the retrieved S2 information.
     """
-    fields = [f for field in fields_str.split(",") if (f := field.strip())]
-    papers: list[dict[str, Any]] = json.loads(input_file.read_text())[:limit_papers]
+    api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
 
-    match mode:
-        case InfoMode.MAIN:
-            unique_titles: set[str] = {paper["title"] for paper in papers}
-        case InfoMode.REFERENCES:
-            unique_titles: set[str] = {
-                reference["title"]
-                for paper in papers
-                for reference in paper["references"]
-            }
+    fields = [f for field in fields_str.split(",") if (f := field.strip())]
+    papers = load_data(input_file, asap.Paper)[:limit_papers]
+    title_to_paper = {paper.title: paper for paper in papers}
+
+    async with aiohttp.ClientSession(
+        timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
+        connector=aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS),
+    ) as session:
+        semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+        tasks = [
+            _fetch_paper_info(session, api_key, title, fields, semaphore)
+            for title in title_to_paper
+        ]
+        results = list(await progress.gather(tasks, desc="Downloading paper info"))
+
+    results_valid = [
+        ASAPPaperWithS2.from_asap(title_to_paper[title_asap], s2_paper)
+        for s2_paper, title_asap in zip(results, title_to_paper)
+        if s2_paper
+    ]
+
+    results_filtered = [
+        paper for paper in results_valid if paper.fuzz_ratio >= min_fuzzy
+    ]
+
+    logger.info(f"{len(results)} papers")
+    logger.info(f"{len(results_valid)} valid")
+    logger.info(
+        f"{len(results_filtered)} filtered (non-emtpy abstract and fuzz ratio >="
+        f" {min_fuzzy})",
+    )
+
+    output_path.mkdir(parents=True, exist_ok=True)
+    save_data(output_path / "valid.json", results_valid)
+    save_data(output_path / "final.json", results_filtered)
+
+
+async def _download_reference_info(
+    input_file: Path,
+    fields_str: str,
+    output_path: Path,
+    min_fuzzy: int,
+    limit_papers: int | None,
+) -> None:
+    """Download paper information for reference papers.
+
+    We obtain the unique titles from the references of all papers and get their info. We
+    also store the query title.
+    """
+    api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
+
+    fields = [f for field in fields_str.split(",") if (f := field.strip())]
+    papers = load_data(input_file, asap.Paper)[:limit_papers]
+    unique_titles = {
+        reference.title for paper in papers for reference in paper.references
+    }
 
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
@@ -173,15 +217,12 @@ async def _download_paper_info(
         ]
         results = list(await progress.gather(tasks, desc="Downloading paper info"))
 
-    results_valid = [
-        result | {"fuzz_ratio": title_ratio(result["title_query"], result["title"])}
-        for result in results
-        if result
-    ]
+    results_valid = [paper for paper in results if paper]
+
     results_filtered = [
         paper
         for paper in results_valid
-        if paper["fuzz_ratio"] >= min_fuzzy and paper["abstract"]
+        if title_ratio(paper.title, paper.title_asap) >= min_fuzzy
     ]
 
     logger.info(f"{len(results)} papers")
@@ -192,15 +233,8 @@ async def _download_paper_info(
     )
 
     output_path.mkdir(parents=True, exist_ok=True)
-    (output_path / "semantic_scholar_full.json").write_text(
-        json.dumps(results, indent=2)
-    )
-    (output_path / "semantic_scholar_valid.json").write_text(
-        json.dumps(results_valid, indent=2)
-    )
-    (output_path / "semantic_scholar_final.json").write_text(
-        json.dumps(results_filtered, indent=2)
-    )
+    save_data(output_path / "valid.json", [paper for paper in results if paper])
+    save_data(output_path / "final.json", results_filtered)
 
 
 app = typer.Typer(
@@ -212,7 +246,7 @@ app = typer.Typer(
 )
 
 
-@app.command(help=__doc__, no_args_is_help=True)
+@app.command(no_args_is_help=True)
 def main(
     input_file: Annotated[
         Path, typer.Argument(help="Input file (e.g. asap_filtered.json).")
@@ -220,10 +254,6 @@ def main(
     output_path: Annotated[
         Path, typer.Argument(help="Directory to save the downloaded information.")
     ],
-    mode: Annotated[
-        InfoMode,
-        typer.Option(help="Download information from main papers or their references."),
-    ] = InfoMode.REFERENCES,
     fields: Annotated[
         str,
         typer.Option(help="Comma-separated list of fields to retrieve."),
@@ -250,24 +280,56 @@ def main(
         typer.Option("--limit", "-n", help="Limit on the number of papers to query."),
     ] = None,
 ) -> None:
-    """Download paper information for multiple titles.
+    """Download paper information for ASAP main papers."""
 
-    Synchronous wrapper around `_download_paper_info`. Go there for more information.
-    """
-    dotenv.load_dotenv()
-    api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
-    setup_logging()
+    arun_safe(_download_main_info, input_file, fields, output_path, min_fuzzy, limit)
 
+
+@app.command(no_args_is_help=True)
+def references(
+    input_file: Annotated[
+        Path, typer.Argument(help="Input file (e.g. asap_filtered.json).")
+    ],
+    output_path: Annotated[
+        Path, typer.Argument(help="Directory to save the downloaded information.")
+    ],
+    fields: Annotated[
+        str,
+        typer.Option(help="Comma-separated list of fields to retrieve."),
+    ] = ",".join(
+        (
+            "paperId",
+            "corpusId",
+            "url",
+            "title",
+            "authors",
+            "year",
+            "abstract",
+            "referenceCount",
+            "citationCount",
+            "influentialCitationCount",
+            "tldr",
+        )
+    ),
+    min_fuzzy: Annotated[
+        int, typer.Option(help="Minimum fuzz ratio of titles to filter.", max=100)
+    ] = 80,
+    limit: Annotated[
+        int | None,
+        typer.Option("--limit", "-n", help="Limit on the number of papers to query."),
+    ] = None,
+) -> None:
+    """Download paper information for reference papers."""
     arun_safe(
-        _download_paper_info,
-        input_file,
-        mode,
-        fields,
-        output_path,
-        api_key,
-        min_fuzzy,
-        limit,
+        _download_reference_info, input_file, fields, output_path, min_fuzzy, limit
     )
+
+
+@app.callback(help=__doc__)
+def doc() -> None:
+    """Documentation callback."""
+    dotenv.load_dotenv()
+    setup_logging()
 
 
 if __name__ == "__main__":

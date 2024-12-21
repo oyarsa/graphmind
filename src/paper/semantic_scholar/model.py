@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Annotated, Any, Self
+from typing import Annotated, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -74,14 +74,14 @@ class Author(BaseModel):
     author_id: Annotated[str | None, Field(alias="authorId")]
 
 
-class ASAPPaperMaybeS2(asap.Paper):
-    """ASAP paper that may or may not have associated S2 paper information."""
+class ASAPPaperWithS2(asap.Paper):
+    """ASAP paper with associated S2 paper information."""
 
-    s2: Paper | None
+    s2: asap.S2Paper
     fuzz_ratio: int
 
     @classmethod
-    def from_asap(cls, asap: asap.Paper, s2_result: dict[str, Any] | None) -> Self:
+    def from_asap(cls, asap: asap.Paper, s2_result: asap.S2Paper) -> Self:
         """Create new paper from an existing ASAP paper and the S2 API result."""
         return cls(
             title=asap.title,
@@ -91,30 +91,8 @@ class ASAPPaperMaybeS2(asap.Paper):
             sections=asap.sections,
             approval=asap.approval,
             references=asap.references,
-            s2=Paper.model_validate(s2_result) if s2_result else None,
-            fuzz_ratio=title_ratio(asap.title, s2_result["title"]) if s2_result else 0,
-        )
-
-
-class ASAPPaperWithS2(asap.Paper):
-    """ASAP paper with associated S2 paper information."""
-
-    s2: Paper
-    fuzz_ratio: int
-
-    @classmethod
-    def from_maybe(cls, maybe: ASAPPaperMaybeS2, s2: Paper) -> Self:
-        """Create an object that _definitely_ has S2 data from one that _maybe_ does."""
-        return cls(
-            title=maybe.title,
-            abstract=maybe.abstract,
-            reviews=maybe.reviews,
-            authors=maybe.authors,
-            sections=maybe.sections,
-            approval=maybe.approval,
-            references=maybe.references,
-            s2=s2,
-            fuzz_ratio=maybe.fuzz_ratio,
+            s2=s2_result,
+            fuzz_ratio=title_ratio(asap.title, s2_result.title),
         )
 
 
