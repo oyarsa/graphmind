@@ -24,6 +24,7 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, computed_field
 
 from paper import asap, evaluation_metrics
+from paper import semantic_scholar as s2
 from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
@@ -151,7 +152,7 @@ async def classify_contexts(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    data = load_data(data_path, asap.PaperWithS2Refs)
+    data = load_data(data_path, s2.PaperWithS2Refs)
 
     papers = data[:limit_papers]
     user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
@@ -302,7 +303,7 @@ async def _classify_paper(
     client: AsyncOpenAI,
     limit_references: int | None,
     model: str,
-    paper: asap.PaperWithS2Refs,
+    paper: s2.PaperWithS2Refs,
     user_prompt: PromptTemplate,
     *,
     seed: int,
@@ -390,7 +391,7 @@ async def _classify_contexts(
     client: AsyncOpenAI,
     model: str,
     user_prompt: PromptTemplate,
-    papers: Sequence[asap.PaperWithS2Refs],
+    papers: Sequence[s2.PaperWithS2Refs],
     limit_references: int | None,
     output_intermediate_path: Path,
     *,

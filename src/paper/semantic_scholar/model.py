@@ -74,6 +74,46 @@ class Author(BaseModel):
     author_id: Annotated[str | None, Field(alias="authorId")]
 
 
+class S2Reference(asap.S2Paper):
+    """S2 paper as a reference with the original contexts."""
+
+    contexts: Sequence[asap.CitationContext]
+
+    @classmethod
+    def from_(
+        cls, paper: asap.S2Paper, *, contexts: Sequence[asap.CitationContext]
+    ) -> Self:
+        """Create new instance by copying data from S2Paper, in addition to the contexts."""
+        return cls.model_validate(paper.model_dump() | {"contexts": contexts})
+
+
+class PaperWithS2Refs(Record):
+    """ASAP main paper where references have the full S2 data as well as their contexts."""
+
+    title: str = Field(description="Paper title")
+    abstract: str = Field(description="Abstract text")
+    reviews: Sequence[asap.PaperReview] = Field(description="Feedback from a reviewer")
+    authors: Sequence[str] = Field(description="Names of the authors")
+    sections: Sequence[asap.PaperSection] = Field(
+        description="Sections in the paper text"
+    )
+    approval: bool = Field(
+        description="Approval decision - whether the paper was approved"
+    )
+    references: Sequence[S2Reference] = Field(
+        description="References from the paper with full S2 data and citation contexts."
+    )
+
+    @property
+    def id(self) -> str:
+        """Identify an ASAP by the combination of its `title` and `abstract`.
+
+        The `title` isn't unique by itself, but `title+abstract` is. Instead of passing
+        full text around, I hash it.
+        """
+        return hashstr(self.title + self.abstract)
+
+
 class ASAPPaperWithS2(asap.Paper):
     """ASAP paper with associated S2 paper information."""
 

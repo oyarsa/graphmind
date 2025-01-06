@@ -21,7 +21,6 @@ import typer
 from pydantic import BaseModel, ConfigDict
 
 import paper.semantic_scholar as s2
-from paper import asap
 from paper import embedding as emb
 from paper.util import display_params
 from paper.util.serde import Record, load_data
@@ -56,7 +55,7 @@ def main(
     """Create citations graph with the reference papers sorted by title similarity."""
     logger.info(display_params())
 
-    asap_papers = load_data(input_file, asap.PaperWithS2Refs)
+    asap_papers = load_data(input_file, s2.PaperWithS2Refs)
 
     encoder = emb.Encoder(model_name)
     graph = Graph.from_papers(encoder, asap_papers)
