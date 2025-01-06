@@ -29,7 +29,7 @@ import dotenv
 import typer
 from aiolimiter import AsyncLimiter
 
-from paper import asap
+from paper import semantic_scholar as s2
 from paper.semantic_scholar.model import (
     ASAPPaperWithS2,
     Paper,
@@ -282,7 +282,7 @@ def _merge_papers(papers: Iterable[PaperWithRecommendations]) -> list[PaperRecom
 
 async def _fetch_paper_recommendations(
     session: aiohttp.ClientSession,
-    paper: asap.S2Paper,
+    paper: s2.S2Paper,
     fields: Iterable[str],
     limit_recommendations: int,
 ) -> list[Paper]:
@@ -325,7 +325,7 @@ def _deduplicate_papers(papers: Iterable[Paper]) -> list[Paper]:
 
 async def _fetch_paper_recommendations_from(
     session: aiohttp.ClientSession,
-    paper: asap.S2Paper,
+    paper: s2.S2Paper,
     fields: Iterable[str],
     limit_recommendations: int,
     from_: str,

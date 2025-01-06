@@ -41,7 +41,7 @@ import typer
 from pydantic import ValidationError
 
 from paper import asap
-from paper.semantic_scholar.model import ASAPPaperWithS2, title_ratio
+from paper.semantic_scholar.model import ASAPPaperWithS2, S2Paper, title_ratio
 from paper.util import arun_safe, ensure_envvar, progress, setup_logging
 from paper.util.serde import load_data, save_data
 
@@ -62,7 +62,7 @@ async def _fetch_paper_info(
     paper_title: str,
     fields: Sequence[str],
     semaphore: asyncio.Semaphore,
-) -> asap.S2Paper | None:
+) -> S2Paper | None:
     """Fetch paper information for a given title. Takes only the best title match.
 
     The title match is done by the S2 API, not us. It's usually pretty good.
@@ -85,7 +85,7 @@ async def _fetch_paper_info(
                     if response.status == 200:
                         data = await response.json()
                         if data.get("data"):
-                            return asap.S2Paper.model_validate(
+                            return S2Paper.model_validate(
                                 data["data"][0] | {"title_query": paper_title}
                             )
                         logger.debug(f"No results found for title: {paper_title}")

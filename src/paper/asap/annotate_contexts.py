@@ -19,12 +19,8 @@ from typing import Annotated
 import typer
 from pydantic import TypeAdapter
 
-from paper.asap.model import (
-    CitationContext,
-    ContextPolarityTrinary,
-    PaperWithReferenceEnriched,
-    ReferenceEnriched,
-)
+from paper.asap.model import CitationContext, ContextPolarityTrinary
+from paper.semantic_scholar.model import PaperWithReferenceEnriched, ReferenceEnriched
 from paper.util import Timer, cli
 
 app = typer.Typer(

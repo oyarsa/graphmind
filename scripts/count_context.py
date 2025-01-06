@@ -11,7 +11,8 @@ from typing import Annotated
 import typer
 from pydantic import TypeAdapter
 
-from paper.asap.model import CitationContext, PaperWithReferenceEnriched
+from paper.asap.model import CitationContext
+from paper.semantic_scholar.model import PaperWithReferenceEnriched
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

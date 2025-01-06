@@ -8,7 +8,7 @@ Here, these references contain data from the S2 API, so we want to keep that, in
 to the context and its class.
 
 Data:
-- input: asap.PaperWithS2Refs
+- input: s2.PaperWithS2Refs
 - output: PaperWithContextClassfied
 """
 
@@ -221,15 +221,13 @@ class ContextClassified(BaseModel):
     )
 
 
-class S2ReferenceClassified(asap.S2Paper):
+class S2ReferenceClassified(s2.S2Paper):
     """S2 paper as a reference with the classified contexts."""
 
     contexts: Sequence[ContextClassified]
 
     @classmethod
-    def from_(
-        cls, paper: asap.S2Paper, *, contexts: Sequence[ContextClassified]
-    ) -> Self:
+    def from_(cls, paper: s2.S2Paper, *, contexts: Sequence[ContextClassified]) -> Self:
         """Create new instance by copying data from S2Paper, in addition to the contexts."""
         return cls.model_validate(paper.model_dump() | {"contexts": contexts})
 

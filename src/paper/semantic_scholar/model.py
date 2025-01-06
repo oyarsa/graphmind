@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Annotated, Self
+from typing import Annotated, Self, override
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -74,15 +74,52 @@ class Author(BaseModel):
     author_id: Annotated[str | None, Field(alias="authorId")]
 
 
-class S2Reference(asap.S2Paper):
+class S2Paper(Record):
+    """Paper from the S2 API."""
+
+    title_asap: str = Field(
+        description="Title used in the API query (from ASAP)", alias="title_query"
+    )
+    title: str = Field(description="Title from the S2 data")
+    paper_id: str = Field(
+        alias="paperId",
+        description="Semantic Scholar's primary unique identifier for a paper",
+    )
+    corpus_id: int | None = Field(
+        alias="corpusId",
+        description="Semantic Scholar's secondary unique identifier for a paper",
+    )
+    url: str | None = Field(
+        description="URL of the paper on the Semantic Scholar website"
+    )
+    abstract: str = Field(description="Abstract text")
+    year: int | None = Field(description="Year the paper was published")
+    reference_count: int = Field(
+        alias="referenceCount", description="Number of papers this paper references"
+    )
+    citation_count: int = Field(
+        alias="citationCount", description="Number of other papers that cite this paper"
+    )
+    influential_citation_count: int = Field(
+        alias="influentialCitationCount",
+        description="Number of influential papers (see docstring) that cite this paper",
+    )
+    tldr: Tldr | None = Field(description="Machine-generated summary of this paper")
+    authors: Sequence[Author] | None = Field(description="Paper authors")
+
+    @property
+    def id(self) -> str:
+        """Identify paper by the S2 API paper ID."""
+        return self.paper_id
+
+
+class S2Reference(S2Paper):
     """S2 paper as a reference with the original contexts."""
 
     contexts: Sequence[asap.CitationContext]
 
     @classmethod
-    def from_(
-        cls, paper: asap.S2Paper, *, contexts: Sequence[asap.CitationContext]
-    ) -> Self:
+    def from_(cls, paper: S2Paper, *, contexts: Sequence[asap.CitationContext]) -> Self:
         """Create new instance by copying data from S2Paper, in addition to the contexts."""
         return cls.model_validate(paper.model_dump() | {"contexts": contexts})
 
@@ -117,11 +154,11 @@ class PaperWithS2Refs(Record):
 class ASAPPaperWithS2(asap.Paper):
     """ASAP paper with associated S2 paper information."""
 
-    s2: asap.S2Paper
+    s2: S2Paper
     fuzz_ratio: int
 
     @classmethod
-    def from_asap(cls, asap: asap.Paper, s2_result: asap.S2Paper) -> Self:
+    def from_asap(cls, asap: asap.Paper, s2_result: S2Paper) -> Self:
         """Create new paper from an existing ASAP paper and the S2 API result."""
         return cls(
             title=asap.title,
@@ -184,7 +221,7 @@ class ASAPWithFullS2(Record):
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"
     )
-    references: Sequence[asap.S2Paper] = Field(
+    references: Sequence[S2Paper] = Field(
         description="References made in the paper with full S2 data"
     )
 
@@ -204,3 +241,85 @@ class PaperArea(Paper):
     model_config = ConfigDict(frozen=True)
 
     areas: Sequence[str]
+
+
+class ReferenceEnriched(asap.PaperReference):
+    """ASAP reference with the added data from the S2 API and the original S2 title.
+
+    Attributes:
+        abstract: Full text of the paper abstract.
+        s2title: the title for the reference in the S2 API. Could differ from the
+            reference title, so I keep this here in case we need to match back to the
+            S2 data again.
+        reference_count: How many references the current paper cites (outgoing)
+        citation_count: How many papers cite the current paper (incoming)
+        influential_citation_count: See https://www.semanticscholar.org/faq#influential-citations
+        tldr: Machine-generated TLDR of the paper. Not available for everything.
+    """
+
+    abstract: str
+    s2title: str
+    reference_count: int
+    citation_count: int
+    influential_citation_count: int
+    tldr: Tldr | None
+
+
+class PaperWithReferenceEnriched(BaseModel):
+    """Paper from ASAP where the references contain extra data from the S2 API."""
+
+    model_config = ConfigDict(frozen=True)
+
+    title: str = Field(description="Paper title")
+    abstract: str = Field(description="Abstract text")
+    reviews: Sequence[asap.PaperReview] = Field(description="Feedback from a reviewer")
+    authors: Sequence[str] = Field(description="Names of the authors")
+    sections: Sequence[asap.PaperSection] = Field(
+        description="Sections in the paper text"
+    )
+    approval: bool = Field(
+        description="Approval decision - whether the paper was approved"
+    )
+    references: Sequence[ReferenceEnriched] = Field(
+        description="References made in the paper with their abstracts"
+    )
+
+
+class ReferenceWithAbstract(asap.PaperReference):
+    """ASAP reference with the added abstract and the original S2 title.
+
+    `s2title` is the title in the S2 data for the best match. It can be used to match
+    back to the original S2 file if desired.
+    """
+
+    abstract: str = Field(description="Abstract text")
+    s2title: str = Field(description="Title from the S2 data")
+    paper_id: str = Field(description="Paper ID in the S2 API")
+
+    @property
+    def id(self) -> str:
+        """Identify the reference by its S2 API ID."""
+        return self.paper_id
+
+
+class PaperWithFullReference(Record):
+    """Paper from ASAP where the references contain their abstract."""
+
+    title: str = Field(description="Paper title")
+    abstract: str = Field(description="Abstract text")
+    reviews: Sequence[asap.PaperReview] = Field(description="Feedback from a reviewer")
+    authors: Sequence[str] = Field(description="Names of the authors")
+    sections: Sequence[asap.PaperSection] = Field(
+        description="Sections in the paper text"
+    )
+    approval: bool = Field(
+        description="Approval decision - whether the paper was approved"
+    )
+    references: Sequence[ReferenceWithAbstract] = Field(
+        description="References made in the paper with their abstracts"
+    )
+
+    @property
+    @override
+    def id(self) -> str:
+        return hashstr(self.title + self.abstract)

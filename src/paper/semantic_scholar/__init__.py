@@ -8,6 +8,7 @@ from paper.semantic_scholar.model import (
     PaperRecommended as PaperRecommended,
 )
 from paper.semantic_scholar.model import PaperWithS2Refs as PaperWithS2Refs
+from paper.semantic_scholar.model import S2Paper as S2Paper
 from paper.semantic_scholar.model import S2Reference as S2Reference
 from paper.semantic_scholar.model import Tldr as Tldr
 from paper.semantic_scholar.model import clean_title as clean_title
