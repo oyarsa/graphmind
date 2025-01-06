@@ -404,44 +404,6 @@ class PaperGraph(Record):
         return self
 
 
-class S2Paper(Record):
-    """Paper returned by the Semantic Scholar API. Everything's optional but `paperId`.
-
-    This is to avoid validation errors in the middle of the download. We'll only save
-    those with non-empty `abstract`, though.
-    """
-
-    # Semantic Scholar's primary unique identifier for a paper.
-    paper_id: Annotated[str, Field(alias="paperId")]
-    # Semantic Scholar's secondary unique identifier for a paper.
-    corpus_id: Annotated[int | None, Field(alias="corpusId")]
-    # URL of the paper on the Semantic Scholar website.
-    url: str
-    # Title of the paper.
-    title: str
-    # The paper's abstract. Note that due to legal reasons, this may be missing even if
-    # we display an abstract on the website.
-    abstract: str
-    # The year the paper was published.
-    year: int
-    # The total number of papers this paper references.
-    reference_count: Annotated[int, Field(alias="referenceCount")]
-    # The total number of papers that reference this paper.
-    citation_count: Annotated[int, Field(alias="citationCount")]
-    # A subset of the citation count, where the cited publication has a significant
-    # impact on the citing publication.
-    influential_citation_count: Annotated[int, Field(alias="influentialCitationCount")]
-    # The tldr paper summary.
-    tldr: s2.Tldr | None = None
-    # Paper authors.
-    authors: Sequence[s2.Author]
-
-    @property
-    def id(self) -> str:
-        """Identify S2 paper by its ID in the API."""
-        return self.paper_id
-
-
 class PaperTermRelation(BaseModel):
     """Represents a directed 'used for' relation between two scientific terms.
 
