@@ -14,10 +14,7 @@ from typing import Annotated, Any
 
 import typer
 
-
-def _safe_load_json(file_path: Path) -> Any:
-    """Load a JSON file, removing invalid UTF-8 characters."""
-    return json.loads(file_path.read_text(encoding="utf-8", errors="replace"))
+from paper.util.serde import safe_load_json
 
 
 def merge_content_review(path: Path, output_path: Path, max_papers: int | None) -> None:
@@ -52,9 +49,9 @@ def merge_content_review(path: Path, output_path: Path, max_papers: int | None) 
             if not review_file.exists() or not paper_file.exists():
                 continue
 
-            content = _safe_load_json(content_file)["metadata"]
-            review = _safe_load_json(review_file)["reviews"]
-            paper = _safe_load_json(paper_file)
+            content = safe_load_json(content_file)["metadata"]
+            review = safe_load_json(review_file)["reviews"]
+            paper = safe_load_json(paper_file)
 
             # We only want entries that have ratings in their reviews and titles
             if all("rating" in r for r in review) and content.get("title"):
