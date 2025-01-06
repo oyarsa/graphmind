@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from enum import StrEnum
-from typing import override
+from typing import Annotated, override
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -41,10 +41,13 @@ class ContextPolarity(StrEnum):
 class CitationContext(BaseModel):
     """Citation context sentence with its (optional) predicted/annotated polarity."""
 
-    sentence: str = Field(description="Context sentence the from ASAP data")
-    polarity: ContextPolarityTrinary | None = Field(
-        description="Polarity of the citation context between main and reference papers."
-    )
+    sentence: Annotated[str, Field(description="Context sentence the from ASAP data")]
+    polarity: Annotated[
+        ContextPolarityTrinary | None,
+        Field(
+            description="Polarity of the citation context between main and reference papers."
+        ),
+    ]
 
 
 class PaperReference(BaseModel):
@@ -52,12 +55,15 @@ class PaperReference(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    title: str = Field(description="Title of the citation in the paper references")
-    year: int = Field(description="Year of publication")
-    authors: Sequence[str] = Field(description="Author names")
-    contexts: Sequence[CitationContext] = Field(
-        description="Citation context with optional polarity evaluation"
-    )
+    title: Annotated[
+        str, Field(description="Title of the citation in the paper references")
+    ]
+    year: Annotated[int, Field(description="Year of publication")]
+    authors: Annotated[Sequence[str], Field(description="Author names")]
+    contexts: Annotated[
+        Sequence[CitationContext],
+        Field(description="Citation context with optional polarity evaluation"),
+    ]
 
 
 class PaperSection(BaseModel):
@@ -65,8 +71,8 @@ class PaperSection(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    heading: str = Field(description="Section heading")
-    text: str = Field(description="Section full text")
+    heading: Annotated[str, Field(description="Section heading")]
+    text: Annotated[str, Field(description="Section full text")]
 
 
 class PaperReview(BaseModel):
@@ -74,24 +80,28 @@ class PaperReview(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    rating: int = Field(description="Rating given by the review (1 to 10)")
-    rationale: str = Field(description="Explanation given for the rating")
+    rating: Annotated[int, Field(description="Rating given by the review (1 to 10)")]
+    rationale: Annotated[str, Field(description="Explanation given for the rating")]
 
 
 class Paper(Record):
     """ASAP paper with all available fields."""
 
-    title: str = Field(description="Paper title")
-    abstract: str = Field(description="Abstract text")
-    reviews: Sequence[PaperReview] = Field(description="Feedback from a reviewer")
-    authors: Sequence[str] = Field(description="Names of the authors")
-    sections: Sequence[PaperSection] = Field(description="Sections in the paper text")
-    approval: bool = Field(
-        description="Approval decision - whether the paper was approved"
-    )
-    references: Sequence[PaperReference] = Field(
-        description="References made in the paper"
-    )
+    title: Annotated[str, Field(description="Paper title")]
+    abstract: Annotated[str, Field(description="Abstract text")]
+    reviews: Annotated[
+        Sequence[PaperReview], Field(description="Feedback from a reviewer")
+    ]
+    authors: Annotated[Sequence[str], Field(description="Names of the authors")]
+    sections: Annotated[
+        Sequence[PaperSection], Field(description="Sections in the paper text")
+    ]
+    approval: Annotated[
+        bool, Field(description="Approval decision - whether the paper was approved")
+    ]
+    references: Annotated[
+        Sequence[PaperReference], Field(description="References made in the paper")
+    ]
 
     @property
     @override

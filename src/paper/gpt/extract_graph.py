@@ -77,8 +77,12 @@ class IndexedEntity(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    index: int = Field(description="Index of this entity in its original list.")
-    text: str = Field(description="Sentence from the paper describing this entity.")
+    index: Annotated[
+        int, Field(description="Index of this entity in its original list.")
+    ]
+    text: Annotated[
+        str, Field(description="Sentence from the paper describing this entity.")
+    ]
 
 
 class ConnectedEntity(IndexedEntity):
@@ -88,10 +92,13 @@ class ConnectedEntity(IndexedEntity):
     connected entities.
     """
 
-    source_indices: Sequence[int] = Field(
-        description="Indices of the entities connected to this one in their original"
-        " list."
-    )
+    source_indices: Annotated[
+        Sequence[int],
+        Field(
+            description="Indices of the entities connected to this one in their original"
+            " list."
+        ),
+    ]
 
 
 def _at[T](seq: Sequence[T], idx: int, desc: str) -> T | None:
@@ -111,26 +118,37 @@ class GPTGraphStrict(GPTGraphBase):
     # There are also dedicated classes for each entity, even at the bottom levels, with
     # different field names for each connection.
 
-    title: str = Field(description="Title of the paper.")
-    primary_area: str = Field(
-        description="The primary subject area of the paper picked from the ICLR list of"
-        " topics."
-    )
-    keywords: Sequence[str] = Field(
-        description="Keywords that summarise the key aspects of the paper."
-    )
-    tldr: str = Field(description="Sentence that summarises the paper.")
-    claims: Sequence[ClaimEntity] = Field(
-        description="Main contributions the paper claims to make, with connections to"
-        " target `methods`."
-    )
-    methods: Sequence[MethodEntity] = Field(
-        description="Methods used to verify the claims, with connections to target"
-        " `experiments`"
-    )
-    experiments: Sequence[ExperimentEntity] = Field(
-        description="Experiments designed to put methods in practice."
-    )
+    title: Annotated[str, Field(description="Title of the paper.")]
+    primary_area: Annotated[
+        str,
+        Field(
+            description="The primary subject area of the paper picked from the ICLR list of"
+            " topics."
+        ),
+    ]
+    keywords: Annotated[
+        Sequence[str],
+        Field(description="Keywords that summarise the key aspects of the paper."),
+    ]
+    tldr: Annotated[str, Field(description="Sentence that summarises the paper.")]
+    claims: Annotated[
+        Sequence[ClaimEntity],
+        Field(
+            description="Main contributions the paper claims to make, with connections to"
+            " target `methods`."
+        ),
+    ]
+    methods: Annotated[
+        Sequence[MethodEntity],
+        Field(
+            description="Methods used to verify the claims, with connections to target"
+            " `experiments`"
+        ),
+    ]
+    experiments: Annotated[
+        Sequence[ExperimentEntity],
+        Field(description="Experiments designed to put methods in practice."),
+    ]
 
     @override
     def to_graph(self, title: str, abstract: str) -> Graph:
@@ -213,34 +231,50 @@ class GPTGraphStrict(GPTGraphBase):
 class ClaimEntity(BaseModel):
     """Entity representing a claim made in the paper."""
 
-    text: str = Field(description="Description of a claim made by the paper")
-    method_indices: Sequence[int] = Field(
-        description="Indices for the `methods` connected to this claim in the `methods`"
-        " list. There must be at least one connected `method`."
-    )
+    text: Annotated[str, Field(description="Description of a claim made by the paper")]
+    method_indices: Annotated[
+        Sequence[int],
+        Field(
+            description="Indices for the `methods` connected to this claim in the `methods`"
+            " list. There must be at least one connected `method`."
+        ),
+    ]
 
 
 class MethodEntity(BaseModel):
     """Entity representing a method described in the paper to support the claims."""
 
-    text: str = Field(
-        description="Description of a method used to validate claims from the paper."
-    )
-    index: int = Field(description="Index for this method in the `methods` list")
-    experiment_indices: Sequence[int] = Field(
-        description="Indices for the `experiments` connected to this method in the "
-        " `experiments` list. There must be at least one connected `experiment`."
-    )
+    text: Annotated[
+        str,
+        Field(
+            description="Description of a method used to validate claims from the paper."
+        ),
+    ]
+    index: Annotated[
+        int, Field(description="Index for this method in the `methods` list")
+    ]
+    experiment_indices: Annotated[
+        Sequence[int],
+        Field(
+            description="Indices for the `experiments` connected to this method in the "
+            " `experiments` list. There must be at least one connected `experiment`."
+        ),
+    ]
 
 
 class ExperimentEntity(BaseModel):
     """Entity representing an experiment used to validate a method from the paper."""
 
-    text: str = Field(
-        description="Description of an experiment used to validate the methods from"
-        " the paper."
-    )
-    index: int = Field(description="Index for this method in the `experiments` list")
+    text: Annotated[
+        str,
+        Field(
+            description="Description of an experiment used to validate the methods from"
+            " the paper."
+        ),
+    ]
+    index: Annotated[
+        int, Field(description="Index for this method in the `experiments` list")
+    ]
 
 
 _GRAPH_TYPES: Mapping[str, type[GPTGraphBase]] = {

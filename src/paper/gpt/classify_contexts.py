@@ -211,14 +211,20 @@ class ContextClassified(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    text: str = Field(description="Full text of the context mention")
-    gold: asap.ContextPolarity | None = Field(
-        description="Whether the citation context is annotated as positive or negative."
-        " Can be absent for unannotated data."
-    )
-    prediction: asap.ContextPolarity = Field(
-        description="Whether the citation context is predicted positive or negative"
-    )
+    text: Annotated[str, Field(description="Full text of the context mention")]
+    gold: Annotated[
+        asap.ContextPolarity | None,
+        Field(
+            description="Whether the citation context is annotated as positive or negative."
+            " Can be absent for unannotated data."
+        ),
+    ]
+    prediction: Annotated[
+        asap.ContextPolarity,
+        Field(
+            description="Whether the citation context is predicted positive or negative"
+        ),
+    ]
 
 
 class S2ReferenceClassified(s2.PaperFromASAP):
@@ -252,19 +258,24 @@ class S2ReferenceClassified(s2.PaperFromASAP):
 class PaperWithContextClassfied(Record):
     """ASAP Paper with S2 references with classified contexts."""
 
-    title: str = Field(description="Paper title")
-    abstract: str = Field(description="Abstract text")
-    reviews: Sequence[asap.PaperReview] = Field(description="Feedback from a reviewer")
-    authors: Sequence[str] = Field(description="Names of the authors")
-    sections: Sequence[asap.PaperSection] = Field(
-        description="Sections in the paper text"
-    )
-    approval: bool = Field(
-        description="Approval decision - whether the paper was approved"
-    )
-    references: Sequence[S2ReferenceClassified] = Field(
-        description="S2 paper referenced in the paper with their contexts classified."
-    )
+    title: Annotated[str, Field(description="Paper title")]
+    abstract: Annotated[str, Field(description="Abstract text")]
+    reviews: Annotated[
+        Sequence[asap.PaperReview], Field(description="Feedback from a reviewer")
+    ]
+    authors: Annotated[Sequence[str], Field(description="Names of the authors")]
+    sections: Annotated[
+        Sequence[asap.PaperSection], Field(description="Sections in the paper text")
+    ]
+    approval: Annotated[
+        bool, Field(description="Approval decision - whether the paper was approved")
+    ]
+    references: Annotated[
+        Sequence[S2ReferenceClassified],
+        Field(
+            description="S2 paper referenced in the paper with their contexts classified."
+        ),
+    ]
 
     @property
     def id(self) -> str:
@@ -285,10 +296,11 @@ class GPTContext(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    text: str = Field(description="Full text of the context mention")
-    polarity: asap.ContextPolarity = Field(
-        description="Whether the citation context is positive or negative"
-    )
+    text: Annotated[str, Field(description="Full text of the context mention")]
+    polarity: Annotated[
+        asap.ContextPolarity,
+        Field(description="Whether the citation context is positive or negative"),
+    ]
 
 
 _CONTEXT_TYPES = {
