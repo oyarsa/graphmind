@@ -1,9 +1,10 @@
 """Tools for serialisation and deserialisation of Pydantic objects."""
 
+import json
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
@@ -85,3 +86,8 @@ def save_data[T: BaseModel](
         )
     else:
         file.write_text(data.model_dump_json(indent=2, by_alias=use_alias))
+
+
+def safe_load_json(file_path: Path) -> Any:
+    """Load a JSON file, removing invalid UTF-8 characters."""
+    return json.loads(file_path.read_text(encoding="utf-8", errors="replace"))
