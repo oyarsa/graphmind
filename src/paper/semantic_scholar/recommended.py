@@ -282,7 +282,7 @@ def _merge_papers(papers: Iterable[PaperWithRecommendations]) -> list[PaperRecom
 
 async def _fetch_paper_recommendations(
     session: aiohttp.ClientSession,
-    paper: s2.S2Paper,
+    paper: s2.PaperFromASAP,
     fields: Iterable[str],
     limit_recommendations: int,
 ) -> list[Paper]:
@@ -325,7 +325,7 @@ def _deduplicate_papers(papers: Iterable[Paper]) -> list[Paper]:
 
 async def _fetch_paper_recommendations_from(
     session: aiohttp.ClientSession,
-    paper: s2.S2Paper,
+    paper: s2.PaperFromASAP,
     fields: Iterable[str],
     limit_recommendations: int,
     from_: str,

@@ -74,8 +74,13 @@ class Author(BaseModel):
     author_id: Annotated[str | None, Field(alias="authorId")]
 
 
-class S2Paper(Record):
-    """Paper from the S2 API."""
+class PaperFromASAP(Record):
+    """Paper from querying an ASAP paper the S2 API with useful fields required.
+
+    The original Paper type has most things optional because we don't know what the API
+    will return for each individual paper. This type, on the other hand, requires all
+    the useful fields.
+    """
 
     title_asap: str = Field(
         description="Title used in the API query (from ASAP)", alias="title_query"
@@ -113,13 +118,15 @@ class S2Paper(Record):
         return self.paper_id
 
 
-class S2Reference(S2Paper):
+class S2Reference(PaperFromASAP):
     """S2 paper as a reference with the original contexts."""
 
     contexts: Sequence[asap.CitationContext]
 
     @classmethod
-    def from_(cls, paper: S2Paper, *, contexts: Sequence[asap.CitationContext]) -> Self:
+    def from_(
+        cls, paper: PaperFromASAP, *, contexts: Sequence[asap.CitationContext]
+    ) -> Self:
         """Create new instance by copying data from S2Paper, in addition to the contexts."""
         return cls.model_validate(paper.model_dump() | {"contexts": contexts})
 
@@ -154,11 +161,11 @@ class PaperWithS2Refs(Record):
 class ASAPPaperWithS2(asap.Paper):
     """ASAP paper with associated S2 paper information."""
 
-    s2: S2Paper
+    s2: PaperFromASAP
     fuzz_ratio: int
 
     @classmethod
-    def from_asap(cls, asap: asap.Paper, s2_result: S2Paper) -> Self:
+    def from_asap(cls, asap: asap.Paper, s2_result: PaperFromASAP) -> Self:
         """Create new paper from an existing ASAP paper and the S2 API result."""
         return cls(
             title=asap.title,
@@ -221,7 +228,7 @@ class ASAPWithFullS2(Record):
     approval: bool = Field(
         description="Approval decision - whether the paper was approved"
     )
-    references: Sequence[S2Paper] = Field(
+    references: Sequence[PaperFromASAP] = Field(
         description="References made in the paper with full S2 data"
     )
 

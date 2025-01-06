@@ -221,13 +221,15 @@ class ContextClassified(BaseModel):
     )
 
 
-class S2ReferenceClassified(s2.S2Paper):
+class S2ReferenceClassified(s2.PaperFromASAP):
     """S2 paper as a reference with the classified contexts."""
 
     contexts: Sequence[ContextClassified]
 
     @classmethod
-    def from_(cls, paper: s2.S2Paper, *, contexts: Sequence[ContextClassified]) -> Self:
+    def from_(
+        cls, paper: s2.PaperFromASAP, *, contexts: Sequence[ContextClassified]
+    ) -> Self:
         """Create new instance by copying data from S2Paper, in addition to the contexts."""
         return cls.model_validate(paper.model_dump() | {"contexts": contexts})
 

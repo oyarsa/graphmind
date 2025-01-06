@@ -98,7 +98,7 @@ def main(
     random.seed(seed)
 
     asap_papers = load_data(asap_file, asap.Paper)
-    reference_papers = load_data(references_file, s2.S2Paper)
+    reference_papers = load_data(references_file, s2.PaperFromASAP)
     recommended_papers = load_data(recommended_file, s2.PaperRecommended)
     area_papers = load_data(areas_file, s2.PaperArea) if areas_file else []
 
@@ -125,7 +125,7 @@ def main(
 
 def _augment_asap(
     asap_papers: Iterable[asap.Paper],
-    s2_papers: Iterable[s2.S2Paper],
+    s2_papers: Iterable[s2.PaperFromASAP],
     min_references: int,
 ) -> list[s2.PaperWithS2Refs]:
     """Augment all references in each ASAP paper with their full S2 data.
@@ -202,10 +202,10 @@ def _filter_recommended(
 
 def _unique_asap_refs(
     asap_papers: Iterable[s2.PaperWithS2Refs],
-) -> list[s2.S2Paper]:
+) -> list[s2.PaperFromASAP]:
     """Get all unique referenced papers from ASAP based on reference's `title_asap`."""
     seen_queries: set[str] = set()
-    ref_papers: list[s2.S2Paper] = []
+    ref_papers: list[s2.PaperFromASAP] = []
 
     for asap_paper in asap_papers:
         for ref in asap_paper.references:
