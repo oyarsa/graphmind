@@ -1,7 +1,7 @@
 """Group paper sections by heading number and merge subsections."""
 
 import json
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
@@ -9,6 +9,7 @@ import typer
 from pydantic import TypeAdapter
 
 from paper.asap.model import PaperSection
+from paper.util import groupby
 
 
 def _merge_section(subsections: Sequence[PaperSection]) -> PaperSection | None:
@@ -56,34 +57,6 @@ def _parse_section_number(heading: str) -> int | None:
         return None
 
 
-def _groupby[T, K](
-    iterable: Iterable[T], key: Callable[[T], K | None]
-) -> dict[K, list[T]]:
-    """Group items into a dict by key function. Ignores items with None key.
-
-    Args:
-        iterable: Iterable of items to group.
-        key: Function that takes an element and returns the key to group by. If the
-            returned key is None, the item is discarded.
-
-    Returns:
-        Dictionary where keys are the result of applying the key function to the items,
-        and values are lists of items that share the same. Keeps the original order of
-        items in each group. Keys are kept in the same order as they are first seen.
-    """
-    groups: dict[K, list[T]] = {}
-
-    for item in iterable:
-        k = key(item)
-        if k is None:
-            continue
-        if k not in groups:
-            groups[k] = []
-        groups[k].append(item)
-
-    return groups
-
-
 def group_sections(sections: Iterable[dict[str, str]]) -> list[PaperSection]:
     r"""Combine subsections with the same main heading number into a single section.
 
@@ -117,7 +90,7 @@ def group_sections(sections: Iterable[dict[str, str]]) -> list[PaperSection]:
         for section in sections
         if section["heading"]
     ]
-    heading_groups = _groupby(headings, lambda x: _parse_section_number(x.heading))
+    heading_groups = groupby(headings, lambda x: _parse_section_number(x.heading))
 
     return [
         merged
