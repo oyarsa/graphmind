@@ -1,4 +1,4 @@
-"""Test the full PETER pipeline from preprocessing to graph building."""
+"""Test the full PETER pipeline from ASAP preprocessing to graph building."""
 
 from pathlib import Path
 
@@ -8,14 +8,15 @@ from .utils import run, run_parallel_commands
 
 
 @pytest.mark.slow
-def test_peter_pipeline(tmp_path: Path) -> None:
-    """Test the full PETER pipeline from preprocessing to graph building."""
+def test_asap_peter_pipeline(tmp_path: Path) -> None:
+    """Test the full PETER pipeline from ASAP preprocessing to graph building."""
 
     # Download ASAP
-    run("src/paper/asap/download.py", str(tmp_path / "asap-dataset"))
+    data_path = tmp_path / "asap-dataset"
+    run("src/paper/asap/download.py", data_path)
 
     # Preprocess
-    run("preprocess", "asap", "data/asap", str(tmp_path), "100")
+    run("preprocess", "asap", data_path, tmp_path)
 
     # Info main
     run(
