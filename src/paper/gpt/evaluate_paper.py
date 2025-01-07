@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 from enum import StrEnum
-from typing import NamedTuple
+from typing import Annotated, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -15,9 +15,9 @@ from paper.util import safediv
 class PaperResult(Paper):
     """ASAP-Review dataset paper with added approval ground truth and GPT prediction."""
 
-    y_true: bool = Field(description="Human annotation")
-    y_pred: bool = Field(description="Model prediction")
-    rationale: str = Field(description="Model rationale for the prediction")
+    y_true: Annotated[bool, Field(description="Human annotation")]
+    y_pred: Annotated[bool, Field(description="Model prediction")]
+    rationale: Annotated[str, Field(description="Model rationale for the prediction")]
 
 
 class Labels(NamedTuple):
@@ -88,13 +88,15 @@ class Demonstration(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    title: str = Field(description="Paper title")
-    abstract: str = Field(description="Paper abstract")
-    text: str = Field(description="Paper full main text")
-    approval: bool = Field(description="Decision on whether to approve the paper")
-    rationale: str = Field(description="Rationale given by a reviewer")
-    rating: int = Field(description="Rating from the rationale")
-    type: DemonstrationType = Field(description="Type of demonstration")
+    title: Annotated[str, Field(description="Paper title")]
+    abstract: Annotated[str, Field(description="Paper abstract")]
+    text: Annotated[str, Field(description="Paper full main text")]
+    approval: Annotated[
+        bool, Field(description="Decision on whether to approve the paper")
+    ]
+    rationale: Annotated[str, Field(description="Rationale given by a reviewer")]
+    rating: Annotated[int, Field(description="Rating from the rationale")]
+    type: Annotated[DemonstrationType, Field(description="Type of demonstration")]
 
 
 def format_demonstrations(
@@ -148,8 +150,12 @@ class GPTFull(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    rationale: str = Field(description="How you reached your approval decision.")
-    approved: bool = Field(description="If the paper was approved for publication.")
+    rationale: Annotated[
+        str, Field(description="How you reached your approval decision.")
+    ]
+    approved: Annotated[
+        bool, Field(description="If the paper was approved for publication.")
+    ]
 
 
 CLASSIFY_TYPES = {

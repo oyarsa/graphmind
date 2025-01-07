@@ -22,8 +22,9 @@ $ gpt [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `context`: Classify paper citations using full text.
-* `eval_full`: Evaluate paper using full text.
+* `eval`: Evaluate a paper
 * `graph`: Extract graph from papers.
+* `petersum`: Summarise PETER related papers.
 * `terms`: Annotate S2 papers with key terms and split abstract.
 * `tokens`: Estimate input tokens for tasks and prompts.
 
@@ -69,11 +70,12 @@ Each paper contains many references. These can appear in one or more citation co
 inside the text. Each citation context can be classified by polarity (positive vs
 negative).
 
-NB: We do concurrent requests (mediated by a rate limiter). Unfortunately, that doesn't
-work very well with OpenAI's client. This means you'll likely see a lot of
-openai.APIConnectionError thrown around. Most requests will go through, so you'll just
-have to run the script again until you get everything. See also the `--continue-papers`
-option.
+Here, these references contain data from the S2 API, so we want to keep that, in addition
+to the context and its class.
+
+Data:
+- input: asap.PaperWithS2Refs
+- output: PaperWithContextClassfied
 
 **Usage**:
 
@@ -97,14 +99,34 @@ $ gpt context run [OPTIONS] DATA_PATH OUTPUT_DIR
 * `--seed INTEGER`: Seed to set in the OpenAI call.  [default: 0]
 * `--help`: Show this message and exit.
 
-## `gpt eval_full`
+## `gpt eval`
+
+Evaluate a paper
+
+**Usage**:
+
+```console
+$ gpt eval [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `full`: Evaluate paper using full text.
+* `peter`: Evaluate paper using PETER-query related papers.
+* `scimon`: Evaluate paper using SciMON graphs-extracted terms.
+
+### `gpt eval full`
 
 Evaluate a paper's approval based on its full-body text.
 
 **Usage**:
 
 ```console
-$ gpt eval_full [OPTIONS] COMMAND [ARGS]...
+$ gpt eval full [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -116,14 +138,14 @@ $ gpt eval_full [OPTIONS] COMMAND [ARGS]...
 * `prompts`: List available prompts.
 * `run`: Evaluate a paper's approval based on its...
 
-### `gpt eval_full prompts`
+#### `gpt eval full prompts`
 
 List available prompts.
 
 **Usage**:
 
 ```console
-$ gpt eval_full prompts [OPTIONS]
+$ gpt eval full prompts [OPTIONS]
 ```
 
 **Options**:
@@ -131,31 +153,153 @@ $ gpt eval_full prompts [OPTIONS]
 * `--detail / --no-detail`: Show full description of the prompts.  [default: no-detail]
 * `--help`: Show this message and exit.
 
-### `gpt eval_full run`
+#### `gpt eval full run`
 
 Evaluate a paper's approval based on its full-body text.
 
 **Usage**:
 
 ```console
-$ gpt eval_full run [OPTIONS] DATA_PATH OUTPUT_DIR
+$ gpt eval full run [OPTIONS]
 ```
-
-**Arguments**:
-
-* `DATA_PATH`: The path to the JSON file containing the papers data.  [required]
-* `OUTPUT_DIR`: The path to the output directory where the files will be saved.  [required]
 
 **Options**:
 
+* `--asap PATH`: The path to the JSON file containing the ASAP papers data.  [required]
+* `--output PATH`: The path to the output directory where the files will be saved.  [required]
 * `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
 * `-n, --limit INTEGER`: The number of papers to process.  [default: 1]
-* `--user-prompt [iclr2023|iclr2023-abs|simple|simple-abs]`: The user prompt to use for classification.  [default: simple]
+* `--user-prompt [iclr2023|iclr2023-abs|simple|simple-abs]`: The user prompt to use for classification.  [default: simple-abs]
 * `--continue-papers PATH`: Path to file with data from a previous run.
 * `--clean-run / --no-clean-run`: Start from scratch, ignoring existing intermediate results  [default: no-clean-run]
 * `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
 * `--demos PATH`: File containing demonstrations to use in few-shot prompt
-* `--demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations.  [default: simple]
+* `--demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations.  [default: abstract]
+* `--help`: Show this message and exit.
+
+### `gpt eval peter`
+
+Evaluate a paper's approval based on annotated papers with PETER-queried papers.
+
+**Usage**:
+
+```console
+$ gpt eval peter [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `prompts`: List available prompts.
+* `run`: Evaluate a paper's approval based on...
+
+#### `gpt eval peter prompts`
+
+List available prompts.
+
+**Usage**:
+
+```console
+$ gpt eval peter prompts [OPTIONS]
+```
+
+**Options**:
+
+* `--detail / --no-detail`: Show full description of the prompts.  [default: no-detail]
+* `--help`: Show this message and exit.
+
+#### `gpt eval peter run`
+
+Evaluate a paper's approval based on annotated papers with PETER-queried papers.
+
+The input is the output of `gpt.summarise_related_peter`. This are the PETER-queried
+papers with the related papers summarised.
+
+The output is the input annotated papers with an approval/rejection label.
+
+**Usage**:
+
+```console
+$ gpt eval peter run [OPTIONS]
+```
+
+**Options**:
+
+* `--ann-graph PATH`: JSON file containing the annotated ASAP papers with summarised graph results.  [required]
+* `--output PATH`: The path to the output directory where the files will be saved.  [required]
+* `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
+* `-n, --limit INTEGER`: The number of papers to process.  [default: 1]
+* `--user-prompt [simple]`: The user prompt to use for classification.  [default: simple]
+* `--continue-papers PATH`: Path to file with data from a previous run.
+* `--clean-run / --no-clean-run`: Start from scratch, ignoring existing intermediate results  [default: no-clean-run]
+* `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
+* `--demos PATH`: File containing demonstrations to use in few-shot prompt
+* `--demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations.  [default: abstract]
+* `--help`: Show this message and exit.
+
+### `gpt eval scimon`
+
+Evaluate a paper's approval based on annotated papers with SciMON-derived terms.
+
+**Usage**:
+
+```console
+$ gpt eval scimon [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `prompts`: List available prompts.
+* `run`: Evaluate a paper's approval based on...
+
+#### `gpt eval scimon prompts`
+
+List available prompts.
+
+**Usage**:
+
+```console
+$ gpt eval scimon prompts [OPTIONS]
+```
+
+**Options**:
+
+* `--detail / --no-detail`: Show full description of the prompts.  [default: no-detail]
+* `--help`: Show this message and exit.
+
+#### `gpt eval scimon run`
+
+Evaluate a paper's approval based on annotated papers with SciMON-derived terms.
+
+The input is the output of `scimon.query_asap`, i.e. the output of `gpt.annotate_paper`
+(papers with extracted scientific terms) with the related terms extracted through the
+SciMON graph created by `scimon.build`.
+
+**Usage**:
+
+```console
+$ gpt eval scimon run [OPTIONS]
+```
+
+**Options**:
+
+* `--ann-graph PATH`: JSON file containing the annotated ASAP papers with graph results.  [required]
+* `--output PATH`: The path to the output directory where the files will be saved.  [required]
+* `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
+* `-n, --limit INTEGER`: The number of papers to process.  [default: 1]
+* `--user-prompt [simple]`: The user prompt to use for classification.  [default: simple]
+* `--continue-papers PATH`: Path to file with data from a previous run.
+* `--clean-run / --no-clean-run`: Start from scratch, ignoring existing intermediate results  [default: no-clean-run]
+* `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
+* `--demos PATH`: File containing demonstrations to use in few-shot prompt
+* `--demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations.  [default: abstract]
 * `--help`: Show this message and exit.
 
 ## `gpt graph`
@@ -223,6 +367,71 @@ $ gpt graph run [OPTIONS] DATA_PATH OUTPUT_DIR
 * `--seed INTEGER`: Seed to set in the OpenAI call.  [default: 0]
 * `--help`: Show this message and exit.
 
+## `gpt petersum`
+
+Summarise related papers from PETER for inclusion in main paper evaluation prompt.
+
+**Usage**:
+
+```console
+$ gpt petersum [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `prompts`: List available prompts.
+* `run`: Run related paper summarisation.
+
+### `gpt petersum prompts`
+
+List available prompts.
+
+**Usage**:
+
+```console
+$ gpt petersum prompts [OPTIONS]
+```
+
+**Options**:
+
+* `--detail / --no-detail`: Show full description of the prompts.  [default: no-detail]
+* `--help`: Show this message and exit.
+
+### `gpt petersum run`
+
+Summarise related papers from PETER for inclusion in main paper evaluation prompt.
+
+The input is the output of `paper.asap`, i.e. the output of `gpt.annotate_paper`
+(papers with extracted scientific terms) and `gpt.classify_contexts` (citations
+contexts classified by polarity) with the related papers queried through the PETER
+graph.
+
+The output is similar to the input, but the related papers have extra summarised
+information that can be useful for evaluating papers.
+
+**Usage**:
+
+```console
+$ gpt petersum run [OPTIONS]
+```
+
+**Options**:
+
+* `--ann-graph PATH`: JSON file containing the annotated ASAP papers with graph results.  [required]
+* `--output PATH`: The path to the output directory where the files will be saved.  [required]
+* `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
+* `-n, --limit INTEGER`: The number of ASAP papers to process.  [default: 10]
+* `--positive-prompt [negative|positive]`: The summarisation prompt to use for positively related papers.  [default: positive]
+* `--negative-prompt [negative|positive]`: The summarisation prompt to use for negatively related papers.  [default: negative]
+* `--continue-papers PATH`: Path to file with data from a previous run.
+* `--clean-run / --no-clean-run`: Start from scratch, ignoring existing intermediate results  [default: no-clean-run]
+* `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
+* `--help`: Show this message and exit.
+
 ## `gpt terms`
 
 Extract key terms for problems and methods from S2 Papers.
@@ -261,8 +470,8 @@ $ gpt terms prompts [OPTIONS]
 
 Extract key terms for problems and methods from S2 Papers.
 
-Input is a JSON array of `paper.external_data.semantic_scholar.model.Paper`. Output
-contains the input paper plus the prompts used and the extracted terms.
+Input is a JSON array of `paper.semantic_scholar.model.Paper`. Output contains the input
+paper plus the prompts used and the extracted terms.
 
 **Usage**:
 
@@ -277,6 +486,7 @@ $ gpt terms run [OPTIONS] INPUT_FILE OUTPUT_DIR
 
 **Options**:
 
+* `--paper-type [s2|asap]`: Type of paper for the input data  [required]
 * `-n, --limit INTEGER`: The number of papers to process. Set to 0 for all papers.  [default: 0]
 * `-m, --model [4o|4o-mini|gpt-4o|gpt-4o-2024-08-06|gpt-4o-mini|gpt-4o-mini-2024-07-18]`: The model to use for the annotation.  [default: gpt-4o-mini]
 * `--seed INTEGER`: Seed to set in the OpenAI call.  [default: 0]
@@ -305,23 +515,12 @@ $ gpt tokens [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `fulltext`: Estimates the number of input tokens for a...
+* `fulltext`: Estimate tokens for full-text evaluation
+* `scimon`: Estimate tokens for SciMON-based evaluation
 
 ### `gpt tokens fulltext`
 
-Estimates the number of input tokens for a given dataset.
-
-Supports the following modes:
-- evaluate_paper_full: full text-based paper evaluation
-
-Todo:
-- extract_graph: extract entity graph from paper text
-- evaluate_paper_graph: graph-based paper evaluation
-
-WON'T DO:
-- classify_context: classify paper and context sentence into positive/negative. I won't
-  do this because we already have the best configuration (short instructions with only
-  the citation sentence) and it uses very few tokens.
+Estimate tokens for full-text evaluation
 
 **Usage**:
 
@@ -336,8 +535,31 @@ $ gpt tokens fulltext [OPTIONS] INPUT_FILE
 **Options**:
 
 * `--user [iclr2023|iclr2023-abs|simple|simple-abs]`: Input data prompt.  [required]
-* `--demo [abstract|maintext]`: Demonstration prompt.  [required]
-* `--demonstrations-file PATH`: Path to demonstrations file
+* `--demo-prompt [abstract|maintext]`: Demonstration prompt.  [required]
+* `--demo-file PATH`: Path to demonstrations file
+* `-m, --model TEXT`: Which model's tokeniser to use.  [default: gpt-4o-mini]
+* `-n, --limit INTEGER`: Limit on the number of entities to process.
+* `--help`: Show this message and exit.
+
+### `gpt tokens scimon`
+
+Estimate tokens for SciMON-based evaluation
+
+**Usage**:
+
+```console
+$ gpt tokens scimon [OPTIONS] INPUT_FILE
+```
+
+**Arguments**:
+
+* `INPUT_FILE`: Input dataset JSON file (annotated ASAP with graph data.)  [required]
+
+**Options**:
+
+* `--user [simple]`: Input data prompt.  [required]
+* `--demo-prompt [abstract|maintext]`: Demonstration prompt.  [required]
+* `--demo-file PATH`: Path to demonstrations file
 * `-m, --model TEXT`: Which model's tokeniser to use.  [default: gpt-4o-mini]
 * `-n, --limit INTEGER`: Limit on the number of entities to process.
 * `--help`: Show this message and exit.

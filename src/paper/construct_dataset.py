@@ -98,7 +98,7 @@ def main(
     random.seed(seed)
 
     asap_papers = load_data(asap_file, asap.Paper)
-    reference_papers = load_data(references_file, asap.S2Paper)
+    reference_papers = load_data(references_file, s2.PaperFromASAP)
     recommended_papers = load_data(recommended_file, s2.PaperRecommended)
     area_papers = load_data(areas_file, s2.PaperArea) if areas_file else []
 
@@ -125,29 +125,29 @@ def main(
 
 def _augment_asap(
     asap_papers: Iterable[asap.Paper],
-    s2_papers: Iterable[asap.S2Paper],
+    s2_papers: Iterable[s2.PaperFromASAP],
     min_references: int,
-) -> list[asap.PaperWithS2Refs]:
+) -> list[s2.PaperWithS2Refs]:
     """Augment all references in each ASAP paper with their full S2 data.
 
     Matches S2 and ASAP data by ASAP paper `title` and S2 `title_asap`. It's possible
     that some references can't be matched, so we keep only ASAP papers with at least
     `min_references`.
     """
-    augmented_papers: list[asap.PaperWithS2Refs] = []
+    augmented_papers: list[s2.PaperWithS2Refs] = []
     s2_papers_from_query = {
         s2.clean_title(paper.title_asap): paper for paper in s2_papers
     }
 
     for asap_paper in asap_papers:
         s2_references = [
-            asap.S2Reference.from_(s2_paper, contexts=ref.contexts)
+            s2.S2Reference.from_(s2_paper, contexts=ref.contexts)
             for ref in asap_paper.references
             if (s2_paper := s2_papers_from_query.get(s2.clean_title(ref.title)))
         ]
         if len(s2_references) >= min_references:
             augmented_papers.append(
-                asap.PaperWithS2Refs(
+                s2.PaperWithS2Refs(
                     title=asap_paper.title,
                     abstract=asap_paper.abstract,
                     reviews=asap_paper.reviews,
@@ -162,8 +162,8 @@ def _augment_asap(
 
 
 def _balanced_sample(
-    data: Sequence[asap.PaperWithS2Refs], n: int
-) -> list[asap.PaperWithS2Refs]:
+    data: Sequence[s2.PaperWithS2Refs], n: int
+) -> list[s2.PaperWithS2Refs]:
     """Sample balanced entries from approved and rejected.
 
     The goal is the output will always contain balanced classes. This is necessary
@@ -184,7 +184,7 @@ def _balanced_sample(
 
 
 def _filter_recommended(
-    asap_papers: Iterable[asap.PaperWithS2Refs],
+    asap_papers: Iterable[s2.PaperWithS2Refs],
     recommended_papers: Iterable[s2.PaperRecommended],
 ) -> list[s2.Paper]:
     """Keep only recommended papers from current papers in the ASAP dataset.
@@ -201,11 +201,11 @@ def _filter_recommended(
 
 
 def _unique_asap_refs(
-    asap_papers: Iterable[asap.PaperWithS2Refs],
-) -> list[asap.S2Paper]:
+    asap_papers: Iterable[s2.PaperWithS2Refs],
+) -> list[s2.PaperFromASAP]:
     """Get all unique referenced papers from ASAP based on reference's `title_asap`."""
     seen_queries: set[str] = set()
-    ref_papers: list[asap.S2Paper] = []
+    ref_papers: list[s2.PaperFromASAP] = []
 
     for asap_paper in asap_papers:
         for ref in asap_paper.references:

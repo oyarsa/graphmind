@@ -32,7 +32,6 @@ from paper.gpt.model import (
 )
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
-    GPT_SEMAPHORE,
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
@@ -178,11 +177,9 @@ def run(
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run.")
     ] = None,
-    clean_run: Annotated[
+    continue_: Annotated[
         bool,
-        typer.Option(
-            help="Start from scratch, ignoring existing intermediate results."
-        ),
+        typer.Option("--continue", help="Use existing intermediate results."),
     ] = False,
     log: Annotated[
         DetailOptions, typer.Option(help="How much detail to show in output logging.")
@@ -201,7 +198,7 @@ def run(
             abstract_demonstrations,
             abstract_demonstrations_prompt,
             continue_papers,
-            clean_run,
+            continue_,
             log,
             paper_type,
         )
@@ -219,7 +216,7 @@ async def annotate_papers(
     abstract_demonstrations_path: Path | None,
     abstract_demonstrations_prompt: str,
     continue_papers_file: Path | None,
-    clean_run: bool,
+    continue_: bool,
     show_log: DetailOptions,
     paper_type: PaperType,
 ) -> None:
@@ -246,7 +243,7 @@ async def annotate_papers(
         abstract_demonstrations_prompt: Prompt to build the demonstrations string.
         continue_papers_file: File with the intermediate results from a previous run
             that we want to continue.
-        clean_run: If True, we ignore `continue_papers_file` and start from scratch.
+        continue_: If True, we use data from `continue_papers_file`.
         show_log: Show log of term count for each paper and type of term. If NONE, show
             only statistics on the quantities of extracted terms. If TABLE, shows a
             summary table of each term type. If DETAIL, shows detailed information on
@@ -279,7 +276,7 @@ async def annotate_papers(
         output_intermediate_file,
         continue_papers_file,
         papers,
-        clean_run,
+        continue_,
     )
     if not papers_remaining.remaining:
         logger.info(
@@ -287,9 +284,7 @@ async def annotate_papers(
         )
         return
 
-    if clean_run:
-        logger.info("Clean run: ignoring `continue` file and using the whole data.")
-    else:
+    if continue_:
         logger.info(
             "Skipping %d items from the `continue` file.", len(papers_remaining.done)
         )
@@ -411,23 +406,22 @@ async def _annotate_paper_single(
         demonstrations=abstract_demonstrations, abstract=paper.abstract
     )
 
-    async with GPT_SEMAPHORE:
-        result_term = await run_gpt(
-            PaperTerms,
-            client,
-            _TERM_SYSTEM_PROMPT,
-            term_prompt_text,
-            model,
-            seed=seed,
-        )
-        result_abstract = await run_gpt(
-            GPTAbstractClassify,
-            client,
-            _ABS_SYSTEM_PROMPT,
-            abstract_prompt_text,
-            model,
-            seed=seed,
-        )
+    result_term = await run_gpt(
+        PaperTerms,
+        client,
+        _TERM_SYSTEM_PROMPT,
+        term_prompt_text,
+        model,
+        seed=seed,
+    )
+    result_abstract = await run_gpt(
+        GPTAbstractClassify,
+        client,
+        _ABS_SYSTEM_PROMPT,
+        abstract_prompt_text,
+        model,
+        seed=seed,
+    )
 
     terms = result_term.result or PaperTerms.empty()
     abstract = result_abstract.result or GPTAbstractClassify.empty()

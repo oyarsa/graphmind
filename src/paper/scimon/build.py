@@ -4,9 +4,9 @@ The stored graph needs to be converted to a real one in memory because of how th
 embeddings are stored.
 
 This takes two inputs:
-- Annotated papers wrapped in prompts (gpt.PromptResult[gpt.PaperAnnotated]) from
+- Annotated papers wrapped in prompts (`gpt.PromptResult[gpt.PaperAnnotated]`) from
   `paper.gpt.annotate_paper`.
-- ASAP papers with full S2 reference data (s2.ASAPWithFullS2) from
+- ASAP papers with full S2 reference data (`s2.ASAPWithFullS2`) from
   `semantic_scholar.info`.
 """
 
@@ -18,8 +18,9 @@ from typing import Annotated
 
 import typer
 
-from paper import asap, gpt
 from paper import embedding as emb
+from paper import gpt
+from paper import semantic_scholar as s2
 from paper.scimon import citations, kg, semantic
 from paper.scimon.graph import Graph, GraphData
 from paper.util import Timer, display_params, setup_logging
@@ -62,7 +63,7 @@ def main(
     ann = gpt.PromptResult.unwrap(
         load_data(annotated_file, gpt.PromptResult[gpt.PaperAnnotated])
     )
-    asap_papers = load_data(asap_file, asap.PaperWithS2Refs)
+    asap_papers = load_data(asap_file, s2.PaperWithS2Refs)
     terms = [x.terms for x in ann]
 
     logger.info("Initialising encoder.")

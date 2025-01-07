@@ -17,6 +17,7 @@ The output is two files:
 from __future__ import annotations
 
 import asyncio
+import os
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -26,14 +27,15 @@ import aiohttp
 import backoff
 import dotenv
 import typer
+from aiolimiter import AsyncLimiter
 
-from paper.semantic_scholar.limiter import get_limiter
+from paper import semantic_scholar as s2
 from paper.semantic_scholar.model import (
     ASAPPaperWithS2,
+    Paper,
     PaperRecommended,
     PaperWithRecommendations,
 )
-from paper.semantic_scholar.model import Paper as S2Paper
 from paper.util import arun_safe, display_params, ensure_envvar, progress
 from paper.util.cli import die
 from paper.util.serde import load_data, save_data
@@ -47,8 +49,35 @@ VALID_FROM = ("recent", "all-cs")
 
 MAX_CONCURRENT_REQUESTS = 1
 REQUESTS_PER_SECOND = 1
-LIMITER = get_limiter(MAX_CONCURRENT_REQUESTS, REQUESTS_PER_SECOND)
 
+
+def _get_limiter(
+    max_concurrent_requests: int = 1,
+    requests_per_second: float = 1,
+    use_semaphore: bool | None = None,
+) -> asyncio.Semaphore | AsyncLimiter:
+    """Create some form of requests limiter based on the `USE_SEMAPHORE` env var.
+
+    Args:
+        max_concurrent_requests: When using a semaphore, the maximum number of requests
+            (async tasks) that can execute simultaneously. The rest will wait until
+            there's room available.
+        requests_per_second: Number of requests per second that can be made.
+        use_semaphore: Which one to use. If None, will check the USE_SEMAPHORE env var.
+            If USE_SEMAPHORE is 1, use a Semaphore. Otherwise, use a rate limiter.
+
+    Use Semaphore with small batches when you're not too worried about the rate limit,
+    or Rate Limiiter when you want something more reliable.
+    """
+    if use_semaphore is None:
+        use_semaphore = os.environ.get("USE_SEMAPHORE", "1") == "1"
+
+    if use_semaphore:
+        return asyncio.Semaphore(max_concurrent_requests)
+    return AsyncLimiter(requests_per_second, 1)
+
+
+LIMITER = _get_limiter(MAX_CONCURRENT_REQUESTS, REQUESTS_PER_SECOND)
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -59,7 +88,7 @@ app = typer.Typer(
 )
 
 
-@app.command(help=__doc__)
+@app.command(help=__doc__, no_args_is_help=True)
 def main(
     input_file: Annotated[
         Path,
@@ -218,7 +247,7 @@ def _merge_papers(papers: Iterable[PaperWithRecommendations]) -> list[PaperRecom
     Returns:
         List of the unique S2 papers with the name of the papers that led to them.
     """
-    paper_idx: dict[str, S2Paper] = {}
+    paper_idx: dict[str, Paper] = {}
     paper_sources_asap: defaultdict[str, set[str]] = defaultdict(set)
     paper_sources_s2: defaultdict[str, set[str]] = defaultdict(set)
 
@@ -253,10 +282,10 @@ def _merge_papers(papers: Iterable[PaperWithRecommendations]) -> list[PaperRecom
 
 async def _fetch_paper_recommendations(
     session: aiohttp.ClientSession,
-    paper: S2Paper,
+    paper: s2.PaperFromASAP,
     fields: Iterable[str],
     limit_recommendations: int,
-) -> list[S2Paper]:
+) -> list[Paper]:
     """Fetch paper recommendations from a paper in all VALID_FROM pools.
 
     Args:
@@ -271,7 +300,7 @@ async def _fetch_paper_recommendations(
         List of S2 recommended papers. If there was an error, prints it and returns an
         empty list.
     """
-    output: list[S2Paper] = []
+    output: list[Paper] = []
     for from_ in VALID_FROM:
         results = await _fetch_paper_recommendations_from(
             session, paper, fields, limit_recommendations, from_=from_
@@ -281,10 +310,10 @@ async def _fetch_paper_recommendations(
     return _deduplicate_papers(output)
 
 
-def _deduplicate_papers(papers: Iterable[S2Paper]) -> list[S2Paper]:
+def _deduplicate_papers(papers: Iterable[Paper]) -> list[Paper]:
     """Remove duplicate papers by paper_id."""
     seen: set[str] = set()
-    output: list[S2Paper] = []
+    output: list[Paper] = []
 
     for paper in papers:
         if paper.paper_id not in seen:
@@ -296,11 +325,11 @@ def _deduplicate_papers(papers: Iterable[S2Paper]) -> list[S2Paper]:
 
 async def _fetch_paper_recommendations_from(
     session: aiohttp.ClientSession,
-    paper: S2Paper,
+    paper: s2.PaperFromASAP,
     fields: Iterable[str],
     limit_recommendations: int,
     from_: str,
-) -> list[S2Paper]:
+) -> list[Paper]:
     """Fetch paper recommendations for a paper. Only returns data from `fields`.
 
     Args:
@@ -335,7 +364,7 @@ async def _fetch_paper_recommendations_from(
             return []
 
         if data := result.get("recommendedPapers"):
-            return [S2Paper.model_validate(paper) for paper in data]
+            return [Paper.model_validate(paper) for paper in data]
 
     except Exception as e:
         print(f"Paper '{paper.title}' failed after {MAX_RETRIES} tries:")

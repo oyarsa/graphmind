@@ -8,7 +8,7 @@ Here, these references contain data from the S2 API, so we want to keep that, in
 to the context and its class.
 
 Data:
-- input: asap.PaperWithS2Refs
+- input: s2.PaperWithS2Refs
 - output: PaperWithContextClassfied
 """
 
@@ -24,6 +24,7 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, computed_field
 
 from paper import asap, evaluation_metrics
+from paper import semantic_scholar as s2
 from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
@@ -101,9 +102,9 @@ def run(
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run")
     ] = None,
-    clean_run: Annotated[
+    continue_: Annotated[
         bool,
-        typer.Option(help="Start from scratch, ignoring existing intermediate results"),
+        typer.Option("--continue", help="Use existing intermediate results"),
     ] = False,
     seed: Annotated[int, typer.Option(help="Seed to set in the OpenAI call.")] = 0,
 ) -> None:
@@ -117,7 +118,7 @@ def run(
             output_dir,
             limit_references,
             continue_papers,
-            clean_run,
+            continue_,
             seed,
         )
     )
@@ -131,7 +132,7 @@ async def classify_contexts(
     output_dir: Path,
     limit_references: int | None,
     continue_papers_file: Path | None,
-    clean_run: bool,
+    continue_: bool,
     seed: int,
 ) -> None:
     """Classify reference citation contexts by polarity."""
@@ -151,7 +152,7 @@ async def classify_contexts(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    data = load_data(data_path, asap.PaperWithS2Refs)
+    data = load_data(data_path, s2.PaperWithS2Refs)
 
     papers = data[:limit_papers]
     user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
@@ -163,7 +164,7 @@ async def classify_contexts(
         output_intermediate_file,
         continue_papers_file,
         papers,
-        clean_run,
+        continue_,
     )
     if not papers_remaining.remaining:
         logger.info(
@@ -171,9 +172,7 @@ async def classify_contexts(
         )
         return
 
-    if clean_run:
-        logger.info("Clean run: ignoring `continue` file and using the whole data.")
-    else:
+    if continue_:
         logger.info(
             "Skipping %d items from the `continue` file.", len(papers_remaining.done)
         )
@@ -212,24 +211,30 @@ class ContextClassified(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    text: str = Field(description="Full text of the context mention")
-    gold: asap.ContextPolarity | None = Field(
-        description="Whether the citation context is annotated as positive or negative."
-        " Can be absent for unannotated data."
-    )
-    prediction: asap.ContextPolarity = Field(
-        description="Whether the citation context is predicted positive or negative"
-    )
+    text: Annotated[str, Field(description="Full text of the context mention")]
+    gold: Annotated[
+        asap.ContextPolarity | None,
+        Field(
+            description="Whether the citation context is annotated as positive or negative."
+            " Can be absent for unannotated data."
+        ),
+    ]
+    prediction: Annotated[
+        asap.ContextPolarity,
+        Field(
+            description="Whether the citation context is predicted positive or negative"
+        ),
+    ]
 
 
-class S2ReferenceClassified(asap.S2Paper):
+class S2ReferenceClassified(s2.PaperFromASAP):
     """S2 paper as a reference with the classified contexts."""
 
     contexts: Sequence[ContextClassified]
 
     @classmethod
     def from_(
-        cls, paper: asap.S2Paper, *, contexts: Sequence[ContextClassified]
+        cls, paper: s2.PaperFromASAP, *, contexts: Sequence[ContextClassified]
     ) -> Self:
         """Create new instance by copying data from S2Paper, in addition to the contexts."""
         return cls.model_validate(paper.model_dump() | {"contexts": contexts})
@@ -253,19 +258,24 @@ class S2ReferenceClassified(asap.S2Paper):
 class PaperWithContextClassfied(Record):
     """ASAP Paper with S2 references with classified contexts."""
 
-    title: str = Field(description="Paper title")
-    abstract: str = Field(description="Abstract text")
-    reviews: Sequence[asap.PaperReview] = Field(description="Feedback from a reviewer")
-    authors: Sequence[str] = Field(description="Names of the authors")
-    sections: Sequence[asap.PaperSection] = Field(
-        description="Sections in the paper text"
-    )
-    approval: bool = Field(
-        description="Approval decision - whether the paper was approved"
-    )
-    references: Sequence[S2ReferenceClassified] = Field(
-        description="S2 paper referenced in the paper with their contexts classified."
-    )
+    title: Annotated[str, Field(description="Paper title")]
+    abstract: Annotated[str, Field(description="Abstract text")]
+    reviews: Annotated[
+        Sequence[asap.PaperReview], Field(description="Feedback from a reviewer")
+    ]
+    authors: Annotated[Sequence[str], Field(description="Names of the authors")]
+    sections: Annotated[
+        Sequence[asap.PaperSection], Field(description="Sections in the paper text")
+    ]
+    approval: Annotated[
+        bool, Field(description="Approval decision - whether the paper was approved")
+    ]
+    references: Annotated[
+        Sequence[S2ReferenceClassified],
+        Field(
+            description="S2 paper referenced in the paper with their contexts classified."
+        ),
+    ]
 
     @property
     def id(self) -> str:
@@ -286,10 +296,11 @@ class GPTContext(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    text: str = Field(description="Full text of the context mention")
-    polarity: asap.ContextPolarity = Field(
-        description="Whether the citation context is positive or negative"
-    )
+    text: Annotated[str, Field(description="Full text of the context mention")]
+    polarity: Annotated[
+        asap.ContextPolarity,
+        Field(description="Whether the citation context is positive or negative"),
+    ]
 
 
 _CONTEXT_TYPES = {
@@ -304,7 +315,7 @@ async def _classify_paper(
     client: AsyncOpenAI,
     limit_references: int | None,
     model: str,
-    paper: asap.PaperWithS2Refs,
+    paper: s2.PaperWithS2Refs,
     user_prompt: PromptTemplate,
     *,
     seed: int,
@@ -392,7 +403,7 @@ async def _classify_contexts(
     client: AsyncOpenAI,
     model: str,
     user_prompt: PromptTemplate,
-    papers: Sequence[asap.PaperWithS2Refs],
+    papers: Sequence[s2.PaperWithS2Refs],
     limit_references: int | None,
     output_intermediate_path: Path,
     *,

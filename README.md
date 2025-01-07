@@ -6,10 +6,14 @@
 > This repository has been tested on macOS and Ubuntu. It should work on other Linux
 > systems, but it has not been tested on Windows. It should work on WSL.
 
-To automatically set up the environment, run:
+This project uses [`uv`](https://docs.astral.sh/uv/) to manage the development
+environment and dependencies:
 
-```bash
-./tasks.sh setup
+```console
+# Set up virtual environment and install dependencies
+$ uv sync --all-extras
+# Install pre-commit hooks
+$ uv run pre-commit install
 ```
 
 See [Development Environment](#development-environment) and
@@ -28,9 +32,6 @@ below.
 - **CSAbstruct**: abstract classification dataset we use for demonstrations in
   [gpt.annotate_paper](/src/paper/gpt/demonstrations.py). See
   [their repository](https://github.com/allenai/sequential_sentence_classification/tree/cf5ad6c663550dd8203f148cd703768d9ee86ff4)
-
-See [our data dependency graph](./assets/data-dependency-graph.png) for an overview
-on how our data pipeline works.
 
 Use the `uv run preprocess` command to access both S2ORC and ASAP dataset preprocessing:
 
@@ -81,7 +82,12 @@ $ uv run graph-gpt run --help
 $ uv run graph-gpt prompts --help
 ```
 
-For more information, see [`gpt/README.md`](./src/paper/gpt/README.md).
+For more information, see the documentation for each module:
+
+- [`preprocess/README.md`](./src/paper/preprocess/README.md).
+- [`scimon/README.md`](./src/paper/scimon/README.md).
+- [`peter/README.md`](./src/paper/peter/README.md).
+- [`gpt/README.md`](./src/paper/gpt/README.md).
 
 ## Development Environment
 
@@ -101,25 +107,29 @@ the `python`. Real example:
 uv run src/paper/s2orc/acl.py
 ```
 
-See `./tasks.sh` for common development tasks. In particular, use `./tasks.sh check` to
+See [uv's documentation](https://docs.astral.sh/uv/concepts/projects/run/) for more
+information.
+
+See `./tasks.sh` for common development tasks. In particular, use `./tasks.sh lint` to
 run the linter, formatter and type checker. Run `./tasks.sh help` to see all tasks.
 
-The `./tasks.sh setup` task sets up the full environment:
+We use the following tools for development:
 
 - [`uv`](https://docs.astral.sh/uv/): manages the project, Python environment and
   dependencies, including the development tools.
 - [`ruff`](https://docs.astral.sh/ruff/): linter and formatter.
 - [`pyright`](https://microsoft.github.io/pyright): type-checker.
-- [`pre-commit`](https://pre-commit.com/): which runs some basic checks before you
+- [`pre-commit`](https://pre-commit.com/): runs some basic checks before you
   create a commit.
 
 Please check the individual tool documentation for more information. See also
 [CONTRIBUTING](/CONTRIBUTING.md) for in-depth information.
 
-To view the project documentation in the browser (module, functions, class, etc.), run
+The project has rich comments on every public member. You can use `pydoc` to get the
+documentation for an item:
 
-```bash
-./tasks.sh doc
+```console
+$ uv run -m pydoc paper.peter.Graph
 ```
 
 ## License

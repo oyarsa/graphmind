@@ -6,7 +6,7 @@ import itertools
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from enum import StrEnum
-from typing import Annotated, Self
+from typing import TYPE_CHECKING, Annotated, Self
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
@@ -14,6 +14,9 @@ import paper.semantic_scholar as s2
 from paper import asap, hierarchical_graph
 from paper.util import hashstr
 from paper.util.serde import Record
+
+if TYPE_CHECKING:
+    from paper import peter
 
 
 class EntityType(StrEnum):
@@ -401,44 +404,6 @@ class PaperGraph(Record):
         return self
 
 
-class S2Paper(Record):
-    """Paper returned by the Semantic Scholar API. Everything's optional but `paperId`.
-
-    This is to avoid validation errors in the middle of the download. We'll only save
-    those with non-empty `abstract`, though.
-    """
-
-    # Semantic Scholar's primary unique identifier for a paper.
-    paper_id: Annotated[str, Field(alias="paperId")]
-    # Semantic Scholar's secondary unique identifier for a paper.
-    corpus_id: Annotated[int | None, Field(alias="corpusId")]
-    # URL of the paper on the Semantic Scholar website.
-    url: str
-    # Title of the paper.
-    title: str
-    # The paper's abstract. Note that due to legal reasons, this may be missing even if
-    # we display an abstract on the website.
-    abstract: str
-    # The year the paper was published.
-    year: int
-    # The total number of papers this paper references.
-    reference_count: Annotated[int, Field(alias="referenceCount")]
-    # The total number of papers that reference this paper.
-    citation_count: Annotated[int, Field(alias="citationCount")]
-    # A subset of the citation count, where the cited publication has a significant
-    # impact on the citing publication.
-    influential_citation_count: Annotated[int, Field(alias="influentialCitationCount")]
-    # The tldr paper summary.
-    tldr: s2.Tldr | None = None
-    # Paper authors.
-    authors: Sequence[s2.Author]
-
-    @property
-    def id(self) -> str:
-        """Identify S2 paper by its ID in the API."""
-        return self.paper_id
-
-
 class PaperTermRelation(BaseModel):
     """Represents a directed 'used for' relation between two scientific terms.
 
@@ -550,3 +515,63 @@ class ASAPAnnotated(Record):
     def title(self) -> str:
         """Title of the underlying paper."""
         return self.paper.title
+
+    @property
+    def abstract(self) -> str:
+        """Abstract of the underlying paper."""
+        return self.paper.abstract
+
+
+class PaperWithRelatedSummary(Record):
+    """ASAP paper with its related papers formatted as prompt input."""
+
+    paper: ASAPAnnotated
+    related: Sequence[PaperRelatedSummarised]
+
+    @property
+    def id(self) -> str:
+        """Identify graph result as the underlying paper's ID."""
+        return self.paper.id
+
+    @property
+    def title(self) -> str:
+        """Title of the underlying paper."""
+        return self.paper.title
+
+    @property
+    def abstract(self) -> str:
+        """Abstract of the underlying paper."""
+        return self.paper.abstract
+
+
+class PaperRelatedSummarised(Record):
+    """PETER-related paper with summary."""
+
+    summary: str
+
+    paper_id: str
+    title: str
+    abstract: str
+    score: float
+    polarity: asap.ContextPolarity
+
+    @property
+    def id(self) -> str:
+        """Identify the summary by its underlying paper ID."""
+        return self.paper_id
+
+    @classmethod
+    def from_related(cls, related: peter.PaperRelated, summary: str) -> Self:
+        """PETER-related paper with generated summary."""
+        from paper import peter
+
+        return cls(
+            summary=summary,
+            paper_id=related.paper_id,
+            title=related.title,
+            abstract=related.abstract,
+            score=related.score,
+            polarity=asap.ContextPolarity.POSITIVE
+            if related.polarity is peter.ContextPolarity.POSITIVE
+            else asap.ContextPolarity.NEGATIVE,
+        )

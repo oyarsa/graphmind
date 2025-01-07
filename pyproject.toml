@@ -35,6 +35,7 @@ dev = [
     "jupyterlab>=4.2.5",
     "pre-commit>=3.8.0",
     "pyright>=1.1.389",
+    "pytest>=8.3.4",
     "ruff>=0.8",
 ]
 
@@ -44,7 +45,7 @@ subdirectory = "cosy"
 tag = "cosy-0.3.0"
 
 [project.scripts]
-preprocess = "paper.preprocess:app"
+preprocess = "paper.preprocess.cli:app"
 gpt = "paper.gpt.cli:app"
 scimon = "paper.scimon.cli:app"
 peter = "paper.peter.cli:app"

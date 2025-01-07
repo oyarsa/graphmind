@@ -3,12 +3,8 @@
 The primary areas are obtained from the `paper.gpt.prompt.primary_areas.toml` file.
 
 For each primary area and year range, download the top `limit_year` papers by title
-similarity to the query. The year ranges can be like `2017-2022` or single values like
-`2022`. They're always strings.
-
----
-NB: The code uses aiohttp for requests, but it's actually sequential. I tried using
-concurrent requests here, but it didn't work very well.
+similarity to the query. The year range can be like `2017-2022` or single values like
+`2022`.
 """
 
 from __future__ import annotations
@@ -32,7 +28,7 @@ from tqdm import tqdm
 
 from paper.semantic_scholar.info import S2_SEARCH_BASE_URL
 from paper.semantic_scholar.model import Paper, PaperArea
-from paper.util import arun_safe, display_params, ensure_envvar, progress, read_resource
+from paper.util import arun_safe, display_params, ensure_envvar, read_resource
 from paper.util.cli import die
 
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -73,11 +69,11 @@ def main(
         )
     ),
     years: Annotated[
-        Sequence[str],
+        str,
         typer.Option(
-            help="List of year ranges to fetch papers. Can be like `2017-2022` or `2010`."
+            help="Range of years to fetch papers. Can be like `2017-2022` or `2010`."
         ),
-    ] = tuple(str(y) for y in range(2012, 2021)),
+    ] = "2012-2021",
     limit_year: Annotated[
         int,
         typer.Option(
@@ -118,7 +114,7 @@ def main(
 async def download_paper_info(
     fields_str: str,
     output_file: Path,
-    year_ranges: Sequence[str],
+    year_range: str,
     limit_year: int | None,
     limit_page: int,
     limit_areas: int | None,
@@ -126,8 +122,8 @@ async def download_paper_info(
 ) -> None:
     """Download papers belonging to ICLR primary areas from the Semantic Scholar API.
 
-    For each primary area and year range in `years`, download the top `limit_year`
-    matches by similarity, as given by the API.
+    For each primary area, download the top `limit_year` matches by similarity, as given
+    by the API.
 
     The API allows us to specify the returned fields, so pass just the relevant ones
     to minimise the bandwidth required, as payloads larger than 10 MB will generate
@@ -162,7 +158,7 @@ async def download_paper_info(
         limit_page,
         limit_year,
         primary_areas,
-        year_ranges,
+        year_range,
         min_citations,
     )
 
@@ -186,7 +182,7 @@ async def _fetch_areas(
     limit_page: int,
     limit_year: int | None,
     primary_areas: Sequence[str],
-    year_ranges: Sequence[str],
+    year_range: str,
     min_citations: int,
 ) -> list[AreaResult]:
     """Fetch papers for each area and year range.
@@ -199,7 +195,7 @@ async def _fetch_areas(
         limit_year: Maximum number of papers to download for each area and year.
         primary_areas: Areas to search the API. Each area is used as the query for the
             request.
-        year_ranges: Year ranges to filter the API. Can be ranges like `2017-2022` or a
+        year_range: Year range to filter the API. Can be a range like `2017-2022` or a
             single year like `2020`.
         min_citations: Only include papers with the minimum number of citations.
 
@@ -218,7 +214,7 @@ async def _fetch_areas(
                     session,
                     area,
                     fields,
-                    year_ranges,
+                    year_range,
                     limit_year=limit_year,
                     limit_page=limit_page,
                     min_citations=min_citations,
@@ -232,14 +228,14 @@ async def _fetch_area(
     session: aiohttp.ClientSession,
     query: str,
     fields: Iterable[str],
-    year_ranges: Sequence[str],
+    year_range: str,
     limit_year: int | None,
     limit_page: int,
     min_citations: int,
 ) -> list[Paper]:
     """Fetch paper information for a given `query`. Only returns data from `fields`.
 
-    The request filters by the `query` and `year_ranges`.
+    The request filters by the `query` and `year_range`.
 
     Handles pagination. Allows setting a total maximum of papers to download per year,
     and also the limit per page. The former is mostly for testing; the latter can be
@@ -252,8 +248,7 @@ async def _fetch_area(
             the ICLR documentation.
         fields: List of fields to retrieve. Restrict this only to the bare essentials
             to ensure the payloads are lightweight.
-        year_ranges: Sequence of year ranges to fetch papers. Can be like `2017-2022` or
-            `2010`.
+        year_range: Year range to fetch papers. Can be like `2017-2022` or `2010`.
         limit_year: Maximum number of papers per year range to retrieve from the API. If
             None, retrieve as many as possible.
         limit_page: Page limit sent to the API. The API defaults to 100, but this can
@@ -262,10 +257,11 @@ async def _fetch_area(
 
     Returns:
         List of dictionaries containing the contents of the `data` object of all pages
-        of all year ranges.
+        in the year range.
     """
-    tasks = [
-        _fetch_area_year_range(
+    return [
+        Paper.model_validate(paper)
+        for paper in await _fetch_area_year_range(
             session,
             query,
             fields,
@@ -274,12 +270,6 @@ async def _fetch_area(
             limit_page,
             min_citations,
         )
-        for year_range in year_ranges
-    ]
-    return [
-        Paper.model_validate(paper)
-        for papers in await progress.gather(tasks, desc=f"Q: {query}", leave=False)
-        for paper in papers
     ]
 
 

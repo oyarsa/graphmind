@@ -8,7 +8,6 @@ from paper.s2orc import preprocess as s2orc
 app = typer.Typer(
     name="preprocess",
     context_settings={"help_option_names": ["-h", "--help"]},
-    add_completion=False,
     rich_markup_mode="rich",
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,

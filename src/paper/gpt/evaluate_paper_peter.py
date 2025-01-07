@@ -1,45 +1,25 @@
-"""Evaluate a paper's approval based on its full-body text."""
+"""Evaluate a paper's approval based on annotated papers with PETER-queried papers.
 
-# Best configuration:
-#     Command:
-#     $ uv run gpt eval_full run output/asap_balanced_50.json tmp/eval-full -n 0 \
-#         --clean-run --user-prompt simple-abs --demos output/demonstrations_10.json \
-#         --demo-prompt abstract -m 4o
-#
-#     2024-11-04 20:03:37 | INFO | paper.gpt.evaluate_paper_full:151 | CONFIG:
-#     - model: 4o
-#     - api_key: None
-#     - data_path: /Users/italo/dev/paper-hypergraph/output/asap_balanced_50.json (dc592a4f)
-#     - limit_papers: 0
-#     - user_prompt_key: simple-abs
-#     - output_dir: /Users/italo/dev/paper-hypergraph/tmp/eval-full (directory)
-#     - continue_papers_file: None
-#     - continue_: False
-#     - seed: 0
-#     - demonstrations_file: /Users/italo/dev/paper-hypergraph/output/demonstrations_10.json (55baa321)
-#     - demo_prompt_key: abstract
-#
-# Output:
-#     - P   : 0.6286
-#     - R   : 0.8800
-#     - F1  : 0.7333
-#     - Acc : 0.6800
-#
-#     Gold (P/N): 25/25 (50.00%)
-#     Pred (P/N): 35/15 (70.00%)
+The input is the output of `gpt.summarise_related_peter`. This are the PETER-queried
+papers with the related papers summarised.
+
+The output is the input annotated papers with an approval/rejection label.
+"""
+
+from __future__ import annotations
 
 import asyncio
 import logging
 import random
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
 import dotenv
 import typer
 from openai import AsyncOpenAI
-from pydantic import TypeAdapter
 
+from paper import asap
 from paper.gpt.evaluate_paper import (
     CLASSIFY_TYPES,
     EVALUATE_DEMONSTRATION_PROMPTS,
@@ -49,7 +29,12 @@ from paper.gpt.evaluate_paper import (
     display_metrics,
     format_demonstrations,
 )
-from paper.gpt.model import Paper, Prompt, PromptResult
+from paper.gpt.model import (
+    PaperRelatedSummarised,
+    PaperWithRelatedSummary,
+    Prompt,
+    PromptResult,
+)
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -68,10 +53,11 @@ from paper.util import (
     setup_logging,
     shuffled,
 )
-from paper.util.serde import load_data
+from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
-FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
+
+PETER_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_peter")
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -84,10 +70,12 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def run(
-    asap_path: Annotated[
+    ann_graph_file: Annotated[
         Path,
         typer.Option(
-            "--asap", help="The path to the JSON file containing the ASAP papers data."
+            "--ann-graph",
+            help="JSON file containing the annotated ASAP papers with summarised graph"
+            " results.",
         ),
     ],
     output_dir: Annotated[
@@ -104,20 +92,23 @@ def run(
     limit_papers: Annotated[
         int,
         typer.Option("--limit", "-n", help="The number of papers to process."),
-    ] = 1,
+    ] = 10,
     user_prompt: Annotated[
         str,
         typer.Option(
             help="The user prompt to use for classification.",
-            click_type=cli.choice(FULL_CLASSIFY_USER_PROMPTS),
+            click_type=cli.choice(PETER_CLASSIFY_USER_PROMPTS),
         ),
-    ] = "simple-abs",
+    ] = "simple",
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run.")
     ] = None,
     continue_: Annotated[
         bool,
-        typer.Option("--continue", help="Use existing intermediate results"),
+        typer.Option(
+            "--continue",
+            help="Use existing intermediate results.",
+        ),
     ] = False,
     seed: Annotated[int, typer.Option(help="Random seed used for data shuffling.")] = 0,
     demos: Annotated[
@@ -132,11 +123,11 @@ def run(
         ),
     ] = "abstract",
 ) -> None:
-    """Evaluate a paper's approval based on its full-body text."""
+    """Evaluate a paper's approval based on summarised PETER-queried related papers."""
     asyncio.run(
         evaluate_papers(
             model,
-            asap_path,
+            ann_graph_file,
             limit_papers,
             user_prompt,
             output_dir,
@@ -157,7 +148,7 @@ def main() -> None:
 
 async def evaluate_papers(
     model: str,
-    asap_path: Path,
+    ann_graph_file: Path,
     limit_papers: int | None,
     user_prompt_key: str,
     output_dir: Path,
@@ -167,30 +158,24 @@ async def evaluate_papers(
     demonstrations_file: Path | None,
     demo_prompt_key: str,
 ) -> None:
-    """Evaluate a paper's approval based on its full-body text.
+    """Evaluate a paper's approval based on summarised PETER-queried related papers.
 
-    The papers should come from the ASAP-Review dataset as processed by the
-    paper.asap module.
+    The papers should come from `gpt.summarise_related_peter`.
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        asap_path: Path to the JSON file containing the input papers data.
+        ann_graph_file: Path to the JSON file containing the annotated papers with their
+            graph data and summarised related papers.
         limit_papers: Number of papers to process. Defaults to 1 example. If None,
             process all.
-        graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
-            `_GRAPH_USER_PROMPTS` for available options or `list_prompts` for more.
-        user_prompt_key: Key to the user prompt to use for graph extraction. See
+        user_prompt_key: Key to the user prompt to use for paper evaluation. See
             `_CLASSIFY_USER_PROMPTS` for available options or `list_prompts` for more.
-        display: If True, show each graph on screen. This suspends the process until
-            the plot is closed.
-        output_dir: Directory to save the output files: serialised graphs (GraphML),
-            plot images (PNG) and classification results (JSON), if classification is
-            enabled.
-        classify: If True, classify the papers based on the generated graph.
+        output_dir: Directory to save the output files: intermediate and final results,
+            and classification metrics.
         continue_papers_file: If provided, check for entries in the input data. If they
             are there, we use those results and skip processing them.
-        continue_: If True, use data from `continue_papers`.
-        seed: Random seed used for shuffling.
+        continue_: If True, ignore `continue_papers` and run everything from scratch.
+        seed: Random seed used for shuffling and for the GPT call.
         demonstrations_file: Path to demonstrations file for use with few-shot prompting.
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
@@ -214,13 +199,16 @@ async def evaluate_papers(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    papers = shuffled(load_data(asap_path, Paper))[:limit_papers]
-    user_prompt = FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
+    papers = shuffled(
+        PromptResult.unwrap(
+            load_data(ann_graph_file, PromptResult[PaperWithRelatedSummary])
+        )
+    )[:limit_papers]
+
+    user_prompt = PETER_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
-        TypeAdapter(list[Demonstration]).validate_json(demonstrations_file.read_bytes())
-        if demonstrations_file is not None
-        else []
+        load_data(demonstrations_file, Demonstration) if demonstrations_file else []
     )
     demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
     demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
@@ -262,20 +250,16 @@ async def evaluate_papers(
     logger.info("%s\n", display_metrics(metrics, results_items))
 
     assert len(results_all) == len(papers)
-    (output_dir / "result.json").write_bytes(
-        TypeAdapter(list[PromptResult[PaperResult]]).dump_json(results_all, indent=2)
-    )
-    (output_dir / "result_items.json").write_bytes(
-        TypeAdapter(list[PaperResult]).dump_json(results_items, indent=2)
-    )
-    (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
+    save_data(output_dir / "result.json", results_all)
+    save_data(output_dir / "result_items.json", results_items)
+    save_data(output_dir / "metrics.json", metrics)
 
 
 async def _classify_papers(
     client: AsyncOpenAI,
     model: str,
     user_prompt: PromptTemplate,
-    papers: Sequence[Paper],
+    ann_graphs: Sequence[PaperWithRelatedSummary],
     output_intermediate_file: Path,
     demonstrations: str,
     *,
@@ -284,23 +268,25 @@ async def _classify_papers(
     """Classify Papers into approved/not approved using the paper main text.
 
     Args:
-        client: OpenAI client to use GPT
-        model: GPT model code to use (must support Structured Outputs)
-        user_prompt: User prompt template to use for classification to be filled
-        papers: Papers from the ASAP-Review dataset to classify
-        output_intermediate_file: File to write new results after each task is completed
-        demonstrations: Text of demonstrations for few-shot prompting
-        seed: Seed for the OpenAI API call
+        client: OpenAI client to use GPT.
+        model: GPT model code to use (must support Structured Outputs).
+        user_prompt: User prompt template to use for classification to be filled.
+        ann_graphs: Annotated ASAP papers with their summarised graph data.
+        output_intermediate_file: File to write new results after each task is completed.
+        demonstrations: Text of demonstrations for few-shot prompting.
+        seed: Seed for the OpenAI API call.
 
     Returns:
-        List of classified papers wrapped in a GPTResult.
+        List of classified papers and their prompts wrapped in a GPTResult.
     """
     results: list[PromptResult[PaperResult]] = []
     total_cost = 0
 
     tasks = [
-        _classify_paper(client, model, paper, user_prompt, demonstrations, seed=seed)
-        for paper in papers
+        _classify_paper(
+            client, model, ann_graph, user_prompt, demonstrations, seed=seed
+        )
+        for ann_graph in ann_graphs
     ]
 
     for task in progress.as_completed(tasks, desc="Classifying papers"):
@@ -313,40 +299,34 @@ async def _classify_papers(
     return GPTResult(results, total_cost)
 
 
-_FULL_CLASSIFY_SYSTEM_PROMPT = (
-    "Give an approval or rejection to a paper submitted to a high-quality scientific"
-    " conference."
-)
-
-
-def format_template(prompt: PromptTemplate, paper: Paper, demonstrations: str) -> str:
-    """Format full-text evaluation template `paper` and `demonstrations`."""
-    return prompt.template.format(
-        title=paper.title,
-        abstract=paper.abstract,
-        main_text=paper.main_text(),
-        demonstrations=demonstrations,
-    )
+_PETER_CLASSIFY_SYSTEM_PROMPT = """\
+Given the following target paper and a selection of related papers separated by whether
+they're supporting or contrasting the main paper, give an approval or rejection decision \
+to a paper submitted to a high-quality scientific conference.
+"""
 
 
 async def _classify_paper(
     client: AsyncOpenAI,
     model: str,
-    paper: Paper,
+    ann_result: PaperWithRelatedSummary,
     user_prompt: PromptTemplate,
     demonstrations: str,
     *,
     seed: int,
 ) -> GPTResult[PromptResult[PaperResult]]:
-    user_prompt_text = format_template(user_prompt, paper, demonstrations)
+    user_prompt_text = format_template(user_prompt, ann_result, demonstrations)
+
     result = await run_gpt(
         CLASSIFY_TYPES[user_prompt.type_name],
         client,
-        _FULL_CLASSIFY_SYSTEM_PROMPT,
+        _PETER_CLASSIFY_SYSTEM_PROMPT,
         user_prompt_text,
         model,
         seed=seed,
     )
+
+    paper = ann_result.paper.paper
     classified = result.result
 
     return GPTResult(
@@ -362,9 +342,38 @@ async def _classify_paper(
                 y_pred=classified.approved if classified else False,
                 rationale=classified.rationale if classified else "<error>",
             ),
-            prompt=Prompt(system=_FULL_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
+            prompt=Prompt(system=_PETER_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),
         cost=result.cost,
+    )
+
+
+def format_template(
+    prompt: PromptTemplate,
+    paper_summaries: PaperWithRelatedSummary,
+    demonstrations: str,
+) -> str:
+    """Format evaluation template using summarised PETER-queried related papers."""
+    return prompt.template.format(
+        title=paper_summaries.title,
+        abstract=paper_summaries.abstract,
+        demonstrations=demonstrations,
+        positive=_format_related(
+            p
+            for p in paper_summaries.related
+            if p.polarity is asap.ContextPolarity.POSITIVE
+        ),
+        negative=_format_related(
+            p
+            for p in paper_summaries.related
+            if p.polarity is asap.ContextPolarity.NEGATIVE
+        ),
+    )
+
+
+def _format_related(related: Iterable[PaperRelatedSummarised]) -> str:
+    return "\n\n".join(
+        f"Title: {paper.title}\nSummary: {paper.summary}\n" for paper in related
     )
 
 
@@ -375,7 +384,7 @@ def prompts(
     ] = False,
 ) -> None:
     """Print the available prompt names, and optionally, the full prompt text."""
-    print_prompts("FULL PAPER EVALUATION", FULL_CLASSIFY_USER_PROMPTS, detail=detail)
+    print_prompts("PETER PAPER EVALUATION", PETER_CLASSIFY_USER_PROMPTS, detail=detail)
 
 
 if __name__ == "__main__":

@@ -77,8 +77,12 @@ class IndexedEntity(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    index: int = Field(description="Index of this entity in its original list.")
-    text: str = Field(description="Sentence from the paper describing this entity.")
+    index: Annotated[
+        int, Field(description="Index of this entity in its original list.")
+    ]
+    text: Annotated[
+        str, Field(description="Sentence from the paper describing this entity.")
+    ]
 
 
 class ConnectedEntity(IndexedEntity):
@@ -88,10 +92,13 @@ class ConnectedEntity(IndexedEntity):
     connected entities.
     """
 
-    source_indices: Sequence[int] = Field(
-        description="Indices of the entities connected to this one in their original"
-        " list."
-    )
+    source_indices: Annotated[
+        Sequence[int],
+        Field(
+            description="Indices of the entities connected to this one in their original"
+            " list."
+        ),
+    ]
 
 
 def _at[T](seq: Sequence[T], idx: int, desc: str) -> T | None:
@@ -111,26 +118,37 @@ class GPTGraphStrict(GPTGraphBase):
     # There are also dedicated classes for each entity, even at the bottom levels, with
     # different field names for each connection.
 
-    title: str = Field(description="Title of the paper.")
-    primary_area: str = Field(
-        description="The primary subject area of the paper picked from the ICLR list of"
-        " topics."
-    )
-    keywords: Sequence[str] = Field(
-        description="Keywords that summarise the key aspects of the paper."
-    )
-    tldr: str = Field(description="Sentence that summarises the paper.")
-    claims: Sequence[ClaimEntity] = Field(
-        description="Main contributions the paper claims to make, with connections to"
-        " target `methods`."
-    )
-    methods: Sequence[MethodEntity] = Field(
-        description="Methods used to verify the claims, with connections to target"
-        " `experiments`"
-    )
-    experiments: Sequence[ExperimentEntity] = Field(
-        description="Experiments designed to put methods in practice."
-    )
+    title: Annotated[str, Field(description="Title of the paper.")]
+    primary_area: Annotated[
+        str,
+        Field(
+            description="The primary subject area of the paper picked from the ICLR list of"
+            " topics."
+        ),
+    ]
+    keywords: Annotated[
+        Sequence[str],
+        Field(description="Keywords that summarise the key aspects of the paper."),
+    ]
+    tldr: Annotated[str, Field(description="Sentence that summarises the paper.")]
+    claims: Annotated[
+        Sequence[ClaimEntity],
+        Field(
+            description="Main contributions the paper claims to make, with connections to"
+            " target `methods`."
+        ),
+    ]
+    methods: Annotated[
+        Sequence[MethodEntity],
+        Field(
+            description="Methods used to verify the claims, with connections to target"
+            " `experiments`"
+        ),
+    ]
+    experiments: Annotated[
+        Sequence[ExperimentEntity],
+        Field(description="Experiments designed to put methods in practice."),
+    ]
 
     @override
     def to_graph(self, title: str, abstract: str) -> Graph:
@@ -213,34 +231,50 @@ class GPTGraphStrict(GPTGraphBase):
 class ClaimEntity(BaseModel):
     """Entity representing a claim made in the paper."""
 
-    text: str = Field(description="Description of a claim made by the paper")
-    method_indices: Sequence[int] = Field(
-        description="Indices for the `methods` connected to this claim in the `methods`"
-        " list. There must be at least one connected `method`."
-    )
+    text: Annotated[str, Field(description="Description of a claim made by the paper")]
+    method_indices: Annotated[
+        Sequence[int],
+        Field(
+            description="Indices for the `methods` connected to this claim in the `methods`"
+            " list. There must be at least one connected `method`."
+        ),
+    ]
 
 
 class MethodEntity(BaseModel):
     """Entity representing a method described in the paper to support the claims."""
 
-    text: str = Field(
-        description="Description of a method used to validate claims from the paper."
-    )
-    index: int = Field(description="Index for this method in the `methods` list")
-    experiment_indices: Sequence[int] = Field(
-        description="Indices for the `experiments` connected to this method in the "
-        " `experiments` list. There must be at least one connected `experiment`."
-    )
+    text: Annotated[
+        str,
+        Field(
+            description="Description of a method used to validate claims from the paper."
+        ),
+    ]
+    index: Annotated[
+        int, Field(description="Index for this method in the `methods` list")
+    ]
+    experiment_indices: Annotated[
+        Sequence[int],
+        Field(
+            description="Indices for the `experiments` connected to this method in the "
+            " `experiments` list. There must be at least one connected `experiment`."
+        ),
+    ]
 
 
 class ExperimentEntity(BaseModel):
     """Entity representing an experiment used to validate a method from the paper."""
 
-    text: str = Field(
-        description="Description of an experiment used to validate the methods from"
-        " the paper."
-    )
-    index: int = Field(description="Index for this method in the `experiments` list")
+    text: Annotated[
+        str,
+        Field(
+            description="Description of an experiment used to validate the methods from"
+            " the paper."
+        ),
+    ]
+    index: Annotated[
+        int, Field(description="Index for this method in the `experiments` list")
+    ]
 
 
 _GRAPH_TYPES: Mapping[str, type[GPTGraphBase]] = {
@@ -443,11 +477,9 @@ def run(
         Path | None,
         typer.Option(help="Path to file with data from a previous run."),
     ] = None,
-    clean_run: Annotated[
+    continue_: Annotated[
         bool,
-        typer.Option(
-            help="Start from scratch, ignoring existing intermediate results."
-        ),
+        typer.Option("--continue", help="Use existing intermediate results."),
     ] = False,
     seed: Annotated[int, typer.Option(help="Seed to set in the OpenAI call.")] = 0,
 ) -> None:
@@ -463,7 +495,7 @@ def run(
             output_dir,
             classify,
             continue_papers,
-            clean_run,
+            continue_,
             seed,
         )
     )
@@ -479,7 +511,7 @@ async def extract_graph(
     output_dir: Path,
     classify: bool,
     continue_papers_file: Path | None,
-    clean_run: bool,
+    continue_: bool,
     seed: int,
 ) -> None:
     """Extract graphs from the papers in the dataset and (maybe) classify them.
@@ -508,7 +540,7 @@ async def extract_graph(
         classify: If True, classify the papers based on the generated graph.
         continue_papers_file: If provided, check for entries in the input data. If they
             are there, we use those results and skip processing them.
-        clean_run: If True, ignore `continue_papers` and run everything from scratch.
+        continue_: Use data fromn `continue_papers`.
         seed: Seed for the OpenAI API call
 
     Returns:
@@ -532,13 +564,11 @@ async def extract_graph(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
     papers_remaining = get_remaining_items(
-        Graph, output_intermediate_file, continue_papers_file, papers, clean_run
+        Graph, output_intermediate_file, continue_papers_file, papers, continue_
     )
     if not papers_remaining.remaining:
         logger.info("No items left to process. They're all on the `continues` file.")
-    elif clean_run:
-        logger.info("Clean run: ignoring `continue` file and using the whole data.")
-    else:
+    elif continue_:
         logger.info(
             "Skipping %d items from the `continue` file.", len(papers_remaining.done)
         )
@@ -577,7 +607,7 @@ async def extract_graph(
             output_dir,
             # We always want new paper classifications after processing the graphs
             continue_papers_file=None,
-            clean_run=True,
+            continue_=True,
             seed=seed,
         )
 
