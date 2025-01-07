@@ -148,20 +148,19 @@ def _group_sections(sections: Iterable[dict[str, str]]) -> list[PaperSection]:
 def _extract_conference(path: Path, segment: str) -> str:
     """Extract conference from `path` and `segment`.
 
-    E.g.: data/PeerRead/iclr_2017/test/reviews/330.json and 'reviews':
-    - iclr_2017
+    Example:
+        >>> _extract_conference('PeerRead/iclr_2017/test/reviews/330.json', 'reviews')
+        'iclr_2017'
     """
     try:
-        parts = path.parts
-        reviews_idx = parts.index(segment)
-        return parts[reviews_idx - 2]
+        segment_idx = path.parts.index(segment)
+        return path.parts[segment_idx - 2]
     except ValueError:
-        print(path)
-        raise
+        return "unknown"
 
 
 def _process_reviews(directory: Path) -> dict[str, _PaperReviews]:
-    """Combine all paper reviews in `directory` in a single array.
+    """Combine all valid paper reviews in `directory` in a single array.
 
     Valid reviews have non-empty ORIGINALITY and REVIEWER_CONFIDENCE fields. Valid papers
     have at least one valid review.
@@ -177,8 +176,7 @@ def _process_reviews(directory: Path) -> dict[str, _PaperReviews]:
     """
     reviews_valid: list[_PaperReviews] = []
 
-    files = list(directory.rglob("**/reviews/*.json"))
-    for file_path in tqdm(files, desc="Reviews"):
+    for file_path in tqdm(list(directory.rglob("**/reviews/*.json")), desc="Reviews"):
         paper_reviews = safe_load_json(file_path)
 
         filtered_reviews = [
@@ -206,13 +204,13 @@ def _process_reviews(directory: Path) -> dict[str, _PaperReviews]:
             )
         )
 
-    return {f"{r.conference}.{r.id}": r for r in reviews_valid}
+    return {_get_idx(r.conference, r.id): r for r in reviews_valid}
 
 
 def _process_metadata(
     directory: Path, valid_idxs: set[str]
 ) -> dict[str, _PaperMetadata]:
-    """Combine all paper data (parsed PDFs) in `directory` in a single array.
+    """Combine all paper metadata from parsed PDFs in `directory` in a single array.
 
     Args:
         directory: Path to find parsed PDFs as JSON files.
@@ -223,8 +221,9 @@ def _process_metadata(
     """
     metadata_valid: list[_PaperMetadata] = []
 
-    files = list(directory.rglob("**/parsed_pdfs/*.json"))
-    for file_path in tqdm(files, desc="Metadata"):
+    for file_path in tqdm(
+        list(directory.rglob("**/parsed_pdfs/*.json")), desc="Metadata"
+    ):
         id_ = int(file_path.stem.split(".")[0])
         conference = _extract_conference(file_path, "parsed_pdfs")
         if _get_idx(conference, id_) not in valid_idxs:
@@ -240,21 +239,24 @@ def _process_metadata(
                 id=id_,
                 title=data["title"],
                 abstract=data["abstractText"],
-                authors=data["authors"] or [],
+                authors=data["authors"],
                 sections=_group_sections(data["sections"]),
                 references=_process_references(data),
                 conference=conference,
             )
         )
 
-    return {f"{m.conference}.{m.id}": m for m in metadata_valid}
+    return {_get_idx(m.conference, m.id): m for m in metadata_valid}
 
 
 def _get_idx(conference: str, id_: int) -> str:
+    """Paper index as conference.id."""
     return f"{conference}.{id_}"
 
 
 def _process_references(paper: dict[str, Any]) -> list[PaperReference]:
+    """Process citation references, extracting the citation contexts."""
+
     class ReferenceKey(NamedTuple):
         title: str
         authors: Sequence[str]
@@ -291,12 +293,14 @@ def _process_references(paper: dict[str, Any]) -> list[PaperReference]:
 
 
 def _count_papers(path: Path) -> int:
+    """Count total number of papers with reviews. Includes invalid papers."""
     return len(list(path.rglob("**/reviews/*.json")))
 
 
 def _merge_review_metadata(
     reviews_index: dict[str, _PaperReviews], metadata_index: dict[str, _PaperMetadata]
 ) -> list[Paper]:
+    """Merge indexed reviews and metadata to form real papers."""
     papers: list[Paper] = []
 
     for idx, review in tqdm(reviews_index.items(), desc="Merge"):
