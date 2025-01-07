@@ -171,7 +171,6 @@ def _process_reviews(directory: Path) -> dict[str, _PaperReviews]:
 
     Args:
         directory: Path to the directory containing JSON files.
-        max_papers: Maximum number of papers to process.
 
     Returns:
         Map of indexes to processed input papers with valid reviews. See `_get_idx`.
@@ -341,13 +340,21 @@ def main(
         Path, typer.Argument(help="Path to directories containing files to merge.")
     ],
     output_file: Annotated[Path, typer.Argument(help="Output merged JSON file.")],
+    max_papers: Annotated[
+        int | None,
+        typer.Option(
+            "--max-papers", "-n", help="Limit on the number of papers to process."
+        ),
+    ] = None,
 ) -> None:
     """Combine PeerRead data from multiple files into a single JSON."""
     papers_count = _count_papers(path)
+    if max_papers is not None:
+        papers_count = min(max_papers, papers_count)
 
     reviews = _process_reviews(path)
     metadata = _process_metadata(path, set(reviews))
-    papers = _merge_review_metadata(reviews, metadata)
+    papers = _merge_review_metadata(reviews, metadata)[:max_papers]
 
     print()
     print(f"Papers: {papers_count}")
