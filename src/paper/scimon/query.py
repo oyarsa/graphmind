@@ -1,7 +1,7 @@
-"""Query all terms for ASAP-annotated papers and save the result as JSON.
+"""Query all terms for PeerRead-annotated papers and save the result as JSON.
 
 The inputs are:
-- Annotated ASAP papers from `gpt.annotate_paper`.
+- Annotated PeerRead papers from `gpt.annotate_paper`.
 - The SciMON graph created from annotated S2 papers (also `gpt.annotate_paper`) via
   `scimon.build`.
 """
@@ -30,7 +30,8 @@ def main(
     annotated_file: Annotated[
         Path,
         typer.Option(
-            "--ann-asap", help="JSON file containing the annotated ASAP papers data."
+            "--ann-peer",
+            help="JSON file containing the annotated PeerRead papers data.",
         ),
     ],
     graph_file: Annotated[
@@ -47,7 +48,7 @@ def main(
 ) -> None:
     """Query all annotatedd papers in the graph."""
     anns = gpt.PromptResult.unwrap(
-        load_data(annotated_file, gpt.PromptResult[gpt.ASAPAnnotated])
+        load_data(annotated_file, gpt.PromptResult[gpt.PeerReadAnnotated])
     )
     graph = graph_from_json(graph_file)
 

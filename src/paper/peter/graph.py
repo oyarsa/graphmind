@@ -144,7 +144,7 @@ class QueryResult(BaseModel):
 
 
 class PaperRelated(Record):
-    """S2 paper cited by the ASAP paper with the title similarity score and polarity."""
+    """S2 paper cited by the PeerRead paper with the title similarity score and polarity."""
 
     source: PaperSource
     paper_id: str

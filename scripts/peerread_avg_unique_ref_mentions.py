@@ -1,8 +1,8 @@
-"""Calculate total and average number of unique reference contexts per paper in ASAP.
+"""Calculate total and average number of unique reference contexts per paper in PeerRead.
 
 Also calculates the number of words in the contexts and estimated number of GPT tokens.
 
-Uses the output of `paper.asap.merge` as input.
+Uses the output of `paper.peerread.merge` as input.
 """
 
 import json
@@ -24,10 +24,12 @@ app = typer.Typer(
 def main(
     input_file: Annotated[
         Path,
-        typer.Argument(help="Input file (ASAP merged) to calculate statistics from."),
+        typer.Argument(
+            help="Input file (PeerRead merged) to calculate statistics from."
+        ),
     ],
 ) -> None:
-    """Calculate total and average number of unique reference contexts per paper in ASAP."""
+    """Calculate total and average number of unique reference contexts per paper in PeerRead."""
     counts_unique: list[int] = []
     all_unique: set[str] = set()
 

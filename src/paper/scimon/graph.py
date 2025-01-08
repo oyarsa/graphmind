@@ -124,9 +124,9 @@ class QueryResult(BaseModel):
 
 
 class AnnotatedGraphResult(Record):
-    """Annotated ASAP paper and graph terms queried from it."""
+    """Annotated PeerRead paper and graph terms queried from it."""
 
-    ann: gpt.ASAPAnnotated
+    ann: gpt.PeerReadAnnotated
     result: QueryResult
 
     @property

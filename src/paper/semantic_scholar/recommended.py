@@ -1,4 +1,4 @@
-"""Download paper recommendations for ASAP papers from the Semantic Scholar API.
+"""Download paper recommendations for PeerRead papers from the Semantic Scholar API.
 
 The input is the output of the `paper.semantic_scholar.info` script, where we have the
 S2 information for the paper. We need this for the paperId, which the recommendation
@@ -11,7 +11,7 @@ The output is two files:
 - papers_with_recommendations.json: full data - each paper with its list of
   recommendations
 - papers_recommended.json: unique recommended papers with the set of titles for the
-  papers that led to them. The titles come from ASAP, not S2.
+  papers that led to them. The titles come from PeerRead, not S2.
 """
 
 from __future__ import annotations
@@ -31,10 +31,10 @@ from aiolimiter import AsyncLimiter
 
 from paper import semantic_scholar as s2
 from paper.semantic_scholar.model import (
-    ASAPPaperWithS2,
     Paper,
     PaperRecommended,
     PaperWithRecommendations,
+    PeerReadPaperWithS2,
 )
 from paper.util import arun_safe, display_params, ensure_envvar, progress
 from paper.util.cli import die
@@ -126,7 +126,7 @@ def main(
         typer.Option(help="Number of recommendations per paper.", max=500),
     ] = 100,
 ) -> None:
-    """Download recommended papers for each paper in the ASAP dataset.
+    """Download recommended papers for each paper in the PeerRead dataset.
 
     Synchronous wrapper around `download_paper_recomendation`. Go there for details.
     """
@@ -149,7 +149,7 @@ async def download_paper_recomendation(
     limit_papers: int | None,
     limit_recommendations: int,
 ) -> None:
-    """Download recommended papers for each paper in the ASAP dataset.
+    """Download recommended papers for each paper in the PeerRead dataset.
 
     We query the first `limit_papers`, if not None. For each paper, we get
     `limit_recommendations`.
@@ -176,7 +176,7 @@ async def download_paper_recomendation(
             f" '{limit_recommendations}'."
         )
 
-    papers = load_data(input_file, ASAPPaperWithS2)[:limit_papers]
+    papers = load_data(input_file, PeerReadPaperWithS2)[:limit_papers]
 
     papers_with_recommendations = await _fetch_recommendations(
         api_key, papers, fields, limit_recommendations
@@ -201,7 +201,7 @@ async def download_paper_recomendation(
 
 async def _fetch_recommendations(
     api_key: str,
-    papers: Sequence[ASAPPaperWithS2],
+    papers: Sequence[PeerReadPaperWithS2],
     fields: Sequence[str],
     limit_recommendations: int,
 ) -> list[PaperWithRecommendations]:
@@ -238,7 +238,7 @@ def _merge_papers(papers: Iterable[PaperWithRecommendations]) -> list[PaperRecom
 
     It's possible that different papers get the same recommendations, so we're removing
     duplicates. The unique papers also include the title of the papers that recommended
-    them. Note that this title comes from the ASAP dataset, no S2, as they can sometimes
+    them. Note that this title comes from the PeerRead dataset, no S2, as they can sometimes
     differ.
 
     Args:
@@ -248,7 +248,7 @@ def _merge_papers(papers: Iterable[PaperWithRecommendations]) -> list[PaperRecom
         List of the unique S2 papers with the name of the papers that led to them.
     """
     paper_idx: dict[str, Paper] = {}
-    paper_sources_asap: defaultdict[str, set[str]] = defaultdict(set)
+    paper_sources_peer: defaultdict[str, set[str]] = defaultdict(set)
     paper_sources_s2: defaultdict[str, set[str]] = defaultdict(set)
 
     for main_paper in papers:
@@ -256,7 +256,7 @@ def _merge_papers(papers: Iterable[PaperWithRecommendations]) -> list[PaperRecom
             if paper.paper_id not in paper_idx:
                 paper_idx[paper.paper_id] = paper
 
-            paper_sources_asap[paper.paper_id].add(main_paper.main_paper.title)
+            paper_sources_peer[paper.paper_id].add(main_paper.main_paper.title)
             if s2_title := main_paper.main_paper.s2.title:
                 paper_sources_s2[paper.paper_id].add(s2_title)
 
@@ -273,7 +273,7 @@ def _merge_papers(papers: Iterable[PaperWithRecommendations]) -> list[PaperRecom
             citation_count=paper.citation_count,
             influential_citation_count=paper.influential_citation_count,
             tldr=paper.tldr,
-            sources_asap=sorted(paper_sources_asap[paper.paper_id]),
+            sources_peer=sorted(paper_sources_peer[paper.paper_id]),
             sources_s2=sorted(paper_sources_s2[paper.paper_id]),
         )
         for paper in paper_idx.values()
@@ -282,7 +282,7 @@ def _merge_papers(papers: Iterable[PaperWithRecommendations]) -> list[PaperRecom
 
 async def _fetch_paper_recommendations(
     session: aiohttp.ClientSession,
-    paper: s2.PaperFromASAP,
+    paper: s2.PaperFromPeerRead,
     fields: Iterable[str],
     limit_recommendations: int,
 ) -> list[Paper]:
@@ -325,7 +325,7 @@ def _deduplicate_papers(papers: Iterable[Paper]) -> list[Paper]:
 
 async def _fetch_paper_recommendations_from(
     session: aiohttp.ClientSession,
-    paper: s2.PaperFromASAP,
+    paper: s2.PaperFromPeerRead,
     fields: Iterable[str],
     limit_recommendations: int,
     from_: str,

@@ -34,14 +34,14 @@ This script requires the `OPENAI_API_KEY` environment variable to be set, either
 the environment or the `.env` file at the root of the repository.
 
 ```console
-$ uv run gpt graph run output/asap_filtered.json output/graph
+$ uv run gpt graph run output/peerread_merged.json output/graph
 ```
 
 The default logging level is INFO, but there's some DEBUG output that can be useful.
 Change the level using the `LOG_LEVEL` environment variable.
 
 ```console
-$ LOG_LEVEL=DEBUG uv run gpt graph run output/asap_filtered.json output/graph
+$ LOG_LEVEL=DEBUG uv run gpt graph run output/peerread_merged.json output/graph
 ```
 
 Run `uv run gpt graph --help` to see more information about the commands.
@@ -63,7 +63,7 @@ parts of the pipeline.
 This script also requires an OpenAI key. See above.
 
 ```console
-$ uv run gpt context run output/asap_filtered.json output/context
+$ uv run gpt context run output/peerread_merged.json output/context
 ```
 
 This will save the following files in `output/context`:

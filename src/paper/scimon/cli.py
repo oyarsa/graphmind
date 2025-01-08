@@ -2,7 +2,7 @@
 
 import typer
 
-from paper.scimon import build, citations, kg, query_asap, semantic
+from paper.scimon import build, citations, kg, query, semantic
 
 app = typer.Typer(
     name="scimon",
@@ -18,7 +18,7 @@ subcommands = [
     ("semantic", semantic),
     ("citations", citations),
     ("build", build),
-    ("query-asap", query_asap),
+    ("query", query),
 ]
 for name, module in subcommands:
     app.command(name=name, help=module.__doc__, no_args_is_help=True)(module.main)

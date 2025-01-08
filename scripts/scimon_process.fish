@@ -9,22 +9,22 @@ echo ">>>>>>> CONSTRUCT DATASET"
 uv run src/paper/construct_dataset.py \
     --references output/semantic_scholar_final.json \
     --recommended output/recomendations/papers_recommended.json \
-    --asap output/asap_balanced_50.json \
+    --peerread output/peerread_balanced_50.json \
     --output $datadir \
     --min-refs 4
 
 echo
-echo ">>>>>>> ASAP TERMS"
-uv run gpt terms run $datadir/asap_with_s2_references.json $datadir/asap_terms \
+echo ">>>>>>> PeerRead TERMS"
+uv run gpt terms run $datadir/peerread_with_s2_references.json $datadir/peerread_terms \
     --clean-run -n $limit \
     --prompt-term multi \
     --prompt-abstract simple \
     --abstract-demos src/paper/gpt/prompts/abstract_demonstrations_10.json \
-    --paper-type asap
+    --paper-type peerread
 
 echo
 echo ">>>>>>> RELATED TERMS"
-uv run gpt terms run $datadir/asap_related.json $datadir/related_terms \
+uv run gpt terms run $datadir/peerread_related.json $datadir/related_terms \
     --clean-run -n $limit \
     --prompt-term multi \
     --prompt-abstract simple \
@@ -35,12 +35,12 @@ echo
 echo ">>>>>> BUILD GRAPHS"
 uv run scimon build \
     --ann $datadir/related_terms/results_valid.json \
-    --asap $datadir/asap_with_s2_references.json \
+    --peerread $datadir/peerread_with_s2_references.json \
     --output $datadir/graphs.json
 
 echo
 echo ">>>>>> GRAPH QUERY ANNOTATED"
-uv run scimon query-asap \
-    --ann-asap $datadir/asap_terms/results_valid.json \
+uv run scimon query-peerread \
+    --ann-peerread $datadir/peerread_terms/results_valid.json \
     --graph $datadir/graphs.json \
-    --output $datadir/asap_with_graph.json
+    --output $datadir/peerread_with_graph.json

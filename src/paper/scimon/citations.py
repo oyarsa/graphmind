@@ -1,13 +1,13 @@
 """Create citations graph with the reference papers sorted by title similarity.
 
-Calculates title sentence embedding for the ASAP main paper and each S2 reference using
-a SentenceTransformer, then keeping a sorted list by similarity. At query time, the user
-can specify the number of most similar papers to retrieve. SciMON uses the
+Calculates title sentence embedding for the PeerRead main paper and each S2 reference
+using a SentenceTransformer, then keeping a sorted list by similarity. At query time,
+the user can specify the number of most similar papers to retrieve. SciMON uses the
 `all-mpnet-base-v2` model and K = 5.
 
 Takes as input the output of `semantic_scholar.construct_daset`: the file
-`asap_with_s2_references.json` of type `asap.PaperWithS2Refs`. The similarity is
-calculated between the ASAP `title` and the S2 `title_asap`.
+`peerread_with_s2_references.json` of type `peerread.PaperWithS2Refs`. The similarity is
+calculated between the PeerRead `title` and the S2 `title_peer`.
 """
 
 from __future__ import annotations
@@ -40,12 +40,14 @@ app = typer.Typer(
 def main(
     input_file: Annotated[
         Path,
-        typer.Argument(help="File with ASAP papers with references with full S2 data."),
+        typer.Argument(
+            help="File with PeerRead papers with references with full S2 data."
+        ),
     ],
     output_file: Annotated[
         Path,
         typer.Argument(
-            help="File with ASAP papers with top K references with full S2 data."
+            help="File with PeerRead papers with top K references with full S2 data."
         ),
     ],
     model_name: Annotated[
@@ -55,20 +57,20 @@ def main(
     """Create citations graph with the reference papers sorted by title similarity."""
     logger.info(display_params())
 
-    asap_papers = load_data(input_file, s2.PaperWithS2Refs)
+    peerread_papers = load_data(input_file, s2.PaperWithS2Refs)
 
     encoder = emb.Encoder(model_name)
-    graph = Graph.from_papers(encoder, asap_papers)
+    graph = Graph.from_papers(encoder, peerread_papers)
 
     output_file.write_text(graph.model_dump_json(indent=2))
 
 
-class ASAPPaper(Protocol):
-    """ASAP-shaped paper with title, id and references."""
+class MainPaper(Protocol):
+    """Main paper with title, id and references."""
 
     @property
     def title(self) -> str:
-        """Title of the paper in the ASAP dataset."""
+        """Title of the paper in the main dataset."""
         ...
 
     @property
@@ -83,7 +85,7 @@ class ASAPPaper(Protocol):
 
 
 class S2Reference(Protocol):
-    """S2-shaped paper referenced in an ASAP paper."""
+    """S2-shaped paper referenced in an main paper."""
 
     @property
     def paper_id(self) -> str:
@@ -96,13 +98,13 @@ class S2Reference(Protocol):
         ...
 
     @property
-    def title_asap(self) -> str:
-        """Title of the paper in the ASAP dataset used to query S2."""
+    def title_peer(self) -> str:
+        """Title of the paper in the PeerRead dataset used to query S2."""
         ...
 
 
 class Graph(BaseModel):
-    """Citation graph that connects main ASAP titles/ids with cited paper titles.
+    """Citation graph that connects main paper titles/ids with cited paper titles.
 
     We retrieve the top K titles by main and reference titles. We embed all of them, and
     the K is determined at query time.
@@ -117,34 +119,34 @@ class Graph(BaseModel):
     duplicates by `title`, but the `id` is always unique.
     """
     id_to_cited: Mapping[str, Sequence[Citation]]
-    """Mapping of ASAP paper `id` to list of cited papers."""
+    """Mapping of main paper `id` to list of cited papers."""
 
     @classmethod
     def from_papers(
-        cls, encoder: emb.Encoder, asap_papers: Iterable[ASAPPaper]
+        cls, encoder: emb.Encoder, peerread_papers: Iterable[MainPaper]
     ) -> Self:
-        """For each ASAP paper, sort cited papers by title similarity.
+        """For each main paper, sort cited papers by title similarity.
 
-        Cleans up the titles with `s2.clean_title`, then compares the ASAP `title` with
-        the S2 `title_asap`.
+        Cleans up the titles with `s2.clean_title`, then compares the main paper `title`
+        with the S2 `title_peer`.
         """
         title_to_id: dict[str, str] = {}
         id_to_cited: dict[str, list[Citation]] = {}
 
         logger.debug("Processing papers.")
-        for asap_paper in asap_papers:
-            title_to_id[asap_paper.title] = asap_paper.id
-            asap_embedding = encoder.encode(s2.clean_title(asap_paper.title))
+        for peer_paper in peerread_papers:
+            title_to_id[peer_paper.title] = peer_paper.id
+            peer_embedding = encoder.encode(s2.clean_title(peer_paper.title))
 
             s2_embeddings = encoder.encode(
-                [s2.clean_title(r.title_asap) for r in asap_paper.references]
+                [s2.clean_title(r.title_peer) for r in peer_paper.references]
             )
-            s2_similarities = emb.similarities(asap_embedding, s2_embeddings)
+            s2_similarities = emb.similarities(peer_embedding, s2_embeddings)
 
-            id_to_cited[asap_paper.id] = [
+            id_to_cited[peer_paper.id] = [
                 Citation(title=paper.title, paper_id=paper.paper_id, score=score)
                 for paper, score in sorted(
-                    zip(asap_paper.references, s2_similarities),
+                    zip(peer_paper.references, s2_similarities),
                     key=lambda x: x[1],
                     reverse=True,
                 )
@@ -155,14 +157,14 @@ class Graph(BaseModel):
         return cls(id_to_cited=id_to_cited, title_to_id=title_to_id)
 
     def query_title(self, title: str, k: int) -> QueryResult:
-        """Get top `k` cited papers by title similarity from an ASAP paper `title`.
+        """Get top `k` cited papers by title similarity from a main paper `title`.
 
         Note: prefer `query` for actual usage. See `title_to_id`.
         """
         return self.query(self.title_to_id[title], k)
 
     def query(self, paper_id: str, k: int) -> QueryResult:
-        """Get top `k` cited papers by title similarity from an ASAP paper `id`."""
+        """Get top `k` cited papers by title similarity from a main paper `id`."""
         return QueryResult(citations=self.id_to_cited[paper_id][:k])
 
     @property

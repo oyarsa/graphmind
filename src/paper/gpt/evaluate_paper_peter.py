@@ -19,7 +19,7 @@ import dotenv
 import typer
 from openai import AsyncOpenAI
 
-from paper import asap
+from paper import peerread
 from paper.gpt.evaluate_paper import (
     CLASSIFY_TYPES,
     EVALUATE_DEMONSTRATION_PROMPTS,
@@ -74,7 +74,7 @@ def run(
         Path,
         typer.Option(
             "--ann-graph",
-            help="JSON file containing the annotated ASAP papers with summarised graph"
+            help="JSON file containing the annotated PeerRead papers with summarised graph"
             " results.",
         ),
     ],
@@ -271,7 +271,7 @@ async def _classify_papers(
         client: OpenAI client to use GPT.
         model: GPT model code to use (must support Structured Outputs).
         user_prompt: User prompt template to use for classification to be filled.
-        ann_graphs: Annotated ASAP papers with their summarised graph data.
+        ann_graphs: Annotated PeerRead papers with their summarised graph data.
         output_intermediate_file: File to write new results after each task is completed.
         demonstrations: Text of demonstrations for few-shot prompting.
         seed: Seed for the OpenAI API call.
@@ -361,12 +361,12 @@ def format_template(
         positive=_format_related(
             p
             for p in paper_summaries.related
-            if p.polarity is asap.ContextPolarity.POSITIVE
+            if p.polarity is peerread.ContextPolarity.POSITIVE
         ),
         negative=_format_related(
             p
             for p in paper_summaries.related
-            if p.polarity is asap.ContextPolarity.NEGATIVE
+            if p.polarity is peerread.ContextPolarity.NEGATIVE
         ),
     )
 

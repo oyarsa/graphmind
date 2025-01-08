@@ -187,7 +187,7 @@ class Graph:
 
 
 class PaperAnnotated(Protocol):
-    """ASAP paper whose abstract has been separated into `background` and `target`."""
+    """PeerRead paper whose abstract has been separated into `background` and `target`."""
 
     @property
     def id(self) -> str:

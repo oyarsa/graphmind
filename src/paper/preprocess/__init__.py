@@ -1,1 +1,1 @@
-"""Tool to pre-process input data (ASAP and S2ORC)."""
+"""Tool to pre-process input data (PeerRead and S2ORC)."""

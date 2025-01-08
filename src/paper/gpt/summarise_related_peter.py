@@ -1,6 +1,6 @@
 """Summarise related papers from PETER for inclusion in main paper evaluation prompt.
 
-The input is the output of `paper.asap`, i.e. the output of `gpt.annotate_paper`
+The input is the output of `paper.peerread`, i.e. the output of `gpt.annotate_paper`
 (papers with extracted scientific terms) and `gpt.classify_contexts` (citations
 contexts classified by polarity) with the related papers queried through the PETER
 graph.
@@ -25,9 +25,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from paper import peter
 from paper.gpt.model import (
-    ASAPAnnotated,
     PaperRelatedSummarised,
     PaperWithRelatedSummary,
+    PeerReadAnnotated,
     Prompt,
     PromptResult,
 )
@@ -72,7 +72,7 @@ def run(
         Path,
         typer.Option(
             "--ann-graph",
-            help="JSON file containing the annotated ASAP papers with graph results.",
+            help="JSON file containing the annotated PeerRead papers with graph results.",
         ),
     ],
     output_dir: Annotated[
@@ -88,7 +88,7 @@ def run(
     ] = "gpt-4o-mini",
     limit_papers: Annotated[
         int,
-        typer.Option("--limit", "-n", help="The number of ASAP papers to process."),
+        typer.Option("--limit", "-n", help="The number of PeerRead papers to process."),
     ] = 10,
     positive_prompt: Annotated[
         str,
@@ -148,7 +148,7 @@ async def summarise_related(
 ) -> None:
     """Summarise PETER-related papers.
 
-    The papers should come from PETER query results (`peter.asap`).
+    The papers should come from PETER query results (`peter.peerread`).
 
     Args:
         model: GPT model code. Must support Structured Outputs.
@@ -250,7 +250,7 @@ async def _summarise_papers(
         client: OpenAI client to use GPT.
         model: GPT model code to use (must support Structured Outputs).
         prompt_pol: Prompt templates for related papers by polarity.
-        ann_graphs: Annotated ASAP papers with their graph data.
+        ann_graphs: Annotated PeerRead papers with their graph data.
         output_intermediate_file: File to write new results after each task is completed.
         demonstrations: Text of demonstrations for few-shot prompting.
         seed: Seed for the OpenAI API call.
@@ -340,7 +340,7 @@ class GPTRelatedSummary(BaseModel):
 async def _summarise_paper_related(
     client: AsyncOpenAI,
     model: str,
-    paper: ASAPAnnotated,
+    paper: PeerReadAnnotated,
     related: peter.PaperRelated,
     user_prompt: PromptTemplate,
     *,
@@ -371,7 +371,7 @@ async def _summarise_paper_related(
 
 
 def format_template(
-    prompt: PromptTemplate, main: ASAPAnnotated, related: peter.PaperRelated
+    prompt: PromptTemplate, main: PeerReadAnnotated, related: peter.PaperRelated
 ) -> str:
     """Format related paper summarisation template."""
     return prompt.template.format(

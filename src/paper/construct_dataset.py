@@ -1,18 +1,18 @@
 """Combine reference and recommended papers data into a dataset.
 
-The inputs are the ASAP dataset and results from the S2 API:
-- asap_final.json: ASAP main papers. Output of `paper.asap.preprocess`.
-- papers_recommended.json: S2 recommended papers based on the ASAP papers. Output of
+The inputs are the PeerRead dataset and results from the S2 API:
+- peerread_merged.json: PeerRead main papers. Output of `paper.peerread.process`.
+- papers_recommended.json: S2 recommended papers based on the PeerRead papers. Output of
   `semantic_scholar.recommended`.
-- semantic_scholar_final.json: S2 information on papers referenced by the ASAP ones.
+- semantic_scholar_final.json: S2 information on papers referenced by the PeerRead ones.
   Output of `semantic_scholar.info`.
-- asap_areas.json: Result of searches where queries are ICLR subject areas. Output of
+- peerread_areas.json: Result of searches where queries are ICLR subject areas. Output of
   `semantic_scholar.areas`. Optional.
 
 This will build two files:
-- asap_with_s2_references.json: ASAP papers enriched the (whole) full data of the
-  S2 papers. Type: asap.PaperWithS2Refs.
-- asap_related.json: papers related to the input ASAP papers. This includes both
+- peerread_with_s2_references.json: PeerRead papers enriched the (whole) full data of the
+  S2 papers. Type: s2.PaperWithS2Refs.
+- peerread_related.json: papers related to the input PeerRead papers. This includes both
   reference and recommended papers. Type: s2.Paper. It's technically a union of other
   types too, but they all fit s2.Paper.
 """
@@ -27,7 +27,7 @@ from typing import Annotated
 
 import typer
 
-from paper import asap
+from paper import peerread
 from paper import semantic_scholar as s2
 from paper.util import display_params
 from paper.util.serde import Record, load_data, save_data
@@ -43,16 +43,18 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def main(
-    asap_file: Annotated[
+    peerread_file: Annotated[
         Path,
         typer.Option(
-            "--asap", help="File with the regular ASAP main papers (asap.Paper)."
+            "--peerread",
+            help="File with the regular PeerRead main papers (peerread.Paper).",
         ),
     ],
     references_file: Annotated[
         Path,
         typer.Option(
-            "--references", help="File with ASAP reference data (asap.S2Paper)."
+            "--references",
+            help="File with PeerRead reference data (s2.PaperFromPeerRead).",
         ),
     ],
     recommended_file: Annotated[
@@ -79,10 +81,10 @@ def main(
             " the citation-augmented dataset.",
         ),
     ] = 5,
-    num_asap: Annotated[
+    num_peeread: Annotated[
         int | None,
         typer.Option(
-            help="How many papers from ASAP will be used to construct the datasets."
+            help="How many papers from PeerRead will be used to construct the datasets."
             " This applies after S2 matching. We will always use the full S2 and"
             " recommendations data."
         ),
@@ -97,63 +99,67 @@ def main(
 
     random.seed(seed)
 
-    asap_papers = load_data(asap_file, asap.Paper)
-    reference_papers = load_data(references_file, s2.PaperFromASAP)
+    peerread_papers = load_data(peerread_file, peerread.Paper)
+    reference_papers = load_data(references_file, s2.PaperFromPeerRead)
     recommended_papers = load_data(recommended_file, s2.PaperRecommended)
     area_papers = load_data(areas_file, s2.PaperArea) if areas_file else []
 
-    asap_augmented = _augment_asap(asap_papers, reference_papers, min_references)
-    asap_sampled = (
-        _balanced_sample(asap_augmented, num_asap) if num_asap else asap_augmented
+    peerread_augmented = _augment_peeread(
+        peerread_papers, reference_papers, min_references
     )
-    s2_references = _unique_asap_refs(asap_sampled)
-    recommended_filtered = _filter_recommended(asap_sampled, recommended_papers)
+    peerread_sampled = (
+        _balanced_sample(peerread_augmented, num_peeread)
+        if num_peeread
+        else peerread_augmented
+    )
+    s2_references = _unique_peerread_refs(peerread_sampled)
+    recommended_filtered = _filter_recommended(peerread_sampled, recommended_papers)
     related_papers = _dedup_related(s2_references + recommended_filtered + area_papers)
 
-    print(f"Augmented ASAP with S2 references: {len(asap_augmented)}")
-    print(f"Sampled ASAP with S2 references: {len(asap_sampled)}")
+    print(f"Augmented PeerRead with S2 references: {len(peerread_augmented)}")
+    print(f"Sampled PeerRead with S2 references: {len(peerread_sampled)}")
     print(f"S2 references: {len(s2_references)}")
     print(f"Filtered recommended papers: {len(recommended_filtered)}")
     print(f"Area papers: {len(area_papers)}")
     print(f"Unique related papers: {len(related_papers)}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    save_data(output_dir / "asap_with_s2_references.json", asap_sampled)
-    save_data(output_dir / "asap_related.json", related_papers)
+    save_data(output_dir / "peerread_with_s2_references.json", peerread_sampled)
+    save_data(output_dir / "peerread_related.json", related_papers)
     (output_dir / "params.txt").write_text(params)
 
 
-def _augment_asap(
-    asap_papers: Iterable[asap.Paper],
-    s2_papers: Iterable[s2.PaperFromASAP],
+def _augment_peeread(
+    peerread_papers: Iterable[peerread.Paper],
+    s2_papers: Iterable[s2.PaperFromPeerRead],
     min_references: int,
 ) -> list[s2.PaperWithS2Refs]:
-    """Augment all references in each ASAP paper with their full S2 data.
+    """Augment all references in each PeerRead paper with their full S2 data.
 
-    Matches S2 and ASAP data by ASAP paper `title` and S2 `title_asap`. It's possible
-    that some references can't be matched, so we keep only ASAP papers with at least
-    `min_references`.
+    Matches S2 and PeerRead data by PeerRead paper `title` and S2 `title_peer`. It's
+    possible that some references can't be matched, so we keep only PeerRead papers with
+    at least `min_references`.
     """
     augmented_papers: list[s2.PaperWithS2Refs] = []
     s2_papers_from_query = {
-        s2.clean_title(paper.title_asap): paper for paper in s2_papers
+        s2.clean_title(paper.title_peer): paper for paper in s2_papers
     }
 
-    for asap_paper in asap_papers:
+    for peerread_paper in peerread_papers:
         s2_references = [
             s2.S2Reference.from_(s2_paper, contexts=ref.contexts)
-            for ref in asap_paper.references
+            for ref in peerread_paper.references
             if (s2_paper := s2_papers_from_query.get(s2.clean_title(ref.title)))
         ]
         if len(s2_references) >= min_references:
             augmented_papers.append(
                 s2.PaperWithS2Refs(
-                    title=asap_paper.title,
-                    abstract=asap_paper.abstract,
-                    reviews=asap_paper.reviews,
-                    authors=asap_paper.authors,
-                    sections=asap_paper.sections,
-                    approval=asap_paper.approval,
+                    title=peerread_paper.title,
+                    abstract=peerread_paper.abstract,
+                    reviews=peerread_paper.reviews,
+                    authors=peerread_paper.authors,
+                    sections=peerread_paper.sections,
+                    approval=peerread_paper.approval or False,
                     references=s2_references,
                 )
             )
@@ -184,32 +190,32 @@ def _balanced_sample(
 
 
 def _filter_recommended(
-    asap_papers: Iterable[s2.PaperWithS2Refs],
+    peerread_papers: Iterable[s2.PaperWithS2Refs],
     recommended_papers: Iterable[s2.PaperRecommended],
 ) -> list[s2.Paper]:
-    """Keep only recommended papers from current papers in the ASAP dataset.
+    """Keep only recommended papers from current papers in the PeerRead dataset.
 
-    We might not be using all papres in ASAP, so we'll filter out the ones that weren't
-    recommended to the current ones.
+    We might not be using all papres in PeerRead, so we'll filter out the ones that w
+    eren't recommended to the current ones.
     """
-    asap_titles = {s2.clean_title(paper.title) for paper in asap_papers}
+    peerread_titles = {s2.clean_title(paper.title) for paper in peerread_papers}
     return [
         rec
         for rec in recommended_papers
-        if any(s2.clean_title(source) in asap_titles for source in rec.sources_asap)
+        if any(s2.clean_title(source) in peerread_titles for source in rec.sources_peer)
     ]
 
 
-def _unique_asap_refs(
-    asap_papers: Iterable[s2.PaperWithS2Refs],
-) -> list[s2.PaperFromASAP]:
-    """Get all unique referenced papers from ASAP based on reference's `title_asap`."""
+def _unique_peerread_refs(
+    peerread_papers: Iterable[s2.PaperWithS2Refs],
+) -> list[s2.PaperFromPeerRead]:
+    """Get all unique referenced papers from PeerRead based on reference's `title_peer`."""
     seen_queries: set[str] = set()
-    ref_papers: list[s2.PaperFromASAP] = []
+    ref_papers: list[s2.PaperFromPeerRead] = []
 
-    for asap_paper in asap_papers:
-        for ref in asap_paper.references:
-            ref_title = s2.clean_title(ref.title_asap)
+    for peerread_paper in peerread_papers:
+        for ref in peerread_paper.references:
+            ref_title = s2.clean_title(ref.title_peer)
             if ref_title in seen_queries:
                 continue
 

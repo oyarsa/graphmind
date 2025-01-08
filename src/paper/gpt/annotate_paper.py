@@ -96,17 +96,17 @@ class DetailOptions(StrEnum):
 
 
 class PaperType(StrEnum):
-    """Whether the paper came from the S2 API or ASAP dataset."""
+    """Whether the paper came from the S2 API or PeerRead dataset."""
 
     S2 = "s2"
-    ASAP = "asap"
+    PeerRead = "peerread"
 
     def get_type(self) -> type[PaperToAnnotate]:
         """Returns concrete model type for the paper."""
         match self:
             case self.S2:
                 return s2.Paper
-            case self.ASAP:
+            case self.PeerRead:
                 return Paper
 
 

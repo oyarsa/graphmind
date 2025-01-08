@@ -13,7 +13,7 @@ from paper.util import safediv
 
 
 class PaperResult(Paper):
-    """ASAP-Review dataset paper with added approval ground truth and GPT prediction."""
+    """PeerRead paper with added approval ground truth and GPT prediction."""
 
     y_true: Annotated[bool, Field(description="Human annotation")]
     y_pred: Annotated[bool, Field(description="Model prediction")]

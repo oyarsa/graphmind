@@ -1,4 +1,4 @@
-- source: ./asap/preprocess.py
+- source: ./peerread/preprocess.py
   target: ./gpt/extract_graph.py
 
 - source: Semantic Scholar API
@@ -10,7 +10,7 @@
 - source: Semantic Scholar API
   target: ./semantic_scholar/areas.py
 
-- source: ./asap/preprocess.py
+- source: ./peerread/preprocess.py
   target: ./gpt/evaluate_paper_full.py
 
 - source: ./construct_dataset.py
@@ -22,13 +22,13 @@
   detail: related
 
 - source: ./gpt/annotate_paper.py
-  target: ./scimon/query_asap.py
+  target: ./scimon/query_peerread.py
   detail: main
 
 - source: ./scimon/build.py
-  target: ./scimon/query_asap.py
+  target: ./scimon/query_peerread.py
 
-- source: ./scimon/query_asap.py
+- source: ./scimon/query_peerread.py
   target: ./gpt/evaluate_paper_scimon.py
 
 - source: allenai/CSAbstruct
@@ -51,7 +51,7 @@
 - source: ICLR2024 CallForPapers
   target: ./semantic_scholar/primary_areas.toml
 
-- source: ./asap/preprocess.py
+- source: ./peerread/preprocess.py
   target: ./construct_dataset.py
 
 - source: ./semantic_scholar/recommended.py
@@ -61,8 +61,8 @@
   target: ./construct_dataset.py
   detail: references
 
-- source: ./asap/preprocess.py
+- source: ./peerread/preprocess.py
   target: ./semantic_scholar/info.py
 
 - source: neulab/ReviewAdvisor
-  target: ./asap/preprocess.py
+  target: ./peerread/preprocess.py

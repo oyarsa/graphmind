@@ -1,14 +1,14 @@
-"""Download information for ASAP papers and references using the Semantic Scholar API.
+"""Download information for PeerRead papers and references from the Semantic Scholar API.
 
 This has two modes:
-- main: Take the titles of the ASAP papers and query the API.
-- references: Gather the unique papers referenced by the ASAP papers and query their
+- main: Take the titles of the PeerRead papers and query the API.
+- references: Gather the unique papers referenced by the PeerRead papers and query their
   titles.
 
 The output we get from the API is the same in both cases, but the resulting files have
 different shapes.
 
-The input is the output of the ASAP pipeline[1], asap_filtered.json.
+The input is the output of the PeerRead pipeline[1], peerread_merged.json.
 
 S2 does their own paper title matching, so we just take the best match directly. We then
 save the entire output to a JSON file along with the original query title, which might
@@ -23,10 +23,10 @@ The resulting files in both modes are:
   minimum (default: 80).
 
 The output types are:
-- main: s2.ASAPPaperWithS2 (combines the input ASAP paper and its S2 information).
-- referencs: asap.S2Paper (only the reference S2 information with the query title).
+- main: s2.PeerPaperWithS2 (combines the input PeerRead paper and its S2 information).
+- referencs: peerread.S2Paper (only the reference S2 information with the query title).
 
-[1] See paper.asap.preprocess.
+[1] See paper.peerread.process.
 """
 
 import asyncio
@@ -40,8 +40,12 @@ import dotenv
 import typer
 from pydantic import ValidationError
 
-from paper import asap
-from paper.semantic_scholar.model import ASAPPaperWithS2, PaperFromASAP, title_ratio
+from paper import peerread
+from paper.semantic_scholar.model import (
+    PaperFromPeerRead,
+    PeerReadPaperWithS2,
+    title_ratio,
+)
 from paper.util import arun_safe, ensure_envvar, progress, setup_logging
 from paper.util.serde import load_data, save_data
 
@@ -62,7 +66,7 @@ async def _fetch_paper_info(
     paper_title: str,
     fields: Sequence[str],
     semaphore: asyncio.Semaphore,
-) -> PaperFromASAP | None:
+) -> PaperFromPeerRead | None:
     """Fetch paper information for a given title. Takes only the best title match.
 
     The title match is done by the S2 API, not us. It's usually pretty good.
@@ -85,7 +89,7 @@ async def _fetch_paper_info(
                     if response.status == 200:
                         data = await response.json()
                         if data.get("data"):
-                            return PaperFromASAP.model_validate(
+                            return PaperFromPeerRead.model_validate(
                                 data["data"][0] | {"title_query": paper_title}
                             )
                         logger.debug(f"No results found for title: {paper_title}")
@@ -142,15 +146,15 @@ async def _download_main_info(
     min_fuzzy: int,
     limit_papers: int | None,
 ) -> None:
-    """Download paper information for main ASAP papers.
+    """Download paper information for main PeerRead papers.
 
     We obtain the unique titles from the references of all papers and get their info. We
-    store the original ASAP information alongside the retrieved S2 information.
+    store the original PeerRead information alongside the retrieved S2 information.
     """
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
 
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
-    papers = load_data(input_file, asap.Paper)[:limit_papers]
+    papers = load_data(input_file, peerread.Paper)[:limit_papers]
     title_to_paper = {paper.title: paper for paper in papers}
 
     async with aiohttp.ClientSession(
@@ -165,8 +169,8 @@ async def _download_main_info(
         results = list(await progress.gather(tasks, desc="Downloading paper info"))
 
     results_valid = [
-        ASAPPaperWithS2.from_asap(title_to_paper[title_asap], s2_paper)
-        for s2_paper, title_asap in zip(results, title_to_paper)
+        PeerReadPaperWithS2.from_peer(title_to_paper[title_peer], s2_paper)
+        for s2_paper, title_peer in zip(results, title_to_paper)
         if s2_paper
     ]
 
@@ -201,7 +205,7 @@ async def _download_reference_info(
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
 
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
-    papers = load_data(input_file, asap.Paper)[:limit_papers]
+    papers = load_data(input_file, peerread.Paper)[:limit_papers]
     unique_titles = {
         reference.title for paper in papers for reference in paper.references
     }
@@ -222,7 +226,7 @@ async def _download_reference_info(
     results_filtered = [
         paper
         for paper in results_valid
-        if title_ratio(paper.title, paper.title_asap) >= min_fuzzy
+        if title_ratio(paper.title, paper.title_peer) >= min_fuzzy
     ]
 
     logger.info(f"{len(results)} papers")
@@ -249,7 +253,7 @@ app = typer.Typer(
 @app.command(no_args_is_help=True)
 def main(
     input_file: Annotated[
-        Path, typer.Argument(help="Input file (e.g. asap_filtered.json).")
+        Path, typer.Argument(help="Input file (e.g. peerread_merged.json).")
     ],
     output_path: Annotated[
         Path, typer.Argument(help="Directory to save the downloaded information.")
@@ -280,7 +284,7 @@ def main(
         typer.Option("--limit", "-n", help="Limit on the number of papers to query."),
     ] = None,
 ) -> None:
-    """Download paper information for ASAP main papers."""
+    """Download paper information for PeerRead main papers."""
 
     arun_safe(_download_main_info, input_file, fields, output_path, min_fuzzy, limit)
 
@@ -288,7 +292,7 @@ def main(
 @app.command(no_args_is_help=True)
 def references(
     input_file: Annotated[
-        Path, typer.Argument(help="Input file (e.g. asap_filtered.json).")
+        Path, typer.Argument(help="Input file (e.g. peerread_merged.json).")
     ],
     output_path: Annotated[
         Path, typer.Argument(help="Directory to save the downloaded information.")

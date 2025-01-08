@@ -6,7 +6,7 @@ embeddings are stored.
 This takes two inputs:
 - Annotated papers wrapped in prompts (`gpt.PromptResult[gpt.PaperAnnotated]`) from
   `paper.gpt.annotate_paper`.
-- ASAP papers with full S2 reference data (`s2.ASAPWithFullS2`) from
+- PeerRead papers with full S2 reference data (`s2.PaperWithFullS2`) from
   `semantic_scholar.info`.
 """
 
@@ -42,8 +42,8 @@ def main(
     annotated_file: Annotated[
         Path, typer.Option("--ann", help="File with annotated papers.")
     ],
-    asap_file: Annotated[
-        Path, typer.Option("--asap", help="File with ASAP and references.")
+    peerread_file: Annotated[
+        Path, typer.Option("--peerread", help="File with PeerRead and references.")
     ],
     output_file: Annotated[
         Path, typer.Option("--output", help="Output file with the constructed graphs.")
@@ -63,7 +63,7 @@ def main(
     ann = gpt.PromptResult.unwrap(
         load_data(annotated_file, gpt.PromptResult[gpt.PaperAnnotated])
     )
-    asap_papers = load_data(asap_file, s2.PaperWithS2Refs)
+    peerread_papers = load_data(peerread_file, s2.PaperWithS2Refs)
     terms = [x.terms for x in ann]
 
     logger.info("Initialising encoder.")
@@ -81,9 +81,9 @@ def main(
         kg_graph = kg.Graph.from_terms(encoder, terms, progress=True)
     logger.info(timer_kg)
 
-    logger.info("Building Citation: %d papers", len(asap_papers))
+    logger.info("Building Citation: %d papers", len(peerread_papers))
     with Timer("Citation") as timer_citation:
-        citation_graph = citations.Graph.from_papers(encoder, asap_papers)
+        citation_graph = citations.Graph.from_papers(encoder, peerread_papers)
     logger.info(timer_citation)
 
     logger.info("Saving graphs")
