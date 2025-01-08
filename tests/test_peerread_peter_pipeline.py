@@ -18,7 +18,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
 
     title("Preprocess")
     processed_path = tmp_path / "peerread_merged.json"
-    run("src/paper/peerread/process.py", raw_path, processed_path, "-n", 100)
+    run("preprocess", "peerread", raw_path, processed_path, "-n", 100)
 
     title("Info main")
     run(
