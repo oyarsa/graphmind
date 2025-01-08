@@ -28,47 +28,46 @@ class Metrics(BaseModel):
 
 
 def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
-    """Calculate classification metrics from true and predicted ratings.
-
-    Computes precision, recall, F1 score, and accuracy for discrete classification
-    results.
+    """Calculate classification metrics for multi-class classification (labels 1-5).
 
     Args:
-        y_true: A sequence of true ratings (ground truth).
-        y_pred: A sequence of predicted ratings.
+        y_true: Ground truth (correct) labels (values 1-5)
+        y_pred: Predicted labels (values 1-5)
 
     Returns:
-        A Metrics object containing the calculated metrics.
+        Metrics object containing macro-averaged precision, recall, F1 score and accuracy
 
     Raises:
-        ValueError: If the input sequences have different lengths or are empty.
+        ValueError: If input sequences are empty or of different lengths
     """
-    if len(y_true) != len(y_pred):
-        raise ValueError("Input sequences must have the same length")
-    if not y_true:
+    if not y_true or not y_pred:
         raise ValueError("Input sequences cannot be empty")
 
-    # For each rating (1-5), calculate metrics treating it as the positive class
-    metrics_per_rating = {rating: {"tp": 0, "fp": 0, "fn": 0} for rating in range(1, 6)}
+    if len(y_true) != len(y_pred):
+        raise ValueError("Input sequences must have the same length")
 
-    for t, p in zip(y_true, y_pred):
-        if t == p:  # Correct prediction
-            metrics_per_rating[t]["tp"] += 1
-        else:  # Wrong prediction
-            metrics_per_rating[t]["fn"] += 1  # Missed the true rating
-            metrics_per_rating[p]["fp"] += 1  # Falsely predicted this rating
+    classes = range(1, 6)  # Labels 1-5
+    precisions: list[float] = []
+    recalls: list[float] = []
 
-    # Calculate macro-averaged metrics across all ratings
-    total_tp = sum(m["tp"] for m in metrics_per_rating.values())
-    total_fp = sum(m["fp"] for m in metrics_per_rating.values())
-    total_fn = sum(m["fn"] for m in metrics_per_rating.values())
+    for cls in classes:
+        tp = sum(1 for t, p in zip(y_true, y_pred) if t == cls and p == cls)
+        fp = sum(1 for t, p in zip(y_true, y_pred) if t != cls and p == cls)
+        fn = sum(1 for t, p in zip(y_true, y_pred) if t == cls and p != cls)
 
-    # Macro-averaged P/R/F1
-    precision = total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0
-    recall = total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0
-    f1_score = (
-        2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
+        precisions.append(tp / (tp + fp) if (tp + fp) > 0 else 0.0)
+        recalls.append(tp / (tp + fn) if (tp + fn) > 0 else 0.0)
+
+    # Macro averaging (equal weight to each class)
+    macro_precision = sum(precisions) / len(classes)
+    macro_recall = sum(recalls) / len(classes)
+    macro_f1 = (
+        2 * (macro_precision * macro_recall) / (macro_precision + macro_recall)
+        if (macro_precision + macro_recall) > 0
+        else 0.0
     )
-    accuracy = sum(t == p for t, p in zip(y_true, y_pred)) / len(y_true)
+    accuracy = sum(1 for t, p in zip(y_true, y_pred) if t == p) / len(y_true)
 
-    return Metrics(precision=precision, recall=recall, f1=f1_score, accuracy=accuracy)
+    return Metrics(
+        precision=macro_precision, recall=macro_recall, f1=macro_f1, accuracy=accuracy
+    )
