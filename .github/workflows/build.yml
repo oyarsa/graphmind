@@ -10,7 +10,7 @@ on:
 
 jobs:
   lint-python:
-    name: Lint
+    name: Lint Python
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
         uses: jakebailey/pyright-action@v2
 
   lint-shell:
-    name: Shellcheck
+    name: Lint bash/sh
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,6 +51,8 @@ jobs:
     name: Lint fish
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Install fish shell
         uses: fish-shop/install-fish-shell@v1
 
