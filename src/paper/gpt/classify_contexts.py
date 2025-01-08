@@ -23,7 +23,7 @@ import typer
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, computed_field
 
-from paper import asap, evaluation_metrics
+from paper import evaluation_metrics, peerread
 from paper import semantic_scholar as s2
 from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
@@ -213,35 +213,35 @@ class ContextClassified(BaseModel):
 
     text: Annotated[str, Field(description="Full text of the context mention")]
     gold: Annotated[
-        asap.ContextPolarity | None,
+        peerread.ContextPolarity | None,
         Field(
             description="Whether the citation context is annotated as positive or negative."
             " Can be absent for unannotated data."
         ),
     ]
     prediction: Annotated[
-        asap.ContextPolarity,
+        peerread.ContextPolarity,
         Field(
             description="Whether the citation context is predicted positive or negative"
         ),
     ]
 
 
-class S2ReferenceClassified(s2.PaperFromASAP):
+class S2ReferenceClassified(s2.PaperFromPeerRead):
     """S2 paper as a reference with the classified contexts."""
 
     contexts: Sequence[ContextClassified]
 
     @classmethod
     def from_(
-        cls, paper: s2.PaperFromASAP, *, contexts: Sequence[ContextClassified]
+        cls, paper: s2.PaperFromPeerRead, *, contexts: Sequence[ContextClassified]
     ) -> Self:
         """Create new instance by copying data from S2Paper, in addition to the contexts."""
         return cls.model_validate(paper.model_dump() | {"contexts": contexts})
 
     @computed_field
     @property
-    def polarity(self) -> asap.ContextPolarity:
+    def polarity(self) -> peerread.ContextPolarity:
         """Overall polarity of the reference.
 
         If there are more negative contexts than positive, the whole reference is
@@ -249,23 +249,23 @@ class S2ReferenceClassified(s2.PaperFromASAP):
         """
         preds = [c.prediction for c in self.contexts]
         return (
-            asap.ContextPolarity.NEGATIVE
-            if preds.count(asap.ContextPolarity.NEGATIVE) > len(preds) / 2
-            else asap.ContextPolarity.POSITIVE
+            peerread.ContextPolarity.NEGATIVE
+            if preds.count(peerread.ContextPolarity.NEGATIVE) > len(preds) / 2
+            else peerread.ContextPolarity.POSITIVE
         )
 
 
 class PaperWithContextClassfied(Record):
-    """ASAP Paper with S2 references with classified contexts."""
+    """PeerRead Paper with S2 references with classified contexts."""
 
     title: Annotated[str, Field(description="Paper title")]
     abstract: Annotated[str, Field(description="Abstract text")]
     reviews: Annotated[
-        Sequence[asap.PaperReview], Field(description="Feedback from a reviewer")
+        Sequence[peerread.PaperReview], Field(description="Feedback from a reviewer")
     ]
     authors: Annotated[Sequence[str], Field(description="Names of the authors")]
     sections: Annotated[
-        Sequence[asap.PaperSection], Field(description="Sections in the paper text")
+        Sequence[peerread.PaperSection], Field(description="Sections in the paper text")
     ]
     approval: Annotated[
         bool, Field(description="Approval decision - whether the paper was approved")
@@ -279,7 +279,7 @@ class PaperWithContextClassfied(Record):
 
     @property
     def id(self) -> str:
-        """Identify an ASAP by the combination of its `title` and `abstract`.
+        """Identify PeerRead paper by the combination of its `title` and `abstract`.
 
         The `title` isn't unique by itself, but `title+abstract` is. Instead of passing
         full text around, I hash it.
@@ -298,7 +298,7 @@ class GPTContext(BaseModel):
 
     text: Annotated[str, Field(description="Full text of the context mention")]
     polarity: Annotated[
-        asap.ContextPolarity,
+        peerread.ContextPolarity,
         Field(description="Whether the citation context is positive or negative"),
     ]
 
@@ -363,9 +363,7 @@ async def _classify_paper(
                 classified_contexts.append(
                     ContextClassified(
                         text=context.sentence,
-                        gold=asap.ContextPolarity.from_trinary(context.polarity)
-                        if context.polarity is not None
-                        else None,
+                        gold=context.polarity,
                         prediction=gpt_context.polarity,
                     )
                 )
@@ -465,8 +463,10 @@ def show_classified_stats(
             for context in reference.contexts:
                 all_contexts.append(context)
                 if context.gold is not None:
-                    y_true.append(context.gold is asap.ContextPolarity.POSITIVE)
-                    y_pred.append(context.prediction is asap.ContextPolarity.POSITIVE)
+                    y_true.append(context.gold is peerread.ContextPolarity.POSITIVE)
+                    y_pred.append(
+                        context.prediction is peerread.ContextPolarity.POSITIVE
+                    )
 
     output = [
         f"Total contexts: {len(all_contexts)}",
@@ -487,7 +487,8 @@ def show_classified_stats(
 
     # No entries with gold annotation
     positive = sum(
-        context.prediction is asap.ContextPolarity.POSITIVE for context in all_contexts
+        context.prediction is peerread.ContextPolarity.POSITIVE
+        for context in all_contexts
     )
     negative = len(all_contexts) - positive
     output += [

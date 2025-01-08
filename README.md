@@ -27,23 +27,23 @@ below.
 - **S2ORC - Semantic Scholar Open Research Corpus**: dataset with the full paper content
   from Semantic Scholar. See [s2orc README](/src/paper/s2orc/README.md) for
   information.
-- **ASAP-Review**: dataset with full content and ratings for ICLR 2017-2022 papers. See
-  [asap README](/src/paper/asap/README.md) for more information.
+- **PeerRead-Review**: dataset with full content and ratings for ICLR 2017-2022 papers. See
+  [peerread README](/src/paper/peerread/README.md) for more information.
 - **CSAbstruct**: abstract classification dataset we use for demonstrations in
   [gpt.annotate_paper](/src/paper/gpt/demonstrations.py). See
   [their repository](https://github.com/allenai/sequential_sentence_classification/tree/cf5ad6c663550dd8203f148cd703768d9ee86ff4)
 
-Use the `uv run preprocess` command to access both S2ORC and ASAP dataset preprocessing:
+Use the `uv run preprocess` command to access both S2ORC and PeerRead dataset preprocessing:
 
 ```console
 # Create `data` and `output` directories
 $ mkdir data output
 
-# > Preprocess ASAP dataset
+# > Preprocess PeerRead dataset
 # Download the dataset from Google Drive.
-$ uv run src/paper/asap/download.py data/asap
-# Output will be saved to `output`. The final file is `output/asap_filtered.json`.
-$ uv run preprocess asap data/asap output
+$ uv run src/paper/peerread/download.py data/peerread
+# Output will be saved to `output`. The final file is `output/peerread_merged.json`.
+$ uv run preprocess peerread data/peerread output
 
 # > Preprocess S2ORC dataset
 # Note: this takes a long time, potentially hours.
@@ -55,11 +55,11 @@ $ uv run preprocess s2orc data/s2orc output
 
 # More information on the commands and options
 $ uv run preprocess s2orc --help
-$ uv run preprocess asap --help
+$ uv run preprocess peerread --help
 $ uv run preprocess --help
 ```
 
-Both S2ORC and ASAP have multi-step pre-processing pipelines. The commands above will
+Both S2ORC and PeerRead have multi-step pre-processing pipelines. The commands above will
 run all of them in sequence from scratch. To run individual commands (e.g. during
 testing), see the respective READMEs.
 
@@ -69,9 +69,9 @@ Once you have set up the environment and processed the datasets, you can run the
 generation tool:
 
 ```console
-# Generate the graphs from ASAP papers
+# Generate the graphs from PeerRead papers
 $ export OPENAI_API_KEY=... # set the environment variable or use the .env file
-$ uv run graph-gpt run output/asap_filtered output/graph
+$ uv run graph-gpt run output/peerread_merged output/graph
 
 # See the available prompts
 $ uv run graph-gpt prompts

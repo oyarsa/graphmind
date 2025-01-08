@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Annotated, Self
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 import paper.semantic_scholar as s2
-from paper import asap, hierarchical_graph
+from paper import hierarchical_graph, peerread
 from paper.util import hashstr
 from paper.util.serde import Record
 
@@ -319,15 +319,11 @@ class RatingEvaluationStrategy(StrEnum):
 
 
 class Paper(Record):
-    """ASAP-Review paper with only currently useful fields.
-
-    Check the ASAP-Review dataset to see what else is available, and use
-    paper.asap.extract and asap.filter to add them to this dataset.
-    """
+    """PeerRead paper with only currently useful fields."""
 
     title: str
     abstract: str
-    reviews: Sequence[asap.PaperReview]
+    reviews: Sequence[peerread.PaperReview]
     authors: Sequence[str]
     sections: Sequence[PaperSection]
     approval: bool
@@ -385,7 +381,7 @@ class PromptResult[T](BaseModel):
 
 
 class PaperGraph(Record):
-    """ASAP paper with the wrapped graph extracted from it."""
+    """PeerRead paper with the wrapped graph extracted from it."""
 
     paper: Paper
     graph: PromptResult[Graph]
@@ -494,8 +490,8 @@ class PaperAnnotated(Record):
         return self.paper.abstract or "<unknown>"
 
 
-class ASAPAnnotated(Record):
-    """ASAP Paper with its annotated key terms. Includes GPT prompts used."""
+class PeerReadAnnotated(Record):
+    """PeerRead Paper with its annotated key terms. Includes GPT prompts used."""
 
     terms: PaperTerms
     paper: Paper
@@ -504,7 +500,7 @@ class ASAPAnnotated(Record):
 
     @property
     def id(self) -> str:
-        """Identify annotated ASAP paper by the underlying ID."""
+        """Identify annotated PeerRead paper by the underlying ID."""
         return self.paper.id
 
     def target_terms(self) -> list[str]:
@@ -523,9 +519,9 @@ class ASAPAnnotated(Record):
 
 
 class PaperWithRelatedSummary(Record):
-    """ASAP paper with its related papers formatted as prompt input."""
+    """PeerRead paper with its related papers formatted as prompt input."""
 
-    paper: ASAPAnnotated
+    paper: PeerReadAnnotated
     related: Sequence[PaperRelatedSummarised]
 
     @property
@@ -553,7 +549,7 @@ class PaperRelatedSummarised(Record):
     title: str
     abstract: str
     score: float
-    polarity: asap.ContextPolarity
+    polarity: peerread.ContextPolarity
 
     @property
     def id(self) -> str:
@@ -571,7 +567,7 @@ class PaperRelatedSummarised(Record):
             title=related.title,
             abstract=related.abstract,
             score=related.score,
-            polarity=asap.ContextPolarity.POSITIVE
+            polarity=peerread.ContextPolarity.POSITIVE
             if related.polarity is peter.ContextPolarity.POSITIVE
-            else asap.ContextPolarity.NEGATIVE,
+            else peerread.ContextPolarity.NEGATIVE,
         )

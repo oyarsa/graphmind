@@ -21,8 +21,8 @@ basic`, although they should still have _some_ form of typing.
 
 These are scripts that don't fit well into the categories above:
 
-- [`asap_avg_unique_ref_mentions.py`](asap_avg_unique_ref_mentions.py): Calculate total
-  and average number of unique reference contexts per paper in ASAP.
+- [`peerread_avg_unique_ref_mentions.py`](peerread_avg_unique_ref_mentions.py): Calculate total
+  and average number of unique reference contexts per paper in PeerRead.
 - [`cmp_ratings_approval.py`](cmp_ratings_approval.py): Compare classification metrics
   between ratings evaluation strategies and approval.
 - [`count_context.py`](count_context.py): Count number of context items in data file.

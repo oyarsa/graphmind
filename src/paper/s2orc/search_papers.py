@@ -33,11 +33,11 @@ app = typer.Typer(
 
 
 class PaperMatch(BaseModel):
-    """Match between ASAP query title and its S2ORC counterpart with its score."""
+    """Match between PeerRead query title and its S2ORC counterpart with its score."""
 
     model_config = ConfigDict(frozen=True)
 
-    title_asap: str
+    title_peer: str
     title_s2orc: str
     score: int
 
@@ -135,7 +135,7 @@ def _search_paper_fuzzy(
     for s2orc in papers_s2orc:
         score = fuzzy_ratio(query, s2orc)
         if score >= min_fuzzy:
-            matches.add(PaperMatch(title_asap=query, title_s2orc=s2orc, score=score))
+            matches.add(PaperMatch(title_peer=query, title_s2orc=s2orc, score=score))
 
     if items := matches.items:
         paper = Paper(query=query, matches=items)

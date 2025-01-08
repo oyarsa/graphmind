@@ -2,8 +2,8 @@
 
 CLI entrypoint for GPT models and tasks.
 
-- context: Run context classification on ASAP references.
-- graph: Extract concept graph from an ASAP and perform classification on it.
+- context: Run context classification on PeerRead references.
+- graph: Extract concept graph from an PeerRead and perform classification on it.
 - eval_full: Paper evaluation based on the full text only.
 - tokens: Estimate input tokens from different prompts and demonstrations.
 
@@ -74,7 +74,7 @@ Here, these references contain data from the S2 API, so we want to keep that, in
 to the context and its class.
 
 Data:
-- input: asap.PaperWithS2Refs
+- input: s2.PaperWithS2Refs
 - output: PaperWithContextClassfied
 
 **Usage**:
@@ -95,7 +95,7 @@ $ gpt context run [OPTIONS] DATA_PATH OUTPUT_DIR
 * `--user-prompt [full|sentence|simple]`: The user prompt to use for context classification.  [default: sentence]
 * `--ref-limit INTEGER`: Limit to the number of references per paper to process.
 * `--continue-papers PATH`: Path to file with data from a previous run
-* `--clean-run / --no-clean-run`: Start from scratch, ignoring existing intermediate results  [default: no-clean-run]
+* `--continue`: Use existing intermediate results
 * `--seed INTEGER`: Seed to set in the OpenAI call.  [default: 0]
 * `--help`: Show this message and exit.
 
@@ -165,13 +165,13 @@ $ gpt eval full run [OPTIONS]
 
 **Options**:
 
-* `--asap PATH`: The path to the JSON file containing the ASAP papers data.  [required]
+* `--peerread PATH`: The path to the JSON file containing the PeerRead papers data.  [required]
 * `--output PATH`: The path to the output directory where the files will be saved.  [required]
 * `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
 * `-n, --limit INTEGER`: The number of papers to process.  [default: 1]
 * `--user-prompt [iclr2023|iclr2023-abs|simple|simple-abs]`: The user prompt to use for classification.  [default: simple-abs]
 * `--continue-papers PATH`: Path to file with data from a previous run.
-* `--clean-run / --no-clean-run`: Start from scratch, ignoring existing intermediate results  [default: no-clean-run]
+* `--continue`: Use existing intermediate results
 * `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
 * `--demos PATH`: File containing demonstrations to use in few-shot prompt
 * `--demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations.  [default: abstract]
@@ -228,13 +228,13 @@ $ gpt eval peter run [OPTIONS]
 
 **Options**:
 
-* `--ann-graph PATH`: JSON file containing the annotated ASAP papers with summarised graph results.  [required]
+* `--ann-graph PATH`: JSON file containing the annotated PeerRead papers with summarised graph results.  [required]
 * `--output PATH`: The path to the output directory where the files will be saved.  [required]
 * `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
-* `-n, --limit INTEGER`: The number of papers to process.  [default: 1]
-* `--user-prompt [simple]`: The user prompt to use for classification.  [default: simple]
+* `-n, --limit INTEGER`: The number of papers to process.  [default: 10]
+* `--user-prompt [sans|simple]`: The user prompt to use for classification.  [default: simple]
 * `--continue-papers PATH`: Path to file with data from a previous run.
-* `--clean-run / --no-clean-run`: Start from scratch, ignoring existing intermediate results  [default: no-clean-run]
+* `--continue`: Use existing intermediate results.
 * `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
 * `--demos PATH`: File containing demonstrations to use in few-shot prompt
 * `--demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations.  [default: abstract]
@@ -278,7 +278,7 @@ $ gpt eval scimon prompts [OPTIONS]
 
 Evaluate a paper's approval based on annotated papers with SciMON-derived terms.
 
-The input is the output of `scimon.query_asap`, i.e. the output of `gpt.annotate_paper`
+The input is the output of `scimon.query`, i.e. the output of `gpt.annotate_paper`
 (papers with extracted scientific terms) with the related terms extracted through the
 SciMON graph created by `scimon.build`.
 
@@ -290,13 +290,13 @@ $ gpt eval scimon run [OPTIONS]
 
 **Options**:
 
-* `--ann-graph PATH`: JSON file containing the annotated ASAP papers with graph results.  [required]
+* `--ann-graph PATH`: JSON file containing the annotated PeerRead papers with graph results.  [required]
 * `--output PATH`: The path to the output directory where the files will be saved.  [required]
 * `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
 * `-n, --limit INTEGER`: The number of papers to process.  [default: 1]
 * `--user-prompt [simple]`: The user prompt to use for classification.  [default: simple]
 * `--continue-papers PATH`: Path to file with data from a previous run.
-* `--clean-run / --no-clean-run`: Start from scratch, ignoring existing intermediate results  [default: no-clean-run]
+* `--continue`: Use existing intermediate results.
 * `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
 * `--demos PATH`: File containing demonstrations to use in few-shot prompt
 * `--demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations.  [default: abstract]
@@ -304,7 +304,7 @@ $ gpt eval scimon run [OPTIONS]
 
 ## `gpt graph`
 
-Generate graphs from papers from the ASAP-Review dataset using OpenAI GPT.
+Generate graphs from papers from the PeerRead-Review dataset using OpenAI GPT.
 
 **Usage**:
 
@@ -338,7 +338,7 @@ $ gpt graph prompts [OPTIONS]
 
 ### `gpt graph run`
 
-Generate graphs from papers from the ASAP-Review dataset using OpenAI GPT.
+Generate graphs from papers from the PeerRead-Review dataset using OpenAI GPT.
 
 The graphs represent the collection of concepts and arguments in the paper.
 Can also classify a paper into approved/not-approved using the generated graph.
@@ -363,7 +363,7 @@ $ gpt graph run [OPTIONS] DATA_PATH OUTPUT_DIR
 * `--display / --no-display`: Display the extracted graph  [default: no-display]
 * `--classify / --no-classify`: Classify the papers based on the extracted entities.  [default: no-classify]
 * `--continue-papers PATH`: Path to file with data from a previous run.
-* `--clean-run / --no-clean-run`: Start from scratch, ignoring existing intermediate results.  [default: no-clean-run]
+* `--continue`: Use existing intermediate results.
 * `--seed INTEGER`: Seed to set in the OpenAI call.  [default: 0]
 * `--help`: Show this message and exit.
 
@@ -405,7 +405,7 @@ $ gpt petersum prompts [OPTIONS]
 
 Summarise related papers from PETER for inclusion in main paper evaluation prompt.
 
-The input is the output of `paper.asap`, i.e. the output of `gpt.annotate_paper`
+The input is the output of `paper.peerread`, i.e. the output of `gpt.annotate_paper`
 (papers with extracted scientific terms) and `gpt.classify_contexts` (citations
 contexts classified by polarity) with the related papers queried through the PETER
 graph.
@@ -421,14 +421,14 @@ $ gpt petersum run [OPTIONS]
 
 **Options**:
 
-* `--ann-graph PATH`: JSON file containing the annotated ASAP papers with graph results.  [required]
+* `--ann-graph PATH`: JSON file containing the annotated PeerRead papers with graph results.  [required]
 * `--output PATH`: The path to the output directory where the files will be saved.  [required]
 * `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
-* `-n, --limit INTEGER`: The number of ASAP papers to process.  [default: 10]
+* `-n, --limit INTEGER`: The number of PeerRead papers to process.  [default: 10]
 * `--positive-prompt [negative|positive]`: The summarisation prompt to use for positively related papers.  [default: positive]
 * `--negative-prompt [negative|positive]`: The summarisation prompt to use for negatively related papers.  [default: negative]
 * `--continue-papers PATH`: Path to file with data from a previous run.
-* `--clean-run / --no-clean-run`: Start from scratch, ignoring existing intermediate results  [default: no-clean-run]
+* `--continue`: Use existing intermediate results.
 * `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
 * `--help`: Show this message and exit.
 
@@ -486,7 +486,7 @@ $ gpt terms run [OPTIONS] INPUT_FILE OUTPUT_DIR
 
 **Options**:
 
-* `--paper-type [s2|asap]`: Type of paper for the input data  [required]
+* `--paper-type [s2|peerread]`: Type of paper for the input data  [required]
 * `-n, --limit INTEGER`: The number of papers to process. Set to 0 for all papers.  [default: 0]
 * `-m, --model [4o|4o-mini|gpt-4o|gpt-4o-2024-08-06|gpt-4o-mini|gpt-4o-mini-2024-07-18]`: The model to use for the annotation.  [default: gpt-4o-mini]
 * `--seed INTEGER`: Seed to set in the OpenAI call.  [default: 0]
@@ -495,7 +495,7 @@ $ gpt terms run [OPTIONS] INPUT_FILE OUTPUT_DIR
 * `--abstract-demos PATH`: Path to demonstrations containing data for abstract classification.
 * `--abstract-demo-prompt [simple]`: Prompt used to create abstract classification demonstrations  [default: simple]
 * `--continue-papers PATH`: Path to file with data from a previous run.
-* `--clean-run / --no-clean-run`: Start from scratch, ignoring existing intermediate results.  [default: no-clean-run]
+* `--continue`: Use existing intermediate results.
 * `--log [none|table|detail]`: How much detail to show in output logging.  [default: none]
 * `--help`: Show this message and exit.
 
@@ -530,7 +530,7 @@ $ gpt tokens fulltext [OPTIONS] INPUT_FILE
 
 **Arguments**:
 
-* `INPUT_FILE`: Input dataset JSON file (asap_filtered.json)  [required]
+* `INPUT_FILE`: Input dataset JSON file (peerread_merged.json)  [required]
 
 **Options**:
 
@@ -553,7 +553,7 @@ $ gpt tokens scimon [OPTIONS] INPUT_FILE
 
 **Arguments**:
 
-* `INPUT_FILE`: Input dataset JSON file (annotated ASAP with graph data.)  [required]
+* `INPUT_FILE`: Input dataset JSON file (annotated PeerRead with graph data.)  [required]
 
 **Options**:
 

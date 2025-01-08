@@ -21,9 +21,9 @@ with having the files on the cloud instead of locally.
 - [`semantic_scholar_model.py`](semantic_scholar_model.py): Data models for types
   returned by the Semantic Scholar API.
 - [`semantic_scholar_recommended.py`](semantic_scholar_recommended.py): Download paper
-  recommendations for ASAP papers from the Semantic Scholar API.
+  recommendations for PeerRead papers from the Semantic Scholar API.
 - [`semantic_scholar_references.py`](semantic_scholar_references.py): Download
-  information for papers referenced in ASAP using the Semantic Scholar API.
+  information for papers referenced in PeerRead using the Semantic Scholar API.
 
 ## Notes
 

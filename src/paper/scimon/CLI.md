@@ -10,6 +10,8 @@ $ scimon [OPTIONS] COMMAND [ARGS]...
 
 **Options**:
 
+* `--install-completion`: Install completion for the current shell.
+* `--show-completion`: Show completion for the current shell, to copy it or customize the installation.
 * `--help`: Show this message and exit.
 
 **Commands**:
@@ -17,7 +19,7 @@ $ scimon [OPTIONS] COMMAND [ARGS]...
 * `build`: Build the three SciMON graphs (KG,...
 * `citations`: Create citations graph with the reference...
 * `kg`: Build a KG graph from extracted terms from...
-* `query-asap`: Query all terms for ASAP-annotated papers...
+* `query`: Query all terms for PeerRead-annotated...
 * `semantic`: Build a semantic graph from extracted...
 
 ## `scimon build`
@@ -30,7 +32,7 @@ embeddings are stored.
 This takes two inputs:
 - Annotated papers wrapped in prompts (`gpt.PromptResult[gpt.PaperAnnotated]`) from
   `paper.gpt.annotate_paper`.
-- ASAP papers with full S2 reference data (`s2.ASAPWithFullS2`) from
+- PeerRead papers with full S2 reference data (`s2.PaperWithFullS2`) from
   `semantic_scholar.info`.
 
 **Usage**:
@@ -42,7 +44,7 @@ $ scimon build [OPTIONS]
 **Options**:
 
 * `--ann PATH`: File with annotated papers.  [required]
-* `--asap PATH`: File with ASAP and references.  [required]
+* `--peerread PATH`: File with PeerRead and references.  [required]
 * `--output PATH`: Output file with the constructed graphs.  [required]
 * `--model TEXT`: SentenceTransformer model to use.  [default: all-mpnet-base-v2]
 * `--test / --no-test`: Test graph saving and loading.  [default: no-test]
@@ -52,14 +54,14 @@ $ scimon build [OPTIONS]
 
 Create citations graph with the reference papers sorted by title similarity.
 
-Calculates title sentence embedding for the ASAP main paper and each S2 reference using
-a SentenceTransformer, then keeping a sorted list by similarity. At query time, the user
-can specify the number of most similar papers to retrieve. SciMON uses the
+Calculates title sentence embedding for the PeerRead main paper and each S2 reference
+using a SentenceTransformer, then keeping a sorted list by similarity. At query time,
+the user can specify the number of most similar papers to retrieve. SciMON uses the
 `all-mpnet-base-v2` model and K = 5.
 
 Takes as input the output of `semantic_scholar.construct_daset`: the file
-`asap_with_s2_references.json` of type `asap.PaperWithS2Refs`. The similarity is
-calculated between the ASAP `title` and the S2 `title_asap`.
+`peerread_with_s2_references.json` of type `peerread.PaperWithS2Refs`. The similarity is
+calculated between the PeerRead `title` and the S2 `title_peer`.
 
 **Usage**:
 
@@ -69,8 +71,8 @@ $ scimon citations [OPTIONS] INPUT_FILE OUTPUT_FILE
 
 **Arguments**:
 
-* `INPUT_FILE`: File with ASAP papers with references with full S2 data.  [required]
-* `OUTPUT_FILE`: File with ASAP papers with top K references with full S2 data.  [required]
+* `INPUT_FILE`: File with PeerRead papers with references with full S2 data.  [required]
+* `OUTPUT_FILE`: File with PeerRead papers with top K references with full S2 data.  [required]
 
 **Options**:
 
@@ -105,24 +107,24 @@ $ scimon kg [OPTIONS] INPUT_FILE OUTPUT_FILE
 * `--query TEXT`: Test query for the graph
 * `--help`: Show this message and exit.
 
-## `scimon query-asap`
+## `scimon query`
 
-Query all terms for ASAP-annotated papers and save the result as JSON.
+Query all terms for PeerRead-annotated papers and save the result as JSON.
 
 The inputs are:
-- Annotated ASAP papers from `gpt.annotate_paper`.
+- Annotated PeerRead papers from `gpt.annotate_paper`.
 - The SciMON graph created from annotated S2 papers (also `gpt.annotate_paper`) via
   `scimon.build`.
 
 **Usage**:
 
 ```console
-$ scimon query-asap [OPTIONS]
+$ scimon query [OPTIONS]
 ```
 
 **Options**:
 
-* `--ann-asap PATH`: JSON file containing the annotated ASAP papers data.  [required]
+* `--ann-peer PATH`: JSON file containing the annotated PeerRead papers data.  [required]
 * `--graph PATH`: JSON file containing the SciMON graphs.  [required]
 * `--output PATH`: Path to the output file with annotated papers and their graph results.  [required]
 * `--help`: Show this message and exit.

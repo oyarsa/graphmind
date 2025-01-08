@@ -1,4 +1,4 @@
-"""Build citations graph from ASAP data with S2 papers and context polarities.
+"""Build citations graph from PeerRead data with S2 papers and context polarities.
 
 Input: `PaperWithContextClassfied`.
 Output: `QueryResult` with lists of positive and negative `Citation`s.
@@ -27,9 +27,9 @@ class Graph(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     title_to_id: Mapping[str, str]
-    """ASAP paper titles to IDs."""
+    """PeerRead paper titles to IDs."""
     id_polarity_to_cited: Mapping[str, Mapping[ContextPolarity, Sequence[Citation]]]
-    """ASAP paper IDs and context polarity to cited papers.
+    """PeerRead paper IDs and context polarity to cited papers.
 
     Sorted by similarity score (descending) between paper and cited titles.
     """
@@ -41,10 +41,10 @@ class Graph(BaseModel):
         papers: Iterable[PaperWithContextClassfied],
         progress: bool = False,
     ) -> Self:
-        """For each ASAP paper, sort cited papers by title similarity.
+        """For each PeerRead paper, sort cited papers by title similarity.
 
-        Cleans up the titles with `s2.clean_title`, then compares the ASAP `title` with
-        the S2 `title_asap`.
+        Cleans up the titles with `s2.clean_title`, then compares the PeerRead `title`
+        with the S2 `title_peerread`.
 
         Args:
             encoder: Text to vector encoder to use on the nodes.
@@ -60,17 +60,17 @@ class Graph(BaseModel):
         if progress:
             papers = tqdm(papers)
 
-        for asap_paper in papers:
-            title_to_id[asap_paper.title] = asap_paper.id
-            asap_embedding = encoder.encode(_clean_title(asap_paper.title))
+        for peer_paper in papers:
+            title_to_id[peer_paper.title] = peer_paper.id
+            peer_embedding = encoder.encode(_clean_title(peer_paper.title))
 
             s2_embeddings = encoder.encode(
-                [_clean_title(r.title_asap) for r in asap_paper.references]
+                [_clean_title(r.title_peer) for r in peer_paper.references]
             )
-            s2_similarities = emb.similarities(asap_embedding, s2_embeddings)
+            s2_similarities = emb.similarities(peer_embedding, s2_embeddings)
 
             for polarity in ContextPolarity:
-                id_polarity_to_cited[asap_paper.id][polarity] = [
+                id_polarity_to_cited[peer_paper.id][polarity] = [
                     Citation(
                         score=score,
                         title=paper.title,
@@ -79,7 +79,7 @@ class Graph(BaseModel):
                         polarity=polarity,
                     )
                     for paper, score in sorted(
-                        zip(asap_paper.references, s2_similarities),
+                        zip(peer_paper.references, s2_similarities),
                         key=lambda x: x[1],
                         reverse=True,
                     )
@@ -91,14 +91,14 @@ class Graph(BaseModel):
         return cls(id_polarity_to_cited=id_polarity_to_cited, title_to_id=title_to_id)
 
     def query_title(self, title: str, k: int) -> QueryResult:
-        """Get top `k` cited papers by title similarity from an ASAP paper `title`.
+        """Get top `k` cited papers by title similarity from a PeerRead paper `title`.
 
         Note: prefer `query` for actual usage. See `title_to_id`.
         """
         return self.query(self.title_to_id[title], k)
 
     def query(self, paper_id: str, k: int) -> QueryResult:
-        """Get top `k` cited papers by title similarity from an ASAP paper `id`.
+        """Get top `k` cited papers by title similarity from a PeerRead paper `id`.
 
         Returns `k` papers from each polarity.
         """
@@ -116,7 +116,7 @@ def _clean_title(title: str) -> str:
 
 
 class Citation(Record):
-    """S2 paper cited by the ASAP paper with the title similarity score and polarity."""
+    """S2 paper cited by the PeerRead paper with the title similarity score and polarity."""
 
     score: float
     paper_id: str
@@ -140,7 +140,7 @@ class QueryResult(BaseModel):
 
 
 class PaperWithContextClassfied(Protocol):
-    """Paper from ASAP with each citation polarity classified.
+    """Paper from PeerRead with each citation polarity classified.
 
     Input for the PETER Citations graph.
     """
@@ -165,8 +165,8 @@ class ReferenceClassified(Protocol):
     """Paper reference with a polarity."""
 
     @property
-    def title_asap(self) -> str:
-        """Paper title in the original ASAP reference."""
+    def title_peer(self) -> str:
+        """Paper title in the original PeerRead reference."""
         ...
 
     @property

@@ -19,7 +19,7 @@ from typing import Annotated
 import typer
 from pydantic import TypeAdapter
 
-from paper.asap.model import CitationContext, ContextPolarityTrinary
+from paper.peerread.model import CitationContext, ContextPolarity
 from paper.semantic_scholar.model import PaperWithReferenceEnriched, ReferenceEnriched
 from paper.util import Timer, cli
 
@@ -34,7 +34,7 @@ app = typer.Typer(
 @app.command()
 def sample(
     input_file: Annotated[
-        Path, typer.Argument(help="Path to input JSON file (ASAP with abstracts).")
+        Path, typer.Argument(help="Path to input JSON file (PeerRead with abstracts).")
     ],
     output_file: Annotated[
         Path, typer.Argument(help="Path to output JSON file (sampled data).")
@@ -225,12 +225,12 @@ def _count_contexts(data: Iterable[PaperWithReferenceEnriched]) -> int:
     )
 
 
-_ANNOTATION_CACHE: dict[str, ContextPolarityTrinary] = {}
+_ANNOTATION_CACHE: dict[str, ContextPolarity] = {}
 
 
 def _annotate_context(
     idx: int, total: int, context: CitationContext, *, width: int
-) -> ContextPolarityTrinary | None:
+) -> ContextPolarity | None:
     if polarity := _ANNOTATION_CACHE.get(context.sentence):
         return polarity
 
@@ -257,9 +257,8 @@ Context
         return None
 
     polarity = {
-        "p": ContextPolarityTrinary.POSITIVE,
-        "u": ContextPolarityTrinary.NEUTRAL,
-        "n": ContextPolarityTrinary.NEGATIVE,
+        "p": ContextPolarity.POSITIVE,
+        "n": ContextPolarity.NEGATIVE,
     }[answer]
     _ANNOTATION_CACHE[context.sentence] = polarity
 

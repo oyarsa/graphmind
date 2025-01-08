@@ -57,7 +57,7 @@ app = typer.Typer(
 @app.command(help="Estimate tokens for full-text evaluation", no_args_is_help=True)
 def fulltext(
     input_file: Annotated[
-        Path, typer.Argument(help="Input dataset JSON file (asap_filtered.json)")
+        Path, typer.Argument(help="Input dataset JSON file (peerread_merged.json)")
     ],
     user_prompt_key: Annotated[
         str,
@@ -122,7 +122,7 @@ def scimon_(
     input_file: Annotated[
         Path,
         typer.Argument(
-            help="Input dataset JSON file (annotated ASAP with graph data.)"
+            help="Input dataset JSON file (annotated PeerRead with graph data.)"
         ),
     ],
     user_prompt_key: Annotated[

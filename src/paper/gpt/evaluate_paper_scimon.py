@@ -1,6 +1,6 @@
 """Evaluate a paper's approval based on annotated papers with SciMON-derived terms.
 
-The input is the output of `scimon.query_asap`, i.e. the output of `gpt.annotate_paper`
+The input is the output of `scimon.query`, i.e. the output of `gpt.annotate_paper`
 (papers with extracted scientific terms) with the related terms extracted through the
 SciMON graph created by `scimon.build`.
 """
@@ -68,7 +68,7 @@ def run(
         Path,
         typer.Option(
             "--ann-graph",
-            help="JSON file containing the annotated ASAP papers with graph results.",
+            help="JSON file containing the annotated PeerRead papers with graph results.",
         ),
     ],
     output_dir: Annotated[
@@ -150,7 +150,7 @@ async def evaluate_papers(
 ) -> None:
     """Evaluate a paper's approval based on SciMON graph-extracted terms.
 
-    The papers should come from ASAP-annotated papers from `gpt.annotate_paper`.
+    The papers should come from PeerRead-annotated papers from `gpt.annotate_paper`.
 
     Args:
         model: GPT model code. Must support Structured Outputs.
@@ -265,7 +265,7 @@ async def _classify_papers(
         client: OpenAI client to use GPT.
         model: GPT model code to use (must support Structured Outputs).
         user_prompt: User prompt template to use for classification to be filled.
-        ann_graphs: Annotated ASAP papers with their graph data.
+        ann_graphs: Annotated PeerRead papers with their graph data.
         output_intermediate_file: File to write new results after each task is completed.
         demonstrations: Text of demonstrations for few-shot prompting.
         seed: Seed for the OpenAI API call.

@@ -1,6 +1,6 @@
 # preprocess: Transform datasets
 
-The main dataset we use is [ASAP](https://github.com/neulab/ReviewAdvisor#dataset). It
+The main dataset we use is [PeerRead](https://github.com/neulab/ReviewAdvisor#dataset). It
 contains peer reviews, ratings and approval decisions for papers in ICLR and NeurIPS. We
 use only the ICLR subset because it contains all the information we need, while NeurIPS
 is missing some.

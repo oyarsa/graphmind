@@ -1,7 +1,7 @@
 """CLI entrypoint for GPT models and tasks.
 
-- context: Run context classification on ASAP references.
-- graph: Extract concept graph from an ASAP and perform classification on it.
+- context: Run context classification on PeerRead references.
+- graph: Extract concept graph from an PeerRead and perform classification on it.
 - eval_full: Paper evaluation based on the full text only.
 - tokens: Estimate input tokens from different prompts and demonstrations.
 """

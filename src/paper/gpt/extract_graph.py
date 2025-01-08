@@ -1,4 +1,4 @@
-"""Generate graphs from papers from the ASAP-Review dataset using OpenAI GPT.
+"""Generate graphs from papers from the PeerRead-Review dataset using OpenAI GPT.
 
 The graphs represent the collection of concepts and arguments in the paper.
 Can also classify a paper into approved/not-approved using the generated graph.
@@ -518,8 +518,8 @@ async def extract_graph(
 
     See `gpt.models.Graph` for the graph structure and rules.
 
-    The papers should come from the ASAP-Review dataset as processed by the
-    paper.asap module.
+    The papers should come from the PeerRead-Review dataset as processed by the
+    paper.peerread module.
 
     The classification part is optional. It uses the generated graphs as input as saves
     the results (metrics and predictions) to {output_dir}/classification.

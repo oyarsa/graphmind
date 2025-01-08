@@ -1,7 +1,7 @@
 """Combine multiple JSON files (each an object) into a single JSON file (array).
 
 Usage:
-    python asap_iclr_paper_combine.py <file1> <file2> ...
+    python combine_json_files.py <file1> <file2> ...
 """
 
 import json

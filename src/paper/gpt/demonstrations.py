@@ -30,7 +30,7 @@ app = typer.Typer(
 @app.command(short_help="Full-paper evaluation.", no_args_is_help=True)
 def eval_full(
     input_file: Annotated[
-        Path, typer.Argument(help="Input JSON with paper data (asap_filtered.json)")
+        Path, typer.Argument(help="Input JSON with paper data (peerread_merged.json)")
     ],
     output_file: Annotated[
         Path, typer.Argument(help="Path to output JSON file with the demonstrations")
@@ -46,7 +46,7 @@ def eval_full(
     the review with lowest/highest reviews and uses it as the demonstration for the
     rationale.
 
-    The input file is the output of the ASAP pipeline (asap_filtered.json).
+    The input file is the output of the PeerRead pipeline (peerread_merged.json).
     The output is a file with the paper title, abstract, main text, approval decision and
     the chosen rationale with its rating.
     """

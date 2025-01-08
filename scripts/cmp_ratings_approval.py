@@ -1,6 +1,6 @@
 """Compare classification metrics between ratings evaluation strategies and approval.
 
-The approval is given in the ASAP dataset, but it's binary. We'll eventually want to
+The approval is given in the PeerRead dataset, but it's binary. We'll eventually want to
 use the numerical ratings, so I want to know how well the approval matches the ratings.
 
 For now, I'm not comparing the integer ratings with the approval, just the two strategies

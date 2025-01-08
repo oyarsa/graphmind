@@ -1,6 +1,6 @@
 """Count number of context items in data file. Show polarity frequencies, if available.
 
-The input file should have the `paper.asap.models.PaperWithReferenceEnriched`
+The input file should have the `paper.peerread.models.PaperWithReferenceEnriched`
 format.
 """
 
@@ -11,7 +11,7 @@ from typing import Annotated
 import typer
 from pydantic import TypeAdapter
 
-from paper.asap.model import CitationContext
+from paper.peerread.model import CitationContext
 from paper.semantic_scholar.model import PaperWithReferenceEnriched
 
 app = typer.Typer(

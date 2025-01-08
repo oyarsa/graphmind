@@ -40,9 +40,9 @@ def citations_(
     input_file: Annotated[
         Path,
         typer.Option(
-            "--asap",
-            help="File with ASAP papers with references with full S2 data and classified"
-            " contexts.",
+            "--peerread",
+            help="File with PeerRead papers with references with full S2 data and"
+            " classified contexts.",
         ),
     ],
     output_file: Annotated[
@@ -57,14 +57,14 @@ def citations_(
     logger.info(display_params())
 
     logger.debug("Loading classified papers.")
-    asap_papers = gpt.PromptResult.unwrap(
+    peerread_papers = gpt.PromptResult.unwrap(
         load_data(input_file, gpt.PromptResult[gpt.PaperWithContextClassfied])
     )
 
     logger.debug("Loading encoder.")
     encoder = emb.Encoder(model_name)
     logger.debug("Creating graph.")
-    graph = citations.Graph.from_papers(encoder, asap_papers, progress=True)
+    graph = citations.Graph.from_papers(encoder, peerread_papers, progress=True)
 
     logger.debug("Saving graph.")
     save_data(output_file, graph)
@@ -75,8 +75,8 @@ def semantic_(
     input_file: Annotated[
         Path,
         typer.Option(
-            "--asap",
-            help="File with ASAP papers with extracted backgrounds and targets.",
+            "--peerread",
+            help="File with PeerRead papers with extracted backgrounds and targets.",
         ),
     ],
     output_file: Annotated[
@@ -91,14 +91,14 @@ def semantic_(
     logger.info(display_params())
 
     logger.debug("Loading annotated papers.")
-    asap_papers = gpt.PromptResult.unwrap(
+    peerread_papers = gpt.PromptResult.unwrap(
         load_data(input_file, gpt.PromptResult[gpt.PaperAnnotated])
     )
 
     logger.debug("Loading encoder.")
     encoder = emb.Encoder(model_name)
     logger.debug("Creating graph.")
-    graph = semantic.Graph.from_papers(encoder, asap_papers, progress=True)
+    graph = semantic.Graph.from_papers(encoder, peerread_papers, progress=True)
 
     logger.debug("Saving graph.")
     save_data(output_file, graph.to_data())
@@ -110,14 +110,14 @@ def build(
         Path,
         typer.Option(
             "--ann",
-            help="File with ASAP papers with extracted backgrounds and targets.",
+            help="File with PeerRead papers with extracted backgrounds and targets.",
         ),
     ],
     context_file: Annotated[
         Path,
         typer.Option(
             "--context",
-            help="File with ASAP papers with classified contexts.",
+            help="File with PeerRead papers with classified contexts.",
         ),
     ],
     output_file: Annotated[
@@ -158,8 +158,8 @@ def query(
     ann_file: Annotated[
         Path,
         typer.Option(
-            "--asap-ann",
-            help="File with ASAP papers with extracted backgrounds and targets.",
+            "--peerread-ann",
+            help="File with PeerRead papers with extracted backgrounds and targets.",
         ),
     ],
     titles: Annotated[
@@ -182,7 +182,7 @@ def query(
 
     logger.debug("Loading papers.")
     ann = gpt.PromptResult.unwrap(
-        load_data(ann_file, gpt.PromptResult[gpt.ASAPAnnotated])
+        load_data(ann_file, gpt.PromptResult[gpt.PeerReadAnnotated])
     )
 
     if not titles:
@@ -218,15 +218,15 @@ def query(
 
 
 @app.command(no_args_is_help=True)
-def asap(
+def peerread(
     graph_file: Annotated[
         Path, typer.Option("--graph", help="Path to full graph file.")
     ],
     ann_file: Annotated[
         Path,
         typer.Option(
-            "--asap-ann",
-            help="File with ASAP papers with extracted backgrounds and targets.",
+            "--peerread-ann",
+            help="File with PeerRead papers with extracted backgrounds and targets.",
         ),
     ],
     output_file: Annotated[
@@ -241,15 +241,15 @@ def asap(
         ),
     ] = None,
 ) -> None:
-    """Query the graph with ASAP papers and save the results in a file.
+    """Query the graph with PeerRead papers and save the results in a file.
 
-    The output file contains both the original ASAP paper and the graph query results.
+    The output file contains both the original PeerRead paper and the graph query results.
     """
     logger.info(display_params())
 
     logger.debug("Loading papers.")
     papers = gpt.PromptResult.unwrap(
-        load_data(ann_file, gpt.PromptResult[gpt.ASAPAnnotated])
+        load_data(ann_file, gpt.PromptResult[gpt.PeerReadAnnotated])
     )[:num_papers]
 
     logger.debug("Loading graph.")
@@ -260,15 +260,15 @@ def asap(
             paper=paper,
             results=main_graph.query_all(paper.id, paper.background, paper.target),
         )
-        for paper in tqdm(papers, desc="Querying ASAP papers.")
+        for paper in tqdm(papers, desc="Querying PeerRead papers.")
     ]
     save_data(output_file, results)
 
 
 class PaperResult(Record):
-    """ASAP paper with its related papers queried from the PETER graph."""
+    """PeerRead paper with its related papers queried from the PETER graph."""
 
-    paper: gpt.ASAPAnnotated
+    paper: gpt.PeerReadAnnotated
     results: graph.QueryResult
 
     @property

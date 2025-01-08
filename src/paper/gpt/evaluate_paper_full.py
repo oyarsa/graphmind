@@ -2,14 +2,14 @@
 
 # Best configuration:
 #     Command:
-#     $ uv run gpt eval_full run output/asap_balanced_50.json tmp/eval-full -n 0 \
+#     $ uv run gpt eval_full run output/peerread_balanced_50.json tmp/eval-full -n 0 \
 #         --clean-run --user-prompt simple-abs --demos output/demonstrations_10.json \
 #         --demo-prompt abstract -m 4o
 #
 #     2024-11-04 20:03:37 | INFO | paper.gpt.evaluate_paper_full:151 | CONFIG:
 #     - model: 4o
 #     - api_key: None
-#     - data_path: /Users/italo/dev/paper-hypergraph/output/asap_balanced_50.json (dc592a4f)
+#     - data_path: /Users/italo/dev/paper-hypergraph/output/peerread_balanced_50.json (dc592a4f)
 #     - limit_papers: 0
 #     - user_prompt_key: simple-abs
 #     - output_dir: /Users/italo/dev/paper-hypergraph/tmp/eval-full (directory)
@@ -84,10 +84,11 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def run(
-    asap_path: Annotated[
+    peerread_path: Annotated[
         Path,
         typer.Option(
-            "--asap", help="The path to the JSON file containing the ASAP papers data."
+            "--peerread",
+            help="The path to the JSON file containing the PeerRead papers data.",
         ),
     ],
     output_dir: Annotated[
@@ -136,7 +137,7 @@ def run(
     asyncio.run(
         evaluate_papers(
             model,
-            asap_path,
+            peerread_path,
             limit_papers,
             user_prompt,
             output_dir,
@@ -157,7 +158,7 @@ def main() -> None:
 
 async def evaluate_papers(
     model: str,
-    asap_path: Path,
+    peerread_path: Path,
     limit_papers: int | None,
     user_prompt_key: str,
     output_dir: Path,
@@ -169,12 +170,12 @@ async def evaluate_papers(
 ) -> None:
     """Evaluate a paper's approval based on its full-body text.
 
-    The papers should come from the ASAP-Review dataset as processed by the
-    paper.asap module.
+    The papers should come from the PeerRead dataset as processed by the
+    paper.peerread module.
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        asap_path: Path to the JSON file containing the input papers data.
+        peerread_path: Path to the JSON file containing the input papers data.
         limit_papers: Number of papers to process. Defaults to 1 example. If None,
             process all.
         graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
@@ -214,7 +215,7 @@ async def evaluate_papers(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    papers = shuffled(load_data(asap_path, Paper))[:limit_papers]
+    papers = shuffled(load_data(peerread_path, Paper))[:limit_papers]
     user_prompt = FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
@@ -287,7 +288,7 @@ async def _classify_papers(
         client: OpenAI client to use GPT
         model: GPT model code to use (must support Structured Outputs)
         user_prompt: User prompt template to use for classification to be filled
-        papers: Papers from the ASAP-Review dataset to classify
+        papers: Papers from the PeerRead dataset to classify
         output_intermediate_file: File to write new results after each task is completed
         demonstrations: Text of demonstrations for few-shot prompting
         seed: Seed for the OpenAI API call
