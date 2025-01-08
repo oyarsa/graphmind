@@ -124,7 +124,13 @@ class GPTFull(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     rationale: Annotated[str, Field(description="How you reached your novelty rating.")]
-    rating: Annotated[int, Field(description="How novel the paper is judged to be.")]
+    rating: Annotated[
+        int,
+        Field(
+            description="The novelty rating - how novel the paper is judged to be. Must"
+            " be between 1 and 5.",
+        ),
+    ]
 
 
 CLASSIFY_TYPES = {

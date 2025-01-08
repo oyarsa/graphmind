@@ -351,7 +351,13 @@ async def _classify_paper(
         model,
         seed=seed,
     )
+
     classified = result.result
+    if classified and classified.rating not in range(1, 6):
+        logger.warning("Invalid rating: %d. Clamping to 1-5.", classified.rating)
+        classified = classified.model_copy(
+            update={"rating": max(1, min(classified.rating, 5))}
+        )
 
     return GPTResult(
         result=PromptResult(
