@@ -3,6 +3,16 @@
 import concurrent.futures
 import subprocess
 from collections.abc import Iterable, Sequence
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).parent.parent
+
+
+def title(message: str) -> None:
+    """Print highlighted message as a title."""
+    red_bg = "\033[41m"
+    normal_color = "\033[0m"
+    print(f"\n{red_bg}>>> {message}{normal_color}")
 
 
 def run(*args: object) -> None:
