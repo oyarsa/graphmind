@@ -111,6 +111,7 @@ def format_demonstrations(
             abstract=demo.abstract,
             main_text=demo.text,
             rationale=demo.rationale,
+            rating=demo.rating,
         )
         for demo in demonstrations
     )

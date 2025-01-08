@@ -1,4 +1,7 @@
-"""Evaluate a paper's novelty based on its full-body text."""
+"""Evaluate a paper's novelty based on its full-body text.
+
+The input is the processed PeerRead dataset (peerread.Paper).
+"""
 
 # Best configuration:
 #     Command:
