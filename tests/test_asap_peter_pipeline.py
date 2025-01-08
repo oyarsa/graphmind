@@ -1,35 +1,22 @@
-"""Test the full PETER pipeline from preprocessing to graph building."""
+"""Test the full PETER pipeline from ASAP preprocessing to graph building."""
 
-import concurrent.futures
-import subprocess
-from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import pytest
 
-
-def run(*args: object) -> None:
-    """Run command with uv. Quit on error."""
-    subprocess.run(["uv", "run", *(str(x) for x in args)], check=True)
-
-
-def run_parallel_commands(commands: Iterable[Sequence[object]]) -> None:
-    """Run multiple commands at the same time. If any returns an error, quit."""
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(run, *cmd) for cmd in commands]
-        for future in futures:
-            future.result()
+from .utils import run, run_parallel_commands
 
 
 @pytest.mark.slow
-def test_peter_pipeline(tmp_path: Path) -> None:
-    """Test the full PETER pipeline from preprocessing to graph building."""
+def test_asap_peter_pipeline(tmp_path: Path) -> None:
+    """Test the full PETER pipeline from ASAP preprocessing to graph building."""
 
     # Download ASAP
-    run("src/paper/asap/download.py", str(tmp_path / "asap-dataset"))
+    data_path = tmp_path / "asap-dataset"
+    run("src/paper/asap/download.py", data_path)
 
     # Preprocess
-    run("preprocess", "asap", "data/asap", str(tmp_path), "100")
+    run("preprocess", "asap", data_path, tmp_path)
 
     # Info main
     run(

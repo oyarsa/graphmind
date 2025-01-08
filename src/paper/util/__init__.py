@@ -369,3 +369,31 @@ def shuffled[T](iterable: Iterable[T]) -> list[T]:
     lst = list(iterable)
     random.shuffle(lst)
     return lst
+
+
+def groupby[T, K](
+    iterable: Iterable[T], key: Callable[[T], K | None]
+) -> dict[K, list[T]]:
+    """Group items into a dict by key function. Ignores items with None key.
+
+    Args:
+        iterable: Iterable of items to group.
+        key: Function that takes an element and returns the key to group by. If the
+            returned key is None, the item is discarded.
+
+    Returns:
+        Dictionary where keys are the result of applying the key function to the items,
+        and values are lists of items that share the same. Keeps the original order of
+        items in each group. Keys are kept in the same order as they are first seen.
+    """
+    groups: dict[K, list[T]] = {}
+
+    for item in iterable:
+        k = key(item)
+        if k is None:
+            continue
+        if k not in groups:
+            groups[k] = []
+        groups[k].append(item)
+
+    return groups
