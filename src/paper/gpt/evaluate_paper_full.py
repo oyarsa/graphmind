@@ -71,7 +71,7 @@ from paper.util import (
     setup_logging,
     shuffled,
 )
-from paper.util.serde import load_data
+from paper.util.serde import load_data, replace_fields
 
 logger = logging.getLogger(__name__)
 FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
@@ -355,9 +355,8 @@ async def _classify_paper(
     classified = result.result
     if classified and classified.rating not in range(1, 6):
         logger.warning("Invalid rating: %d. Clamping to 1-5.", classified.rating)
-        classified = classified.model_copy(
-            update={"rating": max(1, min(classified.rating, 5))}
-        )
+        clamped_rating = max(1, min(classified.rating, 5))
+        classified = replace_fields(classified, rating=clamped_rating)
 
     return GPTResult(
         result=PromptResult(
