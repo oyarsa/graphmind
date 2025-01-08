@@ -9,7 +9,7 @@ on:
       - '*'
 
 jobs:
-  lint:
+  lint-python:
     name: Lint
     runs-on: ubuntu-latest
     steps:
@@ -38,10 +38,24 @@ jobs:
       - name: Pyright
         uses: jakebailey/pyright-action@v2
 
-  shellcheck:
+  lint-shell:
     name: Shellcheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@master
+
+  lint-fish:
+    name: Lint fish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install fish shell
+        uses: fish-shop/install-fish-shell@v1
+
+      - name: Syntax check
+        uses: fish-shop/syntax-check@v2
+
+      - name: Indent check
+        uses: fish-shop/indent-check@v1
