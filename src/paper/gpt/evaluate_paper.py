@@ -62,15 +62,14 @@ def display_metrics(
     y_true = [r.y_true for r in results]
     y_pred = [r.y_pred for r in results]
 
-    output = [
-        "Metrics:",
-        str(metrics),
-        "",
-        f"Gold (P/N): {sum(y_true)}/{len(y_true) - sum(y_true)}"
-        f" ({safediv(sum(y_true), len(y_true)):.2%})",
-        f"Pred (P/N): {sum(y_pred)}/{len(y_pred) - sum(y_pred)}"
-        f" ({safediv(sum(y_pred), len(y_pred)):.2%})",
-    ]
+    output = ["Metrics:", str(metrics)]
+    for values, label in [(y_true, "Gold"), (y_pred, "Predicted")]:
+        output.append(f"\n{label} distribution:")
+        for rating in range(1, 6):
+            count = sum(y == rating for y in values)
+            output.append(
+                f"  {rating}: {count}/{len(values)} ({safediv(count, len(values)):.2%})"
+            )
     return "\n".join(output)
 
 
@@ -111,6 +110,7 @@ def format_demonstrations(
             abstract=demo.abstract,
             main_text=demo.text,
             rationale=demo.rationale,
+            rating=demo.rating,
         )
         for demo in demonstrations
     )
@@ -123,7 +123,13 @@ class GPTFull(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     rationale: Annotated[str, Field(description="How you reached your novelty rating.")]
-    rating: Annotated[int, Field(description="How novel the paper is judged to be.")]
+    rating: Annotated[
+        int,
+        Field(
+            description="The novelty rating - how novel the paper is judged to be. Must"
+            " be between 1 and 5.",
+        ),
+    ]
 
 
 CLASSIFY_TYPES = {

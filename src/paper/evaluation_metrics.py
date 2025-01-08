@@ -1,4 +1,4 @@
-"""Metric calculation (precision, recall, F1 and accuracy) for binary classification."""
+"""Metric calculation (precision, recall, F1 and accuracy) for ratings 1-5."""
 
 from collections.abc import Sequence
 
@@ -27,7 +27,6 @@ class Metrics(BaseModel):
         )
 
 
-# TODO: Fix this to use integer comparison, not bool
 def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
     """Calculate classification metrics from true and predicted ratings.
 
@@ -49,24 +48,27 @@ def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
     if not y_true:
         raise ValueError("Input sequences cannot be empty")
 
-    true_positives = sum(t and p for t, p in zip(y_true, y_pred))
-    true_negatives = sum(not t and not p for t, p in zip(y_true, y_pred))
-    false_positives = sum(not t and p for t, p in zip(y_true, y_pred))
-    false_negatives = sum(t and not p for t, p in zip(y_true, y_pred))
+    # For each rating (1-5), calculate metrics treating it as the positive class
+    metrics_per_rating = {rating: {"tp": 0, "fp": 0, "fn": 0} for rating in range(1, 6)}
 
-    precision = (
-        true_positives / (true_positives + false_positives)
-        if true_positives + false_positives > 0
-        else 0
-    )
-    recall = (
-        true_positives / (true_positives + false_negatives)
-        if true_positives + false_negatives > 0
-        else 0
-    )
+    for t, p in zip(y_true, y_pred):
+        if t == p:  # Correct prediction
+            metrics_per_rating[t]["tp"] += 1
+        else:  # Wrong prediction
+            metrics_per_rating[t]["fn"] += 1  # Missed the true rating
+            metrics_per_rating[p]["fp"] += 1  # Falsely predicted this rating
+
+    # Calculate macro-averaged metrics across all ratings
+    total_tp = sum(m["tp"] for m in metrics_per_rating.values())
+    total_fp = sum(m["fp"] for m in metrics_per_rating.values())
+    total_fn = sum(m["fn"] for m in metrics_per_rating.values())
+
+    # Macro-averaged P/R/F1
+    precision = total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0
+    recall = total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0
     f1_score = (
         2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
     )
-    accuracy = (true_positives + true_negatives) / len(y_true)
+    accuracy = sum(t == p for t, p in zip(y_true, y_pred)) / len(y_true)
 
     return Metrics(precision=precision, recall=recall, f1=f1_score, accuracy=accuracy)

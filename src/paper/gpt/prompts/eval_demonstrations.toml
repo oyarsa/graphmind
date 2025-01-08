@@ -4,7 +4,7 @@ type = "n/a"
 prompt = """
 Title: {title}
 Abstract: {abstract}
-Decision: {decision}
+Novelty rating: {rating}
 Rationale: {rationale}
 """
 
@@ -18,6 +18,6 @@ Abstract: {abstract}
 Main text:
 {main_text}
 
-Decision: {decision}
+Novelty rating: {rating}
 Rationale: {rationale}
 """

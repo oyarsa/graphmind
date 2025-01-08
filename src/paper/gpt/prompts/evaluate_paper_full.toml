@@ -5,10 +5,10 @@ prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and the full body text.
 
-Based on this content, approve or reject the paper. First, generate the rationale for \
-your decision, then give the final decision. Keep in mind that this paper was submitted \
-to a very high-quality conference, so make sure to only approve papers that are of \
-outstanding quality.
+Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
+reflect how much the paper brings and develops new ideas previously unseen in the \
+literature. First, generate the rationale for your novelty rating, then give the final \
+novelty rating.
 
 #####
 {demonstrations}
@@ -30,8 +30,9 @@ type = "full"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and the full body text. Based on this content and the following \
-guidelines, your task is to make a decision on whether to approve the paper for \
-publication, and to give your reasons for that decision.
+guidelines, your task is to assign a novelty rating, and to give your reasons for that \
+decision. This rating should reflect how much the paper brings and develops new ideas \
+previously unseen in the literature.
 
 Read the paper: It’s important to carefully read through the entire paper, and to look \
 up any related work and citations that will help you comprehensively evaluate it. Be \
@@ -73,10 +74,8 @@ in your assessment.
 6. Provide additional feedback with the aim to improve the paper. Make it clear that \
 these points are here to help, and not necessarily part of your decision assessment.
 
-Based on the paper content and these guidelines, approve or reject the paper. First, \
-generate the rationale for your decision, then give the final decision. Keep in mind \
-that this paper was submitted to a very high-quality conference, so make sure to only \
-approve papers that are of outstanding quality.
+Based on the paper content and these guidelines, provide a novelty rating. First, \
+generate the rationale for your rating, then give the final rating.
 
 #####
 {demonstrations}
@@ -99,10 +98,10 @@ prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and the full body text.
 
-Based on this content, approve or reject the paper. First, generate the rationale for \
-your decision, then give the final decision. Keep in mind that this paper was submitted \
-to a very high-quality conference, so make sure to only approve papers that are of \
-outstanding quality.
+Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
+reflect how much the paper brings and develops new ideas previously unseen in the \
+literature. First, generate the rationale for your novelty rating, then give the final \
+novelty rating.
 
 #####
 {demonstrations}
@@ -121,8 +120,9 @@ type = "full"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and the full body text. Based on this content and the following \
-guidelines, your task is to make a decision on whether to approve the paper for \
-publication, and to give your reasons for that decision.
+guidelines, your task is to assign a novelty rating, and to give your reasons for that \
+decision. This rating should reflect how much the paper brings and develops new ideas \
+previously unseen in the literature.
 
 Read the paper: It’s important to carefully read through the entire paper, and to look \
 up any related work and citations that will help you comprehensively evaluate it. Be \
@@ -164,10 +164,8 @@ in your assessment.
 6. Provide additional feedback with the aim to improve the paper. Make it clear that \
 these points are here to help, and not necessarily part of your decision assessment.
 
-Based on the paper content and these guidelines, approve or reject the paper. First, \
-generate the rationale for your decision, then give the final decision. Keep in mind \
-that this paper was submitted to a very high-quality conference, so make sure to only \
-approve papers that are of outstanding quality.
+Based on the paper content and these guidelines, provide a novelty rating. First, \
+generate the rationale for your rating, then give the final rating.
 
 #####
 {demonstrations}

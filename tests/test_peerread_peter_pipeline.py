@@ -136,9 +136,24 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         tmp_path / "peerread_with_peter.json",
     )
 
+    title("GPT eval full")
+    run(
+        "gpt",
+        "eval",
+        "full",
+        "run",
+        "--peerread",
+        processed_path,
+        "--output",
+        tmp_path / "eval-full",
+        "--demos",
+        "src/paper/gpt/prompts/eval_demonstrations_4.json",
+    )
+
     title("Verify outputs exist")
     assert (tmp_path / "peerread_with_peter.json").exists()
     assert (tmp_path / "peter_graph.json").exists()
     assert (tmp_path / "context/result.json").exists()
     assert (tmp_path / "s2-terms/results_valid.json").exists()
     assert (tmp_path / "peerread-terms/results_valid.json").exists()
+    assert (tmp_path / "eval-full/result.json").exists()

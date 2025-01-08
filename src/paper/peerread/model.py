@@ -28,7 +28,8 @@ class PaperReview(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     rating: Annotated[
-        int, Field(description="Novelty rating given by the reviewer (1 to 5)")
+        int,
+        Field(description="Novelty rating given by the reviewer (1 to 5)", ge=1, le=5),
     ]
     confidence: Annotated[int | None, Field(description="Confidence from the reviwer")]
     rationale: Annotated[str, Field(description="Explanation given for the rating")]
@@ -135,7 +136,7 @@ class Paper(Record):
     @computed_field
     @property
     def rating(self) -> int:
-        """Rating from main review."""
+        """Rating from main review (1 to 5)."""
         return self.review.rating
 
     @computed_field
