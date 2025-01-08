@@ -329,17 +329,7 @@ def _merge_review_metadata(
     return papers
 
 
-app = typer.Typer(
-    context_settings={"help_option_names": ["-h", "--help"]},
-    add_completion=False,
-    rich_markup_mode="rich",
-    pretty_exceptions_show_locals=False,
-    no_args_is_help=True,
-)
-
-
-@app.command(help=__doc__, no_args_is_help=True)
-def main(
+def pipeline(
     path: Annotated[
         Path, typer.Argument(help="Path to directories containing files to merge.")
     ],
@@ -351,6 +341,15 @@ def main(
         ),
     ] = None,
 ) -> None:
+    """Run the complete PeerRead preprocessing pipeline.
+
+    Steps:
+    1. Process and index all reviews.
+    2. Process and index all metadata.
+    3. Join the reviews and metadata by index to create the full papers.
+
+    The index here is a combination of the conference name and the paper ID.
+    """
     """Combine PeerRead data from multiple files into a single JSON."""
     papers_count = _count_papers(path)
     if max_papers is not None:
@@ -367,7 +366,3 @@ def main(
     print(f"Valid merged:  {len(papers)} ({len(papers)/papers_count:.2%})")
 
     save_data(output_file, papers)
-
-
-if __name__ == "__main__":
-    app()
