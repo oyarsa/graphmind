@@ -1,7 +1,9 @@
 """Tools for evaluating paper novelty, displaying and calculating metrics."""
 
 from collections.abc import Sequence
-from typing import Annotated, NamedTuple
+from importlib import resources
+from pathlib import Path
+from typing import Annotated, NamedTuple, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -9,6 +11,7 @@ from paper import evaluation_metrics
 from paper.gpt.model import Paper
 from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.util import safediv
+from paper.util.serde import load_data
 
 
 class PaperResult(Paper):
@@ -135,3 +138,17 @@ class GPTFull(BaseModel):
 CLASSIFY_TYPES = {
     "full": GPTFull,
 }
+
+
+def load_demonstrations() -> dict[str, list[Demonstration]]:
+    """Load demonstration files from the gpt.prompts package."""
+    names = ["eval_demonstrations_4.json", "eval_demonstrations_10.json"]
+    files = [
+        file
+        for file in resources.files("paper.gpt.prompts").iterdir()
+        if file.name in names
+    ]
+    return {
+        cast(Path, file).stem: load_data(file.read_bytes(), Demonstration)
+        for file in files
+    }
