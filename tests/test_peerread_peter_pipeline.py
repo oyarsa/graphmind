@@ -17,33 +17,41 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         run("src/paper/peerread/download.py", raw_path)
 
     title("Preprocess")
-    processed_path = tmp_path / "peerread_merged.json"
-    run("preprocess", "peerread", raw_path, processed_path, "-n", 100)
+    processed = tmp_path / "peerread_merged.json"
+    run("preprocess", "peerread", raw_path, processed, "-n", 100)
+    assert processed.exists()
 
     title("Info main")
+    info_main_dir = tmp_path / "s2_info_main"
     run(
         "src/paper/semantic_scholar/info.py",
         "main",
-        processed_path,
-        tmp_path / "s2_info_main",
+        processed,
+        info_main_dir,
         "--limit",
         "1",
     )
+    info_main = info_main_dir / "final.json"
+    assert info_main.exists()
 
     title("Info references")
+    info_ref_dir = tmp_path / "s2_info_references"
     run(
         "src/paper/semantic_scholar/info.py",
         "references",
-        processed_path,
-        tmp_path / "s2_info_references",
+        processed,
+        info_ref_dir,
         "--limit",
         "1",
     )
+    info_ref = info_ref_dir / "final.json"
+    assert info_ref.exists()
 
     title("Info areas")
+    s2_areas = tmp_path / "s2_areas.json"
     run(
         "src/paper/semantic_scholar/areas.py",
-        tmp_path / "s2_areas.json",
+        s2_areas,
         "--years",
         "2020",
         "--limit-year",
@@ -53,35 +61,42 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "--limit-areas",
         "2",
     )
+    assert s2_areas.exists()
 
     title("Recommended")
-    run(
-        "src/paper/semantic_scholar/recommended.py",
-        tmp_path / "s2_info_main/valid.json",
-        tmp_path / "s2_recommended",
-    )
+    recommended_dir = tmp_path / "s2_recommended"
+    run("src/paper/semantic_scholar/recommended.py", info_main, recommended_dir)
+    recommended = recommended_dir / "papers_recommended.json"
+    assert recommended.exists()
 
     title("Construct dataset")
+    subset_dir = tmp_path / "subset"
     run(
         "src/paper/construct_dataset.py",
         "--peerread",
-        processed_path,
+        processed,
         "--references",
-        tmp_path / "s2_info_references/final.json",
+        info_ref,
         "--recommended",
-        str(tmp_path / "s2_recommended/papers_recommended.json"),
+        recommended,
         "--output",
-        str(tmp_path),
+        subset_dir,
     )
+    peer_with_ref = subset_dir / "peerread_with_s2_references.json"
+    peer_related = subset_dir / "peerread_related.json"
+    assert peer_with_ref.exists()
 
+    context_dir = tmp_path / "context"
+    peer_terms_dir = tmp_path / "peerread-terms"
+    s2_terms_dir = tmp_path / "s2-terms"
     run_parallel_commands(
         [
             (
                 "gpt",
                 "context",
                 "run",
-                tmp_path / "peerread_with_s2_references.json",
-                tmp_path / "context",
+                peer_with_ref,
+                context_dir,
                 "--model",
                 "gpt-4o-mini",
                 "--limit",
@@ -91,8 +106,8 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
                 "gpt",
                 "terms",
                 "run",
-                tmp_path / "peerread_with_s2_references.json",
-                tmp_path / "peerread-terms",
+                peer_with_ref,
+                peer_terms_dir,
                 "--paper-type",
                 "peerread",
                 "--limit",
@@ -102,8 +117,8 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
                 "gpt",
                 "terms",
                 "run",
-                tmp_path / "peerread_related.json",
-                tmp_path / "s2-terms",
+                peer_related,
+                s2_terms_dir,
                 "--paper-type",
                 "s2",
                 "--limit",
@@ -111,49 +126,55 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
             ),
         ]
     )
+    context = context_dir / "result.json"
+    s2_terms = s2_terms_dir / "results_valid.json"
+    peer_terms = peer_terms_dir / "results_valid.json"
+
+    assert context.exists()
+    assert s2_terms.exists()
+    assert peer_terms.exists()
 
     title("Peter Build")
+    peter_graph = tmp_path / "peter_graph.json"
     run(
         "peter",
         "build",
         "--ann",
-        tmp_path / "s2-terms/results_valid.json",
+        s2_terms,
         "--context",
-        tmp_path / "context/result.json",
+        context,
         "--output",
-        tmp_path / "peter_graph.json",
+        peter_graph,
     )
+    assert peter_graph.exists()
 
+    peter_peer = tmp_path / "peerread_with_peter.json"
     title("Peter PeerRead")
     run(
         "peter",
         "peerread",
         "--graph",
-        tmp_path / "peter_graph.json",
+        peter_graph,
         "--peerread-ann",
-        tmp_path / "peerread-terms/results_valid.json",
+        peer_terms,
         "--output",
-        tmp_path / "peerread_with_peter.json",
+        peter_peer,
     )
+    assert peter_peer.exists()
 
     title("GPT eval full")
+    eval_full_dir = tmp_path / "eval-full"
     run(
         "gpt",
         "eval",
         "full",
         "run",
         "--peerread",
-        processed_path,
+        processed,
         "--output",
-        tmp_path / "eval-full",
+        eval_full_dir,
         "--demos",
         "src/paper/gpt/prompts/eval_demonstrations_4.json",
     )
-
-    title("Verify outputs exist")
-    assert (tmp_path / "peerread_with_peter.json").exists()
-    assert (tmp_path / "peter_graph.json").exists()
-    assert (tmp_path / "context/result.json").exists()
-    assert (tmp_path / "s2-terms/results_valid.json").exists()
-    assert (tmp_path / "peerread-terms/results_valid.json").exists()
-    assert (tmp_path / "eval-full/result.json").exists()
+    eval_full = eval_full_dir / "result.json"
+    assert eval_full.exists()

@@ -4,9 +4,10 @@ help() {
 	printf "Usage: %s <task>\n" "$0"
 	printf "\n"
 	printf "Available tasks:\n"
-	printf "  lint    Run ruff check, ruff format, and pyright\n"
-	printf "  help    Show this help message\n"
-	printf "  clidoc  Generate CLI documentation file\n"
+	printf "  lint      Run ruff check, ruff format, and pyright\n"
+	printf "  help      Show this help message\n"
+	printf "  clidoc    Generate CLI documentation file\n"
+	printf "  test-e2e  Run end-to-end tests.\n"
 }
 
 lint() {
@@ -24,6 +25,10 @@ clidoc() {
 		uv run typer paper.$module.cli utils docs --output src/paper/$module/CLI.md &
 	done
 	wait
+}
+
+test-e2e() {
+	uv run pytest -s --runslow
 }
 
 if [ $# -eq 0 ]; then

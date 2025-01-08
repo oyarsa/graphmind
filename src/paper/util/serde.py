@@ -91,3 +91,8 @@ def save_data[T: BaseModel](
 def safe_load_json(file_path: Path) -> Any:
     """Load a JSON file, removing invalid UTF-8 characters."""
     return json.loads(file_path.read_text(encoding="utf-8", errors="replace"))
+
+
+def replace_fields[T: BaseModel](obj: T, /, **kwargs: Any) -> T:
+    """Return a new Pydantic object replacing specified fields with new values."""
+    return obj.model_validate(obj.model_dump() | kwargs)
