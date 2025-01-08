@@ -27,18 +27,21 @@ class Record(BaseModel, ABC):
 
 @overload
 def load_data[T: BaseModel](
-    file: Path, type_: type[T], use_alias: bool = True, *, single: Literal[True]
+    file: Path | bytes, type_: type[T], use_alias: bool = True, *, single: Literal[True]
 ) -> T: ...
 
 
 @overload
 def load_data[T: BaseModel](
-    file: Path, type_: type[T], use_alias: bool = True, single: Literal[False] = False
+    file: Path | bytes,
+    type_: type[T],
+    use_alias: bool = True,
+    single: Literal[False] = False,
 ) -> list[T]: ...
 
 
 def load_data[T: BaseModel](
-    file: Path,
+    file: Path | bytes,
     type_: type[T],
     use_alias: bool = True,
     single: bool = False,
@@ -46,7 +49,7 @@ def load_data[T: BaseModel](
     """Load data from the JSON `file`: a list of objects or a single one if `single=True`.
 
     Args:
-        file: File to read the data from. Must be a list of objects.
+        file: File to read the data from, or the actual data in bytes form.
         type_: Type of the objects in the list.
         use_alias: If True, read object keys by using the real field names, not aliases.
         single: If True, return a single object. If False, return a list of objects.
@@ -54,7 +57,11 @@ def load_data[T: BaseModel](
     Returns:
         List of data with the `type_` format.
     """
-    content = file.read_bytes()
+    if isinstance(file, Path):
+        content = file.read_bytes()
+    else:
+        content = file
+
     if single:
         return type_.model_validate_json(content)
 
