@@ -22,13 +22,13 @@
   detail: related
 
 - source: ./gpt/annotate_paper.py
-  target: ./scimon/query_peerread.py
+  target: ./scimon/query.py
   detail: main
 
 - source: ./scimon/build.py
-  target: ./scimon/query_peerread.py
+  target: ./scimon/query.py
 
-- source: ./scimon/query_peerread.py
+- source: ./scimon/query.py
   target: ./gpt/evaluate_paper_scimon.py
 
 - source: allenai/CSAbstruct
