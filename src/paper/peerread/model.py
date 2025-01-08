@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from enum import StrEnum
+from functools import cached_property
 from typing import Annotated, override
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from paper.util import hashstr
 from paper.util.serde import Record
@@ -97,3 +98,48 @@ class Paper(Record):
     @override
     def id(self) -> str:
         return hashstr(self.title + self.abstract)
+
+    @computed_field
+    @cached_property
+    def review(self) -> PaperReview:
+        """Get the review with median rating, breaking ties by confidence and rationale.
+
+        Returns:
+            The review with the median rating after applying tiebreakers.
+        """
+        reviews = self.reviews
+        if not reviews:
+            raise ValueError("Cannot get median from empty list")
+
+        # Sort all reviews by rating
+        sorted_reviews = sorted(reviews, key=lambda x: x.rating)
+        median_idx = len(sorted_reviews) // 2
+
+        # Get all reviews with the median rating
+        median_rating = sorted_reviews[median_idx].rating
+        median_reviews = [r for r in reviews if r.rating == median_rating]
+
+        if len(median_reviews) == 1:
+            return median_reviews[0]
+
+        # Break ties by confidence (if present)
+        if reviews_with_confidence := [
+            r for r in median_reviews if r.confidence is not None
+        ]:
+            # 0 won't be used because we know all reviews have confidence
+            return max(reviews_with_confidence, key=lambda x: x.confidence or 0)
+
+        # If no confidence values or all tied, sort by rationale
+        return min(median_reviews, key=lambda x: x.rationale)
+
+    @computed_field
+    @property
+    def rating(self) -> int:
+        """Rating from main review."""
+        return self.review.rating
+
+    @computed_field
+    @property
+    def rationale(self) -> str:
+        """Rationale from main review."""
+        return self.review.rationale
