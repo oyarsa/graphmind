@@ -46,11 +46,11 @@ from pydantic import TypeAdapter
 from paper.gpt.evaluate_paper import (
     CLASSIFY_TYPES,
     EVALUATE_DEMONSTRATION_PROMPTS,
-    Demonstration,
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
     format_demonstrations,
+    load_demonstrations,
 )
 from paper.gpt.model import Paper, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
@@ -75,6 +75,7 @@ from paper.util.serde import load_data, replace_fields
 
 logger = logging.getLogger(__name__)
 FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
+EVALUATE_DEMONSTRATIONS = load_demonstrations()
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -125,8 +126,11 @@ def run(
     ] = False,
     seed: Annotated[int, typer.Option(help="Random seed used for data shuffling.")] = 0,
     demos: Annotated[
-        Path | None,
-        typer.Option(help="File containing demonstrations to use in few-shot prompt"),
+        str | None,
+        typer.Option(
+            help="Name of file containing demonstrations to use in few-shot prompt",
+            click_type=cli.choice(EVALUATE_DEMONSTRATIONS),
+        ),
     ] = None,
     demo_prompt: Annotated[
         str,
@@ -168,7 +172,7 @@ async def evaluate_papers(
     continue_papers_file: Path | None,
     continue_: bool,
     seed: int,
-    demonstrations_file: Path | None,
+    demonstrations_key: str | None,
     demo_prompt_key: str,
 ) -> None:
     """Evaluate a paper's novelty based on its full-body text.
@@ -195,7 +199,7 @@ async def evaluate_papers(
             are there, we use those results and skip processing them.
         continue_: If True, use data from `continue_papers`.
         seed: Random seed used for shuffling.
-        demonstrations_file: Path to demonstrations file for use with few-shot prompting.
+        demonstrations_key: Name of demonstrations file for use with few-shot prompting.
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
             avaialble options or `list_prompts` for more.
@@ -222,9 +226,7 @@ async def evaluate_papers(
     user_prompt = FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
-        TypeAdapter(list[Demonstration]).validate_json(demonstrations_file.read_bytes())
-        if demonstrations_file is not None
-        else []
+        EVALUATE_DEMONSTRATIONS[demonstrations_key] if demonstrations_key else []
     )
     demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
     demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
@@ -386,6 +388,13 @@ def prompts(
 ) -> None:
     """Print the available prompt names, and optionally, the full prompt text."""
     print_prompts("FULL PAPER EVALUATION", FULL_CLASSIFY_USER_PROMPTS, detail=detail)
+
+
+@app.command(help="List available demonstration files.")
+def demos() -> None:
+    """Print the available demonstration file names."""
+    for name in EVALUATE_DEMONSTRATIONS:
+        print(f"- {name}")
 
 
 if __name__ == "__main__":
