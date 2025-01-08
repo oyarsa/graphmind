@@ -166,9 +166,8 @@ class PaperWithS2Refs(Record):
     sections: Annotated[
         Sequence[peerread.PaperSection], Field(description="Sections in the paper text")
     ]
-    approval: Annotated[
-        bool, Field(description="Approval decision - whether the paper was approved")
-    ]
+    rating: Annotated[int, Field(description="Novelty rating")]
+    rationale: Annotated[str, Field(description="Rationale for novelty rating")]
     references: Annotated[
         Sequence[S2Reference],
         Field(
@@ -256,9 +255,8 @@ class PeerReadWithFullS2(Record):
     sections: Annotated[
         Sequence[peerread.PaperSection], Field(description="Sections in the paper text")
     ]
-    approval: Annotated[
-        bool, Field(description="Approval decision - whether the paper was approved")
-    ]
+    rating: Annotated[int, Field(description="Novelty rating")]
+    rationale: Annotated[str, Field(description="Rationale for novelty rating")]
     references: Annotated[
         Sequence[PaperFromPeerRead],
         Field(description="References made in the paper with full S2 data"),
@@ -318,9 +316,8 @@ class PaperWithReferenceEnriched(BaseModel):
     sections: Annotated[
         Sequence[peerread.PaperSection], Field(description="Sections in the paper text")
     ]
-    approval: Annotated[
-        bool, Field(description="Approval decision - whether the paper was approved")
-    ]
+    rating: Annotated[int, Field(description="Novelty rating")]
+    rationale: Annotated[str, Field(description="Rationale for novelty rating")]
     references: Annotated[
         Sequence[ReferenceEnriched],
         Field(description="References made in the paper with their abstracts"),
@@ -356,9 +353,8 @@ class PaperWithFullReference(Record):
     sections: Annotated[
         Sequence[peerread.PaperSection], Field(description="Sections in the paper text")
     ]
-    approval: Annotated[
-        bool, Field(description="Approval decision - whether the paper was approved")
-    ]
+    rating: Annotated[int, Field(description="Novelty rating")]
+    rationale: Annotated[str, Field(description="Rationale for novelty rating")]
     references: Annotated[
         Sequence[ReferenceWithAbstract],
         Field(description="References made in the paper with their abstracts"),

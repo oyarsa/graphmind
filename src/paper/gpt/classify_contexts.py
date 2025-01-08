@@ -267,9 +267,8 @@ class PaperWithContextClassfied(Record):
     sections: Annotated[
         Sequence[peerread.PaperSection], Field(description="Sections in the paper text")
     ]
-    approval: Annotated[
-        bool, Field(description="Approval decision - whether the paper was approved")
-    ]
+    rating: Annotated[int, Field(description="Novelty rating")]
+    rationale: Annotated[str, Field(description="Rationale for novelty rating")]
     references: Annotated[
         Sequence[S2ReferenceClassified],
         Field(
@@ -390,7 +389,8 @@ async def _classify_paper(
             reviews=paper.reviews,
             authors=paper.authors,
             sections=paper.sections,
-            approval=paper.approval,
+            rationale=paper.rationale,
+            rating=paper.rating,
             references=classified_references,
         ),
     )

@@ -290,34 +290,6 @@ class PaperSection(BaseModel):
     text: str
 
 
-RATING_APPROVAL_THRESHOLD = 5
-"""A rating is an approval if it's greater of equal than this."""
-
-
-class RatingEvaluationStrategy(StrEnum):
-    """What method to use when calculating the target score from a paper."""
-
-    MEAN = "mean"
-    """Mean rating is higher than the threshold."""
-    MAJORITY = "majority"
-    """Majority of ratings are higher than the threshold."""
-    DECISION = "decision"
-    """Use the provided approval decision."""
-    DEFAULT = DECISION
-
-    def is_approved(self, decision: bool, ratings: Sequence[int]) -> bool:
-        """Determine whether a paper is approved based on this strategy."""
-        match self:
-            case RatingEvaluationStrategy.DECISION:
-                return decision
-            case RatingEvaluationStrategy.MEAN:
-                mean = sum(ratings) / len(ratings)
-                return mean >= RATING_APPROVAL_THRESHOLD
-            case RatingEvaluationStrategy.MAJORITY:
-                approvals = [r >= RATING_APPROVAL_THRESHOLD for r in ratings]
-                return sum(approvals) >= len(approvals) / 2
-
-
 class Paper(Record):
     """PeerRead paper with only currently useful fields."""
 
@@ -326,21 +298,13 @@ class Paper(Record):
     reviews: Sequence[peerread.PaperReview]
     authors: Sequence[str]
     sections: Sequence[PaperSection]
-    approval: bool
+    rationale: str
+    rating: int
 
     @property
     def id(self) -> str:
         """Identify paper from the title and abstract."""
         return hashstr(self.title + self.abstract)
-
-    def is_approved(
-        self, strategy: RatingEvaluationStrategy = RatingEvaluationStrategy.DEFAULT
-    ) -> bool:
-        """Determine whether a paper was approved according to the strategy.
-
-        By default, uses the `approval` field.
-        """
-        return strategy.is_approved(self.approval, [r.rating for r in self.reviews])
 
     def main_text(self) -> str:
         """Join all paper sections to form the main text."""

@@ -281,8 +281,8 @@ async def _summarise_papers(
 _PETER_SUMMARISE_SYSTEM_PROMPT = """\
 Given the following target paper and a related paper, determine what are the important \
 points for comparison between the two. Focus on how the papers are similar and how they \
-differ. This information will be used to support an approval or rejection decision of \
-the target paper.
+differ. This information will be used to support a novelty assessment of  the target \
+paper.
 """
 
 

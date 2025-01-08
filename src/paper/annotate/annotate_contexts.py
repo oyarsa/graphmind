@@ -95,7 +95,8 @@ def sample(
                     reviews=paper.reviews,
                     authors=paper.authors,
                     sections=paper.sections,
-                    approval=paper.approval,
+                    rating=paper.rating,
+                    rationale=paper.rationale,
                 )
             )
 
@@ -201,7 +202,8 @@ def _annotate(
             reviews=paper.reviews,
             authors=paper.authors,
             sections=paper.sections,
-            approval=paper.approval,
+            rating=paper.rating,
+            rationale=paper.rationale,
         )
         output_data.append(new_paper)
 
