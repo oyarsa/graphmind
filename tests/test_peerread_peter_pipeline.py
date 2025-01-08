@@ -174,7 +174,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "--output",
         eval_full_dir,
         "--demos",
-        "src/paper/gpt/prompts/eval_demonstrations_4.json",
+        "eval_demonstrations_4",
     )
     eval_full = eval_full_dir / "result.json"
     assert eval_full.exists()
