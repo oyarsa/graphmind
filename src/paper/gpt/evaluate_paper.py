@@ -1,7 +1,6 @@
-"""Tools for evaluating paper approval, displaying and calculating metrics."""
+"""Tools for evaluating paper novelty, displaying and calculating metrics."""
 
 from collections.abc import Sequence
-from enum import StrEnum
 from typing import Annotated, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -13,18 +12,20 @@ from paper.util import safediv
 
 
 class PaperResult(Paper):
-    """PeerRead paper with added approval ground truth and GPT prediction."""
+    """PeerRead paper with added novelty rating ground truth and GPT prediction."""
 
-    y_true: Annotated[bool, Field(description="Human annotation")]
-    y_pred: Annotated[bool, Field(description="Model prediction")]
-    rationale: Annotated[str, Field(description="Model rationale for the prediction")]
+    y_true: Annotated[int, Field(description="Human annotation")]
+    y_pred: Annotated[int, Field(description="Model prediction")]
+    rationale_pred: Annotated[
+        str, Field(description="Model rationale for the prediction")
+    ]
 
 
 class Labels(NamedTuple):
     """Prediction and ground truth labels."""
 
-    y_preds: Sequence[bool]
-    y_trues: Sequence[bool]
+    y_preds: Sequence[int]
+    y_trues: Sequence[int]
 
 
 def _get_ys(papers: Sequence[PaperResult]) -> Labels:
@@ -76,13 +77,6 @@ def display_metrics(
 EVALUATE_DEMONSTRATION_PROMPTS = load_prompts("eval_demonstrations")
 
 
-class DemonstrationType(StrEnum):
-    """Whether the demonstration is of an approved (positive) or reject (negative) paper."""
-
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
-
-
 class Demonstration(BaseModel):
     """Paper for evaluation demos with full information and demonstration type."""
 
@@ -91,20 +85,14 @@ class Demonstration(BaseModel):
     title: Annotated[str, Field(description="Paper title")]
     abstract: Annotated[str, Field(description="Paper abstract")]
     text: Annotated[str, Field(description="Paper full main text")]
-    approval: Annotated[
-        bool, Field(description="Decision on whether to approve the paper")
-    ]
     rationale: Annotated[str, Field(description="Rationale given by a reviewer")]
     rating: Annotated[int, Field(description="Rating from the rationale")]
-    type: Annotated[DemonstrationType, Field(description="Type of demonstration")]
 
 
 def format_demonstrations(
     demonstrations: Sequence[Demonstration], prompt: PromptTemplate
 ) -> str:
     """Format all `demonstrations` according to `prompt` as a single string.
-
-    Scramble the inputs such that we always have true/false/true/false interleaved.
 
     If `demonstrations` is empty, returns the empty string.
     """
@@ -113,34 +101,18 @@ def format_demonstrations(
 
     output_all = [
         "-Demonstrations-\n"
-        "The following are examples of other paper evaluations with their approval"
-        " decisions and rationales:\n",
+        "The following are examples of other paper evaluations with their novelty"
+        " ratings and rationales:\n",
     ]
-
-    # Split demonstrations by type
-    positives = [d for d in demonstrations if d.type is DemonstrationType.POSITIVE]
-    negatives = [d for d in demonstrations if d.type is DemonstrationType.NEGATIVE]
-
-    # Interleave positive and negative demonstrations
-    interleaved: list[Demonstration] = []
-    for pos, neg in zip(positives, negatives):
-        interleaved.extend((pos, neg))
-
-    # Add any remaining demonstrations if counts were uneven
-    if len(positives) > len(negatives):
-        interleaved.extend(positives[len(negatives) :])
-    elif len(negatives) > len(positives):
-        interleaved.extend(negatives[len(positives) :])
 
     output_all.extend(
         prompt.template.format(
             title=demo.title,
             abstract=demo.abstract,
             main_text=demo.text,
-            decision=demo.approval,
             rationale=demo.rationale,
         )
-        for demo in interleaved
+        for demo in demonstrations
     )
     return f"\n{"-" * 50}\n".join(output_all)
 
@@ -150,12 +122,8 @@ class GPTFull(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    rationale: Annotated[
-        str, Field(description="How you reached your approval decision.")
-    ]
-    approved: Annotated[
-        bool, Field(description="If the paper was approved for publication.")
-    ]
+    rationale: Annotated[str, Field(description="How you reached your novelty rating.")]
+    rating: Annotated[int, Field(description="How novel the paper is judged to be.")]
 
 
 CLASSIFY_TYPES = {

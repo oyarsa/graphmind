@@ -1,9 +1,9 @@
-"""Evaluate a paper's approval based on annotated papers with PETER-queried papers.
+"""Evaluate a paper's novelty based on annotated papers with PETER-queried papers.
 
 The input is the output of `gpt.summarise_related_peter`. This are the PETER-queried
 papers with the related papers summarised.
 
-The output is the input annotated papers with an approval/rejection label.
+The output is the input annotated papers with a predicted novelty rating.
 """
 
 from __future__ import annotations
@@ -123,7 +123,7 @@ def run(
         ),
     ] = "abstract",
 ) -> None:
-    """Evaluate a paper's approval based on summarised PETER-queried related papers."""
+    """Evaluate a paper's novelty based on summarised PETER-queried related papers."""
     asyncio.run(
         evaluate_papers(
             model,
@@ -158,7 +158,7 @@ async def evaluate_papers(
     demonstrations_file: Path | None,
     demo_prompt_key: str,
 ) -> None:
-    """Evaluate a paper's approval based on summarised PETER-queried related papers.
+    """Evaluate a paper's novelty based on summarised PETER-queried related papers.
 
     The papers should come from `gpt.summarise_related_peter`.
 
@@ -300,9 +300,9 @@ async def _classify_papers(
 
 
 _PETER_CLASSIFY_SYSTEM_PROMPT = """\
-Given the following target paper and a selection of related papers separated by whether
-they're supporting or contrasting the main paper, give an approval or rejection decision \
-to a paper submitted to a high-quality scientific conference.
+Given the following target paper and a selection of related papers separated by whether \
+they're supporting or contrasting the main paper, give a novelty rating to a paper \
+submitted to a high-quality scientific conference.
 """
 
 
@@ -337,10 +337,11 @@ async def _classify_paper(
                 reviews=paper.reviews,
                 authors=paper.authors,
                 sections=paper.sections,
-                approval=paper.approval,
-                y_true=paper.is_approved(),
-                y_pred=classified.approved if classified else False,
-                rationale=classified.rationale if classified else "<error>",
+                rating=paper.rating,
+                rationale=paper.rationale,
+                y_true=paper.rating,
+                y_pred=classified.rating if classified else 0,
+                rationale_pred=classified.rationale if classified else "<error>",
             ),
             prompt=Prompt(system=_PETER_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),

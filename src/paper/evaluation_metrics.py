@@ -27,14 +27,16 @@ class Metrics(BaseModel):
         )
 
 
-def calculate_metrics(y_true: Sequence[bool], y_pred: Sequence[bool]) -> Metrics:
-    """Calculate classification metrics from true and predicted binary labels.
+# TODO: Fix this to use integer comparison, not bool
+def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
+    """Calculate classification metrics from true and predicted ratings.
 
-    Computes precision, recall, F1 score, and accuracy for binary classification results.
+    Computes precision, recall, F1 score, and accuracy for discrete classification
+    results.
 
     Args:
-        y_true: A sequence of true labels (ground truth).
-        y_pred: A sequence of predicted labels.
+        y_true: A sequence of true ratings (ground truth).
+        y_pred: A sequence of predicted ratings.
 
     Returns:
         A Metrics object containing the calculated metrics.

@@ -1,4 +1,4 @@
-"""Evaluate a paper's approval based on its structured graph."""
+"""Evaluate a paper's novelty based on its structured graph."""
 
 import logging
 from collections.abc import Sequence
@@ -95,12 +95,12 @@ async def evaluate_graphs(
 
 
 class GPTClassify(BaseModel):
-    """Output type for paper classification with approval decision and rationale."""
+    """Output type for paper classification with novelty rating and rationale."""
 
     model_config = ConfigDict(frozen=True)
 
     rationale: str
-    approved: bool
+    rating: int
 
 
 _CLASSIFY_TYPES = {
@@ -180,10 +180,11 @@ async def _classify_paper(
                 reviews=pg.paper.reviews,
                 authors=pg.paper.authors,
                 sections=pg.paper.sections,
-                approval=pg.paper.approval,
-                y_true=pg.paper.is_approved(),
-                y_pred=classified.approved if classified else False,
-                rationale=classified.rationale if classified else "<error>",
+                rating=pg.paper.rating,
+                rationale=pg.paper.rationale,
+                y_true=pg.paper.rating,
+                y_pred=classified.rating if classified else 0,
+                rationale_pred=classified.rationale if classified else "<error>",
             ),
             prompt=Prompt(system=CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),

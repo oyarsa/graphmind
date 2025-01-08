@@ -36,54 +36,39 @@ def eval_full(
         Path, typer.Argument(help="Path to output JSON file with the demonstrations")
     ],
     num_entries: Annotated[
-        int, typer.Option("--entries", "-n", help="Number of entries for each type")
+        int, typer.Option("--entries", "-n", help="Number of entries to sample")
     ] = 10,
     seed: int = 0,
 ) -> None:
     """Create demonstrations for few-shot prompting of full-paper evaluation.
 
-    Takes an even number of entries for positive and negative approval decisions, finds
-    the review with lowest/highest reviews and uses it as the demonstration for the
-    rationale.
+    Takes a number of entries to sample and returns the chosen papers with their rating
+    and rationale.
 
     The input file is the output of the PeerRead pipeline (peerread_merged.json).
-    The output is a file with the paper title, abstract, main text, approval decision and
-    the chosen rationale with its rating.
+    The output is a file with the paper title, abstract, main text, novelty rating and
+    rationale.
     """
     random.seed(seed)
 
     papers = TypeAdapter(list[Paper]).validate_json(input_file.read_bytes())
 
-    papers_positive = random.sample([p for p in papers if p.approval], num_entries)
-    papers_negative = random.sample([p for p in papers if not p.approval], num_entries)
+    papers_sample = random.sample(papers, num_entries)
 
-    demonstrations = [
-        new_eval_full_demonstration(paper, eval.DemonstrationType.POSITIVE)
-        for paper in papers_positive
-    ] + [
-        new_eval_full_demonstration(paper, eval.DemonstrationType.NEGATIVE)
-        for paper in papers_negative
-    ]
+    demonstrations = [new_eval_full_demonstration(paper) for paper in papers_sample]
     output_file.write_bytes(
         TypeAdapter(list[eval.Demonstration]).dump_json(demonstrations, indent=2)
     )
 
 
-def new_eval_full_demonstration(
-    paper: Paper, type_: eval.DemonstrationType
-) -> eval.Demonstration:
+def new_eval_full_demonstration(paper: Paper) -> eval.Demonstration:
     """Construct demonstration for full paper evaluation."""
-    chosen_func = min if type_ is eval.DemonstrationType.NEGATIVE else max
-    chosen = chosen_func(paper.reviews, key=lambda x: x.rating)
-
     return eval.Demonstration(
         title=paper.title,
         abstract=paper.abstract,
         text=paper.main_text(),
-        approval=paper.approval,
-        rationale=chosen.rationale,
-        rating=chosen.rating,
-        type=type_,
+        rationale=paper.rationale,
+        rating=paper.rating,
     )
 
 

@@ -1,4 +1,4 @@
-"""Evaluate a paper's approval based on its full-body text."""
+"""Evaluate a paper's novelty based on its full-body text."""
 
 # Best configuration:
 #     Command:
@@ -133,7 +133,7 @@ def run(
         ),
     ] = "abstract",
 ) -> None:
-    """Evaluate a paper's approval based on its full-body text."""
+    """Evaluate a paper's novelty based on its full-body text."""
     asyncio.run(
         evaluate_papers(
             model,
@@ -168,7 +168,7 @@ async def evaluate_papers(
     demonstrations_file: Path | None,
     demo_prompt_key: str,
 ) -> None:
-    """Evaluate a paper's approval based on its full-body text.
+    """Evaluate a paper's novelty based on its full-body text.
 
     The papers should come from the PeerRead dataset as processed by the
     paper.peerread module.
@@ -358,10 +358,11 @@ async def _classify_paper(
                 reviews=paper.reviews,
                 authors=paper.authors,
                 sections=paper.sections,
-                approval=paper.approval,
-                y_true=paper.is_approved(),
-                y_pred=classified.approved if classified else False,
-                rationale=classified.rationale if classified else "<error>",
+                rating=paper.rating,
+                rationale=paper.rationale,
+                y_true=paper.rating,
+                y_pred=classified.rating if classified else 0,
+                rationale_pred=classified.rationale if classified else "<error>",
             ),
             prompt=Prompt(system=_FULL_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),

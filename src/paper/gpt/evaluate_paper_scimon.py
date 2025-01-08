@@ -1,4 +1,4 @@
-"""Evaluate a paper's approval based on annotated papers with SciMON-derived terms.
+"""Evaluate a paper's novelty based on annotated papers with SciMON-derived terms.
 
 The input is the output of `scimon.query`, i.e. the output of `gpt.annotate_paper`
 (papers with extracted scientific terms) with the related terms extracted through the
@@ -113,7 +113,7 @@ def run(
         ),
     ] = "abstract",
 ) -> None:
-    """Evaluate a paper's approval based on SciMON graph-extracted terms."""
+    """Evaluate a paper's novelty based on SciMON graph-extracted terms."""
     asyncio.run(
         evaluate_papers(
             model,
@@ -148,7 +148,7 @@ async def evaluate_papers(
     demonstrations_file: Path | None,
     demo_prompt_key: str,
 ) -> None:
-    """Evaluate a paper's approval based on SciMON graph-extracted terms.
+    """Evaluate a paper's novelty based on SciMON graph-extracted terms.
 
     The papers should come from PeerRead-annotated papers from `gpt.annotate_paper`.
 
@@ -294,8 +294,8 @@ async def _classify_papers(
 
 
 _SCIMON_CLASSIFY_SYSTEM_PROMPT = """\
-Given inspiration sentences from related papers, give an approval or rejection decision \
-to a paper submitted to a high-quality scientific conference.
+Given inspiration sentences from related papers, give a novelty rating to a paper \
+submitted to a high-quality scientific conference.
 """
 
 
@@ -330,10 +330,11 @@ async def _classify_paper(
                 reviews=paper.reviews,
                 authors=paper.authors,
                 sections=paper.sections,
-                approval=paper.approval,
-                y_true=paper.is_approved(),
-                y_pred=classified.approved if classified else False,
-                rationale=classified.rationale if classified else "<error>",
+                rating=paper.rating,
+                rationale=paper.rationale,
+                y_true=paper.rating,
+                y_pred=classified.rating if classified else 0,
+                rationale_pred=classified.rationale if classified else "<error>",
             ),
             prompt=Prompt(system=_SCIMON_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),

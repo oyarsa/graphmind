@@ -19,7 +19,6 @@ This will build two files:
 
 from __future__ import annotations
 
-import math
 import random
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -108,7 +107,7 @@ def main(
         peerread_papers, reference_papers, min_references
     )
     peerread_sampled = (
-        _balanced_sample(peerread_augmented, num_peeread)
+        random.sample(peerread_augmented, k=num_peeread)
         if num_peeread
         else peerread_augmented
     )
@@ -159,34 +158,13 @@ def _augment_peeread(
                     reviews=peerread_paper.reviews,
                     authors=peerread_paper.authors,
                     sections=peerread_paper.sections,
-                    approval=peerread_paper.approval or False,
+                    rationale=peerread_paper.rationale,
+                    rating=peerread_paper.rating,
                     references=s2_references,
                 )
             )
 
     return augmented_papers
-
-
-def _balanced_sample(
-    data: Sequence[s2.PaperWithS2Refs], n: int
-) -> list[s2.PaperWithS2Refs]:
-    """Sample balanced entries from approved and rejected.
-
-    The goal is the output will always contain balanced classes. This is necessary
-    because the dataset has more approvals than rejections.
-
-    Args:
-        data: Papers to draw from. We use `random.sample` for this.
-        n: Number of total entries in the output. We do ceil(n/2) for the number of
-            entries per class.
-
-    Returns:
-        Dataset where the number of approvals and rejections is the same.
-    """
-    approved = [x for x in data if x.approval]
-    rejected = [x for x in data if not x.approval]
-    k = math.ceil(n / 2)
-    return random.sample(approved, k=k) + random.sample(rejected, k=k)
 
 
 def _filter_recommended(
