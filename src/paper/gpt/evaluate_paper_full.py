@@ -3,34 +3,6 @@
 The input is the processed PeerRead dataset (peerread.Paper).
 """
 
-# Best configuration:
-#     Command:
-#     $ uv run gpt eval_full run output/peerread_balanced_50.json tmp/eval-full -n 0 \
-#         --clean-run --user-prompt simple-abs --demos output/demonstrations_10.json \
-#         --demo-prompt abstract -m 4o
-#
-#     2024-11-04 20:03:37 | INFO | paper.gpt.evaluate_paper_full:151 | CONFIG:
-#     - model: 4o
-#     - api_key: None
-#     - data_path: /Users/italo/dev/paper-hypergraph/output/peerread_balanced_50.json (dc592a4f)
-#     - limit_papers: 0
-#     - user_prompt_key: simple-abs
-#     - output_dir: /Users/italo/dev/paper-hypergraph/tmp/eval-full (directory)
-#     - continue_papers_file: None
-#     - continue_: False
-#     - seed: 0
-#     - demonstrations_file: /Users/italo/dev/paper-hypergraph/output/demonstrations_10.json (55baa321)
-#     - demo_prompt_key: abstract
-#
-# Output:
-#     - P   : 0.6286
-#     - R   : 0.8800
-#     - F1  : 0.7333
-#     - Acc : 0.6800
-#
-#     Gold (P/N): 25/25 (50.00%)
-#     Pred (P/N): 35/15 (70.00%)
-
 import asyncio
 import logging
 import random
