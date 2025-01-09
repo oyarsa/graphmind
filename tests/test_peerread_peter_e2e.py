@@ -1,4 +1,4 @@
-"""Test the full PETER pipeline from PeerRead preprocessing to graph building."""
+"""Test the PETER pipeline from PeerRead preprocessing to graph building end-to-end."""
 
 from pathlib import Path
 
@@ -163,6 +163,20 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         peter_peer,
     )
     assert peter_peer.exists()
+
+    title("GPT PETER summarisation")
+    petersum_dir = tmp_path / "peter_sumamrised"
+    run(
+        "gpt",
+        "petersum",
+        "run",
+        "--ann-graph",
+        peter_peer,
+        "--output",
+        petersum_dir,
+    )
+    petersum = petersum_dir / "result.json"
+    assert petersum.exists()
 
     title("GPT eval full")
     eval_full_dir = tmp_path / "eval-full"
