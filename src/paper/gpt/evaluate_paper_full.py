@@ -361,12 +361,5 @@ def prompts(
     print_prompts("FULL PAPER EVALUATION", FULL_CLASSIFY_USER_PROMPTS, detail=detail)
 
 
-@app.command(help="List available demonstration files.")
-def demos() -> None:
-    """Print the available demonstration file names."""
-    for name in EVALUATE_DEMONSTRATIONS:
-        print(f"- {name}")
-
-
 if __name__ == "__main__":
     app()

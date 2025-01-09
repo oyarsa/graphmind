@@ -15,6 +15,7 @@ import typer
 from paper.gpt import (
     annotate_paper,
     classify_contexts,
+    evaluate_paper,
     evaluate_paper_full,
     evaluate_paper_peter,
     evaluate_paper_scimon,
@@ -79,3 +80,10 @@ app.add_typer(
     name="eval",
     help="Evaluate a paper",
 )
+
+
+@app.command(help="List available demonstration files.")
+def demos() -> None:
+    """Print the available demonstration file names."""
+    for name in evaluate_paper.load_demonstrations():
+        print(f"- {name}")
