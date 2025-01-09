@@ -80,7 +80,7 @@ def main(
             " the citation-augmented dataset.",
         ),
     ] = 5,
-    num_peeread: Annotated[
+    num_peerread: Annotated[
         int | None,
         typer.Option(
             help="How many papers from PeerRead will be used to construct the datasets."
@@ -107,8 +107,8 @@ def main(
         peerread_papers, reference_papers, min_references
     )
     peerread_sampled = (
-        random.sample(peerread_augmented, k=num_peeread)
-        if num_peeread
+        random.sample(peerread_augmented, k=num_peerread)
+        if num_peerread
         else peerread_augmented
     )
     s2_references = _unique_peerread_refs(peerread_sampled)
