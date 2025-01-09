@@ -18,9 +18,11 @@ from pydantic import TypeAdapter
 from paper.gpt.evaluate_paper import (
     CLASSIFY_TYPES,
     EVALUATE_DEMONSTRATION_PROMPTS,
+    GPTFull,
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
+    fix_classified_rating,
     format_demonstrations,
     load_demonstrations,
 )
@@ -43,7 +45,7 @@ from paper.util import (
     setup_logging,
     shuffled,
 )
-from paper.util.serde import load_data, replace_fields
+from paper.util.serde import load_data
 
 logger = logging.getLogger(__name__)
 FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
@@ -326,11 +328,8 @@ async def _classify_paper(
         seed=seed,
     )
 
-    classified = result.result
-    if classified and classified.rating not in range(1, 6):
-        logger.warning("Invalid rating: %d. Clamping to 1-5.", classified.rating)
-        clamped_rating = max(1, min(classified.rating, 5))
-        classified = replace_fields(classified, rating=clamped_rating)
+    classified = result.result or GPTFull(rationale="<error>", rating=1)
+    classified = fix_classified_rating(classified)
 
     return GPTResult(
         result=PromptResult(
@@ -343,8 +342,8 @@ async def _classify_paper(
                 rating=paper.rating,
                 rationale=paper.rationale,
                 y_true=paper.rating,
-                y_pred=classified.rating if classified else 0,
-                rationale_pred=classified.rationale if classified else "<error>",
+                y_pred=classified.rating,
+                rationale_pred=classified.rationale,
             ),
             prompt=Prompt(system=_FULL_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),
