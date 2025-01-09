@@ -4,7 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from .utils import ROOT_DIR, run, run_parallel_commands, title
+from paper.util.cmd import run, run_parallel_commands, title
+
+ROOT_DIR = Path(__file__).parent.parent
 
 
 @pytest.mark.slow
