@@ -1,5 +1,6 @@
 """Tools for evaluating paper novelty, displaying and calculating metrics."""
 
+import logging
 from collections.abc import Sequence
 from importlib import resources
 from pathlib import Path
@@ -11,7 +12,9 @@ from paper import evaluation_metrics
 from paper.gpt.model import Paper
 from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.util import safediv
-from paper.util.serde import load_data
+from paper.util.serde import load_data, replace_fields
+
+logger = logging.getLogger(__name__)
 
 
 class PaperResult(Paper):
@@ -152,3 +155,20 @@ def load_demonstrations() -> dict[str, list[Demonstration]]:
         cast(Path, file).stem: load_data(file.read_bytes(), Demonstration)
         for file in files
     }
+
+
+def fix_classified_rating(classified: GPTFull) -> GPTFull:
+    """Fix classified rating if out of range by clamping to [1, 5].
+
+    Args:
+        classified: Classified result to be checked.
+
+    Returns:
+        Same input if valid rating, or new object with fixed rating.
+    """
+    if classified.rating in range(1, 6):
+        return classified
+
+    logger.warning("Invalid rating: %d. Clamping to 1-5.", classified.rating)
+    clamped_rating = max(1, min(classified.rating, 5))
+    return replace_fields(classified, rating=clamped_rating)

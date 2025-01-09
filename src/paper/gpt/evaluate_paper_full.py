@@ -3,34 +3,6 @@
 The input is the processed PeerRead dataset (peerread.Paper).
 """
 
-# Best configuration:
-#     Command:
-#     $ uv run gpt eval_full run output/peerread_balanced_50.json tmp/eval-full -n 0 \
-#         --clean-run --user-prompt simple-abs --demos output/demonstrations_10.json \
-#         --demo-prompt abstract -m 4o
-#
-#     2024-11-04 20:03:37 | INFO | paper.gpt.evaluate_paper_full:151 | CONFIG:
-#     - model: 4o
-#     - api_key: None
-#     - data_path: /Users/italo/dev/paper-hypergraph/output/peerread_balanced_50.json (dc592a4f)
-#     - limit_papers: 0
-#     - user_prompt_key: simple-abs
-#     - output_dir: /Users/italo/dev/paper-hypergraph/tmp/eval-full (directory)
-#     - continue_papers_file: None
-#     - continue_: False
-#     - seed: 0
-#     - demonstrations_file: /Users/italo/dev/paper-hypergraph/output/demonstrations_10.json (55baa321)
-#     - demo_prompt_key: abstract
-#
-# Output:
-#     - P   : 0.6286
-#     - R   : 0.8800
-#     - F1  : 0.7333
-#     - Acc : 0.6800
-#
-#     Gold (P/N): 25/25 (50.00%)
-#     Pred (P/N): 35/15 (70.00%)
-
 import asyncio
 import logging
 import random
@@ -46,9 +18,11 @@ from pydantic import TypeAdapter
 from paper.gpt.evaluate_paper import (
     CLASSIFY_TYPES,
     EVALUATE_DEMONSTRATION_PROMPTS,
+    GPTFull,
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
+    fix_classified_rating,
     format_demonstrations,
     load_demonstrations,
 )
@@ -71,7 +45,7 @@ from paper.util import (
     setup_logging,
     shuffled,
 )
-from paper.util.serde import load_data, replace_fields
+from paper.util.serde import load_data
 
 logger = logging.getLogger(__name__)
 FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
@@ -354,11 +328,8 @@ async def _classify_paper(
         seed=seed,
     )
 
-    classified = result.result
-    if classified and classified.rating not in range(1, 6):
-        logger.warning("Invalid rating: %d. Clamping to 1-5.", classified.rating)
-        clamped_rating = max(1, min(classified.rating, 5))
-        classified = replace_fields(classified, rating=clamped_rating)
+    classified = result.result or GPTFull(rationale="<error>", rating=1)
+    classified = fix_classified_rating(classified)
 
     return GPTResult(
         result=PromptResult(
@@ -371,8 +342,8 @@ async def _classify_paper(
                 rating=paper.rating,
                 rationale=paper.rationale,
                 y_true=paper.rating,
-                y_pred=classified.rating if classified else 0,
-                rationale_pred=classified.rationale if classified else "<error>",
+                y_pred=classified.rating,
+                rationale_pred=classified.rationale,
             ),
             prompt=Prompt(system=_FULL_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),
@@ -388,13 +359,6 @@ def prompts(
 ) -> None:
     """Print the available prompt names, and optionally, the full prompt text."""
     print_prompts("FULL PAPER EVALUATION", FULL_CLASSIFY_USER_PROMPTS, detail=detail)
-
-
-@app.command(help="List available demonstration files.")
-def demos() -> None:
-    """Print the available demonstration file names."""
-    for name in EVALUATE_DEMONSTRATIONS:
-        print(f"- {name}")
 
 
 if __name__ == "__main__":

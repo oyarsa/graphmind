@@ -523,15 +523,11 @@ class PaperRelatedSummarised(Record):
     @classmethod
     def from_related(cls, related: peter.PaperRelated, summary: str) -> Self:
         """PETER-related paper with generated summary."""
-        from paper import peter
-
         return cls(
             summary=summary,
             paper_id=related.paper_id,
             title=related.title,
             abstract=related.abstract,
             score=related.score,
-            polarity=peerread.ContextPolarity.POSITIVE
-            if related.polarity is peter.ContextPolarity.POSITIVE
-            else peerread.ContextPolarity.NEGATIVE,
+            polarity=peerread.ContextPolarity(related.polarity),
         )

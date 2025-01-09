@@ -1,11 +1,8 @@
-"""Utility functions for tests."""
+"""Functions to run external commands and scripts."""
 
 import concurrent.futures
 import subprocess
 from collections.abc import Iterable, Sequence
-from pathlib import Path
-
-ROOT_DIR = Path(__file__).parent.parent
 
 
 def title(message: str) -> None:
