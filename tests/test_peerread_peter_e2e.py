@@ -1,4 +1,4 @@
-"""Test the full PETER pipeline from PeerRead preprocessing to graph building."""
+"""Test the PETER pipeline from PeerRead preprocessing to graph building end-to-end."""
 
 from pathlib import Path
 
