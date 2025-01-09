@@ -1,7 +1,13 @@
-"""Run the full PETER pipeline from PeerRead preprocessing to graph building."""
+"""Run the full PETER pipeline from PeerRead preprocessing to graph building.
+
+We reuse existing files if possible. If you want a clean slate, use the `--force` option.
+Note that this doesn't re-download the raw PeerRead dataset because it's too large. If
+you want to re-download it, manually remove the directory.
+"""
 
 import shutil
 from pathlib import Path
+from typing import Annotated
 
 import typer
 
@@ -17,45 +23,57 @@ app = typer.Typer(
 
 
 @app.command(help=__doc__, no_args_is_help=True)
-def main(input_dir: Path, output_dir: Path) -> None:
-    """Test the full PETER pipeline from PeerRead preprocessing to graph building."""
+def main(
+    input_dir: Annotated[Path, typer.Argument(help="Path to the PeerRead dataset.")],
+    output_dir: Annotated[
+        Path, typer.Argument(help="Directory where the generated file will be saved.")
+    ],
+    force: Annotated[
+        bool, typer.Option(help="Discard existing generated files.")
+    ] = True,
+) -> None:
+    """Run the full PETER pipeline from PeerRead preprocessing to graph building."""
     title("Check if PeerRead is available")
     if not input_dir.exists():
         run("src/paper/peerread/download.py", input_dir)
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    shutil.rmtree(output_dir)
+    if force:
+        shutil.rmtree(output_dir)
 
     title("Preprocess")
     processed = output_dir / "peerread_merged.json"
-    run("preprocess", "peerread", input_dir, processed)
+    _checkrun(processed, "preprocess", "peerread", input_dir, processed)
     assert processed.exists()
 
     title("Info main")
     info_main_dir = output_dir / "s2_info_main"
-    run(
+    info_main = info_main_dir / "final.json"
+    _checkrun(
+        info_main,
         "src/paper/semantic_scholar/info.py",
         "main",
         processed,
         info_main_dir,
     )
-    info_main = info_main_dir / "final.json"
     assert info_main.exists()
 
     title("Info references")
     info_ref_dir = output_dir / "s2_info_references"
-    run(
+    info_ref = info_ref_dir / "final.json"
+    _checkrun(
+        info_ref,
         "src/paper/semantic_scholar/info.py",
         "references",
         processed,
         info_ref_dir,
     )
-    info_ref = info_ref_dir / "final.json"
     assert info_ref.exists()
 
     title("Info areas")
     s2_areas = output_dir / "s2_areas.json"
-    run(
+    _checkrun(
+        s2_areas,
         "src/paper/semantic_scholar/areas.py",
         s2_areas,
         "--years",
@@ -67,13 +85,21 @@ def main(input_dir: Path, output_dir: Path) -> None:
 
     title("Recommended")
     recommended_dir = output_dir / "s2_recommended"
-    run("src/paper/semantic_scholar/recommended.py", info_main, recommended_dir)
     recommended = recommended_dir / "papers_recommended.json"
+    _checkrun(
+        recommended,
+        "src/paper/semantic_scholar/recommended.py",
+        info_main,
+        recommended_dir,
+    )
     assert recommended.exists()
 
     title("Construct dataset")
     subset_dir = output_dir / "subset"
-    run(
+    peer_with_ref = subset_dir / "peerread_with_s2_references.json"
+    peer_related = subset_dir / "peerread_related.json"
+    _checkrun(
+        peer_with_ref,
         "src/paper/construct_dataset.py",
         "--peerread",
         processed,
@@ -86,12 +112,12 @@ def main(input_dir: Path, output_dir: Path) -> None:
         "--num-peerrad",
         50,
     )
-    peer_with_ref = subset_dir / "peerread_with_s2_references.json"
-    peer_related = subset_dir / "peerread_related.json"
     assert peer_with_ref.exists()
 
     context_dir = output_dir / "context"
-    run(
+    context = context_dir / "result.json"
+    _checkrun(
+        context,
         "gpt",
         "context",
         "run",
@@ -102,11 +128,12 @@ def main(input_dir: Path, output_dir: Path) -> None:
         "--limit",
         "0",
     )
-    context = context_dir / "result.json"
     assert context.exists()
 
     peer_terms_dir = output_dir / "peerread-terms"
-    run(
+    peer_terms = peer_terms_dir / "results_valid.json"
+    _checkrun(
+        peer_terms,
         "gpt",
         "terms",
         "run",
@@ -117,11 +144,12 @@ def main(input_dir: Path, output_dir: Path) -> None:
         "--limit",
         "0",
     )
-    peer_terms = peer_terms_dir / "results_valid.json"
     assert peer_terms.exists()
 
     s2_terms_dir = output_dir / "s2-terms"
-    run(
+    s2_terms = s2_terms_dir / "results_valid.json"
+    _checkrun(
+        s2_terms,
         "gpt",
         "terms",
         "run",
@@ -132,12 +160,12 @@ def main(input_dir: Path, output_dir: Path) -> None:
         "--limit",
         "0",
     )
-    s2_terms = s2_terms_dir / "results_valid.json"
     assert s2_terms.exists()
 
     title("Peter Build")
     peter_graph = output_dir / "peter_graph.json"
-    run(
+    _checkrun(
+        peter_graph,
         "peter",
         "build",
         "--ann",
@@ -151,7 +179,8 @@ def main(input_dir: Path, output_dir: Path) -> None:
 
     peter_peer = output_dir / "peerread_with_peter.json"
     title("Peter PeerRead")
-    run(
+    _checkrun(
+        peter_peer,
         "peter",
         "peerread",
         "--graph",
@@ -165,7 +194,9 @@ def main(input_dir: Path, output_dir: Path) -> None:
 
     title("GPT eval full")
     eval_full_dir = output_dir / "eval-full"
-    run(
+    eval_full = eval_full_dir / "result.json"
+    _checkrun(
+        eval_full,
         "gpt",
         "eval",
         "full",
@@ -177,8 +208,22 @@ def main(input_dir: Path, output_dir: Path) -> None:
         "--demos",
         "eval_demonstrations_4",
     )
-    eval_full = eval_full_dir / "result.json"
     assert eval_full.exists()
+
+
+def _checkrun(path: Path, *cmd: object) -> None:
+    """Run command only if `path` does not already exist.
+
+    Args:
+        path: Path to check. The command won't run if it exists. This should be the path
+            where a file or directory generated by the command will be.
+        *cmd: The command and arguments to run.
+    """
+    if path.exists():
+        print(f"{path} already exists.")
+        return
+
+    run(*cmd)
 
 
 if __name__ == "__main__":
