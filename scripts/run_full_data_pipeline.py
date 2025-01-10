@@ -189,8 +189,6 @@ def main(
         peer_terms,
         "--output",
         peter_peer,
-        "--limit",
-        0,
     )
     assert peter_peer.exists()
 
@@ -206,26 +204,10 @@ def main(
         peter_peer,
         "--output",
         petersum_dir,
+        "--limit",
+        0,
     )
     assert petersum.exists()
-
-    title("GPT eval full")
-    eval_full_dir = output_dir / "eval-full"
-    eval_full = eval_full_dir / "result.json"
-    _checkrun(
-        eval_full,
-        "gpt",
-        "eval",
-        "full",
-        "run",
-        "--peerread",
-        processed,
-        "--output",
-        eval_full_dir,
-        "--demos",
-        "eval_demonstrations_4",
-    )
-    assert eval_full.exists()
 
 
 def _checkrun(path: Path, *cmd: object) -> None:
