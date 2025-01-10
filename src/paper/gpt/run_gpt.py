@@ -68,12 +68,6 @@ class GPTResult[T]:
     cost: float
 
 
-_RATE_LIMITERS: Mapping[str, ChatRateLimiter] = {
-    "gpt-4o-mini": ChatRateLimiter(request_limit=5_000, token_limit=4_000_000),
-    "gpt-4o": ChatRateLimiter(request_limit=5_000, token_limit=800_000),
-}
-"""Rate limiters for each supported model."""
-
 _GPT_REASONABLE_SIMULTANEOUS_REQUESTS = int(os.getenv("GPT_MAX_REQUESTS", "100"))
 """The default is an empirically established number of simultaneous requests to GPT API.
 
@@ -106,6 +100,58 @@ async def _call_gpt(  # noqa: ANN202
     except Exception as e:
         logger.warning("\nCaught non-API error. Returning None: %s", e)
         return None
+
+
+def _get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
+    """Get the rate limiter for a specific model based on the API tier.
+
+    Args:
+        tier: Tier the organisation is in. Currently supports tier 3 and 4.
+        model: API model name. Currenty supports 'gpt-4o-mini' and 'gpt-4o'.
+
+    Returns:
+        Rate limiter for the model with the correct rate limits for the tier.
+
+    Raises:
+        ValueError if tier or model are invalid.
+    """
+    message = (
+        "Tier {tier} limits are not set. Please provide the limits. You can find them on"
+        " https://platform.openai.com/settings/organization/limits"
+    )
+
+    # <request_limit, token_limit>
+    limits: dict[str, tuple[int, int]]
+
+    if tier == 1:
+        raise ValueError(message.format(tier=1))
+    if tier == 2:
+        raise ValueError(message.format(tier=2))
+    if tier == 3:
+        limits = {
+            "gpt-4o-mini": (5_000, 4_000_000),
+            "gpt-4o": (5_000, 800_000),
+        }
+    elif tier == 4:
+        limits = {
+            "gpt-4o-mini": (10_000, 4_000_000),
+            "gpt-4o": (10_000, 800_000),
+        }
+    elif tier == 5:
+        raise ValueError(message.format(tier=5))
+    else:
+        raise ValueError(f"Invalid tier: {tier}. Must be between 1 and 5.")
+
+    rate_limits: tuple[int, int] | None = None
+    for limit_model, model_limits in limits.items():
+        if model.startswith(limit_model):
+            rate_limits = model_limits
+
+    if not rate_limits:
+        raise ValueError(f"Model {model} is not supported for tier {tier}.")
+
+    request_limit, token_limit = rate_limits
+    return ChatRateLimiter(request_limit=request_limit, token_limit=token_limit)
 
 
 async def run_gpt[T: BaseModel](
@@ -149,6 +195,11 @@ async def run_gpt[T: BaseModel](
         raise ValueError(
             f"Invalid model: {model!r}. Should be one of: {MODELS_ALLOWED}."
         )
+    if api_tier_s := os.getenv("OPENAI_API_TIER"):
+        api_tier = int(api_tier_s)
+    else:
+        logger.warning("OPENAI_API_TIER unset. Defaulting to tier 1.")
+        api_tier = 1
 
     chat_params = {
         "model": model,
@@ -160,11 +211,8 @@ async def run_gpt[T: BaseModel](
         "seed": seed,
         "temperature": temperature,
     }
-    rate_limiter = None
-    for limit_model, limiter in _RATE_LIMITERS.items():
-        if model.startswith(limit_model):
-            rate_limiter = limiter
-    assert rate_limiter is not None
+
+    rate_limiter = _get_rate_limiter(api_tier, model)
 
     try:
         completion = await _call_gpt(rate_limiter, client, chat_params)
