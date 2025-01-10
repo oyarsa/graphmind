@@ -165,7 +165,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     assert peter_peer.exists()
 
     title("GPT PETER summarisation")
-    petersum_dir = tmp_path / "peter_sumamrised"
+    petersum_dir = tmp_path / "peter_summarised"
     run(
         "gpt",
         "petersum",
