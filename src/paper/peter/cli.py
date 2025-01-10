@@ -240,6 +240,14 @@ def peerread(
             help="Number of papers to query. Defaults to all papers.",
         ),
     ] = None,
+    num_citations: Annotated[
+        int,
+        typer.Option(help="Number of positive and negative cited papers to query."),
+    ] = 2,
+    num_semantic: Annotated[
+        int,
+        typer.Option(help="Number of positive and negative semantic papers to query."),
+    ] = 2,
 ) -> None:
     """Query the graph with PeerRead papers and save the results in a file.
 
@@ -258,7 +266,13 @@ def peerread(
     results = [
         PaperResult(
             paper=paper,
-            results=main_graph.query_all(paper.id, paper.background, paper.target),
+            results=main_graph.query_all(
+                paper.id,
+                paper.background,
+                paper.target,
+                semantic_k=num_semantic,
+                citation_k=num_citations,
+            ),
         )
         for paper in tqdm(papers, desc="Querying PeerRead papers.")
     ]
