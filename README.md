@@ -24,44 +24,24 @@ below.
 
 ## Datasets
 
-- **S2ORC - Semantic Scholar Open Research Corpus**: dataset with the full paper content
-  from Semantic Scholar. See [s2orc README](/src/paper/s2orc/README.md) for
-  information.
-- **PeerRead-Review**: dataset with full content and ratings for ICLR 2017-2022 papers. See
-  [peerread README](/src/paper/peerread/README.md) for more information.
+- **PeerRead**: dataset with full content and ratings for ACL and ICLR papers. See the
+  [PeerRead README](/src/paper/peerread/README.md) for more information.
 - **CSAbstruct**: abstract classification dataset we use for demonstrations in
   [gpt.annotate_paper](/src/paper/gpt/demonstrations.py). See
   [their repository](https://github.com/allenai/sequential_sentence_classification/tree/cf5ad6c663550dd8203f148cd703768d9ee86ff4)
 
-Use the `uv run preprocess` command to access both S2ORC and PeerRead dataset preprocessing:
+Use the `uv run peerread` command for PeerRead dataset preprocessing:
 
 ```console
-# Create `data` and `output` directories
-$ mkdir data output
-
 # > Preprocess PeerRead dataset
-# Download the dataset from Google Drive.
-$ uv run src/paper/peerread/download.py data/peerread
+# Download the dataset from GitHub.
+$ uv run peerread download data/PeerRead
 # Output will be saved to `output`. The final file is `output/peerread_merged.json`.
-$ uv run preprocess peerread data/peerread output
-
-# > Preprocess S2ORC dataset
-# Note: this takes a long time, potentially hours.
-# This needs a Semantic Scholar API, which you can get from https://www.semanticscholar.org/product/api#api-key-form
-# Downloaded S2ORC data and intermediate files will be stored on `data/s2orc`
-# Output will be saved to `output/s2orc_papers.json.gz`
-$ export SEMANTIC_SCHOLAR_API_KEY=... # set the environment variable or use the .env file
-$ uv run preprocess s2orc data/s2orc output
+$ uv run peerread preprocess data/peerread output
 
 # More information on the commands and options
-$ uv run preprocess s2orc --help
-$ uv run preprocess peerread --help
-$ uv run preprocess --help
+$ uv run peerreapeerread --help
 ```
-
-Both S2ORC and PeerRead have multi-step pre-processing pipelines. The commands above will
-run all of them in sequence from scratch. To run individual commands (e.g. during
-testing), see the respective READMEs.
 
 ## Graph Generation
 
@@ -71,15 +51,15 @@ generation tool:
 ```console
 # Generate the graphs from PeerRead papers
 $ export OPENAI_API_KEY=... # set the environment variable or use the .env file
-$ uv run graph-gpt run output/peerread_merged output/graph
+$ uv run gpt graph run output/peerread_merged output/graph
 
 # See the available prompts
-$ uv run graph-gpt prompts
+$ uv run graph prompts
 
 # For more information on the available options
-$ uv run graph-gpt --help
-$ uv run graph-gpt run --help
-$ uv run graph-gpt prompts --help
+$ uv run gpt graph --help
+$ uv run gpt graph run --help
+$ uv run gpt graph prompts --help
 ```
 
 For more information, see the documentation for each module:
@@ -100,11 +80,12 @@ uv run python example.py [...args]
 You don't have to set up a virtual environment or install dependencies. `uv run` will
 take care of that automatically.
 
-If you're running Python scripts or commands (e.g. see `preprocess` below), you can omit
-the `python`. Real example:
+If you're running Python scripts or commands (e.g. see `peerread` above), you can omit
+the `python`. Example:
 
-```bash
-uv run src/paper/s2orc/acl.py
+```console
+$ uv run src/paper/construct_dataset.py
+$ uv run peerread
 ```
 
 See [uv's documentation](https://docs.astral.sh/uv/concepts/projects/run/) for more
@@ -125,7 +106,7 @@ We use the following tools for development:
 Please check the individual tool documentation for more information. See also
 [CONTRIBUTING](/CONTRIBUTING.md) for in-depth information.
 
-The project has rich comments on every public member. You can use `pydoc` to get the
+The project has rich documentation on every public item. You can use `pydoc` to get the
 documentation for an item:
 
 ```console
@@ -137,7 +118,7 @@ $ uv run -m pydoc paper.peter.Graph
 This project is licensed under the GPL v3 or later:
 
     paper-hypergraph: evaluating paper novelty and feasibility
-    Copyright (C) 2024 The paper-hypergraph contributors
+    Copyright (C) 2024-2025 The paper-hypergraph contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

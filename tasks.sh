@@ -21,7 +21,7 @@ watch() {
 }
 
 clidoc() {
-	for module in gpt peter scimon preprocess; do
+	for module in gpt peter scimon peerread; do
 		uv run typer paper.$module.cli utils docs --output src/paper/$module/CLI.md &
 	done
 	wait

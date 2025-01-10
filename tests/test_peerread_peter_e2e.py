@@ -16,11 +16,11 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
 
     title("Check if PeerRead is available")
     if not raw_path.exists():
-        run("src/paper/peerread/download.py", raw_path)
+        run("peerread", "download", raw_path)
 
     title("Preprocess")
     processed = tmp_path / "peerread_merged.json"
-    run("preprocess", "peerread", raw_path, processed, "-n", 100)
+    run("peerread", "preprocess", raw_path, processed, "-n", 100)
     assert processed.exists()
 
     title("Info main")
@@ -165,7 +165,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     assert peter_peer.exists()
 
     title("GPT PETER summarisation")
-    petersum_dir = tmp_path / "peter_sumamrised"
+    petersum_dir = tmp_path / "peter_summarised"
     run(
         "gpt",
         "petersum",
@@ -194,3 +194,20 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     )
     eval_full = eval_full_dir / "result.json"
     assert eval_full.exists()
+
+    title("GPT eval PETER")
+    eval_peter_dir = tmp_path / "eval-peter"
+    eval_peter = eval_peter_dir / "result.json"
+    run(
+        "gpt",
+        "eval",
+        "peter",
+        "run",
+        "--ann-graph",
+        petersum,
+        "--output",
+        eval_peter_dir,
+        "--demos",
+        "eval_demonstrations_4",
+    )
+    assert eval_peter.exists()

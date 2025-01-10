@@ -143,7 +143,7 @@ CLASSIFY_TYPES = {
 }
 
 
-def load_demonstrations() -> dict[str, list[Demonstration]]:
+def _load_demonstrations() -> dict[str, list[Demonstration]]:
     """Load demonstration files from the gpt.prompts package."""
     names = ["eval_demonstrations_4.json", "eval_demonstrations_10.json"]
     files = [
@@ -155,6 +155,9 @@ def load_demonstrations() -> dict[str, list[Demonstration]]:
         cast(Path, file).stem: load_data(file.read_bytes(), Demonstration)
         for file in files
     }
+
+
+EVALUATE_DEMONSTRATIONS = _load_demonstrations()
 
 
 def fix_classified_rating(classified: GPTFull) -> GPTFull:

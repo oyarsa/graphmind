@@ -329,7 +329,7 @@ def _merge_review_metadata(
     return papers
 
 
-def pipeline(
+def preprocess(
     path: Annotated[
         Path, typer.Argument(help="Path to directories containing files to merge.")
     ],

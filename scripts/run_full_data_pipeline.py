@@ -192,23 +192,22 @@ def main(
     )
     assert peter_peer.exists()
 
-    title("GPT eval full")
-    eval_full_dir = output_dir / "eval-full"
-    eval_full = eval_full_dir / "result.json"
+    title("GPT PETER summarisation")
+    petersum_dir = output_dir / "peter_summarised"
+    petersum = petersum_dir / "result.json"
     _checkrun(
-        eval_full,
+        petersum,
         "gpt",
-        "eval",
-        "full",
+        "petersum",
         "run",
-        "--peerread",
-        processed,
+        "--ann-graph",
+        peter_peer,
         "--output",
-        eval_full_dir,
-        "--demos",
-        "eval_demonstrations_4",
+        petersum_dir,
+        "--limit",
+        0,
     )
-    assert eval_full.exists()
+    assert petersum.exists()
 
 
 def _checkrun(path: Path, *cmd: object) -> None:

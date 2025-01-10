@@ -18,13 +18,13 @@ from pydantic import TypeAdapter
 from paper.gpt.evaluate_paper import (
     CLASSIFY_TYPES,
     EVALUATE_DEMONSTRATION_PROMPTS,
+    EVALUATE_DEMONSTRATIONS,
     GPTFull,
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
     fix_classified_rating,
     format_demonstrations,
-    load_demonstrations,
 )
 from paper.gpt.model import Paper, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
@@ -49,7 +49,6 @@ from paper.util.serde import load_data
 
 logger = logging.getLogger(__name__)
 FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
-EVALUATE_DEMONSTRATIONS = load_demonstrations()
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
