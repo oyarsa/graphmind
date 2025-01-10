@@ -85,5 +85,5 @@ app.add_typer(
 @app.command(help="List available demonstration files.")
 def demos() -> None:
     """Print the available demonstration file names."""
-    for name in evaluate_paper.load_demonstrations():
+    for name in evaluate_paper.EVALUATE_DEMONSTRATIONS:
         print(f"- {name}")

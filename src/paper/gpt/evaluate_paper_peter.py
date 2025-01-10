@@ -23,7 +23,7 @@ from paper import peerread
 from paper.gpt.evaluate_paper import (
     CLASSIFY_TYPES,
     EVALUATE_DEMONSTRATION_PROMPTS,
-    Demonstration,
+    EVALUATE_DEMONSTRATIONS,
     GPTFull,
     PaperResult,
     calculate_paper_metrics,
@@ -114,8 +114,11 @@ def run(
     ] = False,
     seed: Annotated[int, typer.Option(help="Random seed used for data shuffling.")] = 0,
     demos: Annotated[
-        Path | None,
-        typer.Option(help="File containing demonstrations to use in few-shot prompt"),
+        str | None,
+        typer.Option(
+            help="Name of file containing demonstrations to use in few-shot prompt",
+            click_type=cli.choice(EVALUATE_DEMONSTRATIONS),
+        ),
     ] = None,
     demo_prompt: Annotated[
         str,
@@ -157,7 +160,7 @@ async def evaluate_papers(
     continue_papers_file: Path | None,
     continue_: bool,
     seed: int,
-    demonstrations_file: Path | None,
+    demonstrations_key: str | None,
     demo_prompt_key: str,
 ) -> None:
     """Evaluate a paper's novelty based on summarised PETER-queried related papers.
@@ -178,7 +181,7 @@ async def evaluate_papers(
             are there, we use those results and skip processing them.
         continue_: If True, ignore `continue_papers` and run everything from scratch.
         seed: Random seed used for shuffling and for the GPT call.
-        demonstrations_file: Path to demonstrations file for use with few-shot prompting.
+        demonstrations_key: Key to the demonstrations file for use with few-shot prompting.
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
             avaialble options or `list_prompts` for more.
@@ -210,7 +213,7 @@ async def evaluate_papers(
     user_prompt = PETER_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
-        load_data(demonstrations_file, Demonstration) if demonstrations_file else []
+        EVALUATE_DEMONSTRATIONS[demonstrations_key] if demonstrations_key else []
     )
     demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
     demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
