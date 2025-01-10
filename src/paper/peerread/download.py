@@ -15,17 +15,7 @@ REPOSITORY = "https://github.com/allenai/PeerRead"
 COMMIT = "9bb37751781a900cee9e74ec3105997732c8e8e5"
 
 
-app = typer.Typer(
-    context_settings={"help_option_names": ["-h", "--help"]},
-    add_completion=False,
-    rich_markup_mode="rich",
-    pretty_exceptions_show_locals=False,
-    no_args_is_help=True,
-)
-
-
-@app.command(help=__doc__, no_args_is_help=True)
-def main(
+def download(
     output_dir: Annotated[Path, typer.Argument(help="Path to save the PeerRead data.")],
 ) -> None:
     """Fetch the specified commit and copy its data directory to the output directory."""
@@ -62,7 +52,3 @@ def main(
 
         output_dir.mkdir(parents=True, exist_ok=True)
         shutil.copytree(data_dir, output_dir, dirs_exist_ok=True)
-
-
-if __name__ == "__main__":
-    app()

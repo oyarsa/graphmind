@@ -16,11 +16,11 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
 
     title("Check if PeerRead is available")
     if not raw_path.exists():
-        run("src/paper/peerread/download.py", raw_path)
+        run("peerread", "download", raw_path)
 
     title("Preprocess")
     processed = tmp_path / "peerread_merged.json"
-    run("preprocess", "peerread", raw_path, processed, "-n", 100)
+    run("peerread", "preprocess", raw_path, processed, "-n", 100)
     assert processed.exists()
 
     title("Info main")

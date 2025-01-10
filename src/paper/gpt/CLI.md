@@ -22,6 +22,7 @@ $ gpt [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `context`: Classify paper citations using full text.
+* `demos`: List available demonstration files.
 * `eval`: Evaluate a paper
 * `graph`: Extract graph from papers.
 * `petersum`: Summarise PETER related papers.
@@ -99,6 +100,20 @@ $ gpt context run [OPTIONS] DATA_PATH OUTPUT_DIR
 * `--seed INTEGER`: Seed to set in the OpenAI call.  [default: 0]
 * `--help`: Show this message and exit.
 
+## `gpt demos`
+
+List available demonstration files.
+
+**Usage**:
+
+```console
+$ gpt demos [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
 ## `gpt eval`
 
 Evaluate a paper
@@ -121,7 +136,7 @@ $ gpt eval [OPTIONS] COMMAND [ARGS]...
 
 ### `gpt eval full`
 
-Evaluate a paper's approval based on its full-body text.
+Evaluate a paper's novelty based on its full-body text.
 
 **Usage**:
 
@@ -136,7 +151,7 @@ $ gpt eval full [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `prompts`: List available prompts.
-* `run`: Evaluate a paper's approval based on its...
+* `run`: Evaluate a paper's novelty based on its...
 
 #### `gpt eval full prompts`
 
@@ -155,7 +170,9 @@ $ gpt eval full prompts [OPTIONS]
 
 #### `gpt eval full run`
 
-Evaluate a paper's approval based on its full-body text.
+Evaluate a paper's novelty based on its full-body text.
+
+The input is the processed PeerRead dataset (peerread.Paper).
 
 **Usage**:
 
@@ -173,13 +190,13 @@ $ gpt eval full run [OPTIONS]
 * `--continue-papers PATH`: Path to file with data from a previous run.
 * `--continue`: Use existing intermediate results
 * `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
-* `--demos PATH`: File containing demonstrations to use in few-shot prompt
+* `--demos [eval_demonstrations_10|eval_demonstrations_4]`: Name of file containing demonstrations to use in few-shot prompt
 * `--demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations.  [default: abstract]
 * `--help`: Show this message and exit.
 
 ### `gpt eval peter`
 
-Evaluate a paper's approval based on annotated papers with PETER-queried papers.
+Evaluate a paper's novelty based on annotated papers with PETER-queried papers.
 
 **Usage**:
 
@@ -194,7 +211,7 @@ $ gpt eval peter [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `prompts`: List available prompts.
-* `run`: Evaluate a paper's approval based on...
+* `run`: Evaluate a paper's novelty based on...
 
 #### `gpt eval peter prompts`
 
@@ -213,12 +230,12 @@ $ gpt eval peter prompts [OPTIONS]
 
 #### `gpt eval peter run`
 
-Evaluate a paper's approval based on annotated papers with PETER-queried papers.
+Evaluate a paper's novelty based on annotated papers with PETER-queried papers.
 
 The input is the output of `gpt.summarise_related_peter`. This are the PETER-queried
 papers with the related papers summarised.
 
-The output is the input annotated papers with an approval/rejection label.
+The output is the input annotated papers with a predicted novelty rating.
 
 **Usage**:
 
@@ -242,7 +259,7 @@ $ gpt eval peter run [OPTIONS]
 
 ### `gpt eval scimon`
 
-Evaluate a paper's approval based on annotated papers with SciMON-derived terms.
+Evaluate a paper's novelty based on annotated papers with SciMON-derived terms.
 
 **Usage**:
 
@@ -257,7 +274,7 @@ $ gpt eval scimon [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `prompts`: List available prompts.
-* `run`: Evaluate a paper's approval based on...
+* `run`: Evaluate a paper's novelty based on...
 
 #### `gpt eval scimon prompts`
 
@@ -276,7 +293,7 @@ $ gpt eval scimon prompts [OPTIONS]
 
 #### `gpt eval scimon run`
 
-Evaluate a paper's approval based on annotated papers with SciMON-derived terms.
+Evaluate a paper's novelty based on annotated papers with SciMON-derived terms.
 
 The input is the output of `scimon.query`, i.e. the output of `gpt.annotate_paper`
 (papers with extracted scientific terms) with the related terms extracted through the
