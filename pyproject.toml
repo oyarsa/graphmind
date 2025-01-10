@@ -23,7 +23,6 @@ dependencies = [
     "types-aioboto3[full]>=13.2.0.post1",
     "aiolimiter>=1.1.0",
     "sentence-transformers>=3.3.0",
-    "gdown>=5.2.0",
     "polars>=1.16.0",
 ]
 
