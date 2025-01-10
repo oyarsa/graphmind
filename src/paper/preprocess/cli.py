@@ -3,7 +3,6 @@
 import typer
 
 from paper.peerread import preprocess as peerrread
-from paper.s2orc import preprocess as s2orc
 
 app = typer.Typer(
     name="preprocess",
@@ -14,9 +13,6 @@ app = typer.Typer(
     help="Run different preprocessing pipelines.",
 )
 
-app.command(
-    name="s2orc", help="Run S2ORC preprocessing pipeline", no_args_is_help=True
-)(s2orc.pipeline)
 app.command(
     name="peerread", help="Run PeerRead preprocessing pipeline", no_args_is_help=True
 )(peerrread.pipeline)
