@@ -194,3 +194,20 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     )
     eval_full = eval_full_dir / "result.json"
     assert eval_full.exists()
+
+    title("GPT eval PETER")
+    eval_peter_dir = tmp_path / "eval-peter"
+    eval_peter = eval_peter_dir / "result.json"
+    run(
+        "gpt",
+        "eval",
+        "peter",
+        "run",
+        "--ann-graph",
+        petersum,
+        "--output",
+        eval_peter_dir,
+        "--demos",
+        "eval_demonstrations_4",
+    )
+    assert eval_peter.exists()
