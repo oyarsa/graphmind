@@ -1,6 +1,5 @@
 [[prompts]]
 name = "simple"
-type = "full"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 main paper's title and abstract and some related papers. These related papers are \
@@ -31,7 +30,6 @@ Output:
 
 [[prompts]]
 name = "sans"
-type = "full"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and the full body text.

@@ -1,6 +1,5 @@
 [[prompts]]
 name = "positive"
-type = "full"
 prompt = """
 The following data contains information from a **Main Paper** and a **Related Paper**. \
 The Related Paper has a positive relation to the Main Paper. It contains supporting \
@@ -27,7 +26,6 @@ Output:
 
 [[prompts]]
 name = "negative"
-type = "full"
 prompt = """
 The following data contains information from a **Main Paper** and a **Related Paper**. \
 The Related Paper has a negative relation to the Main Paper. It is used to contrast the \

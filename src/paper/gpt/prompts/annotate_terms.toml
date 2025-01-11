@@ -1,6 +1,5 @@
 [[prompts]]
 name = "multi"
-type = "multi-terms"
 prompt = """You are a scientific term extractor analyzing research papers. Extract \
 terms as they appear in the abstract. Minimize modifications to the terms, unless it is \
 to comply with the rules.

@@ -1,6 +1,5 @@
 [[prompts]]
 name = "strict"
-type = "strict"
 prompt = """
 The following data contains information about a scientific paper. It includes the
 paper's title, abstract, and the main text. The goal is to represent all the relevant

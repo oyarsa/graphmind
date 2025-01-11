@@ -1,6 +1,5 @@
 [[prompts]]
 name = "simple"
-type = "abstract-split"
 prompt = """
 Given the paper abstract, your goal is to extract the paper's background context and
 target.
