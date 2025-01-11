@@ -9,11 +9,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import tomllib
-from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Annotated, override
+from typing import Annotated
 
 import dotenv
 import typer
@@ -57,21 +56,6 @@ from paper.util import (
 logger = logging.getLogger(__name__)
 
 
-class GPTGraphBase(BaseModel, ABC):
-    """Base class for all output GPT graph types.
-
-    This means we can offer varying output types depending on the prompt, as long as
-    they are all Pydantic models (required by `openai` structured output) and can be
-    converted to `Graph`, which is what we'll evaluate.
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    @abstractmethod
-    def to_graph(self, title: str, abstract: str) -> Graph:
-        """Convert to concrete graph."""
-
-
 class IndexedEntity(BaseModel):
     """Entity from the paper. It belongs to a list and carries its index in that list."""
 
@@ -110,13 +94,8 @@ def _at[T](seq: Sequence[T], idx: int, desc: str) -> T | None:
         return None
 
 
-class GPTGraphStrict(GPTGraphBase):
+class GPTGraph(BaseModel):
     """Graph representing the paper."""
-
-    # This is very similar to `GPTGraphStrict`, but there the connections are backwards.
-    # E.g., `experiment` with a backlink to `method`. Here the connections are forward.
-    # There are also dedicated classes for each entity, even at the bottom levels, with
-    # different field names for each connection.
 
     title: Annotated[str, Field(description="Title of the paper.")]
     primary_area: Annotated[
@@ -150,7 +129,6 @@ class GPTGraphStrict(GPTGraphBase):
         Field(description="Experiments designed to put methods in practice."),
     ]
 
-    @override
     def to_graph(self, title: str, abstract: str) -> Graph:
         """Build a real `Graph` from the entities and their relationships."""
 
@@ -277,11 +255,6 @@ class ExperimentEntity(BaseModel):
     ]
 
 
-_GRAPH_TYPES: Mapping[str, type[GPTGraphBase]] = {
-    "strict": GPTGraphStrict,
-}
-
-
 _GRAPH_SYSTEM_PROMPT = (
     "Extract the entities from the text and the relationships between them."
 )
@@ -306,7 +279,7 @@ async def _generate_graph(
         primary_areas=", ".join(_PRIMARY_AREAS),
     )
     result = await run_gpt(
-        _GRAPH_TYPES[user_prompt.type_name],
+        GPTGraph,
         client,
         _GRAPH_SYSTEM_PROMPT,
         user_prompt_text,

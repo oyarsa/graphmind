@@ -8,6 +8,7 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 from paper.gpt.evaluate_paper import (
+    GPTFull,
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
@@ -103,11 +104,6 @@ class GPTClassify(BaseModel):
     rating: int
 
 
-_CLASSIFY_TYPES = {
-    "classify": GPTClassify,
-}
-
-
 async def _classify_papers(
     client: AsyncOpenAI,
     model: str,
@@ -163,7 +159,7 @@ async def _classify_paper(
         graph=pg.graph.model_dump_json(),
     )
     result = await run_gpt(
-        _CLASSIFY_TYPES[user_prompt.type_name],
+        GPTFull,
         client,
         CLASSIFY_SYSTEM_PROMPT,
         user_prompt_text,

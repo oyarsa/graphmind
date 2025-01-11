@@ -21,7 +21,6 @@ from openai import AsyncOpenAI
 
 from paper import peerread
 from paper.gpt.evaluate_paper import (
-    CLASSIFY_TYPES,
     EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
     GPTFull,
@@ -323,7 +322,7 @@ async def _classify_paper(
     user_prompt_text = format_template(user_prompt, ann_result, demonstrations)
 
     result = await run_gpt(
-        CLASSIFY_TYPES[user_prompt.type_name],
+        GPTFull,
         client,
         _PETER_CLASSIFY_SYSTEM_PROMPT,
         user_prompt_text,
