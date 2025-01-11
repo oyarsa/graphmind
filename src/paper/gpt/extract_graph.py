@@ -52,6 +52,7 @@ from paper.util import (
     read_resource,
     setup_logging,
 )
+from paper.util.serde import load_data
 
 logger = logging.getLogger(__name__)
 
@@ -529,7 +530,7 @@ async def extract_graph(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    data = TypeAdapter(list[Paper]).validate_json(data_path.read_bytes())
+    data = load_data(data_path, Paper)
 
     papers = data[:limit]
     graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]

@@ -9,10 +9,10 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from pydantic import TypeAdapter
 
 from paper.peerread.model import CitationContext
 from paper.semantic_scholar.model import PaperWithReferenceEnriched
+from paper.util.serde import load_data
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -27,9 +27,7 @@ def main(
     input_file: Annotated[Path, typer.Argument(help="Input JSON file.")],
 ) -> None:
     """Count number of context items in data file. Optonally, show polarity frequencies."""
-    papers = TypeAdapter(list[PaperWithReferenceEnriched]).validate_json(
-        input_file.read_text()
-    )
+    papers = load_data(input_file, PaperWithReferenceEnriched)
     contexts = [
         context
         for paper in papers

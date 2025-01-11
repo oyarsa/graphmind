@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from paper.gpt import annotate_paper as ann
 from paper.gpt import evaluate_paper as eval
 from paper.gpt.model import Paper
-from paper.util.serde import save_data
+from paper.util.serde import load_data, save_data
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -51,8 +51,7 @@ def eval_full(
     """
     random.seed(seed)
 
-    papers = TypeAdapter(list[Paper]).validate_json(input_file.read_bytes())
-
+    papers = load_data(input_file, Paper)
     papers_sample = random.sample(papers, num_entries)
 
     demonstrations = [new_eval_full_demonstration(paper) for paper in papers_sample]

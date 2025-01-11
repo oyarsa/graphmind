@@ -11,11 +11,11 @@ from typing import Any
 import backoff
 import openai
 from openai import AsyncOpenAI
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel, ValidationError
 
 from paper.gpt.model import PromptResult
 from paper.util.rate_limiter import ChatRateLimiter
-from paper.util.serde import Record
+from paper.util.serde import Record, load_data, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -254,11 +254,10 @@ def append_intermediate_result[T: BaseModel](
             Item to be saved.
 
     """
-    result_adapter = TypeAdapter(list[PromptResult[type_]])
 
     previous = []
     try:
-        previous = result_adapter.validate_json(path.read_bytes())
+        previous = load_data(path, PromptResult[type_])
     except FileNotFoundError:
         # It's fine if the file didn't exist previously. We'll create a new one now.
         pass
@@ -271,7 +270,7 @@ def append_intermediate_result[T: BaseModel](
 
     previous.append(result)
     try:
-        path.write_bytes(result_adapter.dump_json(previous, indent=2))
+        save_data(path, previous)
     except Exception:
         logger.exception("Error writing intermediate results to: %s", path)
 
@@ -319,9 +318,9 @@ def get_remaining_items[T: Record, U: Record](
     if continue_papers_file:
         logger.info("Continuing items from: %s", continue_papers_file)
         try:
-            continue_papers = TypeAdapter(
-                Sequence[PromptResult[continue_type_]]
-            ).validate_json(continue_papers_file.read_bytes())
+            continue_papers = load_data(
+                continue_papers_file, PromptResult[continue_type_]
+            )
         except Exception:
             logger.exception("Error reading previous files")
 

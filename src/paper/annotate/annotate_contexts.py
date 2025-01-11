@@ -22,6 +22,7 @@ from pydantic import TypeAdapter
 from paper.peerread.model import CitationContext, ContextPolarity
 from paper.semantic_scholar.model import PaperWithReferenceEnriched, ReferenceEnriched
 from paper.util import Timer, cli
+from paper.util.serde import load_data
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -45,9 +46,7 @@ def sample(
     """Sample N citation contexts from file."""
     random.seed(seed)
 
-    input_data = TypeAdapter(list[PaperWithReferenceEnriched]).validate_json(
-        input_file.read_bytes()
-    )
+    input_data = load_data(input_file, PaperWithReferenceEnriched)
     total = _count_contexts(input_data)
 
     indices = random.sample(list(range(total)), k=num_samples)
@@ -112,9 +111,7 @@ def annotate(
     width: Annotated[int, typer.Option(help="Width to wrap displayed text.")] = 100,
 ) -> None:
     """Annotation citation contexts polarities."""
-    input_data = TypeAdapter(list[PaperWithReferenceEnriched]).validate_json(
-        input_file.read_bytes()
-    )
+    input_data = load_data(input_file, PaperWithReferenceEnriched)
 
     total = _count_contexts(input_data)
     typer.echo(f"Number of contexts in file: {total}")
