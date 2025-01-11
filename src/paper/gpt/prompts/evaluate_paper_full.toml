@@ -1,6 +1,5 @@
 [[prompts]]
 name = "simple"
-type = "full"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and the full body text.
@@ -26,7 +25,6 @@ Output:
 
 [[prompts]]
 name = "iclr2023"
-type = "full"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and the full body text. Based on this content and the following \
@@ -93,7 +91,6 @@ Output:
 
 [[prompts]]
 name = "simple-abs"
-type = "full"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and the full body text.
@@ -116,7 +113,6 @@ Output:
 
 [[prompts]]
 name = "iclr2023-abs"
-type = "full"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and the full body text. Based on this content and the following \

@@ -138,11 +138,6 @@ class GPTFull(BaseModel):
     ]
 
 
-CLASSIFY_TYPES = {
-    "full": GPTFull,
-}
-
-
 def _load_demonstrations() -> dict[str, list[Demonstration]]:
     """Load demonstration files from the gpt.prompts package."""
     names = ["eval_demonstrations_4.json", "eval_demonstrations_10.json"]

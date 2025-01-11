@@ -1,6 +1,5 @@
 [[prompts]]
 name = "abstract"
-type = "n/a"
 prompt = """
 Title: {title}
 Abstract: {abstract}
@@ -10,7 +9,6 @@ Rationale: {rationale}
 
 [[prompts]]
 name = "maintext"
-type = "n/a"
 prompt = """
 Title: {title}
 Abstract: {abstract}

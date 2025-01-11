@@ -1,6 +1,5 @@
 [[prompts]]
 name = "simple"
-type = "n/a"
 prompt = """
 -Abstract:
 {abstract}

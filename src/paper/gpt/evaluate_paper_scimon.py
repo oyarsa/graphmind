@@ -20,9 +20,9 @@ from openai import AsyncOpenAI
 
 from paper import scimon
 from paper.gpt.evaluate_paper import (
-    CLASSIFY_TYPES,
     EVALUATE_DEMONSTRATION_PROMPTS,
     Demonstration,
+    GPTFull,
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
@@ -311,7 +311,7 @@ async def _classify_paper(
     user_prompt_text = format_template(user_prompt, ann_result, demonstrations)
 
     result = await run_gpt(
-        CLASSIFY_TYPES[user_prompt.type_name],
+        GPTFull,
         client,
         _SCIMON_CLASSIFY_SYSTEM_PROMPT,
         user_prompt_text,

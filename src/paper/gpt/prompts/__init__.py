@@ -6,12 +6,11 @@ from dataclasses import dataclass
 from paper.util import read_resource
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class PromptTemplate:
     """Prompt loaded from file with its name, the output type and template text."""
 
     name: str
-    type_name: str
     template: str
 
 
@@ -26,7 +25,7 @@ def load_prompts(name: str) -> dict[str, PromptTemplate]:
     """
     text = read_resource("gpt.prompts", f"{name}.toml")
     return {
-        p["name"]: PromptTemplate(p["name"], p["type"], p["prompt"])
+        p["name"]: PromptTemplate(name=p["name"], template=p["prompt"])
         for p in tomllib.loads(text)["prompts"]
     }
 
@@ -43,8 +42,6 @@ def print_prompts(
     for prompt in prompts.values():
         if detail:
             sep = "-" * 80
-            print(
-                f"{sep}\n{prompt.name} ({prompt.type_name})\n{sep}\n{prompt.template}"
-            )
+            print(f"{sep}\n{prompt.name}\n{sep}\n{prompt.template}")
         else:
-            print(f"- {prompt.name} ({prompt.type_name})")
+            print(f"- {prompt.name}")

@@ -1,6 +1,5 @@
 [[prompts]]
 name = "simple"
-type = "full"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title and abstract, and some inspiration sentences from related papers. \

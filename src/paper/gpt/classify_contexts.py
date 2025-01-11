@@ -302,9 +302,6 @@ class GPTContext(BaseModel):
     ]
 
 
-_CONTEXT_TYPES = {
-    "context": GPTContext,
-}
 _CONTEXT_SYSTEM_PROMPT = (
     "Classify the context polarity between the main paper and its citation."
 )
@@ -349,7 +346,7 @@ async def _classify_paper(
                 user_prompt_save = user_prompt_text
 
             result = await run_gpt(
-                _CONTEXT_TYPES[user_prompt.type_name],
+                GPTContext,
                 client,
                 _CONTEXT_SYSTEM_PROMPT,
                 user_prompt_text,
