@@ -15,7 +15,7 @@ from collections.abc import Callable, Coroutine, Iterable, Mapping
 from importlib import resources
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Self
+from typing import Any, Self, overload
 
 from thefuzz import fuzz  # type: ignore
 
@@ -397,3 +397,20 @@ def groupby[T, K](
         groups[k].append(item)
 
     return groups
+
+
+@overload
+def get_icase[T](data: Mapping[str, T], key: str, default: T) -> T: ...
+
+
+@overload
+def get_icase[T](data: Mapping[str, T], key: str, default: None = None) -> T | None: ...
+
+
+def get_icase[T](data: Mapping[str, T], key: str, default: T | None = None) -> T | None:
+    """Get value from dict using case-insensitive key matching."""
+    key_lower = key.lower()
+    for k in data:
+        if k.lower() == key_lower:
+            return data[k]
+    return default
