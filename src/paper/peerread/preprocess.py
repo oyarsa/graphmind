@@ -25,7 +25,7 @@ from paper.peerread.model import (
     PaperReview,
     PaperSection,
 )
-from paper.util import groupby
+from paper.util import get_icase, groupby
 from paper.util.serde import safe_load_json, save_data
 
 
@@ -179,30 +179,29 @@ def _process_reviews(directory: Path) -> dict[str, _PaperReviews]:
     for file_path in tqdm(list(directory.rglob("**/reviews/*.json")), desc="Reviews"):
         paper_reviews = safe_load_json(file_path)
 
-        filtered_reviews = [
-            review
-            for review in paper_reviews["reviews"]
-            if review.get("ORIGINALITY") is not None
-            and review.get("REVIEWER_CONFIDENCE") is not None
-        ]
-        if not filtered_reviews:
-            continue
+        filtered_reviews: list[_Review] = []
+        for review in paper_reviews["reviews"]:
+            originality = get_icase(review, "ORIGINALITY")
+            if originality is None:
+                continue
 
-        reviews_valid.append(
-            _PaperReviews(
-                id=paper_reviews["id"],
-                conference=_extract_conference(file_path, "reviews"),
-                accepted=paper_reviews.get("accepted"),
-                reviews=[
-                    _Review(
-                        rationale=review["comments"],
-                        rating=review["ORIGINALITY"],
-                        confidence=review.get("CONFIDENCE"),
-                    )
-                    for review in filtered_reviews
-                ],
+            filtered_reviews.append(
+                _Review(
+                    rationale=get_icase(review, "comments", ""),
+                    rating=originality,
+                    confidence=get_icase(review, "REVIEWER_CONFIDENCE", 0),
+                )
             )
-        )
+
+        if filtered_reviews:
+            reviews_valid.append(
+                _PaperReviews(
+                    id=paper_reviews["id"],
+                    conference=_extract_conference(file_path, "reviews"),
+                    accepted=paper_reviews.get("accepted"),
+                    reviews=filtered_reviews,
+                )
+            )
 
     return {_get_idx(r.conference, r.id): r for r in reviews_valid}
 
@@ -231,16 +230,18 @@ def _process_metadata(
 
         data = safe_load_json(file_path)["metadata"]
 
-        if not data["abstractText"] or not data["sections"] or not data["title"]:
+        title = get_icase(data, "title")
+        abstract = get_icase(data, "abstractText")
+        if title is None or abstract is None:
             continue
 
         metadata_valid.append(
             _PaperMetadata(
                 id=id_,
-                title=data["title"],
-                abstract=data["abstractText"],
-                authors=data["authors"],
-                sections=_group_sections(data["sections"]),
+                title=title,
+                abstract=abstract,
+                authors=get_icase(data, "authors", list[str]()),
+                sections=_group_sections(get_icase(data, "sections", list[str]())),
                 references=_process_references(data),
                 conference=conference,
             )
