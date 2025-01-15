@@ -232,16 +232,19 @@ def _process_metadata(
 
         title = get_icase(data, "title")
         abstract = get_icase(data, "abstractText")
-        if title is None or abstract is None:
+        sections = get_icase(data, "sections")
+        if not title or not abstract or not sections:
             continue
+
+        authors = get_icase(data, "authors", list[str]())
 
         metadata_valid.append(
             _PaperMetadata(
                 id=id_,
                 title=title,
                 abstract=abstract,
-                authors=get_icase(data, "authors", list[str]()),
-                sections=_group_sections(get_icase(data, "sections", list[str]())),
+                authors=authors,
+                sections=_group_sections(sections),
                 references=_process_references(data),
                 conference=conference,
             )
