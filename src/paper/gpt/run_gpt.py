@@ -117,7 +117,8 @@ def _get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
     """
     message = (
         "Tier {tier} limits are not set. Please provide the limits. You can find them on"
-        " https://platform.openai.com/settings/organization/limits"
+        " https://platform.openai.com/settings/organization/limits or using the"
+        " `scripts/tools/rate_limits.py` tool"
     )
 
     # <request_limit, token_limit>
