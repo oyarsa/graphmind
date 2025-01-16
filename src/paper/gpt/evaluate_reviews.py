@@ -15,7 +15,13 @@ from openai import AsyncOpenAI
 
 from paper import peerread as pr
 from paper.evaluation_metrics import Metrics, calculate_metrics
-from paper.gpt.evaluate_paper import GPTFull, fix_classified_rating
+from paper.gpt.evaluate_paper import (
+    EVALUATE_DEMONSTRATION_PROMPTS,
+    EVALUATE_DEMONSTRATIONS,
+    GPTFull,
+    fix_classified_rating,
+    format_demonstrations,
+)
 from paper.gpt.model import (
     PaperWithReviewEval,
     Prompt,
@@ -32,6 +38,7 @@ from paper.gpt.run_gpt import (
 )
 from paper.util import (
     Timer,
+    cli,
     display_params,
     ensure_envvar,
     progress,
@@ -87,6 +94,20 @@ def run(
         typer.Option("--continue", help="Use existing intermediate results"),
     ] = False,
     seed: Annotated[int, typer.Option(help="Random seed used for the GPT API.")] = 0,
+    demos: Annotated[
+        str | None,
+        typer.Option(
+            help="Name of file containing demonstrations to use in few-shot prompt",
+            click_type=cli.choice(EVALUATE_DEMONSTRATIONS),
+        ),
+    ] = None,
+    demo_prompt: Annotated[
+        str,
+        typer.Option(
+            help="User prompt to use for building the few-shot demonstrations.",
+            click_type=cli.choice(EVALUATE_DEMONSTRATION_PROMPTS),
+        ),
+    ] = "abstract",
 ) -> None:
     """Evaluate each review's novelty rating based on the review text."""
     asyncio.run(
@@ -98,6 +119,8 @@ def run(
             continue_papers,
             continue_,
             seed,
+            demos,
+            demo_prompt,
         )
     )
 
@@ -115,14 +138,21 @@ _REVIEW_SYSTEM_PROMPT = (
 )
 
 
-def _format_user_prompt(paper: pr.Paper, review: pr.PaperReview) -> str:
-    return (
-        f"Title: {paper.title}\n\n"
-        f"Abstract: {paper.abstract}\n\n"
-        f"Review: {review.rationale}\n\n"
+def _format_user_prompt(
+    paper: pr.Paper, review: pr.PaperReview, demonstrations: str
+) -> str:
+    prompt = [
+        f"Title: {paper.title}",
+        f"Abstract: {paper.abstract}",
+        f"Review: {review.rationale}",
         "Based on this review text, what novelty rating (1-5) would the reviewer have"
-        " given? Explain your reasoning and then give the rating."
-    )
+        " given? Explain your reasoning and then give the rating.",
+    ]
+    if demonstrations:
+        prompt.append(demonstrations)
+
+    prompt.append("Output:")
+    return "\n\n".join(prompt)
 
 
 async def evaluate_reviews(
@@ -133,6 +163,8 @@ async def evaluate_reviews(
     continue_papers_file: Path | None,
     continue_: bool,
     seed: int,
+    demonstrations_key: str | None,
+    demo_prompt_key: str,
 ) -> None:
     """Evaluate each review's novelty rating based on the review text.
 
@@ -144,6 +176,10 @@ async def evaluate_reviews(
         continue_papers_file: If provided, check for entries in the input data.
         continue_: If True, use data from `continue_papers_file`.
         seed: Seed for the OpenAI API call.
+        demonstrations_key: Name of demonstrations file for use with few-shot prompting.
+        demo_prompt_key: Key to the demonstration prompt to use during evaluation to
+            build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
+            avaialble options or `list_prompts` for more.
     """
     logger.info(display_params())
 
@@ -159,6 +195,13 @@ async def evaluate_reviews(
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
     papers = load_data(peerread_path, pr.Paper)[:limit_papers]
+
+    demonstration_data = (
+        EVALUATE_DEMONSTRATIONS[demonstrations_key] if demonstrations_key else []
+    )
+    demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
+    demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
+
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
 
@@ -182,7 +225,12 @@ async def evaluate_reviews(
 
     with Timer() as timer:
         results = await _evaluate_reviews(
-            client, model, papers_remaining.remaining, output_intermediate_file, seed
+            client,
+            model,
+            papers_remaining.remaining,
+            output_intermediate_file,
+            demonstrations,
+            seed,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -192,6 +240,9 @@ async def evaluate_reviews(
     results_items = PromptResult.unwrap(results_all)
     metrics = _calculate_review_metrics(results_items)
 
+    logger.info(
+        "%d reviews evaluated.", sum(len(p.item.reviews) for p in results.result)
+    )
     logger.info("Overall metrics:\n%s", metrics)
 
     save_data(output_dir / "result.json", results_all)
@@ -207,6 +258,7 @@ async def _evaluate_reviews(
     model: str,
     papers: Sequence[pr.Paper],
     output_intermediate_file: Path,
+    demonstrations: str,
     seed: int,
 ) -> GPTResult[list[PromptResult[PaperWithReviewEval]]]:
     """Evaluate each review in each paper.
@@ -216,6 +268,7 @@ async def _evaluate_reviews(
         model: GPT model code to use.
         papers: Papers from the PeerRead dataset to evaluate.
         output_intermediate_file: File to write new results after each task.
+        demonstrations: Text of demonstrations for few-shot prompting
         seed: Seed for the OpenAI API call.
 
     Returns:
@@ -224,7 +277,10 @@ async def _evaluate_reviews(
     results: list[PromptResult[PaperWithReviewEval]] = []
     total_cost = 0
 
-    tasks = [_evaluate_paper_reviews(client, model, paper, seed) for paper in papers]
+    tasks = [
+        _evaluate_paper_reviews(client, model, paper, demonstrations, seed)
+        for paper in papers
+    ]
 
     for task in progress.as_completed(tasks, desc="Processing papers"):
         result = await task
@@ -239,7 +295,11 @@ async def _evaluate_reviews(
 
 
 async def _evaluate_paper_reviews(
-    client: AsyncOpenAI, model: str, paper: pr.Paper, seed: int
+    client: AsyncOpenAI,
+    model: str,
+    paper: pr.Paper,
+    demonstrations: str,
+    seed: int,
 ) -> GPTResult[PromptResult[PaperWithReviewEval]]:
     """Evaluate all reviews for a single paper.
 
@@ -247,6 +307,7 @@ async def _evaluate_paper_reviews(
         client: OpenAI client to use GPT.
         model: GPT model code to use.
         paper: Paper from the PeerRead dataset to evaluate.
+        demonstrations: Text of demonstrations for few-shot prompting
         seed: Seed for the OpenAI call.
 
     Returns:
@@ -258,7 +319,7 @@ async def _evaluate_paper_reviews(
     main_review: ReviewEvaluation | None = None
 
     for review in paper.reviews:
-        user_prompt = _format_user_prompt(paper, review)
+        user_prompt = _format_user_prompt(paper, review, demonstrations)
         result = await run_gpt(
             GPTFull, client, _REVIEW_SYSTEM_PROMPT, user_prompt, model, seed=seed
         )
