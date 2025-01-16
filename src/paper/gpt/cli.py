@@ -19,6 +19,7 @@ from paper.gpt import (
     evaluate_paper_full,
     evaluate_paper_peter,
     evaluate_paper_scimon,
+    evaluate_reviews,
     extract_graph,
     summarise_related_peter,
     tokens,
@@ -73,6 +74,7 @@ evals_subcommands = [
         "Evaluate paper using PETER-query related papers.",
         evaluate_paper_peter,
     ),
+    ("reviews", "Evaluate individual reviews for novelty.", evaluate_reviews),
 ]
 
 app.add_typer(

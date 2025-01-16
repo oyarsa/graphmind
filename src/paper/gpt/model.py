@@ -6,7 +6,7 @@ import itertools
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from enum import StrEnum
-from typing import TYPE_CHECKING, Annotated, Self
+from typing import TYPE_CHECKING, Annotated, Self, override
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
@@ -301,7 +301,60 @@ class Paper(Record):
     rationale: str
     rating: int
 
+
+class ReviewEvaluation(BaseModel):
+    """Peer review with its original rating and predicted rating from GPT."""
+
+    model_config = ConfigDict(frozen=True)
+
+    # Original review data
+    rating: Annotated[
+        int,
+        Field(description="Novelty rating given by the reviewer (1 to 5)", ge=1, le=5),
+    ]
+    confidence: Annotated[int | None, Field(description="Confidence from the reviewer")]
+    rationale: Annotated[str, Field(description="Explanation given for the rating")]
+
+    # Predicted data
+    predicted_rating: Annotated[
+        int | None,
+        Field(description="Predicted novelty rating from GPT (1 to 5)", ge=1, le=5),
+    ] = None
+    predicted_rationale: Annotated[
+        str | None,
+        Field(description="GPT's explanation for the predicted rating"),
+    ] = None
+
+
+class PaperWithReviewEval(Record):
+    """PeerRead paper with predicted reviews."""
+
+    title: Annotated[str, Field(description="Paper title")]
+    abstract: Annotated[str, Field(description="Abstract text")]
+    reviews: Annotated[
+        Sequence[ReviewEvaluation], Field(description="Feedback from a reviewer")
+    ]
+    authors: Annotated[Sequence[str], Field(description="Names of the authors")]
+    sections: Annotated[
+        Sequence[peerread.PaperSection], Field(description="Sections in the paper text")
+    ]
+    approval: Annotated[
+        bool | None,
+        Field(description="Approval decision - whether the paper was approved"),
+    ]
+    references: Annotated[
+        Sequence[peerread.PaperReference],
+        Field(description="References made in the paper"),
+    ]
+    conference: Annotated[
+        str, Field(description="Conference where the paper was published")
+    ]
+    review: Annotated[ReviewEvaluation, Field(description="Main review for the paper")]
+    rationale: Annotated[str, Field(description="Rationale for the main review")]
+    rating: Annotated[int, Field(description="Rating (1-5) for the main review")]
+
     @property
+    @override
     def id(self) -> str:
         return hashstr(self.title + self.abstract)
 
