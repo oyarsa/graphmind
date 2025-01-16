@@ -153,6 +153,11 @@ class GPTFull(BaseModel):
         ),
     ]
 
+    @classmethod
+    def error(cls) -> Self:
+        """Output value for when there's an error."""
+        return cls(rationale="<error>", rating=1)
+
 
 def _load_demonstrations() -> dict[str, list[Demonstration]]:
     """Load demonstration files from the gpt.prompts package."""

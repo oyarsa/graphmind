@@ -329,8 +329,7 @@ async def _classify_paper(
         seed=seed,
     )
 
-    classified = result.result or GPTFull(rationale="<error>", rating=1)
-    classified = fix_classified_rating(classified)
+    classified = fix_classified_rating(result.result or GPTFull.error())
 
     return GPTResult(
         result=PromptResult(
