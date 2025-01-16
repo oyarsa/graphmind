@@ -4,7 +4,7 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Literal, overload
+from typing import Any, Literal, Protocol, Self, overload, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
@@ -100,6 +100,25 @@ def safe_load_json(file_path: Path) -> Any:
     return json.loads(file_path.read_text(encoding="utf-8", errors="replace"))
 
 
-def replace_fields[T: BaseModel](obj: T, /, **kwargs: Any) -> T:
+@runtime_checkable
+class PydanticProtocol(Protocol):
+    """Class with `model_dump` and `model_validate` functions.
+
+    Should be compatible with Pydantic BaseModel classes.
+
+    Used for the `replace_fields` function so we can use it in other protocols, as we
+    can't inherit from abstract classes in protocols.
+    """
+
+    def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        """Dump BaseModel to a dictionary, including nested objects."""
+        ...
+
+    def model_validate(self, obj: Any, *args: Any, **kwargs: Any) -> Self:
+        """Construct BaseModel object from dictionary."""
+        ...
+
+
+def replace_fields[T: PydanticProtocol](obj: T, /, **kwargs: Any) -> T:
     """Return a new Pydantic object replacing specified fields with new values."""
     return obj.model_validate(obj.model_dump() | kwargs)
