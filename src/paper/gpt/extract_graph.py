@@ -22,12 +22,12 @@ from rich.console import Console
 from rich.table import Table
 
 from paper import hierarchical_graph
+from paper import semantic_scholar as s2
 from paper.gpt.evaluate_paper_graph import CLASSIFY_USER_PROMPTS, evaluate_graphs
 from paper.gpt.model import (
     Entity,
     EntityType,
     Graph,
-    Paper,
     PaperGraph,
     Prompt,
     PromptResult,
@@ -267,7 +267,7 @@ _GRAPH_USER_PROMPTS = load_prompts("extract_graph")
 
 async def _generate_graph(
     client: AsyncOpenAI,
-    example: Paper,
+    example: s2.PaperWithS2Refs,
     model: str,
     user_prompt: PromptTemplate,
     *,
@@ -276,7 +276,7 @@ async def _generate_graph(
     user_prompt_text = user_prompt.template.format(
         title=example.title,
         abstract=example.abstract,
-        main_text=example.main_text(),
+        main_text=example.main_text,
         primary_areas=", ".join(_PRIMARY_AREAS),
     )
     result = await run_gpt(
@@ -309,7 +309,7 @@ async def _generate_graph(
 
 async def _generate_graphs(
     client: AsyncOpenAI,
-    data: list[Paper],
+    data: Sequence[s2.PaperWithS2Refs],
     model: str,
     user_prompt: PromptTemplate,
     output_intermediate_path: Path,
@@ -530,7 +530,7 @@ async def extract_graph(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    data = load_data(data_path, Paper)
+    data = load_data(data_path, s2.PaperWithS2Refs)
 
     papers = data[:limit]
     graph_user_prompt = _GRAPH_USER_PROMPTS[graph_user_prompt_key]

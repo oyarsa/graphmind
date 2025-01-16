@@ -12,9 +12,9 @@ import aiohttp
 import typer
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
+from paper import peerread as pr
 from paper.gpt import annotate_paper as ann
 from paper.gpt import evaluate_paper as eval
-from paper.gpt.model import Paper
 from paper.util.serde import load_data, save_data
 
 app = typer.Typer(
@@ -51,7 +51,7 @@ def eval_full(
     """
     random.seed(seed)
 
-    papers = load_data(input_file, Paper)
+    papers = load_data(input_file, pr.Paper)
     papers_sample = random.sample(papers, num_entries)
 
     demonstrations = [new_eval_full_demonstration(paper) for paper in papers_sample]
@@ -60,12 +60,12 @@ def eval_full(
     )
 
 
-def new_eval_full_demonstration(paper: Paper) -> eval.Demonstration:
+def new_eval_full_demonstration(paper: pr.Paper) -> eval.Demonstration:
     """Construct demonstration for full paper evaluation."""
     return eval.Demonstration(
         title=paper.title,
         abstract=paper.abstract,
-        text=paper.main_text(),
+        text=paper.main_text,
         rationale=paper.rationale,
         rating=paper.rating,
     )

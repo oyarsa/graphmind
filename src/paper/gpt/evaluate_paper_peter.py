@@ -19,7 +19,7 @@ import dotenv
 import typer
 from openai import AsyncOpenAI
 
-from paper import peerread
+from paper import peerread as pr
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
@@ -336,17 +336,8 @@ async def _classify_paper(
 
     return GPTResult(
         result=PromptResult(
-            item=PaperResult(
-                title=paper.title,
-                abstract=paper.abstract,
-                reviews=paper.reviews,
-                authors=paper.authors,
-                sections=paper.sections,
-                rating=paper.rating,
-                rationale=paper.rationale,
-                y_true=paper.rating,
-                y_pred=classified.rating,
-                rationale_pred=classified.rationale,
+            item=PaperResult.from_s2peer(
+                paper, classified.rating, classified.rationale
             ),
             prompt=Prompt(system=_PETER_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),
@@ -367,12 +358,12 @@ def format_template(
         positive=_format_related(
             p
             for p in paper_summaries.related
-            if p.polarity is peerread.ContextPolarity.POSITIVE
+            if p.polarity is pr.ContextPolarity.POSITIVE
         ),
         negative=_format_related(
             p
             for p in paper_summaries.related
-            if p.polarity is peerread.ContextPolarity.NEGATIVE
+            if p.polarity is pr.ContextPolarity.NEGATIVE
         ),
     )
 

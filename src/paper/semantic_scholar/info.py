@@ -40,7 +40,7 @@ import dotenv
 import typer
 from pydantic import ValidationError
 
-from paper import peerread
+from paper import peerread as pr
 from paper.semantic_scholar.model import (
     PaperFromPeerRead,
     PeerReadPaperWithS2,
@@ -154,7 +154,7 @@ async def _download_main_info(
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
 
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
-    papers = load_data(input_file, peerread.Paper)[:limit_papers]
+    papers = load_data(input_file, pr.Paper)[:limit_papers]
     title_to_paper = {paper.title: paper for paper in papers}
 
     async with aiohttp.ClientSession(
@@ -205,7 +205,7 @@ async def _download_reference_info(
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
 
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
-    papers = load_data(input_file, peerread.Paper)[:limit_papers]
+    papers = load_data(input_file, pr.Paper)[:limit_papers]
     unique_titles = {
         reference.title for paper in papers for reference in paper.references
     }

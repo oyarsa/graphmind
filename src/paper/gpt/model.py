@@ -303,7 +303,6 @@ class Paper(Record):
 
     @property
     def id(self) -> str:
-        """Identify paper from the title and abstract."""
         return hashstr(self.title + self.abstract)
 
     def main_text(self) -> str:
@@ -347,7 +346,7 @@ class PromptResult[T](BaseModel):
 class PaperGraph(Record):
     """PeerRead paper with the wrapped graph extracted from it."""
 
-    paper: Paper
+    paper: s2.PaperWithS2Refs
     graph: PromptResult[Graph]
 
     @computed_field
@@ -416,7 +415,7 @@ class PaperTerms(BaseModel):
         return sum(bool(term_list) for term_list in term_lists) >= 2
 
 
-type PaperToAnnotate = s2.Paper | Paper
+type PaperToAnnotate = s2.Paper | s2.PaperWithS2Refs
 
 
 class PaperAnnotated(Record):
@@ -458,7 +457,7 @@ class PeerReadAnnotated(Record):
     """PeerRead Paper with its annotated key terms. Includes GPT prompts used."""
 
     terms: PaperTerms
-    paper: Paper
+    paper: s2.PaperWithS2Refs
     background: str
     target: str
 

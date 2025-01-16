@@ -7,7 +7,7 @@ from typing import Annotated, Self, override
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from paper import peerread
+from paper import peerread as pr
 from paper.util import fuzzy_partial_ratio, hashstr
 from paper.util.serde import Record
 
@@ -144,11 +144,11 @@ class PaperFromPeerRead(Record):
 class S2Reference(PaperFromPeerRead):
     """S2 paper as a reference with the original contexts."""
 
-    contexts: Sequence[peerread.CitationContext]
+    contexts: Sequence[pr.CitationContext]
 
     @classmethod
     def from_(
-        cls, paper: PaperFromPeerRead, *, contexts: Sequence[peerread.CitationContext]
+        cls, paper: PaperFromPeerRead, *, contexts: Sequence[pr.CitationContext]
     ) -> Self:
         """Create new instance by copying data from S2Paper, in addition to the contexts."""
         return cls.model_validate(paper.model_dump() | {"contexts": contexts})
@@ -160,20 +160,27 @@ class PaperWithS2Refs(Record):
     title: Annotated[str, Field(description="Paper title")]
     abstract: Annotated[str, Field(description="Abstract text")]
     reviews: Annotated[
-        Sequence[peerread.PaperReview], Field(description="Feedback from a reviewer")
+        Sequence[pr.PaperReview], Field(description="Feedback from a reviewer")
     ]
     authors: Annotated[Sequence[str], Field(description="Names of the authors")]
     sections: Annotated[
-        Sequence[peerread.PaperSection], Field(description="Sections in the paper text")
+        Sequence[pr.PaperSection], Field(description="Sections in the paper text")
     ]
-    rating: Annotated[int, Field(description="Novelty rating")]
-    rationale: Annotated[str, Field(description="Rationale for novelty rating")]
+    approval: Annotated[
+        bool | None,
+        Field(description="Approval decision - whether the paper was approved"),
+    ]
+    conference: Annotated[
+        str, Field(description="Conference where the paper was published")
+    ]
     references: Annotated[
         Sequence[S2Reference],
         Field(
             description="References from the paper with full S2 data and citation contexts."
         ),
     ]
+    rating: Annotated[int, Field(description="Novelty rating")]
+    rationale: Annotated[str, Field(description="Rationale for the novelty rating")]
 
     @property
     def id(self) -> str:
@@ -184,15 +191,36 @@ class PaperWithS2Refs(Record):
         """
         return hashstr(self.title + self.abstract)
 
+    @property
+    def main_text(self) -> str:
+        """Join all paper sections to form the main text."""
+        return "\n".join(s.text for s in self.sections)
 
-class PeerReadPaperWithS2(peerread.Paper):
+    @classmethod
+    def from_peer(cls, peer: pr.Paper, s2_references: Sequence[S2Reference]) -> Self:
+        """Create paper with S2 references from original paper and S2 references."""
+        return cls(
+            title=peer.title,
+            abstract=peer.abstract,
+            reviews=peer.reviews,
+            authors=peer.authors,
+            sections=peer.sections,
+            approval=peer.approval,
+            conference=peer.conference,
+            references=s2_references,
+            rating=peer.rating,
+            rationale=peer.rationale,
+        )
+
+
+class PeerReadPaperWithS2(pr.Paper):
     """PeerRead paper with associated S2 paper information."""
 
     s2: PaperFromPeerRead
     fuzz_ratio: int
 
     @classmethod
-    def from_peer(cls, pr: peerread.Paper, s2_result: PaperFromPeerRead) -> Self:
+    def from_peer(cls, pr: pr.Paper, s2_result: PaperFromPeerRead) -> Self:
         """Create new paper from an existing PeerRead paper and the S2 API result."""
         return cls(
             title=pr.title,
@@ -249,11 +277,11 @@ class PeerReadWithFullS2(Record):
     title: Annotated[str, Field(description="Paper title")]
     abstract: Annotated[str, Field(description="Abstract text")]
     reviews: Annotated[
-        Sequence[peerread.PaperReview], Field(description="Feedback from a reviewer")
+        Sequence[pr.PaperReview], Field(description="Feedback from a reviewer")
     ]
     authors: Annotated[Sequence[str], Field(description="Names of the authors")]
     sections: Annotated[
-        Sequence[peerread.PaperSection], Field(description="Sections in the paper text")
+        Sequence[pr.PaperSection], Field(description="Sections in the paper text")
     ]
     rating: Annotated[int, Field(description="Novelty rating")]
     rationale: Annotated[str, Field(description="Rationale for novelty rating")]
@@ -280,7 +308,7 @@ class PaperArea(Paper):
     areas: Sequence[str]
 
 
-class ReferenceEnriched(peerread.PaperReference):
+class ReferenceEnriched(pr.PaperReference):
     """PeerRead reference with the added data from the S2 API and the original S2 title.
 
     Attributes:
@@ -310,11 +338,11 @@ class PaperWithReferenceEnriched(BaseModel):
     title: Annotated[str, Field(description="Paper title")]
     abstract: Annotated[str, Field(description="Abstract text")]
     reviews: Annotated[
-        Sequence[peerread.PaperReview], Field(description="Feedback from a reviewer")
+        Sequence[pr.PaperReview], Field(description="Feedback from a reviewer")
     ]
     authors: Annotated[Sequence[str], Field(description="Names of the authors")]
     sections: Annotated[
-        Sequence[peerread.PaperSection], Field(description="Sections in the paper text")
+        Sequence[pr.PaperSection], Field(description="Sections in the paper text")
     ]
     rating: Annotated[int, Field(description="Novelty rating")]
     rationale: Annotated[str, Field(description="Rationale for novelty rating")]
@@ -324,7 +352,7 @@ class PaperWithReferenceEnriched(BaseModel):
     ]
 
 
-class ReferenceWithAbstract(peerread.PaperReference):
+class ReferenceWithAbstract(pr.PaperReference):
     """PeerRead reference with the added abstract and the original S2 title.
 
     `s2title` is the title in the S2 data for the best match. It can be used to match
@@ -347,11 +375,11 @@ class PaperWithFullReference(Record):
     title: Annotated[str, Field(description="Paper title")]
     abstract: Annotated[str, Field(description="Abstract text")]
     reviews: Annotated[
-        Sequence[peerread.PaperReview], Field(description="Feedback from a reviewer")
+        Sequence[pr.PaperReview], Field(description="Feedback from a reviewer")
     ]
     authors: Annotated[Sequence[str], Field(description="Names of the authors")]
     sections: Annotated[
-        Sequence[peerread.PaperSection], Field(description="Sections in the paper text")
+        Sequence[pr.PaperSection], Field(description="Sections in the paper text")
     ]
     rating: Annotated[int, Field(description="Novelty rating")]
     rationale: Annotated[str, Field(description="Rationale for novelty rating")]

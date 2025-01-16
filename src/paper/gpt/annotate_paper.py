@@ -23,7 +23,6 @@ from rich.table import Table
 
 from paper import semantic_scholar as s2
 from paper.gpt.model import (
-    Paper,
     PaperAnnotated,
     PaperTerms,
     PaperToAnnotate,
@@ -107,7 +106,7 @@ class PaperType(StrEnum):
             case self.S2:
                 return s2.Paper
             case self.PeerRead:
-                return Paper
+                return s2.PaperWithS2Refs
 
 
 @app.command(help=__doc__, no_args_is_help=True)
@@ -359,9 +358,9 @@ async def _annotate_papers(
     output_intermediate_path: Path,
     *,
     seed: int,
-) -> GPTResult[list[PromptResult[PaperAnnotated[PaperTerms]]]]:
+) -> GPTResult[list[PromptResult[PaperAnnotated]]]:
     """Annotate papers to add key terms. Runs multiple tasks concurrently."""
-    ann_outputs: list[PromptResult[PaperAnnotated[PaperTerms]]] = []
+    ann_outputs: list[PromptResult[PaperAnnotated]] = []
     total_cost = 0
 
     tasks = [

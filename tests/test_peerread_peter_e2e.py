@@ -186,7 +186,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "full",
         "run",
         "--peerread",
-        processed,
+        peer_with_ref,
         "--output",
         eval_full_dir,
         "--demos",

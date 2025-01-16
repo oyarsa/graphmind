@@ -15,6 +15,7 @@ import typer
 from openai import AsyncOpenAI
 from pydantic import TypeAdapter
 
+from paper import semantic_scholar as s2
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
@@ -25,7 +26,7 @@ from paper.gpt.evaluate_paper import (
     fix_classified_rating,
     format_demonstrations,
 )
-from paper.gpt.model import Paper, Prompt, PromptResult
+from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -194,7 +195,7 @@ async def evaluate_papers(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    papers = shuffled(load_data(peerread_path, Paper))[:limit_papers]
+    papers = shuffled(load_data(peerread_path, s2.PaperWithS2Refs))[:limit_papers]
     user_prompt = FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
@@ -253,7 +254,7 @@ async def _classify_papers(
     client: AsyncOpenAI,
     model: str,
     user_prompt: PromptTemplate,
-    papers: Sequence[Paper],
+    papers: Sequence[s2.PaperWithS2Refs],
     output_intermediate_file: Path,
     demonstrations: str,
     *,
@@ -297,12 +298,14 @@ _FULL_CLASSIFY_SYSTEM_PROMPT = (
 )
 
 
-def format_template(prompt: PromptTemplate, paper: Paper, demonstrations: str) -> str:
+def format_template(
+    prompt: PromptTemplate, paper: s2.PaperWithS2Refs, demonstrations: str
+) -> str:
     """Format full-text evaluation template `paper` and `demonstrations`."""
     return prompt.template.format(
         title=paper.title,
         abstract=paper.abstract,
-        main_text=paper.main_text(),
+        main_text=paper.main_text,
         demonstrations=demonstrations,
     )
 
@@ -310,7 +313,7 @@ def format_template(prompt: PromptTemplate, paper: Paper, demonstrations: str) -
 async def _classify_paper(
     client: AsyncOpenAI,
     model: str,
-    paper: Paper,
+    paper: s2.PaperWithS2Refs,
     user_prompt: PromptTemplate,
     demonstrations: str,
     *,
@@ -331,17 +334,8 @@ async def _classify_paper(
 
     return GPTResult(
         result=PromptResult(
-            item=PaperResult(
-                title=paper.title,
-                abstract=paper.abstract,
-                reviews=paper.reviews,
-                authors=paper.authors,
-                sections=paper.sections,
-                rating=paper.rating,
-                rationale=paper.rationale,
-                y_true=paper.rating,
-                y_pred=classified.rating,
-                rationale_pred=classified.rationale,
+            item=PaperResult.from_s2peer(
+                paper, classified.rating, classified.rationale
             ),
             prompt=Prompt(system=_FULL_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),

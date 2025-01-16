@@ -4,27 +4,43 @@ import logging
 from collections.abc import Sequence
 from importlib import resources
 from pathlib import Path
-from typing import Annotated, NamedTuple, cast
+from typing import Annotated, NamedTuple, Protocol, Self, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from paper import evaluation_metrics
-from paper.gpt.model import Paper
+from paper import semantic_scholar as s2
 from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.util import safediv
-from paper.util.serde import load_data, replace_fields
+from paper.util.serde import PydanticProtocol, load_data, replace_fields
 
 logger = logging.getLogger(__name__)
 
 
-class PaperResult(Paper):
+class PaperResult(s2.PaperWithS2Refs):
     """PeerRead paper with added novelty rating ground truth and GPT prediction."""
 
     y_true: Annotated[int, Field(description="Human annotation")]
     y_pred: Annotated[int, Field(description="Model prediction")]
+    rationale_true: Annotated[str, Field(description="Human rationale annotation")]
     rationale_pred: Annotated[
         str, Field(description="Model rationale for the prediction")
     ]
+
+    @classmethod
+    def from_s2peer(
+        cls, paper: s2.PaperWithS2Refs, y_pred: int, rationale_pred: str
+    ) -> Self:
+        """Construct `PaperResult` from the original paper and model predictions."""
+        return cls.model_validate(
+            paper.model_dump()
+            | {
+                "y_true": paper.rating,
+                "rationale_true": paper.rationale,
+                "y_pred": y_pred,
+                "rationale_pred": rationale_pred,
+            }
+        )
 
 
 class Labels(NamedTuple):

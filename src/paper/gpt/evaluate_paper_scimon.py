@@ -26,6 +26,7 @@ from paper.gpt.evaluate_paper import (
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
+    fix_classified_rating,
     format_demonstrations,
 )
 from paper.gpt.model import Prompt, PromptResult
@@ -320,21 +321,13 @@ async def _classify_paper(
     )
 
     paper = ann_result.ann.paper
-    classified = result.result
+    classified = result.result or GPTFull(rationale="<error>", rating=1)
+    classified = fix_classified_rating(classified)
 
     return GPTResult(
         result=PromptResult(
-            item=PaperResult(
-                title=paper.title,
-                abstract=paper.abstract,
-                reviews=paper.reviews,
-                authors=paper.authors,
-                sections=paper.sections,
-                rating=paper.rating,
-                rationale=paper.rationale,
-                y_true=paper.rating,
-                y_pred=classified.rating if classified else 0,
-                rationale_pred=classified.rationale if classified else "<error>",
+            item=PaperResult.from_s2peer(
+                paper, classified.rating, classified.rationale
             ),
             prompt=Prompt(system=_SCIMON_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),

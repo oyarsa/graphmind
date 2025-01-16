@@ -12,6 +12,7 @@ from paper.gpt.evaluate_paper import (
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
+    fix_classified_rating,
 )
 from paper.gpt.model import PaperGraph, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts
@@ -166,21 +167,13 @@ async def _classify_paper(
         model,
         seed=seed,
     )
-    classified = result.result
+    classified = result.result or GPTFull(rationale="<error>", rating=1)
+    classified = fix_classified_rating(classified)
 
     return GPTResult(
         result=PromptResult(
-            item=PaperResult(
-                title=pg.paper.title,
-                abstract=pg.paper.abstract,
-                reviews=pg.paper.reviews,
-                authors=pg.paper.authors,
-                sections=pg.paper.sections,
-                rating=pg.paper.rating,
-                rationale=pg.paper.rationale,
-                y_true=pg.paper.rating,
-                y_pred=classified.rating if classified else 0,
-                rationale_pred=classified.rationale if classified else "<error>",
+            item=PaperResult.from_s2peer(
+                pg.paper, classified.rating, classified.rationale
             ),
             prompt=Prompt(system=CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),
