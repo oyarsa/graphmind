@@ -155,7 +155,16 @@ def _load_demonstrations() -> dict[str, list[Demonstration]]:
 EVALUATE_DEMONSTRATIONS = _load_demonstrations()
 
 
-def fix_classified_rating(classified: GPTFull) -> GPTFull:
+class HasRating(PydanticProtocol, Protocol):
+    """Pydantic model with a `rating` field."""
+
+    @property
+    def rating(self) -> int:
+        """Rating from 1 to 5."""
+        ...
+
+
+def fix_classified_rating[T: HasRating](classified: T) -> T:
     """Fix classified rating if out of range by clamping to [1, 5].
 
     Args:
