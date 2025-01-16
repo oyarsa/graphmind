@@ -266,7 +266,7 @@ async def _summarise_papers(
         for ann_graph in ann_graphs
     ]
 
-    for task in progress.as_completed(tasks, desc="Classifying papers"):
+    for task in progress.as_completed(tasks, desc="Summarising related papers"):
         result = await task
         total_cost += result.cost
 
