@@ -1,12 +1,21 @@
 """Tools for serialisation and deserialisation of Pydantic objects."""
 
 import json
+import sys
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Literal, Protocol, Self, overload, runtime_checkable
+from typing import (
+    Any,
+    Literal,
+    Protocol,
+    Self,
+    get_origin,
+    overload,
+    runtime_checkable,
+)
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 type JSONPrimitive = str | bool | int | float
 type JSONArray = Sequence[JSONValue]
@@ -62,12 +71,18 @@ def load_data[T: BaseModel](
     else:
         content = file
 
-    if single:
-        return type_.model_validate_json(content)
+    try:
+        if single:
+            return type_.model_validate_json(content)
 
-    return TypeAdapter(
-        list[type_], config=ConfigDict(populate_by_name=not use_alias)
-    ).validate_json(content)
+        return TypeAdapter(
+            list[type_], config=ConfigDict(populate_by_name=not use_alias)
+        ).validate_json(content)
+    except ValidationError as e:
+        source = file if isinstance(file, Path) else "bytes"
+        raise TypeError(
+            f"Data from {source} is not valid for {_get_full_type_name(type_)}"
+        ) from e
 
 
 def save_data[T: BaseModel](
@@ -93,6 +108,24 @@ def save_data[T: BaseModel](
         )
     else:
         file.write_text(data.model_dump_json(indent=2, by_alias=use_alias))
+
+
+def _get_full_type_name[T](type_: type[T]) -> str:
+    """Get full name of type, including full module path."""
+    # Handle generic types (List[str], etc.)
+    origin = get_origin(type_)
+    if origin is not None:
+        type_ = origin
+
+    # Try to find the original module
+    for module_name, module in sys.modules.items():
+        if hasattr(module, type_.__name__):
+            obj = getattr(module, type_.__name__)
+            if obj is type_:
+                return f"{module_name}.{type_.__qualname__}"
+
+    # Fallback to default
+    return f"{type_.__module__}.{type_.__qualname__}"
 
 
 def safe_load_json(file_path: Path) -> Any:
