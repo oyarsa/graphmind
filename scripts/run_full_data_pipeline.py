@@ -109,7 +109,7 @@ def main(
         recommended,
         "--output",
         subset_dir,
-        "--num-peerrad",
+        "--num-peerread",
         50,
     )
     assert peer_with_ref.exists()
