@@ -30,7 +30,7 @@ from paper.gpt.model import (
     PromptResult,
     ReviewEvaluation,
 )
-from paper.gpt.prompts import PromptTemplate
+from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -51,6 +51,7 @@ from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
 
+REVIEW_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_reviews")
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -89,6 +90,13 @@ def run(
             help="The number of papers to process. Use 0 for all papers.",
         ),
     ] = 1,
+    user_prompt: Annotated[
+        str,
+        typer.Option(
+            help="The user prompt to use for classification.",
+            click_type=cli.choice(REVIEW_CLASSIFY_USER_PROMPTS),
+        ),
+    ] = "simple",
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run.")
     ] = None,
@@ -118,6 +126,7 @@ def run(
             model,
             peerread_path,
             limit_papers,
+            user_prompt,
             output_dir,
             continue_papers,
             continue_,
@@ -141,52 +150,26 @@ _REVIEW_SYSTEM_PROMPT = (
 )
 
 
-def _format_user_prompt(
-    paper: pr.Paper, review: pr.PaperReview, demonstrations: str
+def format_template(
+    paper: pr.Paper,
+    review: pr.PaperReview,
+    user_prompt: PromptTemplate,
+    demonstrations: str,
 ) -> str:
-    return f"""\
-The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, and a peer review evalauting the paper for a publication \
-at a conference.
-
-Based on this content, determine what novelty rating this reviewer gave to the paper. \
-It should be a number from 1 to 5. This rating should reflect the following instructions:
-
-How original is the approach? Does this paper break new ground in topic, methodology, or
-content? How exciting and innovative is the research it describes?
-Note that a paper could score high for originality even if the results do not show a convincing
-benefit.
-5 = Surprising: Significant new problem, technique, methodology, or insight -- no prior research
-has attempted something similar.
-4 = Creative: An intriguing problem, technique, or approach that is substantially different from
-previous research.
-3 = Respectable: A nice research contribution that represents a notable extension of prior
-approaches or methodologies.
-2 = Pedestrian: Obvious, or a minor improvement on familiar techniques.
-1 = Significant portions have actually been done before or done better.
-
-Based on this content, assign the paper a novelty rating from 1 to 5. First, generate
-a rationale explaining why you gave the rating, then predict the novelty rating.
-
-#####
-{demonstrations}
-
--Data-
-Title: {paper.title}
-Abstract: {paper.abstract}
-
-Review:
-{review.rationale}
-
-#####
-Output:
-"""
+    """Format evaluation template using a peer review as reference."""
+    return user_prompt.template.format(
+        title=paper.title,
+        abstract=paper.abstract,
+        review=review.rationale,
+        demonstrations=demonstrations,
+    )
 
 
 async def evaluate_reviews(
     model: str,
     peerread_path: Path,
     limit_papers: int | None,
+    user_prompt_key: str,
     output_dir: Path,
     continue_papers_file: Path | None,
     continue_: bool,
@@ -200,6 +183,9 @@ async def evaluate_reviews(
         model: GPT model code to use.
         peerread_path: Path to the JSON file containing the input papers data.
         limit_papers: Number of papers to process. If 0 or None, process all.
+        user_prompt_key: Key to the user prompt to use for paper evaluation. See
+            `REVIEW_CLASSIFY_USER_PROMPTS` for available options or `list_prompts` for
+            more.
         output_dir: Directory to save the output files.
         continue_papers_file: If provided, check for entries in the input data.
         continue_: If True, use data from `continue_papers_file`.
@@ -223,6 +209,8 @@ async def evaluate_reviews(
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
     papers = load_data(peerread_path, pr.Paper)[:limit_papers]
+
+    user_prompt = REVIEW_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
         EVALUATE_DEMONSTRATIONS[demonstrations_key] if demonstrations_key else []
@@ -255,6 +243,7 @@ async def evaluate_reviews(
         results = await _evaluate_reviews(
             client,
             model,
+            user_prompt,
             papers_remaining.remaining,
             output_intermediate_file,
             demonstrations,
@@ -319,6 +308,7 @@ def _format_demonstrations(
 async def _evaluate_reviews(
     client: AsyncOpenAI,
     model: str,
+    user_prompt: PromptTemplate,
     papers: Sequence[pr.Paper],
     output_intermediate_file: Path,
     demonstrations: str,
@@ -329,6 +319,7 @@ async def _evaluate_reviews(
     Args:
         client: OpenAI client to use GPT.
         model: GPT model code to use.
+        user_prompt: User prompt template to use for classification to be filled.
         papers: Papers from the PeerRead dataset to evaluate.
         output_intermediate_file: File to write new results after each task.
         demonstrations: Text of demonstrations for few-shot prompting
@@ -341,7 +332,7 @@ async def _evaluate_reviews(
     total_cost = 0
 
     tasks = [
-        _evaluate_paper_reviews(client, model, paper, demonstrations, seed)
+        _evaluate_paper_reviews(client, model, paper, user_prompt, demonstrations, seed)
         for paper in papers
     ]
 
@@ -361,6 +352,7 @@ async def _evaluate_paper_reviews(
     client: AsyncOpenAI,
     model: str,
     paper: pr.Paper,
+    user_prompt: PromptTemplate,
     demonstrations: str,
     seed: int,
 ) -> GPTResult[PromptResult[PaperWithReviewEval]]:
@@ -370,6 +362,7 @@ async def _evaluate_paper_reviews(
         client: OpenAI client to use GPT.
         model: GPT model code to use.
         paper: Paper from the PeerRead dataset to evaluate.
+        user_prompt: User prompt template to use for classification to be filled.
         demonstrations: Text of demonstrations for few-shot prompting
         seed: Seed for the OpenAI call.
 
@@ -382,9 +375,9 @@ async def _evaluate_paper_reviews(
     main_review: ReviewEvaluation | None = None
 
     for review in paper.reviews:
-        user_prompt = _format_user_prompt(paper, review, demonstrations)
+        user_prompt_text = format_template(paper, review, user_prompt, demonstrations)
         result = await run_gpt(
-            GPTFull, client, _REVIEW_SYSTEM_PROMPT, user_prompt, model, seed=seed
+            GPTFull, client, _REVIEW_SYSTEM_PROMPT, user_prompt_text, model, seed=seed
         )
         total_cost += result.cost
 
@@ -402,10 +395,10 @@ async def _evaluate_paper_reviews(
             main_review = new_review
 
         evaluated_reviews.append(new_review)
-        user_prompts.append(user_prompt)
+        user_prompts.append(user_prompt_text)
 
     assert main_review, "Main review must be retrived."
-    user_prompt = f"\n\n{"-"*80}\n\n".join(user_prompts)
+    user_prompt_full = f"\n\n{"-"*80}\n\n".join(user_prompts)
 
     return GPTResult(
         PromptResult(
@@ -423,7 +416,7 @@ async def _evaluate_paper_reviews(
                 rationale=main_review.rationale,
                 rating=main_review.rating,
             ),
-            prompt=Prompt(system=_REVIEW_SYSTEM_PROMPT, user=user_prompt),
+            prompt=Prompt(system=_REVIEW_SYSTEM_PROMPT, user=user_prompt_full),
         ),
         total_cost,
     )
