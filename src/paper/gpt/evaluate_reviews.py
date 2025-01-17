@@ -5,6 +5,7 @@ The input is the processed PeerRead dataset (peerread.Paper).
 
 import asyncio
 import logging
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
@@ -243,6 +244,7 @@ async def evaluate_reviews(
     logger.info(
         "%d reviews evaluated.", sum(len(p.item.reviews) for p in results.result)
     )
+    logger.info("%s", _display_label_dist(results_items))
     logger.info("Overall metrics:\n%s", metrics)
 
     save_data(output_dir / "result.json", results_all)
@@ -253,6 +255,11 @@ async def evaluate_reviews(
         logger.warning("Some papers are missing from the result.")
 
 
+def _display_label_dist(papers: Sequence[PaperWithReviewEval]) -> str:
+    gold_dist = Counter(p.rating for p in papers)
+    return "Gold label distribution:\n" + "\n".join(
+        f"- {label}: {count}" for label, count in sorted(gold_dist.items())
+    )
 async def _evaluate_reviews(
     client: AsyncOpenAI,
     model: str,
