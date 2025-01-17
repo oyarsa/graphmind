@@ -5,6 +5,7 @@ The input is the processed PeerRead dataset (peerread.Paper).
 
 import asyncio
 import logging
+import random
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -46,6 +47,7 @@ from paper.util import (
     ensure_envvar,
     progress,
     setup_logging,
+    shuffled,
 )
 from paper.util.serde import load_data, save_data
 
@@ -195,6 +197,7 @@ async def evaluate_reviews(
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
             avaialble options or `list_prompts` for more.
     """
+    random.seed(seed)
     logger.info(display_params())
 
     dotenv.load_dotenv()
@@ -208,7 +211,7 @@ async def evaluate_reviews(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    papers = load_data(peerread_path, pr.Paper)[:limit_papers]
+    papers = shuffled(load_data(peerread_path, pr.Paper))[:limit_papers]
 
     user_prompt = REVIEW_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
