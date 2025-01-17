@@ -243,9 +243,7 @@ async def evaluate_reviews(
     results_items = PromptResult.unwrap(results_all)
     metrics = _calculate_review_metrics(results_items)
 
-    logger.info(
-        "%d reviews evaluated.", sum(len(p.item.reviews) for p in results.result)
-    )
+    logger.info("%d reviews evaluated.", sum(len(p.reviews) for p in results_items))
     logger.info("%s", _display_label_dist(results_items))
     logger.info("Overall metrics:\n%s", metrics)
 
@@ -258,7 +256,7 @@ async def evaluate_reviews(
 
 
 def _display_label_dist(papers: Sequence[PaperWithReviewEval]) -> str:
-    gold_dist = Counter(p.rating for p in papers)
+    gold_dist = Counter(r.rating for p in papers for r in p.reviews)
     return "Gold label distribution:\n" + "\n".join(
         f"- {label}: {count}" for label, count in sorted(gold_dist.items())
     )
