@@ -200,8 +200,22 @@ def rating_to_binary(rating: int) -> int:
 
     Transform integer (1-5) rating to binary (>= x is positive). `x` is defined from the
     `BIN` env var. If `x` is 0, we use the integer mode instead.
+
+    If `x` is -1, we use ternary mode: 0 is false (1-2), 1 is neutral (3) and 2 is
+    positive (4-5).
     """
     bin = int(os.getenv("BIN", "0"))
+    # Original integer mode.
     if bin == 0:
         return rating
+
+    # Trinary mode.
+    if bin == -1:
+        if rating in [1, 2]:
+            return 1
+        if rating == 3:
+            return 2
+        return 3
+
+    # Binary mode.
     return int(rating >= bin)
