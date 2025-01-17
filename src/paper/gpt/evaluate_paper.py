@@ -35,9 +35,9 @@ class PaperResult(s2.PaperWithS2Refs):
         return cls.model_validate(
             paper.model_dump()
             | {
-                "y_true": paper.rating,
+                "y_true": rating_to_binary(paper.rating),
                 "rationale_true": paper.rationale,
-                "y_pred": y_pred,
+                "y_pred": rating_to_binary(y_pred),
                 "rationale_pred": rationale_pred,
             }
         )
@@ -132,7 +132,7 @@ def format_demonstrations(
             abstract=demo.abstract,
             main_text=demo.text,
             rationale=demo.rationale,
-            rating=demo.rating,
+            rating=rating_to_binary(demo.rating),
         )
         for demo in demonstrations
     )
