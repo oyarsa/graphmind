@@ -5,7 +5,6 @@ The input is the processed PeerRead dataset (peerread.Paper).
 
 import asyncio
 import logging
-import random
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -22,8 +21,8 @@ from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATIONS,
     Demonstration,
     GPTFull,
+    apply_rating_mode,
     fix_classified_rating,
-    rating_to_binary,
 )
 from paper.gpt.model import (
     PaperWithReviewEval,
@@ -47,7 +46,6 @@ from paper.util import (
     ensure_envvar,
     progress,
     setup_logging,
-    shuffled,
 )
 from paper.util.serde import load_data, save_data
 
@@ -121,6 +119,13 @@ def run(
             click_type=cli.choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "abstract",
+    mode: Annotated[
+        str,
+        typer.Option(
+            help="Which mode to apply to target ratings.",
+            click_type=cli.choice(range(-1, 6)),
+        ),
+    ] = "0",
 ) -> None:
     """Evaluate each review's novelty rating based on the review text."""
     asyncio.run(
@@ -135,6 +140,7 @@ def run(
             seed,
             demos,
             demo_prompt,
+            int(mode),
         )
     )
 
@@ -178,6 +184,7 @@ async def evaluate_reviews(
     seed: int,
     demonstrations_key: str | None,
     demo_prompt_key: str,
+    mode: int,
 ) -> None:
     """Evaluate each review's novelty rating based on the review text.
 
@@ -196,8 +203,8 @@ async def evaluate_reviews(
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
             avaialble options or `list_prompts` for more.
+        mode: Which mode to apply to ratings. See `apply_rating_mode`.
     """
-    random.seed(seed)
     logger.info(display_params())
 
     dotenv.load_dotenv()
@@ -211,7 +218,7 @@ async def evaluate_reviews(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    papers = shuffled(load_data(peerread_path, pr.Paper))[:limit_papers]
+    papers = load_data(peerread_path, pr.Paper)[:limit_papers]
 
     user_prompt = REVIEW_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
@@ -219,7 +226,9 @@ async def evaluate_reviews(
         EVALUATE_DEMONSTRATIONS[demonstrations_key] if demonstrations_key else []
     )
     demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
-    demonstrations = _format_demonstrations(demonstration_data, demonstration_prompt)
+    demonstrations = _format_demonstrations(
+        demonstration_data, demonstration_prompt, mode
+    )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
@@ -251,6 +260,7 @@ async def evaluate_reviews(
             output_intermediate_file,
             demonstrations,
             seed,
+            mode,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -280,7 +290,7 @@ def _display_label_dist(papers: Sequence[PaperWithReviewEval]) -> str:
 
 
 def _format_demonstrations(
-    demonstrations: Sequence[Demonstration], prompt: PromptTemplate
+    demonstrations: Sequence[Demonstration], prompt: PromptTemplate, mode: int
 ) -> str:
     """Format all `demonstrations` according to `prompt` as a single string.
 
@@ -301,7 +311,7 @@ def _format_demonstrations(
             abstract=demo.abstract,
             main_text=demo.text,
             rationale=demo.rationale,
-            rating=rating_to_binary(demo.rating),
+            rating=apply_rating_mode(demo.rating, mode),
         )
         for demo in demonstrations
     )
@@ -316,6 +326,7 @@ async def _evaluate_reviews(
     output_intermediate_file: Path,
     demonstrations: str,
     seed: int,
+    mode: int,
 ) -> GPTResult[list[PromptResult[PaperWithReviewEval]]]:
     """Evaluate each review in each paper.
 
@@ -327,6 +338,7 @@ async def _evaluate_reviews(
         output_intermediate_file: File to write new results after each task.
         demonstrations: Text of demonstrations for few-shot prompting
         seed: Seed for the OpenAI API call.
+        mode: Which mode to apply to ratings. See `apply_rating_mode`.
 
     Returns:
         List of papers with evaluated reviews wrapped in a GPTResult.
@@ -335,7 +347,9 @@ async def _evaluate_reviews(
     total_cost = 0
 
     tasks = [
-        _evaluate_paper_reviews(client, model, paper, user_prompt, demonstrations, seed)
+        _evaluate_paper_reviews(
+            client, model, paper, user_prompt, demonstrations, seed, mode
+        )
         for paper in papers
     ]
 
@@ -358,6 +372,7 @@ async def _evaluate_paper_reviews(
     user_prompt: PromptTemplate,
     demonstrations: str,
     seed: int,
+    mode: int,
 ) -> GPTResult[PromptResult[PaperWithReviewEval]]:
     """Evaluate all reviews for a single paper.
 
@@ -368,6 +383,7 @@ async def _evaluate_paper_reviews(
         user_prompt: User prompt template to use for classification to be filled.
         demonstrations: Text of demonstrations for few-shot prompting
         seed: Seed for the OpenAI call.
+        mode: Which mode to apply to ratings. See `apply_rating_mode`.
 
     Returns:
         Paper with evaluated reviews wrapped in a GPTResult.
@@ -387,10 +403,10 @@ async def _evaluate_paper_reviews(
         evaluated = fix_classified_rating(result.result or GPTFull.error())
 
         new_review = ReviewEvaluation(
-            rating=rating_to_binary(review.rating),
+            rating=apply_rating_mode(review.rating, mode),
             confidence=review.confidence,
             rationale=review.rationale,
-            predicted_rating=rating_to_binary(evaluated.rating),
+            predicted_rating=apply_rating_mode(evaluated.rating, mode),
             predicted_rationale=evaluated.rationale,
         )
 

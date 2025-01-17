@@ -1,7 +1,6 @@
 """Tools for evaluating paper novelty, displaying and calculating metrics."""
 
 import logging
-import os
 from collections.abc import Sequence
 from importlib import resources
 from pathlib import Path
@@ -36,9 +35,9 @@ class PaperResult(s2.PaperWithS2Refs):
         return cls.model_validate(
             paper.model_dump()
             | {
-                "y_true": rating_to_binary(paper.rating),
+                "y_true": paper.rating,
                 "rationale_true": paper.rationale,
-                "y_pred": rating_to_binary(y_pred),
+                "y_pred": y_pred,
                 "rationale_pred": rationale_pred,
             }
         )
@@ -133,7 +132,7 @@ def format_demonstrations(
             abstract=demo.abstract,
             main_text=demo.text,
             rationale=demo.rationale,
-            rating=rating_to_binary(demo.rating),
+            rating=demo.rating,
         )
         for demo in demonstrations
     )
@@ -194,7 +193,7 @@ def fix_classified_rating(classified: GPTFull) -> GPTFull:
     return replace_fields(classified, rating=clamped_rating)
 
 
-def rating_to_binary(rating: int, mode: int | None = None) -> int:
+def apply_rating_mode(rating: int, mode: int) -> int:
     """Apply mode conversion to rating.
 
     Args:
@@ -204,14 +203,9 @@ def rating_to_binary(rating: int, mode: int | None = None) -> int:
             - 1-5: keep `rating >= x` as "positive", the rest as "negative"
             - -1: ternary: 1-2 is 1 (negative), 3 is 2 (neutral), 4-5 is 3 (positive).
 
-            If `mode` is None, the value will be taken from the `MODE` environment
-            variable.
-
     Returns:
         Converted rating, given mode.
     """
-    if mode is None:
-        mode = int(os.getenv("MODE", "0"))
     # Original integer mode.
     if mode == 0:
         return rating

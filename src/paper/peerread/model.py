@@ -29,7 +29,7 @@ class PaperReview(BaseModel):
 
     rating: Annotated[
         int,
-        Field(description="Novelty rating given by the reviewer (1 to 5)", ge=1, le=5),
+        Field(description="Novelty rating given by the reviewer (1 to 5)"),
     ]
     confidence: Annotated[int | None, Field(description="Confidence from the reviewer")]
     rationale: Annotated[str, Field(description="Explanation given for the rating")]
