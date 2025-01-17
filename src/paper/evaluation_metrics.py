@@ -1,10 +1,18 @@
 """Metric calculation (precision, recall, F1 and accuracy) for ratings 1-5."""
 
 from collections.abc import Sequence
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict
 
 from paper.util import metrics
+
+
+class TargetMode(Enum):
+    """Whether the target variable is an int (1-5) rating, or binary."""
+
+    INT = "int"
+    BIN = "bin"
 
 
 class Metrics(BaseModel):
@@ -20,28 +28,48 @@ class Metrics(BaseModel):
     mse: float
     correlation: float | None
     confusion: list[list[int]]
+    mode: TargetMode
 
     def __str__(self) -> str:
-        """Display metrics, one per line."""
-        corr = f"{self.correlation:.4f}" if self.correlation is not None else "N/A"
-        return "\n".join(
-            (
-                f"Precision  : {self.precision:.4f}",
-                f"Recall     : {self.recall:.4f}",
-                f"F1         : {self.f1:.4f}",
-                f"Accuracy   : {self.accuracy:.4f}",
-                f"MAE        : {self.mae:.4f}",
-                f"MSE        : {self.mse:.4f}",
-                f"Correlation: {corr}",
+        """Display metrics (P/R/F1/Acc), one per line, then the confusion matrix.
+
+        If `mode` is `TargetMode.INT`, also shows MAE, MSE and Pearson correlation.
+        """
+        out = [
+            f"Precision  : {self.precision:.4f}",
+            f"Recall     : {self.recall:.4f}",
+            f"F1         : {self.f1:.4f}",
+            f"Accuracy   : {self.accuracy:.4f}",
+        ]
+
+        if self.mode is TargetMode.INT:
+            corr = f"{self.correlation:.4f}" if self.correlation is not None else "N/A"
+            out.extend(
+                [
+                    f"MAE        : {self.mae:.4f}",
+                    f"MSE        : {self.mse:.4f}",
+                    f"Correlation: {corr}",
+                ]
+            )
+
+        out.extend(
+            [
                 "Confusion Matrix:",
                 self._format_confusion(),
-            )
+            ]
         )
+
+        return "\n".join(out)
 
     def _format_confusion(self) -> str:
         """Format confusion matrix as a string with row and column labels."""
         n = len(self.confusion)
-        labels = list(range(1, 6))
+
+        if self.mode is TargetMode.BIN:
+            labels = [0, 1]
+        else:
+            labels = range(1, 6)
+
         label_strs = [str(label) for label in labels]
 
         margin = 3
@@ -88,6 +116,14 @@ def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
     if len(y_true) != len(y_pred):
         raise ValueError("Input sequences must have the same length")
 
+    values = set(y_true) | set(y_pred)
+    if values == {0, 1}:
+        mode = TargetMode.BIN
+        labels = [0, 1]
+    else:
+        mode = TargetMode.INT
+        labels = range(1, 6)
+
     return Metrics(
         precision=metrics.precision(y_true, y_pred),
         recall=metrics.recall(y_true, y_pred),
@@ -96,5 +132,6 @@ def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
         mae=metrics.mean_absolute_error(y_true, y_pred),
         mse=metrics.mean_squared_error(y_true, y_pred),
         correlation=metrics.pearson_correlation(y_true, y_pred),
-        confusion=metrics.confusion_matrix(y_true, y_pred, labels=range(1, 6)),
+        confusion=metrics.confusion_matrix(y_true, y_pred, labels=labels),
+        mode=mode,
     )

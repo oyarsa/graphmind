@@ -310,7 +310,7 @@ class ReviewEvaluation(BaseModel):
     # Original review data
     rating: Annotated[
         int,
-        Field(description="Novelty rating given by the reviewer (1 to 5)", ge=1, le=5),
+        Field(description="Novelty rating given by the reviewer (1 to 5)"),
     ]
     confidence: Annotated[int | None, Field(description="Confidence from the reviewer")]
     rationale: Annotated[str, Field(description="Explanation given for the rating")]
@@ -318,7 +318,7 @@ class ReviewEvaluation(BaseModel):
     # Predicted data
     predicted_rating: Annotated[
         int | None,
-        Field(description="Predicted novelty rating from GPT (1 to 5)", ge=1, le=5),
+        Field(description="Predicted novelty rating from GPT (1 to 5)"),
     ] = None
     predicted_rationale: Annotated[
         str | None,

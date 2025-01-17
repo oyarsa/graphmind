@@ -22,6 +22,7 @@ from paper.gpt.evaluate_paper import (
     Demonstration,
     GPTFull,
     fix_classified_rating,
+    rating_to_binary,
 )
 from paper.gpt.model import (
     PaperWithReviewEval,
@@ -285,16 +286,11 @@ def _format_demonstrations(
             abstract=demo.abstract,
             main_text=demo.text,
             rationale=demo.rationale,
-            rating=_rating_to_binary(demo.rating),
+            rating=rating_to_binary(demo.rating),
         )
         for demo in demonstrations
     )
     return f"\n{"-" * 50}\n".join(output_all)
-
-
-def _rating_to_binary(rating: int) -> int:
-    return rating
-    return int(rating > 3) + 1
 
 
 async def _evaluate_reviews(
@@ -372,10 +368,10 @@ async def _evaluate_paper_reviews(
         evaluated = fix_classified_rating(result.result or GPTFull.error())
 
         new_review = ReviewEvaluation(
-            rating=_rating_to_binary(review.rating),
+            rating=rating_to_binary(review.rating),
             confidence=review.confidence,
             rationale=review.rationale,
-            predicted_rating=_rating_to_binary(evaluated.rating),
+            predicted_rating=rating_to_binary(evaluated.rating),
             predicted_rationale=evaluated.rationale,
         )
 

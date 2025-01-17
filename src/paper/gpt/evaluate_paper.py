@@ -191,3 +191,8 @@ def fix_classified_rating(classified: GPTFull) -> GPTFull:
     logger.warning("Invalid rating: %d. Clamping to 1-5.", classified.rating)
     clamped_rating = max(1, min(classified.rating, 5))
     return replace_fields(classified, rating=clamped_rating)
+
+
+def rating_to_binary(rating: int) -> int:
+    """Transform integer (1-5) rating to binary (>= 3 is positive)."""
+    return int(rating > 3)
