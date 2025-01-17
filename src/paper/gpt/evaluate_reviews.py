@@ -19,9 +19,9 @@ from paper.evaluation_metrics import Metrics, calculate_metrics
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
+    Demonstration,
     GPTFull,
     fix_classified_rating,
-    format_demonstrations,
 )
 from paper.gpt.model import (
     PaperWithReviewEval,
@@ -29,6 +29,7 @@ from paper.gpt.model import (
     PromptResult,
     ReviewEvaluation,
 )
+from paper.gpt.prompts import PromptTemplate
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -201,7 +202,7 @@ async def evaluate_reviews(
         EVALUATE_DEMONSTRATIONS[demonstrations_key] if demonstrations_key else []
     )
     demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
-    demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
+    demonstrations = _format_demonstrations(demonstration_data, demonstration_prompt)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"
@@ -260,6 +261,42 @@ def _display_label_dist(papers: Sequence[PaperWithReviewEval]) -> str:
     return "Gold label distribution:\n" + "\n".join(
         f"- {label}: {count}" for label, count in sorted(gold_dist.items())
     )
+
+
+def _format_demonstrations(
+    demonstrations: Sequence[Demonstration], prompt: PromptTemplate
+) -> str:
+    """Format all `demonstrations` according to `prompt` as a single string.
+
+    If `demonstrations` is empty, returns the empty string.
+    """
+    if not demonstrations:
+        return ""
+
+    output_all = [
+        "-Demonstrations-\n"
+        "The following are examples of other paper evaluations with their novelty"
+        " ratings and rationales:\n",
+    ]
+
+    output_all.extend(
+        prompt.template.format(
+            title=demo.title,
+            abstract=demo.abstract,
+            main_text=demo.text,
+            rationale=demo.rationale,
+            rating=_rating_to_binary(demo.rating),
+        )
+        for demo in demonstrations
+    )
+    return f"\n{"-" * 50}\n".join(output_all)
+
+
+def _rating_to_binary(rating: int) -> int:
+    return rating
+    return int(rating > 3) + 1
+
+
 async def _evaluate_reviews(
     client: AsyncOpenAI,
     model: str,
@@ -335,10 +372,10 @@ async def _evaluate_paper_reviews(
         evaluated = fix_classified_rating(result.result or GPTFull.error())
 
         new_review = ReviewEvaluation(
-            rating=review.rating,
+            rating=_rating_to_binary(review.rating),
             confidence=review.confidence,
             rationale=review.rationale,
-            predicted_rating=evaluated.rating,
+            predicted_rating=_rating_to_binary(evaluated.rating),
             predicted_rationale=evaluated.rationale,
         )
 
