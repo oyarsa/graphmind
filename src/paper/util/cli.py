@@ -35,6 +35,7 @@ def die(message: Any, code: int = 1, prefix: str | None = "Error:") -> NoReturn:
     sys.exit(code)
 
 
-def choice(choices: Iterable[str]) -> click.Choice:
+# TODO: See if I can reimplement `click.Choice` to be truly generic.
+def choice[T](choices: Iterable[T]) -> click.Choice:
     """Create a `click.Choice` by sorting an iterable."""
-    return click.Choice(sorted(choices))
+    return click.Choice(sorted(map(str, choices)))
