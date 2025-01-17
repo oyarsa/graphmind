@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import itertools
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Self, override
 
@@ -394,6 +394,10 @@ class PromptResult[T](BaseModel):
     def unwrap[U](cls, data: Iterable[PromptResult[U]]) -> list[U]:
         """Transform an iterable of wrapped items into a list of the internal elements."""
         return [x.item for x in data]
+
+    def map[U](self, fn: Callable[[T], U]) -> PromptResult[U]:
+        """Apply function to wrapped `item`."""
+        return PromptResult(item=fn(self.item), prompt=self.prompt)
 
 
 class PaperGraph(Record):
