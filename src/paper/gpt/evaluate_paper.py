@@ -194,23 +194,30 @@ def fix_classified_rating(classified: GPTFull) -> GPTFull:
     return replace_fields(classified, rating=clamped_rating)
 
 
-# HACK: Replace this with proper parameter passing.
-def rating_to_binary(rating: int) -> int:
-    """Apply mode (integer or binary) to rating.
+def rating_to_binary(rating: int, mode: int | None = None) -> int:
+    """Apply mode conversion to rating.
 
-    Transform integer (1-5) rating to binary (>= x is positive). `x` is defined from the
-    `BIN` env var. If `x` is 0, we use the integer mode instead.
+    Args:
+        rating: Rating to be converted.
+        mode:
+            - 0: keep original integer rating.
+            - 1-5: keep `rating >= x` as "positive", the rest as "negative"
+            - -1: ternary: 1-2 is 1 (negative), 3 is 2 (neutral), 4-5 is 3 (positive).
 
-    If `x` is -1, we use ternary mode: 0 is false (1-2), 1 is neutral (3) and 2 is
-    positive (4-5).
+            If `mode` is None, the value will be taken from the `MODE` environment
+            variable.
+
+    Returns:
+        Converted rating, given mode.
     """
-    bin = int(os.getenv("BIN", "0"))
+    if mode is None:
+        mode = int(os.getenv("MODE", "0"))
     # Original integer mode.
-    if bin == 0:
+    if mode == 0:
         return rating
 
     # Trinary mode.
-    if bin == -1:
+    if mode == -1:
         if rating in [1, 2]:
             return 1
         if rating == 3:
@@ -218,4 +225,4 @@ def rating_to_binary(rating: int) -> int:
         return 3
 
     # Binary mode.
-    return int(rating >= bin)
+    return int(rating >= mode)
