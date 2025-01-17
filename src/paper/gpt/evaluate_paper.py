@@ -1,6 +1,7 @@
 """Tools for evaluating paper novelty, displaying and calculating metrics."""
 
 import logging
+import os
 from collections.abc import Sequence
 from importlib import resources
 from pathlib import Path
@@ -193,6 +194,14 @@ def fix_classified_rating(classified: GPTFull) -> GPTFull:
     return replace_fields(classified, rating=clamped_rating)
 
 
+# HACK: Replace this with proper parameter passing.
 def rating_to_binary(rating: int) -> int:
-    """Transform integer (1-5) rating to binary (>= 3 is positive)."""
-    return int(rating > 3)
+    """Apply mode (integer or binary) to rating.
+
+    Transform integer (1-5) rating to binary (>= x is positive). `x` is defined from the
+    `BIN` env var. If `x` is 0, we use the integer mode instead.
+    """
+    bin = int(os.getenv("BIN", "0"))
+    if bin == 0:
+        return rating
+    return int(rating >= bin)
