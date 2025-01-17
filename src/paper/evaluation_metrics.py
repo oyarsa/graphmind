@@ -39,8 +39,32 @@ class Metrics(BaseModel):
         )
 
     def _format_confusion(self) -> str:
-        """Format confusion matrix as a string."""
-        return "\n".join(" ".join(f"{x:3d}" for x in row) for row in self.confusion)
+        """Format confusion matrix as a string with row and column labels."""
+        n = len(self.confusion)
+        labels = list(range(1, 6))
+        label_strs = [str(label) for label in labels]
+
+        margin = 3
+        col_label_padding = 8  # Space before column numbers
+        cell_width = 4  # Width for numbers
+
+        matrix_str = [
+            " " * (col_label_padding + cell_width + 2) + "Predicted",
+            " " * margin
+            + " " * col_label_padding
+            + "".join(f"{label:>{cell_width}}" for label in label_strs),
+            "-" * (margin + col_label_padding + cell_width * n + 3),
+        ]
+
+        for i, row in enumerate(self.confusion):
+            row_str = (
+                " " * margin
+                + f"True {label_strs[i]} |"
+                + "".join(f"{cell:>{cell_width}}" for cell in row)
+            )
+            matrix_str.append(row_str)
+
+        return "\n".join(matrix_str)
 
 
 def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
