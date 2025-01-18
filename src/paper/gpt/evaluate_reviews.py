@@ -208,7 +208,8 @@ async def evaluate_reviews(
         mode: Which mode to apply to ratings. See `apply_rating_mode`.
     """
     random.seed(seed)
-    logger.info(display_params())
+    params = display_params()
+    logger.info(params)
 
     dotenv.load_dotenv()
 
@@ -279,6 +280,7 @@ async def evaluate_reviews(
 
     save_data(output_dir / "result.json", results_all)
     save_data(output_dir / "metrics.json", metrics)
+    (output_dir / "params.txt").write_text(params)
 
     if len(results_all) != len(papers):
         logger.warning("Some papers are missing from the result.")
