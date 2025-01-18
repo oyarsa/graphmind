@@ -278,7 +278,6 @@ async def evaluate_reviews(
     logger.info("Overall metrics:\n%s", metrics)
 
     save_data(output_dir / "result.json", results_all)
-    save_data(output_dir / "result_items.json", results_items)
     save_data(output_dir / "metrics.json", metrics)
 
     if len(results_all) != len(papers):
