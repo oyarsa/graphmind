@@ -94,14 +94,14 @@ def run(
         str,
         typer.Option(
             help="The summarisation prompt to use for positively related papers.",
-            click_type=cli.choice(PETER_SUMMARISE_USER_PROMPTS),
+            click_type=cli.Choice(PETER_SUMMARISE_USER_PROMPTS),
         ),
     ] = "positive",
     negative_prompt: Annotated[
         str,
         typer.Option(
             help="The summarisation prompt to use for negatively related papers.",
-            click_type=cli.choice(PETER_SUMMARISE_USER_PROMPTS),
+            click_type=cli.Choice(PETER_SUMMARISE_USER_PROMPTS),
         ),
     ] = "negative",
     continue_papers: Annotated[

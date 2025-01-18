@@ -91,7 +91,7 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for classification.",
-            click_type=cli.choice(SCIMON_CLASSIFY_USER_PROMPTS),
+            click_type=cli.Choice(SCIMON_CLASSIFY_USER_PROMPTS),
         ),
     ] = "simple",
     continue_papers: Annotated[
@@ -110,7 +110,7 @@ def run(
         str,
         typer.Option(
             help="User prompt to use for building the few-shot demonstrations.",
-            click_type=cli.choice(EVALUATE_DEMONSTRATION_PROMPTS),
+            click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "abstract",
 ) -> None:

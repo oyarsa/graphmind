@@ -87,7 +87,7 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for classification.",
-            click_type=cli.choice(FULL_CLASSIFY_USER_PROMPTS),
+            click_type=cli.Choice(FULL_CLASSIFY_USER_PROMPTS),
         ),
     ] = "simple-abs",
     continue_papers: Annotated[
@@ -102,14 +102,14 @@ def run(
         str | None,
         typer.Option(
             help="Name of file containing demonstrations to use in few-shot prompt",
-            click_type=cli.choice(EVALUATE_DEMONSTRATIONS),
+            click_type=cli.Choice(EVALUATE_DEMONSTRATIONS),
         ),
     ] = None,
     demo_prompt: Annotated[
         str,
         typer.Option(
             help="User prompt to use for building the few-shot demonstrations.",
-            click_type=cli.choice(EVALUATE_DEMONSTRATION_PROMPTS),
+            click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "abstract",
 ) -> None:

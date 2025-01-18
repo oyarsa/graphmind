@@ -96,7 +96,7 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for classification.",
-            click_type=cli.choice(REVIEW_CLASSIFY_USER_PROMPTS),
+            click_type=cli.Choice(REVIEW_CLASSIFY_USER_PROMPTS),
         ),
     ] = "simple",
     continue_papers: Annotated[
@@ -114,23 +114,23 @@ def run(
         str | None,
         typer.Option(
             help="Name of file containing demonstrations to use in few-shot prompt.",
-            click_type=cli.choice(EVALUATE_DEMONSTRATIONS),
+            click_type=cli.Choice(EVALUATE_DEMONSTRATIONS),
         ),
     ] = None,
     demo_prompt: Annotated[
         str,
         typer.Option(
             help="User prompt to use for building the few-shot demonstrations.",
-            click_type=cli.choice(EVALUATE_DEMONSTRATION_PROMPTS),
+            click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "abstract",
     mode: Annotated[
-        str,
+        int,
         typer.Option(
             help="Which mode to apply to target ratings.",
-            click_type=cli.choice(range(-1, 6)),
+            click_type=cli.Choice(range(-1, 6)),
         ),
-    ] = "0",
+    ] = 0,
     keep_intermediate: Annotated[
         bool, typer.Option(help="Keep intermediate results.")
     ] = False,

@@ -250,7 +250,7 @@ Context
     with Timer() as timer:
         answer = typer.prompt(
             "What is the polarity of this context?",
-            type=cli.choice(["p", "u", "n", "q"]),
+            type=cli.Choice(["p", "u", "n", "q"]),
         )
     if answer == "q":
         return None

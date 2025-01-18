@@ -433,14 +433,14 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for the graph extraction.",
-            click_type=cli.choice(_GRAPH_USER_PROMPTS),
+            click_type=cli.Choice(_GRAPH_USER_PROMPTS),
         ),
     ] = "simple",
     classify_user_prompt: Annotated[
         str,
         typer.Option(
             help="The user prompt to use for paper classification.",
-            click_type=cli.choice(CLASSIFY_USER_PROMPTS),
+            click_type=cli.Choice(CLASSIFY_USER_PROMPTS),
         ),
     ] = "simple",
     display: Annotated[bool, typer.Option(help="Display the extracted graph")] = False,

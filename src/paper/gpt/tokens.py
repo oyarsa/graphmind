@@ -64,7 +64,7 @@ def fulltext(
         typer.Option(
             "--user",
             help="Input data prompt.",
-            click_type=cli.choice(FULLTEXT_PROMPTS),
+            click_type=cli.Choice(FULLTEXT_PROMPTS),
         ),
     ],
     demo_prompt_key: Annotated[
@@ -72,7 +72,7 @@ def fulltext(
         typer.Option(
             "--demo-prompt",
             help="Demonstration prompt.",
-            click_type=cli.choice(DEMO_PROMPTS),
+            click_type=cli.Choice(DEMO_PROMPTS),
         ),
     ],
     demonstrations_file: Annotated[
@@ -130,7 +130,7 @@ def scimon_(
         typer.Option(
             "--user",
             help="Input data prompt.",
-            click_type=cli.choice(SCIMON_PROMPTS),
+            click_type=cli.Choice(SCIMON_PROMPTS),
         ),
     ],
     demo_prompt_key: Annotated[
@@ -138,7 +138,7 @@ def scimon_(
         typer.Option(
             "--demo-prompt",
             help="Demonstration prompt.",
-            click_type=cli.choice(DEMO_PROMPTS),
+            click_type=cli.Choice(DEMO_PROMPTS),
         ),
     ],
     demonstrations_file: Annotated[

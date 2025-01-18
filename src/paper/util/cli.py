@@ -40,11 +40,6 @@ def die(message: Any, code: int = 1, prefix: str | None = "Error:") -> NoReturn:
     sys.exit(code)
 
 
-def choice[T: SupportsLT](choices: Iterable[T]) -> Choice[T]:
-    """Create a `click.Choice` by sorting an iterable."""
-    return Choice(choices)
-
-
 class Choice[T: SupportsLT](click.ParamType):
     """Allow only a fixed set of supported values.
 
