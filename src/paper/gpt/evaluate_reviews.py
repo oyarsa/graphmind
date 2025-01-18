@@ -106,7 +106,10 @@ def run(
         bool,
         typer.Option("--continue", help="Use existing intermediate results."),
     ] = False,
-    seed: Annotated[int, typer.Option(help="Random seed used for the GPT API.")] = 0,
+    seed: Annotated[
+        int,
+        typer.Option(help="Random seed used for the GPT API and to shuffle the data."),
+    ] = 0,
     demos: Annotated[
         str | None,
         typer.Option(
@@ -205,7 +208,7 @@ async def evaluate_reviews(
         output_dir: Directory to save the output files.
         continue_papers_file: If provided, check for entries in the input data.
         continue_: If True, use data from `continue_papers_file`.
-        seed: Seed for the OpenAI API call.
+        seed: Seed for the OpenAI API call and to shuffle the data.
         demonstrations_key: Name of demonstrations file for use with few-shot prompting.
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
