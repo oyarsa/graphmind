@@ -128,6 +128,9 @@ def run(
             click_type=cli.choice(range(-1, 6)),
         ),
     ] = "0",
+    keep_intermediate: Annotated[
+        bool, typer.Option(help="Keep intermediate results.")
+    ] = False,
 ) -> None:
     """Evaluate each review's novelty rating based on the review text."""
     asyncio.run(
@@ -143,6 +146,7 @@ def run(
             demos,
             demo_prompt,
             int(mode),
+            keep_intermediate,
         )
     )
 
@@ -187,6 +191,7 @@ async def evaluate_reviews(
     demonstrations_key: str | None,
     demo_prompt_key: str,
     mode: int,
+    keep_intermediate: bool,
 ) -> None:
     """Evaluate each review's novelty rating based on the review text.
 
@@ -206,6 +211,7 @@ async def evaluate_reviews(
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
             avaialble options or `list_prompts` for more.
         mode: Which mode to apply to ratings. See `apply_rating_mode`.
+        keep_intermediate: Keep intermediate results to be used with `continue`.
     """
     random.seed(seed)
     params = display_params()
@@ -266,6 +272,7 @@ async def evaluate_reviews(
             demonstrations,
             seed,
             mode,
+            keep_intermediate,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -334,6 +341,7 @@ async def _evaluate_reviews(
     demonstrations: str,
     seed: int,
     mode: int,
+    keep_intermediate: bool,
 ) -> GPTResult[list[PromptResult[PaperWithReviewEval]]]:
     """Evaluate each review in each paper.
 
@@ -346,6 +354,7 @@ async def _evaluate_reviews(
         demonstrations: Text of demonstrations for few-shot prompting
         seed: Seed for the OpenAI API call.
         mode: Which mode to apply to ratings. See `apply_rating_mode`.
+        keep_intermediate: Keep intermediate results to be used in future runs.
 
     Returns:
         List of papers with evaluated reviews wrapped in a GPTResult.
@@ -365,9 +374,10 @@ async def _evaluate_reviews(
         total_cost += result.cost
 
         results.append(result.result)
-        append_intermediate_result(
-            PaperWithReviewEval, output_intermediate_file, result.result
-        )
+        if keep_intermediate:
+            append_intermediate_result(
+                PaperWithReviewEval, output_intermediate_file, result.result
+            )
 
     return GPTResult(results, total_cost)
 
