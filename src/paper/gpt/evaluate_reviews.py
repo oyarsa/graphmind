@@ -104,13 +104,13 @@ def run(
     ] = None,
     continue_: Annotated[
         bool,
-        typer.Option("--continue", help="Use existing intermediate results"),
+        typer.Option("--continue", help="Use existing intermediate results."),
     ] = False,
     seed: Annotated[int, typer.Option(help="Random seed used for the GPT API.")] = 0,
     demos: Annotated[
         str | None,
         typer.Option(
-            help="Name of file containing demonstrations to use in few-shot prompt",
+            help="Name of file containing demonstrations to use in few-shot prompt.",
             click_type=cli.choice(EVALUATE_DEMONSTRATIONS),
         ),
     ] = None,
