@@ -222,6 +222,7 @@ async def evaluate_reviews(
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
     papers = shuffled(load_data(peerread_path, pr.Paper))[:limit_papers]
+    logger.info("%s", _display_label_dist(papers, mode))
 
     user_prompt = REVIEW_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
@@ -274,7 +275,6 @@ async def evaluate_reviews(
     metrics = _calculate_review_metrics(results_items)
 
     logger.info("%d reviews evaluated.", sum(len(p.reviews) for p in results_items))
-    logger.info("%s", _display_label_dist(results_items))
     logger.info("Overall metrics:\n%s", metrics)
 
     save_data(output_dir / "result.json", results_all)
@@ -285,9 +285,12 @@ async def evaluate_reviews(
         logger.warning("Some papers are missing from the result.")
 
 
-def _display_label_dist(papers: Sequence[PaperWithReviewEval]) -> str:
-    gold_dist = Counter(r.rating for p in papers for r in p.reviews)
-    return "Gold label distribution:\n" + "\n".join(
+def _display_label_dist(papers: Sequence[pr.Paper], mode: int) -> str:
+    gold_dist = Counter(
+        apply_rating_mode(r.rating, mode) for p in papers for r in p.reviews
+    )
+    total = sum(gold_dist.values())
+    return f"Gold label distribution ({total}):\n" + "\n".join(
         f"- {label}: {count}" for label, count in sorted(gold_dist.items())
     )
 
