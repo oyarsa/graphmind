@@ -167,6 +167,7 @@ def _load_demonstrations() -> dict[str, list[Demonstration]]:
         "eval_demonstrations_10.json",
         "review_demonstrations_5.json",
         "review_demonstrations_10.json",
+        "review_demonstrations_clean_5.json",
     ]
     files = [
         file
