@@ -162,7 +162,12 @@ class GPTFull(BaseModel):
 
 def _load_demonstrations() -> dict[str, list[Demonstration]]:
     """Load demonstration files from the gpt.prompts package."""
-    names = ["eval_demonstrations_4.json", "eval_demonstrations_10.json"]
+    names = [
+        "eval_demonstrations_4.json",
+        "eval_demonstrations_10.json",
+        "review_demonstrations_5.json",
+        "review_demonstrations_10.json",
+    ]
     files = [
         file
         for file in resources.files("paper.gpt.prompts").iterdir()
