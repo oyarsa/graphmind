@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Sequence
+from enum import StrEnum
 from importlib import resources
 from pathlib import Path
 from typing import Annotated, NamedTuple, Self, cast
@@ -193,25 +194,35 @@ def fix_classified_rating(classified: GPTFull) -> GPTFull:
     return replace_fields(classified, rating=clamped_rating)
 
 
-def apply_rating_mode(rating: int, mode: int) -> int:
+class RatingMode(StrEnum):
+    """What rating mode to use.
+
+    Original: keeps the original 1-5 rating.
+    Binary: converts 1-3 to 0 and 4-5 to 1.
+    Ternary: convert 1-2 to 1 (negative), 3 to 2 (neutral) and 4-5 to 3 (positive).
+    """
+
+    ORIGINAL = "original"
+    BINARY = "binary"
+    TRINARY = "trinary"
+
+
+def apply_rating_mode(rating: int, mode: RatingMode) -> int:
     """Apply mode conversion to rating.
 
     Args:
         rating: Rating to be converted.
-        mode:
-            - 0: keep original integer rating.
-            - 1-5: keep `rating >= x` as "positive", the rest as "negative"
-            - -1: ternary: 1-2 is 1 (negative), 3 is 2 (neutral), 4-5 is 3 (positive).
+        mode: Rating mode to apply.
 
     Returns:
         Converted rating, given mode.
     """
     # Original integer mode.
-    if mode == 0:
+    if mode is RatingMode.ORIGINAL:
         return rating
 
     # Trinary mode.
-    if mode == -1:
+    if mode is RatingMode.TRINARY:
         if rating in [1, 2]:
             return 1
         if rating == 3:
@@ -219,4 +230,4 @@ def apply_rating_mode(rating: int, mode: int) -> int:
         return 3
 
     # Binary mode.
-    return int(rating >= mode)
+    return int(rating >= 4)

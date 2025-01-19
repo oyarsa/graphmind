@@ -22,6 +22,7 @@ from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATIONS,
     Demonstration,
     GPTFull,
+    RatingMode,
     apply_rating_mode,
     fix_classified_rating,
 )
@@ -125,12 +126,12 @@ def run(
         ),
     ] = "abstract",
     mode: Annotated[
-        int,
+        RatingMode,
         typer.Option(
-            help="Which mode to apply to target ratings.",
-            click_type=cli.Choice(range(-1, 6)),
+            help="Which mode to apply to target ratings. See"
+            " `paper.evaluate_paper.RatingMode`.",
         ),
-    ] = 0,
+    ] = RatingMode.BINARY,
     keep_intermediate: Annotated[
         bool, typer.Option(help="Keep intermediate results.")
     ] = False,
@@ -148,7 +149,7 @@ def run(
             seed,
             demos,
             demo_prompt,
-            int(mode),
+            mode,
             keep_intermediate,
         )
     )
@@ -193,7 +194,7 @@ async def evaluate_reviews(
     seed: int,
     demonstrations_key: str | None,
     demo_prompt_key: str,
-    mode: int,
+    mode: RatingMode,
     keep_intermediate: bool,
 ) -> None:
     """Evaluate each review's novelty rating based on the review text.
@@ -296,7 +297,7 @@ async def evaluate_reviews(
         logger.warning("Some papers are missing from the result.")
 
 
-def _display_label_dist(papers: Sequence[pr.Paper], mode: int) -> str:
+def _display_label_dist(papers: Sequence[pr.Paper], mode: RatingMode) -> str:
     gold_dist = Counter(
         apply_rating_mode(r.rating, mode) for p in papers for r in p.reviews
     )
@@ -307,7 +308,7 @@ def _display_label_dist(papers: Sequence[pr.Paper], mode: int) -> str:
 
 
 def _format_demonstrations(
-    demonstrations: Sequence[Demonstration], prompt: PromptTemplate, mode: int
+    demonstrations: Sequence[Demonstration], prompt: PromptTemplate, mode: RatingMode
 ) -> str:
     """Format all `demonstrations` according to `prompt` as a single string.
 
@@ -343,7 +344,7 @@ async def _evaluate_reviews(
     output_intermediate_file: Path,
     demonstrations: str,
     seed: int,
-    mode: int,
+    mode: RatingMode,
     keep_intermediate: bool,
 ) -> GPTResult[list[PromptResult[PaperWithReviewEval]]]:
     """Evaluate each review in each paper.
@@ -392,7 +393,7 @@ async def _evaluate_paper_reviews(
     user_prompt: PromptTemplate,
     demonstrations: str,
     seed: int,
-    mode: int,
+    mode: RatingMode,
 ) -> GPTResult[PromptResult[PaperWithReviewEval]]:
     """Evaluate all reviews for a single paper.
 
