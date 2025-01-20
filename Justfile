@@ -33,9 +33,11 @@ clidoc:
 e2e:
     uv run pytest -s --runslow
 
-alias l := lint
-alias w := watch
-
 # Run experiments (see experiments/Justfile)
 exp *args:
     @just -f experiments/Justfile {{args}}
+
+alias l := lint
+alias w := watch
+alias x := exp
+
