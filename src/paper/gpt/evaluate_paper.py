@@ -223,17 +223,15 @@ def apply_rating_mode(rating: int, mode: RatingMode) -> int:
     Returns:
         Converted rating, given mode.
     """
-    # Original integer mode.
-    if mode is RatingMode.ORIGINAL:
-        return rating
-
-    # Trinary mode.
-    if mode is RatingMode.TRINARY:
-        if rating in [1, 2]:
-            return 1
-        if rating == 3:
-            return 2
-        return 3
-
-    # Binary mode.
-    return int(rating >= 4)
+    match mode:
+        # Original integer mode.
+        case RatingMode.ORIGINAL:
+            return rating
+        case RatingMode.TRINARY:
+            if rating in [1, 2]:
+                return 1
+            if rating == 3:
+                return 2
+            return 3
+        case RatingMode.BINARY:
+            return int(rating >= 4)
