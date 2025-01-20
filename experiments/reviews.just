@@ -5,7 +5,7 @@ base := "uv run gpt eval reviews run" + \
 
 # Print highlighted message
 _t msg:
-    @echo '>>> {{ style("warning") }}{{msg}}{{ NORMAL }}'
+    @echo '{{ style("warning") }}>>> {{msg}}{{ NORMAL }}'
 
 # Original demonstrations file (one demo per rating)
 review-og: (_t "Review evaluation with original demonstrations")
@@ -39,6 +39,52 @@ extraction-overall: (
 )
     {{base}} --demos review_clean_5 --extract-prompt overall --extract-demo-prompt abstract
 
-# Clean demos with full dataset (all 183 entries)
-review-full: (_t "Review evaluation with clean demonstrations")
+# All base runs
+all-base:
+    @just review-og
+    @just review-clean
+    @just extraction-simple
+    @just extraction-basic
+    @just extraction-overall-nodemo
+    @just extraction-overall
+
+# Original demonstrations file (one demo per rating) - full data
+review-og-full: (_t "Review evaluation with original demonstrations - full data")
+    {{base}} --demos review_5 --peerread ../output/peerread_merged.json
+
+# One demo per rating, but the rationales are edited to be novelty-specific - full data
+review-clean-full: (_t "Review evaluation with clean demonstrations - full data")
     {{base}} --demos review_clean_5 --peerread ../output/peerread_merged.json
+
+# Clean demos with extraction - simple - full data
+extraction-simple-full: (
+    _t "Review evaluation with rationale extraction - simple prompt with extraction demos - full data"
+)
+    {{base}} --demos review_clean_5 --extract-prompt simple --extract-demo-prompt abstract --peerread ../output/peerread_merged.json
+
+# Clean demos with extraction - basic - full data
+extraction-basic-full: (
+    _t "Review evaluation with rationale extraction - basic prompt with extraction demos - full data"
+)
+    {{base}} --demos review_clean_5 --extract-prompt basic --extract-demo-prompt abstract --peerread ../output/peerread_merged.json
+
+# Clean demos with extraction - overall without extraction demos - full data
+extraction-overall-nodemo-full: (
+    _t "Review evaluation with rationale extraction - overall prompt without extraction demos - full data"
+)
+    {{base}} --demos review_clean_5 --extract-prompt overall --peerread ../output/peerread_merged.json
+
+# Clean demos with extraction - overall with extraction demos
+extraction-overall-full: (
+    _t "Review evaluation with rationale extraction - overall prompt with extraction demos - full data"
+)
+    {{base}} --demos review_clean_5 --extract-prompt overall --extract-demo-prompt abstract --peerread ../output/peerread_merged.json
+
+# All full runs
+all-full:
+    @just review-og-full
+    @just review-clean-full
+    @just extraction-simple-full
+    @just extraction-basic-full
+    @just extraction-overall-nodemo-full
+    @just extraction-overall-full
