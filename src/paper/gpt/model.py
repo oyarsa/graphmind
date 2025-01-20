@@ -316,6 +316,9 @@ class ReviewEvaluation(BaseModel):
     rationale: Annotated[str, Field(description="Explanation given for the rating")]
 
     # Predicted data
+    extracted_rationale: Annotated[
+        str | None, Field(description="Novelty rationale extracted.")
+    ] = None
     predicted_rating: Annotated[
         int | None,
         Field(description="Predicted novelty rating from GPT (1 to 5)"),

@@ -14,6 +14,7 @@ from typing import Annotated
 import dotenv
 import typer
 from openai import AsyncOpenAI
+from pydantic import BaseModel, ConfigDict, Field
 
 from paper import peerread as pr
 from paper.evaluation_metrics import Metrics, calculate_metrics
@@ -32,7 +33,7 @@ from paper.gpt.model import (
     PromptResult,
     ReviewEvaluation,
 )
-from paper.gpt.prompts import PromptTemplate, load_prompts
+from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -55,6 +56,7 @@ from paper.util.serde import load_data, save_data
 logger = logging.getLogger(__name__)
 
 REVIEW_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_reviews")
+EXTRACT_USER_PROMPTS = load_prompts("extract_novelty_rationale")
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -100,6 +102,14 @@ def run(
             click_type=cli.Choice(REVIEW_CLASSIFY_USER_PROMPTS),
         ),
     ] = "simple",
+    extract_prompt: Annotated[
+        str | None,
+        typer.Option(
+            help="The user prompt to use for novelty rationale extraction. If not"
+            " provided, use the original rationale.",
+            click_type=cli.Choice(EXTRACT_USER_PROMPTS),
+        ),
+    ] = None,
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run.")
     ] = None,
@@ -143,6 +153,7 @@ def run(
             peerread_path,
             limit_papers,
             user_prompt,
+            extract_prompt,
             output_dir,
             continue_papers,
             continue_,
@@ -166,13 +177,14 @@ _REVIEW_SYSTEM_PROMPT = (
     " abstract, and a reviewer's comments, predict what novelty rating (1-5) the reviewer"
     " would have given, where 1 is least novel and 5 is most novel."
 )
+_EXTRACT_SYSTEM_PROMPT = (
+    "You are an expert at understanding paper reviews. Given a review, extract only the"
+    " parts that focus on the paper novelty, and discard the rest."
+)
 
 
 def format_template(
-    paper: pr.Paper,
-    rationale: str,
-    user_prompt: PromptTemplate,
-    demonstrations: str,
+    paper: pr.Paper, rationale: str, user_prompt: PromptTemplate, demonstrations: str
 ) -> str:
     """Format evaluation template using a peer review as reference."""
     return user_prompt.template.format(
@@ -188,6 +200,7 @@ async def evaluate_reviews(
     peerread_path: Path,
     limit_papers: int | None,
     user_prompt_key: str,
+    extract_prompt_key: str | None,
     output_dir: Path,
     continue_papers_file: Path | None,
     continue_: bool,
@@ -206,6 +219,9 @@ async def evaluate_reviews(
         user_prompt_key: Key to the user prompt to use for paper evaluation. See
             `REVIEW_CLASSIFY_USER_PROMPTS` for available options or `list_prompts` for
             more.
+        extract_prompt_key: Key to the user prompt to use novelty rationale extraction.
+            See `_EXTRACT_USER_PROMPTS` for available options or `list_prompts` for
+            more. If not provided, use the original paper rationale.
         output_dir: Directory to save the output files.
         continue_papers_file: If provided, check for entries in the input data.
         continue_: If True, use data from `continue_papers_file`.
@@ -236,6 +252,9 @@ async def evaluate_reviews(
     logger.info("%s", _display_label_dist(papers, mode))
 
     user_prompt = REVIEW_CLASSIFY_USER_PROMPTS[user_prompt_key]
+    extract_prompt = (
+        EXTRACT_USER_PROMPTS[extract_prompt_key] if extract_prompt_key else None
+    )
 
     demonstration_data = (
         EVALUATE_DEMONSTRATIONS[demonstrations_key] if demonstrations_key else []
@@ -271,6 +290,7 @@ async def evaluate_reviews(
             client,
             model,
             user_prompt,
+            extract_prompt,
             papers_remaining.remaining,
             output_intermediate_file,
             demonstrations,
@@ -340,6 +360,7 @@ async def _evaluate_reviews(
     client: AsyncOpenAI,
     model: str,
     user_prompt: PromptTemplate,
+    extract_prompt: PromptTemplate | None,
     papers: Sequence[pr.Paper],
     output_intermediate_file: Path,
     demonstrations: str,
@@ -353,6 +374,8 @@ async def _evaluate_reviews(
         client: OpenAI client to use GPT.
         model: GPT model code to use.
         user_prompt: User prompt template to use for classification to be filled.
+        extract_prompt: User prompt template to use for extracting novelty rationale from
+            paper review. If not provided, use the original review rationale.
         papers: Papers from the PeerRead dataset to evaluate.
         output_intermediate_file: File to write new results after each task.
         demonstrations: Text of demonstrations for few-shot prompting
@@ -368,7 +391,14 @@ async def _evaluate_reviews(
 
     tasks = [
         _evaluate_paper_reviews(
-            client, model, paper, user_prompt, demonstrations, seed, mode
+            client,
+            model,
+            paper,
+            user_prompt,
+            extract_prompt,
+            demonstrations,
+            seed,
+            mode,
         )
         for paper in papers
     ]
@@ -386,11 +416,20 @@ async def _evaluate_reviews(
     return GPTResult(results, total_cost)
 
 
+class _GPTRationale(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    novelty_rationale: Annotated[
+        str, Field(description="Rationale for the novelty rating of a paper.")
+    ]
+
+
 async def _evaluate_paper_reviews(
     client: AsyncOpenAI,
     model: str,
     paper: pr.Paper,
     user_prompt: PromptTemplate,
+    extract_prompt: PromptTemplate | None,
     demonstrations: str,
     seed: int,
     mode: RatingMode,
@@ -402,6 +441,8 @@ async def _evaluate_paper_reviews(
         model: GPT model code to use.
         paper: Paper from the PeerRead dataset to evaluate.
         user_prompt: User prompt template to use for classification to be filled.
+        extract_prompt: User prompt template to use for extracting novelty rationale from
+            paper review. If not provided, use the original paper rationale.
         demonstrations: Text of demonstrations for few-shot prompting
         seed: Seed for the OpenAI call.
         mode: Which mode to apply to ratings. See `apply_rating_mode`.
@@ -415,8 +456,28 @@ async def _evaluate_paper_reviews(
     main_review: ReviewEvaluation | None = None
 
     for review in paper.reviews:
+        rationale = None
+        if extract_prompt:
+            extract_prompt_text = format_template(
+                paper, review.rationale, extract_prompt, demonstrations
+            )
+            extract_result = await run_gpt(
+                _GPTRationale,
+                client,
+                _EXTRACT_SYSTEM_PROMPT,
+                extract_prompt_text,
+                model,
+                seed=seed,
+            )
+            total_cost += extract_result.cost
+            if extract_result.result is not None:
+                rationale = extract_result.result.novelty_rationale
+
+        if not rationale:
+            rationale = review.rationale
+
         user_prompt_text = format_template(
-            paper, review.rationale, user_prompt, demonstrations
+            paper, rationale, user_prompt, demonstrations
         )
         result = await run_gpt(
             GPTFull, client, _REVIEW_SYSTEM_PROMPT, user_prompt_text, model, seed=seed
