@@ -178,8 +178,8 @@ _REVIEW_SYSTEM_PROMPT = (
     " would have given, where 1 is least novel and 5 is most novel."
 )
 _EXTRACT_SYSTEM_PROMPT = (
-    "You are an expert at understanding paper reviews. Given a review, extract only the"
-    " parts that focus on the paper novelty, and discard the rest."
+    "You are an expert at understanding paper reviews. Given a review, summarize the "
+    " main comments made by the reviewer."
 )
 
 
