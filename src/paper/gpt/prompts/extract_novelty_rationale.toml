@@ -2,7 +2,7 @@
 name = "simple"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, and a peer review evalauting the paper for a publication \
+paper's title, abstract, and a peer review evaluating the paper for a publication \
 at a conference.
 
 Based on this content, your task is to extract from the review only the parts that \
@@ -35,6 +35,38 @@ The following demonstrations show what is considered to be relevant for novelty
 evaluation:
 
 -Demonstrations-
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+Review:
+{review}
+
+#####
+Output:
+"""
+
+[[prompts]]
+name = "basic"
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+paper's title, abstract, and a review evaluating the paper for a publication at a \
+conference.
+
+Based on this data, your task is to sumamrise the points the reviewer makes about the \
+novelty of the paper. Focus on the novelty and discard anything else. Your summary will \
+be used to assign a novelty rating for the paper, so make sure that your summary only \
+contains relevant information for that.
+
+Novelty is defined as how original is the approach taken by the paper. Does the paper \
+break new ground in topic, methodology or content? How exciting and innovative is the \
+research it describes?
+
+Based on this content, sumamrize the novelty assessment of the paper from the reviewer.
+
+#####
 {demonstrations}
 
 -Data-

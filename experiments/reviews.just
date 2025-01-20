@@ -11,6 +11,10 @@ review-og:
 review-clean:
     {{base}} --demos review_clean_5
 
-# Clean demonstrations with novelty rationale extraction before rating
-extraction:
+# Clean demonstrations with novelty rationale extraction before rating - simple prompt
+extraction-simple:
     {{base}} --demos review_clean_5 --extract-prompt simple
+
+# Clean demonstrations with novelty rationale extraction before rating - basic prompt
+extraction-basic:
+    {{base}} --demos review_clean_5 --extract-prompt basic
