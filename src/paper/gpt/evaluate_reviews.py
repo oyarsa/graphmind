@@ -457,6 +457,7 @@ async def _evaluate_paper_reviews(
 
     for review in paper.reviews:
         rationale = None
+        extracted_rationale = None
         if extract_prompt:
             extract_prompt_text = format_template(
                 paper, review.rationale, extract_prompt, demonstrations
@@ -471,7 +472,9 @@ async def _evaluate_paper_reviews(
             )
             total_cost += extract_result.cost
             if extract_result.result is not None:
-                rationale = extract_result.result.novelty_rationale
+                extracted_rationale = rationale = (
+                    extract_result.result.novelty_rationale
+                )
 
         if not rationale:
             rationale = review.rationale
@@ -490,6 +493,7 @@ async def _evaluate_paper_reviews(
             rating=apply_rating_mode(review.rating, mode),
             confidence=review.confidence,
             rationale=review.rationale,
+            extracted_rationale=extracted_rationale,
             predicted_rating=apply_rating_mode(evaluated.rating, mode),
             predicted_rationale=evaluated.rationale,
         )
