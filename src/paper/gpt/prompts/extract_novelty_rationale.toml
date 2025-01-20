@@ -55,7 +55,7 @@ The following data contains information about a scientific paper. It includes th
 paper's title, abstract, and a review evaluating the paper for a publication at a \
 conference.
 
-Based on this data, your task is to sumamrise the points the reviewer makes about the \
+Based on this data, your task is to summarize the points the reviewer makes about the \
 novelty of the paper. Focus on the novelty and discard anything else. Your summary will \
 be used to assign a novelty rating for the paper, so make sure that your summary only \
 contains relevant information for that.
@@ -64,7 +64,35 @@ Novelty is defined as how original is the approach taken by the paper. Does the 
 break new ground in topic, methodology or content? How exciting and innovative is the \
 research it describes?
 
-Based on this content, sumamrize the novelty assessment of the paper from the reviewer.
+Based on this content, summarize the novelty assessment of the paper from the reviewer.
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+Review:
+{review}
+
+#####
+Output:
+"""
+
+[[prompts]]
+name = "overall"
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+paper's title, abstract, and a review evaluating the paper for a publication at a \
+conference.
+
+Based on this data, your task is to summarise
+
+Based on this data, your task is to sumamrize the main points made by the reviwer. \
+These should be the most important points to determine the final rating for the paper.
+
+Based on this content, summarize the review.
 
 #####
 {demonstrations}
