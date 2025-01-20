@@ -64,7 +64,7 @@ $ uv run gpt graph prompts --help
 
 For more information, see the documentation for each module:
 
-- [`preprocess/README.md`](./src/paper/preprocess/README.md).
+- [`peerread/README.md`](./src/paper/peerread/README.md).
 - [`scimon/README.md`](./src/paper/scimon/README.md).
 - [`peter/README.md`](./src/paper/peter/README.md).
 - [`gpt/README.md`](./src/paper/gpt/README.md).
@@ -91,8 +91,8 @@ $ uv run peerread
 See [uv's documentation](https://docs.astral.sh/uv/concepts/projects/run/) for more
 information.
 
-See `./tasks.sh` for common development tasks. In particular, use `./tasks.sh lint` to
-run the linter, formatter and type checker. Run `./tasks.sh help` to see all tasks.
+See `just` for common development tasks. In particular, use `just lint` to
+run the linter, formatter and type checker. Run `just` to see all tasks.
 
 We use the following tools for development:
 
