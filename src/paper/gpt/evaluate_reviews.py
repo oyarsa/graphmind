@@ -128,13 +128,22 @@ def run(
             click_type=cli.Choice(EVALUATE_DEMONSTRATIONS),
         ),
     ] = None,
-    demo_prompt: Annotated[
+    review_demo_prompt: Annotated[
         str,
         typer.Option(
-            help="User prompt to use for building the few-shot demonstrations.",
+            help="User prompt to use for building the few-shot demonstrations for review"
+            " classification.",
             click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "abstract",
+    extract_demo_prompt: Annotated[
+        str | None,
+        typer.Option(
+            help="User prompt to use for building the few-shot demonstrations for"
+            " rationale extraction.",
+            click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
+        ),
+    ] = None,
     mode: Annotated[
         RatingMode,
         typer.Option(
@@ -159,7 +168,8 @@ def run(
             continue_,
             seed,
             demos,
-            demo_prompt,
+            review_demo_prompt,
+            extract_demo_prompt,
             mode,
             keep_intermediate,
         )
@@ -206,7 +216,8 @@ async def evaluate_reviews(
     continue_: bool,
     seed: int,
     demonstrations_key: str | None,
-    demo_prompt_key: str,
+    review_demo_prompt_key: str,
+    extract_demo_prompt_key: str | None,
     mode: RatingMode,
     keep_intermediate: bool,
 ) -> None:
@@ -227,9 +238,12 @@ async def evaluate_reviews(
         continue_: If True, use data from `continue_papers_file`.
         seed: Seed for the OpenAI API call and to shuffle the data.
         demonstrations_key: Name of demonstrations file for use with few-shot prompting.
-        demo_prompt_key: Key to the demonstration prompt to use during evaluation to
-            build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
+        review_demo_prompt_key: Key to the demonstration prompt to use during evaluation
+            to build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
             avaialble options or `list_prompts` for more.
+        extract_demo_prompt_key: Key to the demonstration prompt to use during rationale
+            extraction to build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS`
+            for the avaialble options or `list_prompts` for more.
         mode: Which mode to apply to ratings. See `apply_rating_mode`.
         keep_intermediate: Keep intermediate results to be used with `continue`.
     """
@@ -259,9 +273,17 @@ async def evaluate_reviews(
     demonstration_data = (
         EVALUATE_DEMONSTRATIONS[demonstrations_key] if demonstrations_key else []
     )
-    demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
-    demonstrations = _format_demonstrations(
-        demonstration_data, demonstration_prompt, mode
+    review_demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[review_demo_prompt_key]
+    extract_demonstration_prompt = (
+        EVALUATE_DEMONSTRATION_PROMPTS[extract_demo_prompt_key]
+        if extract_demo_prompt_key
+        else None
+    )
+    review_demonstrations = _format_demonstrations(
+        demonstration_data, review_demonstration_prompt, mode
+    )
+    extract_demonstrations = _format_demonstrations(
+        demonstration_data, extract_demonstration_prompt, mode
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -293,7 +315,8 @@ async def evaluate_reviews(
             extract_prompt,
             papers_remaining.remaining,
             output_intermediate_file,
-            demonstrations,
+            review_demonstrations,
+            extract_demonstrations,
             seed,
             mode,
             keep_intermediate,
@@ -328,13 +351,15 @@ def _display_label_dist(papers: Sequence[pr.Paper], mode: RatingMode) -> str:
 
 
 def _format_demonstrations(
-    demonstrations: Sequence[Demonstration], prompt: PromptTemplate, mode: RatingMode
+    demonstrations: Sequence[Demonstration],
+    prompt: PromptTemplate | None,
+    mode: RatingMode,
 ) -> str:
     """Format all `demonstrations` according to `prompt` as a single string.
 
     If `demonstrations` is empty, returns the empty string.
     """
-    if not demonstrations:
+    if not demonstrations or not prompt:
         return ""
 
     output_all = [
@@ -363,7 +388,8 @@ async def _evaluate_reviews(
     extract_prompt: PromptTemplate | None,
     papers: Sequence[pr.Paper],
     output_intermediate_file: Path,
-    demonstrations: str,
+    review_demonstrations: str,
+    extract_demonstrations: str,
     seed: int,
     mode: RatingMode,
     keep_intermediate: bool,
@@ -378,7 +404,10 @@ async def _evaluate_reviews(
             paper review. If not provided, use the original review rationale.
         papers: Papers from the PeerRead dataset to evaluate.
         output_intermediate_file: File to write new results after each task.
-        demonstrations: Text of demonstrations for few-shot prompting
+        review_demonstrations: Text of demonstrations for few-shot prompting for
+            classification.
+        extract_demonstrations: Text of demonstrations for few-shot prompting for
+            rationale extraction.
         seed: Seed for the OpenAI API call.
         mode: Which mode to apply to ratings. See `apply_rating_mode`.
         keep_intermediate: Keep intermediate results to be used in future runs.
@@ -396,7 +425,8 @@ async def _evaluate_reviews(
             paper,
             user_prompt,
             extract_prompt,
-            demonstrations,
+            review_demonstrations,
+            extract_demonstrations,
             seed,
             mode,
         )
@@ -430,7 +460,8 @@ async def _evaluate_paper_reviews(
     paper: pr.Paper,
     user_prompt: PromptTemplate,
     extract_prompt: PromptTemplate | None,
-    demonstrations: str,
+    review_demonstrations: str,
+    extract_demonstrations: str,
     seed: int,
     mode: RatingMode,
 ) -> GPTResult[PromptResult[PaperWithReviewEval]]:
@@ -443,7 +474,10 @@ async def _evaluate_paper_reviews(
         user_prompt: User prompt template to use for classification to be filled.
         extract_prompt: User prompt template to use for extracting novelty rationale from
             paper review. If not provided, use the original paper rationale.
-        demonstrations: Text of demonstrations for few-shot prompting
+        review_demonstrations: Text of demonstrations for few-shot prompting in
+            classification.
+        extract_demonstrations: Text of demonstrations for few-shot prompting in review
+            extraction.
         seed: Seed for the OpenAI call.
         mode: Which mode to apply to ratings. See `apply_rating_mode`.
 
@@ -460,7 +494,7 @@ async def _evaluate_paper_reviews(
         extracted_rationale = None
         if extract_prompt:
             extract_prompt_text = format_template(
-                paper, review.rationale, extract_prompt, demonstrations
+                paper, review.rationale, extract_prompt, extract_demonstrations
             )
             extract_result = await run_gpt(
                 _GPTRationale,
@@ -480,7 +514,7 @@ async def _evaluate_paper_reviews(
             rationale = review.rationale
 
         user_prompt_text = format_template(
-            paper, rationale, user_prompt, demonstrations
+            paper, rationale, user_prompt, review_demonstrations
         )
         result = await run_gpt(
             GPTFull, client, _REVIEW_SYSTEM_PROMPT, user_prompt_text, model, seed=seed
