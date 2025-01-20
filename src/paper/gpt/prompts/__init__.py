@@ -45,3 +45,4 @@ def print_prompts(
             print(f"{sep}\n{prompt.name}\n{sep}\n{prompt.template}")
         else:
             print(f"- {prompt.name}")
+    print()

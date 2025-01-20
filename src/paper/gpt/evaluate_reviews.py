@@ -538,5 +538,19 @@ def _calculate_review_metrics(results: Iterable[PaperWithReviewEval]) -> Metrics
     return calculate_metrics(y_true, y_pred)
 
 
+@app.command(help="List available prompts.")
+def prompts(
+    detail: Annotated[
+        bool, typer.Option(help="Show full description of the prompts.")
+    ] = False,
+) -> None:
+    """Print the available prompt names, and optionally, the full prompt text."""
+    for title, prompts in [
+        ("REVIEW NOVELTY EVALUATION", REVIEW_CLASSIFY_USER_PROMPTS),
+        ("NOVELTY RATIONALE EXTRACTION", EXTRACT_USER_PROMPTS),
+    ]:
+        print_prompts(title, prompts, detail=detail)
+
+
 if __name__ == "__main__":
     app()
