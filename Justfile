@@ -15,7 +15,7 @@ type:
 
 # Run ruff check, ruff format, and pyright
 lint:
-    just check fmt type
+    @just check fmt type
 
 # Watch Python files and run ruff and pyright on changes
 watch:
@@ -35,3 +35,7 @@ e2e:
 
 alias l := lint
 alias w := watch
+
+# Run experiments (see experiments/Justfile)
+exp *args:
+    @just -f experiments/Justfile {{args}}

@@ -1,0 +1,4 @@
+import 'reviews.just'
+
+_default:
+    @just --list
