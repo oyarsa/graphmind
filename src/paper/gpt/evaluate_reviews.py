@@ -170,7 +170,7 @@ _REVIEW_SYSTEM_PROMPT = (
 
 def format_template(
     paper: pr.Paper,
-    review: pr.PaperReview,
+    rationale: str,
     user_prompt: PromptTemplate,
     demonstrations: str,
 ) -> str:
@@ -178,7 +178,7 @@ def format_template(
     return user_prompt.template.format(
         title=paper.title,
         abstract=paper.abstract,
-        review=review.rationale,
+        review=rationale,
         demonstrations=demonstrations,
     )
 
@@ -415,7 +415,9 @@ async def _evaluate_paper_reviews(
     main_review: ReviewEvaluation | None = None
 
     for review in paper.reviews:
-        user_prompt_text = format_template(paper, review, user_prompt, demonstrations)
+        user_prompt_text = format_template(
+            paper, review.rationale, user_prompt, demonstrations
+        )
         result = await run_gpt(
             GPTFull, client, _REVIEW_SYSTEM_PROMPT, user_prompt_text, model, seed=seed
         )
