@@ -37,7 +37,11 @@ clidoc:
 
 # Run end-to-end tests with pytest
 e2e:
-    uv run pytest -s --runslow
+    uv run pytest -s --runslow tests/
+
+# Run unit tests only
+test:
+    uv run pytest tests/
 
 # Run experiments (see experiments/Justfile)
 exp *args:
