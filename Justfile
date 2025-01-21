@@ -2,8 +2,12 @@ _default:
     @just --list
 
 # Run ruff check with autofix
-check:
+fix:
     uv run ruff check . --fix
+
+# Run ruff check (no fix)
+check:
+    uv run ruff check .
 
 # Run ruff format
 fmt:
@@ -14,12 +18,14 @@ type:
     uv run pyright .
 
 # Run ruff check, ruff format, and pyright
-lint:
-    @just check fmt type
+lint: fix fmt type
+
+# Check ruff lint and pyright
+check-all: check type
 
 # Watch Python files and run ruff and pyright on changes
 watch:
-    watchexec --exts=py --clear --restart "uv run ruff check && uv run pyright"
+    watchexec --exts=py --clear --restart "just check-all"
 
 # Generate CLI documentation files
 clidoc:
