@@ -1,4 +1,4 @@
 import 'reviews.just'
 
 _default:
-    @just --list
+    @just --list --unsorted
