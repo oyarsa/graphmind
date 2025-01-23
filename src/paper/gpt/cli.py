@@ -20,7 +20,6 @@ from paper.gpt import (
     evaluate_paper_peter,
     evaluate_paper_scimon,
     evaluate_reviews,
-    extract_graph,
     summarise_related_peter,
     tokens,
 )
@@ -50,7 +49,6 @@ def _new_app(
 
 
 main_subcommands = [
-    ("graph", "Extract graph from papers.", extract_graph),
     ("context", "Classify paper citations using full text.", classify_contexts),
     (
         "terms",
