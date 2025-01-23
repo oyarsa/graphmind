@@ -10,11 +10,12 @@ The output is the input annotated papers with a predicted novelty rating.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import random
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, override
 
 import dotenv
 import typer
@@ -29,7 +30,7 @@ from paper.gpt.evaluate_paper import (
     calculate_paper_metrics,
     display_metrics,
     fix_classified_rating,
-    format_demonstrations,
+    get_demonstrations,
 )
 from paper.gpt.extract_graph import GPTGraph
 from paper.gpt.model import (
@@ -46,7 +47,7 @@ from paper.gpt.run_gpt import (
     MODELS_ALLOWED,
     GPTResult,
     append_intermediate_result,
-    get_remaining_items,
+    init_remaining_items,
     run_gpt,
 )
 from paper.util import (
@@ -54,16 +55,19 @@ from paper.util import (
     cli,
     display_params,
     ensure_envvar,
+    get_params,
     progress,
+    render_params,
     setup_logging,
     shuffled,
 )
-from paper.util.serde import load_data, save_data
+from paper.util.serde import Record, load_data, save_data
 
 logger = logging.getLogger(__name__)
 
-GRAPH_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_graph")
-GRAPH_EXTRACT_USER_PROMPTS = load_prompts("extract_paper_graph")
+# TODO: Fix the prompts to work.
+GRAPH_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_graph")
+GRAPH_EXTRACT_USER_PROMPTS = load_prompts("extract_graph")
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -76,12 +80,12 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def run(
-    ann_graph_file: Annotated[
+    paper_file: Annotated[
         Path,
         typer.Option(
-            "--ann-graph",
-            help="JSON file containing the annotated PeerRead papers with summarised graph"
-            " results.",
+            "--papers",
+            help="JSON file containing the annotated PeerRead papers with summarised"
+            " graph results.",
         ),
     ],
     output_dir: Annotated[
@@ -93,7 +97,9 @@ def run(
     ],
     model: Annotated[
         str,
-        typer.Option("--model", "-m", help="The model to use for the extraction."),
+        typer.Option(
+            "--model", "-m", help="The model to use for both extraction and evaluation."
+        ),
     ] = "gpt-4o-mini",
     limit_papers: Annotated[
         int,
@@ -123,11 +129,13 @@ def run(
             help="Use existing intermediate results.",
         ),
     ] = False,
-    seed: Annotated[int, typer.Option(help="Random seed used for data shuffling.")] = 0,
+    seed: Annotated[
+        int, typer.Option(help="Random seed used for data shuffling and OpenAI API.")
+    ] = 0,
     demos: Annotated[
         str | None,
         typer.Option(
-            help="Name of file containing demonstrations to use in few-shot prompt",
+            help="Name of file containing demonstrations to use in few-shot prompt.",
             click_type=cli.Choice(EVALUATE_DEMONSTRATIONS),
         ),
     ] = None,
@@ -139,11 +147,11 @@ def run(
         ),
     ] = "abstract",
 ) -> None:
-    """Evaluate a paper's novelty based on summarised PETER-queried related papers."""
+    """Evaluate paper novelty with a paper graph and summarised PETER related papers."""
     asyncio.run(
         evaluate_papers(
             model,
-            ann_graph_file,
+            paper_file,
             limit_papers,
             class_prompt,
             graph_prompt,
@@ -163,9 +171,21 @@ def main() -> None:
     setup_logging()
 
 
+class GraphResult(Record):
+    """Extracted graph and paper evaluation results."""
+
+    graph: Graph
+    paper: PaperResult
+
+    @property
+    @override
+    def id(self) -> str:
+        return self.paper.id
+
+
 async def evaluate_papers(
     model: str,
-    ann_graph_file: Path,
+    paper_file: Path,
     limit_papers: int | None,
     eval_prompt_key: str,
     graph_prompt_key: str,
@@ -176,16 +196,15 @@ async def evaluate_papers(
     demonstrations_key: str | None,
     demo_prompt_key: str,
 ) -> None:
-    """Evaluate a paper's novelty based on summarised PETER-queried related papers.
+    """Evaluate paper novelty with a paper graph and summarised PETER related papers.
 
     The papers should come from `gpt.summarise_related_peter`.
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        ann_graph_file: Path to the JSON file containing the annotated papers with their
+        paper_file: Path to the JSON file containing the annotated papers with their
             graph data and summarised related papers.
-        limit_papers: Number of papers to process. Defaults to 1 example. If None,
-            process all.
+        limit_papers: Number of papers to process. If None, process all.
         eval_prompt_key: Key to the user prompt to use for paper evaluation. See
             `GRAPH_CLASSIFY_USER_PROMPTS` for available options or the `prompts` command
             for more information.
@@ -206,7 +225,9 @@ async def evaluate_papers(
     Returns:
         None. The output is saved to `output_dir`.
     """
-    logger.info(display_params())
+    params = get_params()
+    logger.info(display_params())  # TODO: Remove if get/render works.
+    logger.info(render_params(params))
 
     random.seed(seed)
 
@@ -223,34 +244,17 @@ async def evaluate_papers(
 
     papers = shuffled(
         PromptResult.unwrap(
-            load_data(ann_graph_file, PromptResult[PaperWithRelatedSummary])
+            load_data(paper_file, PromptResult[PaperWithRelatedSummary])
         )
     )[:limit_papers]
 
     class_prompt = GRAPH_CLASSIFY_USER_PROMPTS[eval_prompt_key]
     graph_prompt = GRAPH_EXTRACT_USER_PROMPTS[graph_prompt_key]
+    demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
-    demonstration_data = (
-        EVALUATE_DEMONSTRATIONS[demonstrations_key] if demonstrations_key else []
+    output_intermediate_file, papers_remaining = init_remaining_items(
+        GraphResult, output_dir, continue_papers_file, papers, continue_
     )
-    demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
-    demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_intermediate_file = output_dir / "results.tmp.json"
-    papers_remaining = get_remaining_items(
-        PaperResult, output_intermediate_file, continue_papers_file, papers, continue_
-    )
-    if not papers_remaining.remaining:
-        logger.info(
-            "No items left to process. They're all on the `continues` file. Exiting."
-        )
-        return
-
-    if continue_:
-        logger.info(
-            "Skipping %d items from the `continue` file.", len(papers_remaining.done)
-        )
 
     with Timer() as timer:
         results = await _classify_papers(
@@ -261,22 +265,28 @@ async def evaluate_papers(
             papers_remaining.remaining,
             output_intermediate_file,
             demonstrations,
-            seed=seed,
+            seed,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${results.cost:.10f}")
 
     results_all = papers_remaining.done + results.result
-    results_items = PromptResult.unwrap(results_all)
 
+    results_items = [r.paper for r in PromptResult.unwrap(results_all)]
     metrics = calculate_paper_metrics(results_items)
     logger.info("%s\n", display_metrics(metrics, results_items))
 
-    assert len(results_all) == len(papers)
     save_data(output_dir / "result.json", results_all)
-    save_data(output_dir / "result_items.json", results_items)
     save_data(output_dir / "metrics.json", metrics)
+    (output_dir / "params.json").write_text(json.dumps(params))
+
+    if len(results_all) != len(papers):
+        logger.warning(
+            "Some papers are missing from the output. Input: %d. Output: %d.",
+            len(papers),
+            len(results_all),
+        )
 
 
 async def _classify_papers(
@@ -284,41 +294,34 @@ async def _classify_papers(
     model: str,
     class_prompt: PromptTemplate,
     graph_prompt: PromptTemplate,
-    ann_graphs: Sequence[PaperWithRelatedSummary],
+    paper: Sequence[PaperWithRelatedSummary],
     output_intermediate_file: Path,
     demonstrations: str,
-    *,
     seed: int,
-) -> GPTResult[list[PromptResult[PaperResult]]]:
-    """Classify Papers into approved/not approved using the paper main text.
+) -> GPTResult[list[PromptResult[GraphResult]]]:
+    """Evaluate paper novelty using a paper graph and PETER-related papers.
 
     Args:
         client: OpenAI client to use GPT.
         model: GPT model code to use (must support Structured Outputs).
-        class_prompt: User prompt template to use for classification.
-        graph_prompt: User prompt template to use for graph extraction.
-        ann_graphs: Annotated PeerRead papers with their summarised graph data.
-        output_intermediate_file: File to write new results after each task is completed.
+        class_prompt: Prompt template for novelty evaluation.
+        graph_prompt: Prompt template for graph extraction.
+        paper: Annotated PeerRead papers with their summarised graph data.
+        output_intermediate_file: File to write new results after paper is evaluated.
         demonstrations: Text of demonstrations for few-shot prompting.
         seed: Seed for the OpenAI API call.
 
     Returns:
         List of classified papers and their prompts wrapped in a GPTResult.
     """
-    results: list[PromptResult[PaperResult]] = []
+    results: list[PromptResult[GraphResult]] = []
     total_cost = 0
 
     tasks = [
         _classify_paper(
-            client,
-            model,
-            ann_graph,
-            class_prompt,
-            graph_prompt,
-            demonstrations,
-            seed=seed,
+            client, model, paper, class_prompt, graph_prompt, demonstrations, seed
         )
-        for ann_graph in ann_graphs
+        for paper in paper
     ]
 
     for task in progress.as_completed(tasks, desc="Classifying papers"):
@@ -326,7 +329,7 @@ async def _classify_papers(
         total_cost += result.cost
 
         results.append(result.result)
-        append_intermediate_result(PaperResult, output_intermediate_file, result.result)
+        append_intermediate_result(GraphResult, output_intermediate_file, result.result)
 
     return GPTResult(results, total_cost)
 
@@ -336,23 +339,20 @@ Given the following target paper and a selection of related papers separated by 
 they're supporting or contrasting the main paper, give a novelty rating to a paper \
 submitted to a high-quality scientific conference.
 """
-# TODO:
+# TODO: Write system prompt for graph extraction
 _PETER_EXTRACT_SYSTEM_PROMPT = """"""
 
 
 async def _classify_paper(
     client: AsyncOpenAI,
     model: str,
-    ann_result: PaperWithRelatedSummary,
+    paper: PaperWithRelatedSummary,
     class_prompt: PromptTemplate,
     graph_prompt: PromptTemplate,
     demonstrations: str,
-    *,
     seed: int,
-) -> GPTResult[PromptResult[PaperResult]]:
-    graph_prompt_text = format_graph_template(
-        graph_prompt, ann_result.paper, demonstrations
-    )
+) -> GPTResult[PromptResult[GraphResult]]:
+    graph_prompt_text = format_graph_template(graph_prompt, paper.paper, demonstrations)
     graph_result = await run_gpt(
         GPTGraph,
         client,
@@ -362,15 +362,13 @@ async def _classify_paper(
         seed=seed,
     )
     graph = (
-        graph_result.result.to_graph(
-            title=ann_result.title, abstract=ann_result.abstract
-        )
+        graph_result.result.to_graph(title=paper.title, abstract=paper.abstract)
         if graph_result.result
-        else Graph.default(title=ann_result.title, abstract=ann_result.abstract)
+        else Graph.empty(title=paper.title, abstract=paper.abstract)
     )
 
     class_prompt_text = format_class_template(
-        class_prompt, ann_result, graph, demonstrations
+        class_prompt, paper, graph, demonstrations
     )
     class_result = await run_gpt(
         GPTFull,
@@ -381,53 +379,57 @@ async def _classify_paper(
         seed=seed,
     )
 
-    paper = ann_result.paper.paper
+    eval_paper = paper.paper.paper
     classified = fix_classified_rating(class_result.result or GPTFull.error())
+
+    sep = f"\n\n{"-" * 80}\n\n"
+    combined_system_prompt = (
+        f"{_PETER_EXTRACT_SYSTEM_PROMPT}{sep}{_PETER_CLASSIFY_SYSTEM_PROMPT}"
+    )
+    combined_user_prompt = f"{graph_prompt_text}{sep}{class_prompt_text}"
 
     return GPTResult(
         result=PromptResult(
-            item=PaperResult.from_s2peer(
-                paper, classified.rating, classified.rationale
+            item=GraphResult(
+                paper=PaperResult.from_s2peer(
+                    eval_paper, classified.rating, classified.rationale
+                ),
+                graph=graph,
             ),
-            prompt=Prompt(system=_PETER_CLASSIFY_SYSTEM_PROMPT, user=class_prompt_text),
+            prompt=Prompt(system=combined_system_prompt, user=combined_user_prompt),
         ),
         cost=class_result.cost,
     )
 
 
 def format_graph_template(
-    prompt: PromptTemplate,
-    paper_summaries: PeerReadAnnotated,
-    demonstrations: str,
+    prompt: PromptTemplate, paper: PeerReadAnnotated, demonstrations: str
 ) -> str:
     """Format graph extraction template using annotated paper."""
     return prompt.template.format(
-        title=paper_summaries.title,
-        abstract=paper_summaries.abstract,
+        title=paper.title,
+        abstract=paper.abstract,
+        main_text=paper.paper.main_text,
         demonstrations=demonstrations,
     )
 
 
 def format_class_template(
     prompt: PromptTemplate,
-    paper_summaries: PaperWithRelatedSummary,
+    paper: PaperWithRelatedSummary,
     graph: Graph,
     demonstrations: str,
 ) -> str:
-    """Format evaluation template using summarised PETER-queried related papers."""
+    """Format evaluation template using the paper graph and PETER-queried related papers."""
     return prompt.template.format(
-        title=paper_summaries.title,
-        abstract=paper_summaries.abstract,
+        title=paper.title,
+        abstract=paper.abstract,
         demonstrations=demonstrations,
         positive=_format_related(
-            p
-            for p in paper_summaries.related
-            if p.polarity is pr.ContextPolarity.POSITIVE
+            p for p in paper.related if p.polarity is pr.ContextPolarity.POSITIVE
         ),
         negative=_format_related(
-            p
-            for p in paper_summaries.related
-            if p.polarity is pr.ContextPolarity.NEGATIVE
+            p for p in paper.related if p.polarity is pr.ContextPolarity.NEGATIVE
         ),
         graph=graph.to_text(),
     )
@@ -441,12 +443,14 @@ def _format_related(related: Iterable[PaperRelatedSummarised]) -> str:
 
 @app.command(help="List available prompts.")
 def prompts(
-    detail: Annotated[
-        bool, typer.Option(help="Show full description of the prompts.")
-    ] = False,
+    detail: Annotated[bool, typer.Option(help="Show full prompt text.")] = False,
 ) -> None:
     """Print the available prompt names, and optionally, the full prompt text."""
-    print_prompts("PETER PAPER EVALUATION", GRAPH_CLASSIFY_USER_PROMPTS, detail=detail)
+    for title, prompts in [
+        ("GRAPH EXTRACTION", GRAPH_EXTRACT_USER_PROMPTS),
+        ("GRAPH PAPER EVALUATION", GRAPH_CLASSIFY_USER_PROMPTS),
+    ]:
+        print_prompts(title, prompts, detail=detail)
 
 
 if __name__ == "__main__":
