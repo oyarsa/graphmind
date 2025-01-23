@@ -245,9 +245,7 @@ def append_intermediate_result[T: BaseModel](
 
     Args:
         type_:
-            Class object of the Pydantic BaseModel representing the data. Needs to be
-            provided provided so we can initialise the TypeAdapter, as the generic
-            type is lost at runtime.
+            Class object of the Pydantic BaseModel representing the data.
         path:
             Path to intermediate output file. Used to first read the existing items,
             then to save the new one. An empty one will be created if it doesn't exist.

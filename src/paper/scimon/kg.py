@@ -24,7 +24,7 @@ from paper import embedding as emb
 from paper import gpt
 from paper.scimon.model import PaperTerms
 from paper.util import setup_logging
-from paper.util.serde import load_data
+from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ def main(
         result = graph.query(query)
         logger.info("\nQuery: %s\nResult: %s", query, result)
 
-    output_file.write_text(graph.to_data().model_dump_json(indent=2))
+    save_data(output_file, graph.to_data())
 
 
 class Graph:

@@ -10,7 +10,7 @@ from typing import Annotated
 
 import aiohttp
 import typer
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict
 
 from paper import peerread as pr
 from paper.gpt import annotate_paper as ann
@@ -56,9 +56,7 @@ def eval_full(
     papers_sample = random.sample(papers, num_entries)
 
     demonstrations = [new_eval_full_demonstration(paper) for paper in papers_sample]
-    output_file.write_bytes(
-        TypeAdapter(list[eval.Demonstration]).dump_json(demonstrations, indent=2)
-    )
+    save_data(output_file, demonstrations)
 
 
 def new_eval_full_demonstration(paper: pr.Paper) -> eval.Demonstration:
@@ -208,9 +206,7 @@ def eval_reviews(
     demonstrations = [
         new_review_evaluation(paper, review) for paper, review in reviews_final
     ]
-    output_file.write_bytes(
-        TypeAdapter(list[eval.Demonstration]).dump_json(demonstrations, indent=2)
-    )
+    save_data(output_file, demonstrations)
 
 
 def new_review_evaluation(

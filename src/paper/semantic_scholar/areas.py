@@ -21,7 +21,7 @@ import backoff
 import dotenv
 import typer
 from aiolimiter import AsyncLimiter
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict
 from rich.console import Console
 from rich.table import Table
 from tqdm import tqdm
@@ -30,6 +30,7 @@ from paper.semantic_scholar.info import S2_SEARCH_BASE_URL
 from paper.semantic_scholar.model import Paper, PaperArea
 from paper.util import arun_safe, display_params, ensure_envvar, read_resource
 from paper.util.cli import die
+from paper.util.serde import save_data
 
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 MAX_RETRIES = 5
@@ -172,8 +173,7 @@ async def download_paper_info(
     papers = _merge_areas(area_results)
     print("Unique papers:", len(papers))
 
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    output_file.write_bytes(TypeAdapter(list[PaperArea]).dump_json(papers, indent=2))
+    save_data(output_file, papers)
 
 
 async def _fetch_areas(

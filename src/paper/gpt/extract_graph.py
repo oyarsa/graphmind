@@ -11,7 +11,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field
 
 from paper import hierarchical_graph
 from paper.gpt.model import (
@@ -23,6 +23,7 @@ from paper.gpt.model import (
     Relationship,
     graph_to_digraph,
 )
+from paper.util.serde import save_data
 
 logger = logging.getLogger(__name__)
 
@@ -257,9 +258,7 @@ def save_graphs(
         )
         for pg in paper_graphs
     )
-    (output_dir / "result_graphs.json").write_bytes(
-        TypeAdapter(list[Output]).dump_json(output, indent=2)
-    )
+    save_data(output_dir / "result_graphs.json", output)
 
 
 def display_graphs(

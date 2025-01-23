@@ -23,7 +23,7 @@ from pydantic import BaseModel, ConfigDict
 import paper.semantic_scholar as s2
 from paper import embedding as emb
 from paper.util import display_params
-from paper.util.serde import Record, load_data
+from paper.util.serde import Record, load_data, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ def main(
     encoder = emb.Encoder(model_name)
     graph = Graph.from_papers(encoder, peerread_papers)
 
-    output_file.write_text(graph.model_dump_json(indent=2))
+    save_data(output_file, graph)
 
 
 class MainPaper(Protocol):

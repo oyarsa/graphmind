@@ -201,7 +201,7 @@ async def classify_contexts(
     (output_dir / "output.txt").write_text(stats)
     save_data(output_dir / "params.json", params)
     if metrics is not None:
-        (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
+        save_data(output_dir / "metrics.json", metrics)
 
     if len(results_all) != len(papers):
         logger.warning(
