@@ -68,7 +68,20 @@ class Graph(Record):
     @computed_field
     @property
     def valid_status(self) -> str:
-        """Check if graph rules hold. Returns error message if invalid, or "Valid".
+        """Check if graph rules hold. Returns first error message if invalid, or "Valid".
+
+        See `valid_status_all` for all messages, if there's more than one error.
+
+        Returns:
+            Error message describing the rule violated if the graph is invalid.
+            "Valid" if the graph is follows all rules.
+        """
+        return self.valid_status_all[0]
+
+    @computed_field
+    @property
+    def valid_status_all(self) -> list[str]:
+        """Check if graph rules hold. Returns all error messages if invalid, or "Valid".
 
         Rules:
         0. All entity names must be unique.
@@ -96,16 +109,18 @@ class Graph(Record):
         know why it's invalid.
 
         Returns:
-            Error message describing the rule violated if the graph is invalid.
+            Error messages describing the rules violated if the graph is invalid.
             "Valid" if the graph is follows all rules.
         """
+        errors: list[str] = []
+
         # Rule 0: Every entity must be unique
         if entity_counts := [
             f"{entity} ({count})"
             for entity, count in Counter(e.name for e in self.entities).most_common()
             if count > 1
         ]:
-            return f"Entities with non-unique names: {", ".join(entity_counts)}"
+            errors.append(f"Entities with non-unique names: {", ".join(entity_counts)}")
 
         entities = {entity.name: entity for entity in self.entities}
         incoming: defaultdict[str, list[Relationship]] = defaultdict(list)
@@ -120,12 +135,14 @@ class Graph(Record):
         for node_type in singletons:
             nodes = _get_nodes_of_type(self, node_type)
             if len(nodes) != 1:
-                return f"Found {len(nodes)} '{node_type}' nodes. Should be exactly 1."
+                errors.append(
+                    f"Found {len(nodes)} '{node_type}' nodes. Should be exactly 1."
+                )
 
         # Rule 2: Title node cannot have incoming edges
         title = _get_nodes_of_type(self, EntityType.TITLE)[0]
         if incoming[title.name]:
-            return "Title node should not have any incoming edges."
+            errors.append("Title node should not have any incoming edges.")
 
         # Rule 3: TLDR, Primary Area and Keyword nodes only have incoming edges from Title
         level_2 = [EntityType.TLDR, EntityType.PRIMARY_AREA, EntityType.KEYWORD]
@@ -134,14 +151,16 @@ class Graph(Record):
             for node in nodes:
                 inc_edges = incoming[node.name]
                 if len(inc_edges) != 1:
-                    return (
+                    errors.append(
                         f"Found {len(inc_edges)} incoming edges to node type '{node_type}'."
                         f" Should be exactly 1. Node: '{node.name}'"
                     )
 
                 inc_node = entities[inc_edges[0].source]
                 if inc_node.type is not EntityType.TITLE:
-                    return f"Incoming edge to '{node_type}' is not Title, but '{inc_node.type}'."
+                    errors.append(
+                        f"Incoming edge to '{node_type}' is not Title, but '{inc_node.type}'."
+                    )
 
         # Rule 4: Primary Area, Keyword and Experiment nodes don't have outgoing edges
         level_leaf = [
@@ -152,7 +171,7 @@ class Graph(Record):
         for node_type in level_leaf:
             for node in _get_nodes_of_type(self, node_type):
                 if out := outgoing[node.name]:
-                    return (
+                    errors.append(
                         f"Found {len(out)} outgoing edges from node type '{node_type}'."
                         " Should be 0."
                     )
@@ -170,7 +189,9 @@ class Graph(Record):
                 for edge in outgoing[node.name]:
                     type_ = entities[edge.target].type
                     if type_ is not next_type:
-                        return f"Found illegal outgoing edge from '{cur_type}' to '{type_}'"
+                        errors.append(
+                            f"Found illegal outgoing edge from '{cur_type}' to '{type_}'"
+                        )
 
         # Incoming edges
         for prev_type, cur_type in itertools.pairwise(level_order):
@@ -178,7 +199,9 @@ class Graph(Record):
                 for edge in incoming[node.name]:
                     type_ = entities[edge.source].type
                     if type_ is not prev_type:
-                        return f"Found illegal incoming edge from '{type_}' to '{cur_type}'"
+                        errors.append(
+                            f"Found illegal incoming edge from '{type_}' to '{cur_type}'"
+                        )
 
         # Rule 6: At mid levels, each node in a level must be connected to at least one
         # node in the previous level.
@@ -190,7 +213,7 @@ class Graph(Record):
                     if entities[edge.source].type is prev_type
                 ]
                 if not inc:
-                    return (
+                    errors.append(
                         f"Node type '{cur_type}' has no incoming edges from '{prev_type}'."
                         " Should be at least 1."
                     )
@@ -204,16 +227,18 @@ class Graph(Record):
                     if entities[edge.target].type is next_type
                 ]
                 if not out:
-                    return (
+                    errors.append(
                         f"Node type '{cur_type}' has no outgoing edges to '{next_type}'."
                         " Should be at least 1."
                     )
 
         # Rule 8: No cycles
         if graph_to_digraph(self).has_cycle():
-            return "Graph has cycles"
+            errors.append("Graph has cycles")
 
-        return "Valid"
+        if errors:
+            return errors
+        return ["Valid"]
 
     def __str__(self) -> str:
         """Display the entities, relationships, counts and validity of the graph."""
