@@ -284,6 +284,59 @@ class RemainingItems[T, U]:
     done: list[T]
 
 
+def init_remaining_items[T: Record, U: Record](
+    continue_type_: type[T],
+    output_dir: Path,
+    continue_papers_file: Path | None,
+    input_data: Sequence[U],
+    continue_: bool = False,
+) -> tuple[Path, RemainingItems[PromptResult[T], U]]:
+    """Initialise paper processing by handling already processed files.
+
+    Creates output directory and checks intermediate results file to determine which
+    papers still need processing. Returns files and remaining items needed for further
+    processing.
+
+    See also `get_remaining_items`.
+
+    Args:
+        continue_type_: Type of the contents of the remaining data.
+        output_dir: Directory where results will be stored.
+        continue_papers_file: File containing list of previously items papers.
+        input_data: Items to process.
+        continue_: If True, skips previously processed items.
+
+    Returns:
+        Tuple containing:
+            - Path to intermediate results file.
+            - RemainingItems containing processed and unprocessed papers.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_intermediate_file = output_dir / "results.tmp.json"
+
+    papers_remaining = get_remaining_items(
+        continue_type_,
+        output_intermediate_file,
+        continue_papers_file,
+        input_data,
+        continue_,
+    )
+
+    if not papers_remaining.remaining:
+        logger.info(
+            "No items left to process. They're all on the `continues` file. Exiting."
+        )
+        return output_intermediate_file, papers_remaining
+
+    if continue_:
+        logger.info(
+            "Skipping %d items from the `continue` file.", len(papers_remaining.done)
+        )
+
+    return output_intermediate_file, papers_remaining
+
+
+# TODO: Move stuff away from this and to `init_remaining_items`.
 def get_remaining_items[T: Record, U: Record](
     continue_type_: type[T],
     output_intermediate_file: Path,
