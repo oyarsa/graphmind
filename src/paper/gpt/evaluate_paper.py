@@ -111,6 +111,27 @@ class Demonstration(BaseModel):
     rating: Annotated[int, Field(description="Rating from the rationale")]
 
 
+def get_demonstrations(demonstrations_key: str | None, prompt_key: str) -> str:
+    """Get demonstrations rendered as a string.
+
+    Args:
+        demonstrations_key: Key of the demonstrations in `EVALUATE_DEMONSTRATIONS`.
+            If None, this will return an empty string.
+        prompt_key: Key of the prompt to use to render the demonstrations.
+
+    Returns:
+        Demonstrations rendered as a string if `demonstrations_key` is not None. Else,
+        return an empty string.
+    """
+    if not demonstrations_key:
+        return ""
+
+    return format_demonstrations(
+        demonstrations=EVALUATE_DEMONSTRATIONS[demonstrations_key],
+        prompt=EVALUATE_DEMONSTRATION_PROMPTS[prompt_key],
+    )
+
+
 def format_demonstrations(
     demonstrations: Sequence[Demonstration], prompt: PromptTemplate
 ) -> str:
@@ -162,6 +183,7 @@ class GPTFull(BaseModel):
 
 def _load_demonstrations() -> dict[str, list[Demonstration]]:
     """Load demonstration files from the gpt.prompts package."""
+    # TODO: get these names automatically.
     names = [
         "eval_4.json",
         "eval_10.json",
@@ -181,6 +203,7 @@ def _load_demonstrations() -> dict[str, list[Demonstration]]:
 
 
 EVALUATE_DEMONSTRATIONS = _load_demonstrations()
+"""Available demonstrations from `paper.gpt.demonstrations`."""
 
 
 def fix_classified_rating(classified: GPTFull) -> GPTFull:
