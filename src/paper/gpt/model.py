@@ -6,6 +6,7 @@ import itertools
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum
+from graphlib import TopologicalSorter
 from typing import TYPE_CHECKING, Annotated, Self, override
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
@@ -47,6 +48,8 @@ class Entity(BaseModel):
 
     name: str
     type: EntityType
+    # @TODO: Add description text to entity
+    description: str | None = None
 
 
 class Graph(Record):
@@ -305,17 +308,39 @@ class Graph(Record):
         )
 
     def to_text(self) -> str:
-        # @TODO: Implement conversion: find a path (e.g. toposort) through the graph,
-        # then convert each node to text. The text will be the sequence of these text
-        # nodes.
         """Convert graph to LLM-readable text.
+
+        Sorts the entities topologically, then creates paragraphs with each entity's
+        type, name and description, if available.
 
         If the graph is empty, returns an empty string.
         """
-        if not self.entities and not self.relationships:
+        if not self.entities or not self.relationships:
             return ""
 
-        return ""
+        output: list[str] = []
+
+        for entity in topological_sort(self.entities, self.relationships):
+            label = f"{entity.type}: {entity.name}"
+            if entity.description:
+                label = f"{label}\n{entity.description}"
+
+            output.append(label)
+
+        return "\n\n".join(output)
+
+
+def topological_sort(
+    entities: Sequence[Entity], relationships: Sequence[Relationship]
+) -> list[Entity]:
+    """Sort entities in topological order."""
+    entity_map = {entity.name: entity for entity in entities}
+
+    graph: dict[str, set[str]] = defaultdict(set)
+    for rel in relationships:
+        graph[rel.source].add(rel.target)
+
+    return [entity_map[name] for name in TopologicalSorter(graph).static_order()]
 
 
 def graph_to_digraph(graph: Graph) -> hierarchical_graph.DiGraph:
