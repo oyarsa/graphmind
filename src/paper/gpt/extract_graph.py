@@ -29,35 +29,6 @@ from paper.util.serde import Record, save_data
 logger = logging.getLogger(__name__)
 
 
-class IndexedEntity(BaseModel):
-    """Entity from the paper. It belongs to a list and carries its index in that list."""
-
-    model_config = ConfigDict(frozen=True)
-
-    index: Annotated[
-        int, Field(description="Index of this entity in its original list.")
-    ]
-    text: Annotated[
-        str, Field(description="Sentence from the paper describing this entity.")
-    ]
-
-
-class ConnectedEntity(IndexedEntity):
-    """Entity from a paper that has an index and is connected to other entities by index.
-
-    The source indices from other entities are from the original list containing the
-    connected entities.
-    """
-
-    source_indices: Annotated[
-        Sequence[int],
-        Field(
-            description="Indices of the entities connected to this one in their original"
-            " list."
-        ),
-    ]
-
-
 def _at[T](seq: Sequence[T], idx: int, desc: str) -> T | None:
     """Get `seq[idx]` if possible, otherwise return None and log warning with `desc`."""
     try:
