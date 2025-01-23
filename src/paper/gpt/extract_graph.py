@@ -9,11 +9,12 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, override
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from paper import hierarchical_graph
+from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.model import (
     Entity,
     EntityType,
@@ -23,7 +24,7 @@ from paper.gpt.model import (
     Relationship,
     graph_to_digraph,
 )
-from paper.util.serde import save_data
+from paper.util.serde import Record, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -225,6 +226,18 @@ class ExperimentEntity(BaseModel):
     index: Annotated[
         int, Field(description="Index for this method in the `experiments` list")
     ]
+
+
+class GraphResult(Record):
+    """Extracted graph and paper evaluation results."""
+
+    graph: Graph
+    paper: PaperResult
+
+    @property
+    @override
+    def id(self) -> str:
+        return self.paper.id
 
 
 def save_graphs(

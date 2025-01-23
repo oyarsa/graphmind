@@ -14,7 +14,7 @@ import logging
 import random
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Annotated, override
+from typing import Annotated
 
 import dotenv
 import typer
@@ -31,7 +31,7 @@ from paper.gpt.evaluate_paper import (
     fix_evaluated_rating,
     get_demonstrations,
 )
-from paper.gpt.extract_graph import GPTGraph
+from paper.gpt.extract_graph import GPTGraph, GraphResult
 from paper.gpt.model import (
     Graph,
     PaperRelatedSummarised,
@@ -59,7 +59,7 @@ from paper.util import (
     setup_logging,
     shuffled,
 )
-from paper.util.serde import Record, load_data, save_data
+from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -166,18 +166,6 @@ def run(
 def main() -> None:
     """Set up logging."""
     setup_logging()
-
-
-class GraphResult(Record):
-    """Extracted graph and paper evaluation results."""
-
-    graph: Graph
-    paper: PaperResult
-
-    @property
-    @override
-    def id(self) -> str:
-        return self.paper.id
 
 
 async def evaluate_papers(
