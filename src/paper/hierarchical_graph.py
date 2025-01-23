@@ -34,7 +34,7 @@ class Node:
 
     name: str
     type: str
-    detail: str = ""
+    detail: str | None = None
 
 
 @dataclass(frozen=True)

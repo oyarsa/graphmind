@@ -49,7 +49,7 @@ class Entity(BaseModel):
     name: str
     type: EntityType
     # @TODO: Add description text to entity
-    description: str | None = None
+    detail: str | None = None
 
 
 class Graph(Record):
@@ -322,8 +322,8 @@ class Graph(Record):
 
         for entity in topological_sort(self.entities, self.relationships):
             label = f"{entity.type}: {entity.name}"
-            if entity.description:
-                label = f"{label}\n{entity.description}"
+            if entity.detail:
+                label = f"{label}\n{entity.detail}"
 
             output.append(label)
 
@@ -346,7 +346,10 @@ def topological_sort(
 def graph_to_digraph(graph: Graph) -> hierarchical_graph.DiGraph:
     """Convert GPT-generated graph into a proper hierarchical graph."""
     return hierarchical_graph.DiGraph.from_elements(
-        nodes=[hierarchical_graph.Node(e.name, e.type.value) for e in graph.entities],
+        nodes=[
+            hierarchical_graph.Node(e.name, e.type.value, e.detail)
+            for e in graph.entities
+        ],
         edges=[
             hierarchical_graph.Edge(r.source, r.target) for r in graph.relationships
         ],
