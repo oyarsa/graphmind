@@ -4,7 +4,6 @@ The input is the processed PeerRead dataset (peerread.Paper).
 """
 
 import asyncio
-import json
 import logging
 import random
 from collections.abc import Sequence
@@ -14,7 +13,6 @@ from typing import Annotated
 import dotenv
 import typer
 from openai import AsyncOpenAI
-from pydantic import TypeAdapter
 
 from paper import semantic_scholar as s2
 from paper.gpt.evaluate_paper import (
@@ -40,7 +38,6 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    display_params,
     ensure_envvar,
     get_params,
     progress,
@@ -48,7 +45,7 @@ from paper.util import (
     setup_logging,
     shuffled,
 )
-from paper.util.serde import load_data
+from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
 FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
@@ -245,14 +242,9 @@ async def evaluate_papers(
     logger.info("%s\n", display_metrics(metrics, results_items))
 
     assert len(results_all) == len(papers)
-    (output_dir / "result.json").write_bytes(
-        TypeAdapter(list[PromptResult[PaperResult]]).dump_json(results_all, indent=2)
-    )
-    (output_dir / "result_items.json").write_bytes(
-        TypeAdapter(list[PaperResult]).dump_json(results_items, indent=2)
-    )
-    (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
-    (output_dir / "params.json").write_text(json.dumps(params))
+    save_data(output_dir / "result.json", results_all)
+    save_data(output_dir / "metrics.json", metrics)
+    save_data(output_dir / "params.json", params)
 
 
 async def _classify_papers(

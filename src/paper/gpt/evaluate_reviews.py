@@ -4,7 +4,6 @@ The input is the processed PeerRead dataset (peerread.Paper).
 """
 
 import asyncio
-import json
 import logging
 import random
 from collections import Counter
@@ -46,7 +45,6 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    display_params,
     ensure_envvar,
     get_params,
     progress,
@@ -337,7 +335,7 @@ async def evaluate_reviews(
 
     save_data(output_dir / "result.json", results_all)
     save_data(output_dir / "metrics.json", metrics)
-    (output_dir / "params.json").write_text(json.dumps(params))
+    save_data(output_dir / "params.json", params)
 
     if len(results_all) != len(papers):
         logger.warning("Some papers are missing from the result.")

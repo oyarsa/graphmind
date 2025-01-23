@@ -13,7 +13,6 @@ Data:
 """
 
 import asyncio
-import json
 import logging
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -22,7 +21,7 @@ from typing import Annotated, Self
 import dotenv
 import typer
 from openai import AsyncOpenAI
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from paper import evaluation_metrics, peerread
 from paper import semantic_scholar as s2
@@ -47,7 +46,7 @@ from paper.util import (
     safediv,
     setup_logging,
 )
-from paper.util.serde import Record, load_data
+from paper.util.serde import Record, load_data, save_data
 
 logger = logging.getLogger(__name__)
 app = typer.Typer(
@@ -198,16 +197,18 @@ async def classify_contexts(
     stats, metrics = show_classified_stats(result.item for result in results_all)
     logger.info("Classification metrics:\n%s\n", stats)
 
-    assert len(results_all) == len(papers)
-    (output_dir / "result.json").write_bytes(
-        TypeAdapter(list[PromptResult[PaperWithContextClassfied]]).dump_json(
-            results_all, indent=2
-        )
-    )
+    save_data(output_dir / "results.json", results_all)
     (output_dir / "output.txt").write_text(stats)
-    (output_dir / "params.json").write_text(json.dumps(params))
+    save_data(output_dir / "params.json", params)
     if metrics is not None:
         (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
+
+    if len(results_all) != len(papers):
+        logger.warning(
+            "Some papers are missing from the output. Input: %d. Output: %d.",
+            len(papers),
+            len(results_all),
+        )
 
 
 class ContextClassified(BaseModel):

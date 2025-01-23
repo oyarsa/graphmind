@@ -12,7 +12,6 @@ information that can be useful for evaluating papers.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import random
 from collections.abc import Iterable, Mapping
@@ -236,7 +235,7 @@ async def summarise_related(
     assert len(results_all) == len(papers)
     save_data(output_dir / "result.json", results_all)
     save_data(output_dir / "result_items.json", results_items)
-    (output_dir / "params.json").write_text(json.dumps(params))
+    save_data(output_dir / "params.json", params)
 
 
 async def _summarise_papers(

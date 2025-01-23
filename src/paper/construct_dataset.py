@@ -19,7 +19,6 @@ This will build two files:
 
 from __future__ import annotations
 
-import json
 import random
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -126,7 +125,7 @@ def main(
     output_dir.mkdir(parents=True, exist_ok=True)
     save_data(output_dir / "peerread_with_s2_references.json", peerread_sampled)
     save_data(output_dir / "peerread_related.json", related_papers)
-    (output_dir / "params.json").write_text(json.dumps(params))
+    save_data(output_dir / "params.json", params)
 
 
 def _augment_peeread(

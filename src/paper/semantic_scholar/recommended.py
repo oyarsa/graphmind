@@ -17,7 +17,6 @@ The output is two files:
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
@@ -205,7 +204,7 @@ async def download_paper_recomendation(
         output_dir / "papers_with_recommendations.json", papers_with_recommendations
     )
     save_data(output_dir / "papers_recommended.json", papers_unique_valid)
-    (output_dir / "params.json").write_text(json.dumps(params))
+    save_data(output_dir / "params.json", params)
 
 
 async def _fetch_recommendations(

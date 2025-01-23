@@ -7,7 +7,6 @@ paper plus the prompts used and the extracted terms.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from collections.abc import Sequence
 from enum import StrEnum
@@ -42,7 +41,6 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    display_params,
     get_params,
     mustenv,
     progress,
@@ -320,7 +318,7 @@ async def annotate_papers(
 
     save_data(output_dir / "results_all.json", output.result)
     save_data(output_dir / "results_valid.json", output_valid)
-    (output_dir / "params.json").write_text(json.dumps(params))
+    save_data(output_dir / "params.json", params)
     assert len(papers) == len(output.result)
 
     if show_log:

@@ -10,6 +10,8 @@ from typing import (
     Literal,
     Protocol,
     Self,
+    TypeGuard,
+    cast,
     get_origin,
     overload,
     runtime_checkable,
@@ -86,9 +88,12 @@ def load_data[T: BaseModel](
 
 
 def save_data[T: BaseModel](
-    file: Path, data: Sequence[T] | T, use_alias: bool = True
+    file: Path, data: Sequence[T] | T | Any, use_alias: bool = True
 ) -> None:
-    """Save data in JSON `file`. Can be a single Pydantic object or a Sequence.
+    """Save data in JSON `file`. Can be a single Pydantic object or a Sequence, or Any.
+
+    If `data` is a Pydantic object or Sequence of one, we'll use Pydantic to convert
+    to JSON. If not, we'll use `json.dumps` directly.
 
     Args:
         file: File where data will be saved. Creates its parent directory if it doesn't
@@ -101,13 +106,34 @@ def save_data[T: BaseModel](
         raise ValueError("Cannot save empty data")
 
     file.parent.mkdir(parents=True, exist_ok=True)
+    file.write_text(_dump_data_to_json(data, use_alias=use_alias))
+
+
+def _dump_data_to_json[T: BaseModel](
+    data: Sequence[T] | T | Any, use_alias: bool
+) -> str:
+    """Return a JSON string representation of `data`.
+
+    - If `data` is a single BaseModel, use its `.model_dump_json()`.
+    - If `data` is a non-empty sequence of BaseModel, use `TypeAdapter`.
+    - Otherwise, fall back to `json.dumps`.
+    """
+
+    if isinstance(data, BaseModel):
+        return data.model_dump_json(indent=2, by_alias=use_alias)
+
     if isinstance(data, Sequence):
-        type_ = type(data[0])
-        file.write_bytes(
-            TypeAdapter(Sequence[type_]).dump_json(data, indent=2, by_alias=use_alias)
-        )
-    else:
-        file.write_text(data.model_dump_json(indent=2, by_alias=use_alias))
+        data = cast(Sequence[Any], data)
+        if _is_model_list(data):
+            type_ = type(data[0])
+            return TypeAdapter(Sequence[type_]).dump_json(data).decode()
+
+    return json.dumps(data, indent=2)
+
+
+def _is_model_list(val: Sequence[object]) -> TypeGuard[Sequence[BaseModel]]:
+    """Determine whether all objects in the list are Pydantic models."""
+    return all(isinstance(x, BaseModel) for x in val)
 
 
 def _get_full_type_name[T](type_: type[T]) -> str:

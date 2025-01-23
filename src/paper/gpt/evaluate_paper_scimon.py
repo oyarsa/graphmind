@@ -8,7 +8,6 @@ SciMON graph created by `scimon.build`.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import random
 from collections.abc import Iterable, Sequence
@@ -251,7 +250,7 @@ async def evaluate_papers(
     save_data(output_dir / "result.json", results_all)
     save_data(output_dir / "result_items.json", results_items)
     save_data(output_dir / "metrics.json", metrics)
-    (output_dir / "params.json").write_text(json.dumps(params))
+    save_data(output_dir / "params.json", params)
 
 
 async def _classify_papers(
