@@ -267,7 +267,7 @@ class Graph(Record):
         )
 
     @classmethod
-    def default(cls, title: str, abstract: str) -> Self:
+    def empty(cls, title: str, abstract: str) -> Self:
         """Graph without entities or relatioships.
 
         Used in cases where it's not possible to extract a valid graph.
@@ -279,8 +279,16 @@ class Graph(Record):
             relationships=[],
         )
 
+    # TODO: Implement conversion: find a path (e.g. toposort) through the graph, then
+    # convert each node to text. The text will be the sequence of these text nodes.
     def to_text(self) -> str:
-        """Convert graph to LLM-readable text."""
+        """Convert graph to LLM-readable text.
+
+        If the graph is empty, returns an empty string.
+        """
+        if not self.entities and not self.relationships:
+            return ""
+
         return ""
 
 
