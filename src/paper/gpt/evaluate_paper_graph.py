@@ -336,8 +336,11 @@ Given the following target paper and a selection of related papers separated by 
 they're supporting or contrasting the main paper, give a novelty rating to a paper \
 submitted to a high-quality scientific conference.
 """
-# TODO: Write system prompt for graph extraction
-_GRAPH_EXTRACT_SYSTEM_PROMPT = """"""
+_GRAPH_EXTRACT_SYSTEM_PROMPT = """\
+Given the following scientific paper, extract the important entities from the text and \
+the relationships between them. The goal is to build a faithful and concise representation \
+of the paper that captures the most important elements necessary to evaluate its novelty.
+"""
 
 
 async def _evaluate_paper(
