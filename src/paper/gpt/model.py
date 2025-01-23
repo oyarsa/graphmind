@@ -279,9 +279,10 @@ class Graph(Record):
             relationships=[],
         )
 
-    # TODO: Implement conversion: find a path (e.g. toposort) through the graph, then
-    # convert each node to text. The text will be the sequence of these text nodes.
     def to_text(self) -> str:
+        # @TODO: Implement conversion: find a path (e.g. toposort) through the graph,
+        # then convert each node to text. The text will be the sequence of these text
+        # nodes.
         """Convert graph to LLM-readable text.
 
         If the graph is empty, returns an empty string.

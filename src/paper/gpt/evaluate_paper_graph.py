@@ -63,7 +63,7 @@ from paper.util.serde import Record, load_data, save_data
 
 logger = logging.getLogger(__name__)
 
-# TODO: Fix the prompts to work.
+# @TODO: Fix the prompts to work.
 GRAPH_EVAL_USER_PROMPTS = load_prompts("evaluate_graph")
 GRAPH_EXTRACT_USER_PROMPTS = load_prompts("extract_graph")
 

@@ -442,10 +442,10 @@ async def _classify_contexts(
     return GPTResult(paper_outputs, total_cost)
 
 
-# FIX:This one is a bit messy. Refactor it. (2024-10-26)
 def show_classified_stats(
     data: Iterable[PaperWithContextClassfied],
 ) -> tuple[str, evaluation_metrics.Metrics | None]:
+    # @REFACTOR:This one is a bit messy. Refactor it. (2024-10-26)
     """Evaluate the annotation results and print statistics.
 
     If the data includes gold annotation, calculate evaluation metrics. If not,
