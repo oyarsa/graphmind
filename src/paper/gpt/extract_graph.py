@@ -19,8 +19,8 @@ from paper.gpt.model import (
     Entity,
     EntityType,
     Graph,
-    PaperGraph,
     Prompt,
+    PromptResult,
     Relationship,
     graph_to_digraph,
 )
@@ -241,13 +241,12 @@ class GraphResult(Record):
 
 
 def save_graphs(
-    paper_graphs: Iterable[PaperGraph],
-    output_dir: Path,
+    graph_results: Iterable[PromptResult[GraphResult]], output_dir: Path
 ) -> None:
     """Save results as a JSON file with the prompts and graphs in GraphML format.
 
     Args:
-        paper_graphs: Papers and the graphs generated from them.
+        graph_results: Result of paper evaluation with graphs, wrapped with prompt.
         output_dir: Where the graph and image wll be persisted. The graph is saved as
             GraphML and the image as PNG.
     """
@@ -264,19 +263,19 @@ def save_graphs(
 
     output.extend(
         Output(
-            paper=pg.paper.title,
-            graphml=graph_to_digraph(pg.graph.item).graphml(),
-            graph=pg.graph.item,
-            prompt=pg.graph.prompt,
+            paper=gr.item.paper.title,
+            graphml=graph_to_digraph(gr.item.graph).graphml(),
+            graph=gr.item.graph,
+            prompt=gr.prompt,
         )
-        for pg in paper_graphs
+        for gr in graph_results
     )
     save_data(output_dir / "result_graphs.json", output)
 
 
 def display_graphs(
     model: str,
-    paper_graphs: Iterable[PaperGraph],
+    graph_results: Iterable[GraphResult],
     graph_user_prompt_key: str,
     output_dir: Path,
     display_gui: bool,
@@ -286,21 +285,21 @@ def display_graphs(
     Args:
         model: GPT model used to generate the Graph
         graph_user_prompt_key: Key to the prompt used to generate the Graph
-        paper_graphs: Papers and the graphs generated from them
+        graph_results: Result of paper evaluation with graphs.
         output_dir: Where the graph and image wll be persisted. The graph is saved as
             GraphML and the image as PNG.
         display_gui: If True, show the graph on screen. This suspends the process until
             the plot is closed.
     """
-    for pg in paper_graphs:
-        dag = graph_to_digraph(pg.graph.item)
+    for pg in graph_results:
+        dag = graph_to_digraph(pg.graph)
 
         try:
             dag.visualise_hierarchy(
                 img_path=output_dir / f"{pg.paper.title}.png",
                 display_gui=display_gui,
                 description=f"index - model: {model} - prompt: {graph_user_prompt_key}\n"
-                f"status: {pg.graph.item.valid_status}\n",
+                f"status: {pg.graph.valid_status}\n",
             )
         except hierarchical_graph.GraphError:
             logger.exception("Error visualising graph")
