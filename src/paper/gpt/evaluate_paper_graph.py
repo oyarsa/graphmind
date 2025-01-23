@@ -226,7 +226,6 @@ async def evaluate_papers(
         None. The output is saved to `output_dir`.
     """
     params = get_params()
-    logger.info(display_params())  # TODO: Remove if get/render works.
     logger.info(render_params(params))
 
     random.seed(seed)

@@ -23,7 +23,7 @@ from paper import gpt
 from paper import semantic_scholar as s2
 from paper.scimon import citations, kg, semantic
 from paper.scimon.graph import Graph, GraphData
-from paper.util import Timer, display_params, setup_logging
+from paper.util import Timer, get_params, render_params, setup_logging
 from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger("paper.scimon.build")
@@ -55,8 +55,8 @@ def main(
 ) -> None:
     """Build the three SciMON graphs (KG, semantic and citations) as a single structure."""
     setup_logging()
-    params = display_params()
-    logger.info(params)
+    params = get_params()
+    logger.info(render_params(params))
 
     logger.debug("Loading data.")
 

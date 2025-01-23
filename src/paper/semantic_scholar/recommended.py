@@ -17,6 +17,7 @@ The output is two files:
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
@@ -36,7 +37,13 @@ from paper.semantic_scholar.model import (
     PaperWithRecommendations,
     PeerReadPaperWithS2,
 )
-from paper.util import arun_safe, display_params, ensure_envvar, progress
+from paper.util import (
+    arun_safe,
+    ensure_envvar,
+    get_params,
+    progress,
+    render_params,
+)
 from paper.util.cli import die
 from paper.util.serde import load_data, save_data
 
@@ -158,7 +165,8 @@ async def download_paper_recomendation(
     to minimise the bandwidth required, as payloads larger than 10 MB will generate
     errors.
     """
-    print(display_params())
+    params = get_params()
+    print(render_params(params))
 
     dotenv.load_dotenv()
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
@@ -197,6 +205,7 @@ async def download_paper_recomendation(
         output_dir / "papers_with_recommendations.json", papers_with_recommendations
     )
     save_data(output_dir / "papers_recommended.json", papers_unique_valid)
+    (output_dir / "params.json").write_text(json.dumps(params))
 
 
 async def _fetch_recommendations(

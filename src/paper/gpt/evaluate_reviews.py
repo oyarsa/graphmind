@@ -4,6 +4,7 @@ The input is the processed PeerRead dataset (peerread.Paper).
 """
 
 import asyncio
+import json
 import logging
 import random
 from collections import Counter
@@ -47,7 +48,9 @@ from paper.util import (
     cli,
     display_params,
     ensure_envvar,
+    get_params,
     progress,
+    render_params,
     setup_logging,
     shuffled,
 )
@@ -248,8 +251,8 @@ async def evaluate_reviews(
         keep_intermediate: Keep intermediate results to be used with `continue`.
     """
     random.seed(seed)
-    params = display_params()
-    logger.info(params)
+    params = get_params()
+    logger.info(render_params(params))
 
     dotenv.load_dotenv()
 
@@ -334,7 +337,7 @@ async def evaluate_reviews(
 
     save_data(output_dir / "result.json", results_all)
     save_data(output_dir / "metrics.json", metrics)
-    (output_dir / "params.txt").write_text(params)
+    (output_dir / "params.json").write_text(json.dumps(params))
 
     if len(results_all) != len(papers):
         logger.warning("Some papers are missing from the result.")

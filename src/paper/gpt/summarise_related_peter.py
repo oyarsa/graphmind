@@ -12,6 +12,7 @@ information that can be useful for evaluating papers.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import random
 from collections.abc import Iterable, Mapping
@@ -43,9 +44,10 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    display_params,
     ensure_envvar,
+    get_params,
     progress,
+    render_params,
     setup_logging,
     shuffled,
 )
@@ -168,7 +170,8 @@ async def summarise_related(
     Returns:
         None. The output is saved to `output_dir`.
     """
-    logger.info(display_params())
+    params = get_params()
+    logger.info(render_params(params))
 
     random.seed(seed)
 
@@ -233,6 +236,7 @@ async def summarise_related(
     assert len(results_all) == len(papers)
     save_data(output_dir / "result.json", results_all)
     save_data(output_dir / "result_items.json", results_items)
+    (output_dir / "params.json").write_text(json.dumps(params))
 
 
 async def _summarise_papers(

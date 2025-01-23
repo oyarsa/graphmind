@@ -19,6 +19,7 @@ This will build two files:
 
 from __future__ import annotations
 
+import json
 import random
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -28,7 +29,7 @@ import typer
 
 from paper import peerread as pr
 from paper import semantic_scholar as s2
-from paper.util import display_params
+from paper.util import get_params, render_params
 from paper.util.serde import Record, load_data, save_data
 
 app = typer.Typer(
@@ -93,8 +94,8 @@ def main(
     ] = 0,
 ) -> None:
     """Combine reference and recommended papers data into a dataset."""
-    params = display_params()
-    print(params)
+    params = get_params()
+    print(render_params(params))
 
     random.seed(seed)
 
@@ -125,7 +126,7 @@ def main(
     output_dir.mkdir(parents=True, exist_ok=True)
     save_data(output_dir / "peerread_with_s2_references.json", peerread_sampled)
     save_data(output_dir / "peerread_related.json", related_papers)
-    (output_dir / "params.txt").write_text(params)
+    (output_dir / "params.json").write_text(json.dumps(params))
 
 
 def _augment_peeread(

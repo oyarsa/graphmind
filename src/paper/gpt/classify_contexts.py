@@ -13,6 +13,7 @@ Data:
 """
 
 import asyncio
+import json
 import logging
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -38,10 +39,11 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    display_params,
     ensure_envvar,
+    get_params,
     hashstr,
     progress,
+    render_params,
     safediv,
     setup_logging,
 )
@@ -136,7 +138,8 @@ async def classify_contexts(
     seed: int,
 ) -> None:
     """Classify reference citation contexts by polarity."""
-    logger.info(display_params())
+    params = get_params()
+    logger.info(render_params(params))
 
     dotenv.load_dotenv()
 
@@ -202,6 +205,7 @@ async def classify_contexts(
         )
     )
     (output_dir / "output.txt").write_text(stats)
+    (output_dir / "params.json").write_text(json.dumps(params))
     if metrics is not None:
         (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
 
@@ -437,7 +441,7 @@ async def _classify_contexts(
     return GPTResult(paper_outputs, total_cost)
 
 
-# TODO:This one is a bit messy. Refactor it.
+# FIX:This one is a bit messy. Refactor it. (2024-10-26)
 def show_classified_stats(
     data: Iterable[PaperWithContextClassfied],
 ) -> tuple[str, evaluation_metrics.Metrics | None]:

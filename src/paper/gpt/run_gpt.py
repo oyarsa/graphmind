@@ -336,7 +336,7 @@ def init_remaining_items[T: Record, U: Record](
     return output_intermediate_file, papers_remaining
 
 
-# TODO: Move stuff away from this and to `init_remaining_items`.
+# FIX: Move stuff away from this and to `init_remaining_items`. (2025-01-23)
 def get_remaining_items[T: Record, U: Record](
     continue_type_: type[T],
     output_intermediate_file: Path,

@@ -7,6 +7,7 @@ paper plus the prompts used and the extracted terms.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import Sequence
 from enum import StrEnum
@@ -42,8 +43,10 @@ from paper.util import (
     Timer,
     cli,
     display_params,
+    get_params,
     mustenv,
     progress,
+    render_params,
     setup_logging,
 )
 from paper.util.serde import load_data, save_data
@@ -250,7 +253,8 @@ async def annotate_papers(
             dependent on the prompt.
         paper_type: Type of the paper input data.
     """
-    logger.info(display_params())
+    params = get_params()
+    logger.info(render_params(params))
 
     dotenv.load_dotenv()
 
@@ -316,6 +320,7 @@ async def annotate_papers(
 
     save_data(output_dir / "results_all.json", output.result)
     save_data(output_dir / "results_valid.json", output_valid)
+    (output_dir / "params.json").write_text(json.dumps(params))
     assert len(papers) == len(output.result)
 
     if show_log:

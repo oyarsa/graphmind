@@ -4,6 +4,7 @@ The input is the processed PeerRead dataset (peerread.Paper).
 """
 
 import asyncio
+import json
 import logging
 import random
 from collections.abc import Sequence
@@ -41,7 +42,9 @@ from paper.util import (
     cli,
     display_params,
     ensure_envvar,
+    get_params,
     progress,
+    render_params,
     setup_logging,
     shuffled,
 )
@@ -180,7 +183,8 @@ async def evaluate_papers(
     Returns:
         None. The output is saved to `output_dir`.
     """
-    logger.info(display_params())
+    params = get_params()
+    logger.info(render_params(params))
 
     random.seed(seed)
 
@@ -248,6 +252,7 @@ async def evaluate_papers(
         TypeAdapter(list[PaperResult]).dump_json(results_items, indent=2)
     )
     (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
+    (output_dir / "params.json").write_text(json.dumps(params))
 
 
 async def _classify_papers(
