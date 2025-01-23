@@ -266,6 +266,23 @@ class Graph(Record):
             ]
         )
 
+    @classmethod
+    def default(cls, title: str, abstract: str) -> Self:
+        """Graph without entities or relatioships.
+
+        Used in cases where it's not possible to extract a valid graph.
+        """
+        return cls(
+            title=title,
+            abstract=abstract,
+            entities=[],
+            relationships=[],
+        )
+
+    def to_text(self) -> str:
+        """Convert graph to LLM-readable text."""
+        return ""
+
 
 def graph_to_digraph(graph: Graph) -> hierarchical_graph.DiGraph:
     """Convert GPT-generated graph into a proper hierarchical graph."""
