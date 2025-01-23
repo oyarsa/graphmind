@@ -66,7 +66,7 @@ from paper.util.serde import Record, load_data, save_data
 logger = logging.getLogger(__name__)
 
 # TODO: Fix the prompts to work.
-GRAPH_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_graph")
+GRAPH_EVAL_USER_PROMPTS = load_prompts("evaluate_graph")
 GRAPH_EXTRACT_USER_PROMPTS = load_prompts("extract_graph")
 
 app = typer.Typer(
@@ -105,18 +105,18 @@ def run(
         int,
         typer.Option("--limit", "-n", help="The number of papers to process."),
     ] = 10,
-    class_prompt: Annotated[
+    eval_prompt: Annotated[
         str,
         typer.Option(
-            help="The user prompt to use for classification.",
-            click_type=cli.Choice(GRAPH_CLASSIFY_USER_PROMPTS),
+            help="The user prompt to use for paper evaluation.",
+            click_type=cli.Choice(GRAPH_EVAL_USER_PROMPTS),
         ),
     ] = "simple",
     graph_prompt: Annotated[
         str,
         typer.Option(
             help="The user prompt to use for graph extraction.",
-            click_type=cli.Choice(GRAPH_CLASSIFY_USER_PROMPTS),
+            click_type=cli.Choice(GRAPH_EVAL_USER_PROMPTS),
         ),
     ] = "simple",
     continue_papers: Annotated[
@@ -153,7 +153,7 @@ def run(
             model,
             paper_file,
             limit_papers,
-            class_prompt,
+            eval_prompt,
             graph_prompt,
             output_dir,
             continue_papers,
@@ -206,7 +206,7 @@ async def evaluate_papers(
             graph data and summarised related papers.
         limit_papers: Number of papers to process. If None, process all.
         eval_prompt_key: Key to the user prompt to use for paper evaluation. See
-            `GRAPH_CLASSIFY_USER_PROMPTS` for available options or the `prompts` command
+            `GRAPH_EVAL_USER_PROMPTS` for available options or the `prompts` command
             for more information.
         graph_prompt_key: Key to the user prompt to use for graph extraction. See
             `GRAPH_EXTRACT_USER_PROMPTS` for available optoins or the `prompts` command
@@ -248,7 +248,7 @@ async def evaluate_papers(
         )
     )[:limit_papers]
 
-    class_prompt = GRAPH_CLASSIFY_USER_PROMPTS[eval_prompt_key]
+    eval_prompt = GRAPH_EVAL_USER_PROMPTS[eval_prompt_key]
     graph_prompt = GRAPH_EXTRACT_USER_PROMPTS[graph_prompt_key]
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
@@ -257,10 +257,10 @@ async def evaluate_papers(
     )
 
     with Timer() as timer:
-        results = await _classify_papers(
+        results = await _evaluate_papers(
             client,
             model,
-            class_prompt,
+            eval_prompt,
             graph_prompt,
             papers_remaining.remaining,
             output_intermediate_file,
@@ -289,10 +289,10 @@ async def evaluate_papers(
         )
 
 
-async def _classify_papers(
+async def _evaluate_papers(
     client: AsyncOpenAI,
     model: str,
-    class_prompt: PromptTemplate,
+    eval_prompt: PromptTemplate,
     graph_prompt: PromptTemplate,
     paper: Sequence[PaperWithRelatedSummary],
     output_intermediate_file: Path,
@@ -304,7 +304,7 @@ async def _classify_papers(
     Args:
         client: OpenAI client to use GPT.
         model: GPT model code to use (must support Structured Outputs).
-        class_prompt: Prompt template for novelty evaluation.
+        eval_prompt: Prompt template for novelty evaluation.
         graph_prompt: Prompt template for graph extraction.
         paper: Annotated PeerRead papers with their summarised graph data.
         output_intermediate_file: File to write new results after paper is evaluated.
@@ -312,19 +312,19 @@ async def _classify_papers(
         seed: Seed for the OpenAI API call.
 
     Returns:
-        List of classified papers and their prompts wrapped in a GPTResult.
+        List of evaluated papers and their prompts wrapped in a GPTResult.
     """
     results: list[PromptResult[GraphResult]] = []
     total_cost = 0
 
     tasks = [
-        _classify_paper(
-            client, model, paper, class_prompt, graph_prompt, demonstrations, seed
+        _evaluate_paper(
+            client, model, paper, eval_prompt, graph_prompt, demonstrations, seed
         )
         for paper in paper
     ]
 
-    for task in progress.as_completed(tasks, desc="Classifying papers"):
+    for task in progress.as_completed(tasks, desc="Evaluating papers"):
         result = await task
         total_cost += result.cost
 
@@ -334,20 +334,20 @@ async def _classify_papers(
     return GPTResult(results, total_cost)
 
 
-_PETER_CLASSIFY_SYSTEM_PROMPT = """\
+_GRAPH_EVAL_SYSTEM_PROMPT = """\
 Given the following target paper and a selection of related papers separated by whether \
 they're supporting or contrasting the main paper, give a novelty rating to a paper \
 submitted to a high-quality scientific conference.
 """
 # TODO: Write system prompt for graph extraction
-_PETER_EXTRACT_SYSTEM_PROMPT = """"""
+_GRAPH_EXTRACT_SYSTEM_PROMPT = """"""
 
 
-async def _classify_paper(
+async def _evaluate_paper(
     client: AsyncOpenAI,
     model: str,
     paper: PaperWithRelatedSummary,
-    class_prompt: PromptTemplate,
+    eval_prompt: PromptTemplate,
     graph_prompt: PromptTemplate,
     demonstrations: str,
     seed: int,
@@ -356,7 +356,7 @@ async def _classify_paper(
     graph_result = await run_gpt(
         GPTGraph,
         client,
-        _PETER_EXTRACT_SYSTEM_PROMPT,
+        _GRAPH_EXTRACT_SYSTEM_PROMPT,
         graph_prompt_text,
         model,
         seed=seed,
@@ -367,38 +367,36 @@ async def _classify_paper(
         else Graph.empty(title=paper.title, abstract=paper.abstract)
     )
 
-    class_prompt_text = format_class_template(
-        class_prompt, paper, graph, demonstrations
-    )
-    class_result = await run_gpt(
+    eval_prompt_text = format_eval_template(eval_prompt, paper, graph, demonstrations)
+    eval_result = await run_gpt(
         GPTFull,
         client,
-        _PETER_CLASSIFY_SYSTEM_PROMPT,
-        class_prompt_text,
+        _GRAPH_EVAL_SYSTEM_PROMPT,
+        eval_prompt_text,
         model,
         seed=seed,
     )
 
     eval_paper = paper.paper.paper
-    classified = fix_classified_rating(class_result.result or GPTFull.error())
+    evaluated = fix_classified_rating(eval_result.result or GPTFull.error())
 
     sep = f"\n\n{"-" * 80}\n\n"
     combined_system_prompt = (
-        f"{_PETER_EXTRACT_SYSTEM_PROMPT}{sep}{_PETER_CLASSIFY_SYSTEM_PROMPT}"
+        f"{_GRAPH_EXTRACT_SYSTEM_PROMPT}{sep}{_GRAPH_EVAL_SYSTEM_PROMPT}"
     )
-    combined_user_prompt = f"{graph_prompt_text}{sep}{class_prompt_text}"
+    combined_user_prompt = f"{graph_prompt_text}{sep}{eval_prompt_text}"
 
     return GPTResult(
         result=PromptResult(
             item=GraphResult(
                 paper=PaperResult.from_s2peer(
-                    eval_paper, classified.rating, classified.rationale
+                    eval_paper, evaluated.rating, evaluated.rationale
                 ),
                 graph=graph,
             ),
             prompt=Prompt(system=combined_system_prompt, user=combined_user_prompt),
         ),
-        cost=class_result.cost,
+        cost=eval_result.cost,
     )
 
 
@@ -414,7 +412,7 @@ def format_graph_template(
     )
 
 
-def format_class_template(
+def format_eval_template(
     prompt: PromptTemplate,
     paper: PaperWithRelatedSummary,
     graph: Graph,
@@ -448,7 +446,7 @@ def prompts(
     """Print the available prompt names, and optionally, the full prompt text."""
     for title, prompts in [
         ("GRAPH EXTRACTION", GRAPH_EXTRACT_USER_PROMPTS),
-        ("GRAPH PAPER EVALUATION", GRAPH_CLASSIFY_USER_PROMPTS),
+        ("GRAPH PAPER EVALUATION", GRAPH_EVAL_USER_PROMPTS),
     ]:
         print_prompts(title, prompts, detail=detail)
 
