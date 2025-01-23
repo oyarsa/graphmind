@@ -27,7 +27,7 @@ from paper.gpt.evaluate_paper import (
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
-    fix_classified_rating,
+    fix_evaluated_rating,
     format_demonstrations,
 )
 from paper.gpt.model import (
@@ -331,7 +331,7 @@ async def _classify_paper(
     )
 
     paper = ann_result.paper.paper
-    classified = fix_classified_rating(result.result or GPTFull.error())
+    classified = fix_evaluated_rating(result.result or GPTFull.error())
 
     return GPTResult(
         result=PromptResult(

@@ -29,7 +29,7 @@ from paper.gpt.evaluate_paper import (
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
-    fix_classified_rating,
+    fix_evaluated_rating,
     get_demonstrations,
 )
 from paper.gpt.extract_graph import GPTGraph
@@ -378,7 +378,7 @@ async def _evaluate_paper(
     )
 
     eval_paper = paper.paper.paper
-    evaluated = fix_classified_rating(eval_result.result or GPTFull.error())
+    evaluated = fix_evaluated_rating(eval_result.result or GPTFull.error())
 
     sep = f"\n\n{"-" * 80}\n\n"
     combined_system_prompt = (

@@ -206,21 +206,21 @@ EVALUATE_DEMONSTRATIONS = _load_demonstrations()
 """Available demonstrations from `paper.gpt.demonstrations`."""
 
 
-def fix_classified_rating(classified: GPTFull) -> GPTFull:
-    """Fix classified rating if out of range by clamping to [1, 5].
+def fix_evaluated_rating(evaluated: GPTFull) -> GPTFull:
+    """Fix evaluated rating if out of range by clamping to [1, 5].
 
     Args:
-        classified: Classified result to be checked.
+        evaluated: Evaluation result to be checked.
 
     Returns:
         Same input if valid rating, or new object with fixed rating.
     """
-    if classified.rating in range(1, 6):
-        return classified
+    if evaluated.rating in range(1, 6):
+        return evaluated
 
-    logger.warning("Invalid rating: %d. Clamping to 1-5.", classified.rating)
-    clamped_rating = max(1, min(classified.rating, 5))
-    return replace_fields(classified, rating=clamped_rating)
+    logger.warning("Invalid rating: %d. Clamping to 1-5.", evaluated.rating)
+    clamped_rating = max(1, min(evaluated.rating, 5))
+    return replace_fields(evaluated, rating=clamped_rating)
 
 
 class RatingMode(StrEnum):

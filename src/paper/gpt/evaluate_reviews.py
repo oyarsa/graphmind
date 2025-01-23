@@ -25,7 +25,7 @@ from paper.gpt.evaluate_paper import (
     GPTFull,
     RatingMode,
     apply_rating_mode,
-    fix_classified_rating,
+    fix_evaluated_rating,
 )
 from paper.gpt.model import (
     PaperWithReviewEval,
@@ -521,7 +521,7 @@ async def _evaluate_paper_reviews(
         )
         total_cost += result.cost
 
-        evaluated = fix_classified_rating(result.result or GPTFull.error())
+        evaluated = fix_evaluated_rating(result.result or GPTFull.error())
 
         new_review = ReviewEvaluation(
             rating=apply_rating_mode(review.rating, mode),
