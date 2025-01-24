@@ -1,5 +1,10 @@
 [[prompts]]
 name = "simple"
+system = """\
+Given the following target paper and a selection of related papers separated by whether \
+they're supporting or contrasting the main paper, give a novelty rating to a paper \
+submitted to a high-quality scientific conference.
+"""
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 main paper's title and abstract and some related papers. These related papers are \

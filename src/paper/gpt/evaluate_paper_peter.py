@@ -212,6 +212,8 @@ async def evaluate_papers(
     )[:limit_papers]
 
     user_prompt = PETER_CLASSIFY_USER_PROMPTS[user_prompt_key]
+    if not user_prompt.system:
+        raise ValueError(f"Prompt {user_prompt_key!r} does not have a system prompt.")
 
     demonstration_data = (
         EVALUATE_DEMONSTRATIONS[demonstrations_key] if demonstrations_key else []
@@ -304,13 +306,6 @@ async def _classify_papers(
     return GPTResult(results, total_cost)
 
 
-_PETER_CLASSIFY_SYSTEM_PROMPT = """\
-Given the following target paper and a selection of related papers separated by whether \
-they're supporting or contrasting the main paper, give a novelty rating to a paper \
-submitted to a high-quality scientific conference.
-"""
-
-
 async def _classify_paper(
     client: AsyncOpenAI,
     model: str,
@@ -321,12 +316,11 @@ async def _classify_paper(
     seed: int,
 ) -> GPTResult[PromptResult[PaperResult]]:
     user_prompt_text = format_template(user_prompt, ann_result, demonstrations)
-    system_prompt = user_prompt.system or _PETER_CLASSIFY_SYSTEM_PROMPT
 
     result = await run_gpt(
         GPTFull,
         client,
-        system_prompt,
+        user_prompt.system,
         user_prompt_text,
         model,
         seed=seed,
@@ -340,7 +334,7 @@ async def _classify_paper(
             item=PaperResult.from_s2peer(
                 paper, classified.rating, classified.rationale
             ),
-            prompt=Prompt(system=system_prompt, user=user_prompt_text),
+            prompt=Prompt(system=user_prompt.system, user=user_prompt_text),
         ),
         cost=result.cost,
     )
