@@ -45,7 +45,10 @@ def print_prompts(
     for prompt in prompts.values():
         if detail:
             sep = "-" * 80
-            print(f"{sep}\n{prompt.name}\n{sep}\n{prompt.template}")
+            system = prompt.system or "default"
+            print(
+                f"{sep}\n{prompt.name}\n{sep}\nSystem: {system}\n{sep}\n{prompt.template}"
+            )
         else:
             print(f"- {prompt.name}")
     print()
