@@ -339,20 +339,26 @@ async def _evaluate_paper(
     demonstrations: str,
     seed: int,
 ) -> GPTResult[PromptResult[GraphResult]]:
-    graph_prompt_text = format_graph_template(graph_prompt, paper.paper, demonstrations)
-    graph_result = await run_gpt(
-        GPTGraph,
-        client,
-        _GRAPH_EXTRACT_SYSTEM_PROMPT,
-        graph_prompt_text,
-        model,
-        seed=seed,
-    )
-    graph = (
-        graph_result.result.to_graph(title=paper.title, abstract=paper.abstract)
-        if graph_result.result
-        else Graph.empty()
-    )
+    if "graph" in eval_prompt.name:
+        graph_prompt_text = format_graph_template(
+            graph_prompt, paper.paper, demonstrations
+        )
+        graph_result = await run_gpt(
+            GPTGraph,
+            client,
+            _GRAPH_EXTRACT_SYSTEM_PROMPT,
+            graph_prompt_text,
+            model,
+            seed=seed,
+        )
+        graph = (
+            graph_result.result.to_graph(title=paper.title, abstract=paper.abstract)
+            if graph_result.result
+            else Graph.empty()
+        )
+    else:
+        graph_prompt_text = "<no graph>"
+        graph = Graph.empty()
 
     eval_prompt_text = format_eval_template(eval_prompt, paper, graph, demonstrations)
     eval_result = await run_gpt(
