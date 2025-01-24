@@ -75,56 +75,56 @@ class GPTGraph(BaseModel):
     def to_graph(self, title: str, abstract: str) -> Graph:
         """Build a real `Graph` from the entities and their relationships."""
 
-        # Track seen names to detect duplicates
-        names_map: dict[tuple[str, EntityType], str] = {}
-        names_seen: set[str] = set()
+        # Track seen labels to detect duplicates
+        label_map: dict[tuple[str, EntityType], str] = {}
+        labels_seen: set[str] = set()
 
-        def entity(name: str, type: EntityType) -> Entity:
-            if name in names_seen:
-                unique_name = f"{name} ({type.value})"
+        def entity(label: str, type: EntityType) -> Entity:
+            if label in labels_seen:
+                unique_label = f"{label} ({type.value})"
             else:
-                names_seen.add(name)
-                unique_name = name
-            names_map[name, type] = unique_name
-            return Entity(name=unique_name, type=type)
+                labels_seen.add(label)
+                unique_label = label
+            label_map[label, type] = unique_label
+            return Entity(label=unique_label, type=type)
 
         entities = [
             entity(self.title, EntityType.TITLE),
             entity(self.primary_area, EntityType.PRIMARY_AREA),
             *(entity(kw, EntityType.KEYWORD) for kw in self.keywords),
             entity(self.tldr, EntityType.TLDR),
-            *(entity(c.text, EntityType.CLAIM) for c in self.claims),
-            *(entity(m.text, EntityType.METHOD) for m in self.methods),
-            *(entity(x.text, EntityType.EXPERIMENT) for x in self.experiments),
+            *(entity(c.label, EntityType.CLAIM) for c in self.claims),
+            *(entity(m.label, EntityType.METHOD) for m in self.methods),
+            *(entity(x.label, EntityType.EXPERIMENT) for x in self.experiments),
         ]
 
         relationships = [
             Relationship(
-                source=names_map[self.title, EntityType.TITLE],
-                target=names_map[self.primary_area, EntityType.PRIMARY_AREA],
+                source=label_map[self.title, EntityType.TITLE],
+                target=label_map[self.primary_area, EntityType.PRIMARY_AREA],
             ),
             *(
                 Relationship(
-                    source=names_map[self.title, EntityType.TITLE],
-                    target=names_map[kw, EntityType.KEYWORD],
+                    source=label_map[self.title, EntityType.TITLE],
+                    target=label_map[kw, EntityType.KEYWORD],
                 )
                 for kw in self.keywords
             ),
             Relationship(
-                source=names_map[self.title, EntityType.TITLE],
-                target=names_map[self.tldr, EntityType.TLDR],
+                source=label_map[self.title, EntityType.TITLE],
+                target=label_map[self.tldr, EntityType.TLDR],
             ),
             *(
                 Relationship(
-                    source=names_map[self.tldr, EntityType.TLDR],
-                    target=names_map[c.text, EntityType.CLAIM],
+                    source=label_map[self.tldr, EntityType.TLDR],
+                    target=label_map[c.label, EntityType.CLAIM],
                 )
                 for c in self.claims
             ),
             *(
                 Relationship(
-                    source=names_map[c.text, EntityType.CLAIM],
-                    target=names_map[target.text, EntityType.METHOD],
+                    source=label_map[c.label, EntityType.CLAIM],
+                    target=label_map[target.label, EntityType.METHOD],
                 )
                 for c in self.claims
                 for midx in c.method_indices
@@ -132,8 +132,8 @@ class GPTGraph(BaseModel):
             ),
             *(
                 Relationship(
-                    source=names_map[m.text, EntityType.METHOD],
-                    target=names_map[target.text, EntityType.EXPERIMENT],
+                    source=label_map[m.label, EntityType.METHOD],
+                    target=label_map[target.label, EntityType.EXPERIMENT],
                 )
                 for m in self.methods
                 for eidx in m.experiment_indices
@@ -152,7 +152,9 @@ class GPTGraph(BaseModel):
 class ClaimEntity(BaseModel):
     """Entity representing a claim made in the paper."""
 
-    text: Annotated[str, Field(description="Description of a claim made by the paper")]
+    label: Annotated[
+        str, Field(description="Summary label of a claim made by the paper.")
+    ]
     method_indices: Annotated[
         Sequence[int],
         Field(
@@ -165,10 +167,10 @@ class ClaimEntity(BaseModel):
 class MethodEntity(BaseModel):
     """Entity representing a method described in the paper to support the claims."""
 
-    text: Annotated[
+    label: Annotated[
         str,
         Field(
-            description="Description of a method used to validate claims from the paper."
+            description="Summary label of a method used to validate claims from the paper."
         ),
     ]
     index: Annotated[
@@ -186,10 +188,10 @@ class MethodEntity(BaseModel):
 class ExperimentEntity(BaseModel):
     """Entity representing an experiment used to validate a method from the paper."""
 
-    text: Annotated[
+    label: Annotated[
         str,
         Field(
-            description="Description of an experiment used to validate the methods from"
+            description="Summary label of an experiment used to validate the methods from"
             " the paper."
         ),
     ]

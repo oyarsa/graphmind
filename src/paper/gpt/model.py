@@ -45,7 +45,7 @@ class Entity(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    name: str
+    label: str
     type: EntityType
     # @TODO: Add description text to entity
     detail: str | None = None
@@ -119,12 +119,12 @@ class Graph(Record):
         # Rule 0: Every entity must be unique
         if entity_counts := [
             f"{entity} ({count})"
-            for entity, count in Counter(e.name for e in self.entities).most_common()
+            for entity, count in Counter(e.label for e in self.entities).most_common()
             if count > 1
         ]:
             errors.append(f"Entities with non-unique names: {", ".join(entity_counts)}")
 
-        entities = {entity.name: entity for entity in self.entities}
+        entities = {entity.label: entity for entity in self.entities}
         incoming: defaultdict[str, list[Relationship]] = defaultdict(list)
         outgoing: defaultdict[str, list[Relationship]] = defaultdict(list)
 
@@ -143,7 +143,7 @@ class Graph(Record):
 
         # Rule 2: Title node cannot have incoming edges
         title = _get_nodes_of_type(self.entities, EntityType.TITLE)[0]
-        if incoming[title.name]:
+        if incoming[title.label]:
             errors.append("Title node should not have any incoming edges.")
 
         # Rule 3: TLDR, Primary Area and Keyword nodes only have incoming edges from Title
@@ -151,11 +151,11 @@ class Graph(Record):
         for node_type in level_2:
             nodes = _get_nodes_of_type(self.entities, node_type)
             for node in nodes:
-                inc_edges = incoming[node.name]
+                inc_edges = incoming[node.label]
                 if len(inc_edges) != 1:
                     errors.append(
                         f"Found {len(inc_edges)} incoming edges to node type '{node_type}'."
-                        f" Should be exactly 1. Node: '{node.name}'"
+                        f" Should be exactly 1. Node: '{node.label}'"
                     )
 
                 inc_node = entities[inc_edges[0].source]
@@ -172,7 +172,7 @@ class Graph(Record):
         ]
         for node_type in level_leaf:
             for node in _get_nodes_of_type(self.entities, node_type):
-                if out := outgoing[node.name]:
+                if out := outgoing[node.label]:
                     errors.append(
                         f"Found {len(out)} outgoing edges from node type '{node_type}'."
                         " Should be 0."
@@ -188,7 +188,7 @@ class Graph(Record):
         # Outgoing edges
         for cur_type, next_type in itertools.pairwise(level_order):
             for node in _get_nodes_of_type(self.entities, cur_type):
-                for edge in outgoing[node.name]:
+                for edge in outgoing[node.label]:
                     type_ = entities[edge.target].type
                     if type_ is not next_type:
                         errors.append(
@@ -198,7 +198,7 @@ class Graph(Record):
         # Incoming edges
         for prev_type, cur_type in itertools.pairwise(level_order):
             for node in _get_nodes_of_type(self.entities, cur_type):
-                for edge in incoming[node.name]:
+                for edge in incoming[node.label]:
                     type_ = entities[edge.source].type
                     if type_ is not prev_type:
                         errors.append(
@@ -211,7 +211,7 @@ class Graph(Record):
             for node in _get_nodes_of_type(self.entities, cur_type):
                 inc = [
                     edge
-                    for edge in incoming[node.name]
+                    for edge in incoming[node.label]
                     if entities[edge.source].type is prev_type
                 ]
                 if not inc:
@@ -225,7 +225,7 @@ class Graph(Record):
             for node in _get_nodes_of_type(self.entities, cur_type):
                 out = [
                     edge
-                    for edge in outgoing[node.name]
+                    for edge in outgoing[node.label]
                     if entities[edge.target].type is next_type
                 ]
                 if not out:
@@ -246,13 +246,13 @@ class Graph(Record):
         """Display the entities, relationships, counts and validity of the graph."""
         type_index = list(EntityType).index
         entities = "\n".join(
-            f"  {i}. {c.type} - {c.name}"
+            f"  {i}. {c.type} - {c.label}"
             for i, c in enumerate(
-                sorted(self.entities, key=lambda e: (type_index(e.type), e.name)), 1
+                sorted(self.entities, key=lambda e: (type_index(e.type), e.label)), 1
             )
         )
 
-        entity_type = {e.name: e.type for e in self.entities}
+        entity_type = {e.label: e.type for e in self.entities}
         relationships = "\n".join(
             f"{i}. {entity_type[r.source]} -> {entity_type[r.target]}\n"
             f"- {r.source}\n"
@@ -320,7 +320,7 @@ class Graph(Record):
         """Convert to a proper hierarchical graph."""
         return hierarchical_graph.DiGraph.from_elements(
             nodes=[
-                hierarchical_graph.Node(e.name, e.type.value, e.detail)
+                hierarchical_graph.Node(e.label, e.type.value, e.detail)
                 for e in self.entities
             ],
             edges=[
