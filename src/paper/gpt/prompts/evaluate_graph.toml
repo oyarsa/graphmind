@@ -1,5 +1,5 @@
 [[prompts]]
-name = "full"
+name = "full-graph"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 main paper's title, abstract, a graph representation of it and some related papers.
