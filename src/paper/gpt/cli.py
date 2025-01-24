@@ -17,6 +17,7 @@ from paper.gpt import (
     classify_contexts,
     evaluate_paper,
     evaluate_paper_full,
+    evaluate_paper_graph,
     evaluate_paper_peter,
     evaluate_paper_scimon,
     evaluate_reviews,
@@ -71,6 +72,11 @@ evals_subcommands = [
         "peter",
         "Evaluate paper using PETER-query related papers.",
         evaluate_paper_peter,
+    ),
+    (
+        "graph",
+        "Evaluate paper using paper graph with PETER-query related papers.",
+        evaluate_paper_graph,
     ),
     ("reviews", "Evaluate individual reviews for novelty.", evaluate_reviews),
 ]
