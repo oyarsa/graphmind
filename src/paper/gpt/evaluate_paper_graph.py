@@ -351,7 +351,7 @@ async def _evaluate_paper(
     graph = (
         graph_result.result.to_graph(title=paper.title, abstract=paper.abstract)
         if graph_result.result
-        else Graph.empty(title=paper.title, abstract=paper.abstract)
+        else Graph.empty()
     )
 
     eval_prompt_text = format_eval_template(eval_prompt, paper, graph, demonstrations)

@@ -293,14 +293,14 @@ class Graph(Record):
         )
 
     @classmethod
-    def empty(cls, title: str, abstract: str) -> Self:
+    def empty(cls) -> Self:
         """Graph without entities or relatioships.
 
         Used in cases where it's not possible to extract a valid graph.
         """
         return cls(
-            title=title,
-            abstract=abstract,
+            title="",
+            abstract="",
             entities=[],
             relationships=[],
         )
