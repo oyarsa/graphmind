@@ -42,11 +42,11 @@ def main(
         str, typer.Option("-s", "--second-path", help="Path to paper item in result.")
     ] = "item",
     ref_key: Annotated[
-        str,
+        str | None,
         typer.Option(
             "-r", "--ref", help="Reference value to print alongside differences."
         ),
-    ] = "y_true",
+    ] = None,
     diff_key: Annotated[
         str,
         typer.Option("-d", "--diff", help="Value to check for difference."),
@@ -72,7 +72,8 @@ def main(
     diffs: list[dict[str, Any]] = []
     for f, s in zip(first, second):
         assert f[sort_key] == s[sort_key]
-        assert f[ref_key] == s[ref_key]
+        if ref_key:
+            assert f.get(ref_key) == s.get(ref_key)
 
         if f[diff_key] != s[diff_key]:
             diffs.append({"first": f, "second": s})
@@ -116,6 +117,9 @@ def _process_input(file: Path, key_path: str, sort_key: str) -> list[dict[str, A
 
 
 def _get_path(d: dict[str, Any], path: str) -> Any:
+    if not path:
+        return d
+
     curr = d
     for key in path.strip(".").split("."):
         curr = curr[key]
