@@ -6,7 +6,6 @@ import itertools
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum
-from graphlib import TopologicalSorter
 from typing import TYPE_CHECKING, Annotated, Self, override
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
@@ -315,32 +314,7 @@ class Graph(Record):
 
         If the graph is empty, returns an empty string.
         """
-        if not self.entities or not self.relationships:
-            return ""
-
-        output: list[str] = []
-
-        for entity in topological_sort(self.entities, self.relationships):
-            label = f"{entity.type}: {entity.name}"
-            if entity.detail:
-                label = f"{label}\n{entity.detail}"
-
-            output.append(label)
-
-        return "\n\n".join(output)
-
-
-def topological_sort(
-    entities: Sequence[Entity], relationships: Sequence[Relationship]
-) -> list[Entity]:
-    """Sort entities in topological order."""
-    entity_map = {entity.name: entity for entity in entities}
-
-    graph: dict[str, set[str]] = defaultdict(set)
-    for rel in relationships:
-        graph[rel.source].add(rel.target)
-
-    return [entity_map[name] for name in TopologicalSorter(graph).static_order()]
+        return graph_to_digraph(self).to_text()
 
 
 def graph_to_digraph(graph: Graph) -> hierarchical_graph.DiGraph:
