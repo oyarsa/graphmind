@@ -357,6 +357,29 @@ class DiGraph:
         """Load a graph from a GraphML file."""
         return cls(nx.read_graphml(path, node_type=str))
 
+    def to_text(self) -> str:
+        """Convert graph to LLM-readable text.
+
+        Sorts the entities topologically, then creates paragraphs with each entity's
+        type, name and description, if available.
+
+        If the graph is empty, returns an empty string.
+        """
+        if not self._nxgraph:
+            return ""
+
+        output: list[str] = []
+
+        for node in nx.topological_sort(self._nxgraph):
+            node_data = self._nxgraph.nodes[node]
+            label = f"{node_data['type']}: {node}"
+            if node_data["detail"]:
+                label = f"{label}\n{node_data['detail']}"
+
+            output.append(label)
+
+        return "\n\n".join(output)
+
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
