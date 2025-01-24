@@ -30,11 +30,11 @@ def main(
         typer.Option("-2", "--second", help="Path to the second model result file."),
     ],
     output_file: Annotated[
-        Path,
+        Path | None,
         typer.Option(
             "-o", "--output", help="Path to output file with incompatible results."
         ),
-    ],
+    ] = None,
     first_path: Annotated[
         str, typer.Option("-f", "--first-path", help="Path to paper item in result.")
     ] = "item",
@@ -80,7 +80,9 @@ def main(
 
     print(f"Different items: {len(diffs)}")
     print()
-    output_file.write_text(json.dumps(diffs, indent=2))
+
+    if output_file:
+        output_file.write_text(json.dumps(diffs, indent=2))
 
     for diff in diffs:
         keys = compare_dicts(diff["first"], diff["second"])
