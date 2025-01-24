@@ -76,6 +76,7 @@ class Graph(Record):
         Returns:
             Error message describing the rule violated if the graph is invalid.
             "Valid" if the graph is follows all rules.
+            "Empty graph" is the graph has no entities.
         """
         return self.valid_status_all[0]
 
@@ -111,8 +112,12 @@ class Graph(Record):
 
         Returns:
             Error messages describing the rules violated if the graph is invalid.
-            "Valid" if the graph is follows all rules.
+            ["Valid"] if the graph is follows all rules.
+            ["Empty graph"] is the graph has no entities.
         """
+        if not self.entities:
+            return ["Empty graph"]
+
         errors: list[str] = []
 
         # Rule 0: Every entity must be unique
