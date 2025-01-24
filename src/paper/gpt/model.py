@@ -47,7 +47,6 @@ class Entity(BaseModel):
 
     label: str
     type: EntityType
-    # @TODO: Add description text to entity
     detail: str | None = None
 
 

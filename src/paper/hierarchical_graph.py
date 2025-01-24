@@ -372,6 +372,9 @@ class DiGraph:
 
         for node in nx.topological_sort(self._nxgraph):
             node_data = self._nxgraph.nodes[node]
+            # @TODO: Having type here might be duplicate when the node label is not
+            # unique, as we currently append `(title)` to disambiguate in
+            # `GPTGraph.to_graph`.
             label = f"{node_data['type']}: {node}"
             if node_data["detail"]:
                 label = f"{label}\n{node_data['detail']}"
