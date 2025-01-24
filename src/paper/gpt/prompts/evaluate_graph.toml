@@ -51,17 +51,14 @@ submitted to a high-quality scientific conference.
 """
 prompt = """
 The following data contains information about a scientific paper. It includes the \
-main paper's title, abstract and some related papers.
+main paper's title and abstract and some related papers. These related papers are \
+separated by "supporting" papers (those that corroborate the paper's ideas, methods,
+approach, etc.) and "contrasting" papers (those that go against the paper's ideas).
 
-The related papers are split into "supporting" papers (those that corroborate the paper's \
-ideas, methods, approach, etc.) and "contrasting" papers (those that go against the \
-paper's ideas). Use these related papers to build the context around the main paper, so \
-you know what other works exist in comparison with the main paper.
-
-Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
-reflect how much the paper brings and develops new ideas previously unseen in the \
-literature. First, generate the rationale for your novelty rating, then give the final \
-novelty rating.
+Based on this content, approve or reject the paper. First, generate the rationale for \
+your decision, then give the final decision. Keep in mind that this paper was submitted \
+to a very high-quality conference, so make sure to only approve papers that are of \
+outstanding quality.
 
 #####
 {demonstrations}
