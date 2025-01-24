@@ -357,7 +357,7 @@ async def _evaluate_paper(
             else Graph.empty()
         )
     else:
-        graph_prompt_text = "<no graph>"
+        graph_prompt_text = None
         graph = Graph.empty()
 
     eval_prompt_text = format_eval_template(eval_prompt, paper, graph, demonstrations)
@@ -374,10 +374,17 @@ async def _evaluate_paper(
     evaluated = fix_evaluated_rating(eval_result.result or GPTFull.error())
 
     sep = f"\n\n{"-" * 80}\n\n"
-    combined_system_prompt = (
-        f"{_GRAPH_EXTRACT_SYSTEM_PROMPT}{sep}{_GRAPH_EVAL_SYSTEM_PROMPT}"
-    )
-    combined_user_prompt = f"{graph_prompt_text}{sep}{eval_prompt_text}"
+    if graph_prompt_text:
+        combined_system_prompt = (
+            f"{_GRAPH_EXTRACT_SYSTEM_PROMPT}{sep}{_GRAPH_EVAL_SYSTEM_PROMPT}"
+        )
+    else:
+        combined_system_prompt = _GRAPH_EVAL_SYSTEM_PROMPT
+
+    if graph_prompt_text:
+        combined_user_prompt = f"{graph_prompt_text}{sep}{eval_prompt_text}"
+    else:
+        combined_user_prompt = eval_prompt_text
 
     return GPTResult(
         result=PromptResult(
