@@ -128,7 +128,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
             ),
         ]
     )
-    context = context_dir / "result.json"
+    context = context_dir / "results.json"
     s2_terms = s2_terms_dir / "results_valid.json"
     peer_terms = peer_terms_dir / "results_valid.json"
 
@@ -190,7 +190,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "--output",
         eval_full_dir,
         "--demos",
-        "eval_demonstrations_4",
+        "eval_4",
     )
     eval_full = eval_full_dir / "result.json"
     assert eval_full.exists()
@@ -208,6 +208,6 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "--output",
         eval_peter_dir,
         "--demos",
-        "eval_demonstrations_4",
+        "eval_4",
     )
     assert eval_peter.exists()
