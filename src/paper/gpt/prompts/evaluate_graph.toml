@@ -1,5 +1,9 @@
 [[prompts]]
 name = "full-graph"
+system = """\
+Given the following target paper, a summary and a selection of related papers separated \
+by whether they're supporting or contrasting the main paper, give it novelty rating.
+"""
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 main paper's title, abstract, a graph representation of it and some related papers.
@@ -40,6 +44,11 @@ Output:
 
 [[prompts]]
 name = "related"
+system = """\
+Given the following target paper and a selection of related papers separated by whether \
+they're supporting or contrasting the main paper, give a novelty rating to a paper \
+submitted to a high-quality scientific conference.
+"""
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 main paper's title, abstract and some related papers.

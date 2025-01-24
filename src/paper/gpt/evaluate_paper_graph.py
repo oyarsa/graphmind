@@ -233,7 +233,17 @@ async def evaluate_papers(
     )[:limit_papers]
 
     eval_prompt = GRAPH_EVAL_USER_PROMPTS[eval_prompt_key]
+    if not eval_prompt.system:
+        raise ValueError(
+            f"Eval prompt {eval_prompt.name!r} does not have a system prompt."
+        )
+
     graph_prompt = GRAPH_EXTRACT_USER_PROMPTS[graph_prompt_key]
+    if not graph_prompt.system:
+        raise ValueError(
+            f"Graph prompt {graph_prompt.name!r} does not have a system prompt."
+        )
+
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
     output_intermediate_file, papers_remaining = init_remaining_items(
@@ -318,18 +328,6 @@ async def _evaluate_papers(
     return GPTResult(results, total_cost)
 
 
-_GRAPH_EVAL_SYSTEM_PROMPT = """\
-Given the following target paper and a selection of related papers separated by whether \
-they're supporting or contrasting the main paper, give a novelty rating to a paper \
-submitted to a high-quality scientific conference.
-"""
-_GRAPH_EXTRACT_SYSTEM_PROMPT = """\
-Given the following scientific paper, extract the important entities from the text and \
-the relationships between them. The goal is to build a faithful and concise representation \
-of the paper that captures the most important elements necessary to evaluate its novelty.
-"""
-
-
 async def _evaluate_paper(
     client: AsyncOpenAI,
     model: str,
@@ -343,7 +341,7 @@ async def _evaluate_paper(
         graph_prompt_text = format_graph_template(
             graph_prompt, paper.paper, demonstrations
         )
-        graph_system_prompt = graph_prompt.system or _GRAPH_EXTRACT_SYSTEM_PROMPT
+        graph_system_prompt = graph_prompt.system
         graph_result = await run_gpt(
             GPTGraph,
             client,
@@ -363,7 +361,7 @@ async def _evaluate_paper(
         graph = Graph.empty()
 
     eval_prompt_text = format_eval_template(eval_prompt, paper, graph, demonstrations)
-    eval_system_prompt = eval_prompt.system or _GRAPH_EVAL_SYSTEM_PROMPT
+    eval_system_prompt = eval_prompt.system
     eval_result = await run_gpt(
         GPTFull,
         client,
