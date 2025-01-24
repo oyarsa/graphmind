@@ -67,6 +67,11 @@ def load_data[T: BaseModel](
 
     Returns:
         List of data with the `type_` format.
+
+    Raises:
+        `ValidationError` if file already exists and its data is incompatible with
+        `type_`.
+        `OSError` if the file operations fail.
     """
     if isinstance(file, Path):
         content = file.read_bytes()
@@ -82,7 +87,7 @@ def load_data[T: BaseModel](
         ).validate_json(content)
     except ValidationError as e:
         source = file if isinstance(file, Path) else "bytes"
-        raise TypeError(
+        raise ValidationError(
             f"Data from {source} is not valid for {_get_full_type_name(type_)}"
         ) from e
 
