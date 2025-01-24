@@ -321,11 +321,12 @@ async def _classify_paper(
     seed: int,
 ) -> GPTResult[PromptResult[PaperResult]]:
     user_prompt_text = format_template(user_prompt, ann_result, demonstrations)
+    system_prompt = user_prompt.system or _PETER_CLASSIFY_SYSTEM_PROMPT
 
     result = await run_gpt(
         GPTFull,
         client,
-        _PETER_CLASSIFY_SYSTEM_PROMPT,
+        system_prompt,
         user_prompt_text,
         model,
         seed=seed,
@@ -339,7 +340,7 @@ async def _classify_paper(
             item=PaperResult.from_s2peer(
                 paper, classified.rating, classified.rationale
             ),
-            prompt=Prompt(system=_PETER_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
+            prompt=Prompt(system=system_prompt, user=user_prompt_text),
         ),
         cost=result.cost,
     )

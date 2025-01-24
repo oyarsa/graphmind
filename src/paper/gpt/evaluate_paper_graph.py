@@ -343,10 +343,11 @@ async def _evaluate_paper(
         graph_prompt_text = format_graph_template(
             graph_prompt, paper.paper, demonstrations
         )
+        graph_system_prompt = graph_prompt.system or _GRAPH_EXTRACT_SYSTEM_PROMPT
         graph_result = await run_gpt(
             GPTGraph,
             client,
-            _GRAPH_EXTRACT_SYSTEM_PROMPT,
+            graph_system_prompt,
             graph_prompt_text,
             model,
             seed=seed,
@@ -357,14 +358,16 @@ async def _evaluate_paper(
             else Graph.empty()
         )
     else:
+        graph_system_prompt = None
         graph_prompt_text = None
         graph = Graph.empty()
 
     eval_prompt_text = format_eval_template(eval_prompt, paper, graph, demonstrations)
+    eval_system_prompt = eval_prompt.system or _GRAPH_EVAL_SYSTEM_PROMPT
     eval_result = await run_gpt(
         GPTFull,
         client,
-        _GRAPH_EVAL_SYSTEM_PROMPT,
+        eval_system_prompt,
         eval_prompt_text,
         model,
         seed=seed,
@@ -375,11 +378,9 @@ async def _evaluate_paper(
 
     sep = f"\n\n{"-" * 80}\n\n"
     if graph_prompt_text:
-        combined_system_prompt = (
-            f"{_GRAPH_EXTRACT_SYSTEM_PROMPT}{sep}{_GRAPH_EVAL_SYSTEM_PROMPT}"
-        )
+        combined_system_prompt = f"{graph_system_prompt}{sep}{eval_system_prompt}"
     else:
-        combined_system_prompt = _GRAPH_EVAL_SYSTEM_PROMPT
+        combined_system_prompt = eval_system_prompt
 
     if graph_prompt_text:
         combined_user_prompt = f"{graph_prompt_text}{sep}{eval_prompt_text}"

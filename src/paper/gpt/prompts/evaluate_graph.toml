@@ -73,6 +73,10 @@ Output:
 
 [[prompts]]
 name = "sans"
+system = """\
+Give an approval or rejection to a paper submitted to a high-quality scientific \
+conference.\
+"""
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title and abstract.
