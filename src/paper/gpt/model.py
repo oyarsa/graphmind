@@ -235,7 +235,7 @@ class Graph(Record):
                     )
 
         # Rule 8: No cycles
-        if graph_to_digraph(self).has_cycle():
+        if self.to_digraph().has_cycle():
             errors.append("Graph has cycles")
 
         if errors:
@@ -314,20 +314,19 @@ class Graph(Record):
 
         If the graph is empty, returns an empty string.
         """
-        return graph_to_digraph(self).to_text()
+        return self.to_digraph().to_text()
 
-
-def graph_to_digraph(graph: Graph) -> hierarchical_graph.DiGraph:
-    """Convert GPT-generated graph into a proper hierarchical graph."""
-    return hierarchical_graph.DiGraph.from_elements(
-        nodes=[
-            hierarchical_graph.Node(e.name, e.type.value, e.detail)
-            for e in graph.entities
-        ],
-        edges=[
-            hierarchical_graph.Edge(r.source, r.target) for r in graph.relationships
-        ],
-    )
+    def to_digraph(self) -> hierarchical_graph.DiGraph:
+        """Convert to a proper hierarchical graph."""
+        return hierarchical_graph.DiGraph.from_elements(
+            nodes=[
+                hierarchical_graph.Node(e.name, e.type.value, e.detail)
+                for e in self.entities
+            ],
+            edges=[
+                hierarchical_graph.Edge(r.source, r.target) for r in self.relationships
+            ],
+        )
 
 
 def _get_nodes_of_type(graph: Graph, type_: EntityType) -> list[Entity]:

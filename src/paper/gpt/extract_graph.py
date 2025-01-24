@@ -22,7 +22,6 @@ from paper.gpt.model import (
     Prompt,
     PromptResult,
     Relationship,
-    graph_to_digraph,
 )
 from paper.util.serde import Record, save_data
 
@@ -235,7 +234,7 @@ def save_graphs(
     output.extend(
         Output(
             paper=gr.item.paper.title,
-            graphml=graph_to_digraph(gr.item.graph).graphml(),
+            graphml=gr.item.graph.to_digraph().graphml(),
             graph=gr.item.graph,
             prompt=gr.prompt,
         )
@@ -263,10 +262,8 @@ def display_graphs(
             the plot is closed.
     """
     for pg in graph_results:
-        dag = graph_to_digraph(pg.graph)
-
         try:
-            dag.visualise_hierarchy(
+            pg.graph.to_digraph().visualise_hierarchy(
                 img_path=output_dir / f"{pg.paper.title}.png",
                 display_gui=display_gui,
                 description=f"index - model: {model} - prompt: {graph_user_prompt_key}\n"
