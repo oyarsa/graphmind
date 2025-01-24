@@ -72,12 +72,12 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def run(
-    ann_graph_file: Annotated[
+    paper_file: Annotated[
         Path,
         typer.Option(
-            "--ann-graph",
-            help="JSON file containing the annotated PeerRead papers with summarised graph"
-            " results.",
+            "--papers",
+            help="JSON file containing the annotated PeerRead papers with summarised"
+            " graph results.",
         ),
     ],
     output_dir: Annotated[
@@ -132,7 +132,7 @@ def run(
     asyncio.run(
         evaluate_papers(
             model,
-            ann_graph_file,
+            paper_file,
             limit_papers,
             user_prompt,
             output_dir,
@@ -153,7 +153,7 @@ def main() -> None:
 
 async def evaluate_papers(
     model: str,
-    ann_graph_file: Path,
+    paper_file: Path,
     limit_papers: int | None,
     user_prompt_key: str,
     output_dir: Path,
@@ -169,7 +169,7 @@ async def evaluate_papers(
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        ann_graph_file: Path to the JSON file containing the annotated papers with their
+        paper_file: Path to the JSON file containing the annotated papers with their
             graph data and summarised related papers.
         limit_papers: Number of papers to process. Defaults to 1 example. If None,
             process all.
@@ -207,7 +207,7 @@ async def evaluate_papers(
 
     papers = shuffled(
         PromptResult.unwrap(
-            load_data(ann_graph_file, PromptResult[PaperWithRelatedSummary])
+            load_data(paper_file, PromptResult[PaperWithRelatedSummary])
         )
     )[:limit_papers]
 
@@ -266,7 +266,7 @@ async def _classify_papers(
     client: AsyncOpenAI,
     model: str,
     user_prompt: PromptTemplate,
-    ann_graphs: Sequence[PaperWithRelatedSummary],
+    papers: Sequence[PaperWithRelatedSummary],
     output_intermediate_file: Path,
     demonstrations: str,
     *,
@@ -278,7 +278,7 @@ async def _classify_papers(
         client: OpenAI client to use GPT.
         model: GPT model code to use (must support Structured Outputs).
         user_prompt: User prompt template to use for classification to be filled.
-        ann_graphs: Annotated PeerRead papers with their summarised graph data.
+        papers: Annotated PeerRead papers with their summarised graph data.
         output_intermediate_file: File to write new results after each task is completed.
         demonstrations: Text of demonstrations for few-shot prompting.
         seed: Seed for the OpenAI API call.
@@ -290,10 +290,8 @@ async def _classify_papers(
     total_cost = 0
 
     tasks = [
-        _classify_paper(
-            client, model, ann_graph, user_prompt, demonstrations, seed=seed
-        )
-        for ann_graph in ann_graphs
+        _classify_paper(client, model, paper, user_prompt, demonstrations, seed=seed)
+        for paper in papers
     ]
 
     for task in progress.as_completed(tasks, desc="Classifying papers"):
