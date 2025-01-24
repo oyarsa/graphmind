@@ -11,6 +11,8 @@ from typing import Annotated, Any, TypeGuard
 
 import typer
 
+from paper.util.cli import die
+
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     add_completion=False,
@@ -29,32 +31,35 @@ def main(
         Path,
         typer.Option("-2", "--second", help="Path to the second model result file."),
     ],
+    first_path: Annotated[
+        str, typer.Option("-f", "--first-path", help="Path to item in the first file.")
+    ],
+    second_path: Annotated[
+        str,
+        typer.Option("-s", "--second-path", help="Path to item in the second file."),
+    ],
+    diff_keys: Annotated[
+        str,
+        typer.Option(
+            "-k", "--keys", help="Keys to check for difference. Comma-separated."
+        ),
+    ],
+    sort_key: Annotated[
+        str,
+        typer.Option("-t", "--sort", help="Key to sort the objects before comparison."),
+    ],
     output_file: Annotated[
         Path | None,
         typer.Option(
             "-o", "--output", help="Path to output file with incompatible results."
         ),
     ] = None,
-    first_path: Annotated[
-        str, typer.Option("-f", "--first-path", help="Path to paper item in result.")
-    ] = "item",
-    second_path: Annotated[
-        str, typer.Option("-s", "--second-path", help="Path to paper item in result.")
-    ] = "item",
     ref_key: Annotated[
         str | None,
         typer.Option(
             "-r", "--ref", help="Reference value to print alongside differences."
         ),
     ] = None,
-    diff_key: Annotated[
-        str,
-        typer.Option("-d", "--diff", help="Value to check for difference."),
-    ] = "y_true",
-    sort_key: Annotated[
-        str,
-        typer.Option("-k", "--sort", help="Key to sort the objects before comparison."),
-    ] = "title",
     verbose: Annotated[
         bool,
         typer.Option(
@@ -67,15 +72,17 @@ def main(
     second = _process_input(second_file, second_path, sort_key)
 
     assert len(first) == len(second)
-    print(f"Items: {len(first)}")
+    print(f"Input items: {len(first)}")
 
     diffs: list[dict[str, Any]] = []
     for f, s in zip(first, second):
-        assert f[sort_key] == s[sort_key]
+        if f[sort_key] != s[sort_key]:
+            die("Items must be sorted such that respective positions match.")
+
         if ref_key:
             assert f.get(ref_key) == s.get(ref_key)
 
-        if f[diff_key] != s[diff_key]:
+        if any(f[key] != s[key] for key in diff_keys.split(",")):
             diffs.append({"first": f, "second": s})
 
     print(f"Different items: {len(diffs)}")
@@ -92,15 +99,11 @@ def main(
 
             for key in keys:
                 if "/" in key:
-                    print("nested:", key)
-                    print()
-                    continue
+                    print(">>> nested:", key)
+                else:
+                    print(">>> first:", diff["first"][key])
+                    print(">>> second:", diff["second"][key])
 
-                f = diff["first"][key]
-                s = diff["second"][key]
-
-                print(">>> first:", f)
-                print(">>> second:", s)
                 print()
 
             print()
@@ -222,6 +225,9 @@ def _join_key(base: str, key: str) -> str:
     if not base:
         return key
     return f"{base}/{key}"
+
+
+##### TESTS
 
 
 def test_simple_value_difference() -> None:
