@@ -135,21 +135,21 @@ class Graph(Record):
         # Rule 1: Exactly one node from Title, Primary Area and TLDR
         singletons = [EntityType.TITLE, EntityType.PRIMARY_AREA, EntityType.TLDR]
         for node_type in singletons:
-            nodes = _get_nodes_of_type(self, node_type)
+            nodes = _get_nodes_of_type(self.entities, node_type)
             if len(nodes) != 1:
                 errors.append(
                     f"Found {len(nodes)} '{node_type}' nodes. Should be exactly 1."
                 )
 
         # Rule 2: Title node cannot have incoming edges
-        title = _get_nodes_of_type(self, EntityType.TITLE)[0]
+        title = _get_nodes_of_type(self.entities, EntityType.TITLE)[0]
         if incoming[title.name]:
             errors.append("Title node should not have any incoming edges.")
 
         # Rule 3: TLDR, Primary Area and Keyword nodes only have incoming edges from Title
         level_2 = [EntityType.TLDR, EntityType.PRIMARY_AREA, EntityType.KEYWORD]
         for node_type in level_2:
-            nodes = _get_nodes_of_type(self, node_type)
+            nodes = _get_nodes_of_type(self.entities, node_type)
             for node in nodes:
                 inc_edges = incoming[node.name]
                 if len(inc_edges) != 1:
@@ -171,7 +171,7 @@ class Graph(Record):
             EntityType.EXPERIMENT,
         ]
         for node_type in level_leaf:
-            for node in _get_nodes_of_type(self, node_type):
+            for node in _get_nodes_of_type(self.entities, node_type):
                 if out := outgoing[node.name]:
                     errors.append(
                         f"Found {len(out)} outgoing edges from node type '{node_type}'."
@@ -187,7 +187,7 @@ class Graph(Record):
         ]
         # Outgoing edges
         for cur_type, next_type in itertools.pairwise(level_order):
-            for node in _get_nodes_of_type(self, cur_type):
+            for node in _get_nodes_of_type(self.entities, cur_type):
                 for edge in outgoing[node.name]:
                     type_ = entities[edge.target].type
                     if type_ is not next_type:
@@ -197,7 +197,7 @@ class Graph(Record):
 
         # Incoming edges
         for prev_type, cur_type in itertools.pairwise(level_order):
-            for node in _get_nodes_of_type(self, cur_type):
+            for node in _get_nodes_of_type(self.entities, cur_type):
                 for edge in incoming[node.name]:
                     type_ = entities[edge.source].type
                     if type_ is not prev_type:
@@ -208,7 +208,7 @@ class Graph(Record):
         # Rule 6: At mid levels, each node in a level must be connected to at least one
         # node in the previous level.
         for prev_type, cur_type in itertools.pairwise(level_order):
-            for node in _get_nodes_of_type(self, cur_type):
+            for node in _get_nodes_of_type(self.entities, cur_type):
                 inc = [
                     edge
                     for edge in incoming[node.name]
@@ -222,7 +222,7 @@ class Graph(Record):
         # Rule 7: At mid levels, each node in a level must be connected to at least one
         # node in the next level.
         for cur_type, next_type in itertools.pairwise(level_order):
-            for node in _get_nodes_of_type(self, cur_type):
+            for node in _get_nodes_of_type(self.entities, cur_type):
                 out = [
                     edge
                     for edge in outgoing[node.name]
@@ -329,8 +329,8 @@ class Graph(Record):
         )
 
 
-def _get_nodes_of_type(graph: Graph, type_: EntityType) -> list[Entity]:
-    return [e for e in graph.entities if e.type is type_]
+def _get_nodes_of_type(entities: Iterable[Entity], type_: EntityType) -> list[Entity]:
+    return [e for e in entities if e.type is type_]
 
 
 class PaperSection(BaseModel):
