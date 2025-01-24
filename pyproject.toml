@@ -38,7 +38,7 @@ dev = [
 [tool.uv.sources.cosy]
 git = "https://github.com/oyarsa/x.git"
 subdirectory = "cosy"
-tag = "cosy-0.3.0"
+tag = "cosy-0.4.0"
 
 [project.scripts]
 peerread = "paper.peerread.cli:app"
