@@ -12,7 +12,7 @@ class PromptTemplate:
 
     name: str
     template: str
-    system: str | None
+    system: str
 
 
 def load_prompts(name: str) -> dict[str, PromptTemplate]:
@@ -27,7 +27,7 @@ def load_prompts(name: str) -> dict[str, PromptTemplate]:
     text = read_resource("gpt.prompts", f"{name}.toml")
     return {
         p["name"]: PromptTemplate(
-            name=p["name"], system=p.get("system"), template=p["prompt"]
+            name=p["name"], system=p.get("system", ""), template=p["prompt"]
         )
         for p in tomllib.loads(text)["prompts"]
     }
