@@ -310,6 +310,10 @@ class Graph(Record):
             relationships=[],
         )
 
+    def is_empty(self) -> bool:
+        """Return True if the graph is empty. See also `Graph.empty`."""
+        return not self.title
+
     def to_text(self) -> str:
         """Convert graph to LLM-readable text.
 
