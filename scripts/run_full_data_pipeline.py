@@ -239,6 +239,7 @@ def _checkrun(path: Path, *cmd: object) -> None:
         print(f"{path} already exists.")
         return
 
+    print(f"{path} does not exist. Running command.")
     run(*cmd)
 
 
