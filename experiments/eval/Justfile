@@ -2,6 +2,7 @@ eval_cmd := "uv run gpt eval"
 eval_flags := "--demos eval_4 -n5 -m 4o-mini"
 eval_base := eval_flags + " --peerread ../../output/subset/peerread_with_s2_references.json"
 eval_full := eval_flags + " --papers ../../output/peter_c2_s2_sum/result.json"
+output := "../../output/eval"
 
 _default:
     @just --list --unsorted
@@ -11,7 +12,7 @@ _t msg:
 
 # Graph evaluation
 _graph prompt:
-    {{eval_cmd}} graph run {{eval_full}} --output tmp/graph_eval --eval-prompt {{prompt}}
+    {{eval_cmd}} graph run {{eval_full}} --output {{output}}/graph --eval-prompt {{prompt}}
 
 [group: 'graph']
 graph-full: (_t "Running graph evaluation - full mode")
@@ -27,7 +28,7 @@ graph-graph: (_t "Running graph evaluation - main graph mode")
 
 # PETER evaluation
 _peter prompt:
-    {{eval_cmd}} peter run {{eval_full}} --output tmp/peter_eval --user-prompt {{prompt}}
+    {{eval_cmd}} peter run {{eval_full}} --output {{output}}/peter --user-prompt {{prompt}}
 
 [group: 'peter']
 peter-full: (_t "Running PETER evaluation - full mode")
@@ -40,7 +41,7 @@ peter-related: (_t "Running graph evaluation - PETER (related) mode")
 # Full evaluation
 [group: 'full']
 full: (_t "Running full evaluation")
-    {{eval_cmd}} full run {{eval_base}} --output tmp/full_eval --user-prompt simple-abs
+    {{eval_cmd}} full run {{eval_base}} --output {{output}}/full --user-prompt simple-abs
 
 # Compare all implementations of full evaluation
 cmp-full: (_t "Comparing full evaluation")
