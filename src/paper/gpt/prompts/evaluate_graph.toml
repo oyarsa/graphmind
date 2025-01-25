@@ -6,9 +6,9 @@ by whether they're supporting or contrasting the main paper, give it novelty rat
 """
 prompt = """
 The following data contains information about a scientific paper. It includes the \
-main paper's title, abstract, a graph representation of it and some related papers.
+main paper's title, a summary of its key points and some related papers.
 
-The paper graph describes the most important information about the paper and its \
+The paper summary describes the most important information about the paper and its \
 contents. It summarises key aspects, which you can use to build a more comprehensive \
 understanding of the paper.
 
@@ -29,7 +29,7 @@ novelty rating.
 Title: {title}
 Abstract: {abstract}
 
-Paper graph:
+Paper summary:
 {graph}
 
 Supporting papers:
@@ -50,8 +50,7 @@ by whether they're supporting or contrasting the main paper, give it novelty rat
 """
 prompt = """
 The following data contains information about a scientific paper. It includes the \
-main paper's title, a summary of its key points (keywords, methods and experiments) \
-and some related papers.
+main paper's title, a summary of its key points and some related papers.
 
 The paper summary describes the most important information about the paper and its \
 contents. It summarises key aspects, which you can use to build a more comprehensive \
