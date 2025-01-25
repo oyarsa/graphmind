@@ -30,7 +30,7 @@ def main(
     ],
     force: Annotated[
         bool, typer.Option(help="Discard existing generated files.")
-    ] = True,
+    ] = False,
 ) -> None:
     """Run the full PETER pipeline from PeerRead preprocessing to graph building."""
     title("Check if PeerRead is available")
