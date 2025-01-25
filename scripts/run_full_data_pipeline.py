@@ -127,6 +127,7 @@ def main(
     )
     assert peer_with_ref.exists()
 
+    title("Context")
     context_dir = output_dir / "context"
     context = context_dir / "results.json"
     _checkrun(
@@ -143,6 +144,7 @@ def main(
     )
     assert context.exists()
 
+    title("PeerRead terms")
     peer_terms_dir = output_dir / "peerread-terms"
     peer_terms = peer_terms_dir / "results_valid.json"
     _checkrun(
@@ -159,6 +161,7 @@ def main(
     )
     assert peer_terms.exists()
 
+    title("S2 terms")
     s2_terms_dir = output_dir / "s2-terms"
     s2_terms = s2_terms_dir / "results_valid.json"
     _checkrun(
