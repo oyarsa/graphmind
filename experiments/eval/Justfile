@@ -1,8 +1,9 @@
+root := `git rev-parse --show-toplevel`
 eval_cmd := "uv run gpt eval"
-eval_flags := "--demos eval_4 -n0 -m 4o-mini"
-eval_base := eval_flags + " --peerread ../../output/subset/peerread_with_s2_references.json"
-eval_full := eval_flags + " --papers ../../output/peter_c2_s2_sum/result.json"
-output := "../../output/eval"
+eval_flags := "--demos eval_4 -n0 -m 4o"
+eval_base := eval_flags + " --peerread " + root + "/output/subset/peerread_with_s2_references.json"
+eval_full := eval_flags + " --papers " + root + "/output/peter_c2_s2_sum/result.json"
+output := root + "/output/eval"
 
 _default:
     @just --list --unsorted
