@@ -38,6 +38,12 @@ def main(
             help="Number of items for constructed dataset. Use 0 for all items.",
         ),
     ] = 50,
+    num_related: Annotated[
+        int,
+        typer.Option(
+            "--related", help="Number of related papers for PETER (each type)."
+        ),
+    ] = 2,
 ) -> None:
     """Run the full PETER pipeline from PeerRead preprocessing to graph building."""
     title("Check if PeerRead is available")
@@ -194,6 +200,10 @@ def main(
         peter_graph,
         "--peerread-ann",
         peer_terms,
+        "--num-citations",
+        num_related,
+        "--num-semantic",
+        num_related,
         "--output",
         peter_peer,
     )
