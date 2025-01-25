@@ -50,7 +50,7 @@ def main(
 
     title("Preprocess")
     processed = output_dir / "peerread_merged.json"
-    _checkrun(processed, "preprocess", "peerread", input_dir, processed)
+    _checkrun(processed, "peerread", "preprocess", input_dir, processed)
     assert processed.exists()
 
     title("Info main")
