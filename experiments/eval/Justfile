@@ -1,0 +1,60 @@
+eval_cmd := "uv run gpt eval"
+eval_flags := "--demos eval_4 -n5 -m 4o-mini"
+eval_base := eval_flags + " --peerread ../../output/subset/peerread_with_s2_references.json"
+eval_full := eval_flags + " --papers ../../output/peter_c2_s2_sum/result.json"
+
+_default:
+    @just --list --unsorted
+
+_t msg:
+    @echo '{{ style("warning") }}>>> {{msg}}{{ NORMAL }}'
+
+# Graph evaluation
+_graph prompt:
+    {{eval_cmd}} graph run {{eval_full}} --output tmp/graph_eval --eval-prompt {{prompt}}
+
+[group: 'graph']
+graph-full: (_t "Running graph evaluation - full mode")
+    @just _graph sans
+
+[group: 'graph']
+graph-related: (_t "Running graph evaluation - PETER (related) mode")
+    @just _graph related
+
+[group: 'graph']
+graph-graph: (_t "Running graph evaluation - main graph mode")
+    @just _graph full-graph
+
+# PETER evaluation
+_peter prompt:
+    {{eval_cmd}} peter run {{eval_full}} --output tmp/peter_eval --user-prompt {{prompt}}
+
+[group: 'peter']
+peter-full: (_t "Running PETER evaluation - full mode")
+    @just _peter sans
+
+[group: 'peter']
+peter-related: (_t "Running graph evaluation - PETER (related) mode")
+    @just _peter simple
+
+# Full evaluation
+[group: 'full']
+full: (_t "Running full evaluation")
+    {{eval_cmd}} full run {{eval_base}} --output tmp/full_eval --user-prompt simple-abs
+
+# Compare all implementations of full evaluation
+cmp-full: (_t "Comparing full evaluation")
+    @just full
+    @just peter-full
+    @just graph-full
+
+# Compare all implementations of PETER (related) evaluation
+cmp-related: (_t "Comparing PETER (related) evaluation")
+    @just peter-related
+    @just graph-related
+
+# Run all unique experiments (full/PETER/graph)
+all: (_t "Comparing full/PETER/graph variants")
+    @just full
+    @just peter-related
+    @just graph-graph
