@@ -358,9 +358,11 @@ async def _evaluate_paper(
             if graph_result.result
             else Graph.empty()
         )
+        graph_cost = graph_result.cost
     else:
         graph_system_prompt = None
         graph_prompt_text = None
+        graph_cost = 0
         graph = Graph.empty()
 
     eval_prompt_text = format_eval_template(eval_prompt, paper, graph, demonstrations)
@@ -398,7 +400,7 @@ async def _evaluate_paper(
             ),
             prompt=Prompt(system=combined_system_prompt, user=combined_user_prompt),
         ),
-        cost=eval_result.cost,
+        cost=graph_cost + eval_result.cost,
     )
 
 
