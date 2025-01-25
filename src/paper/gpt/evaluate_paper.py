@@ -57,14 +57,27 @@ def _get_ys(papers: Sequence[PaperResult]) -> Labels:
     )
 
 
+class PaperMetrics(evaluation_metrics.Metrics):
+    """Evaluation metrics with total API cost."""
+
+    cost: float
+
+    @classmethod
+    def from_eval(cls, eval: evaluation_metrics.Metrics, cost: float) -> Self:
+        """Build metrics with cost from standard evaluation metrics."""
+        return cls.model_validate(eval.model_dump() | {"cost": cost})
+
+
 def calculate_paper_metrics(
-    papers: Sequence[PaperResult],
+    papers: Sequence[PaperResult], cost: float
 ) -> evaluation_metrics.Metrics:
-    """Calculate classification metrics between `y_true` and `y_pred` results.
+    """Calculate evaluation metrics, including how much it cost.
 
     See also `paper.evaluation_metrics.calculate_metrics`.
     """
-    return evaluation_metrics.calculate_metrics(*_get_ys(papers))
+    return PaperMetrics.from_eval(
+        evaluation_metrics.calculate_metrics(*_get_ys(papers)), cost
+    )
 
 
 def display_metrics(

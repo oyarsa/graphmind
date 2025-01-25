@@ -273,7 +273,7 @@ async def evaluate_papers(
     results_all = papers_remaining.done + results.result
 
     results_items = [r.paper for r in PromptResult.unwrap(results_all)]
-    metrics = calculate_paper_metrics(results_items)
+    metrics = calculate_paper_metrics(results_items, results.cost)
     logger.info("%s\n", display_metrics(metrics, results_items))
 
     save_data(output_dir / "result.json", results_all)
