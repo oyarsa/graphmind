@@ -43,6 +43,46 @@ Output:
 """
 
 [[prompts]]
+name = "only-graph"
+system = """\
+Given the following target paper, a summary and a selection of related papers separated \
+by whether they're supporting or contrasting the main paper, give it novelty rating.
+"""
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+main paper's title, a summary of its key points and some related papers.
+
+The paper summary describes the most important information about the paper and its \
+contents. It summarises key aspects, which you can use to build a more comprehensive \
+understanding of the paper.
+
+The related papers are split into "supporting" papers (those that corroborate the paper's \
+ideas, methods, approach, etc.) and "contrasting" papers (those that go against the \
+paper's ideas). Use these related papers to understand the context around the main paper, \
+so you know what other works exist in comparison with the main paper.
+
+Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
+reflect how much the paper brings and develops new ideas previously unseen in the \
+literature. First, generate the rationale for your novelty rating, then give the final \
+novelty rating.
+
+#####
+{demonstrations}
+
+-Data-
+{graph}
+
+Supporting papers:
+{positive}
+
+Contrasting papers:
+{negative}
+
+#####
+Output:
+"""
+
+[[prompts]]
 name = "title-graph"
 system = """\
 Given the following target paper, a summary and a selection of related papers separated \

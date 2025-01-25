@@ -35,6 +35,11 @@ graph-graph: (_t "Running graph evaluation - main graph mode")
 graph-title: (_t "Running graph evaluation - title-only graph")
     @just _graph title-graph
 
+# Graph-eval with only graphs prompt
+[group: 'graph']
+graph-only: (_t "Running graph evaluation - graphs only")
+    @just _graph only-graph
+
 # PETER evaluation
 _peter prompt:
     {{eval_cmd}} peter run {{eval_full}} --output {{output}}/peter/{{prompt}} --user-prompt {{prompt}}
