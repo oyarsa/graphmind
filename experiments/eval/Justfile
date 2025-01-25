@@ -70,3 +70,8 @@ all: (_t "Comparing full/PETER/graph variants")
     @just full
     @just peter-related
     @just graph-graph
+
+# Show metrics for all available runs
+metrics:
+    #!/usr/bin/env fish
+    {{root}}/scripts/experiments/show_eval_results.fish {{root}}/output/eval/**/metrics.json
