@@ -28,12 +28,14 @@ from paper.util.serde import Record, save_data
 logger = logging.getLogger(__name__)
 
 
-def _at[T](seq: Sequence[T], idx: int, desc: str) -> T | None:
+def _at[T](seq: Sequence[T], idx: int, desc: str, title: str) -> T | None:
     """Get `seq[idx]` if possible, otherwise return None and log warning with `desc`."""
     try:
         return seq[idx]
     except IndexError:
-        logger.warning("Invalid index at '%s': %d out of %d", desc, idx, len(seq))
+        logger.warning(
+            "Invalid index at '%s' (%s): %d out of %d", title, desc, idx, len(seq)
+        )
         return None
 
 
@@ -131,7 +133,7 @@ class GPTGraph(BaseModel):
                 )
                 for c in self.claims
                 for midx in c.method_indices
-                if (target := _at(self.methods, midx, "claim->method"))
+                if (target := _at(self.methods, midx, "claim->method", title))
             ),
             *(
                 Relationship(
@@ -140,7 +142,7 @@ class GPTGraph(BaseModel):
                 )
                 for m in self.methods
                 for eidx in m.experiment_indices
-                if (target := _at(self.experiments, eidx, "method->exp"))
+                if (target := _at(self.experiments, eidx, "method->exp", title))
             ),
         ]
 
