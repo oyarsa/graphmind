@@ -26,6 +26,10 @@ graph-related: (_t "Running graph evaluation - PETER (related) mode")
 graph-graph: (_t "Running graph evaluation - main graph mode")
     @just _graph full-graph
 
+[group: 'graph']
+graph-title: (_t "Running graph evaluation - title-only graph")
+    @just _graph title-graph
+
 # PETER evaluation
 _peter prompt:
     {{eval_cmd}} peter run {{eval_full}} --output {{output}}/peter --user-prompt {{prompt}}
