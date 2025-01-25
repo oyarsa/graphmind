@@ -14,18 +14,22 @@ _t msg:
 _graph prompt:
     {{eval_cmd}} graph run {{eval_full}} --output {{output}}/graph --eval-prompt {{prompt}}
 
+# Graph-eval with abstract-only prompt
 [group: 'graph']
 graph-full: (_t "Running graph evaluation - full mode")
     @just _graph sans
 
+# Graph-eval with PETER prompt
 [group: 'graph']
 graph-related: (_t "Running graph evaluation - PETER (related) mode")
     @just _graph related
 
+# Graph-eval with full graph prompt
 [group: 'graph']
 graph-graph: (_t "Running graph evaluation - main graph mode")
     @just _graph full-graph
 
+# Graph-eval with title and graph prompt
 [group: 'graph']
 graph-title: (_t "Running graph evaluation - title-only graph")
     @just _graph title-graph
@@ -34,10 +38,12 @@ graph-title: (_t "Running graph evaluation - title-only graph")
 _peter prompt:
     {{eval_cmd}} peter run {{eval_full}} --output {{output}}/peter --user-prompt {{prompt}}
 
+# PETER-eval with abstract-only prompt
 [group: 'peter']
 peter-full: (_t "Running PETER evaluation - full mode")
     @just _peter sans
 
+# PETER-eval with full PETER prompt
 [group: 'peter']
 peter-related: (_t "Running graph evaluation - PETER (related) mode")
     @just _peter simple
