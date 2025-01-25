@@ -12,7 +12,7 @@ _t msg:
 
 # Graph evaluation
 _graph prompt:
-    {{eval_cmd}} graph run {{eval_full}} --output {{output}}/graph --eval-prompt {{prompt}}
+    {{eval_cmd}} graph run {{eval_full}} --output {{output}}/graph/{{prompt}} --eval-prompt {{prompt}}
 
 # Graph-eval with abstract-only prompt
 [group: 'graph']
@@ -36,7 +36,7 @@ graph-title: (_t "Running graph evaluation - title-only graph")
 
 # PETER evaluation
 _peter prompt:
-    {{eval_cmd}} peter run {{eval_full}} --output {{output}}/peter --user-prompt {{prompt}}
+    {{eval_cmd}} peter run {{eval_full}} --output {{output}}/peter/{{prompt}} --user-prompt {{prompt}}
 
 # PETER-eval with abstract-only prompt
 [group: 'peter']
