@@ -338,9 +338,7 @@ async def _evaluate_paper(
     seed: int,
 ) -> GPTResult[PromptResult[GraphResult]]:
     if "graph" in eval_prompt.name:
-        graph_prompt_text = format_graph_template(
-            graph_prompt, paper.paper, demonstrations
-        )
+        graph_prompt_text = format_graph_template(graph_prompt, paper.paper)
         graph_system_prompt = graph_prompt.system
         graph_result = await run_gpt(
             GPTGraph,
@@ -399,15 +397,12 @@ async def _evaluate_paper(
     )
 
 
-def format_graph_template(
-    prompt: PromptTemplate, paper: PeerReadAnnotated, demonstrations: str
-) -> str:
+def format_graph_template(prompt: PromptTemplate, paper: PeerReadAnnotated) -> str:
     """Format graph extraction template using annotated paper."""
     return prompt.template.format(
         title=paper.title,
         abstract=paper.abstract,
         main_text=paper.paper.main_text,
-        demonstrations=demonstrations,
     )
 
 
