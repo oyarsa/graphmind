@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import tomllib
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
@@ -55,6 +56,7 @@ from paper.util import (
     ensure_envvar,
     get_params,
     progress,
+    read_resource,
     render_params,
     setup_logging,
     shuffled,
@@ -65,6 +67,9 @@ logger = logging.getLogger(__name__)
 
 GRAPH_EVAL_USER_PROMPTS = load_prompts("evaluate_graph")
 GRAPH_EXTRACT_USER_PROMPTS = load_prompts("extract_graph")
+PRIMARY_AREAS: Sequence[str] = tomllib.loads(
+    read_resource("gpt.prompts", "primary_areas.toml")
+)["primary_areas"]
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -403,6 +408,7 @@ def format_graph_template(prompt: PromptTemplate, paper: PeerReadAnnotated) -> s
         title=paper.title,
         abstract=paper.abstract,
         main_text=paper.paper.main_text,
+        primary_areas=", ".join(PRIMARY_AREAS),
     )
 
 
