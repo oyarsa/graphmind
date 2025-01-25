@@ -128,7 +128,7 @@ def main(
     assert peer_with_ref.exists()
 
     context_dir = output_dir / "context"
-    context = context_dir / "result.json"
+    context = context_dir / "results.json"
     _checkrun(
         context,
         "gpt",
