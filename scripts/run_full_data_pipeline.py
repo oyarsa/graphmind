@@ -31,6 +31,13 @@ def main(
     force: Annotated[
         bool, typer.Option(help="Discard existing generated files.")
     ] = False,
+    construct_count: Annotated[
+        int,
+        typer.Option(
+            "--construct",
+            help="Number of items for constructed dataset. Use 0 for all items.",
+        ),
+    ] = 50,
 ) -> None:
     """Run the full PETER pipeline from PeerRead preprocessing to graph building."""
     title("Check if PeerRead is available")
@@ -110,7 +117,7 @@ def main(
         "--output",
         subset_dir,
         "--num-peerread",
-        50,
+        construct_count,
     )
     assert peer_with_ref.exists()
 
