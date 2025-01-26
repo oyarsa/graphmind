@@ -1,5 +1,5 @@
 root := `git rev-parse --show-toplevel`
-review_cmd := "uv run gpt eval reviews run --mode binary -n0 -m gpt-4o-mini" + \
+review_cmd := "echo uv run gpt eval reviews run --mode binary -n0 -m " + env("MODEL", "4o-mini") + \
         " --output " + root + "/output/reviews/" + datetime("%FT%T")
 review_base := review_cmd + " --peerread " + root + "/output/peerread_merged_50_111.json"
 review_full := review_cmd + " --peerread " + root + "/output/peerread_merged.json"
