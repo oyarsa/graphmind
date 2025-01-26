@@ -13,8 +13,8 @@ n := if data == "full" {
     "0"
 }
 
-# Base data paths
-data_base := if data == "full" {
+# Sans data paths
+data_sans := if data == "full" {
     root + "/output/output_new/subset/peerread_with_s2_references.json"
 } else {
     root + "/output/subset/peerread_with_s2_references.json"
@@ -28,7 +28,7 @@ data_full := if data == "full" {
 }
 
 eval_flags := "--demos " + demos + " -n " + n + " -m " + model
-eval_base := eval_flags + " --peerread " + data_base
+eval_sans := eval_flags + " --peerread " + data_sans
 eval_full := eval_flags + " --papers " + data_full
 output := root+"/output/eval/graph/"+data+"/"+model+"/"+demos
 
@@ -49,7 +49,7 @@ _graph prompt:
 
 # Graph-eval with abstract-only prompt
 [group: 'graph']
-graph-full: (_t "Running graph evaluation - full mode")
+graph-sans: (_t "Running graph evaluation - sans mode")
     @just _graph sans
 
 # Graph-eval with PETER prompt
@@ -78,7 +78,7 @@ _peter prompt:
 
 # PETER-eval with abstract-only prompt
 [group: 'peter']
-peter-full: (_t "Running PETER evaluation - full mode")
+peter-sans: (_t "Running PETER evaluation - sans mode")
     @just _peter sans
 
 # PETER-eval with full PETER prompt
@@ -87,24 +87,24 @@ peter-related: (_t "Running graph evaluation - PETER (related) mode")
     @just _peter simple
 
 # Full evaluation
-[group: 'full']
-full: (_t "Running full evaluation")
-    {{eval_cmd}} full run {{eval_base}} --output {{output}}/full --user-prompt simple-abs
+[group: 'sans']
+sans: (_t "Running sans evaluation")
+    {{eval_cmd}} full run {{eval_sans}} --output {{output}}/sans --user-prompt simple-abs
 
-# Compare all implementations of full evaluation
-cmp-full: (_t "Comparing full evaluation")
-    @just full
-    @just peter-full
-    @just graph-full
+# Compare all implementations of sans evaluation
+cmp-sans: (_t "Comparing sans evaluation")
+    @just sans
+    @just peter-sans
+    @just graph-sans
 
 # Compare all implementations of PETER (related) evaluation
 cmp-related: (_t "Comparing PETER (related) evaluation")
     @just peter-related
     @just graph-related
 
-# Run all unique experiments (full/PETER/graph)
-all: (_t "Comparing full/PETER/graph variants")
-    @just full
+# Run all unique experiments (sans/PETER/graph)
+all: (_t "Comparing sans/PETER/graph variants")
+    @just sans
     @just peter-related
     @just graph-all
 
