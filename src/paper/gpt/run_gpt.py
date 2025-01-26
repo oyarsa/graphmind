@@ -91,6 +91,11 @@ async task, but in cases where there are more, grouping them avoids deadlocks.
 async def _call_gpt(  # noqa: ANN202
     rate_limiter: Any, client: AsyncOpenAI, chat_params: dict[str, Any]
 ):
+    # @FIX:Process hanging at the end. (2025-01-26)
+    # The bug: sometimes, when processing a large number of entries with a lot of text
+    # (e.g. the full PeerRead dataset with the graph modes), the program hangs at the
+    # last item of the collection. I'm not actually sure the problem is here, but I've
+    # had enough cases that came back to this that I'm writing this here.
     try:
         async with _GPT_SEMAPHORE, rate_limiter.limit(**chat_params):
             return await client.beta.chat.completions.parse(**chat_params)
