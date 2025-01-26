@@ -1,8 +1,8 @@
 root := `git rev-parse --show-toplevel`
 eval_cmd := "uv run gpt eval"
-demos := "eval_4"
 
 # Configuration selector
+demos := env("DEMOS", "eval_4")
 model := env("MODEL", "4o-mini")
 data := env("DATA", "subset")
 
@@ -27,22 +27,16 @@ data_full := if data == "full" {
     root + "/output/peter_c2_s2_sum/result.json"
 }
 
-# Output naming
-output_name := if data == "full" {
-    "eval_all"
-} else {
-    "eval"
-}
-
 eval_flags := "--demos " + demos + " -n " + n + " -m " + model
 eval_base := eval_flags + " --peerread " + data_base
 eval_full := eval_flags + " --papers " + data_full
-output := root+"/output/"+output_name+"/"+model
+output := root+"/output/eval/graph/"+data+"/"+model+"/"+demos
 
 _default:
     @echo "Environment variables:"
     @echo "    MODEL: '4o' or '4o-mini' (default)"
     @echo "    DATA: 'full' or 'subset' (default)"
+    @echo "    DEMOS: see 'gpt demos'. Default: eval_4."
     @echo
     @just --list --unsorted
 
@@ -124,5 +118,5 @@ all-graphs: (_t "Comparing all graph verisons")
 # Show metrics for all available runs
 metrics:
     #!/usr/bin/env fish
-    echo "Metrics for {{model}} - {{n}}"
+    echo "Metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{output}}/**/metrics.json
