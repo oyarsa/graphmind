@@ -1,11 +1,49 @@
 root := `git rev-parse --show-toplevel`
 eval_cmd := "uv run gpt eval"
-eval_flags := "--demos eval_4 -n0 -m " + env("MODEL", "4o-mini")
-eval_base := eval_flags + " --peerread " + root+"/output/subset/peerread_with_s2_references.json"
-eval_full := eval_flags + " --papers " + root+"/output/peter_c2_s2_sum/result.json"
-output := root+"/output/eval"
+demos := "eval_4"
+
+# Configuration selector
+model := env("MODEL", "4o-mini")
+data := env("DATA", "subset")
+
+# Number of items
+n := if data == "full" {
+    "125"
+} else {
+    "0"
+}
+
+# Base data paths
+data_base := if data == "full" {
+    root + "/output/output_new/subset/peerread_with_s2_references.json"
+} else {
+    root + "/output/subset/peerread_with_s2_references.json"
+}
+
+# Full data paths
+data_full := if data == "full" {
+    root + "/output/output_new/peter_summarised/result.json"
+} else {
+    root + "/output/peter_c2_s2_sum/result.json"
+}
+
+# Output naming
+output_name := if data == "full" {
+    "eval_all"
+} else {
+    "eval"
+}
+
+eval_flags := "--demos " + demos + " -n " + n + " -m " + model
+eval_base := eval_flags + " --peerread " + data_base
+eval_full := eval_flags + " --papers " + data_full
+output := root+"/output/"+output_name+"/"+model
 
 _default:
+    @echo "Environment variables:"
+    @echo "    MODEL: '4o' or '4o-mini' (default)"
+    @echo "    DATA: 'full' or 'subset' (default)"
+    @echo
     @just --list --unsorted
 
 _t msg:
@@ -86,4 +124,5 @@ all-graphs: (_t "Comparing all graph verisons")
 # Show metrics for all available runs
 metrics:
     #!/usr/bin/env fish
-    {{root}}/scripts/experiments/show_eval_results.fish {{root}}/output/eval/**/metrics.json
+    echo "Metrics for {{model}} - {{n}}"
+    {{root}}/scripts/experiments/show_eval_results.fish {{output}}/**/metrics.json
