@@ -109,7 +109,7 @@ all: (_t "Comparing full/PETER/graph variants")
     @just graph-all
 
 # Run all graph versions
-all-graphs: (_t "Comparing all graph verisons")
+all-graphs: (_t "Run all main graph versions and show metrics")
     @just graph-only
     @just graph-title
     @just graph-all
