@@ -75,6 +75,8 @@ $ peter peerread [OPTIONS]
 * `--peerread-ann PATH`: File with PeerRead papers with extracted backgrounds and targets.  [required]
 * `--output PATH`: Output file to save the result data.  [required]
 * `-n, --num-papers INTEGER`: Number of papers to query. Defaults to all papers.
+* `--num-citations INTEGER`: Number of positive and negative cited papers to query.  [default: 2]
+* `--num-semantic INTEGER`: Number of positive and negative semantic papers to query.  [default: 2]
 * `--help`: Show this message and exit.
 
 ## `peter query`
