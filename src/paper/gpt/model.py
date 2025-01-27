@@ -50,6 +50,22 @@ class Entity(BaseModel):
     detail: str | None = None
 
 
+class LinearisationMethod(StrEnum):
+    """How to convert a `Graph` into LLM-readable text."""
+
+    TOPO = "topo"
+    """Use topological sort to order entities and convert to text.
+
+    Sorts the entities topologically, then creates paragraphs with each entity's
+    type, name and description, if available.
+    """
+    FLUENT = "fluent"
+    """Use a fluent template-based method to convert entities to natural text.
+
+    The goal is for the outupt to look more like a crafted summary.
+    """
+
+
 class Graph(Record):
     """GPT output graph representing the hierarchical graph.
 
@@ -314,15 +330,16 @@ class Graph(Record):
         """Return True if the graph is empty. See also `Graph.empty`."""
         return not self.title
 
-    def to_text(self) -> str:
-        """Convert graph to LLM-readable text.
-
-        Sorts the entities topologically, then creates paragraphs with each entity's
-        type, name and description, if available.
+    def to_text(self, method: LinearisationMethod) -> str:
+        """Convert graph to LLM-readable text using the linearisation `method`.
 
         If the graph is empty, returns an empty string.
         """
-        return self.to_digraph().to_text()
+        match method:
+            case LinearisationMethod.TOPO:
+                return self.to_digraph().to_text()
+            case LinearisationMethod.FLUENT:
+                raise NotImplementedError("Fluent linearisation is not implemented")
 
     def to_digraph(self) -> hierarchical_graph.DiGraph:
         """Convert to a proper hierarchical graph."""
