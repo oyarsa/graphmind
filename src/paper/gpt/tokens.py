@@ -31,8 +31,8 @@ from paper.gpt.evaluate_paper import (
     Demonstration,
     format_demonstrations,
 )
-from paper.gpt.evaluate_paper_full import FULL_CLASSIFY_USER_PROMPTS as FULLTEXT_PROMPTS
-from paper.gpt.evaluate_paper_full import format_template as format_fulltext
+from paper.gpt.evaluate_paper_sans import SANS_CLASSIFY_USER_PROMPTS as SANS_PROMPTS
+from paper.gpt.evaluate_paper_sans import format_template as format_sans
 from paper.gpt.evaluate_paper_scimon import (
     SCIMON_CLASSIFY_USER_PROMPTS as SCIMON_PROMPTS,
 )
@@ -54,8 +54,8 @@ app = typer.Typer(
 )
 
 
-@app.command(help="Estimate tokens for full-text evaluation", no_args_is_help=True)
-def fulltext(
+@app.command(help="Estimate tokens for paper content evaluation", no_args_is_help=True)
+def sans(
     input_file: Annotated[
         Path, typer.Argument(help="Input dataset JSON file (peerread_merged.json)")
     ],
@@ -64,7 +64,7 @@ def fulltext(
         typer.Option(
             "--user",
             help="Input data prompt.",
-            click_type=cli.Choice(FULLTEXT_PROMPTS),
+            click_type=cli.Choice(SANS_PROMPTS),
         ),
     ],
     demo_prompt_key: Annotated[
@@ -96,7 +96,7 @@ def fulltext(
         raise SystemExit(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
     input_data = load_data(input_file, s2.PaperWithS2Refs)[:limit]
-    input_prompt = FULLTEXT_PROMPTS[user_prompt_key]
+    input_prompt = SANS_PROMPTS[user_prompt_key]
 
     demonstration_data = (
         load_data(demonstrations_file, Demonstration) if demonstrations_file else []
@@ -104,9 +104,7 @@ def fulltext(
     demonstration_prompt = DEMO_PROMPTS[demo_prompt_key]
     demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
 
-    prompts = [
-        format_fulltext(input_prompt, paper, demonstrations) for paper in input_data
-    ]
+    prompts = [format_sans(input_prompt, paper, demonstrations) for paper in input_data]
 
     tokeniser = tiktoken.encoding_for_model(model)
     tokens = [len(tokeniser.encode(prompt)) for prompt in prompts]

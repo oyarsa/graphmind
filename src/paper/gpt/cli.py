@@ -16,9 +16,9 @@ from paper.gpt import (
     annotate_paper,
     classify_contexts,
     evaluate_paper,
-    evaluate_paper_full,
     evaluate_paper_graph,
     evaluate_paper_peter,
+    evaluate_paper_sans,
     evaluate_paper_scimon,
     evaluate_reviews,
     summarise_related_peter,
@@ -62,7 +62,7 @@ main_subcommands = [
 app = _new_app("gpt", main_subcommands)
 
 evals_subcommands = [
-    ("full", "Evaluate paper using full text.", evaluate_paper_full),
+    ("sans", "Evaluate paper using just the paper contents.", evaluate_paper_sans),
     (
         "scimon",
         "Evaluate paper using SciMON graphs-extracted terms.",

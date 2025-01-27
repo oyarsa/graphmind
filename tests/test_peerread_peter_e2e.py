@@ -178,22 +178,22 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     petersum = petersum_dir / "result.json"
     assert petersum.exists()
 
-    title("GPT eval full")
-    eval_full_dir = tmp_path / "eval-full"
+    title("GPT eval sans")
+    eval_sans_dir = tmp_path / "eval-sans"
     run(
         "gpt",
         "eval",
-        "full",
+        "sans",
         "run",
         "--peerread",
         peer_with_ref,
         "--output",
-        eval_full_dir,
+        eval_sans_dir,
         "--demos",
         "eval_4",
     )
-    eval_full = eval_full_dir / "result.json"
-    assert eval_full.exists()
+    eval_sans = eval_sans_dir / "result.json"
+    assert eval_sans.exists()
 
     title("GPT eval PETER")
     eval_peter_dir = tmp_path / "eval-peter"
