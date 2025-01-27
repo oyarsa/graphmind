@@ -24,7 +24,6 @@ $ gpt [OPTIONS] COMMAND [ARGS]...
 * `context`: Classify paper citations using full text.
 * `demos`: List available demonstration files.
 * `eval`: Evaluate a paper
-* `graph`: Extract graph from papers.
 * `petersum`: Summarise PETER related papers.
 * `terms`: Annotate S2 papers with key terms and split abstract.
 * `tokens`: Estimate input tokens for tasks and prompts.
@@ -130,18 +129,20 @@ $ gpt eval [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `full`: Evaluate paper using full text.
+* `graph`: Evaluate paper using paper graph with PETER-query related papers.
 * `peter`: Evaluate paper using PETER-query related papers.
+* `reviews`: Evaluate individual reviews for novelty.
+* `sans`: Evaluate paper using just the paper contents.
 * `scimon`: Evaluate paper using SciMON graphs-extracted terms.
 
-### `gpt eval full`
+### `gpt eval graph`
 
-Evaluate a paper's novelty based on its full-body text.
+Evaluate a paper's novelty based on main paper graph with PETER-queried papers.
 
 **Usage**:
 
 ```console
-$ gpt eval full [OPTIONS] COMMAND [ARGS]...
+$ gpt eval graph [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -151,46 +152,51 @@ $ gpt eval full [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `prompts`: List available prompts.
-* `run`: Evaluate a paper's novelty based on its...
+* `run`: Evaluate a paper's novelty based on main...
 
-#### `gpt eval full prompts`
+#### `gpt eval graph prompts`
 
 List available prompts.
 
 **Usage**:
 
 ```console
-$ gpt eval full prompts [OPTIONS]
+$ gpt eval graph prompts [OPTIONS]
 ```
 
 **Options**:
 
-* `--detail / --no-detail`: Show full description of the prompts.  [default: no-detail]
+* `--detail / --no-detail`: Show full prompt text.  [default: no-detail]
 * `--help`: Show this message and exit.
 
-#### `gpt eval full run`
+#### `gpt eval graph run`
 
-Evaluate a paper's novelty based on its full-body text.
+Evaluate a paper's novelty based on main paper graph with PETER-queried papers.
 
-The input is the processed PeerRead dataset (peerread.Paper).
+The input is the output of `gpt.summarise_related_peter`. These are the PETER-queried
+papers with the related papers summarised. This then converts the paper content to a
+graph, and uses it as input alongside the PETER results.
+
+The output is the input annotated papers with a predicted novelty rating.
 
 **Usage**:
 
 ```console
-$ gpt eval full run [OPTIONS]
+$ gpt eval graph run [OPTIONS]
 ```
 
 **Options**:
 
-* `--peerread PATH`: The path to the JSON file containing the PeerRead papers data.  [required]
+* `--papers PATH`: JSON file containing the annotated PeerRead papers with summarised graph results.  [required]
 * `--output PATH`: The path to the output directory where the files will be saved.  [required]
-* `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
-* `-n, --limit INTEGER`: The number of papers to process.  [default: 1]
-* `--user-prompt [iclr2023|iclr2023-abs|simple|simple-abs]`: The user prompt to use for classification.  [default: simple-abs]
+* `-m, --model TEXT`: The model to use for both extraction and evaluation.  [default: gpt-4o-mini]
+* `-n, --limit INTEGER`: The number of papers to process.  [default: 10]
+* `--eval-prompt [full-graph|only-graph|related|sans|title-graph]`: The user prompt to use for paper evaluation.  [default: simple]
+* `--graph-prompt [strict]`: The user prompt to use for graph extraction.  [default: strict]
 * `--continue-papers PATH`: Path to file with data from a previous run.
-* `--continue`: Use existing intermediate results
-* `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
-* `--demos [eval_demonstrations_10|eval_demonstrations_4]`: Name of file containing demonstrations to use in few-shot prompt
+* `--continue`: Use existing intermediate results.
+* `--seed INTEGER`: Random seed used for data shuffling and OpenAI API.  [default: 0]
+* `--demos [eval_10|eval_4|review_10|review_5|review_clean_5|review_clean_5_1]`: Name of file containing demonstrations to use in few-shot prompt.
 * `--demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations.  [default: abstract]
 * `--help`: Show this message and exit.
 
@@ -245,7 +251,7 @@ $ gpt eval peter run [OPTIONS]
 
 **Options**:
 
-* `--ann-graph PATH`: JSON file containing the annotated PeerRead papers with summarised graph results.  [required]
+* `--papers PATH`: JSON file containing the annotated PeerRead papers with summarised graph results.  [required]
 * `--output PATH`: The path to the output directory where the files will be saved.  [required]
 * `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
 * `-n, --limit INTEGER`: The number of papers to process.  [default: 10]
@@ -253,7 +259,134 @@ $ gpt eval peter run [OPTIONS]
 * `--continue-papers PATH`: Path to file with data from a previous run.
 * `--continue`: Use existing intermediate results.
 * `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
-* `--demos PATH`: File containing demonstrations to use in few-shot prompt
+* `--demos [eval_10|eval_4|review_10|review_5|review_clean_5|review_clean_5_1]`: Name of file containing demonstrations to use in few-shot prompt
+* `--demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations.  [default: abstract]
+* `--help`: Show this message and exit.
+
+### `gpt eval reviews`
+
+Predict each review's novelty rating based on the review text.
+
+**Usage**:
+
+```console
+$ gpt eval reviews [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `prompts`: List available prompts.
+* `run`: Predict each review's novelty rating based...
+
+#### `gpt eval reviews prompts`
+
+List available prompts.
+
+**Usage**:
+
+```console
+$ gpt eval reviews prompts [OPTIONS]
+```
+
+**Options**:
+
+* `--detail / --no-detail`: Show full description of the prompts.  [default: no-detail]
+* `--help`: Show this message and exit.
+
+#### `gpt eval reviews run`
+
+Predict each review's novelty rating based on the review text.
+
+The input is the processed PeerRead dataset (peerread.Paper).
+
+**Usage**:
+
+```console
+$ gpt eval reviews run [OPTIONS]
+```
+
+**Options**:
+
+* `--peerread PATH`: The path to the JSON file containing the PeerRead papers data.  [required]
+* `--output PATH`: The path to the output directory where the files will be saved.  [required]
+* `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
+* `-n, --limit INTEGER`: The number of papers to process. Use 0 for all papers.  [default: 1]
+* `--user-prompt [simple|ternary]`: The user prompt to use for classification.  [default: simple]
+* `--extract-prompt [basic|overall|simple]`: The user prompt to use for novelty rationale extraction. If not provided, use the original rationale.
+* `--continue-papers PATH`: Path to file with data from a previous run.
+* `--continue`: Use existing intermediate results.
+* `--seed INTEGER`: Random seed used for the GPT API and to shuffle the data.  [default: 0]
+* `--demos [eval_10|eval_4|review_10|review_5|review_clean_5|review_clean_5_1]`: Name of file containing demonstrations to use in few-shot prompt.
+* `--review-demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations for review classification.  [default: abstract]
+* `--extract-demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations for rationale extraction.
+* `--mode [original|binary|trinary]`: Which mode to apply to target ratings. See `paper.evaluate_paper.RatingMode`.  [default: binary]
+* `--keep-intermediate / --no-keep-intermediate`: Keep intermediate results.  [default: no-keep-intermediate]
+* `--help`: Show this message and exit.
+
+### `gpt eval sans`
+
+Evaluate a paper's novelty based only on its content.
+
+**Usage**:
+
+```console
+$ gpt eval sans [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `prompts`: List available prompts.
+* `run`: Evaluate a paper's novelty based only on...
+
+#### `gpt eval sans prompts`
+
+List available prompts.
+
+**Usage**:
+
+```console
+$ gpt eval sans prompts [OPTIONS]
+```
+
+**Options**:
+
+* `--detail / --no-detail`: Show full description of the prompts.  [default: no-detail]
+* `--help`: Show this message and exit.
+
+#### `gpt eval sans run`
+
+Evaluate a paper's novelty based only on its content.
+
+Uses the paper title, abstract and, optionally, the main text.
+"sans" means "without", meaning "without other features".
+
+The input is the processed PeerRead dataset (peerread.Paper).
+
+**Usage**:
+
+```console
+$ gpt eval sans run [OPTIONS]
+```
+
+**Options**:
+
+* `--peerread PATH`: The path to the JSON file containing the PeerRead papers data.  [required]
+* `--output PATH`: The path to the output directory where the files will be saved.  [required]
+* `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
+* `-n, --limit INTEGER`: The number of papers to process.  [default: 1]
+* `--user-prompt [iclr2023|iclr2023-abs|simple|simple-abs]`: The user prompt to use for classification.  [default: simple-abs]
+* `--continue-papers PATH`: Path to file with data from a previous run.
+* `--continue`: Use existing intermediate results
+* `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
+* `--demos [eval_10|eval_4|review_10|review_5|review_clean_5|review_clean_5_1]`: Name of file containing demonstrations to use in few-shot prompt
 * `--demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations.  [default: abstract]
 * `--help`: Show this message and exit.
 
@@ -317,71 +450,6 @@ $ gpt eval scimon run [OPTIONS]
 * `--seed INTEGER`: Random seed used for data shuffling.  [default: 0]
 * `--demos PATH`: File containing demonstrations to use in few-shot prompt
 * `--demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations.  [default: abstract]
-* `--help`: Show this message and exit.
-
-## `gpt graph`
-
-Generate graphs from papers from the PeerRead-Review dataset using OpenAI GPT.
-
-**Usage**:
-
-```console
-$ gpt graph [OPTIONS] COMMAND [ARGS]...
-```
-
-**Options**:
-
-* `--help`: Show this message and exit.
-
-**Commands**:
-
-* `prompts`: List available prompts.
-* `run`: Generate graphs from papers from the...
-
-### `gpt graph prompts`
-
-List available prompts.
-
-**Usage**:
-
-```console
-$ gpt graph prompts [OPTIONS]
-```
-
-**Options**:
-
-* `--detail / --no-detail`: Show full description of the prompts.  [default: no-detail]
-* `--help`: Show this message and exit.
-
-### `gpt graph run`
-
-Generate graphs from papers from the PeerRead-Review dataset using OpenAI GPT.
-
-The graphs represent the collection of concepts and arguments in the paper.
-Can also classify a paper into approved/not-approved using the generated graph.
-
-**Usage**:
-
-```console
-$ gpt graph run [OPTIONS] DATA_PATH OUTPUT_DIR
-```
-
-**Arguments**:
-
-* `DATA_PATH`: The path to the JSON file containig the papers data.  [required]
-* `OUTPUT_DIR`: The path to the output directory where files will be saved.  [required]
-
-**Options**:
-
-* `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
-* `--limit INTEGER`: Limit to the number of papers to process.
-* `--graph-user-prompt [strict]`: The user prompt to use for the graph extraction.  [default: simple]
-* `--classify-user-prompt [simple]`: The user prompt to use for paper classification.  [default: simple]
-* `--display / --no-display`: Display the extracted graph  [default: no-display]
-* `--classify / --no-classify`: Classify the papers based on the extracted entities.  [default: no-classify]
-* `--continue-papers PATH`: Path to file with data from a previous run.
-* `--continue`: Use existing intermediate results.
-* `--seed INTEGER`: Seed to set in the OpenAI call.  [default: 0]
 * `--help`: Show this message and exit.
 
 ## `gpt petersum`
@@ -532,17 +600,17 @@ $ gpt tokens [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `fulltext`: Estimate tokens for full-text evaluation
+* `sans`: Estimate tokens for paper content evaluation
 * `scimon`: Estimate tokens for SciMON-based evaluation
 
-### `gpt tokens fulltext`
+### `gpt tokens sans`
 
-Estimate tokens for full-text evaluation
+Estimate tokens for paper content evaluation
 
 **Usage**:
 
 ```console
-$ gpt tokens fulltext [OPTIONS] INPUT_FILE
+$ gpt tokens sans [OPTIONS] INPUT_FILE
 ```
 
 **Arguments**:
