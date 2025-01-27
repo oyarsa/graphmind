@@ -1,12 +1,23 @@
 """Tools for serialisation and deserialisation of Pydantic objects."""
 
 import json
+import sys
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Literal, overload
+from typing import (
+    Any,
+    Literal,
+    Protocol,
+    Self,
+    TypeGuard,
+    cast,
+    get_origin,
+    overload,
+    runtime_checkable,
+)
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 type JSONPrimitive = str | bool | int | float
 type JSONArray = Sequence[JSONValue]
@@ -56,24 +67,38 @@ def load_data[T: BaseModel](
 
     Returns:
         List of data with the `type_` format.
+
+    Raises:
+        `ValidationError` if file already exists and its data is incompatible with
+        `type_`.
+        `OSError` if the file operations fail.
     """
     if isinstance(file, Path):
         content = file.read_bytes()
     else:
         content = file
 
-    if single:
-        return type_.model_validate_json(content)
+    try:
+        if single:
+            return type_.model_validate_json(content)
 
-    return TypeAdapter(
-        list[type_], config=ConfigDict(populate_by_name=not use_alias)
-    ).validate_json(content)
+        return TypeAdapter(
+            list[type_], config=ConfigDict(populate_by_name=not use_alias)
+        ).validate_json(content)
+    except ValidationError as e:
+        source = file if isinstance(file, Path) else "bytes"
+        raise ValidationError(
+            f"Data from {source} is not valid for {_get_full_type_name(type_)}"
+        ) from e
 
 
 def save_data[T: BaseModel](
-    file: Path, data: Sequence[T] | T, use_alias: bool = True
+    file: Path, data: Sequence[T] | T | Any, use_alias: bool = True
 ) -> None:
-    """Save data in JSON `file`. Can be a single Pydantic object or a Sequence.
+    """Save data in JSON `file`. Can be a single Pydantic object or a Sequence, or Any.
+
+    If `data` is a Pydantic object or Sequence of one, we'll use Pydantic to convert
+    to JSON. If not, we'll use `json.dumps` directly.
 
     Args:
         file: File where data will be saved. Creates its parent directory if it doesn't
@@ -86,13 +111,52 @@ def save_data[T: BaseModel](
         raise ValueError("Cannot save empty data")
 
     file.parent.mkdir(parents=True, exist_ok=True)
+    file.write_text(_dump_data_to_json(data, use_alias=use_alias))
+
+
+def _dump_data_to_json[T: BaseModel](
+    data: Sequence[T] | T | Any, use_alias: bool
+) -> str:
+    """Return a JSON string representation of `data`.
+
+    - If `data` is a single BaseModel, use its `.model_dump_json()`.
+    - If `data` is a non-empty sequence of BaseModel, use `TypeAdapter`.
+    - Otherwise, fall back to `json.dumps`.
+    """
+
+    if isinstance(data, BaseModel):
+        return data.model_dump_json(indent=2, by_alias=use_alias)
+
     if isinstance(data, Sequence):
-        type_ = type(data[0])
-        file.write_bytes(
-            TypeAdapter(Sequence[type_]).dump_json(data, indent=2, by_alias=use_alias)
-        )
-    else:
-        file.write_text(data.model_dump_json(indent=2, by_alias=use_alias))
+        data = cast(Sequence[Any], data)
+        if _is_model_list(data):
+            type_ = type(data[0])
+            return TypeAdapter(Sequence[type_]).dump_json(data).decode()
+
+    return json.dumps(data, indent=2)
+
+
+def _is_model_list(val: Sequence[object]) -> TypeGuard[Sequence[BaseModel]]:
+    """Determine whether all objects in the list are Pydantic models."""
+    return all(isinstance(x, BaseModel) for x in val)
+
+
+def _get_full_type_name[T](type_: type[T]) -> str:
+    """Get full name of type, including full module path."""
+    # Handle generic types (List[str], etc.)
+    origin = get_origin(type_)
+    if origin is not None:
+        type_ = origin
+
+    # Try to find the original module
+    for module_name, module in sys.modules.items():
+        if hasattr(module, type_.__name__):
+            obj = getattr(module, type_.__name__)
+            if obj is type_:
+                return f"{module_name}.{type_.__qualname__}"
+
+    # Fallback to default
+    return f"{type_.__module__}.{type_.__qualname__}"
 
 
 def safe_load_json(file_path: Path) -> Any:
@@ -100,6 +164,25 @@ def safe_load_json(file_path: Path) -> Any:
     return json.loads(file_path.read_text(encoding="utf-8", errors="replace"))
 
 
-def replace_fields[T: BaseModel](obj: T, /, **kwargs: Any) -> T:
+@runtime_checkable
+class PydanticProtocol(Protocol):
+    """Class with `model_dump` and `model_validate` functions.
+
+    Should be compatible with Pydantic BaseModel classes.
+
+    Used for the `replace_fields` function so we can use it in other protocols, as we
+    can't inherit from abstract classes in protocols.
+    """
+
+    def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        """Dump BaseModel to a dictionary, including nested objects."""
+        ...
+
+    def model_validate(self, obj: Any, *args: Any, **kwargs: Any) -> Self:
+        """Construct BaseModel object from dictionary."""
+        ...
+
+
+def replace_fields[T: PydanticProtocol](obj: T, /, **kwargs: Any) -> T:
     """Return a new Pydantic object replacing specified fields with new values."""
     return obj.model_validate(obj.model_dump() | kwargs)

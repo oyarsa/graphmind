@@ -7,8 +7,8 @@ The following are some guidelines to follow when contributing to this project.
 - Use `uv run ruff format` to format the code, which will follow PEP 8.
 - Use `uv run ruff check` to lint the code, checking for common mistakes.
 - Use `uv run pyright` to check for type errors.
-- You can also use `./tasks.sh check` to run all checks at once (requires `bash`).
-  See `./tasks.sh help` for more information on tasks avaialble.
+- You can also use `just lint` to run all checks at once (requires `just`).
+  See `just` for more information on tasks avaialble.
 - Always use type hints for functions and classes. See existing code for examples. The
   [mypy documentation](https://mypy.readthedocs.io/en/stable/getting_started.html) and
   [cheat sheet](https://mypy.readthedocs.io/en/stable/cheat_sheet_py3.html) are good

@@ -23,7 +23,6 @@ from rich.table import Table
 
 from paper import semantic_scholar as s2
 from paper.gpt.model import (
-    Paper,
     PaperAnnotated,
     PaperTerms,
     PaperToAnnotate,
@@ -42,9 +41,10 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    display_params,
+    get_params,
     mustenv,
     progress,
+    render_params,
     setup_logging,
 )
 from paper.util.serde import load_data, save_data
@@ -107,7 +107,7 @@ class PaperType(StrEnum):
             case self.S2:
                 return s2.Paper
             case self.PeerRead:
-                return Paper
+                return s2.PaperWithS2Refs
 
 
 @app.command(help=__doc__, no_args_is_help=True)
@@ -141,7 +141,7 @@ def run(
             "--model",
             "-m",
             help="The model to use for the annotation.",
-            click_type=cli.choice(MODELS_ALLOWED),
+            click_type=cli.Choice(MODELS_ALLOWED),
         ),
     ] = "gpt-4o-mini",
     seed: Annotated[int, typer.Option(help="Seed to set in the OpenAI call.")] = 0,
@@ -149,14 +149,14 @@ def run(
         str,
         typer.Option(
             help="User prompt to use for term annotation.",
-            click_type=cli.choice(_TERM_USER_PROMPTS),
+            click_type=cli.Choice(_TERM_USER_PROMPTS),
         ),
     ] = "multi",
     prompt_abstract: Annotated[
         str,
         typer.Option(
             help="User prompt to use for abstract classification.",
-            click_type=cli.choice(_ABS_USER_PROMPTS),
+            click_type=cli.Choice(_ABS_USER_PROMPTS),
         ),
     ] = "simple",
     abstract_demonstrations: Annotated[
@@ -171,7 +171,7 @@ def run(
         typer.Option(
             "--abstract-demo-prompt",
             help="Prompt used to create abstract classification demonstrations",
-            click_type=cli.choice(_ABS_DEMO_PROMPTS),
+            click_type=cli.Choice(_ABS_DEMO_PROMPTS),
         ),
     ] = "simple",
     continue_papers: Annotated[
@@ -251,7 +251,8 @@ async def annotate_papers(
             dependent on the prompt.
         paper_type: Type of the paper input data.
     """
-    logger.info(display_params())
+    params = get_params()
+    logger.info(render_params(params))
 
     dotenv.load_dotenv()
 
@@ -317,6 +318,7 @@ async def annotate_papers(
 
     save_data(output_dir / "results_all.json", output.result)
     save_data(output_dir / "results_valid.json", output_valid)
+    save_data(output_dir / "params.json", params)
     assert len(papers) == len(output.result)
 
     if show_log:
@@ -359,9 +361,9 @@ async def _annotate_papers(
     output_intermediate_path: Path,
     *,
     seed: int,
-) -> GPTResult[list[PromptResult[PaperAnnotated[PaperTerms]]]]:
+) -> GPTResult[list[PromptResult[PaperAnnotated]]]:
     """Annotate papers to add key terms. Runs multiple tasks concurrently."""
-    ann_outputs: list[PromptResult[PaperAnnotated[PaperTerms]]] = []
+    ann_outputs: list[PromptResult[PaperAnnotated]] = []
     total_cost = 0
 
     tasks = [

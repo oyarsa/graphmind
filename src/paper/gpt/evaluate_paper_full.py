@@ -13,8 +13,8 @@ from typing import Annotated
 import dotenv
 import typer
 from openai import AsyncOpenAI
-from pydantic import TypeAdapter
 
+from paper import semantic_scholar as s2
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
@@ -22,10 +22,10 @@ from paper.gpt.evaluate_paper import (
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
-    fix_classified_rating,
+    fix_evaluated_rating,
     format_demonstrations,
 )
-from paper.gpt.model import Paper, Prompt, PromptResult
+from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -38,13 +38,14 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    display_params,
     ensure_envvar,
+    get_params,
     progress,
+    render_params,
     setup_logging,
     shuffled,
 )
-from paper.util.serde import load_data
+from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
 FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
@@ -86,7 +87,7 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for classification.",
-            click_type=cli.choice(FULL_CLASSIFY_USER_PROMPTS),
+            click_type=cli.Choice(FULL_CLASSIFY_USER_PROMPTS),
         ),
     ] = "simple-abs",
     continue_papers: Annotated[
@@ -101,14 +102,14 @@ def run(
         str | None,
         typer.Option(
             help="Name of file containing demonstrations to use in few-shot prompt",
-            click_type=cli.choice(EVALUATE_DEMONSTRATIONS),
+            click_type=cli.Choice(EVALUATE_DEMONSTRATIONS),
         ),
     ] = None,
     demo_prompt: Annotated[
         str,
         typer.Option(
             help="User prompt to use for building the few-shot demonstrations.",
-            click_type=cli.choice(EVALUATE_DEMONSTRATION_PROMPTS),
+            click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "abstract",
 ) -> None:
@@ -179,7 +180,8 @@ async def evaluate_papers(
     Returns:
         None. The output is saved to `output_dir`.
     """
-    logger.info(display_params())
+    params = get_params()
+    logger.info(render_params(params))
 
     random.seed(seed)
 
@@ -194,7 +196,7 @@ async def evaluate_papers(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    papers = shuffled(load_data(peerread_path, Paper))[:limit_papers]
+    papers = shuffled(load_data(peerread_path, s2.PaperWithS2Refs))[:limit_papers]
     user_prompt = FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
@@ -236,24 +238,20 @@ async def evaluate_papers(
     results_all = papers_remaining.done + results.result
     results_items = PromptResult.unwrap(results_all)
 
-    metrics = calculate_paper_metrics(results_items)
+    metrics = calculate_paper_metrics(results_items, results.cost)
     logger.info("%s\n", display_metrics(metrics, results_items))
 
     assert len(results_all) == len(papers)
-    (output_dir / "result.json").write_bytes(
-        TypeAdapter(list[PromptResult[PaperResult]]).dump_json(results_all, indent=2)
-    )
-    (output_dir / "result_items.json").write_bytes(
-        TypeAdapter(list[PaperResult]).dump_json(results_items, indent=2)
-    )
-    (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
+    save_data(output_dir / "result.json", results_all)
+    save_data(output_dir / "metrics.json", metrics)
+    save_data(output_dir / "params.json", params)
 
 
 async def _classify_papers(
     client: AsyncOpenAI,
     model: str,
     user_prompt: PromptTemplate,
-    papers: Sequence[Paper],
+    papers: Sequence[s2.PaperWithS2Refs],
     output_intermediate_file: Path,
     demonstrations: str,
     *,
@@ -297,12 +295,14 @@ _FULL_CLASSIFY_SYSTEM_PROMPT = (
 )
 
 
-def format_template(prompt: PromptTemplate, paper: Paper, demonstrations: str) -> str:
+def format_template(
+    prompt: PromptTemplate, paper: s2.PaperWithS2Refs, demonstrations: str
+) -> str:
     """Format full-text evaluation template `paper` and `demonstrations`."""
     return prompt.template.format(
         title=paper.title,
         abstract=paper.abstract,
-        main_text=paper.main_text(),
+        main_text=paper.main_text,
         demonstrations=demonstrations,
     )
 
@@ -310,7 +310,7 @@ def format_template(prompt: PromptTemplate, paper: Paper, demonstrations: str) -
 async def _classify_paper(
     client: AsyncOpenAI,
     model: str,
-    paper: Paper,
+    paper: s2.PaperWithS2Refs,
     user_prompt: PromptTemplate,
     demonstrations: str,
     *,
@@ -326,22 +326,12 @@ async def _classify_paper(
         seed=seed,
     )
 
-    classified = result.result or GPTFull(rationale="<error>", rating=1)
-    classified = fix_classified_rating(classified)
+    classified = fix_evaluated_rating(result.result or GPTFull.error())
 
     return GPTResult(
         result=PromptResult(
-            item=PaperResult(
-                title=paper.title,
-                abstract=paper.abstract,
-                reviews=paper.reviews,
-                authors=paper.authors,
-                sections=paper.sections,
-                rating=paper.rating,
-                rationale=paper.rationale,
-                y_true=paper.rating,
-                y_pred=classified.rating,
-                rationale_pred=classified.rationale,
+            item=PaperResult.from_s2peer(
+                paper, classified.rating, classified.rationale
             ),
             prompt=Prompt(system=_FULL_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),

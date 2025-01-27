@@ -185,19 +185,26 @@ def safediv(x: float, y: float) -> float:
         return float("nan")
 
 
-def display_params() -> str:
-    """Display the function parameters and values as a formatted string.
+def get_params(frame_depth: int = 1) -> dict[str, str]:
+    """Get calling function parameters and values as a dictionary.
 
     Masks sensitive values, i.e. values with `api` in the name.
 
+    Args:
+        frame_depth: Number of frames to go up to find the target function. 1 gets
+            direct caller, 2 gets caller's caller, etc.
+
     Returns:
-        String representation of the parameter names and values.
+        Mapping parameter names to their string representations.
 
     Raises:
         ValueError: if there's a problem getting the calling function object.
     """
-    if (curframe := inspect.currentframe()) and curframe.f_back:
-        frame = curframe.f_back
+    if (curframe := inspect.currentframe()) and (frame := curframe.f_back):
+        for _ in range(frame_depth - 1):
+            if not frame.f_back:
+                raise ValueError("Frame depth exceeds call stack")
+            frame = frame.f_back
     else:
         raise ValueError("Couldn't find calling function frame")
 
@@ -220,18 +227,37 @@ def display_params() -> str:
         if isinstance(value, Path):
             value = f"{value.resolve()} ({_hash_path(value)})"
 
-        # Mask sensitive values
         if "api" in param_name.casefold() and value is not None:
             result[param_name] = "********"
         else:
             result[param_name] = str(value)
 
+    return result
+
+
+def render_params(params: dict[str, str]) -> str:
+    """Render function parameters as a string.
+
+    You can use it to render the output of `get_params`.
+    """
     return (
         "CONFIG:\n"
         f"Git commit: {git_commit()}\n"
-        + "\n".join(f"{key}: {value}" for key, value in result.items())
+        + "\n".join(f"{key}: {value}" for key, value in params.items())
         + "\n"
     )
+
+
+def display_params() -> str:
+    """Display the calling function parameters and values as a formatted string.
+
+    Masks sensitive values, i.e. values with `api` in the name.
+
+    Returns:
+        String representation of the parameter names and values.
+    """
+    # Get caller of display_params
+    return render_params(get_params(frame_depth=2))
 
 
 def _hash_path(path: Path, chars: int = 8) -> str:

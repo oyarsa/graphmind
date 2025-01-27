@@ -21,7 +21,7 @@ from typing import Annotated, Self
 import dotenv
 import typer
 from openai import AsyncOpenAI
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from paper import evaluation_metrics, peerread
 from paper import semantic_scholar as s2
@@ -38,14 +38,15 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    display_params,
     ensure_envvar,
+    get_params,
     hashstr,
     progress,
+    render_params,
     safediv,
     setup_logging,
 )
-from paper.util.serde import Record, load_data
+from paper.util.serde import Record, load_data, save_data
 
 logger = logging.getLogger(__name__)
 app = typer.Typer(
@@ -78,7 +79,7 @@ def run(
             "--model",
             "-m",
             help="The model to use for the extraction.",
-            click_type=cli.choice(MODELS_ALLOWED),
+            click_type=cli.Choice(MODELS_ALLOWED),
         ),
     ] = "gpt-4o-mini",
     limit_papers: Annotated[
@@ -89,7 +90,7 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for context classification.",
-            click_type=cli.choice(_CONTEXT_USER_PROMPTS),
+            click_type=cli.Choice(_CONTEXT_USER_PROMPTS),
         ),
     ] = "sentence",
     limit_references: Annotated[
@@ -136,7 +137,8 @@ async def classify_contexts(
     seed: int,
 ) -> None:
     """Classify reference citation contexts by polarity."""
-    logger.info(display_params())
+    params = get_params()
+    logger.info(render_params(params))
 
     dotenv.load_dotenv()
 
@@ -195,15 +197,18 @@ async def classify_contexts(
     stats, metrics = show_classified_stats(result.item for result in results_all)
     logger.info("Classification metrics:\n%s\n", stats)
 
-    assert len(results_all) == len(papers)
-    (output_dir / "result.json").write_bytes(
-        TypeAdapter(list[PromptResult[PaperWithContextClassfied]]).dump_json(
-            results_all, indent=2
-        )
-    )
+    save_data(output_dir / "results.json", results_all)
     (output_dir / "output.txt").write_text(stats)
+    save_data(output_dir / "params.json", params)
     if metrics is not None:
-        (output_dir / "metrics.json").write_text(metrics.model_dump_json(indent=2))
+        save_data(output_dir / "metrics.json", metrics)
+
+    if len(results_all) != len(papers):
+        logger.warning(
+            "Some papers are missing from the output. Input: %d. Output: %d.",
+            len(papers),
+            len(results_all),
+        )
 
 
 class ContextClassified(BaseModel):
@@ -437,10 +442,10 @@ async def _classify_contexts(
     return GPTResult(paper_outputs, total_cost)
 
 
-# TODO:This one is a bit messy. Refactor it.
 def show_classified_stats(
     data: Iterable[PaperWithContextClassfied],
 ) -> tuple[str, evaluation_metrics.Metrics | None]:
+    # @REFACTOR:This one is a bit messy. Refactor it. (2024-10-26)
     """Evaluate the annotation results and print statistics.
 
     If the data includes gold annotation, calculate evaluation metrics. If not,

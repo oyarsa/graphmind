@@ -30,7 +30,20 @@ def main(
     ],
     force: Annotated[
         bool, typer.Option(help="Discard existing generated files.")
-    ] = True,
+    ] = False,
+    construct_count: Annotated[
+        int,
+        typer.Option(
+            "--construct",
+            help="Number of items for constructed dataset. Use 0 for all items.",
+        ),
+    ] = 50,
+    num_related: Annotated[
+        int,
+        typer.Option(
+            "--related", help="Number of related papers for PETER (each type)."
+        ),
+    ] = 2,
 ) -> None:
     """Run the full PETER pipeline from PeerRead preprocessing to graph building."""
     title("Check if PeerRead is available")
@@ -43,7 +56,7 @@ def main(
 
     title("Preprocess")
     processed = output_dir / "peerread_merged.json"
-    _checkrun(processed, "preprocess", "peerread", input_dir, processed)
+    _checkrun(processed, "peerread", "preprocess", input_dir, processed)
     assert processed.exists()
 
     title("Info main")
@@ -109,13 +122,14 @@ def main(
         recommended,
         "--output",
         subset_dir,
-        "--num-peerrad",
-        50,
+        "--num-peerread",
+        construct_count,
     )
     assert peer_with_ref.exists()
 
+    title("Context")
     context_dir = output_dir / "context"
-    context = context_dir / "result.json"
+    context = context_dir / "results.json"
     _checkrun(
         context,
         "gpt",
@@ -130,6 +144,7 @@ def main(
     )
     assert context.exists()
 
+    title("PeerRead terms")
     peer_terms_dir = output_dir / "peerread-terms"
     peer_terms = peer_terms_dir / "results_valid.json"
     _checkrun(
@@ -146,6 +161,7 @@ def main(
     )
     assert peer_terms.exists()
 
+    title("S2 terms")
     s2_terms_dir = output_dir / "s2-terms"
     s2_terms = s2_terms_dir / "results_valid.json"
     _checkrun(
@@ -187,6 +203,10 @@ def main(
         peter_graph,
         "--peerread-ann",
         peer_terms,
+        "--num-citations",
+        num_related,
+        "--num-semantic",
+        num_related,
         "--output",
         peter_peer,
     )
@@ -222,6 +242,7 @@ def _checkrun(path: Path, *cmd: object) -> None:
         print(f"{path} already exists.")
         return
 
+    print(f"{path} does not exist. Running command.")
     run(*cmd)
 
 

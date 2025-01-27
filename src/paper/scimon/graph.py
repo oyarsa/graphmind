@@ -6,7 +6,7 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, Self
+from typing import Any, ClassVar, Self
 
 from pydantic import BaseModel, ConfigDict
 
@@ -28,7 +28,7 @@ class GraphData(BaseModel):
     semantic: semantic.GraphData
     citations: citations.Graph
     encoder_model: str
-    metadata: str | None = None
+    metadata: dict[str, Any] | None = None
 
     def to_graph(self, encoder: emb.Encoder | None = None) -> Graph:
         """Convert this data to a functioning graph.
@@ -50,7 +50,7 @@ class GraphData(BaseModel):
         )
 
     @classmethod
-    def from_graph(cls, graph: Graph, metadata: str | None = None) -> Self:
+    def from_graph(cls, graph: Graph, metadata: dict[str, Any] | None = None) -> Self:
         """Convert a graph object to data to be serialised."""
         return cls(
             kg=graph.kg.to_data(),

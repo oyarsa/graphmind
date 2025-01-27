@@ -26,9 +26,9 @@ from typing import Annotated
 
 import typer
 
-from paper import peerread
+from paper import peerread as pr
 from paper import semantic_scholar as s2
-from paper.util import display_params
+from paper.util import get_params, render_params
 from paper.util.serde import Record, load_data, save_data
 
 app = typer.Typer(
@@ -93,12 +93,12 @@ def main(
     ] = 0,
 ) -> None:
     """Combine reference and recommended papers data into a dataset."""
-    params = display_params()
-    print(params)
+    params = get_params()
+    print(render_params(params))
 
     random.seed(seed)
 
-    peerread_papers = load_data(peerread_file, peerread.Paper)
+    peerread_papers = load_data(peerread_file, pr.Paper)
     reference_papers = load_data(references_file, s2.PaperFromPeerRead)
     recommended_papers = load_data(recommended_file, s2.PaperRecommended)
     area_papers = load_data(areas_file, s2.PaperArea) if areas_file else []
@@ -125,11 +125,11 @@ def main(
     output_dir.mkdir(parents=True, exist_ok=True)
     save_data(output_dir / "peerread_with_s2_references.json", peerread_sampled)
     save_data(output_dir / "peerread_related.json", related_papers)
-    (output_dir / "params.txt").write_text(params)
+    save_data(output_dir / "params.json", params)
 
 
 def _augment_peeread(
-    peerread_papers: Iterable[peerread.Paper],
+    peerread_papers: Iterable[pr.Paper],
     s2_papers: Iterable[s2.PaperFromPeerRead],
     min_references: int,
 ) -> list[s2.PaperWithS2Refs]:
@@ -152,16 +152,7 @@ def _augment_peeread(
         ]
         if len(s2_references) >= min_references:
             augmented_papers.append(
-                s2.PaperWithS2Refs(
-                    title=peerread_paper.title,
-                    abstract=peerread_paper.abstract,
-                    reviews=peerread_paper.reviews,
-                    authors=peerread_paper.authors,
-                    sections=peerread_paper.sections,
-                    rationale=peerread_paper.rationale,
-                    rating=peerread_paper.rating,
-                    references=s2_references,
-                )
+                s2.PaperWithS2Refs.from_peer(peerread_paper, s2_references)
             )
 
     return augmented_papers

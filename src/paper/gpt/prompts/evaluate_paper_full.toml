@@ -93,7 +93,7 @@ Output:
 name = "simple-abs"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, and the full body text.
+paper's title and abstract.
 
 Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
 reflect how much the paper brings and develops new ideas previously unseen in the \
@@ -115,10 +115,10 @@ Output:
 name = "iclr2023-abs"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, and the full body text. Based on this content and the following \
-guidelines, your task is to assign a novelty rating, and to give your reasons for that \
-decision. This rating should reflect how much the paper brings and develops new ideas \
-previously unseen in the literature.
+paper's title and abstract. Based on this content and the following guidelines, your \
+task is to assign a novelty rating, and to give your reasons for that decision. This \
+rating should reflect how much the paper brings and develops new ideas previously unseen \
+in the literature.
 
 Read the paper: It’s important to carefully read through the entire paper, and to look \
 up any related work and citations that will help you comprehensively evaluate it. Be \

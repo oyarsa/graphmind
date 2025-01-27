@@ -23,6 +23,7 @@ import tiktoken
 import typer
 
 from paper import scimon
+from paper import semantic_scholar as s2
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS as DEMO_PROMPTS,
 )
@@ -36,7 +37,6 @@ from paper.gpt.evaluate_paper_scimon import (
     SCIMON_CLASSIFY_USER_PROMPTS as SCIMON_PROMPTS,
 )
 from paper.gpt.evaluate_paper_scimon import format_template as format_scimon
-from paper.gpt.model import Paper
 from paper.gpt.run_gpt import MODEL_SYNONYMS, MODELS_ALLOWED
 from paper.util import cli, display_params, setup_logging
 from paper.util.serde import load_data
@@ -64,7 +64,7 @@ def fulltext(
         typer.Option(
             "--user",
             help="Input data prompt.",
-            click_type=cli.choice(FULLTEXT_PROMPTS),
+            click_type=cli.Choice(FULLTEXT_PROMPTS),
         ),
     ],
     demo_prompt_key: Annotated[
@@ -72,7 +72,7 @@ def fulltext(
         typer.Option(
             "--demo-prompt",
             help="Demonstration prompt.",
-            click_type=cli.choice(DEMO_PROMPTS),
+            click_type=cli.Choice(DEMO_PROMPTS),
         ),
     ],
     demonstrations_file: Annotated[
@@ -95,7 +95,7 @@ def fulltext(
     if model not in MODELS_ALLOWED:
         raise SystemExit(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
-    input_data = load_data(input_file, Paper)[:limit]
+    input_data = load_data(input_file, s2.PaperWithS2Refs)[:limit]
     input_prompt = FULLTEXT_PROMPTS[user_prompt_key]
 
     demonstration_data = (
@@ -130,7 +130,7 @@ def scimon_(
         typer.Option(
             "--user",
             help="Input data prompt.",
-            click_type=cli.choice(SCIMON_PROMPTS),
+            click_type=cli.Choice(SCIMON_PROMPTS),
         ),
     ],
     demo_prompt_key: Annotated[
@@ -138,7 +138,7 @@ def scimon_(
         typer.Option(
             "--demo-prompt",
             help="Demonstration prompt.",
-            click_type=cli.choice(DEMO_PROMPTS),
+            click_type=cli.Choice(DEMO_PROMPTS),
         ),
     ],
     demonstrations_file: Annotated[

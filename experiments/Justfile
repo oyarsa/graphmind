@@ -1,0 +1,11 @@
+# Print highlighted message
+_default:
+    @just --list --unsorted
+
+# Evaluation
+eval *args:
+    @just -f eval/Justfile {{args}}
+
+# Reviews
+reviews *args:
+    @just -f reviews/Justfile {{args}}

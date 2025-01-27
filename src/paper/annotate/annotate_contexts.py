@@ -17,12 +17,11 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from pydantic import TypeAdapter
 
 from paper.peerread.model import CitationContext, ContextPolarity
 from paper.semantic_scholar.model import PaperWithReferenceEnriched, ReferenceEnriched
 from paper.util import Timer, cli
-from paper.util.serde import load_data
+from paper.util.serde import load_data, save_data
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -99,9 +98,7 @@ def sample(
                 )
             )
 
-    output_file.write_bytes(
-        TypeAdapter(list[PaperWithReferenceEnriched]).dump_json(output_data, indent=2)
-    )
+    save_data(output_file, output_data)
 
 
 @app.command()
@@ -139,9 +136,7 @@ def annotate(
     for polarity, count in Counter(polarities).most_common():
         typer.echo(f"{polarity!s:<9}: {count}")
 
-    output_file.write_bytes(
-        TypeAdapter(list[PaperWithReferenceEnriched]).dump_json(output_data, indent=2)
-    )
+    save_data(output_file, output_data)
     assert len(input_data) == len(
         output_data
     ), "Output length should match input even if annotation was not completed"
@@ -250,7 +245,7 @@ Context
     with Timer() as timer:
         answer = typer.prompt(
             "What is the polarity of this context?",
-            type=cli.choice(["p", "u", "n", "q"]),
+            type=cli.Choice(["p", "u", "n", "q"]),
         )
     if answer == "q":
         return None

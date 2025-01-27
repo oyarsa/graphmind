@@ -19,7 +19,7 @@ import dotenv
 import typer
 from openai import AsyncOpenAI
 
-from paper import peerread
+from paper import peerread as pr
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
@@ -27,7 +27,7 @@ from paper.gpt.evaluate_paper import (
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
-    fix_classified_rating,
+    fix_evaluated_rating,
     format_demonstrations,
 )
 from paper.gpt.model import (
@@ -48,9 +48,10 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    display_params,
     ensure_envvar,
+    get_params,
     progress,
+    render_params,
     setup_logging,
     shuffled,
 )
@@ -71,12 +72,12 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def run(
-    ann_graph_file: Annotated[
+    paper_file: Annotated[
         Path,
         typer.Option(
-            "--ann-graph",
-            help="JSON file containing the annotated PeerRead papers with summarised graph"
-            " results.",
+            "--papers",
+            help="JSON file containing the annotated PeerRead papers with summarised"
+            " graph results.",
         ),
     ],
     output_dir: Annotated[
@@ -98,7 +99,7 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for classification.",
-            click_type=cli.choice(PETER_CLASSIFY_USER_PROMPTS),
+            click_type=cli.Choice(PETER_CLASSIFY_USER_PROMPTS),
         ),
     ] = "simple",
     continue_papers: Annotated[
@@ -116,14 +117,14 @@ def run(
         str | None,
         typer.Option(
             help="Name of file containing demonstrations to use in few-shot prompt",
-            click_type=cli.choice(EVALUATE_DEMONSTRATIONS),
+            click_type=cli.Choice(EVALUATE_DEMONSTRATIONS),
         ),
     ] = None,
     demo_prompt: Annotated[
         str,
         typer.Option(
             help="User prompt to use for building the few-shot demonstrations.",
-            click_type=cli.choice(EVALUATE_DEMONSTRATION_PROMPTS),
+            click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "abstract",
 ) -> None:
@@ -131,7 +132,7 @@ def run(
     asyncio.run(
         evaluate_papers(
             model,
-            ann_graph_file,
+            paper_file,
             limit_papers,
             user_prompt,
             output_dir,
@@ -152,7 +153,7 @@ def main() -> None:
 
 async def evaluate_papers(
     model: str,
-    ann_graph_file: Path,
+    paper_file: Path,
     limit_papers: int | None,
     user_prompt_key: str,
     output_dir: Path,
@@ -168,7 +169,7 @@ async def evaluate_papers(
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        ann_graph_file: Path to the JSON file containing the annotated papers with their
+        paper_file: Path to the JSON file containing the annotated papers with their
             graph data and summarised related papers.
         limit_papers: Number of papers to process. Defaults to 1 example. If None,
             process all.
@@ -188,7 +189,8 @@ async def evaluate_papers(
     Returns:
         None. The output is saved to `output_dir`.
     """
-    logger.info(display_params())
+    params = get_params()
+    logger.info(render_params(params))
 
     random.seed(seed)
 
@@ -205,11 +207,13 @@ async def evaluate_papers(
 
     papers = shuffled(
         PromptResult.unwrap(
-            load_data(ann_graph_file, PromptResult[PaperWithRelatedSummary])
+            load_data(paper_file, PromptResult[PaperWithRelatedSummary])
         )
     )[:limit_papers]
 
     user_prompt = PETER_CLASSIFY_USER_PROMPTS[user_prompt_key]
+    if not user_prompt.system:
+        raise ValueError(f"Prompt {user_prompt_key!r} does not have a system prompt.")
 
     demonstration_data = (
         EVALUATE_DEMONSTRATIONS[demonstrations_key] if demonstrations_key else []
@@ -250,20 +254,21 @@ async def evaluate_papers(
     results_all = papers_remaining.done + results.result
     results_items = PromptResult.unwrap(results_all)
 
-    metrics = calculate_paper_metrics(results_items)
+    metrics = calculate_paper_metrics(results_items, results.cost)
     logger.info("%s\n", display_metrics(metrics, results_items))
 
     assert len(results_all) == len(papers)
     save_data(output_dir / "result.json", results_all)
     save_data(output_dir / "result_items.json", results_items)
     save_data(output_dir / "metrics.json", metrics)
+    save_data(output_dir / "params.json", params)
 
 
 async def _classify_papers(
     client: AsyncOpenAI,
     model: str,
     user_prompt: PromptTemplate,
-    ann_graphs: Sequence[PaperWithRelatedSummary],
+    papers: Sequence[PaperWithRelatedSummary],
     output_intermediate_file: Path,
     demonstrations: str,
     *,
@@ -275,7 +280,7 @@ async def _classify_papers(
         client: OpenAI client to use GPT.
         model: GPT model code to use (must support Structured Outputs).
         user_prompt: User prompt template to use for classification to be filled.
-        ann_graphs: Annotated PeerRead papers with their summarised graph data.
+        papers: Annotated PeerRead papers with their summarised graph data.
         output_intermediate_file: File to write new results after each task is completed.
         demonstrations: Text of demonstrations for few-shot prompting.
         seed: Seed for the OpenAI API call.
@@ -287,10 +292,8 @@ async def _classify_papers(
     total_cost = 0
 
     tasks = [
-        _classify_paper(
-            client, model, ann_graph, user_prompt, demonstrations, seed=seed
-        )
-        for ann_graph in ann_graphs
+        _classify_paper(client, model, paper, user_prompt, demonstrations, seed=seed)
+        for paper in papers
     ]
 
     for task in progress.as_completed(tasks, desc="Classifying papers"):
@@ -301,13 +304,6 @@ async def _classify_papers(
         append_intermediate_result(PaperResult, output_intermediate_file, result.result)
 
     return GPTResult(results, total_cost)
-
-
-_PETER_CLASSIFY_SYSTEM_PROMPT = """\
-Given the following target paper and a selection of related papers separated by whether \
-they're supporting or contrasting the main paper, give a novelty rating to a paper \
-submitted to a high-quality scientific conference.
-"""
 
 
 async def _classify_paper(
@@ -324,31 +320,21 @@ async def _classify_paper(
     result = await run_gpt(
         GPTFull,
         client,
-        _PETER_CLASSIFY_SYSTEM_PROMPT,
+        user_prompt.system,
         user_prompt_text,
         model,
         seed=seed,
     )
 
     paper = ann_result.paper.paper
-    classified = result.result or GPTFull(rationale="<error>", rating=1)
-    classified = fix_classified_rating(classified)
+    classified = fix_evaluated_rating(result.result or GPTFull.error())
 
     return GPTResult(
         result=PromptResult(
-            item=PaperResult(
-                title=paper.title,
-                abstract=paper.abstract,
-                reviews=paper.reviews,
-                authors=paper.authors,
-                sections=paper.sections,
-                rating=paper.rating,
-                rationale=paper.rationale,
-                y_true=paper.rating,
-                y_pred=classified.rating,
-                rationale_pred=classified.rationale,
+            item=PaperResult.from_s2peer(
+                paper, classified.rating, classified.rationale
             ),
-            prompt=Prompt(system=_PETER_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
+            prompt=Prompt(system=user_prompt.system, user=user_prompt_text),
         ),
         cost=result.cost,
     )
@@ -367,12 +353,12 @@ def format_template(
         positive=_format_related(
             p
             for p in paper_summaries.related
-            if p.polarity is peerread.ContextPolarity.POSITIVE
+            if p.polarity is pr.ContextPolarity.POSITIVE
         ),
         negative=_format_related(
             p
             for p in paper_summaries.related
-            if p.polarity is peerread.ContextPolarity.NEGATIVE
+            if p.polarity is pr.ContextPolarity.NEGATIVE
         ),
     )
 

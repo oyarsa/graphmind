@@ -10,11 +10,12 @@ from typing import Annotated
 
 import aiohttp
 import typer
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict
 
+from paper import peerread as pr
 from paper.gpt import annotate_paper as ann
 from paper.gpt import evaluate_paper as eval
-from paper.gpt.model import Paper
+from paper.util import groupby, shuffled
 from paper.util.serde import load_data, save_data
 
 app = typer.Typer(
@@ -51,21 +52,19 @@ def eval_full(
     """
     random.seed(seed)
 
-    papers = load_data(input_file, Paper)
+    papers = load_data(input_file, pr.Paper)
     papers_sample = random.sample(papers, num_entries)
 
     demonstrations = [new_eval_full_demonstration(paper) for paper in papers_sample]
-    output_file.write_bytes(
-        TypeAdapter(list[eval.Demonstration]).dump_json(demonstrations, indent=2)
-    )
+    save_data(output_file, demonstrations)
 
 
-def new_eval_full_demonstration(paper: Paper) -> eval.Demonstration:
+def new_eval_full_demonstration(paper: pr.Paper) -> eval.Demonstration:
     """Construct demonstration for full paper evaluation."""
     return eval.Demonstration(
         title=paper.title,
         abstract=paper.abstract,
-        text=paper.main_text(),
+        text=paper.main_text,
         rationale=paper.rationale,
         rating=paper.rating,
     )
@@ -160,6 +159,67 @@ def abstract(
     format of abstract classification.
     """
     asyncio.run(process_abstracts(output_path, entries, base_url, split))
+
+
+@app.command(short_help="Review evaluation.", no_args_is_help=True)
+def eval_reviews(
+    input_file: Annotated[
+        Path, typer.Argument(help="Input JSON with paper data (peerread_merged.json)")
+    ],
+    output_file: Annotated[
+        Path, typer.Argument(help="Path to output JSON file with the demonstrations")
+    ],
+    num_entries: Annotated[
+        int, typer.Option("--entries", "-n", help="Number of entries to sample")
+    ] = 10,
+    seed: int = 0,
+) -> None:
+    """Create demonstrations for few-shot prompting of review evaluation.
+
+    Takes a number of entries to sample and returns the chosen papers with their rating
+    and rationale. The number of entries must be a multiple of 5 since we'll have one
+    demonstration with each rating.
+
+    The input file is the output of the PeerRead pipeline (peerread_merged.json).
+    The output is a file with the paper title, abstract, main text, novelty rating and
+    rationale.
+    """
+    random.seed(seed)
+
+    if num_entries % 5 != 0:
+        raise ValueError("`num_entries` must be a multiple of 5.")
+
+    num_each = num_entries // 5
+    papers = load_data(input_file, pr.Paper)
+
+    reviews = [(paper, review) for paper in papers for review in paper.reviews]
+    reviews_grouped = groupby(reviews, lambda x: x[1].rating)
+
+    reviews_chosen = {
+        rating: shuffled(reviews)[:num_each]
+        for rating, reviews in reviews_grouped.items()
+    }
+    reviews_final = [
+        review for reviews in reviews_chosen.values() for review in reviews
+    ]
+
+    demonstrations = [
+        new_review_evaluation(paper, review) for paper, review in reviews_final
+    ]
+    save_data(output_file, demonstrations)
+
+
+def new_review_evaluation(
+    paper: pr.Paper, review: pr.PaperReview
+) -> eval.Demonstration:
+    """Construct demonstration for review evaluation."""
+    return eval.Demonstration(
+        title=paper.title,
+        abstract=paper.abstract,
+        text=paper.main_text,
+        rationale=review.rationale,
+        rating=review.rating,
+    )
 
 
 if __name__ == "__main__":

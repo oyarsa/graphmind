@@ -1,12 +1,22 @@
 """Metric calculation (precision, recall, F1 and accuracy) for ratings 1-5."""
 
 from collections.abc import Sequence
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict
 
+from paper.util import metrics
+
+
+class TargetMode(Enum):
+    """Whether the target variable is an int (1-5) rating, or binary."""
+
+    INT = "int"
+    BIN = "bin"
+
 
 class Metrics(BaseModel):
-    """Classification metrics."""
+    """Classification and regression metrics."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -14,28 +24,88 @@ class Metrics(BaseModel):
     recall: float
     f1: float
     accuracy: float
+    mae: float
+    mse: float
+    correlation: float | None
+    confusion: list[list[int]]
+    mode: TargetMode
 
     def __str__(self) -> str:
-        """Display metrics, one per line."""
-        return "\n".join(
-            (
-                f"P   : {self.precision:.4f}",
-                f"R   : {self.recall:.4f}",
-                f"F1  : {self.f1:.4f}",
-                f"Acc : {self.accuracy:.4f}",
+        """Display metrics (P/R/F1/Acc), one per line, then the confusion matrix.
+
+        If `mode` is `TargetMode.INT`, also shows MAE, MSE and Pearson correlation.
+        """
+        out = [
+            f"Precision  : {self.precision:.4f}",
+            f"Recall     : {self.recall:.4f}",
+            f"F1         : {self.f1:.4f}",
+            f"Accuracy   : {self.accuracy:.4f}",
+        ]
+
+        if self.mode is TargetMode.INT:
+            corr = f"{self.correlation:.4f}" if self.correlation is not None else "N/A"
+            out.extend(
+                [
+                    f"MAE        : {self.mae:.4f}",
+                    f"MSE        : {self.mse:.4f}",
+                    f"Correlation: {corr}",
+                ]
             )
+
+        out.extend(
+            [
+                "Confusion Matrix:",
+                self._format_confusion(),
+            ]
         )
+
+        return "\n".join(out)
+
+    def _format_confusion(self) -> str:
+        """Format confusion matrix as a string with row and column labels."""
+        n = len(self.confusion)
+
+        if self.mode is TargetMode.BIN:
+            labels = [0, 1]
+        else:
+            labels = range(1, 6)
+
+        label_strs = [str(label) for label in labels]
+
+        margin = 3
+        col_label_padding = 8  # Space before column numbers
+        cell_width = 4  # Width for numbers
+
+        matrix_str = [
+            " " * (col_label_padding + cell_width + 2) + "Predicted",
+            " " * margin
+            + " " * col_label_padding
+            + "".join(f"{label:>{cell_width}}" for label in label_strs),
+            "-" * (margin + col_label_padding + cell_width * n + 3),
+        ]
+
+        for i, row in enumerate(self.confusion):
+            row_str = (
+                " " * margin
+                + f"True {label_strs[i]} |"
+                + "".join(f"{cell:>{cell_width}}" for cell in row)
+            )
+            matrix_str.append(row_str)
+
+        return "\n".join(matrix_str)
 
 
 def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
     """Calculate classification metrics for multi-class classification (labels 1-5).
 
     Args:
-        y_true: Ground truth (correct) labels (values 1-5)
+        y_true: Ground truth labels (values 1-5)
         y_pred: Predicted labels (values 1-5)
 
     Returns:
-        Metrics object containing macro-averaged precision, recall, F1 score and accuracy
+        Metrics object containing macro-averaged precision, recall, F1 score, accuracy,
+        Mean Absolute Error, Mean Squared Error, Pearson Correlation and the
+        classification confusion matrix.
 
     Raises:
         ValueError: If input sequences are empty or of different lengths
@@ -46,28 +116,22 @@ def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
     if len(y_true) != len(y_pred):
         raise ValueError("Input sequences must have the same length")
 
-    classes = range(1, 6)  # Labels 1-5
-    precisions: list[float] = []
-    recalls: list[float] = []
-
-    for cls in classes:
-        tp = sum(1 for t, p in zip(y_true, y_pred) if t == cls and p == cls)
-        fp = sum(1 for t, p in zip(y_true, y_pred) if t != cls and p == cls)
-        fn = sum(1 for t, p in zip(y_true, y_pred) if t == cls and p != cls)
-
-        precisions.append(tp / (tp + fp) if (tp + fp) > 0 else 0.0)
-        recalls.append(tp / (tp + fn) if (tp + fn) > 0 else 0.0)
-
-    # Macro averaging (equal weight to each class)
-    macro_precision = sum(precisions) / len(classes)
-    macro_recall = sum(recalls) / len(classes)
-    macro_f1 = (
-        2 * (macro_precision * macro_recall) / (macro_precision + macro_recall)
-        if (macro_precision + macro_recall) > 0
-        else 0.0
-    )
-    accuracy = sum(1 for t, p in zip(y_true, y_pred) if t == p) / len(y_true)
+    values = set(y_true) | set(y_pred)
+    if values == {0, 1}:
+        mode = TargetMode.BIN
+        labels = [0, 1]
+    else:
+        mode = TargetMode.INT
+        labels = range(1, 6)
 
     return Metrics(
-        precision=macro_precision, recall=macro_recall, f1=macro_f1, accuracy=accuracy
+        precision=metrics.precision(y_true, y_pred),
+        recall=metrics.recall(y_true, y_pred),
+        f1=metrics.f1_score(y_true, y_pred),
+        accuracy=metrics.accuracy(y_true, y_pred),
+        mae=metrics.mean_absolute_error(y_true, y_pred),
+        mse=metrics.mean_squared_error(y_true, y_pred),
+        correlation=metrics.pearson_correlation(y_true, y_pred),
+        confusion=metrics.confusion_matrix(y_true, y_pred, labels=labels),
+        mode=mode,
     )

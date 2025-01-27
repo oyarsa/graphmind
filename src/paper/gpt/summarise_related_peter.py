@@ -43,9 +43,10 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    display_params,
     ensure_envvar,
+    get_params,
     progress,
+    render_params,
     setup_logging,
     shuffled,
 )
@@ -94,14 +95,14 @@ def run(
         str,
         typer.Option(
             help="The summarisation prompt to use for positively related papers.",
-            click_type=cli.choice(PETER_SUMMARISE_USER_PROMPTS),
+            click_type=cli.Choice(PETER_SUMMARISE_USER_PROMPTS),
         ),
     ] = "positive",
     negative_prompt: Annotated[
         str,
         typer.Option(
             help="The summarisation prompt to use for negatively related papers.",
-            click_type=cli.choice(PETER_SUMMARISE_USER_PROMPTS),
+            click_type=cli.Choice(PETER_SUMMARISE_USER_PROMPTS),
         ),
     ] = "negative",
     continue_papers: Annotated[
@@ -168,7 +169,8 @@ async def summarise_related(
     Returns:
         None. The output is saved to `output_dir`.
     """
-    logger.info(display_params())
+    params = get_params()
+    logger.info(render_params(params))
 
     random.seed(seed)
 
@@ -233,6 +235,7 @@ async def summarise_related(
     assert len(results_all) == len(papers)
     save_data(output_dir / "result.json", results_all)
     save_data(output_dir / "result_items.json", results_items)
+    save_data(output_dir / "params.json", params)
 
 
 async def _summarise_papers(
@@ -266,7 +269,7 @@ async def _summarise_papers(
         for ann_graph in ann_graphs
     ]
 
-    for task in progress.as_completed(tasks, desc="Classifying papers"):
+    for task in progress.as_completed(tasks, desc="Summarising related papers"):
         result = await task
         total_cost += result.cost
 

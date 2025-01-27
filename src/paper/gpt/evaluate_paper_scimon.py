@@ -26,6 +26,7 @@ from paper.gpt.evaluate_paper import (
     PaperResult,
     calculate_paper_metrics,
     display_metrics,
+    fix_evaluated_rating,
     format_demonstrations,
 )
 from paper.gpt.model import Prompt, PromptResult
@@ -41,9 +42,10 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    display_params,
     ensure_envvar,
+    get_params,
     progress,
+    render_params,
     setup_logging,
     shuffled,
 )
@@ -90,7 +92,7 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for classification.",
-            click_type=cli.choice(SCIMON_CLASSIFY_USER_PROMPTS),
+            click_type=cli.Choice(SCIMON_CLASSIFY_USER_PROMPTS),
         ),
     ] = "simple",
     continue_papers: Annotated[
@@ -109,7 +111,7 @@ def run(
         str,
         typer.Option(
             help="User prompt to use for building the few-shot demonstrations.",
-            click_type=cli.choice(EVALUATE_DEMONSTRATION_PROMPTS),
+            click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "abstract",
 ) -> None:
@@ -180,7 +182,8 @@ async def evaluate_papers(
     Returns:
         None. The output is saved to `output_dir`.
     """
-    logger.info(display_params())
+    params = get_params()
+    logger.info(render_params(params))
 
     random.seed(seed)
 
@@ -240,13 +243,14 @@ async def evaluate_papers(
     results_all = papers_remaining.done + results.result
     results_items = PromptResult.unwrap(results_all)
 
-    metrics = calculate_paper_metrics(results_items)
+    metrics = calculate_paper_metrics(results_items, results.cost)
     logger.info("%s\n", display_metrics(metrics, results_items))
 
     assert len(results_all) == len(papers)
     save_data(output_dir / "result.json", results_all)
     save_data(output_dir / "result_items.json", results_items)
     save_data(output_dir / "metrics.json", metrics)
+    save_data(output_dir / "params.json", params)
 
 
 async def _classify_papers(
@@ -320,21 +324,12 @@ async def _classify_paper(
     )
 
     paper = ann_result.ann.paper
-    classified = result.result
+    classified = fix_evaluated_rating(result.result or GPTFull.error())
 
     return GPTResult(
         result=PromptResult(
-            item=PaperResult(
-                title=paper.title,
-                abstract=paper.abstract,
-                reviews=paper.reviews,
-                authors=paper.authors,
-                sections=paper.sections,
-                rating=paper.rating,
-                rationale=paper.rationale,
-                y_true=paper.rating,
-                y_pred=classified.rating if classified else 0,
-                rationale_pred=classified.rationale if classified else "<error>",
+            item=PaperResult.from_s2peer(
+                paper, classified.rating, classified.rationale
             ),
             prompt=Prompt(system=_SCIMON_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),

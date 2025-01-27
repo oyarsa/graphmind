@@ -29,9 +29,9 @@ class PaperReview(BaseModel):
 
     rating: Annotated[
         int,
-        Field(description="Novelty rating given by the reviewer (1 to 5)", ge=1, le=5),
+        Field(description="Novelty rating given by the reviewer (1 to 5)"),
     ]
-    confidence: Annotated[int | None, Field(description="Confidence from the reviwer")]
+    confidence: Annotated[int | None, Field(description="Confidence from the reviewer")]
     rationale: Annotated[str, Field(description="Explanation given for the rating")]
 
 
@@ -144,3 +144,18 @@ class Paper(Record):
     def rationale(self) -> str:
         """Rationale from main review."""
         return self.review.rationale
+
+    @property
+    def main_text(self) -> str:
+        """Join all paper sections to form the main text."""
+        return "\n".join(s.text for s in self.sections)
+
+    def __str__(self) -> str:
+        """Display title, abstract, rating scores and count of words in main text."""
+        main_text_words_num = len(self.main_text.split())
+        return (
+            f"Title: {self.title}\n"
+            f"Abstract: {self.abstract}\n"
+            f"Main text: {main_text_words_num} words.\n"
+            f"Ratings: {[r.rating for r in self.reviews]}\n"
+        )

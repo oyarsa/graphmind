@@ -1,8 +1,187 @@
 [[prompts]]
-name = "simple"
-prompt = """The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, and a graph representation of the paper and its network.
+name = "full-graph"
+system = """\
+Given the following target paper, a summary and a selection of related papers separated \
+by whether they're supporting or contrasting the main paper, give it novelty rating.
+"""
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+main paper's title, a summary of its key points and some related papers.
 
-Based on the extracted entities graph, approve or reject the paper. First, generate the \
-rationale for your decision, then give the final decision.
+The paper summary describes the most important information about the paper and its \
+contents. It summarises key aspects, which you can use to build a more comprehensive \
+understanding of the paper.
+
+The related papers are split into "supporting" papers (those that corroborate the paper's \
+ideas, methods, approach, etc.) and "contrasting" papers (those that go against the \
+paper's ideas). Use these related papers to understand the context around the main paper, \
+so you know what other works exist in comparison with the main paper.
+
+Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
+reflect how much the paper brings and develops new ideas previously unseen in the \
+literature. First, generate the rationale for your novelty rating, then give the final \
+novelty rating.
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+Paper summary:
+{graph}
+
+Supporting papers:
+{positive}
+
+Contrasting papers:
+{negative}
+
+#####
+Output:
+"""
+
+[[prompts]]
+name = "only-graph"
+system = """\
+Given the following target paper, a summary and a selection of related papers separated \
+by whether they're supporting or contrasting the main paper, give it novelty rating.
+"""
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+main paper's title, a summary of its key points and some related papers.
+
+The paper summary describes the most important information about the paper and its \
+contents. It summarises key aspects, which you can use to build a more comprehensive \
+understanding of the paper.
+
+The related papers are split into "supporting" papers (those that corroborate the paper's \
+ideas, methods, approach, etc.) and "contrasting" papers (those that go against the \
+paper's ideas). Use these related papers to understand the context around the main paper, \
+so you know what other works exist in comparison with the main paper.
+
+Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
+reflect how much the paper brings and develops new ideas previously unseen in the \
+literature. First, generate the rationale for your novelty rating, then give the final \
+novelty rating.
+
+#####
+{demonstrations}
+
+-Data-
+{graph}
+
+Supporting papers:
+{positive}
+
+Contrasting papers:
+{negative}
+
+#####
+Output:
+"""
+
+[[prompts]]
+name = "title-graph"
+system = """\
+Given the following target paper, a summary and a selection of related papers separated \
+by whether they're supporting or contrasting the main paper, give it novelty rating.
+"""
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+main paper's title, a summary of its key points and some related papers.
+
+The paper summary describes the most important information about the paper and its \
+contents. It summarises key aspects, which you can use to build a more comprehensive \
+understanding of the paper.
+
+The related papers are split into "supporting" papers (those that corroborate the paper's \
+ideas, methods, approach, etc.) and "contrasting" papers (those that go against the \
+paper's ideas). Use these related papers to understand the context around the main paper, \
+so you know what other works exist in comparison with the main paper.
+
+Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
+reflect how much the paper brings and develops new ideas previously unseen in the \
+literature. First, generate the rationale for your novelty rating, then give the final \
+novelty rating.
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+
+Paper summary:
+{graph}
+
+Supporting papers:
+{positive}
+
+Contrasting papers:
+{negative}
+
+#####
+Output:
+"""
+
+[[prompts]]
+name = "related"
+system = """\
+Given the following target paper and a selection of related papers separated by whether \
+they're supporting or contrasting the main paper, give a novelty rating to a paper \
+submitted to a high-quality scientific conference.
+"""
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+main paper's title and abstract and some related papers. These related papers are \
+separated by "supporting" papers (those that corroborate the paper's ideas, methods,
+approach, etc.) and "contrasting" papers (those that go against the paper's ideas).
+
+Based on this content, approve or reject the paper. First, generate the rationale for \
+your decision, then give the final decision. Keep in mind that this paper was submitted \
+to a very high-quality conference, so make sure to only approve papers that are of \
+outstanding quality.
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+Supporting papers:
+{positive}
+
+Contrasting papers:
+{negative}
+
+#####
+Output:
+"""
+
+[[prompts]]
+name = "sans"
+system = """\
+Give an approval or rejection to a paper submitted to a high-quality scientific \
+conference.\
+"""
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+paper's title and abstract.
+
+Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
+reflect how much the paper brings and develops new ideas previously unseen in the \
+literature. First, generate the rationale for your novelty rating, then give the final \
+novelty rating.
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+#####
+Output:
 """

@@ -1,5 +1,10 @@
 [[prompts]]
 name = "simple"
+system = """\
+Given the following target paper and a selection of related papers separated by whether \
+they're supporting or contrasting the main paper, give a novelty rating to a paper \
+submitted to a high-quality scientific conference.
+"""
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 main paper's title and abstract and some related papers. These related papers are \
@@ -30,14 +35,18 @@ Output:
 
 [[prompts]]
 name = "sans"
+system = """\
+Give an approval or rejection to a paper submitted to a high-quality scientific \
+conference.\
+"""
 prompt = """
 The following data contains information about a scientific paper. It includes the \
-paper's title, abstract, and the full body text.
+paper's title and abstract.
 
-Based on this content, approve or reject the paper. First, generate the rationale for \
-your decision, then give the final decision. Keep in mind that this paper was submitted \
-to a very high-quality conference, so make sure to only approve papers that are of \
-outstanding quality.
+Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
+reflect how much the paper brings and develops new ideas previously unseen in the \
+literature. First, generate the rationale for your novelty rating, then give the final \
+novelty rating.
 
 #####
 {demonstrations}
