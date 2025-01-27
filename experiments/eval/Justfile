@@ -7,11 +7,7 @@ model := env("MODEL", "4o-mini")
 data := env("DATA", "subset")
 
 # Number of items
-n := if data == "full" {
-    "125"
-} else {
-    "0"
-}
+n := if data == "full" { "125" } else { "0" }
 
 # Sans data paths
 data_sans := if data == "full" {
@@ -27,9 +23,7 @@ data_full := if data == "full" {
     root + "/output/peter_c2_s2_sum/result.json"
 }
 
-eval_flags := "--demos " + demos + " -n " + n + " -m " + model
-eval_sans := eval_flags + " --peerread " + data_sans
-eval_full := eval_flags + " --papers " + data_full
+eval_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_full
 output := root+"/output/eval/graph/"+data+"/"+model+"/"+demos
 
 _default:
@@ -89,7 +83,7 @@ peter-related: (_t "Running graph evaluation - PETER (related) mode")
 # Full evaluation
 [group: 'sans']
 sans: (_t "Running sans evaluation")
-    {{eval_cmd}} sans run {{eval_sans}} --output {{output}}/sans --user-prompt simple-abs
+    {{eval_cmd}} sans run {{eval_flags}} --output {{output}}/sans --user-prompt simple-abs
 
 # Compare all implementations of sans evaluation
 cmp-sans: (_t "Comparing sans evaluation")

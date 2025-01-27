@@ -64,10 +64,10 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def run(
-    peerread_path: Annotated[
+    papers_path: Annotated[
         Path,
         typer.Option(
-            "--peerread",
+            "--papers",
             help="The path to the JSON file containing the PeerRead papers data.",
         ),
     ],
@@ -120,7 +120,7 @@ def run(
     asyncio.run(
         evaluate_papers(
             model,
-            peerread_path,
+            papers_path,
             limit_papers,
             user_prompt,
             output_dir,
@@ -141,7 +141,7 @@ def main() -> None:
 
 async def evaluate_papers(
     model: str,
-    peerread_path: Path,
+    papers_path: Path,
     limit_papers: int | None,
     user_prompt_key: str,
     output_dir: Path,
@@ -158,7 +158,7 @@ async def evaluate_papers(
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        peerread_path: Path to the JSON file containing the input papers data.
+        papers_path: Path to the JSON file containing the input papers data.
         limit_papers: Number of papers to process. Defaults to 1 example. If None,
             process all.
         graph_user_prompt_key: Key to the user prompt to use for graph extraction. See
@@ -199,7 +199,7 @@ async def evaluate_papers(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    papers = shuffled(load_data(peerread_path, s2.PaperWithS2Refs))[:limit_papers]
+    papers = shuffled(load_data(papers_path, s2.PaperWithS2Refs))[:limit_papers]
     user_prompt = SANS_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (

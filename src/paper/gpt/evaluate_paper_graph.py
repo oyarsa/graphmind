@@ -2,7 +2,12 @@
 
 The input is the output of `gpt.summarise_related_peter`. These are the PETER-queried
 papers with the related papers summarised. This then converts the paper content to a
-graph, and uses it as input alongside the PETER results.
+graph, converts the graph to text and uses it as input alongside the PETER results.
+
+How the graph is converted is controlled by `--linearisation`:
+- 'topo': topologically sorts the entities and creates paragraphs in that order for each
+  one
+- 'fluent': use a fluent template-based method to convert entities to natural text.
 
 The output is the input annotated papers with a predicted novelty rating.
 """
@@ -35,6 +40,7 @@ from paper.gpt.evaluate_paper import (
 from paper.gpt.extract_graph import GPTGraph, GraphResult
 from paper.gpt.model import (
     Graph,
+    LinearisationMethod,
     PaperRelatedSummarised,
     PaperWithRelatedSummary,
     PeerReadAnnotated,
@@ -148,6 +154,12 @@ def run(
             click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "abstract",
+    linearisation: Annotated[
+        LinearisationMethod,
+        typer.Option(
+            help="How to convert the extracted graph into text for evaluation."
+        ),
+    ] = LinearisationMethod.TOPO,
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers."""
     asyncio.run(
@@ -163,6 +175,7 @@ def run(
             seed,
             demos,
             demo_prompt,
+            linearisation,
         )
     )
 
@@ -185,6 +198,7 @@ async def evaluate_papers(
     seed: int,
     demonstrations_key: str | None,
     demo_prompt_key: str,
+    linearisation_method: LinearisationMethod,
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers.
 
@@ -211,6 +225,7 @@ async def evaluate_papers(
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
             avaialble options or `list_prompts` for more.
+        linearisation_method: How to convert the extract graph into text for evaluation.
 
     Returns:
         None. The output is saved to `output_dir`.
@@ -265,6 +280,7 @@ async def evaluate_papers(
             output_intermediate_file,
             demonstrations,
             seed,
+            linearisation_method,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -297,6 +313,7 @@ async def _evaluate_papers(
     output_intermediate_file: Path,
     demonstrations: str,
     seed: int,
+    linearisation_method: LinearisationMethod,
 ) -> GPTResult[list[PromptResult[GraphResult]]]:
     """Evaluate paper novelty using a paper graph and PETER-related papers.
 
@@ -309,6 +326,8 @@ async def _evaluate_papers(
         output_intermediate_file: File to write new results after paper is evaluated.
         demonstrations: Text of demonstrations for few-shot prompting.
         seed: Seed for the OpenAI API call.
+        linearisation_method: How to transform the extract graph into text for
+            evaluation.
 
     Returns:
         List of evaluated papers and their prompts wrapped in a GPTResult.
@@ -318,7 +337,14 @@ async def _evaluate_papers(
 
     tasks = [
         _evaluate_paper(
-            client, model, paper, eval_prompt, graph_prompt, demonstrations, seed
+            client,
+            model,
+            paper,
+            eval_prompt,
+            graph_prompt,
+            demonstrations,
+            seed,
+            linearisation_method,
         )
         for paper in paper
     ]
@@ -341,6 +367,7 @@ async def _evaluate_paper(
     graph_prompt: PromptTemplate,
     demonstrations: str,
     seed: int,
+    linearisation_method: LinearisationMethod,
 ) -> GPTResult[PromptResult[GraphResult]]:
     if "graph" in eval_prompt.name:
         graph_prompt_text = format_graph_template(graph_prompt, paper.paper)
@@ -365,7 +392,9 @@ async def _evaluate_paper(
         graph_cost = 0
         graph = Graph.empty()
 
-    eval_prompt_text = format_eval_template(eval_prompt, paper, graph, demonstrations)
+    eval_prompt_text = format_eval_template(
+        eval_prompt, paper, graph, demonstrations, linearisation_method
+    )
     eval_system_prompt = eval_prompt.system
     eval_result = await run_gpt(
         GPTFull,
@@ -419,6 +448,7 @@ def format_eval_template(
     paper: PaperWithRelatedSummary,
     graph: Graph,
     demonstrations: str,
+    method: LinearisationMethod,
 ) -> str:
     """Format evaluation template using the paper graph and PETER-queried related papers."""
     return prompt.template.format(
@@ -431,7 +461,7 @@ def format_eval_template(
         negative=_format_related(
             p for p in paper.related if p.polarity is pr.ContextPolarity.NEGATIVE
         ),
-        graph=graph.to_text(),
+        graph=graph.to_text(method),
     )
 
 
