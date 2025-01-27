@@ -29,7 +29,7 @@ app = typer.Typer(
 
 
 @app.command(short_help="Full-paper evaluation.", no_args_is_help=True)
-def eval_full(
+def eval_sans(
     input_file: Annotated[
         Path, typer.Argument(help="Input JSON with paper data (peerread_merged.json)")
     ],
@@ -55,12 +55,12 @@ def eval_full(
     papers = load_data(input_file, pr.Paper)
     papers_sample = random.sample(papers, num_entries)
 
-    demonstrations = [new_eval_full_demonstration(paper) for paper in papers_sample]
+    demonstrations = [new_eval_sans_demonstration(paper) for paper in papers_sample]
     save_data(output_file, demonstrations)
 
 
-def new_eval_full_demonstration(paper: pr.Paper) -> eval.Demonstration:
-    """Construct demonstration for full paper evaluation."""
+def new_eval_sans_demonstration(paper: pr.Paper) -> eval.Demonstration:
+    """Construct demonstration for sans paper (main paper only) evaluation."""
     return eval.Demonstration(
         title=paper.title,
         abstract=paper.abstract,

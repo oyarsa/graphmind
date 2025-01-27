@@ -1,4 +1,7 @@
-"""Evaluate a paper's novelty based on its full-body text.
+"""Evaluate a paper's novelty based only on its content.
+
+Uses the paper title, abstract and, optionally, the main text.
+"sans" means "without", meaning "without other features".
 
 The input is the processed PeerRead dataset (peerread.Paper).
 """
@@ -48,7 +51,7 @@ from paper.util import (
 from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
-FULL_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
+SANS_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_full")
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -87,7 +90,7 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for classification.",
-            click_type=cli.Choice(FULL_CLASSIFY_USER_PROMPTS),
+            click_type=cli.Choice(SANS_CLASSIFY_USER_PROMPTS),
         ),
     ] = "simple-abs",
     continue_papers: Annotated[
@@ -197,7 +200,7 @@ async def evaluate_papers(
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
     papers = shuffled(load_data(peerread_path, s2.PaperWithS2Refs))[:limit_papers]
-    user_prompt = FULL_CLASSIFY_USER_PROMPTS[user_prompt_key]
+    user_prompt = SANS_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
         EVALUATE_DEMONSTRATIONS[demonstrations_key] if demonstrations_key else []
@@ -289,7 +292,7 @@ async def _classify_papers(
     return GPTResult(results, total_cost)
 
 
-_FULL_CLASSIFY_SYSTEM_PROMPT = (
+_SANS_CLASSIFY_SYSTEM_PROMPT = (
     "Give an approval or rejection to a paper submitted to a high-quality scientific"
     " conference."
 )
@@ -320,7 +323,7 @@ async def _classify_paper(
     result = await run_gpt(
         GPTFull,
         client,
-        _FULL_CLASSIFY_SYSTEM_PROMPT,
+        _SANS_CLASSIFY_SYSTEM_PROMPT,
         user_prompt_text,
         model,
         seed=seed,
@@ -333,7 +336,7 @@ async def _classify_paper(
             item=PaperResult.from_s2peer(
                 paper, classified.rating, classified.rationale
             ),
-            prompt=Prompt(system=_FULL_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
+            prompt=Prompt(system=_SANS_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),
         cost=result.cost,
     )
@@ -346,7 +349,7 @@ def prompts(
     ] = False,
 ) -> None:
     """Print the available prompt names, and optionally, the full prompt text."""
-    print_prompts("FULL PAPER EVALUATION", FULL_CLASSIFY_USER_PROMPTS, detail=detail)
+    print_prompts("FULL PAPER EVALUATION", SANS_CLASSIFY_USER_PROMPTS, detail=detail)
 
 
 if __name__ == "__main__":

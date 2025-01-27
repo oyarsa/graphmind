@@ -89,7 +89,7 @@ peter-related: (_t "Running graph evaluation - PETER (related) mode")
 # Full evaluation
 [group: 'sans']
 sans: (_t "Running sans evaluation")
-    {{eval_cmd}} full run {{eval_sans}} --output {{output}}/sans --user-prompt simple-abs
+    {{eval_cmd}} sans run {{eval_sans}} --output {{output}}/sans --user-prompt simple-abs
 
 # Compare all implementations of sans evaluation
 cmp-sans: (_t "Comparing sans evaluation")
