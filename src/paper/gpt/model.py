@@ -340,7 +340,59 @@ class Graph(Record):
             case LinearisationMethod.TOPO:
                 return self.to_digraph().to_text()
             case LinearisationMethod.FLUENT:
-                raise NotImplementedError("Fluent linearisation is not implemented")
+                return self.fluent_linearization()
+
+    def fluent_linearization(self) -> str:
+        """Convert graph to text using direct relationships and standalone functions."""
+        sections: list[str] = []
+        entity_map = {e.label: e for e in self.entities}
+
+        outgoing: dict[str, list[str]] = defaultdict(list)
+        for rel in self.relationships:
+            outgoing[rel.source].append(rel.target)
+
+        # Title and context
+        if title_entity := next(
+            (e for e in self.entities if e.type == EntityType.TITLE), None
+        ):
+            context = [f"titled '{title_entity.label}'"]
+
+            # Add research areas
+            if primary_areas := [
+                e for e in self.entities if e.type == EntityType.PRIMARY_AREA
+            ]:
+                context.append(
+                    f"focusing on {_join_labels([pa.label for pa in primary_areas])}"
+                )
+
+            sections.append(f"This work {', '.join(context)}.")
+
+        # Process claims hierarchy
+        claim_sections: list[str] = []
+        for claim in self.entities:
+            if claim.type is not EntityType.CLAIM:
+                continue
+
+            parts = [_format_claim(claim)]
+
+            # Add methods
+            methods = [
+                _format_method(entity_map[m], outgoing.get(m, []), entity_map)
+                for m in outgoing.get(claim.label, [])
+                if m in entity_map and entity_map[m].type is EntityType.METHOD
+            ]
+
+            if methods:
+                parts.append(f"through {'; '.join(methods)}")
+
+            claim_sections.append(" ".join(parts))
+
+        if claim_sections:
+            sections.append(
+                "Key contributions include:\n- " + "\n- ".join(claim_sections)
+            )
+
+        return "\n\n".join(sections)
 
     def to_digraph(self) -> hierarchical_graph.DiGraph:
         """Convert to a proper hierarchical graph."""
@@ -353,6 +405,65 @@ class Graph(Record):
                 hierarchical_graph.Edge(r.source, r.target) for r in self.relationships
             ],
         )
+
+
+def _format_claim(claim: Entity) -> str:
+    """Format a claim entity with its detail if present."""
+    text = claim.label
+    if claim.detail:
+        text += f", {_normalise_detail(claim.detail)}"
+    return text[0].upper() + text[1:]
+
+
+def _format_method(
+    method: Entity, outgoing_targets: list[str], entity_map: dict[str, Entity]
+) -> str:
+    """Format a method entity with its experiments if present."""
+    text = method.label
+    if method.detail:
+        text += f" ({_normalise_detail(method.detail)})"
+
+    # Add experiments
+    experiments = [
+        _format_experiment(entity_map[t])
+        for t in outgoing_targets
+        if entity_map.get(t) and entity_map[t].type is EntityType.EXPERIMENT
+    ]
+
+    if experiments:
+        text += f" validated by {_join_labels(experiments)}"
+
+    return text
+
+
+def _format_experiment(exp: Entity) -> str:
+    """Format an experiment entity with its detail if present."""
+    text = exp.label
+    if exp.detail:
+        text += f" ({exp.detail.strip()})"
+    return text
+
+
+def _normalise_detail(text: str) -> str:
+    """Normalise detail formatting."""
+    text = text.strip()
+    if not text:
+        return ""
+
+    if text[-1] not in {".", "!", "?", ";"}:
+        text += "."
+
+    return text[0].lower() + text[1:]
+
+
+def _join_labels(items: Sequence[str]) -> str:
+    """Join a list of labels with proper English conjunctions."""
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+
+    return f"{", ".join(items[:-1])} and {items[-1]}"
 
 
 def _get_nodes_of_type(entities: Iterable[Entity], type_: EntityType) -> list[Entity]:
