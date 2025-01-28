@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 import paper.semantic_scholar as s2
 from paper import hierarchical_graph, peerread
+from paper.peerread.model import clean_maintext
 from paper.util import hashstr
 from paper.util.serde import Record
 
@@ -440,7 +441,7 @@ class PaperWithReviewEval(Record):
 
     def main_text(self) -> str:
         """Join all paper sections to form the main text."""
-        return "\n".join(s.text for s in self.sections)
+        return clean_maintext("\n".join(s.text for s in self.sections))
 
     def __str__(self) -> str:
         """Display title, abstract, rating scores and count of words in main text."""

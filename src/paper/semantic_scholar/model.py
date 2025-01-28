@@ -8,6 +8,7 @@ from typing import Annotated, Self, override
 from pydantic import BaseModel, ConfigDict, Field
 
 from paper import peerread as pr
+from paper.peerread.model import clean_maintext
 from paper.util import fuzzy_partial_ratio, hashstr
 from paper.util.serde import Record
 
@@ -194,7 +195,7 @@ class PaperWithS2Refs(Record):
     @property
     def main_text(self) -> str:
         """Join all paper sections to form the main text."""
-        return "\n".join(s.text for s in self.sections)
+        return clean_maintext("\n".join(s.text for s in self.sections))
 
     @classmethod
     def from_peer(cls, peer: pr.Paper, s2_references: Sequence[S2Reference]) -> Self:
