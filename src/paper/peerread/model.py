@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from enum import StrEnum
-from functools import cached_property
+from functools import cached_property, reduce
 from typing import Annotated, override
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
@@ -148,7 +149,7 @@ class Paper(Record):
     @property
     def main_text(self) -> str:
         """Join all paper sections to form the main text."""
-        return "\n".join(s.text for s in self.sections)
+        return clean_maintext("\n".join(s.text for s in self.sections))
 
     def __str__(self) -> str:
         """Display title, abstract, rating scores and count of words in main text."""
@@ -159,3 +160,37 @@ class Paper(Record):
             f"Main text: {main_text_words_num} words.\n"
             f"Ratings: {[r.rating for r in self.reviews]}\n"
         )
+
+
+def remove_line_numbers(content: str) -> str:
+    """Remove line numbers at the start of lines."""
+    lines = (re.sub(r"^\d+\s*", "", line) for line in content.splitlines())
+    return "\n".join(lines)
+
+
+def compress_whitespace(content: str) -> str:
+    """Remove multiple consecutive spaces and normalize newlines."""
+    content = re.sub(r"\n{3,}", "\n\n", content)
+    return re.sub(r" {2,}", " ", content)
+
+
+def remove_page_numbers(content: str) -> str:
+    """Remove isolated page numbers."""
+    return re.sub(r"^\s*\d+\s*$", "", content, flags=re.MULTILINE)
+
+
+def normalize_paragraphs(content: str) -> str:
+    """Normalize paragraph breaks and whitespace."""
+    paragraphs = (p.strip() for p in content.split("\n\n"))
+    return "\n\n".join(paragraphs)
+
+
+def clean_maintext(content: str) -> str:
+    """Clean up PDF content using a series of transformations."""
+    cleanup = [
+        remove_line_numbers,
+        remove_page_numbers,
+        compress_whitespace,
+        normalize_paragraphs,
+    ]
+    return reduce(lambda content, fn: fn(content), cleanup, content)
