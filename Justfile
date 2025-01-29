@@ -18,10 +18,10 @@ type:
     uv run pyright .
 
 # Run ruff check, ruff format, and pyright
-lint: fix fmt type
+lint: fix fmt type test
 
 # Check ruff lint and pyright
-check-all: check type
+check-all: check type test
 
 # Watch Python files and run ruff and pyright on changes
 watch:
