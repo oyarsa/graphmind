@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import logging
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum
@@ -14,15 +15,18 @@ import paper.semantic_scholar as s2
 from paper import hierarchical_graph, peerread
 from paper.peerread.model import clean_maintext
 from paper.util import (
-    fix_punctuation_spaces,
-    format_bullet_list,
+    fix_spaces_before_punctuation,
+    format_numbered_list,
     hashstr,
+    on_exception,
     remove_parenthetical,
 )
 from paper.util.serde import Record
 
 if TYPE_CHECKING:
     from paper import peter
+
+logger = logging.getLogger(__name__)
 
 
 class EntityType(StrEnum):
@@ -54,6 +58,10 @@ class Entity(BaseModel):
     label: str
     type: EntityType
     detail: str | None = None
+
+    def __hash__(self) -> int:
+        """Entity has is the hash of its members."""
+        return hash((self.label, self.type, self.detail))
 
 
 class LinearisationMethod(StrEnum):
@@ -336,10 +344,19 @@ class Graph(Record):
         """Return True if the graph is empty. See also `Graph.empty`."""
         return not self.title
 
+    @on_exception(default="<error>", logger=logger)
     def to_text(self, method: LinearisationMethod) -> str:
         """Convert graph to LLM-readable text using the linearisation `method`.
 
         If the graph is empty, returns an empty string.
+
+        Returns:
+            The graph converted to text. If the graph is invalid and cannot be converted,
+            returns "<error>".
+
+        Raises:
+            Never. Any `Exception`-based errors are caught, and `<error>` is returned
+            instead.
         """
         match method:
             case LinearisationMethod.TOPO:
@@ -351,6 +368,14 @@ class Graph(Record):
         """Convert graph to text using "fluent", natural flow.
 
         The conversion is template-based, so it will still be a little weird.
+
+        Returns:
+            The graph converted to text. If the graph is invalid and cannot be converted,
+            returns "<error>".
+
+        Raises:
+            IndexError, KeyError or ValueError if an expected property the graph isn't
+            fulfilled (e.g. no title or primary area).
         """
         entity_map = {e.label: e for e in self.entities}
 
@@ -358,42 +383,64 @@ class Graph(Record):
         for rel in self.relationships:
             adjacent[rel.source].append(rel.target)
 
-        sections: list[str] = []
-
-        # Title and context
         title = _get_nodes_of_type(self.entities, EntityType.TITLE)[0]
         primary_area = _get_nodes_of_type(self.entities, EntityType.PRIMARY_AREA)[0]
+
         primary_text = remove_parenthetical(primary_area.label)
-        sections.append(
+
+        sections = [
             f"This paper is titled '{title.label}'. It's about {primary_text}."
-            " Key contributions include:"
-        )
+            " The key contributions are:"
+        ]
 
-        # Process claims hierarchy
         claim_sections: list[str] = []
-        for claim in _get_nodes_of_type(self.entities, EntityType.CLAIM):
-            claim_text = claim.label
-            if claim.detail:
-                claim_text += f": {_normalise_detail(claim.detail)}"
+        for claim_idx, claim in enumerate(
+            _get_nodes_of_type(self.entities, EntityType.CLAIM), start=1
+        ):
+            methods = adjacent.get(claim.label)
+            if not methods:
+                continue
 
-            claim_parts = [f"{capitalise(claim_text)} This is demonstrated by:"]
+            method_sentences: list[str] = []
+            for method_idx, method_label in enumerate(methods, start=1):
+                method = entity_map.get(method_label)
+                if method is None or method.type is not EntityType.METHOD:
+                    continue
 
-            # Add methods
-            if methods := [
-                _format_method(
-                    method, adjacent.get(method.label, []), entity_map, indent=4
+                experiment_labels = adjacent.get(method.label)
+                if not experiment_labels:
+                    continue
+
+                experiments = [
+                    _format_entity_detail_sentence(exp)
+                    for label in experiment_labels
+                    if (exp := entity_map.get(label))
+                    and exp.type is EntityType.EXPERIMENT
+                ]
+                experiments_bullets = format_numbered_list(
+                    experiments, prefix=f"{claim_idx}.{method_idx}.", indent=4
                 )
-                for m in adjacent.get(claim.label, [])
-                if (method := entity_map.get(m)) and method.type is EntityType.METHOD
-            ]:
-                claim_parts.append(format_bullet_list(methods, indent=2))
+                method_sentences.append(
+                    f"{_format_entity_detail_sentence(method)}"
+                    " This method is validated by these experiments:\n"
+                    f"{experiments_bullets}"
+                )
 
-            claim_sections.append("\n".join(claim_parts))
+            claim_sections.append(
+                "\n".join(
+                    [
+                        f"{_format_entity_detail_sentence(claim)} This is done with:",
+                        format_numbered_list(
+                            method_sentences, prefix=f"{claim_idx}.", indent=2
+                        ),
+                    ]
+                )
+            )
 
         if claim_sections:
-            sections.append(format_bullet_list(claim_sections))
+            sections.append(format_numbered_list(claim_sections, sep="\n\n"))
 
-        return fix_punctuation_spaces("\n\n".join(sections))
+        return fix_spaces_before_punctuation("\n\n".join(sections))
 
     def to_digraph(self) -> hierarchical_graph.DiGraph:
         """Convert to a proper hierarchical graph."""
@@ -424,50 +471,31 @@ def _ensure_punctuation(text: str) -> str:
     return text
 
 
-def _format_method(
-    method: Entity,
-    adjacent_experiments: list[str],
-    entity_map: dict[str, Entity],
-    indent: int,
-) -> str:
-    """Format a method entity with its experiments if present."""
-    text = method.label
-    if method.detail:
-        text += f": {_normalise_detail(method.detail)}"
+def _strip_punctuation(text: str) -> str:
+    """Remove punctuation at the end of `text`."""
+    return text.rstrip(".:,?!")
 
-    text = _ensure_punctuation(text)
 
-    if experiments := [
-        _format_experiment(exp)
-        for x in adjacent_experiments
-        if (exp := entity_map.get(x)) and exp.type is EntityType.EXPERIMENT
-    ]:
-        text += (
-            " This method is validated by these experiments:\n"
-            f"{format_bullet_list(experiments, indent=indent)}"
+def _format_entity_detail_sentence(entity: Entity) -> str:
+    """Format entity with label and detail.
+
+    Args:
+        entity: An entity of a type that has detail text (method, claim, experiment).
+
+    Returns:
+        Formatted sentence with `label: detail`, where `label` is capitalised and
+        `detail` ends with a period.
+
+    Raises:
+        ValueError: if the entity doesn't contain valid detail text (None or empty).
+    """
+    if entity.detail is None or not entity.detail.strip():
+        raise ValueError(
+            f"Entity of type '{entity.type}' does not have valid detail text."
         )
-    else:
-        raise ValueError("Empty experiments?")
 
-    return _ensure_punctuation(text)
-
-
-def _format_experiment(exp: Entity) -> str:
-    """Format an experiment entity with its detail if present."""
-    text = exp.label
-    if exp.detail:
-        text += f" ({exp.detail.strip()})"
-    return text
-
-
-def _normalise_detail(text: str) -> str:
-    """Normalise detail formatting."""
-    text = text.strip()
-    if not text:
-        return ""
-
-    text = _ensure_punctuation(text)
-    return text[0].lower() + text[1:]
+    text = f"{_strip_punctuation(entity.label)}: {entity.detail}"
+    return capitalise(_ensure_punctuation(text))
 
 
 def _get_nodes_of_type(entities: Iterable[Entity], type_: EntityType) -> list[Entity]:

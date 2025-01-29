@@ -1,11 +1,16 @@
+import logging
 from typing import Any, Callable
+
 import pytest
+
 from paper.util import (
     format_bullet_list,
+    format_numbered_list,
     get_icase,
     remove_parenthetical,
     groupby,
-    fix_punctuation_spaces,
+    fix_spaces_before_punctuation,
+    on_exception,
 )
 
 
@@ -190,4 +195,171 @@ def test_groupby(
     ],
 )
 def test_fix_punctuation_spaces(input_text: str, expected: str):
-    assert fix_punctuation_spaces(input_text) == expected
+    assert fix_spaces_before_punctuation(input_text) == expected
+
+
+@pytest.mark.parametrize(
+    "items,prefix,suffix,indent,start,sep,expected",
+    [
+        pytest.param(
+            ["apple", "banana", "cherry"],
+            "",
+            ".",
+            0,
+            1,
+            "\n",
+            "1. apple\n2. banana\n3. cherry",
+            id="basic_formatting",
+        ),
+        pytest.param(
+            ["first", "second"],
+            "",
+            ")",
+            0,
+            1,
+            "\n",
+            "1) first\n2) second",
+            id="custom_prefix",
+        ),
+        pytest.param(
+            ["item1", "item2"],
+            "",
+            ".",
+            4,
+            1,
+            "\n",
+            "    1. item1\n    2. item2",
+            id="with_indent",
+        ),
+        pytest.param(
+            [],
+            "",
+            ".",
+            0,
+            1,
+            "\n",
+            "",
+            id="empty_list",
+        ),
+        pytest.param(
+            ["item1"],
+            "",
+            ".",
+            0,
+            5,
+            "\n",
+            "5. item1",
+            id="custom_start",
+        ),
+        pytest.param(
+            ["a", "b"],
+            "",
+            ".",
+            0,
+            1,
+            " ",
+            "1. a 2. b",
+            id="custom_separator",
+        ),
+        pytest.param(
+            ["item\nwith\nnewlines", "item\twith\ttabs"],
+            "",
+            ".",
+            0,
+            1,
+            "\n",
+            "1. item\nwith\nnewlines\n2. item\twith\ttabs",
+            id="special_chars",
+        ),
+        pytest.param(
+            ["a", "b"],
+            "1.",
+            ".",
+            2,
+            1,
+            "\n",
+            "  1.1. a\n  1.2. b",
+            id="nested_number",
+        ),
+    ],
+)
+def test_format_numbered_list(
+    items: list[str],
+    prefix: str,
+    suffix: str,
+    indent: int,
+    start: int,
+    sep: str,
+    expected: str,
+):
+    """Test format_numbered_list with various inputs and expected outputs."""
+    assert (
+        format_numbered_list(
+            items, prefix=prefix, suffix=suffix, indent=indent, start=start, sep=sep
+        )
+        == expected
+    )
+
+
+# Testing `on_exception` decorator
+
+
+@pytest.mark.parametrize(
+    "a,b,expected",
+    [
+        (10, 2, 5),
+        (10, 0, 0),  # Tests exception case
+        (-8, 2, -4),
+    ],
+)
+def test_on_exception_divide(a: float, b: float, expected: float):
+    @on_exception(default=0.0)
+    def divide(a: float, b: float) -> float:
+        return a / b
+
+    assert divide(a, b) == expected
+
+
+def test_on_exception_custom_default():
+    @on_exception(default="error")
+    def failing_function() -> str:
+        raise ValueError()
+
+    assert failing_function() == "error"
+
+
+def test_on_exception_preserves_successful_result():
+    @on_exception(default="error")
+    def success_function() -> str:
+        return "success"
+
+    assert success_function() == "success"
+
+
+@pytest.mark.parametrize(
+    "level",
+    ["warning", "info"],
+)
+def test_on_exception_logger_captures_exception(
+    caplog: pytest.LogCaptureFixture, level: str
+):
+    test_logger = logging.getLogger("test")
+
+    @on_exception(default="error", logger=test_logger, level=level)
+    def failing_function() -> str:
+        raise ValueError("test error")
+
+    with caplog.at_level(level.upper()):
+        result = failing_function()
+
+    assert result == "error"
+    assert "Error suppressed with `on_exception`" in caplog.text
+
+
+def test_on_exception_no_logger_swallows_exception():
+    @on_exception(default="error")
+    def failing_function() -> str:
+        raise ValueError()
+
+    result = failing_function()
+    assert result == "error"

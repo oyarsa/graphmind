@@ -17,11 +17,15 @@ fmt:
 type:
     uv run pyright .
 
+# Run pre-commit hooks manually on all files
+pre-commit:
+    uv run pre-commit run --all-files
+
 # Run ruff check, ruff format, and pyright
-lint: fix fmt type test
+lint: fix fmt pre-commit test type
 
 # Check ruff lint and pyright
-check-all: check type test
+check-all: check test type
 
 # Watch Python files and run ruff and pyright on changes
 watch:

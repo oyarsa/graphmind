@@ -6,6 +6,8 @@ if test -z "$argv"
     exit 1
 end
 
+echo "Git commit: $(git rev-parse HEAD)"
+
 set script_dir (dirname (dirname (status filename)))
 
 for file in $argv
