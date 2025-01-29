@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import logging
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum
@@ -17,12 +18,15 @@ from paper.util import (
     fix_spaces_before_punctuation,
     format_numbered_list,
     hashstr,
+    on_exception,
     remove_parenthetical,
 )
 from paper.util.serde import Record
 
 if TYPE_CHECKING:
     from paper import peter
+
+logger = logging.getLogger(__name__)
 
 
 class EntityType(StrEnum):
@@ -340,6 +344,7 @@ class Graph(Record):
         """Return True if the graph is empty. See also `Graph.empty`."""
         return not self.title
 
+    @on_exception(default="<error>", logger=logger)
     def to_text(self, method: LinearisationMethod) -> str:
         """Convert graph to LLM-readable text using the linearisation `method`.
 
@@ -348,6 +353,10 @@ class Graph(Record):
         Returns:
             The graph converted to text. If the graph is invalid and cannot be converted,
             returns "<error>".
+
+        Raises:
+            Never. Any `Exception`-based errors are caught, and `<error>` is returned
+            instead.
         """
         match method:
             case LinearisationMethod.TOPO:
@@ -363,6 +372,10 @@ class Graph(Record):
         Returns:
             The graph converted to text. If the graph is invalid and cannot be converted,
             returns "<error>".
+
+        Raises:
+            IndexError, KeyError or ValueError if an expected property the graph isn't
+            fulfilled (e.g. no title or primary area).
         """
         entity_map = {e.label: e for e in self.entities}
 
@@ -370,14 +383,8 @@ class Graph(Record):
         for rel in self.relationships:
             adjacent[rel.source].append(rel.target)
 
-        # Graphs must have a title and a primary area.
-        titles = _get_nodes_of_type(self.entities, EntityType.TITLE)
-        primary_areas = _get_nodes_of_type(self.entities, EntityType.PRIMARY_AREA)
-        if not titles or not primary_areas:
-            return "<error>"
-
-        title = titles[0]
-        primary_area = primary_areas[0]
+        title = _get_nodes_of_type(self.entities, EntityType.TITLE)[0]
+        primary_area = _get_nodes_of_type(self.entities, EntityType.PRIMARY_AREA)[0]
 
         primary_text = remove_parenthetical(primary_area.label)
 
