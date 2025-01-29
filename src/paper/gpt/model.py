@@ -55,6 +55,10 @@ class Entity(BaseModel):
     type: EntityType
     detail: str | None = None
 
+    def __hash__(self) -> int:
+        """Entity has is the hash of its members."""
+        return hash((self.label, self.type, self.detail))
+
 
 class LinearisationMethod(StrEnum):
     """How to convert a `Graph` into LLM-readable text."""
