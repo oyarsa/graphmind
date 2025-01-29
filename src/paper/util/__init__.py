@@ -8,6 +8,7 @@ import inspect
 import logging
 import os
 import random
+import re
 import subprocess
 import sys
 import time
@@ -456,3 +457,49 @@ def format_bullet_list(items: Iterable[str], prefix: str = "-", indent: int = 0)
     """
     base_indent = " " * indent
     return "\n".join(f"{base_indent}{prefix} {item}" for item in items)
+
+
+def remove_parenthetical(text: str) -> str:
+    """Remove text within parentheses, including nested ones.
+
+    Also removes consecutive spaces after parentheses are removed.
+
+    Args:
+        text: The input string to process.
+
+    Returns:
+        The string with parenthetical content removed.
+
+    Examples:
+        >>> remove_parenthetical("Example.")
+        "Example."
+        >>> remove_parenthetical("Another example (with items)")
+        "Another example"
+    """
+    # Stores the indices of the parentheses encountered
+    stack: list[int] = []
+    # Stores all characters we encounter. When a parenthesis is found, we remove
+    # the respective items until the indice of the last parenthesis.
+    result: list[str] = []
+
+    for char in text:
+        if char == "(":
+            stack.append(len(result))
+            result.append(char)
+        elif char == ")" and stack:
+            last_paren = stack.pop()
+            result = result[:last_paren]
+        else:
+            result.append(char)
+
+    text = "".join(result).strip()
+    text = re.sub(r"\s+", " ", text)
+    return fix_punctuation_spaces(text)
+
+
+def fix_punctuation_spaces(text: str) -> str:
+    """Remove punctuation before certain puncutation markers."""
+    punctuation = [".", "!", "?", ";", ":", ",", ")", "]", "}"]
+    for p in punctuation:
+        text = re.sub(rf"\s+{re.escape(p)}", p, text)
+    return text

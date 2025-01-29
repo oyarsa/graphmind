@@ -13,7 +13,11 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 import paper.semantic_scholar as s2
 from paper import hierarchical_graph, peerread
 from paper.peerread.model import clean_maintext
-from paper.util import format_bullet_list, hashstr
+from paper.util import (
+    format_bullet_list,
+    hashstr,
+    remove_parenthetical,
+)
 from paper.util.serde import Record
 
 if TYPE_CHECKING:
@@ -358,8 +362,9 @@ class Graph(Record):
         # Title and context
         title = _get_nodes_of_type(self.entities, EntityType.TITLE)[0]
         primary_area = _get_nodes_of_type(self.entities, EntityType.PRIMARY_AREA)[0]
+        primary_text = remove_parenthetical(primary_area.label)
         sections.append(
-            f"This paper is titled '{title.label}'. It's about {primary_area.label}."
+            f"This paper is titled '{title.label}'. It's about {primary_text}."
             " Key contributions include:"
         )
 

@@ -1,6 +1,12 @@
-from typing import Any
+from typing import Any, Callable
 import pytest
-from paper.util import format_bullet_list, get_icase
+from paper.util import (
+    format_bullet_list,
+    get_icase,
+    remove_parenthetical,
+    groupby,
+    fix_punctuation_spaces,
+)
 
 
 @pytest.mark.parametrize(
@@ -100,3 +106,88 @@ def test_format_bullet_list(items: list[str], prefix: str, indent: int, expected
 )
 def test_get_icase(data: dict[str, Any], key: str, default: Any, expected: Any) -> None:
     assert get_icase(data, key, default) == expected
+
+
+@pytest.mark.parametrize(
+    "input_text,expected",
+    [
+        pytest.param("Example", "Example", id="no_change"),
+        pytest.param(
+            "Another example (with items).", "Another example.", id="easy_case"
+        ),
+        pytest.param("With (stuff) in the middle", "With in the middle", id="middle"),
+        pytest.param("", "", id="empty_string"),
+        pytest.param("()", "", id="empty_parens"),
+        pytest.param("(complete)", "", id="all_in_parens"),
+        pytest.param("Multiple (sets) of (parentheses)", "Multiple of", id="multiple"),
+        pytest.param("Nested (outer (inner) outer)", "Nested", id="nested"),
+        pytest.param("Incomplete (", "Incomplete (", id="incomplete"),
+        pytest.param(
+            "Incomplete (some text",
+            "Incomplete (some text",
+            id="incomplete_with_leftover",
+        ),
+        pytest.param(
+            "Incomplete(should be removed) (some text",
+            "Incomplete (some text",
+            id="valid_before_incomplete",
+        ),
+        pytest.param(
+            "Nested(remains (removed)", "Nested(remains", id="nested_incomplete"
+        ),
+        pytest.param("Nested(outer (inner) (removed))", "Nested", id="nested_2"),
+        pytest.param("Incomplete )", "Incomplete)", id="incomplete_closing"),
+        pytest.param(
+            "Special chars ($@#) here", "Special chars here", id="special_chars"
+        ),
+        pytest.param(
+            "   Whitespace   (test)   here   ", "Whitespace here", id="whitespace"
+        ),
+    ],
+)
+def test_remove_parenthetical(input_text: str, expected: str):
+    assert remove_parenthetical(input_text) == expected
+
+
+@pytest.mark.parametrize(
+    "items, key_func, expected",
+    [
+        pytest.param(
+            ["apple", "banana", "avocado", "blueberry"],
+            lambda x: x[0],  # type: ignore
+            {"a": ["apple", "avocado"], "b": ["banana", "blueberry"]},
+            id="by_first_letter",
+        ),
+        pytest.param(
+            [-2, -1, 0, 1, 2, 3],
+            lambda x: None if x < 0 else "even" if x % 2 == 0 else "odd",  # type: ignore
+            {"even": [0, 2], "odd": [1, 3]},
+            id="even_odd",
+        ),
+        pytest.param([], lambda x: x, {}, id="empty"),  # type: ignore
+    ],
+)
+def test_groupby(
+    items: list[Any], key_func: Callable[[Any], Any | None], expected: dict[str, Any]
+):
+    assert groupby(items, key_func) == expected
+
+
+@pytest.mark.parametrize(
+    "input_text, expected",
+    [
+        pytest.param("Hello , world !", "Hello, world!", id="comma"),
+        pytest.param(
+            "Multiple   spaces    .", "Multiple   spaces.", id="multiple spaces"
+        ),
+        pytest.param("(text  )", "(text)", id="closing paren"),
+        pytest.param('He said   "quote"   .', 'He said   "quote".', id="final period"),
+        pytest.param(
+            "Mixed case: ! ? . ,", "Mixed case:!?.,", id="multiple punctuation"
+        ),
+        pytest.param("No changes needed!", "No changes needed!", id="no changes"),
+        pytest.param("", "", id="empty"),
+    ],
+)
+def test_fix_punctuation_spaces(input_text: str, expected: str):
+    assert fix_punctuation_spaces(input_text) == expected
