@@ -10,7 +10,7 @@ from typing import Annotated, override
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from paper.util import hashstr
+from paper.util import fix_punctuation_spaces, hashstr
 from paper.util.serde import Record
 
 
@@ -191,6 +191,7 @@ def clean_maintext(content: str) -> str:
         remove_line_numbers,
         remove_page_numbers,
         compress_whitespace,
+        fix_punctuation_spaces,
         normalise_paragraphs,
     ]
     return reduce(lambda content, fn: fn(content), cleanup, content)
