@@ -88,7 +88,7 @@ def load_data[T: BaseModel](
     except ValidationError as e:
         source = file if isinstance(file, Path) else "bytes"
         raise ValidationError(
-            f"Data from {source} is not valid for {_get_full_type_name(type_)}"
+            f"Data from {source} is not valid for {get_full_type_name(type_)}"
         ) from e
 
 
@@ -141,7 +141,7 @@ def _is_model_list(val: Sequence[object]) -> TypeGuard[Sequence[BaseModel]]:
     return all(isinstance(x, BaseModel) for x in val)
 
 
-def _get_full_type_name[T](type_: type[T]) -> str:
+def get_full_type_name[T](type_: type[T]) -> str:
     """Get full name of type, including full module path."""
     # Handle generic types (List[str], etc.)
     origin = get_origin(type_)

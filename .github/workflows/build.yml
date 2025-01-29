@@ -38,6 +38,9 @@ jobs:
       - name: Pyright
         uses: jakebailey/pyright-action@v2
 
+      - name: Unit tests
+        run: uv run pytest tests/
+
   lint-shell:
     name: Lint bash/sh
     runs-on: ubuntu-latest

@@ -5,9 +5,10 @@ eval_cmd := "uv run gpt eval"
 demos := env("DEMOS", "eval_4")
 model := env("MODEL", "4o-mini")
 data := env("DATA", "subset")
+num_items := env("N", "0")
 
 # Number of items
-n := if data == "full" { "125" } else { "0" }
+n := if data == "full" { "125" } else { num_items }
 
 # Sans data paths
 data_sans := if data == "full" {
@@ -66,6 +67,41 @@ graph-title: (_t "Running graph evaluation - title-only graph")
 graph-only: (_t "Running graph evaluation - graphs only")
     @just _graph only-graph
 
+# Run all graph versions
+[group: 'graph']
+all-graphs: (_t "Run all main graph versions and show metrics")
+    @just graph-only
+    @just graph-title
+    @just graph-all
+    @just metrics
+
+# Graph evaluation with fluent linearisation
+_graph-fluent prompt:
+    {{eval_cmd}} graph run {{eval_flags}} --linearisation fluent --output {{output}}/graph/{{prompt}} --eval-prompt {{prompt}}
+
+# Graph-eval with full graph prompt
+[group: 'graph-fluent']
+graph-fluent-all: (_t "Running graph evaluation - main graph mode")
+    @just _graph-fluent full-graph
+
+# Graph-eval with title and graph prompt
+[group: 'graph-fluent']
+graph-fluent-title: (_t "Running graph evaluation - title-only graph")
+    @just _graph-fluent title-graph
+
+# Graph-eval with only graphs prompt
+[group: 'graph-fluent']
+graph-fluent-only: (_t "Running graph evaluation - graphs only")
+    @just _graph-fluent only-graph
+
+# Run all fluent graph versions
+[group: 'graph-fluent']
+all-fluent-graphs: (_t "Run all fluent main graph versions and show metrics")
+    @just graph-fluent-only
+    @just graph-fluent-title
+    @just graph-fluent-all
+    @just metrics
+
 # PETER evaluation
 _peter prompt:
     {{eval_cmd}} peter run {{eval_flags}} --output {{output}}/peter/{{prompt}} --user-prompt {{prompt}}
@@ -101,13 +137,6 @@ all: (_t "Comparing sans/PETER/graph variants")
     @just sans
     @just peter-related
     @just graph-all
-
-# Run all graph versions
-all-graphs: (_t "Run all main graph versions and show metrics")
-    @just graph-only
-    @just graph-title
-    @just graph-all
-    @just metrics
 
 # Show metrics for all available runs
 metrics:

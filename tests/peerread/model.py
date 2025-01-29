@@ -1,9 +1,9 @@
-"""Test paper main text cleaning pipeline."""
+"""Test PeerRead module, including paper content transformation."""
 
 from paper.peerread.model import (
     clean_maintext,
     compress_whitespace,
-    normalize_paragraphs,
+    normalise_paragraphs,
     remove_line_numbers,
     remove_page_numbers,
 )
@@ -25,11 +25,12 @@ def test_remove_page_numbers() -> None:
 
 
 def test_normalize_paragraphs() -> None:
-    assert normalize_paragraphs("P1\n\nP2  \n\n\nP3") == "P1\n\nP2\n\nP3"
-    assert normalize_paragraphs("Single paragraph") == "Single paragraph"
+    assert normalise_paragraphs("P1\n\nP2  \n\n\nP3") == "P1\n\nP2\n\nP3"
+    assert normalise_paragraphs("Single paragraph") == "Single paragraph"
 
 
-def test_clean_pdf_content() -> None:
+def test_clean_maintext() -> None:
+    """Test full paper content cleaning pipeline."""
     input_text = """123 First line
 456   Multiple   spaces
 Broken

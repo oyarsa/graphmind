@@ -13,7 +13,12 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 import paper.semantic_scholar as s2
 from paper import hierarchical_graph, peerread
 from paper.peerread.model import clean_maintext
-from paper.util import hashstr
+from paper.util import (
+    fix_punctuation_spaces,
+    format_bullet_list,
+    hashstr,
+    remove_parenthetical,
+)
 from paper.util.serde import Record
 
 if TYPE_CHECKING:
@@ -340,7 +345,55 @@ class Graph(Record):
             case LinearisationMethod.TOPO:
                 return self.to_digraph().to_text()
             case LinearisationMethod.FLUENT:
-                raise NotImplementedError("Fluent linearisation is not implemented")
+                return self.fluent_linearization()
+
+    def fluent_linearization(self) -> str:
+        """Convert graph to text using "fluent", natural flow.
+
+        The conversion is template-based, so it will still be a little weird.
+        """
+        entity_map = {e.label: e for e in self.entities}
+
+        adjacent: dict[str, list[str]] = defaultdict(list)
+        for rel in self.relationships:
+            adjacent[rel.source].append(rel.target)
+
+        sections: list[str] = []
+
+        # Title and context
+        title = _get_nodes_of_type(self.entities, EntityType.TITLE)[0]
+        primary_area = _get_nodes_of_type(self.entities, EntityType.PRIMARY_AREA)[0]
+        primary_text = remove_parenthetical(primary_area.label)
+        sections.append(
+            f"This paper is titled '{title.label}'. It's about {primary_text}."
+            " Key contributions include:"
+        )
+
+        # Process claims hierarchy
+        claim_sections: list[str] = []
+        for claim in _get_nodes_of_type(self.entities, EntityType.CLAIM):
+            claim_text = claim.label
+            if claim.detail:
+                claim_text += f": {_normalise_detail(claim.detail)}"
+
+            claim_parts = [f"{capitalise(claim_text)} This is demonstrated by:"]
+
+            # Add methods
+            if methods := [
+                _format_method(
+                    method, adjacent.get(method.label, []), entity_map, indent=4
+                )
+                for m in adjacent.get(claim.label, [])
+                if (method := entity_map.get(m)) and method.type is EntityType.METHOD
+            ]:
+                claim_parts.append(format_bullet_list(methods, indent=2))
+
+            claim_sections.append("\n".join(claim_parts))
+
+        if claim_sections:
+            sections.append(format_bullet_list(claim_sections))
+
+        return fix_punctuation_spaces("\n\n".join(sections))
 
     def to_digraph(self) -> hierarchical_graph.DiGraph:
         """Convert to a proper hierarchical graph."""
@@ -353,6 +406,68 @@ class Graph(Record):
                 hierarchical_graph.Edge(r.source, r.target) for r in self.relationships
             ],
         )
+
+
+def capitalise(text: str) -> str:
+    """Capitalise first letter of the string. The rest is left as-is.
+
+    This is different from `str.capitalize` because that lowercases the rest of the
+    string, but we don't.
+    """
+    return text[0].upper() + text[1:]
+
+
+def _ensure_punctuation(text: str) -> str:
+    """Add period at the end of `text` if it doesn't end with `.!?;`."""
+    if text[-1] not in {".", "!", "?", ";"}:
+        return f"{text}."
+    return text
+
+
+def _format_method(
+    method: Entity,
+    adjacent_experiments: list[str],
+    entity_map: dict[str, Entity],
+    indent: int,
+) -> str:
+    """Format a method entity with its experiments if present."""
+    text = method.label
+    if method.detail:
+        text += f": {_normalise_detail(method.detail)}"
+
+    text = _ensure_punctuation(text)
+
+    if experiments := [
+        _format_experiment(exp)
+        for x in adjacent_experiments
+        if (exp := entity_map.get(x)) and exp.type is EntityType.EXPERIMENT
+    ]:
+        text += (
+            " This method is validated by these experiments:\n"
+            f"{format_bullet_list(experiments, indent=indent)}"
+        )
+    else:
+        raise ValueError("Empty experiments?")
+
+    return _ensure_punctuation(text)
+
+
+def _format_experiment(exp: Entity) -> str:
+    """Format an experiment entity with its detail if present."""
+    text = exp.label
+    if exp.detail:
+        text += f" ({exp.detail.strip()})"
+    return text
+
+
+def _normalise_detail(text: str) -> str:
+    """Normalise detail formatting."""
+    text = text.strip()
+    if not text:
+        return ""
+
+    text = _ensure_punctuation(text)
+    return text[0].lower() + text[1:]
 
 
 def _get_nodes_of_type(entities: Iterable[Entity], type_: EntityType) -> list[Entity]:
