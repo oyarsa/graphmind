@@ -1,5 +1,8 @@
+import logging
 from typing import Any, Callable
+
 import pytest
+
 from paper.util import (
     format_bullet_list,
     format_numbered_list,
@@ -7,6 +10,7 @@ from paper.util import (
     remove_parenthetical,
     groupby,
     fix_spaces_before_punctuation,
+    on_exception,
 )
 
 
@@ -295,3 +299,62 @@ def test_format_numbered_list(
         )
         == expected
     )
+
+
+# Testing `on_exception` decorator
+
+
+@pytest.mark.parametrize(
+    "a,b,expected",
+    [
+        (10, 2, 5),
+        (10, 0, 0),  # Tests exception case
+        (-8, 2, -4),
+    ],
+)
+def test_on_exception_divide(a: float, b: float, expected: float):
+    @on_exception(default=0.0)
+    def divide(a: float, b: float) -> float:
+        return a / b
+
+    assert divide(a, b) == expected
+
+
+def test_on_exception_custom_default():
+    @on_exception(default="error")
+    def failing_function() -> str:
+        raise ValueError()
+
+    assert failing_function() == "error"
+
+
+def test_on_exception_preserves_successful_result():
+    @on_exception(default="error")
+    def success_function() -> str:
+        return "success"
+
+    assert success_function() == "success"
+
+
+def test_on_exception_logger_captures_exception(caplog: pytest.LogCaptureFixture):
+    test_logger = logging.getLogger("test")
+
+    @on_exception(default="error", logger=test_logger)
+    def failing_function() -> str:
+        raise ValueError("test error")
+
+    with caplog.at_level(logging.ERROR):
+        result = failing_function()
+
+    assert result == "error"
+    assert "Error suppressed with `on_exception`" in caplog.text
+    assert "ValueError: test error" in caplog.text
+
+
+def test_on_exception_no_logger_swallows_exception():
+    @on_exception(default="error")
+    def failing_function() -> str:
+        raise ValueError()
+
+    result = failing_function()
+    assert result == "error"

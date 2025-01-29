@@ -533,3 +533,27 @@ def fix_spaces_before_punctuation(text: str) -> str:
     for p in punctuation:
         text = re.sub(rf"\s+{re.escape(p)}", p, text)
     return text
+
+
+def on_exception[T, **P](
+    default: T,
+    logger: logging.Logger | None = None,
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """Decorate a function that throws an exception. If it's raised, return the value.
+
+    The exception itself is swallowed. If `logger` is given, it will be logged using
+    `logger.exception`.
+    """
+
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            try:
+                return func(*args, **kwargs)
+            except Exception:
+                if logger is not None:
+                    logger.exception("Error suppressed with `on_exception`.")
+                return default
+
+        return wrapper
+
+    return decorator
