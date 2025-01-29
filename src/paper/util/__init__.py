@@ -443,6 +443,36 @@ def get_icase[T](data: Mapping[str, T], key: str, default: T | None = None) -> T
     return default
 
 
+def format_numbered_list(
+    items: Iterable[str],
+    prefix: str = "",
+    suffix: str = ".",
+    indent: int = 0,
+    start: int = 1,
+    sep: str = "\n",
+) -> str:
+    """Format an iterable of strings as a numbered list.
+
+    Args:
+        items: An iterable containing strings to be formatted.
+        prefix: Text to add before the number. Useful if you have a nested list, e.g.
+            `1.1.`
+        suffix: The bullet symbol to use after the number.
+        indent: Number of spaces to indent the entire list.
+        start: Starting index for number label.
+        sep: Separator to join lines.
+
+    Returns:
+        A formatted string where each item appears on a new line, properly indented and
+        prefixed with the bullet symbol and the number.
+    """
+    base_indent = " " * indent
+    return sep.join(
+        f"{base_indent}{prefix}{i}{suffix} {item}"
+        for i, item in enumerate(items, start=start)
+    )
+
+
 def format_bullet_list(items: Iterable[str], prefix: str = "-", indent: int = 0) -> str:
     """Format an iterable of strings as a bullet list.
 
@@ -452,8 +482,8 @@ def format_bullet_list(items: Iterable[str], prefix: str = "-", indent: int = 0)
         indent: Number of spaces to indent the entire list.
 
     Returns:
-        A formatted string where each item appears on a new line,
-        properly indented and prefixed with the bullet symbol
+        A formatted string where each item appears on a new line, properly indented and
+        prefixed with the bullet symbol
     """
     base_indent = " " * indent
     return "\n".join(f"{base_indent}{prefix} {item}" for item in items)

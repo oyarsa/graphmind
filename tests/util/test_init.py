@@ -2,6 +2,7 @@ from typing import Any, Callable
 import pytest
 from paper.util import (
     format_bullet_list,
+    format_numbered_list,
     get_icase,
     remove_parenthetical,
     groupby,
@@ -191,3 +192,106 @@ def test_groupby(
 )
 def test_fix_punctuation_spaces(input_text: str, expected: str):
     assert fix_punctuation_spaces(input_text) == expected
+
+
+@pytest.mark.parametrize(
+    "items,prefix,suffix,indent,start,sep,expected",
+    [
+        pytest.param(
+            ["apple", "banana", "cherry"],
+            "",
+            ".",
+            0,
+            1,
+            "\n",
+            "1. apple\n2. banana\n3. cherry",
+            id="basic_formatting",
+        ),
+        pytest.param(
+            ["first", "second"],
+            "",
+            ")",
+            0,
+            1,
+            "\n",
+            "1) first\n2) second",
+            id="custom_prefix",
+        ),
+        pytest.param(
+            ["item1", "item2"],
+            "",
+            ".",
+            4,
+            1,
+            "\n",
+            "    1. item1\n    2. item2",
+            id="with_indent",
+        ),
+        pytest.param(
+            [],
+            "",
+            ".",
+            0,
+            1,
+            "\n",
+            "",
+            id="empty_list",
+        ),
+        pytest.param(
+            ["item1"],
+            "",
+            ".",
+            0,
+            5,
+            "\n",
+            "5. item1",
+            id="custom_start",
+        ),
+        pytest.param(
+            ["a", "b"],
+            "",
+            ".",
+            0,
+            1,
+            " ",
+            "1. a 2. b",
+            id="custom_separator",
+        ),
+        pytest.param(
+            ["item\nwith\nnewlines", "item\twith\ttabs"],
+            "",
+            ".",
+            0,
+            1,
+            "\n",
+            "1. item\nwith\nnewlines\n2. item\twith\ttabs",
+            id="special_chars",
+        ),
+        pytest.param(
+            ["a", "b"],
+            "1.",
+            ".",
+            2,
+            1,
+            "\n",
+            "  1.1. a\n  1.2. b",
+            id="nested_number",
+        ),
+    ],
+)
+def test_format_numbered_list(
+    items: list[str],
+    prefix: str,
+    suffix: str,
+    indent: int,
+    start: int,
+    sep: str,
+    expected: str,
+):
+    """Test format_numbered_list with various inputs and expected outputs."""
+    assert (
+        format_numbered_list(
+            items, prefix=prefix, suffix=suffix, indent=indent, start=start, sep=sep
+        )
+        == expected
+    )
