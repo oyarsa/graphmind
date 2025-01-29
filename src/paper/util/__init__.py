@@ -440,3 +440,19 @@ def get_icase[T](data: Mapping[str, T], key: str, default: T | None = None) -> T
         if k.lower() == key_lower:
             return data[k]
     return default
+
+
+def format_bullet_list(items: Iterable[str], prefix: str = "-", indent: int = 0) -> str:
+    """Format an iterable of strings as a bullet list.
+
+    Args:
+        items: An iterable containing strings to be formatted.
+        prefix: The bullet symbol to use (defaults to "-").
+        indent: Number of spaces to indent the entire list.
+
+    Returns:
+        A formatted string where each item appears on a new line,
+        properly indented and prefixed with the bullet symbol
+    """
+    base_indent = " " * indent
+    return "\n".join(f"{base_indent}{prefix} {item}" for item in items)
