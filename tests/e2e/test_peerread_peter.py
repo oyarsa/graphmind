@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pytest
 
+from paper.util import git_root
 from paper.util.cmd import run, run_parallel_commands, title
 
-ROOT_DIR = Path(__file__).parent.parent
+ROOT_DIR = git_root()
 
 
 @pytest.mark.slow
@@ -185,7 +186,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "eval",
         "sans",
         "run",
-        "--peerread",
+        "--papers",
         peer_with_ref,
         "--output",
         eval_sans_dir,
@@ -203,7 +204,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "eval",
         "peter",
         "run",
-        "--ann-graph",
+        "--papers",
         petersum,
         "--output",
         eval_peter_dir,

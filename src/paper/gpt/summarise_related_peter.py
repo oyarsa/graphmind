@@ -23,7 +23,7 @@ import typer
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
-from paper import peter
+from paper import related_papers as rp
 from paper.gpt.model import (
     PaperRelatedSummarised,
     PaperWithRelatedSummary,
@@ -185,15 +185,11 @@ async def summarise_related(
 
     client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
 
-    papers = shuffled(load_data(ann_graph_file, peter.PaperResult))[:limit_papers]
+    papers = shuffled(load_data(ann_graph_file, rp.PaperResult))[:limit_papers]
 
     prompt_pol = {
-        peter.ContextPolarity.POSITIVE: PETER_SUMMARISE_USER_PROMPTS[
-            positive_prompt_key
-        ],
-        peter.ContextPolarity.NEGATIVE: PETER_SUMMARISE_USER_PROMPTS[
-            negative_prompt_key
-        ],
+        rp.ContextPolarity.POSITIVE: PETER_SUMMARISE_USER_PROMPTS[positive_prompt_key],
+        rp.ContextPolarity.NEGATIVE: PETER_SUMMARISE_USER_PROMPTS[negative_prompt_key],
     }
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -241,8 +237,8 @@ async def summarise_related(
 async def _summarise_papers(
     client: AsyncOpenAI,
     model: str,
-    prompt_pol: Mapping[peter.ContextPolarity, PromptTemplate],
-    ann_graphs: Iterable[peter.PaperResult],
+    prompt_pol: Mapping[rp.ContextPolarity, PromptTemplate],
+    ann_graphs: Iterable[rp.PaperResult],
     output_intermediate_file: Path,
     *,
     seed: int,
@@ -292,21 +288,21 @@ paper.
 async def _summarise_paper(
     client: AsyncOpenAI,
     model: str,
-    ann_result: peter.PaperResult,
-    prompt_pol: Mapping[peter.ContextPolarity, PromptTemplate],
+    ann_result: rp.PaperResult,
+    prompt_pol: Mapping[rp.ContextPolarity, PromptTemplate],
     *,
     seed: int,
 ) -> GPTResult[PromptResult[PaperWithRelatedSummary]]:
     output: list[PromptResult[PaperRelatedSummarised]] = []
     total_cost = 0
 
-    for related in ann_result.results.related:
+    for related_paper in ann_result.results.related:
         result = await _summarise_paper_related(
             client,
             model,
             ann_result.paper,
-            related,
-            user_prompt=prompt_pol[related.polarity],
+            related_paper,
+            user_prompt=prompt_pol[related_paper.polarity],
             seed=seed,
         )
         total_cost += result.cost
@@ -344,7 +340,7 @@ async def _summarise_paper_related(
     client: AsyncOpenAI,
     model: str,
     paper: PeerReadAnnotated,
-    related: peter.PaperRelated,
+    related: rp.PaperRelated,
     user_prompt: PromptTemplate,
     *,
     seed: int,
@@ -374,7 +370,9 @@ async def _summarise_paper_related(
 
 
 def format_template(
-    prompt: PromptTemplate, main: PeerReadAnnotated, related: peter.PaperRelated
+    prompt: PromptTemplate,
+    main: PeerReadAnnotated,
+    related: rp.PaperRelated,
 ) -> str:
     """Format related paper summarisation template."""
     return prompt.template.format(

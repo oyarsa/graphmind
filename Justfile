@@ -51,6 +51,10 @@ test:
 exp *args:
     @just -f experiments/Justfile {{args}}
 
+# Show all files with type errors
+typefiles:
+    uv run pyright . | grep -o '/.*\.py' | sort | uniq -c | sort -n
+
 alias l := lint
 alias w := watch
 alias x := exp

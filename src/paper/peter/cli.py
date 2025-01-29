@@ -11,10 +11,11 @@ from tqdm import tqdm
 
 from paper import embedding as emb
 from paper import gpt
+from paper import related_papers as rp
 from paper import semantic_scholar as s2
 from paper.peter import citations, graph, semantic
 from paper.util import Timer, display_params, setup_logging
-from paper.util.serde import Record, load_data, save_data
+from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -264,7 +265,7 @@ def peerread(
     main_graph = graph.graph_from_json(graph_file)
 
     results = [
-        PaperResult(
+        rp.PaperResult(
             paper=paper,
             results=main_graph.query_all(
                 paper.id,
@@ -277,15 +278,3 @@ def peerread(
         for paper in tqdm(papers, desc="Querying PeerRead papers.")
     ]
     save_data(output_file, results)
-
-
-class PaperResult(Record):
-    """PeerRead paper with its related papers queried from the PETER graph."""
-
-    paper: gpt.PeerReadAnnotated
-    results: graph.QueryResult
-
-    @property
-    def id(self) -> str:
-        """Identify graph result as the underlying paper's ID."""
-        return self.paper.id

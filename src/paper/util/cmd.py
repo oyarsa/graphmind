@@ -17,8 +17,26 @@ def run(*args: object) -> None:
     subprocess.run(["uv", "run", *(str(x) for x in args)], check=True)
 
 
-def run_parallel_commands(commands: Iterable[Sequence[object]]) -> None:
-    """Run multiple commands at the same time. If any returns an error, quit."""
+def run_many(cmds: Iterable[Sequence[object]]) -> None:
+    """Run many commands in sequence and stop on first error."""
+    for cmd in cmds:
+        run(*cmd)
+
+
+def run_parallel_commands(
+    commands: Iterable[Sequence[object]], seq: bool = False
+) -> None:
+    """Run multiple commands at the same time. If any returns an error, quit.
+
+    Args:
+        commands: Commands to run.
+        seq: If True, the commands are run sequentially. Otherwise, runs them in multiple
+            threads.
+    """
+    if seq:
+        run_many(commands)
+        return
+
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [executor.submit(run, *cmd) for cmd in commands]
         for future in futures:
