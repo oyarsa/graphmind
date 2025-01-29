@@ -179,7 +179,7 @@ def remove_page_numbers(content: str) -> str:
     return re.sub(r"^\s*\d+\s*$", "", content, flags=re.MULTILINE)
 
 
-def normalize_paragraphs(content: str) -> str:
+def normalise_paragraphs(content: str) -> str:
     """Normalize paragraph breaks and whitespace."""
     paragraphs = (p.strip() for p in content.split("\n\n"))
     return "\n\n".join(paragraphs)
@@ -191,6 +191,6 @@ def clean_maintext(content: str) -> str:
         remove_line_numbers,
         remove_page_numbers,
         compress_whitespace,
-        normalize_paragraphs,
+        normalise_paragraphs,
     ]
     return reduce(lambda content, fn: fn(content), cleanup, content)
