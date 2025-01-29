@@ -15,7 +15,7 @@ from paper import hierarchical_graph, peerread
 from paper.peerread.model import clean_maintext
 from paper.util import (
     fix_punctuation_spaces,
-    format_bullet_list,
+    format_numbered_list,
     hashstr,
     remove_parenthetical,
 )
@@ -360,38 +360,66 @@ class Graph(Record):
 
         sections: list[str] = []
 
-        # Title and context
         title = _get_nodes_of_type(self.entities, EntityType.TITLE)[0]
         primary_area = _get_nodes_of_type(self.entities, EntityType.PRIMARY_AREA)[0]
         primary_text = remove_parenthetical(primary_area.label)
         sections.append(
             f"This paper is titled '{title.label}'. It's about {primary_text}."
-            " Key contributions include:"
+            " The key contributions are:"
         )
+        seen_entities: set[Entity] = set()
 
-        # Process claims hierarchy
         claim_sections: list[str] = []
-        for claim in _get_nodes_of_type(self.entities, EntityType.CLAIM):
-            claim_text = claim.label
-            if claim.detail:
-                claim_text += f": {_normalise_detail(claim.detail)}"
+        for claim_idx, claim in enumerate(
+            _get_nodes_of_type(self.entities, EntityType.CLAIM), start=1
+        ):
+            if claim in seen_entities:
+                continue
+            # TODO: chek if this is valid
+            seen_entities.add(claim)
 
-            claim_parts = [f"{capitalise(claim_text)} This is demonstrated by:"]
+            methods: list[str] = []
 
-            # Add methods
-            if methods := [
-                _format_method(
-                    method, adjacent.get(method.label, []), entity_map, indent=4
+            for method_idx, method_label in enumerate(
+                adjacent.get(claim.label, []), start=1
+            ):
+                method = entity_map.get(method_label)
+                if method is None or method.type is not EntityType.METHOD:
+                    continue
+
+                if method in seen_entities:
+                    continue
+                seen_entities.add(method)
+
+                if experiment_labels := adjacent.get(method.label):
+                    experiments = [
+                        _format_entity_detail_sentence(exp)
+                        for label in experiment_labels
+                        if (exp := entity_map.get(label))
+                        and exp.type is EntityType.EXPERIMENT
+                    ]
+                    experiments_bullets = format_numbered_list(
+                        experiments, prefix=f"{claim_idx}.{method_idx}.", indent=4
+                    )
+                    methods.append(
+                        _ensure_punctuation(
+                            f"{_format_entity_detail_sentence(method)}"
+                            " This method is validated by these experiments:\n"
+                            f"{experiments_bullets}"
+                        )
+                    )
+
+            claim_sections.append(
+                "\n".join(
+                    [
+                        f"{_format_entity_detail_sentence(claim)} This is done with:",
+                        format_numbered_list(methods, prefix=f"{claim_idx}.", indent=2),
+                    ]
                 )
-                for m in adjacent.get(claim.label, [])
-                if (method := entity_map.get(m)) and method.type is EntityType.METHOD
-            ]:
-                claim_parts.append(format_bullet_list(methods, indent=2))
-
-            claim_sections.append("\n".join(claim_parts))
+            )
 
         if claim_sections:
-            sections.append(format_bullet_list(claim_sections))
+            sections.append(format_numbered_list(claim_sections, sep="\n\n"))
 
         return fix_punctuation_spaces("\n\n".join(sections))
 
@@ -424,50 +452,31 @@ def _ensure_punctuation(text: str) -> str:
     return text
 
 
-def _format_method(
-    method: Entity,
-    adjacent_experiments: list[str],
-    entity_map: dict[str, Entity],
-    indent: int,
-) -> str:
-    """Format a method entity with its experiments if present."""
-    text = method.label
-    if method.detail:
-        text += f": {_normalise_detail(method.detail)}"
+def _strip_punctuation(text: str) -> str:
+    """Remove punctuation at the end of `text`."""
+    return text.rstrip(".:,?!")
 
-    text = _ensure_punctuation(text)
 
-    if experiments := [
-        _format_experiment(exp)
-        for x in adjacent_experiments
-        if (exp := entity_map.get(x)) and exp.type is EntityType.EXPERIMENT
-    ]:
-        text += (
-            " This method is validated by these experiments:\n"
-            f"{format_bullet_list(experiments, indent=indent)}"
+def _format_entity_detail_sentence(entity: Entity) -> str:
+    """Format entity with label and detail.
+
+    Args:
+        entity: An entity of a type that has detail text (method, claim, experiment).
+
+    Returns:
+        Formatted sentence with `label: detail`, where `label` is capitalised and
+        `detail` ends with a period.
+
+    Raises:
+        ValueError: if the entity doesn't contain valid detail text (None or empty).
+    """
+    if entity.detail is None or not entity.detail.strip():
+        raise ValueError(
+            f"Entity of type '{entity.type}' does not have valid detail text."
         )
-    else:
-        raise ValueError("Empty experiments?")
 
-    return _ensure_punctuation(text)
-
-
-def _format_experiment(exp: Entity) -> str:
-    """Format an experiment entity with its detail if present."""
-    text = exp.label
-    if exp.detail:
-        text += f" ({exp.detail.strip()})"
-    return text
-
-
-def _normalise_detail(text: str) -> str:
-    """Normalise detail formatting."""
-    text = text.strip()
-    if not text:
-        return ""
-
-    text = _ensure_punctuation(text)
-    return text[0].lower() + text[1:]
+    text = f"{_strip_punctuation(entity.label)}: {entity.detail}"
+    return capitalise(_ensure_punctuation(text))
 
 
 def _get_nodes_of_type(entities: Iterable[Entity], type_: EntityType) -> list[Entity]:
