@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from paper.util import format_bullet_list, get_icase
 
@@ -52,3 +53,50 @@ from paper.util import format_bullet_list, get_icase
 def test_format_bullet_list(items: list[str], prefix: str, indent: int, expected: str):
     """Test format_bullet_list with various inputs and expected outputs."""
     assert format_bullet_list(items, prefix=prefix, indent=indent) == expected
+
+
+@pytest.mark.parametrize(
+    "data, key, default, expected",
+    [
+        pytest.param(
+            {"Hello": 1},
+            "HELLO",
+            -1,
+            1,
+            id="existing_insensitive_with_default",
+        ),
+        pytest.param(
+            {"Hello": 1},
+            "missing",
+            -1,
+            -1,
+            id="non_existing_insensitive_with_default",
+        ),
+        pytest.param(
+            {"key": 1, "KEY": 2},
+            "Key",
+            -1,
+            1,
+            id="case_conflict_returns_first",
+        ),
+        pytest.param(
+            {"Name": "Alice"}, "name", None, "Alice", id="insensitive_without_default"
+        ),
+        pytest.param(
+            {"Name": "Alice"},
+            "missing",
+            None,
+            None,
+            id="missing_key_without_default",
+        ),
+        pytest.param(
+            {"café": "coffee"},
+            "CAFÉ",
+            None,
+            "coffee",
+            id="unicode_case",
+        ),
+    ],
+)
+def test_get_icase(data: dict[str, Any], key: str, default: Any, expected: Any) -> None:
+    assert get_icase(data, key, default) == expected
