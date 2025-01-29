@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pytest
 
+from paper.util import git_root
 from paper.util.cmd import run, run_parallel_commands, title
 
-ROOT_DIR = Path(__file__).parent.parent
+ROOT_DIR = git_root()
 
 
 @pytest.mark.slow
