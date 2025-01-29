@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import hashlib
 import inspect
 import logging
@@ -538,20 +539,29 @@ def fix_spaces_before_punctuation(text: str) -> str:
 def on_exception[T, **P](
     default: T,
     logger: logging.Logger | None = None,
+    level: str = "warning",
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Decorate a function that throws an exception. If it's raised, return the value.
 
     The exception itself is swallowed. If `logger` is given, it will be logged using
-    `logger.exception`.
+    the specified level (defaults to "warning").
     """
 
+    log = None
+    if logger is not None:
+        log = getattr(logger, level, None)
+        if log is None:
+            log = logger.warning
+            log("Invalid log level for `on_exception`: %s. Using 'warning'.", level)
+
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
+        @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             try:
                 return func(*args, **kwargs)
             except Exception:
-                if logger is not None:
-                    logger.exception("Error suppressed with `on_exception`.")
+                if log is not None:
+                    log("Error suppressed with `on_exception`.")
                 return default
 
         return wrapper

@@ -336,19 +336,24 @@ def test_on_exception_preserves_successful_result():
     assert success_function() == "success"
 
 
-def test_on_exception_logger_captures_exception(caplog: pytest.LogCaptureFixture):
+@pytest.mark.parametrize(
+    "level",
+    ["warning", "info"],
+)
+def test_on_exception_logger_captures_exception(
+    caplog: pytest.LogCaptureFixture, level: str
+):
     test_logger = logging.getLogger("test")
 
-    @on_exception(default="error", logger=test_logger)
+    @on_exception(default="error", logger=test_logger, level=level)
     def failing_function() -> str:
         raise ValueError("test error")
 
-    with caplog.at_level(logging.ERROR):
+    with caplog.at_level(level.upper()):
         result = failing_function()
 
     assert result == "error"
     assert "Error suppressed with `on_exception`" in caplog.text
-    assert "ValueError: test error" in caplog.text
 
 
 def test_on_exception_no_logger_swallows_exception():
