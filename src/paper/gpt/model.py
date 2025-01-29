@@ -344,6 +344,10 @@ class Graph(Record):
         """Convert graph to LLM-readable text using the linearisation `method`.
 
         If the graph is empty, returns an empty string.
+
+        Returns:
+            The graph converted to text. If the graph is invalid and cannot be converted,
+            returns "<error>".
         """
         match method:
             case LinearisationMethod.TOPO:
@@ -355,6 +359,10 @@ class Graph(Record):
         """Convert graph to text using "fluent", natural flow.
 
         The conversion is template-based, so it will still be a little weird.
+
+        Returns:
+            The graph converted to text. If the graph is invalid and cannot be converted,
+            returns "<error>".
         """
         entity_map = {e.label: e for e in self.entities}
 
@@ -362,62 +370,62 @@ class Graph(Record):
         for rel in self.relationships:
             adjacent[rel.source].append(rel.target)
 
-        sections: list[str] = []
+        # Graphs must have a title and a primary area.
+        titles = _get_nodes_of_type(self.entities, EntityType.TITLE)
+        primary_areas = _get_nodes_of_type(self.entities, EntityType.PRIMARY_AREA)
+        if not titles or not primary_areas:
+            return "<error>"
 
-        title = _get_nodes_of_type(self.entities, EntityType.TITLE)[0]
-        primary_area = _get_nodes_of_type(self.entities, EntityType.PRIMARY_AREA)[0]
+        title = titles[0]
+        primary_area = primary_areas[0]
+
         primary_text = remove_parenthetical(primary_area.label)
-        sections.append(
+
+        sections = [
             f"This paper is titled '{title.label}'. It's about {primary_text}."
             " The key contributions are:"
-        )
-        seen_entities: set[Entity] = set()
+        ]
 
         claim_sections: list[str] = []
         for claim_idx, claim in enumerate(
             _get_nodes_of_type(self.entities, EntityType.CLAIM), start=1
         ):
-            if claim in seen_entities:
+            methods = adjacent.get(claim.label)
+            if not methods:
                 continue
-            # TODO: chek if this is valid
-            seen_entities.add(claim)
 
-            methods: list[str] = []
-
-            for method_idx, method_label in enumerate(
-                adjacent.get(claim.label, []), start=1
-            ):
+            method_sentences: list[str] = []
+            for method_idx, method_label in enumerate(methods, start=1):
                 method = entity_map.get(method_label)
                 if method is None or method.type is not EntityType.METHOD:
                     continue
 
-                if method in seen_entities:
+                experiment_labels = adjacent.get(method.label)
+                if not experiment_labels:
                     continue
-                seen_entities.add(method)
 
-                if experiment_labels := adjacent.get(method.label):
-                    experiments = [
-                        _format_entity_detail_sentence(exp)
-                        for label in experiment_labels
-                        if (exp := entity_map.get(label))
-                        and exp.type is EntityType.EXPERIMENT
-                    ]
-                    experiments_bullets = format_numbered_list(
-                        experiments, prefix=f"{claim_idx}.{method_idx}.", indent=4
-                    )
-                    methods.append(
-                        _ensure_punctuation(
-                            f"{_format_entity_detail_sentence(method)}"
-                            " This method is validated by these experiments:\n"
-                            f"{experiments_bullets}"
-                        )
-                    )
+                experiments = [
+                    _format_entity_detail_sentence(exp)
+                    for label in experiment_labels
+                    if (exp := entity_map.get(label))
+                    and exp.type is EntityType.EXPERIMENT
+                ]
+                experiments_bullets = format_numbered_list(
+                    experiments, prefix=f"{claim_idx}.{method_idx}.", indent=4
+                )
+                method_sentences.append(
+                    f"{_format_entity_detail_sentence(method)}"
+                    " This method is validated by these experiments:\n"
+                    f"{experiments_bullets}"
+                )
 
             claim_sections.append(
                 "\n".join(
                     [
                         f"{_format_entity_detail_sentence(claim)} This is done with:",
-                        format_numbered_list(methods, prefix=f"{claim_idx}.", indent=2),
+                        format_numbered_list(
+                            method_sentences, prefix=f"{claim_idx}.", indent=2
+                        ),
                     ]
                 )
             )
