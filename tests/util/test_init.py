@@ -6,7 +6,7 @@ from paper.util import (
     get_icase,
     remove_parenthetical,
     groupby,
-    fix_punctuation_spaces,
+    fix_spaces_before_punctuation,
 )
 
 
@@ -191,7 +191,7 @@ def test_groupby(
     ],
 )
 def test_fix_punctuation_spaces(input_text: str, expected: str):
-    assert fix_punctuation_spaces(input_text) == expected
+    assert fix_spaces_before_punctuation(input_text) == expected
 
 
 @pytest.mark.parametrize(
