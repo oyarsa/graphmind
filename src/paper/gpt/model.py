@@ -14,6 +14,7 @@ import paper.semantic_scholar as s2
 from paper import hierarchical_graph, peerread
 from paper.peerread.model import clean_maintext
 from paper.util import (
+    fix_punctuation_spaces,
     format_bullet_list,
     hashstr,
     remove_parenthetical,
@@ -392,7 +393,7 @@ class Graph(Record):
         if claim_sections:
             sections.append(format_bullet_list(claim_sections))
 
-        return "\n\n".join(sections)
+        return fix_punctuation_spaces("\n\n".join(sections))
 
     def to_digraph(self) -> hierarchical_graph.DiGraph:
         """Convert to a proper hierarchical graph."""
