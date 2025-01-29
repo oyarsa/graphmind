@@ -5,9 +5,10 @@ eval_cmd := "uv run gpt eval"
 demos := env("DEMOS", "eval_4")
 model := env("MODEL", "4o-mini")
 data := env("DATA", "subset")
+num_items := env("N", "0")
 
 # Number of items
-n := if data == "full" { "125" } else { "0" }
+n := if data == "full" { "125" } else { num_items }
 
 # Sans data paths
 data_sans := if data == "full" {
