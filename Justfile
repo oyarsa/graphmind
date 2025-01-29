@@ -41,7 +41,7 @@ e2e:
 
 # Run unit tests only
 test:
-    uv run pytest tests/
+    uv run pytest --quiet tests/
 
 # Run experiments (see experiments/Justfile)
 exp *args:
