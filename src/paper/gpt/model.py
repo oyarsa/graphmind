@@ -24,7 +24,7 @@ from paper.util import (
 from paper.util.serde import Record
 
 if TYPE_CHECKING:
-    from paper import peter
+    from paper import related_papers as rp
 
 logger = logging.getLogger(__name__)
 
@@ -781,7 +781,7 @@ class PaperRelatedSummarised(Record):
         return self.paper_id
 
     @classmethod
-    def from_related(cls, related: peter.PaperRelated, summary: str) -> Self:
+    def from_related(cls, related: rp.PaperRelated, summary: str) -> Self:
         """PETER-related paper with generated summary."""
         return cls(
             summary=summary,

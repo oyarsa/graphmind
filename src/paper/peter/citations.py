@@ -9,13 +9,13 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
-from enum import StrEnum
 from typing import Protocol, Self
 
 from pydantic import BaseModel, ConfigDict
 from tqdm import tqdm
 
 from paper import embedding as emb
+from paper.related_papers import ContextPolarity
 from paper.util.serde import Record
 
 logger = logging.getLogger(__name__)
@@ -206,10 +206,3 @@ class PolarityProto(Protocol):
     def value(self) -> str:
         """Get value of the enum."""
         ...
-
-
-class ContextPolarity(StrEnum):
-    """Citation enum for polarity."""
-
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
