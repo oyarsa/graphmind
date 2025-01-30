@@ -68,46 +68,16 @@ class GPTResult[T]:
     cost: float
 
 
-_GPT_REASONABLE_SIMULTANEOUS_REQUESTS = int(os.getenv("GPT_MAX_REQUESTS", "100"))
+GPT_REASONABLE_SIMULTANEOUS_REQUESTS = int(os.getenv("GPT_MAX_REQUESTS", "100"))
 """The default is an empirically established number of simultaneous requests to GPT API.
 
+Defaults to 100, but it's overridable via the `GPT_MAX_REQUESTS` environment variable.
 This seems to be a number that doesn't break the rate limiter, but is high enough to
 still deliver good performance.
 """
-_GPT_SEMAPHORE = asyncio.Semaphore(_GPT_REASONABLE_SIMULTANEOUS_REQUESTS)
-"""Semaphore to control the number of simultaneous requests to the GPT API.
-
-This isn't the same as a rate limiter, so we use both. The rate limiter ensures we don't
-get 429 errors from the API. This semaphore is so we don't make thousands of requests to
-the API at the same time, as that kind of breaks the rate limiter and leads to deadlocks.
-
-This should be used in the client code around the `run_gpt` case, and all the requests
-must be made in the same block. This doesn't matter if you only make one request per
-async task, but in cases where there are more, grouping them avoids deadlocks.
-"""
 
 
-@backoff.on_exception(backoff.expo, openai.APIError, max_tries=5, logger=logger)
-async def _call_gpt(  # noqa: ANN202
-    rate_limiter: Any, client: AsyncOpenAI, chat_params: dict[str, Any]
-):
-    # @FIX:Process hanging at the end. (2025-01-26)
-    # The bug: sometimes, when processing a large number of entries with a lot of text
-    # (e.g. the full PeerRead dataset with the graph modes), the program hangs at the
-    # last item of the collection. I'm not actually sure the problem is here, but I've
-    # had enough cases that came back to this that I'm writing this here.
-    try:
-        async with _GPT_SEMAPHORE, rate_limiter.limit(**chat_params):
-            return await client.beta.chat.completions.parse(**chat_params)
-    except openai.APIError as e:
-        logger.warning("\nCaught an API error: %s", e)
-        raise
-    except Exception as e:
-        logger.warning("\nCaught non-API error. Returning None: %s", e)
-        return None
-
-
-def _get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
+def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
     """Get the rate limiter for a specific model based on the API tier.
 
     Args:
@@ -160,81 +130,124 @@ def _get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
     return ChatRateLimiter(request_limit=request_limit, token_limit=token_limit)
 
 
-async def run_gpt[T: BaseModel](
-    class_: type[T],
-    client: AsyncOpenAI,
-    system_prompt: str,
-    user_prompt: str,
-    model: str,
-    *,
-    seed: int,
-    temperature: float = 0,
-) -> GPTResult[T | None]:
-    """Run the GPT query and return a parsed object of `class_` using Structured Outputs.
+class ModelClient:
+    """Client to communicate with the OpenAI API."""
 
-    NOTE: You must group all calls inside an async task in the same block and wrap it
-    in `GPT_SEMAPHORE`. If you don't, you'll likely run into deadlocks once you start
-    making thousands of concurrent requests.
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        seed: int,
+        temperature: float = 0,
+        simultaneous_requests: int = GPT_REASONABLE_SIMULTANEOUS_REQUESTS,
+    ) -> None:
+        if model not in MODELS_ALLOWED:
+            raise ValueError(
+                f"Invalid model: {model!r}. Should be one of: {MODELS_ALLOWED}."
+            )
 
-    See also: https://platform.openai.com/docs/guides/structured-outputs
+        self.client = AsyncOpenAI(api_key=api_key)
+        self.model = model
+        self.seed = seed
+        self.temperature = temperature
 
-    Args:
-        class_: The class to parse the Structured Outputs. Must be a Pydantic BaseModel.
-            Note that this is the class (type) itself, not an instance.
-        client: The OpenAI API client (e.g. openai.OpenAI or openai.AzureOpenAI).
-        system_prompt: Text for the system prompt (role: system).
-        user_prompt: Text for the user prompt (role: user).
-        model: Full GPT model name. See `MODELS_ALLOWED`.
-        seed: Random seed for the request. Defaults to 0 to hopefully be reproducible.
-        temperature: Temperature for the model, between 0 and 2. Defaults to 0 to try
-            to get consistent outputs from the model.
+        if api_tier_s := os.getenv("OPENAI_API_TIER"):
+            api_tier = int(api_tier_s)
+        else:
+            logger.warning("OPENAI_API_TIER unset. Defaulting to tier 1.")
+            api_tier = 1
 
-    Returns:
-        Result with the cost for the request and the result object parsed. If there
-        was an error with the request (mainly when making the request itself or parsing
-        the result), the object is None. The cost is provided either way.
+        self.rate_limiter = get_rate_limiter(api_tier, model)
 
-    Raises:
-        ValueError: if the `model` is invalid (see `MODELS_ALLOWED`).
-    """
-    if model not in MODELS_ALLOWED:
-        raise ValueError(
-            f"Invalid model: {model!r}. Should be one of: {MODELS_ALLOWED}."
-        )
-    if api_tier_s := os.getenv("OPENAI_API_TIER"):
-        api_tier = int(api_tier_s)
-    else:
-        logger.warning("OPENAI_API_TIER unset. Defaulting to tier 1.")
-        api_tier = 1
+        # Semaphore to control the number of simultaneous requests to the GPT API.
+        #
+        # This isn't the same as a rate limiter, so we use both. The rate limiter
+        # ensures we don't get 429 errors from the API. This semaphore is so we don't
+        # make thousands of requests to the API at the same time, as that kind of breaks
+        # the rate limiter and leads to deadlocks.
+        #
+        # This should be used in the client code around the `run_gpt` case, and all the
+        # requests must be made in the same block. This doesn't matter if you only make
+        # one request per async task, but in cases where there are more, grouping them
+        # avoids deadlocks.
+        self.semaphore = asyncio.Semaphore(simultaneous_requests)
 
-    chat_params = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "response_format": class_,
-        "seed": seed,
-        "temperature": temperature,
-    }
+    async def run[T: BaseModel](
+        self, class_: type[T], system_prompt: str, user_prompt: str
+    ) -> GPTResult[T | None]:
+        """Run the GPT query and return a parsed object of `class_`.
 
-    rate_limiter = _get_rate_limiter(api_tier, model)
+        Uses Structured Outputs to get a valid object.
 
-    try:
-        completion = await _call_gpt(rate_limiter, client, chat_params)
-    except Exception:
-        logger.exception("Error when calling OpenAI. Gave up on retrying")
-        completion = None
+        NOTE: You must group all calls inside an async task in the same block and wrap
+        it in `GPT_SEMAPHORE`. If you don't, you'll likely run into deadlocks once you
+        start making thousands of concurrent requests.
 
-    if completion is None:
-        return GPTResult(result=None, cost=0)
+        See also: https://platform.openai.com/docs/guides/structured-outputs
 
-    if usage := completion.usage:
-        cost = _calc_cost(model, usage.prompt_tokens, usage.completion_tokens)
-    else:
-        cost = 0
+        Args:
+            class_: The class to parse the Structured Outputs. Must be a Pydantic
+                BaseModel. Note that this is the class (type) itself, not an instance.
+            client: The OpenAI API client (e.g. openai.OpenAI or openai.AzureOpenAI).
+            system_prompt: Text for the system prompt (role: system).
+            user_prompt: Text for the user prompt (role: user).
+            model: Full GPT model name. See `MODELS_ALLOWED`.
+            seed: Random seed for the request. Defaults to 0 to hopefully be
+                reproducible.
+            temperature: Temperature for the model, between 0 and 2. Defaults to 0 to
+                try to get consistent outputs from the model.
 
-    return GPTResult(result=completion.choices[0].message.parsed, cost=cost)
+        Returns:
+            Result with the cost for the request and the result object parsed. If there
+            was an error with the request (mainly when making the request itself or
+            parsing the result), the object is None. The cost is provided either way.
+
+        Raises:
+            ValueError: if the `model` is invalid (see `MODELS_ALLOWED`).
+        """
+
+        try:
+            completion = await self._call_gpt(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format=class_,
+                seed=self.seed,
+                temperature=self.temperature,
+            )
+        except Exception:
+            logger.exception("Error when calling OpenAI. Gave up on retrying")
+            completion = None
+
+        if completion is None:
+            return GPTResult(result=None, cost=0)
+
+        if usage := completion.usage:
+            cost = _calc_cost(self.model, usage.prompt_tokens, usage.completion_tokens)
+        else:
+            cost = 0
+
+        return GPTResult(result=completion.choices[0].message.parsed, cost=cost)
+
+    @backoff.on_exception(backoff.expo, openai.APIError, max_tries=5, logger=logger)
+    async def _call_gpt(self, **chat_params: Any):  # noqa: ANN202
+        # @FIX:Process hanging at the end. (2025-01-26)
+        # The bug: sometimes, when processing a large number of entries with a lot of
+        # text (e.g. the full PeerRead dataset with the graph modes), the program hangs
+        # at the last item of the collection. I'm not actually sure the problem is here,
+        # but I've had enough cases that came back to this that I'm writing this here.
+        try:
+            async with self.semaphore, self.rate_limiter.limit(**chat_params):
+                return await self.client.beta.chat.completions.parse(**chat_params)
+        except openai.APIError as e:
+            logger.warning("\nCaught an API error: %s", e)
+            raise
+        except Exception as e:
+            logger.warning("\nCaught non-API error. Returning None: %s", e)
+            return None
 
 
 def append_intermediate_result[T: BaseModel](

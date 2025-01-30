@@ -15,7 +15,6 @@ from typing import Annotated
 
 import dotenv
 import typer
-from openai import AsyncOpenAI
 
 from paper import semantic_scholar as s2
 from paper.gpt.evaluate_paper import (
@@ -34,9 +33,9 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
+    ModelClient,
     append_intermediate_result,
     get_remaining_items,
-    run_gpt,
 )
 from paper.util import (
     Timer,
@@ -197,7 +196,9 @@ async def evaluate_papers(
     if limit_papers == 0:
         limit_papers = None
 
-    client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
+    client = ModelClient(
+        api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
+    )
 
     papers = shuffled(load_data(papers_path, s2.PaperWithS2Refs))[:limit_papers]
     user_prompt = SANS_CLASSIFY_USER_PROMPTS[user_prompt_key]
@@ -227,12 +228,10 @@ async def evaluate_papers(
     with Timer() as timer:
         results = await _classify_papers(
             client,
-            model,
             user_prompt,
             papers_remaining.remaining,
             output_intermediate_file,
             demonstrations,
-            seed=seed,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -251,25 +250,20 @@ async def evaluate_papers(
 
 
 async def _classify_papers(
-    client: AsyncOpenAI,
-    model: str,
+    client: ModelClient,
     user_prompt: PromptTemplate,
     papers: Sequence[s2.PaperWithS2Refs],
     output_intermediate_file: Path,
     demonstrations: str,
-    *,
-    seed: int,
 ) -> GPTResult[list[PromptResult[PaperResult]]]:
     """Classify Papers into approved/not approved using the paper main text.
 
     Args:
         client: OpenAI client to use GPT
-        model: GPT model code to use (must support Structured Outputs)
         user_prompt: User prompt template to use for classification to be filled
         papers: Papers from the PeerRead dataset to classify
         output_intermediate_file: File to write new results after each task is completed
         demonstrations: Text of demonstrations for few-shot prompting
-        seed: Seed for the OpenAI API call
 
     Returns:
         List of classified papers wrapped in a GPTResult.
@@ -278,8 +272,7 @@ async def _classify_papers(
     total_cost = 0
 
     tasks = [
-        _classify_paper(client, model, paper, user_prompt, demonstrations, seed=seed)
-        for paper in papers
+        _classify_paper(client, paper, user_prompt, demonstrations) for paper in papers
     ]
 
     for task in progress.as_completed(tasks, desc="Classifying papers"):
@@ -311,23 +304,13 @@ def format_template(
 
 
 async def _classify_paper(
-    client: AsyncOpenAI,
-    model: str,
+    client: ModelClient,
     paper: s2.PaperWithS2Refs,
     user_prompt: PromptTemplate,
     demonstrations: str,
-    *,
-    seed: int,
 ) -> GPTResult[PromptResult[PaperResult]]:
     user_prompt_text = format_template(user_prompt, paper, demonstrations)
-    result = await run_gpt(
-        GPTFull,
-        client,
-        _SANS_CLASSIFY_SYSTEM_PROMPT,
-        user_prompt_text,
-        model,
-        seed=seed,
-    )
+    result = await client.run(GPTFull, _SANS_CLASSIFY_SYSTEM_PROMPT, user_prompt_text)
 
     classified = fix_evaluated_rating(result.result or GPTFull.error())
 

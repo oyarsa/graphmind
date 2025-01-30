@@ -20,7 +20,6 @@ from typing import Annotated, Self
 
 import dotenv
 import typer
-from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from paper import evaluation_metrics, peerread
@@ -31,9 +30,9 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
+    ModelClient,
     append_intermediate_result,
     get_remaining_items,
-    run_gpt,
 )
 from paper.util import (
     Timer,
@@ -152,7 +151,9 @@ async def classify_contexts(
     if limit_references == 0:
         limit_references = None
 
-    client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
+    client = ModelClient(
+        api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
+    )
 
     data = load_data(data_path, s2.PaperWithS2Refs)
 
@@ -182,12 +183,10 @@ async def classify_contexts(
     with Timer() as timer:
         results = await _classify_contexts(
             client,
-            model,
             user_prompt,
             papers_remaining.remaining,
             limit_references,
             output_intermediate_file,
-            seed=seed,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -313,13 +312,10 @@ _CONTEXT_SYSTEM_PROMPT = (
 
 
 async def _classify_paper(
-    client: AsyncOpenAI,
+    client: ModelClient,
     limit_references: int | None,
-    model: str,
     paper: s2.PaperWithS2Refs,
     user_prompt: PromptTemplate,
-    *,
-    seed: int,
 ) -> GPTResult[PromptResult[PaperWithContextClassfied]]:
     """Classify the contexts for the paper's references by polarity.
 
@@ -350,13 +346,8 @@ async def _classify_paper(
             if not user_prompt_save:
                 user_prompt_save = user_prompt_text
 
-            result = await run_gpt(
-                GPTContext,
-                client,
-                _CONTEXT_SYSTEM_PROMPT,
-                user_prompt_text,
-                model,
-                seed=seed,
+            result = await client.run(
+                GPTContext, _CONTEXT_SYSTEM_PROMPT, user_prompt_text
             )
             total_cost += result.cost
 
@@ -400,14 +391,11 @@ async def _classify_paper(
 
 
 async def _classify_contexts(
-    client: AsyncOpenAI,
-    model: str,
+    client: ModelClient,
     user_prompt: PromptTemplate,
     papers: Sequence[s2.PaperWithS2Refs],
     limit_references: int | None,
     output_intermediate_path: Path,
-    *,
-    seed: int,
 ) -> GPTResult[list[PromptResult[PaperWithContextClassfied]]]:
     """Classify the contexts for each papers' references by polarity.
 
@@ -425,7 +413,7 @@ async def _classify_contexts(
     total_cost = 0
 
     tasks = [
-        _classify_paper(client, limit_references, model, paper, user_prompt, seed=seed)
+        _classify_paper(client, limit_references, paper, user_prompt)
         for paper in papers
     ]
     for task in progress.as_completed(

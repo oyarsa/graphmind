@@ -13,7 +13,6 @@ from typing import Annotated
 
 import dotenv
 import typer
-from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
 from paper import peerread as pr
@@ -38,9 +37,9 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
+    ModelClient,
     append_intermediate_result,
     get_remaining_items,
-    run_gpt,
 )
 from paper.util import (
     Timer,
@@ -261,7 +260,9 @@ async def evaluate_reviews(
     if limit_papers == 0:
         limit_papers = None
 
-    client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
+    client = ModelClient(
+        api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
+    )
 
     papers = shuffled(load_data(peerread_path, pr.Paper))[:limit_papers]
     logger.info("%s", _display_label_dist(papers, mode))
@@ -311,14 +312,12 @@ async def evaluate_reviews(
     with Timer() as timer:
         results = await _evaluate_reviews(
             client,
-            model,
             user_prompt,
             extract_prompt,
             papers_remaining.remaining,
             output_intermediate_file,
             review_demonstrations,
             extract_demonstrations,
-            seed,
             mode,
             keep_intermediate,
         )
@@ -383,15 +382,13 @@ def _format_demonstrations(
 
 
 async def _evaluate_reviews(
-    client: AsyncOpenAI,
-    model: str,
+    client: ModelClient,
     user_prompt: PromptTemplate,
     extract_prompt: PromptTemplate | None,
     papers: Sequence[pr.Paper],
     output_intermediate_file: Path,
     review_demonstrations: str,
     extract_demonstrations: str,
-    seed: int,
     mode: RatingMode,
     keep_intermediate: bool,
 ) -> GPTResult[list[PromptResult[PaperWithReviewEval]]]:
@@ -399,7 +396,6 @@ async def _evaluate_reviews(
 
     Args:
         client: OpenAI client to use GPT.
-        model: GPT model code to use.
         user_prompt: User prompt template to use for classification to be filled.
         extract_prompt: User prompt template to use for extracting novelty rationale from
             paper review. If not provided, use the original review rationale.
@@ -409,7 +405,6 @@ async def _evaluate_reviews(
             classification.
         extract_demonstrations: Text of demonstrations for few-shot prompting for
             rationale extraction.
-        seed: Seed for the OpenAI API call.
         mode: Which mode to apply to ratings. See `apply_rating_mode`.
         keep_intermediate: Keep intermediate results to be used in future runs.
 
@@ -422,13 +417,11 @@ async def _evaluate_reviews(
     tasks = [
         _evaluate_paper_reviews(
             client,
-            model,
             paper,
             user_prompt,
             extract_prompt,
             review_demonstrations,
             extract_demonstrations,
-            seed,
             mode,
         )
         for paper in papers
@@ -456,21 +449,18 @@ class _GPTRationale(BaseModel):
 
 
 async def _evaluate_paper_reviews(
-    client: AsyncOpenAI,
-    model: str,
+    client: ModelClient,
     paper: pr.Paper,
     user_prompt: PromptTemplate,
     extract_prompt: PromptTemplate | None,
     review_demonstrations: str,
     extract_demonstrations: str,
-    seed: int,
     mode: RatingMode,
 ) -> GPTResult[PromptResult[PaperWithReviewEval]]:
     """Evaluate all reviews for a single paper.
 
     Args:
         client: OpenAI client to use GPT.
-        model: GPT model code to use.
         paper: Paper from the PeerRead dataset to evaluate.
         user_prompt: User prompt template to use for classification to be filled.
         extract_prompt: User prompt template to use for extracting novelty rationale from
@@ -479,7 +469,6 @@ async def _evaluate_paper_reviews(
             classification.
         extract_demonstrations: Text of demonstrations for few-shot prompting in review
             extraction.
-        seed: Seed for the OpenAI call.
         mode: Which mode to apply to ratings. See `apply_rating_mode`.
 
     Returns:
@@ -497,13 +486,8 @@ async def _evaluate_paper_reviews(
             extract_prompt_text = format_template(
                 paper, review.rationale, extract_prompt, extract_demonstrations
             )
-            extract_result = await run_gpt(
-                _GPTRationale,
-                client,
-                _EXTRACT_SYSTEM_PROMPT,
-                extract_prompt_text,
-                model,
-                seed=seed,
+            extract_result = await client.run(
+                _GPTRationale, _EXTRACT_SYSTEM_PROMPT, extract_prompt_text
             )
             total_cost += extract_result.cost
             if extract_result.result is not None:
@@ -517,9 +501,7 @@ async def _evaluate_paper_reviews(
         user_prompt_text = format_template(
             paper, rationale, user_prompt, review_demonstrations
         )
-        result = await run_gpt(
-            GPTFull, client, _REVIEW_SYSTEM_PROMPT, user_prompt_text, model, seed=seed
-        )
+        result = await client.run(GPTFull, _REVIEW_SYSTEM_PROMPT, user_prompt_text)
         total_cost += result.cost
 
         evaluated = fix_evaluated_rating(result.result or GPTFull.error())
