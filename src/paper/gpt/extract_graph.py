@@ -7,7 +7,9 @@ Can also classify a paper into approved/not-approved using the generated graph.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable, Sequence
+import tomllib
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, override
 
@@ -23,6 +25,8 @@ from paper.gpt.model import (
     PromptResult,
     Relationship,
 )
+from paper.gpt.prompts import PromptTemplate
+from paper.util import read_resource
 from paper.util.serde import Record, save_data
 
 logger = logging.getLogger(__name__)
@@ -209,6 +213,34 @@ class ExperimentEntity(BaseModel):
     index: Annotated[
         int, Field(description="Index for this method in the `experiments` list")
     ]
+
+
+@dataclass(frozen=True, kw_only=True)
+class GraphPrompt(PromptTemplate):
+    """Graph prompt loaded from a file. Includes the output type."""
+
+    type_name: str
+
+
+def load_graph_prompts(name: str) -> Mapping[str, GraphPrompt]:
+    """Load graph prompts from a TOML file in the prompts package.
+
+    Args:
+        name: Name of the TOML file in `paper.gpt.prompts`, without extension.
+
+    Returns:
+        Dictionary mapping prompt names to their text content.
+    """
+    text = read_resource("gpt.prompts", f"{name}.toml")
+    return {
+        p["name"]: GraphPrompt(
+            name=p["name"],
+            system=p.get("system", ""),
+            template=p["prompt"],
+            type_name=p["type"],
+        )
+        for p in tomllib.loads(text)["prompts"]
+    }
 
 
 class GraphResult(Record):

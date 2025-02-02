@@ -37,7 +37,12 @@ from paper.gpt.evaluate_paper import (
     fix_evaluated_rating,
     get_demonstrations,
 )
-from paper.gpt.extract_graph import GPTGraph, GraphResult
+from paper.gpt.extract_graph import (
+    GRAPH_TYPES,
+    GraphPrompt,
+    GraphResult,
+    load_graph_prompts,
+)
 from paper.gpt.model import (
     Graph,
     LinearisationMethod,
@@ -70,7 +75,7 @@ from paper.util.serde import load_data, save_data
 logger = logging.getLogger(__name__)
 
 GRAPH_EVAL_USER_PROMPTS = load_prompts("evaluate_graph")
-GRAPH_EXTRACT_USER_PROMPTS = load_prompts("extract_graph")
+GRAPH_EXTRACT_USER_PROMPTS = load_graph_prompts("extract_graph")
 PRIMARY_AREAS: Sequence[str] = tomllib.loads(
     read_resource("gpt.prompts", "primary_areas.toml")
 )["primary_areas"]
@@ -301,7 +306,7 @@ async def evaluate_papers(
 async def _evaluate_papers(
     client: ModelClient,
     eval_prompt: PromptTemplate,
-    graph_prompt: PromptTemplate,
+    graph_prompt: GraphPrompt,
     paper: Sequence[PaperWithRelatedSummary],
     output_intermediate_file: Path,
     demonstrations: str,
@@ -351,7 +356,7 @@ async def _evaluate_paper(
     client: ModelClient,
     paper: PaperWithRelatedSummary,
     eval_prompt: PromptTemplate,
-    graph_prompt: PromptTemplate,
+    graph_prompt: GraphPrompt,
     demonstrations: str,
     linearisation_method: LinearisationMethod,
 ) -> GPTResult[PromptResult[GraphResult]]:
@@ -359,7 +364,7 @@ async def _evaluate_paper(
         graph_prompt_text = format_graph_template(graph_prompt, paper.paper)
         graph_system_prompt = graph_prompt.system
         graph_result = await client.run(
-            GPTGraph, graph_system_prompt, graph_prompt_text
+            GRAPH_TYPES[graph_prompt.type_name], graph_system_prompt, graph_prompt_text
         )
         graph = (
             graph_result.result.to_graph(title=paper.title, abstract=paper.abstract)
@@ -407,7 +412,7 @@ async def _evaluate_paper(
     )
 
 
-def format_graph_template(prompt: PromptTemplate, paper: PeerReadAnnotated) -> str:
+def format_graph_template(prompt: GraphPrompt, paper: PeerReadAnnotated) -> str:
     """Format graph extraction template using annotated paper."""
     return prompt.template.format(
         title=paper.title,
