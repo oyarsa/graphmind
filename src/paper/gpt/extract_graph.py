@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import tomllib
+from abc import ABC
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,7 +44,15 @@ def _at[T](seq: Sequence[T], idx: int, desc: str, title: str) -> T | None:
         return None
 
 
-class GPTGraph(BaseModel):
+class GPTGraphBase(ABC, BaseModel):
+    """Base class for all graph GPT output types."""
+
+    def to_graph(self, title: str, abstract: str) -> Graph:
+        """Build a real `Graph` from the entities and their relationships."""
+        ...
+
+
+class GPTGraph(GPTGraphBase):
     """Graph representing the paper."""
 
     title: Annotated[str, Field(description="Title of the paper.")]
@@ -78,6 +87,7 @@ class GPTGraph(BaseModel):
         Field(description="Experiments designed to put methods in practice."),
     ]
 
+    @override
     def to_graph(self, title: str, abstract: str) -> Graph:
         """Build a real `Graph` from the entities and their relationships."""
 
@@ -213,6 +223,11 @@ class ExperimentEntity(BaseModel):
     index: Annotated[
         int, Field(description="Index for this method in the `experiments` list")
     ]
+
+
+GRAPH_TYPES: Mapping[str, type[GPTGraphBase]] = {
+    "full": GPTGraph,
+}
 
 
 @dataclass(frozen=True, kw_only=True)
