@@ -38,11 +38,11 @@ from paper.gpt.evaluate_paper import (
     get_demonstrations,
 )
 from paper.gpt.extract_graph import (
-    GRAPH_TYPES,
     GraphPrompt,
     GraphResult,
     load_graph_prompts,
 )
+from paper.gpt.graph_types import get_graph_type
 from paper.gpt.model import (
     Graph,
     LinearisationMethod,
@@ -364,7 +364,9 @@ async def _evaluate_paper(
         graph_prompt_text = format_graph_template(graph_prompt, paper.paper)
         graph_system_prompt = graph_prompt.system
         graph_result = await client.run(
-            GRAPH_TYPES[graph_prompt.type_name], graph_system_prompt, graph_prompt_text
+            get_graph_type(graph_prompt.type_name),
+            graph_system_prompt,
+            graph_prompt_text,
         )
         graph = (
             graph_result.result.to_graph(title=paper.title, abstract=paper.abstract)

@@ -153,7 +153,7 @@ class ModelClient:
 
         Args:
             api_key: Authentication key. For Ollama, this can be anything, but it must
-                be non-emtpy.
+                be non-empty.
             model: Model code to use. See your API documentation for the name.
             seed: Seed to give the model.
             temperature: How unpredictable the model is. Set this 0 to be as
