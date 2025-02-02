@@ -96,35 +96,38 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
         " `scripts/tools/rate_limits.py` tool"
     )
 
-    # <request_limit, token_limit>
+    # <request_limit, token_limit> per minute
     limits: dict[str, tuple[int, int]]
 
-    if tier == 1:
-        raise ValueError(message.format(tier=1))
-    if tier == 2:
-        raise ValueError(message.format(tier=2))
-    if tier == 3:
-        limits = {
-            "gpt-4o-mini": (5_000, 4_000_000),
-            "gpt-4o": (5_000, 800_000),
-        }
-    elif tier == 4:
-        limits = {
-            "gpt-4o-mini": (10_000, 4_000_000),
-            "gpt-4o": (10_000, 800_000),
-        }
-    elif tier == 5:
-        raise ValueError(message.format(tier=5))
+    if tier == -1:
+        rate_limits = (1_000, 1_000_000)
     else:
-        raise ValueError(f"Invalid tier: {tier}. Must be between 1 and 5.")
+        if tier == 1:
+            raise ValueError(message.format(tier=1))
+        if tier == 2:
+            raise ValueError(message.format(tier=2))
+        if tier == 3:
+            limits = {
+                "gpt-4o-mini": (5_000, 4_000_000),
+                "gpt-4o": (5_000, 800_000),
+            }
+        elif tier == 4:
+            limits = {
+                "gpt-4o-mini": (10_000, 4_000_000),
+                "gpt-4o": (10_000, 800_000),
+            }
+        elif tier == 5:
+            raise ValueError(message.format(tier=5))
+        else:
+            raise ValueError(f"Invalid tier: {tier}. Must be between 1 and 5.")
 
-    rate_limits: tuple[int, int] | None = None
-    for limit_model, model_limits in limits.items():
-        if model.startswith(limit_model):
-            rate_limits = model_limits
+        rate_limits: tuple[int, int] | None = None
+        for limit_model, model_limits in limits.items():
+            if model.startswith(limit_model):
+                rate_limits = model_limits
 
-    if not rate_limits:
-        raise ValueError(f"Model {model} is not supported for tier {tier}.")
+        if not rate_limits:
+            raise ValueError(f"Model {model} is not supported for tier {tier}.")
 
     request_limit, token_limit = rate_limits
     return ChatRateLimiter(request_limit=request_limit, token_limit=token_limit)
@@ -141,18 +144,40 @@ class ModelClient:
         seed: int,
         temperature: float = 0,
         simultaneous_requests: int = GPT_REASONABLE_SIMULTANEOUS_REQUESTS,
+        base_url: str | None = None,
     ) -> None:
-        if model not in MODELS_ALLOWED:
+        """Create client for OpenAI-compatible APIs.
+
+        You can also use this with Ollama, OpenRouter and other compatible APIs.
+        They must be compatible with Structured Outputs.
+
+        Args:
+            api_key: Authentication key. For Ollama, this can be anything, but it must
+                be non-emtpy.
+            model: Model code to use. See your API documentation for the name.
+            seed: Seed to give the model.
+            temperature: How unpredictable the model is. Set this 0 to be as
+                deterministic as possible, but it's still not guaranteed.
+            simultaneous_requests: How many requests can be made at the same time. This
+                acts in conjunction with a rate limiter to prevent the API being
+                bombarded.
+            base_url: URL of the API being used. If not provided, use OpenAI.
+        """
+        is_openai = base_url and "openai" in base_url
+
+        if is_openai and model not in MODELS_ALLOWED:
             raise ValueError(
                 f"Invalid model: {model!r}. Should be one of: {MODELS_ALLOWED}."
             )
 
-        self.client = AsyncOpenAI(api_key=api_key)
+        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         self.model = model
         self.seed = seed
         self.temperature = temperature
 
-        if api_tier_s := os.getenv("OPENAI_API_TIER"):
+        if not is_openai:
+            api_tier = -1
+        elif api_tier_s := os.getenv("OPENAI_API_TIER"):
             api_tier = int(api_tier_s)
         else:
             logger.warning("OPENAI_API_TIER unset. Defaulting to tier 1.")

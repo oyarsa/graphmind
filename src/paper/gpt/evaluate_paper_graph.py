@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import random
 import tomllib
 from collections.abc import Iterable, Sequence
@@ -48,8 +49,6 @@ from paper.gpt.model import (
 )
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
-    MODEL_SYNONYMS,
-    MODELS_ALLOWED,
     GPTResult,
     ModelClient,
     append_intermediate_result,
@@ -236,15 +235,12 @@ async def evaluate_papers(
 
     dotenv.load_dotenv()
 
-    model = MODEL_SYNONYMS.get(model, model)
-    if model not in MODELS_ALLOWED:
-        raise ValueError(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
-
     if limit_papers == 0:
         limit_papers = None
 
     api_key = ensure_envvar("OPENAI_API_KEY")
-    client = ModelClient(api_key=api_key, model=model, seed=seed)
+    base_url = os.getenv("OPENAI_BASE_URL")
+    client = ModelClient(api_key=api_key, model=model, seed=seed, base_url=base_url)
 
     papers = shuffled(
         PromptResult.unwrap(
