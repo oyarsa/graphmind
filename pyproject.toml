@@ -25,7 +25,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "codespell>=2.4.1",
     "cosy",
     "icecream>=2.1.3",
     "ipython>=8.27.0",
