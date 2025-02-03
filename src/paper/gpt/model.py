@@ -310,22 +310,20 @@ class Graph(Record):
             key=lambda x: type_index(x[0]),
         )
 
-        return "\n".join(
-            [
-                f"Nodes: {len(self.entities)}",
-                f"Edges: {len(self.relationships)}",
-                f"Node types: {', '.join(f'{k}: {v}' for k, v in node_type_counts)}",
-                "",
-                "Entities:",
-                entities,
-                "",
-                "Relationships:",
-                relationships,
-                "",
-                f"Validation: {self.valid_status}",
-                "",
-            ]
-        )
+        return "\n".join([
+            f"Nodes: {len(self.entities)}",
+            f"Edges: {len(self.relationships)}",
+            f"Node types: {', '.join(f'{k}: {v}' for k, v in node_type_counts)}",
+            "",
+            "Entities:",
+            entities,
+            "",
+            "Relationships:",
+            relationships,
+            "",
+            f"Validation: {self.valid_status}",
+            "",
+        ])
 
     @classmethod
     def empty(cls) -> Self:
@@ -427,14 +425,12 @@ class Graph(Record):
                 )
 
             claim_sections.append(
-                "\n".join(
-                    [
-                        f"{_format_entity_detail_sentence(claim)} This is done with:",
-                        format_numbered_list(
-                            method_sentences, prefix=f"{claim_idx}.", indent=2
-                        ),
-                    ]
-                )
+                "\n".join([
+                    f"{_format_entity_detail_sentence(claim)} This is done with:",
+                    format_numbered_list(
+                        method_sentences, prefix=f"{claim_idx}.", indent=2
+                    ),
+                ])
             )
 
         if claim_sections:

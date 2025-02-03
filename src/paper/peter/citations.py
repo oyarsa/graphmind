@@ -64,9 +64,9 @@ class Graph(BaseModel):
             title_to_id[peer_paper.title] = peer_paper.id
             peer_embedding = encoder.encode(_clean_title(peer_paper.title))
 
-            s2_embeddings = encoder.encode(
-                [_clean_title(r.title_peer) for r in peer_paper.references]
-            )
+            s2_embeddings = encoder.encode([
+                _clean_title(r.title_peer) for r in peer_paper.references
+            ])
             s2_similarities = emb.similarities(peer_embedding, s2_embeddings)
 
             for polarity in ContextPolarity:

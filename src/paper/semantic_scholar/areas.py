@@ -54,21 +54,19 @@ def main(
     ],
     fields: Annotated[
         str, typer.Option(help="Command-separate list of fields to retrieve.")
-    ] = ",".join(
-        (
-            "paperId",
-            "corpusId",
-            "url",
-            "title",
-            "authors",
-            "year",
-            "abstract",
-            "referenceCount",
-            "citationCount",
-            "influentialCitationCount",
-            "tldr",
-        )
-    ),
+    ] = ",".join((
+        "paperId",
+        "corpusId",
+        "url",
+        "title",
+        "authors",
+        "year",
+        "abstract",
+        "referenceCount",
+        "citationCount",
+        "influentialCitationCount",
+        "tldr",
+    )),
     years: Annotated[
         str,
         typer.Option(

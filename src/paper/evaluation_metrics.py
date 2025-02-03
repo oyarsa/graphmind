@@ -44,20 +44,16 @@ class Metrics(BaseModel):
 
         if self.mode is TargetMode.INT:
             corr = f"{self.correlation:.4f}" if self.correlation is not None else "N/A"
-            out.extend(
-                [
-                    f"MAE        : {self.mae:.4f}",
-                    f"MSE        : {self.mse:.4f}",
-                    f"Correlation: {corr}",
-                ]
-            )
+            out.extend([
+                f"MAE        : {self.mae:.4f}",
+                f"MSE        : {self.mse:.4f}",
+                f"Correlation: {corr}",
+            ])
 
-        out.extend(
-            [
-                "Confusion Matrix:",
-                self._format_confusion(),
-            ]
-        )
+        out.extend([
+            "Confusion Matrix:",
+            self._format_confusion(),
+        ])
 
         return "\n".join(out)
 

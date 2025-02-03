@@ -261,21 +261,19 @@ def main(
     fields: Annotated[
         str,
         typer.Option(help="Comma-separated list of fields to retrieve."),
-    ] = ",".join(
-        (
-            "paperId",
-            "corpusId",
-            "url",
-            "title",
-            "authors",
-            "year",
-            "abstract",
-            "referenceCount",
-            "citationCount",
-            "influentialCitationCount",
-            "tldr",
-        )
-    ),
+    ] = ",".join((
+        "paperId",
+        "corpusId",
+        "url",
+        "title",
+        "authors",
+        "year",
+        "abstract",
+        "referenceCount",
+        "citationCount",
+        "influentialCitationCount",
+        "tldr",
+    )),
     min_fuzzy: Annotated[
         int, typer.Option(help="Minimum fuzz ratio of titles to filter.", max=100)
     ] = 80,
@@ -300,21 +298,19 @@ def references(
     fields: Annotated[
         str,
         typer.Option(help="Comma-separated list of fields to retrieve."),
-    ] = ",".join(
-        (
-            "paperId",
-            "corpusId",
-            "url",
-            "title",
-            "authors",
-            "year",
-            "abstract",
-            "referenceCount",
-            "citationCount",
-            "influentialCitationCount",
-            "tldr",
-        )
-    ),
+    ] = ",".join((
+        "paperId",
+        "corpusId",
+        "url",
+        "title",
+        "authors",
+        "year",
+        "abstract",
+        "referenceCount",
+        "citationCount",
+        "influentialCitationCount",
+        "tldr",
+    )),
     min_fuzzy: Annotated[
         int, typer.Option(help="Minimum fuzz ratio of titles to filter.", max=100)
     ] = 80,
