@@ -175,7 +175,12 @@ Evaluate a paper's novelty based on main paper graph with PETER-queried papers.
 
 The input is the output of `gpt.summarise_related_peter`. These are the PETER-queried
 papers with the related papers summarised. This then converts the paper content to a
-graph, and uses it as input alongside the PETER results.
+graph, converts the graph to text and uses it as input alongside the PETER results.
+
+How the graph is converted is controlled by `--linearisation`:
+- 'topo': topologically sorts the entities and creates paragraphs in that order for each
+  one
+- 'fluent': use a fluent template-based method to convert entities to natural text.
 
 The output is the input annotated papers with a predicted novelty rating.
 
@@ -198,6 +203,7 @@ $ gpt eval graph run [OPTIONS]
 * `--seed INTEGER`: Random seed used for data shuffling and OpenAI API.  [default: 0]
 * `--demos [eval_10|eval_4|review_10|review_5|review_clean_5|review_clean_5_1]`: Name of file containing demonstrations to use in few-shot prompt.
 * `--demo-prompt [abstract|maintext]`: User prompt to use for building the few-shot demonstrations.  [default: abstract]
+* `--linearisation [topo|fluent]`: How to convert the extracted graph into text for evaluation.  [default: topo]
 * `--help`: Show this message and exit.
 
 ### `gpt eval peter`
@@ -378,7 +384,7 @@ $ gpt eval sans run [OPTIONS]
 
 **Options**:
 
-* `--peerread PATH`: The path to the JSON file containing the PeerRead papers data.  [required]
+* `--papers PATH`: The path to the JSON file containing the PeerRead papers data.  [required]
 * `--output PATH`: The path to the output directory where the files will be saved.  [required]
 * `-m, --model TEXT`: The model to use for the extraction.  [default: gpt-4o-mini]
 * `-n, --limit INTEGER`: The number of papers to process.  [default: 1]

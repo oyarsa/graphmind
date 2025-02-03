@@ -78,7 +78,7 @@ select = [
     "ASYNC",    # Async pitfalls
     "EXE",      # Executable (shebang)S
     "ANN",      # Type annotations
-    "PYI",      # Appropriate type hints for specifc cases
+    "PYI",      # Appropriate type hints for specific cases
     "PERF",     # Performance anti-patterns
 ]
 # I try to enable as many reasonable rules as possible, but sometimes it's too much:

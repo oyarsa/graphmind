@@ -26,7 +26,7 @@ app = typer.Typer(
 def main(
     input_file: Annotated[Path, typer.Argument(help="Input JSON file.")],
 ) -> None:
-    """Count number of context items in data file. Optonally, show polarity frequencies."""
+    """Count number of context items in data file. Optionally, show polarity frequencies."""
     papers = load_data(input_file, PaperWithReferenceEnriched)
     contexts = [
         context

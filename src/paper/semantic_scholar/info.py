@@ -24,7 +24,7 @@ The resulting files in both modes are:
 
 The output types are:
 - main: s2.PeerPaperWithS2 (combines the input PeerRead paper and its S2 information).
-- referencs: peerread.S2Paper (only the reference S2 information with the query title).
+- references: peerread.S2Paper (only the reference S2 information with the query title).
 
 [1] See paper.peerread.process.
 """

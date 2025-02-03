@@ -60,13 +60,13 @@ class Bucket:
         )
 
     def set_capacity(self, new_capacity: float, current_time: float) -> None:
-        """Set capacity to new value and the last check tie to the curent time."""
+        """Set capacity to new value and the last check tie to the cureent time."""
         self._last_checked = current_time
         self._capacity = new_capacity
 
 
 class Buckets:
-    """Collection of mulitple leaky buckets, usually one per type of limit.
+    """Collection of multiple leaky buckets, usually one per type of limit.
 
     E.g. one for requests per time, and another for tokens per time. All of them need
     to be filled for a request to be made.

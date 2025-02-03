@@ -100,7 +100,7 @@ def transform_keys(obj: JSONValue, transform: Callable[[str], str]) -> JSONValue
         transform: Function to transform object key (e.g. camelCase -> snake_case).
 
     Returns:
-        Structure where all nested object keys are tranformed.
+        Structure where all nested object keys are transformed.
     """
     if isinstance(obj, list):
         return [transform_keys(item, transform) for item in obj]

@@ -142,7 +142,7 @@ def _is_list(val: object) -> TypeGuard[list[Any]]:
 def compare_dicts(
     dict1: dict[str, Any], dict2: dict[str, Any], path: str = ""
 ) -> list[str]:
-    """Compare difference between dictonaries. Returns list of paths that differ."""
+    """Compare difference between dictionaries. Returns list of paths that differ."""
     differences: list[str] = []
 
     for key in sorted(dict1.keys() | dict2.keys()):

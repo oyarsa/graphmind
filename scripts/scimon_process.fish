@@ -8,7 +8,7 @@ set limit 0
 echo ">>>>>>> CONSTRUCT DATASET"
 uv run src/paper/construct_dataset.py \
     --references output/semantic_scholar_final.json \
-    --recommended output/recomendations/papers_recommended.json \
+    --recommended output/recommendations/papers_recommended.json \
     --peerread output/peerread_balanced_50.json \
     --output $datadir \
     --min-refs 4

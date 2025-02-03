@@ -177,7 +177,7 @@ async def evaluate_papers(
         demonstrations_key: Name of demonstrations file for use with few-shot prompting.
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
-            avaialble options or `list_prompts` for more.
+            available options or `list_prompts` for more.
 
     Returns:
         None. The output is saved to `output_dir`.

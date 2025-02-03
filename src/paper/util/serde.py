@@ -33,7 +33,7 @@ class Record(BaseModel, ABC):
     @property
     @abstractmethod
     def id(self) -> str:
-        """Unique identifcation for the object."""
+        """Unique identification for the object."""
 
 
 @overload

@@ -72,7 +72,7 @@ $ uv run gpt context run output/peerread_merged.json output/context
 
 This will save the following files in `output/context`:
 - `output.txt`: text report on metrics, like the one printed at the end of the execution
-- `result.json`: after exeuction completes, this is the full result saved
+- `result.json`: after execution completes, this is the full result saved
 - `result.tmp.json`: results saved during execution in case something happens to
   interrupt it
 

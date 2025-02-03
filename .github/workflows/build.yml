@@ -66,3 +66,13 @@ jobs:
 
       - name: Indent check
         uses: fish-shop/indent-check@v1
+
+  codespell:
+    name: Check for spelling errors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: codespell-project/actions-codespell@v2
+        with:
+          skip: "*.json,*.ipynb,.venv,output,*tmp,data"

@@ -1,6 +1,6 @@
 """Types and functions for managing related papers.
 
-These papers can be retrived from graphs such as SciMON and PETER.
+These papers can be retrieved from graphs such as SciMON and PETER.
 """
 
 from __future__ import annotations

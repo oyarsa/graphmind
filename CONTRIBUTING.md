@@ -8,7 +8,7 @@ The following are some guidelines to follow when contributing to this project.
 - Use `uv run ruff check` to lint the code, checking for common mistakes.
 - Use `uv run pyright` to check for type errors.
 - You can also use `just lint` to run all checks at once (requires `just`).
-  See `just` for more information on tasks avaialble.
+  See `just` for more information on tasks available.
 - Always use type hints for functions and classes. See existing code for examples. The
   [mypy documentation](https://mypy.readthedocs.io/en/stable/getting_started.html) and
   [cheat sheet](https://mypy.readthedocs.io/en/stable/cheat_sheet_py3.html) are good
@@ -29,7 +29,7 @@ The following are some guidelines to follow when contributing to this project.
 - If you are not familiar with Git branches, I recommend [Learn Git
   Branching](https://learngitbranching.js.org/).
 
-### Commiting
+### Committing
 - Commits should aim to cover one idea and be self-contained. This means you shouldn't
   conflate multiple changes into one commit. For example, if you're fixing a bug,
   refactoring some code and updating the README, these should be three separate commits.
@@ -53,7 +53,7 @@ The following are some guidelines to follow when contributing to this project.
 - Make sure the PR is up to date with the master branch before requesting a review. You
   can do this by rebasing your branch on the master branch. I.e. run `git rebase master`
   in your branch.
-- Every PR will be reviwed by another contribution. If there are any comments, they
+- Every PR will be reviewed by another contribution. If there are any comments, they
   should be addressed in the same branch.
 - After it's approved, the PR will be merged into the master branch.
 - Merging should be done by the reviewer, not the contributor.
