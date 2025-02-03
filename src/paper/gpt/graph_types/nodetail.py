@@ -12,7 +12,7 @@ from paper.gpt.model import Entity, EntityType, Graph, Relationship
 from paper.util import at
 
 
-class GPTGraph(GPTGraphBase):
+class GPTGraphNoDetail(GPTGraphBase):
     """Graph representing the paper."""
 
     title: Annotated[str, Field(description="Title of the paper.")]
@@ -55,26 +55,23 @@ class GPTGraph(GPTGraphBase):
         label_map: dict[tuple[str, EntityType], str] = {}
         labels_seen: set[str] = set()
 
-        def entity(label: str, type: EntityType, detail: str | None = None) -> Entity:
+        def entity(label: str, type: EntityType) -> Entity:
             if label in labels_seen:
                 unique_label = f"{label} ({type.value})"
             else:
                 labels_seen.add(label)
                 unique_label = label
             label_map[label, type] = unique_label
-            return Entity(label=unique_label, type=type, detail=detail)
+            return Entity(label=unique_label, type=type)
 
         entities = [
             entity(self.title, EntityType.TITLE),
             entity(self.primary_area, EntityType.PRIMARY_AREA),
             *(entity(kw, EntityType.KEYWORD) for kw in self.keywords),
             entity(self.tldr, EntityType.TLDR),
-            *(entity(c.label, EntityType.CLAIM, c.detail) for c in self.claims),
-            *(entity(m.label, EntityType.METHOD, m.detail) for m in self.methods),
-            *(
-                entity(x.label, EntityType.EXPERIMENT, x.detail)
-                for x in self.experiments
-            ),
+            *(entity(c.label, EntityType.CLAIM) for c in self.claims),
+            *(entity(m.label, EntityType.METHOD) for m in self.methods),
+            *(entity(x.label, EntityType.EXPERIMENT) for x in self.experiments),
         ]
 
         relationships = [
@@ -129,13 +126,11 @@ class GPTGraph(GPTGraphBase):
 
 
 class ClaimEntity(BaseModel):
-    # @TODO: Improve naming and description of label/detail.
     """Entity representing a claim made in the paper."""
 
     label: Annotated[
         str, Field(description="Summary label of a claim made by the paper.")
     ]
-    detail: Annotated[str, Field(description="Detail text about the claim.")]
     method_indices: Annotated[
         Sequence[int],
         Field(
@@ -146,7 +141,6 @@ class ClaimEntity(BaseModel):
 
 
 class MethodEntity(BaseModel):
-    # @TODO: Improve naming and description of label/detail.
     """Entity representing a method described in the paper to support the claims."""
 
     label: Annotated[
@@ -155,7 +149,6 @@ class MethodEntity(BaseModel):
             description="Summary label of a method used to validate claims from the paper."
         ),
     ]
-    detail: Annotated[str, Field(description="Detail text about the method.")]
     index: Annotated[
         int, Field(description="Index for this method in the `methods` list")
     ]
@@ -169,7 +162,6 @@ class MethodEntity(BaseModel):
 
 
 class ExperimentEntity(BaseModel):
-    # @TODO: Improve naming and description of label/detail.
     """Entity representing an experiment used to validate a method from the paper."""
 
     label: Annotated[
@@ -179,7 +171,6 @@ class ExperimentEntity(BaseModel):
             " the paper."
         ),
     ]
-    detail: Annotated[str, Field(description="Detail text about the experiment.")]
     index: Annotated[
         int, Field(description="Index for this experiment in the `experiments` list")
     ]

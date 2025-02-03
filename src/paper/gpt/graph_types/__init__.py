@@ -4,9 +4,15 @@ from collections.abc import Mapping, Sequence
 
 from paper.gpt.graph_types.base import GPTGraphBase
 from paper.gpt.graph_types.full import GPTGraph
+from paper.gpt.graph_types.nodetail import GPTGraphNoDetail
+from paper.gpt.graph_types.noexperiments import GPTGraphNoExperiments
+from paper.gpt.graph_types.nomethods import GPTGraphNoMethods
 
 _TYPES: Mapping[str, type[GPTGraphBase]] = {
     "full": GPTGraph,
+    "nodetail": GPTGraphNoDetail,
+    "noexperiments": GPTGraphNoExperiments,
+    "nomethods": GPTGraphNoMethods,
 }
 VALID_TYPES: Sequence[str] = sorted(_TYPES)
 
