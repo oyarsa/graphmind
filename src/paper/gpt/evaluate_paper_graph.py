@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import random
 import tomllib
 from collections.abc import Iterable, Sequence
@@ -24,7 +25,6 @@ from typing import Annotated
 
 import dotenv
 import typer
-from openai import AsyncOpenAI
 
 from paper import peerread as pr
 from paper.gpt.evaluate_paper import (
@@ -37,7 +37,12 @@ from paper.gpt.evaluate_paper import (
     fix_evaluated_rating,
     get_demonstrations,
 )
-from paper.gpt.extract_graph import GPTGraph, GraphResult
+from paper.gpt.extract_graph import (
+    GraphPrompt,
+    GraphResult,
+    load_graph_prompts,
+)
+from paper.gpt.graph_types import get_graph_type
 from paper.gpt.model import (
     Graph,
     LinearisationMethod,
@@ -49,12 +54,10 @@ from paper.gpt.model import (
 )
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
-    MODEL_SYNONYMS,
-    MODELS_ALLOWED,
     GPTResult,
+    ModelClient,
     append_intermediate_result,
     init_remaining_items,
-    run_gpt,
 )
 from paper.util import (
     Timer,
@@ -72,7 +75,7 @@ from paper.util.serde import load_data, save_data
 logger = logging.getLogger(__name__)
 
 GRAPH_EVAL_USER_PROMPTS = load_prompts("evaluate_graph")
-GRAPH_EXTRACT_USER_PROMPTS = load_prompts("extract_graph")
+GRAPH_EXTRACT_USER_PROMPTS = load_graph_prompts("extract_graph")
 PRIMARY_AREAS: Sequence[str] = tomllib.loads(
     read_resource("gpt.prompts", "primary_areas.toml")
 )["primary_areas"]
@@ -237,14 +240,12 @@ async def evaluate_papers(
 
     dotenv.load_dotenv()
 
-    model = MODEL_SYNONYMS.get(model, model)
-    if model not in MODELS_ALLOWED:
-        raise ValueError(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
-
     if limit_papers == 0:
         limit_papers = None
 
-    client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
+    api_key = ensure_envvar("OPENAI_API_KEY")
+    base_url = os.getenv("OPENAI_BASE_URL")
+    client = ModelClient(api_key=api_key, model=model, seed=seed, base_url=base_url)
 
     papers = shuffled(
         PromptResult.unwrap(
@@ -273,13 +274,11 @@ async def evaluate_papers(
     with Timer() as timer:
         results = await _evaluate_papers(
             client,
-            model,
             eval_prompt,
             graph_prompt,
             papers_remaining.remaining,
             output_intermediate_file,
             demonstrations,
-            seed,
             linearisation_method,
         )
 
@@ -305,27 +304,23 @@ async def evaluate_papers(
 
 
 async def _evaluate_papers(
-    client: AsyncOpenAI,
-    model: str,
+    client: ModelClient,
     eval_prompt: PromptTemplate,
-    graph_prompt: PromptTemplate,
+    graph_prompt: GraphPrompt,
     paper: Sequence[PaperWithRelatedSummary],
     output_intermediate_file: Path,
     demonstrations: str,
-    seed: int,
     linearisation_method: LinearisationMethod,
 ) -> GPTResult[list[PromptResult[GraphResult]]]:
     """Evaluate paper novelty using a paper graph and PETER-related papers.
 
     Args:
         client: OpenAI client to use GPT.
-        model: GPT model code to use (must support Structured Outputs).
         eval_prompt: Prompt template for novelty evaluation.
         graph_prompt: Prompt template for graph extraction.
         paper: Annotated PeerRead papers with their summarised graph data.
         output_intermediate_file: File to write new results after paper is evaluated.
         demonstrations: Text of demonstrations for few-shot prompting.
-        seed: Seed for the OpenAI API call.
         linearisation_method: How to transform the extract graph into text for
             evaluation.
 
@@ -338,12 +333,10 @@ async def _evaluate_papers(
     tasks = [
         _evaluate_paper(
             client,
-            model,
             paper,
             eval_prompt,
             graph_prompt,
             demonstrations,
-            seed,
             linearisation_method,
         )
         for paper in paper
@@ -360,25 +353,20 @@ async def _evaluate_papers(
 
 
 async def _evaluate_paper(
-    client: AsyncOpenAI,
-    model: str,
+    client: ModelClient,
     paper: PaperWithRelatedSummary,
     eval_prompt: PromptTemplate,
-    graph_prompt: PromptTemplate,
+    graph_prompt: GraphPrompt,
     demonstrations: str,
-    seed: int,
     linearisation_method: LinearisationMethod,
 ) -> GPTResult[PromptResult[GraphResult]]:
     if "graph" in eval_prompt.name:
         graph_prompt_text = format_graph_template(graph_prompt, paper.paper)
         graph_system_prompt = graph_prompt.system
-        graph_result = await run_gpt(
-            GPTGraph,
-            client,
+        graph_result = await client.run(
+            get_graph_type(graph_prompt.type_name),
             graph_system_prompt,
             graph_prompt_text,
-            model,
-            seed=seed,
         )
         graph = (
             graph_result.result.to_graph(title=paper.title, abstract=paper.abstract)
@@ -396,14 +384,7 @@ async def _evaluate_paper(
         eval_prompt, paper, graph, demonstrations, linearisation_method
     )
     eval_system_prompt = eval_prompt.system
-    eval_result = await run_gpt(
-        GPTFull,
-        client,
-        eval_system_prompt,
-        eval_prompt_text,
-        model,
-        seed=seed,
-    )
+    eval_result = await client.run(GPTFull, eval_system_prompt, eval_prompt_text)
 
     eval_paper = paper.paper.paper
     evaluated = fix_evaluated_rating(eval_result.result or GPTFull.error())
@@ -433,7 +414,7 @@ async def _evaluate_paper(
     )
 
 
-def format_graph_template(prompt: PromptTemplate, paper: PeerReadAnnotated) -> str:
+def format_graph_template(prompt: GraphPrompt, paper: PeerReadAnnotated) -> str:
     """Format graph extraction template using annotated paper."""
     return prompt.template.format(
         title=paper.title,

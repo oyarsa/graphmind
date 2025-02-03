@@ -13,7 +13,7 @@ import re
 import subprocess
 import sys
 import time
-from collections.abc import Callable, Coroutine, Iterable, Mapping
+from collections.abc import Callable, Coroutine, Iterable, Mapping, Sequence
 from importlib import resources
 from pathlib import Path
 from types import TracebackType
@@ -22,6 +22,8 @@ from typing import Any, Self, overload
 from thefuzz import fuzz  # type: ignore
 
 from paper.util import cli
+
+logger = logging.getLogger(__name__)
 
 
 def fuzzy_ratio(s1: str, s2: str) -> int:
@@ -567,3 +569,14 @@ def on_exception[T, **P](
         return wrapper
 
     return decorator
+
+
+def at[T](seq: Sequence[T], idx: int, desc: str, title: str) -> T | None:
+    """Get `seq[idx]` if possible, otherwise return None and log warning with `desc`."""
+    try:
+        return seq[idx]
+    except IndexError:
+        logger.warning(
+            "Invalid index at '%s' (%s): %d out of %d", title, desc, idx, len(seq)
+        )
+        return None

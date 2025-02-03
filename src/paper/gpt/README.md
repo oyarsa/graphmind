@@ -33,6 +33,10 @@ Definitions:
 This script requires the `OPENAI_API_KEY` environment variable to be set, either through
 the environment or the `.env` file at the root of the repository.
 
+An OpenAI-compatible service (e.g. Ollama, OpenRouter) can be used instead of the OpenAI
+API by setting the `OPENAI_BASE_URL` environment variable. The API key should be set
+accordingly.
+
 ```console
 $ uv run gpt graph run output/peerread_merged.json output/graph
 ```

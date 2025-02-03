@@ -16,7 +16,6 @@ from typing import Annotated, Any, Self
 
 import dotenv
 import typer
-from openai import AsyncClient, AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field
 from rich.console import Console
 from rich.table import Table
@@ -34,9 +33,9 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
+    ModelClient,
     append_intermediate_result,
     get_remaining_items,
-    run_gpt,
 )
 from paper.util import (
     Timer,
@@ -264,7 +263,7 @@ async def annotate_papers(
         limit_papers = None
 
     env = mustenv("OPENAI_API_KEY")
-    client = AsyncOpenAI(api_key=env["OPENAI_API_KEY"])
+    client = ModelClient(api_key=env["OPENAI_API_KEY"], model=model, seed=seed)
     user_prompt_terms = _TERM_USER_PROMPTS[user_prompt_term_key]
     user_prompt_abstract = _ABS_USER_PROMPTS[user_prompt_abstract_key]
 
@@ -300,13 +299,11 @@ async def annotate_papers(
     with Timer() as timer:
         output = await _annotate_papers(
             client,
-            model,
             papers_remaining.remaining,
             user_prompt_terms,
             user_prompt_abstract,
             abstract_demonstrations,
             output_intermediate_file,
-            seed=seed,
         )
     output_valid = [ann for ann in output.result if ann.item.is_valid()]
 
@@ -352,15 +349,12 @@ class GPTAbstractClassify(BaseModel):
 
 
 async def _annotate_papers(
-    client: AsyncClient,
-    model: str,
+    client: ModelClient,
     papers: Sequence[PaperToAnnotate],
     user_prompt_term: PromptTemplate,
     user_prompt_abstract: PromptTemplate,
     abstract_demonstrations: str,
     output_intermediate_path: Path,
-    *,
-    seed: int,
 ) -> GPTResult[list[PromptResult[PaperAnnotated]]]:
     """Annotate papers to add key terms. Runs multiple tasks concurrently."""
     ann_outputs: list[PromptResult[PaperAnnotated]] = []
@@ -369,8 +363,6 @@ async def _annotate_papers(
     tasks = [
         _annotate_paper_single(
             client,
-            model,
-            seed,
             paper,
             user_prompt_term,
             user_prompt_abstract,
@@ -392,9 +384,7 @@ async def _annotate_papers(
 
 
 async def _annotate_paper_single(
-    client: AsyncClient,
-    model: str,
-    seed: int,
+    client: ModelClient,
     paper: PaperToAnnotate,
     user_prompt_term: PromptTemplate,
     user_prompt_abstract: PromptTemplate,
@@ -408,21 +398,9 @@ async def _annotate_paper_single(
         demonstrations=abstract_demonstrations, abstract=paper.abstract
     )
 
-    result_term = await run_gpt(
-        PaperTerms,
-        client,
-        _TERM_SYSTEM_PROMPT,
-        term_prompt_text,
-        model,
-        seed=seed,
-    )
-    result_abstract = await run_gpt(
-        GPTAbstractClassify,
-        client,
-        _ABS_SYSTEM_PROMPT,
-        abstract_prompt_text,
-        model,
-        seed=seed,
+    result_term = await client.run(PaperTerms, _TERM_SYSTEM_PROMPT, term_prompt_text)
+    result_abstract = await client.run(
+        GPTAbstractClassify, _ABS_SYSTEM_PROMPT, abstract_prompt_text
     )
 
     terms = result_term.result or PaperTerms.empty()

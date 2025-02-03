@@ -50,7 +50,8 @@ generation tool:
 
 ```console
 # Generate the graphs from PeerRead papers
-$ export OPENAI_API_KEY=... # set the environment variable or use the .env file
+$ export OPENAI_API_KEY=...   # set the environment variable or use the .env file
+$ export OPENAI_BASE_URL=...  # optional, if using an alternative API
 $ uv run gpt graph run output/peerread_merged output/graph
 
 # See the available prompts

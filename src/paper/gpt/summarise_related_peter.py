@@ -20,7 +20,6 @@ from typing import Annotated
 
 import dotenv
 import typer
-from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
 from paper import related_papers as rp
@@ -36,9 +35,9 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
+    ModelClient,
     append_intermediate_result,
     get_remaining_items,
-    run_gpt,
 )
 from paper.util import (
     Timer,
@@ -183,7 +182,9 @@ async def summarise_related(
     if limit_papers == 0:
         limit_papers = None
 
-    client = AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
+    client = ModelClient(
+        api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
+    )
 
     papers = shuffled(load_data(ann_graph_file, rp.PaperResult))[:limit_papers]
 
@@ -214,12 +215,7 @@ async def summarise_related(
 
     with Timer() as timer:
         results = await _summarise_papers(
-            client,
-            model,
-            prompt_pol,
-            papers_remaining.remaining,
-            output_intermediate_file,
-            seed=seed,
+            client, prompt_pol, papers_remaining.remaining, output_intermediate_file
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -235,24 +231,18 @@ async def summarise_related(
 
 
 async def _summarise_papers(
-    client: AsyncOpenAI,
-    model: str,
+    client: ModelClient,
     prompt_pol: Mapping[rp.ContextPolarity, PromptTemplate],
     ann_graphs: Iterable[rp.PaperResult],
     output_intermediate_file: Path,
-    *,
-    seed: int,
 ) -> GPTResult[list[PromptResult[PaperWithRelatedSummary]]]:
     """Summarise information from PETER-related papers for use as paper evaluation input.
 
     Args:
         client: OpenAI client to use GPT.
-        model: GPT model code to use (must support Structured Outputs).
         prompt_pol: Prompt templates for related papers by polarity.
         ann_graphs: Annotated PeerRead papers with their graph data.
         output_intermediate_file: File to write new results after each task is completed.
-        demonstrations: Text of demonstrations for few-shot prompting.
-        seed: Seed for the OpenAI API call.
 
     Returns:
         List of classified papers and their prompts wrapped in a GPTResult.
@@ -261,8 +251,7 @@ async def _summarise_papers(
     total_cost = 0
 
     tasks = [
-        _summarise_paper(client, model, ann_graph, prompt_pol, seed=seed)
-        for ann_graph in ann_graphs
+        _summarise_paper(client, ann_graph, prompt_pol) for ann_graph in ann_graphs
     ]
 
     for task in progress.as_completed(tasks, desc="Summarising related papers"):
@@ -286,12 +275,9 @@ paper.
 
 
 async def _summarise_paper(
-    client: AsyncOpenAI,
-    model: str,
+    client: ModelClient,
     ann_result: rp.PaperResult,
     prompt_pol: Mapping[rp.ContextPolarity, PromptTemplate],
-    *,
-    seed: int,
 ) -> GPTResult[PromptResult[PaperWithRelatedSummary]]:
     output: list[PromptResult[PaperRelatedSummarised]] = []
     total_cost = 0
@@ -299,11 +285,9 @@ async def _summarise_paper(
     for related_paper in ann_result.results.related:
         result = await _summarise_paper_related(
             client,
-            model,
             ann_result.paper,
             related_paper,
             user_prompt=prompt_pol[related_paper.polarity],
-            seed=seed,
         )
         total_cost += result.cost
 
@@ -337,23 +321,15 @@ class GPTRelatedSummary(BaseModel):
 
 
 async def _summarise_paper_related(
-    client: AsyncOpenAI,
-    model: str,
+    client: ModelClient,
     paper: PeerReadAnnotated,
     related: rp.PaperRelated,
     user_prompt: PromptTemplate,
-    *,
-    seed: int,
 ) -> GPTResult[PromptResult[PaperRelatedSummarised]]:
     user_prompt_text = format_template(user_prompt, paper, related)
 
-    result = await run_gpt(
-        GPTRelatedSummary,
-        client,
-        _PETER_SUMMARISE_SYSTEM_PROMPT,
-        user_prompt_text,
-        model,
-        seed=seed,
+    result = await client.run(
+        GPTRelatedSummary, _PETER_SUMMARISE_SYSTEM_PROMPT, user_prompt_text
     )
 
     summary = result.result
