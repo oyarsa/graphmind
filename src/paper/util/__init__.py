@@ -531,7 +531,7 @@ def remove_parenthetical(text: str) -> str:
 
 
 def fix_spaces_before_punctuation(text: str) -> str:
-    """Remove space before certain puncutation markers."""
+    """Remove space before certain punctuation markers."""
     punctuation = [".", "!", "?", ";", ":", ",", ")", "]", "}"]
     for p in punctuation:
         text = re.sub(rf"\s+{re.escape(p)}", p, text)

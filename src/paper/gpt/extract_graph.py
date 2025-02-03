@@ -72,7 +72,7 @@ def save_graphs(
 
     Args:
         graph_results: Result of paper evaluation with graphs, wrapped with prompt.
-        output_dir: Where the graph and image wll be persisted. The graph is saved as
+        output_dir: Where the graph and image will be persisted. The graph is saved as
             GraphML and the image as PNG.
     """
 
@@ -111,7 +111,7 @@ def display_graphs(
         model: GPT model used to generate the Graph
         graph_user_prompt_key: Key to the prompt used to generate the Graph
         graph_results: Result of paper evaluation with graphs.
-        output_dir: Where the graph and image wll be persisted. The graph is saved as
+        output_dir: Where the graph and image will be persisted. The graph is saved as
             GraphML and the image as PNG.
         display_gui: If True, show the graph on screen. This suspends the process until
             the plot is closed.

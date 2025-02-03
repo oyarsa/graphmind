@@ -6,7 +6,7 @@ to comply with the rules.
 
 CRITICAL RULES:
 1. Every term must be an exact substring of the abstract.
-2. When mulitple terms refer to the same entity, use a common term for all of them.
+2. When multiple terms refer to the same entity, use a common term for all of them.
 3. When a term contains an abbreviation, expand the abbreviation.
 4. For each method identified, determine what tasks it helps accomplish.
 5. For each metric identified, determine what tasks it evaluates.

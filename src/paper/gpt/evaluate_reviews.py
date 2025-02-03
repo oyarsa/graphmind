@@ -240,10 +240,10 @@ async def evaluate_reviews(
         demonstrations_key: Name of demonstrations file for use with few-shot prompting.
         review_demo_prompt_key: Key to the demonstration prompt to use during evaluation
             to build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
-            avaialble options or `list_prompts` for more.
+            available options or `list_prompts` for more.
         extract_demo_prompt_key: Key to the demonstration prompt to use during rationale
             extraction to build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS`
-            for the avaialble options or `list_prompts` for more.
+            for the available options or `list_prompts` for more.
         mode: Which mode to apply to ratings. See `apply_rating_mode`.
         keep_intermediate: Keep intermediate results to be used with `continue`.
     """
@@ -521,7 +521,7 @@ async def _evaluate_paper_reviews(
         evaluated_reviews.append(new_review)
         user_prompts.append(user_prompt_text)
 
-    assert main_review, "Main review must be retrived."
+    assert main_review, "Main review must be retrieved."
     user_prompt_full = f"\n\n{'-' * 80}\n\n".join(user_prompts)
 
     return GPTResult(

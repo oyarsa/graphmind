@@ -25,7 +25,7 @@ MODEL_SYNONYMS: Mapping[str, str] = {
     "4o": "gpt-4o-2024-08-06",
     "gpt-4o": "gpt-4o-2024-08-06",
 }
-"""Mapping between short and common model names and their full verisoned names."""
+"""Mapping between short and common model names and their full versioned names."""
 MODELS_ALLOWED: Sequence[str] = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.values())
 """All allowed model names, including synonyms and full names."""
 
@@ -82,7 +82,7 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
 
     Args:
         tier: Tier the organisation is in. Currently supports tier 3 and 4.
-        model: API model name. Currenty supports 'gpt-4o-mini' and 'gpt-4o'.
+        model: API model name. Currently supports 'gpt-4o-mini' and 'gpt-4o'.
 
     Returns:
         Rate limiter for the model with the correct rate limits for the tier.

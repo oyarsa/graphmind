@@ -25,6 +25,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "codespell>=2.4.1",
     "cosy",
     "icecream>=2.1.3",
     "ipython>=8.27.0",
@@ -78,7 +79,7 @@ select = [
     "ASYNC",    # Async pitfalls
     "EXE",      # Executable (shebang)S
     "ANN",      # Type annotations
-    "PYI",      # Appropriate type hints for specifc cases
+    "PYI",      # Appropriate type hints for specific cases
     "PERF",     # Performance anti-patterns
 ]
 # I try to enable as many reasonable rules as possible, but sometimes it's too much:

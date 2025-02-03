@@ -76,7 +76,7 @@ class LinearisationMethod(StrEnum):
     FLUENT = "fluent"
     """Use a fluent template-based method to convert entities to natural text.
 
-    The goal is for the outupt to look more like a crafted summary.
+    The goal is for the output to look more like a crafted summary.
     """
 
 
@@ -499,7 +499,7 @@ def _get_nodes_of_type(entities: Iterable[Entity], type_: EntityType) -> list[En
 
 
 class PaperSection(BaseModel):
-    """Section of a full paper with its headin and content text."""
+    """Section of a full paper with its heading and content text."""
 
     model_config = ConfigDict(frozen=True)
 

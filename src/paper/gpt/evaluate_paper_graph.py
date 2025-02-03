@@ -216,7 +216,7 @@ async def evaluate_papers(
             `GRAPH_EVAL_USER_PROMPTS` for available options or the `prompts` command
             for more information.
         graph_prompt_key: Key to the user prompt to use for graph extraction. See
-            `GRAPH_EXTRACT_USER_PROMPTS` for available optoins or the `prompts` command
+            `GRAPH_EXTRACT_USER_PROMPTS` for available options or the `prompts` command
             for more information.
         output_dir: Directory to save the output files: intermediate and final results,
             and classification metrics.
@@ -227,7 +227,7 @@ async def evaluate_papers(
         demonstrations_key: Key to the demonstrations file for use with few-shot prompting.
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
-            avaialble options or `list_prompts` for more.
+            available options or `list_prompts` for more.
         linearisation_method: How to convert the extract graph into text for evaluation.
 
     Returns:
