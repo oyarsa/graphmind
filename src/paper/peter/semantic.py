@@ -139,6 +139,9 @@ class Graph:
         top K of the result. It's theoretically possible that this would yield less than
         K papers, but it's unlikely.
         """
+        if k == 0:
+            return QueryResult(backgrounds=[], targets=[])
+
         # Take top 2K because we'll remove some items next.
         matches_background = self._query(background, self._backgrounds, k=2 * k)
         matches_target = self._query(target, self._targets, k=2 * k)

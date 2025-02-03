@@ -102,6 +102,9 @@ class Graph(BaseModel):
 
         Returns `k` papers from each polarity.
         """
+        if k == 0:
+            return QueryResult(positive=[], negative=[])
+
         positive, negative = (
             self.id_polarity_to_cited[paper_id][polarity][:k]
             for polarity in (ContextPolarity.POSITIVE, ContextPolarity.NEGATIVE)
