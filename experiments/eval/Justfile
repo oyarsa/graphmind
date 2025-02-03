@@ -26,6 +26,7 @@ data_full := if data == "full" {
 
 eval_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_full
 output := root+"/output/eval/graph/"+data+"/"+model+"/"+demos
+ablation_output := root+"/output/graph-ablation/"+data+"/"+model+"/"+demos
 
 _default:
     @echo "Environment variables:"
@@ -143,3 +144,45 @@ metrics:
     #!/usr/bin/env fish
     echo "Metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{output}}/**/metrics.json
+
+# Graph evaluation - graph component ablation
+_graph-ablation eval-prompt graph-prompt:
+    {{eval_cmd}} graph run {{eval_flags}} \
+        --output {{ablation_output}}/{{graph-prompt}}-{{eval-prompt}} \
+        --eval-prompt {{eval-prompt}} \
+        --graph-prompt {{graph-prompt}}
+
+# Graph-eval with full graph prompt
+[group: 'graph-ablation']
+graph-ablation-full: (_t "Running graph ablation - full graph with all components")
+    @just _graph-ablation full-graph full
+
+# Graph-eval with without experiments
+[group: 'graph-ablation']
+graph-ablation-noexp: (_t "Running graph ablation - full graph without experiments")
+    @just _graph-ablation full-graph noexperiments
+
+# Graph-eval with without methods
+[group: 'graph-ablation']
+graph-ablation-nomethod: (_t "Running graph ablation - full graph without methods")
+    @just _graph-ablation full-graph nomethod
+
+# Graph-eval with without detail
+[group: 'graph-ablation']
+graph-ablation-nodetail: (_t "Running graph ablation - full graph without detail")
+    @just _graph-ablation full-graph nodetail
+
+# All graph abalation versions
+[group: 'graph-ablation']
+graph-ablation-all:
+    @just graph-ablation-full
+    @just graph-ablation-nomethod
+    @just graph-ablation-noexp
+    @just graph-ablation-nodetail
+    @just ablation-metrics
+
+# Show metrics for all available runs
+ablation-metrics:
+    #!/usr/bin/env fish
+    echo "Ablation metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
+    {{root}}/scripts/experiments/show_eval_results.fish {{ablation_output}}/**/metrics.json
