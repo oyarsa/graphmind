@@ -128,12 +128,10 @@ class ChatRateLimiter:
         self.token_limit = token_limit
         self.sleep_interval = 1 / (self.request_limit / 60)
 
-        self._buckets = Buckets(
-            [
-                Bucket(request_limit, bucket_size_in_seconds),
-                Bucket(token_limit, bucket_size_in_seconds),
-            ]
-        )
+        self._buckets = Buckets([
+            Bucket(request_limit, bucket_size_in_seconds),
+            Bucket(token_limit, bucket_size_in_seconds),
+        ])
 
     @staticmethod
     def _count_tokens(

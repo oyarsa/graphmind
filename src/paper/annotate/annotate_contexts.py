@@ -137,9 +137,9 @@ def annotate(
         typer.echo(f"{polarity!s:<9}: {count}")
 
     save_data(output_file, output_data)
-    assert len(input_data) == len(
-        output_data
-    ), "Output length should match input even if annotation was not completed"
+    assert len(input_data) == len(output_data), (
+        "Output length should match input even if annotation was not completed"
+    )
 
 
 def _annotate(

@@ -71,9 +71,9 @@ def _merge_section(subsections: Sequence[PaperSection]) -> PaperSection | None:
         return None
 
     title = subsections[0].heading
-    text = "\n".join(
-        [f"{subsection.heading}\n{subsection.text}\n" for subsection in subsections]
-    )
+    text = "\n".join([
+        f"{subsection.heading}\n{subsection.text}\n" for subsection in subsections
+    ])
     return PaperSection(heading=title, text=text)
 
 
@@ -365,8 +365,8 @@ def preprocess(
 
     print()
     print(f"Papers: {papers_count}")
-    print(f"Valid reviews:  {len(reviews)} ({len(reviews)/papers_count:.2%})")
-    print(f"Valid metadata: {len(metadata)} ({len(metadata)/papers_count:.2%})")
-    print(f"Valid merged:  {len(papers)} ({len(papers)/papers_count:.2%})")
+    print(f"Valid reviews:  {len(reviews)} ({len(reviews) / papers_count:.2%})")
+    print(f"Valid metadata: {len(metadata)} ({len(metadata) / papers_count:.2%})")
+    print(f"Valid merged:  {len(papers)} ({len(papers) / papers_count:.2%})")
 
     save_data(output_file, papers)

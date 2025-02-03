@@ -189,7 +189,7 @@ _COLOURS = {
 
 def _style(value: object, field: str, widths: dict[str, int], align: str = "<") -> str:
     """Format field as string with the specified colour and determined width."""
-    return f"{_COLOURS[field]}{value:{align}{widths[field]}}{_COLOURS["reset"]}"
+    return f"{_COLOURS[field]}{value:{align}{widths[field]}}{_COLOURS['reset']}"
 
 
 if __name__ == "__main__":

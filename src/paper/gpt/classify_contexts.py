@@ -469,9 +469,9 @@ def show_classified_stats(
             str(metrics),
             "",
             f"Gold (P/N): {sum(y_true)}/{len(y_true) - sum(y_true)}"
-            f" ({safediv(sum(y_true),len(y_true)):.2%})",
+            f" ({safediv(sum(y_true), len(y_true)):.2%})",
             f"Pred (P/N): {sum(y_pred)}/{len(y_pred) - sum(y_pred)}"
-            f" ({safediv(sum(y_pred),len(y_pred)):.2%})",
+            f" ({safediv(sum(y_pred), len(y_pred)):.2%})",
         ]
         return "\n".join(output), metrics
 
@@ -483,8 +483,8 @@ def show_classified_stats(
     negative = len(all_contexts) - positive
     output += [
         "No gold values to calculate metrics.",
-        f"Positive: {positive} ({safediv(positive , len(all_contexts)):.2%})",
-        f"Negative {negative} ({safediv(negative , len(all_contexts)):.2%})",
+        f"Positive: {positive} ({safediv(positive, len(all_contexts)):.2%})",
+        f"Negative {negative} ({safediv(negative, len(all_contexts)):.2%})",
     ]
     return "\n".join(output), None
 

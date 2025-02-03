@@ -106,9 +106,9 @@ def similarities(vector: Vector, matrix: Matrix) -> npt.NDArray[np.float32]:
 
     # Postconditions
     assert similarities.ndim == 1, "similarities should be 1D"
-    assert (
-        similarities.shape[0] == matrix.shape[0]
-    ), "similarities must have as many elements as matrix rows"
+    assert similarities.shape[0] == matrix.shape[0], (
+        "similarities must have as many elements as matrix rows"
+    )
 
     return similarities
 

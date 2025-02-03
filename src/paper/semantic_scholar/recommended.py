@@ -109,20 +109,18 @@ def main(
     fields: Annotated[
         str,
         typer.Option(help="Comma-separated list of fields to retrieve"),
-    ] = ",".join(
-        (
-            "paperId",
-            "corpusId",
-            "url",
-            "title",
-            "authors",
-            "year",
-            "abstract",
-            "referenceCount",
-            "citationCount",
-            "influentialCitationCount",
-        )
-    ),
+    ] = ",".join((
+        "paperId",
+        "corpusId",
+        "url",
+        "title",
+        "authors",
+        "year",
+        "abstract",
+        "referenceCount",
+        "citationCount",
+        "influentialCitationCount",
+    )),
     limit_papers: Annotated[
         int | None,
         typer.Option(help="Number of papers to download recommendations from"),

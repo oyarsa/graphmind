@@ -378,7 +378,7 @@ def _format_demonstrations(
         )
         for demo in demonstrations
     )
-    return f"\n{"-" * 50}\n".join(output_all)
+    return f"\n{'-' * 50}\n".join(output_all)
 
 
 async def _evaluate_reviews(
@@ -522,7 +522,7 @@ async def _evaluate_paper_reviews(
         user_prompts.append(user_prompt_text)
 
     assert main_review, "Main review must be retrived."
-    user_prompt_full = f"\n\n{"-"*80}\n\n".join(user_prompts)
+    user_prompt_full = f"\n\n{'-' * 80}\n\n".join(user_prompts)
 
     return GPTResult(
         PromptResult(
