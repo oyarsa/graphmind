@@ -163,7 +163,8 @@ class ModelClient:
                 bombarded.
             base_url: URL of the API being used. If not provided, use OpenAI.
         """
-        is_openai = base_url and "openai" in base_url
+        is_openai = base_url is None or "openai" in base_url
+        model = MODEL_SYNONYMS.get(model, model)
 
         if is_openai and model not in MODELS_ALLOWED:
             raise ValueError(
