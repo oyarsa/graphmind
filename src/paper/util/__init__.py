@@ -289,7 +289,7 @@ def mustenv(*variables: str) -> dict[str, str]:
     if vars_unset := sorted(var for var, value in vars_.items() if not value):
         cli.die(
             "The following required environment variables were unset:"
-            f" {", ".join(vars_unset)}."
+            f" {', '.join(vars_unset)}."
         )
 
     return {var: value for var, value in vars_.items() if value}

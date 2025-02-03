@@ -171,7 +171,7 @@ def format_demonstrations(
         )
         for demo in demonstrations
     )
-    return f"\n{"-" * 50}\n".join(output_all)
+    return f"\n{'-' * 50}\n".join(output_all)
 
 
 class GPTFull(BaseModel):

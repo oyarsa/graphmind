@@ -119,7 +119,7 @@ def main(
     print(f"{len(papers1)=}")
     print(f"{len(papers2)=}")
     print(
-        f"{len(merged_papers)=} ({len(merged_papers)/(len(papers1) + len(papers2)):.2%})"
+        f"{len(merged_papers)=} ({len(merged_papers) / (len(papers1) + len(papers2)):.2%})"
     )
 
     with open(output_path, "w") as f:

@@ -156,7 +156,7 @@ class Graph(Record):
             for entity, count in Counter(e.label for e in self.entities).most_common()
             if count > 1
         ]:
-            errors.append(f"Entities with non-unique names: {", ".join(entity_counts)}")
+            errors.append(f"Entities with non-unique names: {', '.join(entity_counts)}")
 
         entities = {entity.label: entity for entity in self.entities}
         incoming: defaultdict[str, list[Relationship]] = defaultdict(list)
@@ -314,7 +314,7 @@ class Graph(Record):
             [
                 f"Nodes: {len(self.entities)}",
                 f"Edges: {len(self.relationships)}",
-                f"Node types: {", ".join(f"{k}: {v}" for k, v in node_type_counts)}",
+                f"Node types: {', '.join(f'{k}: {v}' for k, v in node_type_counts)}",
                 "",
                 "Entities:",
                 entities,

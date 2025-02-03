@@ -297,7 +297,7 @@ async def _summarise_paper(
         PromptResult(
             prompt=Prompt(
                 system=_PETER_SUMMARISE_SYSTEM_PROMPT,
-                user=f"\n\n{"-"*80}\n\n".join(x.prompt.user for x in output),
+                user=f"\n\n{'-' * 80}\n\n".join(x.prompt.user for x in output),
             ),
             item=PaperWithRelatedSummary(
                 paper=ann_result.paper, related=PromptResult.unwrap(output)

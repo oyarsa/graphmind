@@ -111,7 +111,7 @@ def main(
             print()
         else:
             print(diff["first"]["title"])
-            print(f"  {", ".join(keys)}")
+            print(f"  {', '.join(keys)}")
             print()
 
 

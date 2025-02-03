@@ -389,7 +389,7 @@ async def _evaluate_paper(
     eval_paper = paper.paper.paper
     evaluated = fix_evaluated_rating(eval_result.result or GPTFull.error())
 
-    sep = f"\n\n{"-" * 80}\n\n"
+    sep = f"\n\n{'-' * 80}\n\n"
     if graph_prompt_text:
         combined_system_prompt = f"{graph_system_prompt}{sep}{eval_system_prompt}"
     else:

@@ -35,7 +35,7 @@ def main(
         for context in reference.contexts
     ]
 
-    print(f"{"contexts":<8} : {len(contexts)}")
+    print(f"{'contexts':<8} : {len(contexts)}")
 
     if polarities := [p for context in contexts if (p := context.polarity)]:
         print()
