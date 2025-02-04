@@ -11,7 +11,7 @@ from paper.util import read_resource
 class PromptTemplate:
     """Prompt loaded from file with its name, template text, system prompt and type.
 
-    The type refers to the Strucutured Output class that will be used by GPT to generate
+    The type refers to the Structured Output class that will be used by GPT to generate
     the result.
 
     The system prompt and type are optional.
@@ -54,12 +54,19 @@ def print_prompts(
         print(title)
 
     for prompt in prompts.values():
+        type_name = f"({prompt.type_name})" or ""
         if detail:
             sep = "-" * 80
             system = prompt.system or "default"
-            print(
-                f"{sep}\n{prompt.name}\n{sep}\nSystem: {system}\n{sep}\n{prompt.template}"
-            )
+            lines = [
+                sep,
+                f"{prompt.name} {type_name}",
+                sep,
+                f"System: {system}",
+                sep,
+                prompt.template,
+            ]
+            print("\n".join(lines))
         else:
-            print(f"- {prompt.name}")
+            print(f"- {prompt.name} {type_name}")
     print()
