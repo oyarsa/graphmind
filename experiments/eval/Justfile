@@ -221,11 +221,17 @@ peter-cited-full: (_t "Full graph with cited-only PETER")
 peter-semantic-full: (_t "Full graph with semantic-only PETER")
     @just _peter-semantic-ablation full-graph full
 
+# Full graph with no PETER related papers
+[group: 'peter-ablation']
+peter-norel: (_t "Full graph with no PETER papers")
+    @just _graph norel-graph
+
 # Run both semantic and cited PETER ablations
 [group: 'peter-ablation']
 peter-ablation-all: (_t "Running PETER ablation - cited and semantic-only")
     @just peter-cited-full
     @just peter-semantic-full
+    @just peter-norel
     @just peter-ablation-metrics
 
 # Show metrics for PETER ablations
