@@ -54,7 +54,7 @@ def print_prompts(
         print(title)
 
     for prompt in prompts.values():
-        type_name = f"({prompt.type_name})" or ""
+        type_name = f"({prompt.type_name})" if prompt.type_name else ""
         if detail:
             sep = "-" * 80
             system = prompt.system or "default"
