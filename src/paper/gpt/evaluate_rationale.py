@@ -319,6 +319,13 @@ async def _evaluate_rationale(
     rationale_eval = result.result or GPTRationaleEval.empty()
 
     graph_eval = GraphWithEval.from_(graph, rationale_eval)
+    wrong = [
+        name
+        for name, val in graph_eval.eval_rationale.metrics().items()
+        if val not in range(1, 6)
+    ]
+    if wrong:
+        logger.warning(f"{graph.paper.title}: invalid metric values: {wrong}")
 
     return GPTResult(
         result=PromptResult(
