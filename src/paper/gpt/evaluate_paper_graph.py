@@ -125,7 +125,7 @@ def run(
             help="The user prompt to use for graph extraction.",
             click_type=cli.Choice(GRAPH_EXTRACT_USER_PROMPTS),
         ),
-    ] = "strict",
+    ] = "full",
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run.")
     ] = None,
