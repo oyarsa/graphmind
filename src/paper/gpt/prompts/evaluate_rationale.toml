@@ -1,0 +1,32 @@
+[[prompts]]
+name = "simple"
+type = "simple"
+system = """\
+Given the following paper title and abstract and the rationale for a novelty assessment,
+evaluate the rationale.
+"""
+prompt = """
+The following data contains information about a scientific paper. It includes the paper
+title and abstract. It also contains a novelty rating and the reasons for it. Your
+task is to evaluate the rationale according to the following criteria:
+
+- Fluency: how well-written the text is.
+- Faithfulness: whether the rationale justifies the novelty rating.
+- Logical coherence: if the evidence given in the rationale supports its conclusion.
+
+All scores must be given from 1 to 5.
+
+You must also give an explanation for your ratings.
+
+#####
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+Novelty rating: {rating}
+Rationale:
+{rationale}
+
+#####
+Output:
+"""

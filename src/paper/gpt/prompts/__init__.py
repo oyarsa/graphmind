@@ -9,11 +9,18 @@ from paper.util import read_resource
 
 @dataclass(frozen=True, kw_only=True)
 class PromptTemplate:
-    """Prompt loaded from file with its name, template text and optional system prompt."""
+    """Prompt loaded from file with its name, template text, system prompt and type.
+
+    The type refers to the Structured Output class that will be used by GPT to generate
+    the result.
+
+    The system prompt and type are optional.
+    """
 
     name: str
     template: str
     system: str
+    type_name: str
 
 
 def load_prompts(name: str) -> Mapping[str, PromptTemplate]:
@@ -28,7 +35,10 @@ def load_prompts(name: str) -> Mapping[str, PromptTemplate]:
     text = read_resource("gpt.prompts", f"{name}.toml")
     return {
         p["name"]: PromptTemplate(
-            name=p["name"], system=p.get("system", ""), template=p["prompt"]
+            name=p["name"],
+            template=p["prompt"],
+            system=p.get("system", ""),
+            type_name=p.get("type", ""),
         )
         for p in tomllib.loads(text)["prompts"]
     }
@@ -44,12 +54,19 @@ def print_prompts(
         print(title)
 
     for prompt in prompts.values():
+        type_name = f"({prompt.type_name})" or ""
         if detail:
             sep = "-" * 80
             system = prompt.system or "default"
-            print(
-                f"{sep}\n{prompt.name}\n{sep}\nSystem: {system}\n{sep}\n{prompt.template}"
-            )
+            lines = [
+                sep,
+                f"{prompt.name} {type_name}",
+                sep,
+                f"System: {system}",
+                sep,
+                prompt.template,
+            ]
+            print("\n".join(lines))
         else:
-            print(f"- {prompt.name}")
+            print(f"- {prompt.name} {type_name}")
     print()
