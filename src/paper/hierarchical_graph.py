@@ -8,6 +8,7 @@ or in the GUI.
 from __future__ import annotations
 
 import logging
+import re
 import textwrap
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -372,10 +373,12 @@ class DiGraph:
 
         for node in nx.topological_sort(self._nxgraph):
             node_data = self._nxgraph.nodes[node]
-            # @TODO: Having type here might be duplicate when the node label is not
-            # unique, as we currently append `(title)` to disambiguate in
-            # `GPTGraph.to_graph`.
-            label = f"{node_data['type']}: {node}"
+            # If there was more than one label with the same name, we add the type to it
+            # to disambiguate as [type]. We don't want that here, though, so we remove
+            # it. Otherwise, we'd have "title: ABC [title]".
+            node_ = re.sub(r"\[.*\]", "", node).strip()
+
+            label = f"{node_data['type']}: {node_}"
             if node_data["detail"]:
                 label = f"{label}\n{node_data['detail']}"
 

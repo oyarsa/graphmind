@@ -57,7 +57,7 @@ class GPTGraph(GPTGraphBase):
 
         def entity(label: str, type: EntityType, detail: str | None = None) -> Entity:
             if label in labels_seen:
-                unique_label = f"{label} ({type.value})"
+                unique_label = f"{label} [{type.value}]"
             else:
                 labels_seen.add(label)
                 unique_label = label
