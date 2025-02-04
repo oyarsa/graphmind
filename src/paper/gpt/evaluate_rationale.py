@@ -8,10 +8,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+from abc import ABC, abstractmethod
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Annotated, Self
+from typing import Annotated, Self, override
 
 import dotenv
 import typer
@@ -42,8 +43,84 @@ from paper.util.serde import load_data, save_data
 logger = logging.getLogger(__name__)
 
 
-# @TODO: Create prompt, including system prompt
 RATIONALE_EVAL_PROMPTS = load_prompts("evaluate_rationale")
+
+
+class GPTRationaleMetrics(BaseModel):
+    """Metrics from rationale evaluation."""
+
+    metrics: Mapping[str, int]
+    explanation: str
+
+
+class GPTRationaleBase(ABC, BaseModel):
+    """Base class rationale evaluation metrics."""
+
+    @abstractmethod
+    @classmethod
+    def empty(cls) -> Self:
+        """Return empty instance. Used for error handling."""
+
+    @abstractmethod
+    def metrics(self) -> GPTRationaleMetrics:
+        """All metrics in dictionary form."""
+
+
+class GPTRationaleEvalSimple(GPTRationaleBase):
+    """Evaluation metrics from LLM judging of generated rationale."""
+
+    model_config = ConfigDict(frozen=True)
+
+    fluency: Annotated[
+        int, Field(description="How well-written the text is. Score from 1 to 5.")
+    ]
+    faithfulness: Annotated[
+        int,
+        Field(
+            description="How the rationale justifies the novety rating. Score from 1"
+            " to 5."
+        ),
+    ]
+    logical: Annotated[
+        int,
+        Field(
+            description="How well are the claims supported by the evidence? Score from"
+            " 1 to 5."
+        ),
+    ]
+    explanation: Annotated[str, Field(description="Explanation for your scores.")]
+
+    @override
+    def metrics(self) -> GPTRationaleMetrics:
+        return GPTRationaleMetrics(
+            metrics={
+                "fluency": self.fluency,
+                "faithfulness": self.faithfulness,
+                "logical": self.logical,
+            },
+            explanation=self.explanation,
+        )
+
+    @override
+    @classmethod
+    def empty(cls) -> Self:
+        return cls(fluency=1, faithfulness=1, logical=1, explanation="<error>")
+
+
+class GraphWithEval(GraphResult):
+    """`GraphResult` with LLM-as-judge evaluation of generated rationale."""
+
+    eval_metrics: GPTRationaleMetrics
+
+    @classmethod
+    def from_(cls, graph: GraphResult, eval: GPTRationaleMetrics) -> Self:
+        """Create `GraphWithEval` from existing `GraphResult` and evaluation result."""
+        return cls(graph=graph.graph, paper=graph.paper, eval_metrics=eval)
+
+
+EVAL_TYPES: Mapping[str, type[GPTRationaleBase]] = {
+    "simple": GPTRationaleEvalSimple,
+}
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -174,6 +251,12 @@ async def evaluate_rationales(
     if not prompt.system:
         raise ValueError("Chosen prompt doesn't contain system prompt.")
 
+    if prompt.type_name not in EVAL_TYPES:
+        valid_types = sorted(EVAL_TYPES)
+        raise ValueError(
+            f"Prompt type '{prompt.type_name}' is invalid. Must be one of {valid_types}."
+        )
+
     output_intermediate_file, papers_remaining = init_remaining_items(
         GraphWithEval, output_dir, continue_papers_file, papers, continue_
     )
@@ -203,7 +286,7 @@ async def evaluate_rationales(
 
 
 def _display_label_dist(graph_evals: Sequence[GraphWithEval]) -> str:
-    graph_metrics = [graph.eval_rationale.metrics() for graph in graph_evals]
+    graph_metrics = [graph.eval_metrics.metrics for graph in graph_evals]
     output = [">>> Metrics distributions:"]
 
     for metric in sorted(graph_metrics[0]):
@@ -255,55 +338,6 @@ async def _evaluate_rationales(
     return GPTResult(results, total_cost)
 
 
-class GPTRationaleEval(BaseModel):
-    """Evaluation metrics from LLM judging of generate rationale."""
-
-    model_config = ConfigDict(frozen=True)
-
-    fluency: Annotated[
-        int, Field(description="How well-written the text is. Score from 1 to 5.")
-    ]
-    faithfulness: Annotated[
-        int,
-        Field(
-            description="How the rationale justifies the novety rating. Score from 1"
-            " to 5."
-        ),
-    ]
-    logical: Annotated[
-        int,
-        Field(
-            description="How well are the claims supported by the evidence? Score from"
-            " 1 to 5."
-        ),
-    ]
-    # @TODO: Add more
-
-    def metrics(self) -> dict[str, int]:
-        """All metrics in dictionary form."""
-        return {
-            "fluency": self.fluency,
-            "faithfulness": self.faithfulness,
-            "logical": self.logical,
-        }
-
-    @classmethod
-    def empty(cls) -> Self:
-        """Empty rationale eval with default values (all 1s)."""
-        return cls(fluency=1, faithfulness=1, logical=1)
-
-
-class GraphWithEval(GraphResult):
-    """`GraphResult` with LLM-as-judge evaluation of generated rationale."""
-
-    eval_rationale: GPTRationaleEval
-
-    @classmethod
-    def from_(cls, graph: GraphResult, eval: GPTRationaleEval) -> Self:
-        """Create `GraphWithEval` from existing `GraphResult` and evaluation result."""
-        return cls(graph=graph.graph, paper=graph.paper, eval_rationale=eval)
-
-
 async def _evaluate_rationale(
     client: ModelClient, graph: GraphResult, prompt: PromptTemplate
 ) -> GPTResult[PromptResult[GraphWithEval]]:
@@ -319,13 +353,14 @@ async def _evaluate_rationale(
     """
 
     user_prompt_text = format_template(graph.paper, graph.paper.rationale_pred, prompt)
-    result = await client.run(GPTRationaleEval, prompt.system, user_prompt_text)
-    rationale_eval = result.result or GPTRationaleEval.empty()
+    type_ = EVAL_TYPES[prompt.type_name]
+    result = await client.run(type_, prompt.system, user_prompt_text)
+    rationale_eval = result.result or type_.empty()
 
-    graph_eval = GraphWithEval.from_(graph, rationale_eval)
+    graph_eval = GraphWithEval.from_(graph, rationale_eval.metrics())
     wrong = [
         name
-        for name, val in graph_eval.eval_rationale.metrics().items()
+        for name, val in graph_eval.eval_metrics.metrics.items()
         if val not in range(1, 6)
     ]
     if wrong:
