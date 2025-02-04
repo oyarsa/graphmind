@@ -394,7 +394,6 @@ def get_remaining_items[T: Record, U: Record](
     original: Sequence[U],
     continue_: bool,
 ) -> RemainingItems[PromptResult[T], U]:
-    # @REFACTOR: Move stuff away from this and to `init_remaining_items`. (2025-01-23)
     """Split items that were previously processed from this run's input list.
 
     Loads data from the intermediate file, then removes the items from the input list
