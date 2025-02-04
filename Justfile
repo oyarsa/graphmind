@@ -21,11 +21,15 @@ type:
 pre-commit:
     uv run pre-commit run --all-files
 
+# Run codespell on code file to find typos
+spell:
+    uv run codespell
+
 # Run ruff check, ruff format, and pyright
-lint: fix fmt pre-commit test type
+lint: fix fmt spell pre-commit test type
 
 # Check ruff lint and pyright
-check-all: check test type
+check-all: check test spell type
 
 # Watch Python files and run ruff and pyright on changes
 watch:
