@@ -266,6 +266,13 @@ class GPTRationaleEval(BaseModel):
     soundenss: Annotated[
         int, Field(description="How sound the text is. Score from 1 to 5.")
     ]
+    logical: Annotated[
+        int,
+        Field(
+            description="How well are the claims supported by the evidence? Score from"
+            " 1 to 5."
+        ),
+    ]
     # @TODO: Add more
 
     def metrics(self) -> dict[str, int]:
@@ -273,15 +280,13 @@ class GPTRationaleEval(BaseModel):
         return {
             "fluency": self.fluency,
             "soundness": self.soundenss,
+            "logical": self.logical,
         }
 
     @classmethod
     def empty(cls) -> Self:
         """Empty rationale eval with default values (all 1s)."""
-        return cls(
-            fluency=1,
-            soundenss=1,
-        )
+        return cls(fluency=1, soundenss=1, logical=1)
 
 
 class GraphWithEval(GraphResult):
