@@ -186,3 +186,35 @@ Abstract: {abstract}
 #####
 Output:
 """
+
+[[prompts]]
+name = "norel-graph"
+system = """\
+Given the following target paper and summary, give it a novelty rating.
+"""
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+main paper's title and a summary of its key points.
+
+The paper summary describes the most important information about the paper and its \
+contents. It summarises key aspects, which you can use to build a more comprehensive \
+understanding of the paper.
+
+Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
+reflect how much the paper brings and develops new ideas previously unseen in the \
+literature. First, generate the rationale for your novelty rating, then give the final \
+novelty rating.
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+Paper summary:
+{graph}
+
+#####
+Output:
+"""
