@@ -233,3 +233,10 @@ peter-ablation-metrics:
     #!/usr/bin/env fish
     echo "PETER ablation metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{peter_ablation_output}}/**/metrics.json
+
+rationale_data := root+"/output/eval/4o/graph/full-graph/result.json"
+rationale_flags := " -n " + n + " -m " + model +  " --graphs " + rationale_data
+
+# Run rationale evaluation on GPT 4o output
+rationale:
+    {{eval_cmd}} rationale run {{rationale_flags}} --output output/eval-rationale/{{model}}
