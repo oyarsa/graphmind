@@ -37,11 +37,7 @@ from paper.gpt.evaluate_paper import (
     fix_evaluated_rating,
     get_demonstrations,
 )
-from paper.gpt.extract_graph import (
-    GraphPrompt,
-    GraphResult,
-    load_graph_prompts,
-)
+from paper.gpt.extract_graph import GraphResult
 from paper.gpt.graph_types import get_graph_type
 from paper.gpt.model import (
     Graph,
@@ -75,7 +71,7 @@ from paper.util.serde import load_data, save_data
 logger = logging.getLogger(__name__)
 
 GRAPH_EVAL_USER_PROMPTS = load_prompts("evaluate_graph")
-GRAPH_EXTRACT_USER_PROMPTS = load_graph_prompts("extract_graph")
+GRAPH_EXTRACT_USER_PROMPTS = load_prompts("extract_graph")
 PRIMARY_AREAS: Sequence[str] = tomllib.loads(
     read_resource("gpt.prompts", "primary_areas.toml")
 )["primary_areas"]
@@ -306,7 +302,7 @@ async def evaluate_papers(
 async def _evaluate_papers(
     client: ModelClient,
     eval_prompt: PromptTemplate,
-    graph_prompt: GraphPrompt,
+    graph_prompt: PromptTemplate,
     paper: Sequence[PaperWithRelatedSummary],
     output_intermediate_file: Path,
     demonstrations: str,
@@ -356,7 +352,7 @@ async def _evaluate_paper(
     client: ModelClient,
     paper: PaperWithRelatedSummary,
     eval_prompt: PromptTemplate,
-    graph_prompt: GraphPrompt,
+    graph_prompt: PromptTemplate,
     demonstrations: str,
     linearisation_method: LinearisationMethod,
 ) -> GPTResult[PromptResult[GraphResult]]:
@@ -414,7 +410,7 @@ async def _evaluate_paper(
     )
 
 
-def format_graph_template(prompt: GraphPrompt, paper: PeerReadAnnotated) -> str:
+def format_graph_template(prompt: PromptTemplate, paper: PeerReadAnnotated) -> str:
     """Format graph extraction template using annotated paper."""
     return prompt.template.format(
         title=paper.title,

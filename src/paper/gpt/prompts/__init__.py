@@ -9,11 +9,18 @@ from paper.util import read_resource
 
 @dataclass(frozen=True, kw_only=True)
 class PromptTemplate:
-    """Prompt loaded from file with its name, template text and optional system prompt."""
+    """Prompt loaded from file with its name, template text, system prompt and type.
+
+    The type refers to the Strucutured Output class that will be used by GPT to generate
+    the result.
+
+    The system prompt and type are optional.
+    """
 
     name: str
     template: str
     system: str
+    type_name: str
 
 
 def load_prompts(name: str) -> Mapping[str, PromptTemplate]:
@@ -28,7 +35,10 @@ def load_prompts(name: str) -> Mapping[str, PromptTemplate]:
     text = read_resource("gpt.prompts", f"{name}.toml")
     return {
         p["name"]: PromptTemplate(
-            name=p["name"], system=p.get("system", ""), template=p["prompt"]
+            name=p["name"],
+            template=p["prompt"],
+            system=p.get("system", ""),
+            type_name=p.get("type", ""),
         )
         for p in tomllib.loads(text)["prompts"]
     }
