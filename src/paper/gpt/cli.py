@@ -20,6 +20,7 @@ from paper.gpt import (
     evaluate_paper_peter,
     evaluate_paper_sans,
     evaluate_paper_scimon,
+    evaluate_rationale,
     evaluate_reviews,
     summarise_related_peter,
     tokens,
@@ -79,6 +80,11 @@ evals_subcommands = [
         evaluate_paper_graph,
     ),
     ("reviews", "Evaluate individual reviews for novelty.", evaluate_reviews),
+    (
+        "rationale",
+        "Evaluate generated rationales from graph evaluation.",
+        evaluate_rationale,
+    ),
 ]
 
 app.add_typer(
