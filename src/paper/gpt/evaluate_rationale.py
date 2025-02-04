@@ -56,8 +56,8 @@ class GPTRationaleMetrics(BaseModel):
 class GPTRationaleBase(ABC, BaseModel):
     """Base class rationale evaluation metrics."""
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def empty(cls) -> Self:
         """Return empty instance. Used for error handling."""
 
