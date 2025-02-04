@@ -1,5 +1,6 @@
 [[prompts]]
 name = "simple"
+type = "simple"
 system = """\
 Given the following paper title and abstract and the rationale for a novelty assessment,
 evaluate the rationale.
