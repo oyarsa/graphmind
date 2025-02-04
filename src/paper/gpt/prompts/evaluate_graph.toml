@@ -2,7 +2,7 @@
 name = "full-graph"
 system = """\
 Given the following target paper, a summary and a selection of related papers separated \
-by whether they're supporting or contrasting the main paper, give it novelty rating.
+by whether they're supporting or contrasting the main paper, give it a novelty rating.
 """
 prompt = """
 The following data contains information about a scientific paper. It includes the \
@@ -46,7 +46,7 @@ Output:
 name = "only-graph"
 system = """\
 Given the following target paper, a summary and a selection of related papers separated \
-by whether they're supporting or contrasting the main paper, give it novelty rating.
+by whether they're supporting or contrasting the main paper, give it a novelty rating.
 """
 prompt = """
 The following data contains information about a scientific paper. It includes the \
@@ -87,7 +87,7 @@ Output:
 name = "title-graph"
 system = """\
 Given the following target paper, a summary and a selection of related papers separated \
-by whether they're supporting or contrasting the main paper, give it novelty rating.
+by whether they're supporting or contrasting the main paper, give it a novelty rating.
 """
 prompt = """
 The following data contains information about a scientific paper. It includes the \
