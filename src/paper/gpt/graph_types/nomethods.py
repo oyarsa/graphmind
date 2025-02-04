@@ -37,7 +37,7 @@ class GPTGraphNoMethods(GPTGraphBase):
     ]
     experiments: Annotated[
         Sequence[ExperimentEntity],
-        Field(description="Experiments designed to supported the `claims`."),
+        Field(description="Experiments designed to support the `claims`."),
     ]
 
     @override
