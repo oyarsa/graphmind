@@ -138,13 +138,13 @@ async def evaluate_rationales(
     keep_intermediate: bool,
     seed: int,
 ) -> None:
-    """Evaluate each paper's predicted rationale with LLM-as-judge.
+    """Evaluate each paper's predicted rationale from graph evaluation with LLM-as-judge.
 
     Args:
         model: GPT model code to use.
         graph_path: Path to the JSON file containing the output of graph evaluation.
         limit_papers: Number of papers to process. If 0 or None, process all.
-        prompt_key: Key to the prompt to use for paper evaluation. See
+        prompt_key: Key to the prompt to use for rationale evaluation. See
             `RATIONALE_EVAL_USER_PROMPTS` for available options or `list_prompts` for
             more.
         output_dir: Directory to save the output files.
@@ -225,7 +225,7 @@ async def _evaluate_rationales(
     output_intermediate_file: Path,
     keep_intermediate: bool,
 ) -> GPTResult[list[PromptResult[GraphWithEval]]]:
-    """Evaluate each review in each paper.
+    """Evaluate the predicted paper rationales.
 
     Args:
         client: OpenAI client to use GPT.
@@ -276,7 +276,7 @@ class GPTRationaleEval(BaseModel):
     # @TODO: Add more
 
     def metrics(self) -> dict[str, int]:
-        """All metrics in dicionary form."""
+        """All metrics in dictionary form."""
         return {
             "fluency": self.fluency,
             "soundness": self.soundenss,
@@ -303,7 +303,7 @@ class GraphWithEval(GraphResult):
 async def _evaluate_rationale(
     client: ModelClient, graph: GraphResult, prompt: PromptTemplate
 ) -> GPTResult[PromptResult[GraphWithEval]]:
-    """Evaluate all reviews for a single paper.
+    """Evaluate predicted rationale from graph evaluation.
 
     Args:
         client: OpenAI client to use GPT.
@@ -311,7 +311,7 @@ async def _evaluate_rationale(
         prompt: User and system prompt for rationale evaluation.
 
     Returns:
-        Paper with evaluated reviews wrapped in a GPTResult.
+        Paper with evaluated rationale wrapped in a GPTResult.
     """
 
     user_prompt_text = format_template(graph.paper, graph.paper.rationale_pred, prompt)
