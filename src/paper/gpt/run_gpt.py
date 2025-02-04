@@ -121,16 +121,25 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
         else:
             raise ValueError(f"Invalid tier: {tier}. Must be between 1 and 5.")
 
-        rate_limits: tuple[int, int] | None = None
-        for limit_model, model_limits in limits.items():
-            if model.startswith(limit_model):
-                rate_limits = model_limits
-
+        rate_limits = _find_best_match(model, limits)
         if not rate_limits:
             raise ValueError(f"Model {model} is not supported for tier {tier}.")
 
     request_limit, token_limit = rate_limits
     return ChatRateLimiter(request_limit=request_limit, token_limit=token_limit)
+
+
+def _find_best_match(
+    model: str, limits: Mapping[str, tuple[int, int]]
+) -> tuple[int, int] | None:
+    """Find limit to use for model based on the longest prefix match.
+
+    E.g. `gpt-4o-mini-2024-07-18` would match `gpt-4o-mini`.
+    """
+    matching_prefixes = [prefix for prefix in limits if model.startswith(prefix)]
+    if not matching_prefixes:
+        return None
+    return limits[max(matching_prefixes, key=len)]
 
 
 class ModelClient:
@@ -163,7 +172,8 @@ class ModelClient:
                 bombarded.
             base_url: URL of the API being used. If not provided, use OpenAI.
         """
-        is_openai = base_url and "openai" in base_url
+        is_openai = base_url is None or "openai" in base_url
+        model = MODEL_SYNONYMS.get(model, model)
 
         if is_openai and model not in MODELS_ALLOWED:
             raise ValueError(

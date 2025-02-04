@@ -12,7 +12,7 @@ from paper.gpt.model import Entity, EntityType, Graph, Relationship
 from paper.util import at
 
 
-class GPTGraph(GPTGraphBase):
+class GPTGraphNoExperiments(GPTGraphBase):
     """Graph representing the paper."""
 
     title: Annotated[str, Field(description="Title of the paper.")]
@@ -37,14 +37,7 @@ class GPTGraph(GPTGraphBase):
     ]
     methods: Annotated[
         Sequence[MethodEntity],
-        Field(
-            description="Methods used to verify the claims, with connections to target"
-            " `experiments`"
-        ),
-    ]
-    experiments: Annotated[
-        Sequence[ExperimentEntity],
-        Field(description="Experiments designed to put methods in practice."),
+        Field(description="Methods used to verify the claims."),
     ]
 
     @override
@@ -71,10 +64,6 @@ class GPTGraph(GPTGraphBase):
             entity(self.tldr, EntityType.TLDR),
             *(entity(c.label, EntityType.CLAIM, c.detail) for c in self.claims),
             *(entity(m.label, EntityType.METHOD, m.detail) for m in self.methods),
-            *(
-                entity(x.label, EntityType.EXPERIMENT, x.detail)
-                for x in self.experiments
-            ),
         ]
 
         relationships = [
@@ -108,15 +97,6 @@ class GPTGraph(GPTGraphBase):
                 for c in self.claims
                 for midx in c.method_indices
                 if (target := at(self.methods, midx, "claim->method", title))
-            ),
-            *(
-                Relationship(
-                    source=label_map[m.label, EntityType.METHOD],
-                    target=label_map[target.label, EntityType.EXPERIMENT],
-                )
-                for m in self.methods
-                for eidx in m.experiment_indices
-                if (target := at(self.experiments, eidx, "method->exp", title))
             ),
         ]
 
@@ -158,28 +138,4 @@ class MethodEntity(BaseModel):
     detail: Annotated[str, Field(description="Detail text about the method.")]
     index: Annotated[
         int, Field(description="Index for this method in the `methods` list")
-    ]
-    experiment_indices: Annotated[
-        Sequence[int],
-        Field(
-            description="Indices for the `experiments` connected to this method in the "
-            " `experiments` list. There must be at least one connected `experiment`."
-        ),
-    ]
-
-
-class ExperimentEntity(BaseModel):
-    # @TODO: Improve naming and description of label/detail.
-    """Entity representing an experiment used to validate a method from the paper."""
-
-    label: Annotated[
-        str,
-        Field(
-            description="Summary label of an experiment used to validate the methods from"
-            " the paper."
-        ),
-    ]
-    detail: Annotated[str, Field(description="Detail text about the experiment.")]
-    index: Annotated[
-        int, Field(description="Index for this experiment in the `experiments` list")
     ]
