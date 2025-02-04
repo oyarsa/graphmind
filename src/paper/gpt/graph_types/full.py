@@ -129,7 +129,6 @@ class GPTGraph(GPTGraphBase):
 
 
 class ClaimEntity(BaseModel):
-    # @TODO: Improve naming and description of label/detail.
     """Entity representing a claim made in the paper."""
 
     label: Annotated[
@@ -139,20 +138,20 @@ class ClaimEntity(BaseModel):
     method_indices: Annotated[
         Sequence[int],
         Field(
-            description="Indices for the `methods` connected to this claim in the `methods`"
-            " list. There must be at least one connected `method`."
+            description="Indices for the `methods` connected to this claim in the"
+            " `methods` list. There must be at least one connected `method`."
         ),
     ]
 
 
 class MethodEntity(BaseModel):
-    # @TODO: Improve naming and description of label/detail.
     """Entity representing a method described in the paper to support the claims."""
 
     label: Annotated[
         str,
         Field(
-            description="Summary label of a method used to validate claims from the paper."
+            description="Summary label of a method used to validate claims from the"
+            " paper."
         ),
     ]
     detail: Annotated[str, Field(description="Detail text about the method.")]
@@ -169,14 +168,13 @@ class MethodEntity(BaseModel):
 
 
 class ExperimentEntity(BaseModel):
-    # @TODO: Improve naming and description of label/detail.
     """Entity representing an experiment used to validate a method from the paper."""
 
     label: Annotated[
         str,
         Field(
-            description="Summary label of an experiment used to validate the methods from"
-            " the paper."
+            description="Summary label of an experiment used to validate the methods"
+            " from the paper."
         ),
     ]
     detail: Annotated[str, Field(description="Detail text about the experiment.")]
