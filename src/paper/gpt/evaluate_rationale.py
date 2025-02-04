@@ -261,10 +261,14 @@ class GPTRationaleEval(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     fluency: Annotated[
-        int, Field(description="How fluent the text is. Score from 1 to 5.")
+        int, Field(description="How well-written the text is. Score from 1 to 5.")
     ]
-    soundenss: Annotated[
-        int, Field(description="How sound the text is. Score from 1 to 5.")
+    faithfulness: Annotated[
+        int,
+        Field(
+            description="How the rationale justifies the novety rating. Score from 1"
+            " to 5."
+        ),
     ]
     logical: Annotated[
         int,
@@ -279,14 +283,14 @@ class GPTRationaleEval(BaseModel):
         """All metrics in dictionary form."""
         return {
             "fluency": self.fluency,
-            "soundness": self.soundenss,
+            "faithfulness": self.faithfulness,
             "logical": self.logical,
         }
 
     @classmethod
     def empty(cls) -> Self:
         """Empty rationale eval with default values (all 1s)."""
-        return cls(fluency=1, soundenss=1, logical=1)
+        return cls(fluency=1, faithfulness=1, logical=1)
 
 
 class GraphWithEval(GraphResult):
@@ -341,6 +345,7 @@ def format_template(paper: PaperResult, rationale: str, prompt: PromptTemplate) 
     return prompt.template.format(
         title=paper.title,
         abstract=paper.abstract,
+        rating=paper.y_pred,
         rationale=rationale,
     )
 
