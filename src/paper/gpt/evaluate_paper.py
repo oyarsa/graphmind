@@ -59,7 +59,7 @@ class RatingStats(BaseModel):
         """Calculate stats from sequence of values."""
         return cls(
             mean=statistics.mean(values),
-            stdev=statistics.stdev(values),
+            stdev=statistics.stdev(values) if len(values) > 2 else 0,
             median=statistics.median(values),
         )
 

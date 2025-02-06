@@ -34,6 +34,9 @@ class PaperReview(BaseModel):
     ]
     confidence: Annotated[int | None, Field(description="Confidence from the reviewer")]
     rationale: Annotated[str, Field(description="Explanation given for the rating")]
+    other_ratings: Annotated[
+        dict[str, int], Field(description="Other available ratings")
+    ] = {}
 
 
 class ContextPolarity(StrEnum):

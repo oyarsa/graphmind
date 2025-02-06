@@ -9,6 +9,7 @@ UTF-8.
 Use the `peerread.download` program to download the data.
 """
 
+import contextlib
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -35,6 +36,7 @@ class _Review(BaseModel):
     rationale: str
     rating: int
     confidence: int | None
+    other_ratings: dict[str, int]
 
 
 class _PaperReviews(BaseModel):
@@ -185,11 +187,20 @@ def _process_reviews(directory: Path) -> dict[str, _PaperReviews]:
             if originality is None:
                 continue
 
+            other_ratings: dict[str, int] = {}
+            for key, val in review.items():
+                if key.upper() in ["ORIGINALITY", "REVIEWER_CONFIDENCE"]:
+                    continue
+
+                with contextlib.suppress(ValueError, TypeError):
+                    other_ratings[key.lower()] = int(val)
+
             filtered_reviews.append(
                 _Review(
                     rationale=get_icase(review, "comments", ""),
                     rating=originality,
                     confidence=get_icase(review, "REVIEWER_CONFIDENCE", 0),
+                    other_ratings=other_ratings,
                 )
             )
 
@@ -323,7 +334,10 @@ def _merge_review_metadata(
                 approval=review.accepted,
                 reviews=[
                     PaperReview(
-                        rating=r.rating, rationale=r.rationale, confidence=r.confidence
+                        rating=r.rating,
+                        rationale=r.rationale,
+                        confidence=r.confidence,
+                        other_ratings=r.other_ratings,
                     )
                     for r in review.reviews
                 ],
