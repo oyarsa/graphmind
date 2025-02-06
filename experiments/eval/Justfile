@@ -2,7 +2,7 @@ root := `git rev-parse --show-toplevel`
 eval_cmd := "uv run gpt eval"
 
 # Configuration selector
-demos := env("DEMOS", "eval_4")
+demos := env("DEMOS", "review_clean_5_1")
 model := env("MODEL", "4o-mini")
 data := env("DATA", "subset")
 num_items := env("N", "0")
@@ -27,8 +27,6 @@ data_full := if data == "full" {
 
 eval_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_full
 output := root+"/"+output_dir+"/eval/graph/"+data+"/"+model+"/"+demos
-
-ablation_output := root+"/"+output_dir+"/graph-ablation/"+data+"/"+model+"/"+demos
 
 _default:
     @echo "Environment variables:"
@@ -80,23 +78,27 @@ all-graphs: (_t "Run all main graph versions and show metrics")
     @just graph-all
     @just metrics
 
+fluent_output := root+"/"+output_dir+"/graph-fluent/"+data+"/"+model+"/"+demos
+
 # Graph evaluation with fluent linearisation
 _graph-fluent prompt:
-    {{eval_cmd}} graph run {{eval_flags}} --linearisation fluent --output {{output}}/graph/{{prompt}} --eval-prompt {{prompt}}
+    {{eval_cmd}} graph run {{eval_flags}} --linearisation fluent \
+        --output {{fluent_output}}/{{prompt}} \
+        --eval-prompt {{prompt}}
 
 # Graph-eval with full graph prompt
 [group: 'graph-fluent']
-graph-fluent-all: (_t "Running graph evaluation - main graph mode")
+graph-fluent-all: (_t "Running graph evaluation - fluent main graph mode")
     @just _graph-fluent full-graph
 
 # Graph-eval with title and graph prompt
 [group: 'graph-fluent']
-graph-fluent-title: (_t "Running graph evaluation - title-only graph")
+graph-fluent-title: (_t "Running graph evaluation - fluent title-only graph")
     @just _graph-fluent title-graph
 
 # Graph-eval with only graphs prompt
 [group: 'graph-fluent']
-graph-fluent-only: (_t "Running graph evaluation - graphs only")
+graph-fluent-only: (_t "Running graph evaluation - fluent graphs only")
     @just _graph-fluent only-graph
 
 # Run all fluent graph versions
@@ -148,6 +150,8 @@ metrics:
     #!/usr/bin/env fish
     echo "Metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{output}}/**/metrics.json
+
+ablation_output := root+"/"+output_dir+"/graph-ablation/"+data+"/"+model+"/"+demos
 
 # Graph evaluation - graph component ablation
 _graph-ablation eval-prompt graph-prompt:
@@ -214,25 +218,24 @@ _peter-semantic-ablation eval-prompt graph-prompt:
         --eval-prompt {{eval-prompt}} \
         --graph-prompt {{graph-prompt}}
 
-# Full graph with cited-only PETER
+# Full graph with semantic-only PETER
 [group: 'peter-ablation']
-peter-cited-full: (_t "Full graph with cited-only PETER")
+peter-cited-full: (_t "Running full graph with cited-only PETER")
     @just _peter-cited-ablation full-graph full
 
 # Full graph with semantic-only PETER
 [group: 'peter-ablation']
-peter-semantic-full: (_t "Full graph with semantic-only PETER")
+peter-semantic-full: (_t "Running full graph with semantic-only PETER")
     @just _peter-semantic-ablation full-graph full
 
 # Full graph with no PETER related papers
 [group: 'peter-ablation']
-peter-norel: (_t "Full graph with no PETER papers")
+peter-norel: (_t "Running full graph with no PETER papers")
     @just _graph norel-graph
 
 # Run both semantic and cited PETER ablations
 [group: 'peter-ablation']
 peter-ablation-all: (_t "Running PETER ablation - cited and semantic-only")
-    @just peter-cited-full
     @just peter-semantic-full
     @just peter-norel
     @just peter-ablation-metrics
@@ -255,13 +258,15 @@ rationale:
 all-metrics:
     #!/usr/bin/env fish
     echo "Metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
-    {{root}}/scripts/experiments/show_eval_results.fish {{output}}/**/metrics.json
+    {{root}}/scripts/experiments/show_eval_results.fish {{root}}/{{output_dir}}/**/metrics.json
 
 # Run all experiments for paper output
 all-experiments: (_t "Running ALL experiments")
-    @just _t "Basic graph versions"
+    @just _t "Baselines"
     @just graph-sans
     @just graph-related
+
+    @just _t "Basic graph versions"
     @just graph-only
     @just graph-title
     @just graph-all
@@ -272,7 +277,6 @@ all-experiments: (_t "Running ALL experiments")
     @just graph-fluent-all
 
     @just _t "Graph ablations"
-    @just graph-ablation-full
     @just graph-ablation-nomethod
     @just graph-ablation-noexp
     @just graph-ablation-nodetail
