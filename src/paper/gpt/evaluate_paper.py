@@ -1,11 +1,12 @@
 """Tools for evaluating paper novelty, displaying and calculating metrics."""
 
 import logging
+import statistics
 from collections.abc import Sequence
 from enum import StrEnum
 from importlib import resources
 from pathlib import Path
-from typing import Annotated, NamedTuple, Self, cast
+from typing import Annotated, Self, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -44,28 +45,49 @@ class PaperResult(s2.PaperWithS2Refs):
         )
 
 
-class Labels(NamedTuple):
-    """Prediction and ground truth labels."""
+class RatingStats(BaseModel):
+    """Mean/stdev/median stats on novelty ratings."""
 
-    y_preds: Sequence[int]
-    y_trues: Sequence[int]
+    model_config = ConfigDict(frozen=True)
 
+    mean: float
+    stdev: float
+    median: float
 
-def _get_ys(papers: Sequence[PaperResult]) -> Labels:
-    return Labels(
-        y_preds=[p.y_true for p in papers], y_trues=[p.y_pred for p in papers]
-    )
+    @classmethod
+    def calc(cls, values: Sequence[int]) -> Self:
+        """Calculate stats from sequence of values."""
+        return cls(
+            mean=statistics.mean(values),
+            stdev=statistics.stdev(values),
+            median=statistics.median(values),
+        )
 
 
 class PaperMetrics(evaluation_metrics.Metrics):
     """Evaluation metrics with total API cost."""
 
     cost: float
+    stats_pred: RatingStats
+    stats_true: RatingStats
 
     @classmethod
-    def from_eval(cls, eval: evaluation_metrics.Metrics, cost: float) -> Self:
+    def from_eval(
+        cls,
+        eval: evaluation_metrics.Metrics,
+        cost: float,
+        y_true: Sequence[int],
+        y_pred: Sequence[int],
+    ) -> Self:
         """Build metrics with cost from standard evaluation metrics."""
-        return cls.model_validate(eval.model_dump() | {"cost": cost})
+        return cls.model_validate(
+            eval.model_dump()
+            | {
+                "cost": cost,
+                "stats_pred": RatingStats.calc(y_pred),
+                "stats_true": RatingStats.calc(y_true),
+            }
+        )
 
 
 def calculate_paper_metrics(
@@ -75,8 +97,11 @@ def calculate_paper_metrics(
 
     See also `paper.evaluation_metrics.calculate_metrics`.
     """
+    y_pred = [p.y_pred for p in papers]
+    y_true = [p.y_true for p in papers]
+
     return PaperMetrics.from_eval(
-        evaluation_metrics.calculate_metrics(*_get_ys(papers)), cost
+        evaluation_metrics.calculate_metrics(y_true, y_pred), cost, y_true, y_pred
     )
 
 

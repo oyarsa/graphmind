@@ -6,6 +6,7 @@ demos := env("DEMOS", "eval_4")
 model := env("MODEL", "4o-mini")
 data := env("DATA", "subset")
 num_items := env("N", "0")
+output_dir := env("OUTPUT", "output")
 
 # Number of items
 n := if data == "full" { "125" } else { num_items }
@@ -25,9 +26,9 @@ data_full := if data == "full" {
 }
 
 eval_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_full
-output := root+"/output/eval/graph/"+data+"/"+model+"/"+demos
+output := root+"/"+output_dir+"/eval/graph/"+data+"/"+model+"/"+demos
 
-ablation_output := root+"/output/graph-ablation/"+data+"/"+model+"/"+demos
+ablation_output := root+"/"+output_dir+"/graph-ablation/"+data+"/"+model+"/"+demos
 
 _default:
     @echo "Environment variables:"
@@ -72,6 +73,8 @@ graph-only: (_t "Running graph evaluation - graphs only")
 # Run all graph versions
 [group: 'graph']
 all-graphs: (_t "Run all main graph versions and show metrics")
+    @just graph-sans
+    @just graph-related
     @just graph-only
     @just graph-title
     @just graph-all
@@ -149,7 +152,7 @@ metrics:
 # Graph evaluation - graph component ablation
 _graph-ablation eval-prompt graph-prompt:
     {{eval_cmd}} graph run {{eval_flags}} \
-        --output {{ablation_output}}/{{graph-prompt}}-{{eval-prompt}} \
+        --output {{ablation_output}}/g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
         --graph-prompt {{graph-prompt}}
 
@@ -195,19 +198,19 @@ cited_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " 
 data_semantic := root + "/output/peter_c0_s2_sum/result.json"
 semantic_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_semantic
 
-peter_ablation_output := root+"/output/peter-ablation/"+data+"/"+model+"/"+demos
+peter_ablation_output := root+"/"+output_dir+"/peter-ablation/"+data+"/"+model+"/"+demos
 
 # Cited-only PETER
 _peter-cited-ablation eval-prompt graph-prompt:
     {{eval_cmd}} graph run {{cited_flags}} \
-        --output {{peter_ablation_output}}/cited-{{graph-prompt}}-{{eval-prompt}} \
+        --output {{peter_ablation_output}}/cited-g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
         --graph-prompt {{graph-prompt}}
 
 # Cited-only PETER
 _peter-semantic-ablation eval-prompt graph-prompt:
     {{eval_cmd}} graph run {{semantic_flags}} \
-        --output {{peter_ablation_output}}/semantic-{{graph-prompt}}-{{eval-prompt}} \
+        --output {{peter_ablation_output}}/semantic-g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
         --graph-prompt {{graph-prompt}}
 
@@ -242,7 +245,41 @@ peter-ablation-metrics:
 
 rationale_data := root+"/output/eval/4o/graph/full-graph/result.json"
 rationale_flags := " -n " + n + " -m " + model +  " --graphs " + rationale_data
+rationale_output := root+"/"+output_dir+"/eval-rationale/{{model}}"
 
 # Run rationale evaluation on GPT 4o output
 rationale:
-    {{eval_cmd}} rationale run {{rationale_flags}} --output output/eval-rationale/{{model}}
+    {{eval_cmd}} rationale run {{rationale_flags}} --output {{rationale_output}}
+
+# Metrics for all experiments for paper output
+all-metrics:
+    #!/usr/bin/env fish
+    echo "Metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
+    {{root}}/scripts/experiments/show_eval_results.fish {{output}}/**/metrics.json
+
+# Run all experiments for paper output
+all-experiments: (_t "Running ALL experiments")
+    @just _t "Basic graph versions"
+    @just graph-sans
+    @just graph-related
+    @just graph-only
+    @just graph-title
+    @just graph-all
+
+    @just _t "Fluent graph versions"
+    @just graph-fluent-only
+    @just graph-fluent-title
+    @just graph-fluent-all
+
+    @just _t "Graph ablations"
+    @just graph-ablation-full
+    @just graph-ablation-nomethod
+    @just graph-ablation-noexp
+    @just graph-ablation-nodetail
+
+    @just _t "Peter ablations"
+    @just peter-cited-full
+    @just peter-semantic-full
+    @just peter-norel
+
+    @just all-metrics
