@@ -1,0 +1,37 @@
+Paper summary:
+title: SIGMA-DELTA QUANTIZED NETWORKS
+
+primary_area: optimization
+
+keyword: Sigma-Delta networks
+
+keyword: temporal difference
+
+keyword: discretization
+
+keyword: computational efficiency
+
+keyword: deep neural networks
+
+tldr: The paper introduces Sigma-Delta networks, which reduce computational costs by scaling computation with changes in input and layer activations, rather than network size, using a novel optimization method.
+
+claim: Sigma-Delta networks reduce computational costs
+Sigma-Delta networks scale computation with changes in input and layer activations, reducing computational costs significantly compared to traditional networks.
+
+claim: Optimization method for Sigma-Delta networks
+The paper introduces an optimization method for converting pre-trained networks into Sigma-Delta networks, balancing error and computation.
+
+method: Temporal difference and integration modules
+The method involves using temporal difference (∆T) and temporal integration (ΣT) modules to process changes in input sequentially, reducing computation based on input similarity.
+
+method: Optimization of layer scales
+The method optimizes layer scales to balance computation and error, using a tradeoff parameter λ to adjust the precision of discretization.
+
+experiment: Toy problem with random network
+A 2-layer ReLU network with random weights is used to verify the optimization method, showing a balance between error and computation.
+
+experiment: Temporal-MNIST experiment
+The experiment uses a reshuffled MNIST dataset to simulate temporal sequences, testing the Sigma-Delta network's efficiency in computation with temporal data.
+
+experiment: Deep convolutional network on video
+A VGG 19 network is tested on video data to explore Sigma-Delta networks' performance, showing significant computation savings with modest accuracy loss.

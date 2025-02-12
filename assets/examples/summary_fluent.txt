@@ -1,0 +1,14 @@
+Paper summary:
+This paper is titled 'IMPROVING NEURAL LANGUAGE MODELS WITH A CONTINUOUS CACHE'. It's about representation learning for computer vision, audio, language, and other modalities. The key contributions are:
+
+1. Neural Cache Model improves language model performance: The proposed Neural Cache Model significantly outperforms recent memory augmented networks on several language model datasets by efficiently adapting to recent history. This is done with:
+  1.1. Neural Cache Model: A continuous version of the cache model that stores recent hidden activations as memory and uses them for prediction through a dot product with the current hidden activation. It requires no training and can be used on any pre-trained neural networks. This method is validated by these experiments:
+    1.1.1. Small Scale Experiments on Penn Tree Bank and wikitext2: Evaluated the Neural Cache Model on small datasets like Penn Tree Bank and wikitext2, showing competitive performance with state-of-the-art models and significant improvements with larger cache sizes.
+    1.1.2. Medium Scale Experiments on text8 and wikitext103: Tested the Neural Cache Model on medium scale datasets text8 and wikitext103, demonstrating the model's ability to exploit larger cache sizes and improve perplexity over LSTM baselines.
+    1.1.3. Experiments on the LAMBADA dataset: Conducted experiments on the LAMBADA dataset, where the Neural Cache Model significantly improved performance over LSTM baselines, highlighting its ability to handle long-term context.
+
+2. Neural Cache Model is computationally efficient: The Neural Cache Model scales to very large memory sizes with negligible computational cost, unlike traditional memory-augmented networks. This is done with:
+  2.1. Neural Cache Model: A continuous version of the cache model that stores recent hidden activations as memory and uses them for prediction through a dot product with the current hidden activation. It requires no training and can be used on any pre-trained neural networks. This method is validated by these experiments:
+    2.1.1. Small Scale Experiments on Penn Tree Bank and wikitext2: Evaluated the Neural Cache Model on small datasets like Penn Tree Bank and wikitext2, showing competitive performance with state-of-the-art models and significant improvements with larger cache sizes.
+    2.1.2. Medium Scale Experiments on text8 and wikitext103: Tested the Neural Cache Model on medium scale datasets text8 and wikitext103, demonstrating the model's ability to exploit larger cache sizes and improve perplexity over LSTM baselines.
+    2.1.3. Experiments on the LAMBADA dataset: Conducted experiments on the LAMBADA dataset, where the Neural Cache Model significantly improved performance over LSTM baselines, highlighting its ability to handle long-term context.

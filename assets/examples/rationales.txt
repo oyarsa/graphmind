@@ -1,0 +1,26 @@
+> Gold rationale:
+-------
+This is an interesting paper about quantized networks that work on temporal difference inputs.  The basic idea is that when a network has only to process differences then this is computational much more efficient specifically with natural video data since large parts of an image would be fairly constant so that the network only has to process the informative sections of the image (video stream). This is of course how the human visual system works, and it is hence of interest even beyond the core machine learning community. 
+
+As an aside, there is a strong community interested in event-based vision such as the group of Tobi Delbrück, and it might be interesting to connect to this community. This might even provide a reference for your comments on page 1.
+
+I guess the biggest novel contribution is that a rounding network can be replaced by a sigma-delta network, but that the order of discretization and summation doe make some difference in the actual processing load. I think I followed the steps and 
+Most of my questions have already been answers in the pre-review period. My only question remaining is on page 3, “It should be noted that when we refer to “temporal differences”, we refer not to the change in the signal over time, but in the change between two inputs presented sequentially. The output of our network only depends on the value and order of inputs, not on the temporal spacing between them.”
+
+This does not make sense to me. As I understand you just take the difference between two frames regardless if you call this temporal or not it is a change in one frame. So this statement rather confuses me and maybe should be dropped unless I do miss something here, in which case some more explanation would be necessary.
+
+Figure 1 should be made bigger.
+
+An improvement of the paper that I could think about is a better discussion of the relevance of the findings. Yes, you do show that your sigma-delta network save some operation compared to threshold, but is this difference essential for a specific task, or does your solution has relevance for neuroscience? 
+
+================
+
+> Predicted rationale:
+-------
+The main paper introduces Sigma-Delta networks, which aim to reduce computational costs by scaling computation with changes in input and layer activations, rather than the size of the network. This approach is novel in the sense that it proposes a dynamic computation model that adapts to input changes, which is a departure from traditional static computation models in deep neural networks. The paper also presents an optimization method for converting pre-trained networks into Sigma-Delta networks, which is a practical contribution to the field.
+
+The supporting papers reinforce the novelty of the main paper by highlighting similar goals of improving computational efficiency in neural networks. For instance, the paper on Deep Spiking Networks shares a similar principle of event-driven processing, which supports the novelty of the Sigma-Delta approach. Other supporting papers, like those on structured sparsity and quantization, also align with the main paper's focus on efficiency, suggesting that the Sigma-Delta networks are part of a broader trend towards more efficient neural network architectures.
+
+The contrasting papers provide alternative approaches to achieving computational efficiency, such as predictive-corrective networks and filter pruning. These papers highlight different methodologies, such as rethinking network design or preemptively reducing model complexity, which contrast with the Sigma-Delta approach of dynamically scaling computation. This contrast underscores the novelty of the Sigma-Delta networks in offering a unique solution to the problem of computational waste in video processing.
+
+Overall, the main paper presents a novel approach to reducing computational costs in neural networks, particularly in the context of video processing. While the concept of dynamic computation is not entirely new, the specific implementation and optimization method for Sigma-Delta networks contribute a fresh perspective to the field. Therefore, the paper deserves a high novelty rating.
