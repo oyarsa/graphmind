@@ -21,6 +21,7 @@ dependencies = [
     "aiolimiter>=1.1.0",
     "sentence-transformers>=3.3.0",
     "polars>=1.16.0",
+    "openreview-py>=1.46.3",
 ]
 
 [dependency-groups]
