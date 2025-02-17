@@ -1,13 +1,17 @@
 """Fetch conference paper data from the OpenReview API."""
 
 # pyright: basic
+import asyncio
 import json
 import sys
 from pathlib import Path
 from typing import Annotated, Any
 
+import aiohttp
 import typer
 from openreview import api
+
+from paper.util import progress
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -15,11 +19,73 @@ app = typer.Typer(
     rich_markup_mode="rich",
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,
+    help=__doc__,
 )
 
 
-@app.command(help=__doc__, no_args_is_help=True)
-def main(
+@app.command(no_args_is_help=True)
+def pdfs(
+    input_file: Annotated[
+        Path, typer.Option("--input", "-i", help="Path to downloaded OpenReview data.")
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Path to output directory for the PDFs."),
+    ],
+    max_concurrent: Annotated[
+        int,
+        typer.Option(
+            "--max-concurrent", "-j", help="Maximum number of concurrent downloads"
+        ),
+    ] = 10,
+    num_papers: Annotated[
+        int | None,
+        typer.Option(
+            "--num-papers",
+            "-n",
+            help="How many papers to download. If None, downloads all.",
+        ),
+    ] = None,
+) -> None:
+    """Download PDFs from OpenReview data."""
+    asyncio.run(_pdfs(input_file, output_dir, max_concurrent, num_papers))
+
+
+async def _pdfs(
+    input_file: Path, output_dir: Path, max_concurrent: int, num_papers: int | None
+) -> None:
+    papers: list[dict[str, Any]] = json.loads(input_file.read_bytes())[:num_papers]
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    downloaded_n = 0
+    semaphore = asyncio.Semaphore(max_concurrent)
+    async with aiohttp.ClientSession(raise_for_status=True) as session:
+        tasks = [
+            _download_to_file(session, semaphore, paper["content"]["pdf"]["value"])
+            for paper in papers
+        ]
+        for paper, task in zip(papers, progress.as_completed(tasks)):
+            name = paper["content"]["title"]["value"]
+            try:
+                result = await task
+                (output_dir / f"{name}.pdf").write_bytes(result)
+                downloaded_n += 1
+            except Exception as e:
+                print(f"Error downloading '{name}': {e}")
+
+    print(f"Downloaded {downloaded_n} papers.")
+
+
+async def _download_to_file(
+    session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, path: str
+) -> bytes:
+    url = f"https://openreview.net{path}"
+    async with semaphore, session.get(url) as response:
+        return await response.read()
+
+
+@app.command(no_args_is_help=True)
+def reviews(
     output_dir: Annotated[
         Path, typer.Argument(help="Output directory for OpenReview data.")
     ],
@@ -27,7 +93,7 @@ def main(
         str, typer.Option(help="Venue ID to fetch data.")
     ] = "ICLR.cc/2024/Conference",
 ) -> None:
-    """Download all notes for a given conference."""
+    """Download all reviews and metadata for papers from a given conference."""
     client = api.OpenReviewClient(baseurl="https://api2.openreview.net")
 
     venue_group = client.get_group(venue_id).content
