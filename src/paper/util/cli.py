@@ -35,7 +35,7 @@ def die(message: Any, code: int = 1, prefix: str | None = "Error:") -> NoReturn:
         print(file=sys.stderr)
 
     if prefix:
-        print(prefix, end=" ")
+        print(prefix, end=" ", file=sys.stderr)
     print(message, file=sys.stderr)
     sys.exit(code)
 

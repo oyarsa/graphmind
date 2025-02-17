@@ -1,0 +1,35 @@
+The following data contains information about a scientific paper. It includes the
+paper's title, abstract, and the main text. The goal is to represent all the relevant
+information from the paper as a graph.
+
+Your task is to extract entities of the following types and the relationships between
+them. All entities must have different text descriptions.
+- `title`: the title of the paper.
+- `primary_area`: what scientific primary area the paper is from. It must be one from
+the following list: unsupervised, self-supervised, semi-supervised, and supervised representation learning, transfer learning, meta learning, and lifelong learning, reinforcement learning, representation learning for computer vision, audio, language, and other modalities, metric learning, kernel learning, and sparse coding, probabilistic methods (Bayesian methods, variational inference, sampling, UQ, etc.), generative models, causal reasoning, optimization, learning theory, learning on graphs and other geometries & topologies, societal considerations including fairness, safety, privacy, visualization or interpretation of learned representations, datasets and benchmarks, infrastructure, software libraries, hardware, etc., neurosymbolic & hybrid AI systems (physics-informed, logic & formal reasoning, etc.), applications to robotics, autonomy, planning, applications to neuroscience & cognitive science, applications to physical sciences (physics, chemistry, biology, etc.), general machine learning (i.e., none of the above).
+- `tldr`: a sentence that summarises the paper from the abstract.
+- `claim`: summarise what the paper claims to contribute, especially claims made in the
+abstract, introduction, discussion and conclusion. Pay attention to the key phrases
+that highlight new findings or interpretations.
+- `method`: for each `claim`, identify the methods used to validate the claims from the
+method sections. These include the key components: algorithms, theoretical framework
+or novel techniques introduced.
+- `experiment`: what models, baselines, datasets, etc. were used in experiments to
+validate the `methods`.
+
+Extract these entities and the relationships between them. The paper `title` is the root
+entity. You must follow these rules when generating the entities and relationships:
+
+- The `title` connects to the `primary_area`, the `keywords` and the `tldr` sentence.
+- The `tldr` sentence connects to all the claims.
+- Each `claim` must connect to one or more `methods`.
+- Each `method` must connect to one or more `experiments`.
+- Every `method` and `experiment` must connected to at least one entity.
+- Each `method` has a unique index starting from 0. These are indices from the `methods`
+  list in the graph. `claims` will connect to methods by these indices.
+- Each `experiment` has a unique index starting from 0. These are indices from the
+  `experiments` list in the graph. `methods` will connect to experiments by these
+  indices.
+
+All entity types should be present in the output. None of the lists in the output can be
+empty.

@@ -7,10 +7,11 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 from tqdm import tqdm
 
 from paper import peerread as pr
+from paper.gpt.evaluate_paper import RatingStats
 from paper.util.serde import load_data, save_data
 
 AspectLabel = tuple[int, int, str]
@@ -71,6 +72,12 @@ class PaperWithAspect(pr.Paper):
     """PeerRead paper with added aspect information from ASAP."""
 
     aspect_reviews: list[PaperReviewWithAspect]
+
+    @computed_field
+    @property
+    def has_aspect(self) -> bool:
+        """True if the paper has at least one matching review with aspect information."""
+        return any(r.aspect_labels for r in self.aspect_reviews)
 
 
 def find_matching_review(
@@ -138,12 +145,55 @@ def main(
         _norm_title(title): id_ for id_, title in asap_id_to_title.items()
     }
 
-    # Track matching statistics
-    total_matched_reviews: list[PaperReviewWithAspect] = []
-    papers_with_matches: list[PaperWithAspect] = []
+    papers_with_aspects = _match_papers_with_aspects(
+        peer_titles, asap_title_to_id, asap_aspect_orig, similarity_threshold
+    )
+    total_matched_reviews = sum(
+        sum(bool(r.aspect_labels) for r in p.aspect_reviews)
+        for p in papers_with_aspects
+    )
+    at_least_one_matching_n = sum(p.has_aspect for p in papers_with_aspects)
 
-    # Create enhanced papers with aspects
+    print(f"Total matched reviews: {total_matched_reviews=}")
+    print(f"Papers with at least one matching aspect: {at_least_one_matching_n=}")
+
+    save_data(output_file, papers_with_aspects)
+
+    without_aspect = [p for p in papers_with_aspects if not p.has_aspect]
+    with_aspect = [p for p in papers_with_aspects if p.has_aspect]
+    print(f"With aspect: {len(with_aspect)}")
+    print(f"Without aspect: {len(without_aspect)}")
+
+    stats_all = RatingStats.calc([p.rating for p in peer_data])
+    stats_without_aspect = RatingStats.calc([p.rating for p in without_aspect])
+    stats_with_aspect = RatingStats.calc([p.rating for p in with_aspect])
+    print(f"\nALL stats:\n{stats_all}")
+    print(f"\nWITH aspect stats:\n{stats_without_aspect}")
+    print(f"\nWITHOUT aspect stats:\n{stats_with_aspect}")
+
+
+def _match_papers_with_aspects(
+    peer_titles: dict[str, pr.Paper],
+    asap_title_to_id: dict[str, str],
+    asap_aspect_orig: dict[str, Aspect],
+    similarity_threshold: float,
+) -> list[PaperWithAspect]:
+    """Match PeerRead papers with ASAP aspects and return matched reviews and papers.
+
+    Args:
+        peer_titles: Mapping of normalized titles to PeerRead papers.
+        asap_title_to_id: Mapping of normalized titles to ASAP paper IDs.
+        asap_aspect_orig: Mapping of ASAP paper IDs to their Aspect data.
+        similarity_threshold: Minimum similarity score threshold for matching.
+
+    Returns:
+        Tuple containing:
+        - List of all reviews that were matched with aspects.
+        - List of papers that had at least one matching aspect.
+        - List of all papers with aspect information (matched or empty).
+    """
     papers_with_aspects: list[PaperWithAspect] = []
+
     for norm_title, paper in tqdm(peer_titles.items(), "Matching aspects"):
         if norm_title not in asap_title_to_id:
             # No matching ASAP paper, create paper with empty aspect reviews
@@ -178,33 +228,24 @@ def main(
 
         # Create aspect reviews based on matching
         aspect_reviews: list[PaperReviewWithAspect] = []
-        has_match = False
 
         for i, review in enumerate(paper.reviews):
             if i == review_idx and score >= similarity_threshold:
-                review_with_aspect = PaperReviewWithAspect(
-                    **review.model_dump(), aspect_labels=aspect.labels
-                )
-                aspect_reviews.append(review_with_aspect)
-                total_matched_reviews.append(review_with_aspect)
-                has_match = True
+                aspect_labels = aspect.labels
             else:
-                aspect_reviews.append(
-                    PaperReviewWithAspect(**review.model_dump(), aspect_labels=[])
+                aspect_labels = []
+
+            aspect_reviews.append(
+                PaperReviewWithAspect(
+                    **review.model_dump(), aspect_labels=aspect_labels
                 )
+            )
 
-        paper_with_aspect = PaperWithAspect(
-            **paper.model_dump(), aspect_reviews=aspect_reviews
+        papers_with_aspects.append(
+            PaperWithAspect(**paper.model_dump(), aspect_reviews=aspect_reviews)
         )
-        if has_match:
-            papers_with_matches.append(paper_with_aspect)
 
-        papers_with_aspects.append(paper_with_aspect)
-
-    print(f"Total matched reviews: {len(total_matched_reviews)=}")
-    print(f"Papers with at least one matching aspect: {len(papers_with_matches)=}")
-
-    save_data(output_file, papers_with_matches)
+    return papers_with_aspects
 
 
 def _norm_title(title: str) -> str:

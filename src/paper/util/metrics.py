@@ -19,6 +19,12 @@ def pearson_correlation(x: Sequence[float], y: Sequence[float]) -> float | None:
     return float(stats.pearsonr(x, y).correlation)
 
 
+def spearman_correlation(x: Sequence[float], y: Sequence[float]) -> float:
+    """Calculate Spearman correlation coefficient between two sequences."""
+
+    return float(stats.spearmanr(x, y).statistic)  # type: ignore
+
+
 def mean_absolute_error(y_true: Sequence[float], y_pred: Sequence[float]) -> float:
     """Calculate mean absolute error between true and predicted values."""
     return float(np.mean(np.abs(np.array(y_true) - np.array(y_pred))))

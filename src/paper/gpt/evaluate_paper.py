@@ -63,6 +63,14 @@ class RatingStats(BaseModel):
             median=statistics.median(values),
         )
 
+    def __str__(self) -> str:
+        """Format stats one per line."""
+        return "\n".join([
+            f"mean   : {self.mean:.4f}",
+            f"stdev  : {self.stdev:.4f}",
+            f"median : {self.median:.4f}",
+        ])
+
 
 class PaperMetrics(evaluation_metrics.Metrics):
     """Evaluation metrics with total API cost."""
