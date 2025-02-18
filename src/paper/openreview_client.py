@@ -50,15 +50,28 @@ def pdfs(
         bool,
         typer.Option("--clean", help="If True, ignore previously downloaded files."),
     ] = False,
+    skip_file: Annotated[
+        Path | None,
+        typer.Option("--skip", help="File with paper names to skip, one per line."),
+    ] = None,
 ) -> None:
     """Download paper PDF attachments."""
     client = api.OpenReviewClient(baseurl="https://api2.openreview.net")
     notes = client.get_all_notes(invitation=f"{venue_id}/-/Submission")
-    downloaded_prev: set[str] = (
-        set()
-        if clean_run
-        else {path.stem for path in output_dir.glob("*.pdf") if path.is_file()}
-    )
+
+    downloaded_prev: set[str]
+    if clean_run:
+        downloaded_prev = set()
+    elif skip_file is not None:
+        downloaded_prev = {
+            name
+            for line in skip_file.read_text().splitlines()
+            if (name := line.strip())
+        }
+    else:
+        downloaded_prev = {
+            path.stem for path in output_dir.glob("*.pdf") if path.is_file()
+        }
 
     output_dir.mkdir(exist_ok=True, parents=True)
 
