@@ -1,17 +1,22 @@
-"""Fetch conference paper data from the OpenReview API."""
+"""Fetch conference paper data from the OpenReview API.
+
+Requires the following environment variables to be set:
+- OPENREVIEW_USERNAME
+- OPENREVIEW_PASSWORD
+
+These are the standard credentials you use to log into the OpenReview website.
+"""
 
 # pyright: basic
-import asyncio
 import json
 import sys
 from pathlib import Path
 from typing import Annotated, Any
 
-import aiohttp
+import backoff
 import typer
 from openreview import api
-
-from paper.util import progress
+from tqdm import tqdm
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -22,22 +27,17 @@ app = typer.Typer(
     help=__doc__,
 )
 
+ICLR_2024_ID = "ICLR.cc/2024/Conference"
+
 
 @app.command(no_args_is_help=True)
 def pdfs(
-    input_file: Annotated[
-        Path, typer.Option("--input", "-i", help="Path to downloaded OpenReview data.")
-    ],
     output_dir: Annotated[
-        Path,
-        typer.Option("--output", "-o", help="Path to output directory for the PDFs."),
+        Path, typer.Argument(help="Output directory for OpenReview PDF files.")
     ],
-    max_concurrent: Annotated[
-        int,
-        typer.Option(
-            "--max-concurrent", "-j", help="Maximum number of concurrent downloads"
-        ),
-    ] = 10,
+    venue_id: Annotated[
+        str, typer.Option(help="Venue ID to fetch data.")
+    ] = ICLR_2024_ID,
     num_papers: Annotated[
         int | None,
         typer.Option(
@@ -46,64 +46,65 @@ def pdfs(
             help="How many papers to download. If None, downloads all.",
         ),
     ] = None,
+    clean_run: Annotated[
+        bool,
+        typer.Option("--clean", help="If True, ignore previously downloaded files."),
+    ] = False,
 ) -> None:
-    """Download PDFs from OpenReview data."""
-    asyncio.run(_pdfs(input_file, output_dir, max_concurrent, num_papers))
+    """Download paper PDF attachments."""
+    client = api.OpenReviewClient(baseurl="https://api2.openreview.net")
+    notes = client.get_all_notes(invitation=f"{venue_id}/-/Submission")
+    downloaded_prev: set[str] = (
+        set()
+        if clean_run
+        else {path.stem for path in output_dir.glob("*.pdf") if path.is_file()}
+    )
 
-
-async def _pdfs(
-    input_file: Path, output_dir: Path, max_concurrent: int, num_papers: int | None
-) -> None:
-    papers: list[dict[str, Any]] = json.loads(input_file.read_bytes())[:num_papers]
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(exist_ok=True, parents=True)
 
     downloaded_n = 0
-    semaphore = asyncio.Semaphore(max_concurrent)
-    async with aiohttp.ClientSession(raise_for_status=True) as session:
-        tasks = [
-            _download_to_file(session, semaphore, paper["content"]["pdf"]["value"])
-            for paper in papers
-        ]
-        for paper, task in zip(papers, progress.as_completed(tasks)):
-            name = paper["content"]["title"]["value"]
+    skipped_n = 0
+    failed_n = 0
+    for note in tqdm(notes[:num_papers]):
+        if note.content.get("pdf", {}).get("value"):
+            name = note.content["title"]["value"]
+            if name in downloaded_prev:
+                skipped_n += 1
+                continue
+
             try:
-                result = await task
-                (output_dir / f"{name}.pdf").write_bytes(result)
+                data = _download_pdf(client, note.id)
+                (output_dir / f"{name}.pdf").write_bytes(data)
                 downloaded_n += 1
             except Exception as e:
-                print(f"Error downloading '{name}': {e}")
+                print(f"Error downloading paper '{name}' - {type(e)}: {e}")
+                failed_n += 1
 
-    print(f"Downloaded {downloaded_n} papers.")
+    print(f"Downloaded : {downloaded_n}")
+    print(f"Skipped    : {skipped_n}")
+    print(f"Failed     : {failed_n}")
 
 
-async def _download_to_file(
-    session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, path: str
-) -> bytes:
-    url = f"https://openreview.net{path}"
-    async with semaphore, session.get(url) as response:
-        return await response.read()
+@backoff.on_exception(backoff.expo, Exception, max_tries=5)
+def _download_pdf(client: api.OpenReviewClient, note_id: str) -> bytes:
+    if data := client.get_attachment(note_id, "pdf"):
+        return data
+    raise ValueError("Empty attachment")
 
 
 @app.command(no_args_is_help=True)
 def reviews(
     output_dir: Annotated[
-        Path, typer.Argument(help="Output directory for OpenReview data.")
+        Path, typer.Argument(help="Output directory for OpenReview reviews file.")
     ],
     venue_id: Annotated[
         str, typer.Option(help="Venue ID to fetch data.")
-    ] = "ICLR.cc/2024/Conference",
+    ] = ICLR_2024_ID,
 ) -> None:
     """Download all reviews and metadata for papers from a given conference."""
     client = api.OpenReviewClient(baseurl="https://api2.openreview.net")
-
-    venue_group = client.get_group(venue_id).content
-    if venue_group is None:
-        print(f"Invalid venue ID: '{venue_id}'")
-        sys.exit(1)
-
-    submission_name = venue_group["submission_name"]["value"]
     submissions_raw = client.get_all_notes(
-        invitation=f"{venue_id}/-/{submission_name}", details="replies"
+        invitation=f"{venue_id}/-/Submission", details="replies"
     )
     if not submissions_raw:
         print("Empty submissions list")
