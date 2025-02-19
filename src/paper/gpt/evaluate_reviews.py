@@ -341,6 +341,7 @@ async def evaluate_reviews(
 
 
 def _display_label_dist(papers: Sequence[pr.Paper], mode: RatingMode) -> str:
+    """Display the gold label distribution for the papers in the given `mode`."""
     gold_dist = Counter(
         apply_rating_mode(r.rating, mode) for p in papers for r in p.reviews
     )

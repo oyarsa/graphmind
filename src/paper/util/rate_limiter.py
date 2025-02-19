@@ -76,15 +76,24 @@ class Buckets:
         self.buckets = buckets
 
     def _get_capacities(self, current_time: float) -> list[float]:
+        """Get capacities for all buckets."""
         return [
             bucket.get_capacity(current_time=current_time) for bucket in self.buckets
         ]
 
     def _set_capacities(self, new_capacities: list[float], current_time: float) -> None:
+        """Set capacities for all buckets using `new_capacities` with `current_time`.
+
+        Capacities should be in order for each bucket.
+        """
         for new_capacity, bucket in zip(new_capacities, self.buckets):
             bucket.set_capacity(new_capacity, current_time=current_time)
 
     def _has_capacity(self, amounts: list[float]) -> bool:
+        """Check if all buckets have the capacity for the requested `amounts`.
+
+        Amounts should be in order for each bucket.
+        """
         current_time = time.time()
         new_capacities = self._get_capacities(current_time=current_time)
 

@@ -99,8 +99,20 @@ def pdfs(
 
 
 @backoff.on_exception(backoff.expo, Exception, max_tries=5)
-def _download_pdf(client: api.OpenReviewClient, note_id: str) -> bytes:
-    if data := client.get_attachment(note_id, "pdf"):
+def _download_pdf(client: api.OpenReviewClient, paper_id: str) -> bytes:
+    """Download PDF attachment from `paper_id` as bytes.
+
+    Args:
+        client: OpenReview client.
+        paper_id: ID of the paper to be downloaded in OpenReview.
+
+    Returns:
+        Content of the paper PDF in bytes.
+
+    Raises:
+        ValueError: if the attachment downloaded is empty.
+    """
+    if data := client.get_attachment(paper_id, "pdf"):
         return data
     raise ValueError("Empty attachment")
 
@@ -135,6 +147,7 @@ def reviews(
 
 
 def _note_to_dict(note: api.Note) -> dict[str, Any]:
+    """Convert OpenReview API `Note` to dict with additional `details` object."""
     return note.to_json() | {"details": note.details}
 
 
@@ -149,14 +162,20 @@ def _is_valid(paper: dict[str, Any], rating: str) -> bool:
 
 
 def _review_has_rating(review: dict[str, Any], name: str) -> bool:
+    """Check if the review has the rating with given `name`.
+
+    Checks whether the `content.{name}` field is non-empty (not None or empty string).
+    """
     return bool(review["content"].get(name))
 
 
 def _has_rating(paper: dict[str, Any], name: str) -> bool:
+    """Check if all reviews in `paper` have the rate with given `name`."""
     return any(_review_has_rating(r, name) for r in paper["details"]["replies"])
 
 
 def _has_field(paper: dict[str, Any], name: str) -> bool:
+    """Check if the `paper` has a field with `name` and non-empty value."""
     value = paper["content"].get(name, {}).get("value")
     if isinstance(value, str):
         value = value.strip()

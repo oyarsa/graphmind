@@ -286,6 +286,7 @@ async def evaluate_rationales(
 
 
 def _display_label_dist(graph_evals: Sequence[GraphWithEval]) -> str:
+    """Display distribution of values for the metrics from `graph_evals`."""
     graph_metrics = [graph.eval_metrics.metrics for graph in graph_evals]
     output = [">>> Metrics distributions:"]
 

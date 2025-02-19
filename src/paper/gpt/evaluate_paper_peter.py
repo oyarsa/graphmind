@@ -347,6 +347,7 @@ def format_template(
 
 
 def _format_related(related: Iterable[PaperRelatedSummarised]) -> str:
+    """Build prompt from related papers titles and summaries."""
     return "\n\n".join(
         f"Title: {paper.title}\nSummary: {paper.summary}\n" for paper in related
     )

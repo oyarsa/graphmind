@@ -145,6 +145,13 @@ def annotate(
 def _annotate(
     input_data: Sequence[PaperWithReferenceEnriched], total: int, width: int
 ) -> list[PaperWithReferenceEnriched]:
+    """Annotate all paper contexts in data to find their polarities.
+
+    Args:
+        input_data: Papers with enriched references to be annotated.
+        total: Total number of contexts across all papers.
+        width: Width to wrap displayed text when presenting the context.
+    """
     count = 0
     output_data: list[PaperWithReferenceEnriched] = []
     # When False, we'll skip asking the user and just copy the old annotation. This is
@@ -225,6 +232,14 @@ _ANNOTATION_CACHE: dict[str, ContextPolarity] = {}
 def _annotate_context(
     idx: int, total: int, context: CitationContext, *, width: int
 ) -> ContextPolarity | None:
+    """Annotate `context` polarity.
+
+    Args:
+        context: Context to annotate.
+        idx: Index of the context in the overall data, for presentation.
+        total: Total number of contexts in the overall data, for presentation.
+        width: Width to wrap the presented context.
+    """
     if polarity := _ANNOTATION_CACHE.get(context.sentence):
         return polarity
 
@@ -261,6 +276,7 @@ Context
 
 
 def _wrap(text: str, *, width: int) -> str:
+    """Wrap `text` in up to `width` columns as multiple lines."""
     return "\n".join(textwrap.wrap(text, width=width))
 
 
