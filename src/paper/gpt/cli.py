@@ -32,6 +32,13 @@ logger = logging.getLogger(__name__)
 def _new_app(
     app_name: str, subcommands: Iterable[tuple[str, str, ModuleType]]
 ) -> typer.Typer:
+    """Create new Typer app with commands from the `subcommands` modules.
+
+    Each entry in `subcommands` should have:
+    - name of the module
+    - help text
+    - the module itself, which should have an `app` object and an optional docstring
+    """
     app = typer.Typer(
         name=app_name,
         context_settings={"help_option_names": ["-h", "--help"]},

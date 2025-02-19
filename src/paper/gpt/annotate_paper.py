@@ -424,6 +424,10 @@ def _log_table_stats(
     results: Sequence[PromptResult[PaperAnnotated[PaperTerms]]],
     detail: DetailOptions,
 ) -> None:
+    """Print table summarising the results.
+
+    See `DetailOptions` for how the results are presented.
+    """
     if not results:
         logger.warning("Cannot log stats from empty results.")
         return
@@ -480,6 +484,13 @@ def _log_table_stats(
 
 
 def _format_col(col: Sequence[Any], detail: DetailOptions) -> str:
+    """Format column for table output.
+
+    By default, returns just the number of characters in the column.
+
+    If `detail` is `DetailOptions`, instead returns all items as a numbered list, or `-`
+    if `col` is empty.
+    """
     if detail is DetailOptions.DETAIL:
         return "\n".join(f"{i}. {c}" for i, c in enumerate(col, 1)) or "-"
     return str(len(col))
@@ -498,6 +509,11 @@ class AbstractDemonstration(BaseModel):
 def _format_abstract_demonstrations(
     data: Sequence[AbstractDemonstration], prompt: PromptTemplate
 ) -> str:
+    """Format abstract demonstrations for prompt.
+
+    Includes the demonstration instructions, followed by each demonstration formatted
+    using `prompt`.
+    """
     if not data:
         return ""
 

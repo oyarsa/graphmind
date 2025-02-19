@@ -113,6 +113,13 @@ class Graph(BaseModel):
 
 
 def _clean_title(title: str) -> str:
+    """Clean-up title with a series of transformations.
+
+    - Strip whitespace
+    - Casefold (UTF-accurate lowercasing)
+    - Remove all characters that are not alphanumeric or spaces
+    - Collapse repeated spaces
+    """
     title = title.strip().casefold()
     alpha_only = "".join(c for c in title if c.isalpha() or c.isspace())
     return " ".join(alpha_only.split())

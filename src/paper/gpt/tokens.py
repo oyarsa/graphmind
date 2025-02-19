@@ -178,6 +178,7 @@ def scimon_(
 
 
 def _describe(values: Iterable[int]) -> str:
+    """Print descriptive statistics of `values`."""
     pl.Config.set_tbl_hide_column_data_types(True).set_tbl_hide_dataframe_shape(True)
     return str(pl.Series(values).describe())
 

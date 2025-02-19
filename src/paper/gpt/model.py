@@ -495,6 +495,7 @@ def _format_entity_detail_sentence(entity: Entity) -> str:
 
 
 def _get_nodes_of_type(entities: Iterable[Entity], type_: EntityType) -> list[Entity]:
+    """Get all entities whose `.type` matches `type_` as a new list."""
     return [e for e in entities if e.type is type_]
 
 

@@ -340,6 +340,7 @@ def format_template(
 
 
 def _bullets(items: Iterable[str]) -> str:
+    """Create bullet-list with the text for each item."""
     return "\n".join(f"- {item}" for item in items)
 
 
