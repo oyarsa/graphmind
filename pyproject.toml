@@ -22,6 +22,7 @@ dependencies = [
     "sentence-transformers>=3.3.0",
     "polars>=1.16.0",
     "openreview-py>=1.46.3",
+    "arxiv>=2.1.3",
 ]
 
 [dependency-groups]
