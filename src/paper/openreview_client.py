@@ -44,7 +44,12 @@ ICLR_2024_ID = "ICLR.cc/2024/Conference"
 @app.command(no_args_is_help=True)
 def latex(
     reviews_file: Annotated[
-        Path, typer.Option("--papers", help="Path to paper data from OpenReview.")
+        Path,
+        typer.Option(
+            "--papers",
+            help="Path to paper data from OpenReview. Can be a text file with one title"
+            " per line, or the actual JSON from the `reviews` subcommand.",
+        ),
     ],
     output_dir: Annotated[
         Path,
@@ -75,12 +80,19 @@ def latex(
     By default, skips re-downloading files that already exist in the output directory.
     You can override this with `--clean` and `--skip`.
     """
-    papers = json.loads(reviews_file.read_text())[:max_papers]
-    titles: list[str] = [
-        title
-        for paper in papers
-        if (title := paper.get("content", {}).get("title", {}).get("value"))
-    ]
+    if reviews_file.suffix == ".json":
+        papers = json.loads(reviews_file.read_text())[:max_papers]
+        titles: list[str] = [
+            title
+            for paper in papers
+            if (title := paper.get("content", {}).get("title", {}).get("value"))
+        ]
+    else:
+        titles = [
+            title
+            for line in reviews_file.read_text().splitlines()[:max_papers]
+            if (title := line.strip())
+        ]
 
     if not titles:
         die("No valid titles found.")
