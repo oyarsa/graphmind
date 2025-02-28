@@ -9,14 +9,21 @@ Example venue IDs:
 - ICLR.cc/2024/Conference
 - ICLR.cc/2025/Conference
 - NeurIPS.cc/2024/Conference
+
+The process for retrieving the whole data is running the subcommands in this order:
+- `reviews`: get the available paper information for a given conference
+- `arxiv`: find the arXiv IDs for the papers that are available there
+- `latex`: use the arXiv IDs to download the LaTeX code for the papers
 """
 
 # pyright: basic
+import io
 import itertools
 import json
 import sys
+import tarfile
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -41,19 +48,24 @@ app = typer.Typer(
 ICLR_2024_ID = "ICLR.cc/2024/Conference"
 
 
-@app.command(no_args_is_help=True)
-def latex(
+@app.command(name="arxiv", no_args_is_help=True)
+def query_arxiv(
     reviews_file: Annotated[
         Path,
         typer.Option(
             "--papers",
+            "-i",
             help="Path to paper data from OpenReview. Can be a text file with one title"
             " per line, or the actual JSON from the `reviews` subcommand.",
         ),
     ],
-    output_dir: Annotated[
+    output_file: Annotated[
         Path,
-        typer.Option("--output", help="Output directory for arXiv LaTeX source files."),
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output path for JSON file with the arXiv information.",
+        ),
     ],
     max_papers: Annotated[
         int | None,
@@ -63,22 +75,14 @@ def latex(
             help="How many papers to process. If None, processes all.",
         ),
     ] = None,
-    clean_run: Annotated[
-        bool,
-        typer.Option("--clean", help="If True, ignore previously downloaded files."),
-    ] = False,
-    skip_file: Annotated[
-        Path | None,
-        typer.Option("--skip", help="File with paper titles to skip, one per line."),
-    ] = None,
     batch_size: Annotated[
         int, typer.Option(help="Batch size to query the arXiv API.")
     ] = 50,
 ) -> None:
-    """Download LaTeX source files from arXiv for OpenReview submissions.
+    """Query the arXiv API to find which papers are available.
 
-    By default, skips re-downloading files that already exist in the output directory.
-    You can override this with `--clean` and `--skip`.
+    Saves an `arxiv.json` file with an array of objects with `id` and `title` fields.
+    Use this with the `latex` subcommand to download the LaTeX files.
     """
     if reviews_file.suffix == ".json":
         papers = json.loads(reviews_file.read_text())[:max_papers]
@@ -98,6 +102,56 @@ def latex(
         die("No valid titles found.")
     print(f"Found {len(titles)} papers in input file")
 
+    arxiv_results = _get_arxiv(titles, batch_size)
+    print(f"Found {len(arxiv_results)} papers on arXiv")
+
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_file.write_text(json.dumps([asdict(r) for r in arxiv_results]))
+
+
+@app.command(no_args_is_help=True)
+def latex(
+    reviews_file: Annotated[
+        Path,
+        typer.Option(
+            "--arxiv-ids",
+            "-i",
+            help="Path to data from arXiv used to download the LaTeX files.",
+        ),
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--output", "-o", help="Output directory for arXiv LaTeX source files."
+        ),
+    ],
+    max_papers: Annotated[
+        int | None,
+        typer.Option(
+            "--num-papers",
+            "-n",
+            help="How many papers to process. If None, processes all.",
+        ),
+    ] = None,
+    clean_run: Annotated[
+        bool,
+        typer.Option("--clean", help="If True, ignore previously downloaded files."),
+    ] = False,
+    skip_file: Annotated[
+        Path | None,
+        typer.Option("--skip", help="File with paper titles to skip, one per line."),
+    ] = None,
+) -> None:
+    """Download LaTeX source files from arXiv data.
+
+    The arXiv data is fetched with the `arxiv` subcommand.
+
+    By default, skips re-downloading files that already exist in the output directory.
+    You can override this with `--clean` and `--skip`.
+    """
+    papers: list[dict[str, str]] = json.loads(reviews_file.read_text())[:max_papers]
+    arxiv_results = [ArxivResult(title=p["title"], id=p["id"]) for p in papers]
+
     if clean_run:
         downloaded_prev = set()
     elif skip_file is not None:
@@ -111,9 +165,6 @@ def latex(
             path.stem for path in output_dir.glob("*.tar.gz") if path.is_file()
         }
 
-    arxiv_results = _get_arxiv(titles, batch_size)
-    print(f"Found {len(arxiv_results)} papers on arXiv")
-
     downloaded_n = 0
     skipped_n = 0
     failed_n = 0
@@ -125,11 +176,17 @@ def latex(
             continue
 
         try:
-            data = _download_latex_source(result.id)
-            (output_dir / f"{result.title}.tar.gz").write_bytes(data)
-            downloaded_n += 1
+            if data := _download_latex_source(result.id):
+                (output_dir / f"{result.title}.tar.gz").write_bytes(data)
+                downloaded_n += 1
+            else:
+                print(f"Invalid tar.gz file for {result.title}")
+                failed_n += 1
         except Exception as e:
-            print(f"Error downloading LaTeX source for {result.title} - {type(e)}: {e}")
+            print(
+                f"Error downloading LaTeX source for {result.title}"
+                f" - {type(e).__name__}: {e}"
+            )
             failed_n += 1
 
     print(f"Downloaded : {downloaded_n}")
@@ -192,12 +249,36 @@ def _similar_titles(title1: str, title2: str) -> bool:
 
 
 @backoff.on_exception(backoff.expo, Exception, max_tries=5)
-def _download_latex_source(arxiv_id: str) -> bytes:
+def _download_latex_source(arxiv_id: str) -> bytes | None:
     """Download LaTeX source (tar.gz) from arXiv for the given arXiv ID."""
     url = f"https://arxiv.org/src/{arxiv_id}"
     response = requests.get(url)
     response.raise_for_status()
-    return response.content
+    content = response.content
+
+    if not _is_valid_targz(content):
+        return None
+    return content
+
+
+def _is_valid_targz(content: bytes) -> bool:
+    """Check if the given content is a valid tar.gz file.
+
+    Args:
+        content: Binary content (bytes) to check.
+
+    Returns:
+        True if the content is a valid tar.gz file, False otherwise.
+    """
+    try:
+        file_like_object = io.BytesIO(content)
+        with tarfile.open(fileobj=file_like_object, mode="r:gz") as tar:
+            # If we can list the contents, it's a valid tar.gz file
+            tar.getnames()
+    except (tarfile.ReadError, tarfile.CompressionError, EOFError):
+        return False
+    else:
+        return True
 
 
 @app.command(no_args_is_help=True)
@@ -206,7 +287,7 @@ def reviews(
         Path, typer.Argument(help="Output directory for OpenReview reviews file.")
     ],
     venue_id: Annotated[
-        str, typer.Option(help="Venue ID to fetch data.")
+        str, typer.Option("--venue", help="Venue ID to fetch data.")
     ] = ICLR_2024_ID,
 ) -> None:
     """Download all reviews and metadata for papers from a conference in OpenReview."""
