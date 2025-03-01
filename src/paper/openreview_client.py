@@ -524,7 +524,7 @@ def find_main_tex(directory: Path) -> Path:
     main_candidates = [
         tex_file
         for tex_file in tex_files
-        if "\\begin{document}" in tex_file.read_text()
+        if "\\begin{document}" in tex_file.read_text(errors="ignore")
     ]
 
     if not main_candidates:
@@ -555,7 +555,7 @@ def process_latex_file(
     processed_files.add(abs_path)
 
     try:
-        content = abs_path.read_text()
+        content = abs_path.read_text(errors="replace")
         content = remove_latex_comments(content)
     except Exception as e:
         logger.debug(f"Error reading {abs_path}: {e}")
@@ -654,7 +654,7 @@ def convert_to_markdown(latex_content: str, title: str) -> str | None:
 
         try:
             subprocess.run(pandoc_cmd, check=True, timeout=PANDOC_CMD_TIMEOUT)
-            return markdown_file.read_text()
+            return markdown_file.read_text(errors="ignore")
         except subprocess.TimeoutExpired:
             logger.warning("Command timeout during pandoc conversion. Paper: %s", title)
         except subprocess.CalledProcessError as e:
@@ -699,7 +699,7 @@ def extract_bibliography_from_bibfiles(
 
         logger.debug("Processing bib file: %s", bib_path)
         try:
-            bib_content = bib_path.read_text(errors="replace")
+            bib_content = bib_path.read_text(errors="ignore")
 
             # Fix problematic citations with accents
             bib_content = re.sub(
