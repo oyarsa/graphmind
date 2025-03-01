@@ -40,6 +40,7 @@ import typer
 from openreview import api
 from tqdm import tqdm
 
+from paper.util import setup_logging
 from paper.util.cli import die
 
 logger = logging.getLogger(__name__)
@@ -930,21 +931,55 @@ def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> P
 
 @app.command(help=__doc__, no_args_is_help=True)
 def parse(
-    input_file: Annotated[
-        Path, typer.Argument(help="Path to the tar.gz with LaTeX code.")
+    input_path: Annotated[
+        Path,
+        typer.Option(
+            "--input",
+            "-i",
+            help="Path to the tar.gz file(s) with LaTeX code. If the path is a"
+            " directory, checks for .tar.gz files inside it.",
+        ),
     ],
     output_dir: Annotated[
         Path,
-        typer.Argument(help="Directory to save the JSON output file with parsed data."),
+        typer.Option(
+            "--output",
+            "-o",
+            help="Directory to save the JSON output file with parsed data.",
+        ),
     ],
+    max_items: Annotated[
+        int | None,
+        typer.Option(
+            "--max-items",
+            "-n",
+            help="Number of items to process. If None, process all.",
+        ),
+    ] = None,
 ) -> None:
     """Parse LaTeX code from directory into JSON with sections and references."""
     splitter = SentenceSplitter()
 
-    title = input_file.name.removesuffix(".tar.gz")
-    paper = process_latex(splitter, title, input_file)
+    if input_path.is_file():
+        input_files = [input_path]
+    else:
+        input_files = list(input_path.glob("*.tar.gz"))
 
-    (output_dir / f"{title}.json").write_text(json.dumps(dc.asdict(paper), indent=2))
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for input_file in tqdm(input_files[:max_items], desc="Converting LaTeX files"):
+        title = input_file.name.removesuffix(".tar.gz")
+        paper = process_latex(splitter, title, input_file)
+
+        (output_dir / f"{title}.json").write_text(
+            json.dumps(dc.asdict(paper), indent=2)
+        )
+
+
+@app.callback(help=__doc__)
+def main() -> None:
+    """Empty callback for documentation."""
+    setup_logging()
 
 
 if __name__ == "__main__":
