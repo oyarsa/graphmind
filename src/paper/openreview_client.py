@@ -657,6 +657,7 @@ def convert_to_markdown(latex_content: str, title: str) -> str | None:
             return markdown_file.read_text(errors="ignore")
         except subprocess.TimeoutExpired:
             logger.warning("Command timeout during pandoc conversion. Paper: %s", title)
+            return None
         except subprocess.CalledProcessError as e:
             logger.warning(
                 "Error during pandoc conversion. Paper: %s. Error: %s", title, e
@@ -732,6 +733,7 @@ def extract_bibliography_from_bibfiles(
             bib_data = json.loads(result.stdout)
         except subprocess.TimeoutExpired:
             logger.warning("Command timeout during bibliography file processing.")
+            continue
         except subprocess.CalledProcessError as e:
             logger.debug(f"Error processing bibliography file {bib_path}: {e.stderr}")
             continue
@@ -1007,7 +1009,7 @@ def process_tex_files(
     """Process all TeX `inpt_files` and save the results to `output_dir`."""
     splitter = SentenceSplitter()
 
-    if num_workers is None:
+    if num_workers is None or num_workers == 0:
         num_workers = mp.cpu_count()
 
     logger.debug("Using %d workers", num_workers)
@@ -1062,11 +1064,13 @@ def parse(
         ),
     ] = None,
     num_workers: Annotated[
-        int | None,
+        int,
         typer.Option(
-            "--workers", "-j", help="Number of workers for parallel processsing."
+            "--workers",
+            "-j",
+            help="Number of workers for parallel processing. Set 0 for all CPUs.",
         ),
-    ] = None,
+    ] = 1,
     clean: Annotated[
         bool, typer.Option(help="Ignore existing files, reprocessing everything.")
     ] = False,
