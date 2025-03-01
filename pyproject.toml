@@ -23,6 +23,7 @@ dependencies = [
     "polars>=1.16.0",
     "openreview-py>=1.46.3",
     "arxiv>=2.1.3",
+    "nltk>=3.9.1",
 ]
 
 [dependency-groups]
