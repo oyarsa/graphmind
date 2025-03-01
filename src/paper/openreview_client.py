@@ -872,7 +872,7 @@ def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> P
         tmpdir = Path(tmpdir_)
 
         with tarfile.open(input_file, "r:gz") as tar:
-            tar.extractall(tmpdir)
+            tar.extractall(path=tmpdir, filter="data")
 
         try:
             main_tex = find_main_tex(tmpdir)
