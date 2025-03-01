@@ -43,7 +43,7 @@ from tqdm import tqdm
 from paper.util import setup_logging
 from paper.util.cli import die
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("paper.openreview")
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -913,7 +913,9 @@ def split_by_sections(markdown_content: str) -> list[Section]:
     return sections
 
 
-def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> Paper:
+def process_latex(
+    splitter: SentenceSplitter, title: str, input_file: Path
+) -> Paper | None:
     """Read LaTeX repository from `input_file` and parse into `Paper`.
 
     LaTeX is converted to Markdown, which is split into sections. The references and
@@ -931,11 +933,13 @@ def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> P
             main_tex = find_main_tex(tmpdir)
             logger.debug("Using main tex file: %s", main_tex)
         except FileNotFoundError:
-            die("Could not find main file")
+            logger.debug("Could not find main file")
+            return None
 
         consolidated_content = process_latex_file(main_tex, tmpdir)
         if not consolidated_content:
-            die("No content processed. Aborting.")
+            logger.debug("No content processed. Aborting.")
+            return None
 
         consolidated_content = remove_arxiv_styling(consolidated_content)
 
@@ -977,7 +981,8 @@ def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> P
 
     markdown_content = convert_to_markdown(consolidated_content)
     if markdown_content is None:
-        die("Error converting LaTeX to Markdown. Aborting.")
+        logger.debug("Error converting LaTeX to Markdown. Aborting.")
+        return None
 
     sections = split_by_sections(markdown_content)
 
@@ -1020,15 +1025,22 @@ def parse(
     else:
         input_files = list(input_path.glob("*.tar.gz"))
 
+    input_files = input_files[:max_items]
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    for input_file in tqdm(input_files[:max_items], desc="Converting LaTeX files"):
+    succesful_n = 0
+    for input_file in tqdm(input_files, desc="Converting LaTeX files"):
         title = input_file.name.removesuffix(".tar.gz")
-        paper = process_latex(splitter, title, input_file)
 
-        (output_dir / f"{title}.json").write_text(
-            json.dumps(dc.asdict(paper), indent=2)
-        )
+        if paper := process_latex(splitter, title, input_file):
+            (output_dir / f"{title}.json").write_text(
+                json.dumps(dc.asdict(paper), indent=2)
+            )
+            succesful_n += 1
+
+    logger.info("Processed  : %d", len(input_files))
+    logger.info("Successful : %d", succesful_n)
 
 
 @app.callback(help=__doc__)
