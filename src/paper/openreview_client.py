@@ -653,8 +653,10 @@ def convert_to_markdown(latex_content: str, title: str) -> str | None:
         ]
 
         try:
-            subprocess.run(pandoc_cmd, check=True)
+            subprocess.run(pandoc_cmd, check=True, timeout=PANDOC_CMD_TIMEOUT)
             return markdown_file.read_text()
+        except subprocess.TimeoutExpired:
+            logger.warning("Command timeout during pandoc conversion. Paper: %s", title)
         except subprocess.CalledProcessError as e:
             logger.warning(
                 "Error during pandoc conversion. Paper: %s. Error: %s", title, e
@@ -721,9 +723,15 @@ def extract_bibliography_from_bibfiles(
                 str(tmp_file),
             ]
             result = subprocess.run(
-                pandoc_cmd, check=True, capture_output=True, text=True
+                pandoc_cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=PANDOC_CMD_TIMEOUT,
             )
             bib_data = json.loads(result.stdout)
+        except subprocess.TimeoutExpired:
+            logger.warning("Command timeout during bibliography file processing.")
         except subprocess.CalledProcessError as e:
             logger.debug(f"Error processing bibliography file {bib_path}: {e.stderr}")
             continue
@@ -1020,6 +1028,10 @@ def process_tex_files(
                 desc="Converting LaTeX files",
             )
         )
+
+
+# Maximum time allowed for a Pandoc command, in seconds
+PANDOC_CMD_TIMEOUT = 30
 
 
 @app.command(help=__doc__, no_args_is_help=True)
