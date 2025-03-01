@@ -1077,8 +1077,14 @@ def parse(
 ) -> None:
     """Parse LaTeX code from directory into JSON with sections and references.
 
-    By default, avoids reprocessing files that already have processed versions in
-    `output_dir`. Override that with `--clean`.
+    By default, we avoid reprocessing files that already have processed versions in
+    `output_dir`. Override that with `--clean` to reprocess everything.
+
+    Note: for each paper, we combine all TeX code files into a single one and use pandoc
+    to convert that to Markdown. However, not all LaTeX files can be parsed. We try to
+    remove some offending commands, but sometimes pandoc simply cannot process the LaTeX
+    file. In those cases, we just print a warning and give up on that paper. This also
+    applies to bib files. This seems to affect about 10% of the input files from arXiv.
     """
     if input_path.is_file():
         input_files = [input_path]
