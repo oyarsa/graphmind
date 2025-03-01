@@ -701,6 +701,8 @@ def extract_bibliography_from_bibfiles(
                 lambda m: m.group(0).replace("\\", ""),
                 bib_content,
             )
+            # Remove lines with question marks at the beginning of fields
+            bib_content = re.sub(r"\s+\?\s*(\w+)\s*=\s*\{[^}]*\},", "", bib_content)
 
             tmp_file = tmpdir / "clean.bib"
             tmp_file.write_text(bib_content)
