@@ -1067,8 +1067,15 @@ def parse(
             "--workers", "-j", help="Number of workers for parallel processsing."
         ),
     ] = None,
+    clean: Annotated[
+        bool, typer.Option(help="Ignore existing files, reprocessing everything.")
+    ] = False,
 ) -> None:
-    """Parse LaTeX code from directory into JSON with sections and references."""
+    """Parse LaTeX code from directory into JSON with sections and references.
+
+    By default, avoids reprocessing files that already have processed versions in
+    `output_dir`. Override that with `--clean`.
+    """
     if input_path.is_file():
         input_files = [input_path]
     else:
@@ -1077,19 +1084,42 @@ def parse(
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    if clean:
+        done_titles: set[str] = set()
+    else:
+        done_titles = {
+            title_from_filename(file, ".json") for file in output_dir.glob("*.json")
+        }
+
+    skip_files = {
+        file
+        for file in input_files
+        if title_from_filename(file, ".tar.gz") in done_titles
+    }
+    input_files = [file for file in input_files if file not in skip_files]
+
     with Timer() as timer:
         successful_n = process_tex_files(input_files, num_workers, output_dir)
     logger.info(timer)
 
     logger.info("Processed  : %d", len(input_files))
+    logger.info("Skipped    : %d", len(skip_files))
     logger.info("Successful : %d", successful_n)
+
+
+def title_from_filename(input_file: Path, ext: str) -> str:
+    """Get paper title from a file name and an extension (e.g. `.tar.gz` or `.json`).
+
+    This is useful because `Path.stem` doesn't work for `.tar.gz`.
+    """
+    return input_file.name.removesuffix(ext)
 
 
 def process_tex_file(
     splitter: SentenceSplitter, output_dir: Path, input_file: Path
 ) -> bool:
     """Parse LaTeX files into a paper. Returns True if the conversion was successful."""
-    title = input_file.name.removesuffix(".tar.gz")
+    title = title_from_filename(input_file, ".tar.gz")
 
     if paper := process_latex(splitter, title, input_file):
         (output_dir / f"{title}.json").write_text(
