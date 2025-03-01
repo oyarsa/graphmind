@@ -554,6 +554,7 @@ def process_latex_file(
 
     try:
         content = abs_path.read_text()
+        content = remove_latex_comments(content)
     except Exception as e:
         logger.warning(f"Error reading {abs_path}: {e}")
         return ""
@@ -613,6 +614,17 @@ def remove_arxiv_styling(latex_content: str) -> str:
     )
 
     return no_tcolorbox_env  # noqa: RET504
+
+
+def remove_latex_comments(tex_string: str) -> str:
+    """Remove lines that are entirely commented out from a TeX document string.
+
+    A line is considered fully commented if it only contains whitespace before the
+    comment character '%'.
+    """
+    return "\n".join(
+        line for line in tex_string.splitlines() if not line.lstrip().startswith("%")
+    )
 
 
 def convert_to_markdown(latex_content: str) -> str | None:
