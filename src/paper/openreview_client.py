@@ -23,12 +23,14 @@ import io
 import itertools
 import json
 import logging
+import multiprocessing as mp
 import re
 import subprocess
 import tarfile
 import tempfile
 from collections import defaultdict
 from collections.abc import Sequence
+from functools import partial
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -40,7 +42,7 @@ import typer
 from openreview import api
 from tqdm import tqdm
 
-from paper.util import setup_logging
+from paper.util import Timer, setup_logging
 from paper.util.cli import die
 
 logger = logging.getLogger("paper.openreview")
@@ -989,6 +991,35 @@ def process_latex(
     return Paper(title=title, sections=sections, references=references)
 
 
+def process_tex_files(
+    input_files: list[Path], num_workers: int | None, output_dir: Path
+) -> int:
+    """Process all TeX `inpt_files` and save the results to `output_dir`."""
+    splitter = SentenceSplitter()
+
+    if num_workers is None:
+        num_workers = mp.cpu_count()
+
+    logger.debug("Using %d workers", num_workers)
+
+    if num_workers == 1:
+        return sum(
+            process_tex_file(splitter, output_dir, input_file)
+            for input_file in tqdm(input_files, desc="Converting LaTeX files")
+        )
+
+    # We need to re-initialise logging for each subprocess, or nothing is logged
+    with mp.Pool(processes=num_workers, initializer=setup_logging) as pool:
+        process_func = partial(process_tex_file, splitter, output_dir)
+        return sum(
+            tqdm(
+                pool.imap_unordered(process_func, input_files),
+                total=len(input_files),
+                desc="Converting LaTeX files",
+            )
+        )
+
+
 @app.command(help=__doc__, no_args_is_help=True)
 def parse(
     input_path: Annotated[
@@ -1016,31 +1047,43 @@ def parse(
             help="Number of items to process. If None, process all.",
         ),
     ] = None,
+    num_workers: Annotated[
+        int | None,
+        typer.Option(
+            "--workers", "-j", help="Number of workers for parallel processsing."
+        ),
+    ] = None,
 ) -> None:
     """Parse LaTeX code from directory into JSON with sections and references."""
-    splitter = SentenceSplitter()
-
     if input_path.is_file():
         input_files = [input_path]
     else:
         input_files = list(input_path.glob("*.tar.gz"))
-
     input_files = input_files[:max_items]
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    succesful_n = 0
-    for input_file in tqdm(input_files, desc="Converting LaTeX files"):
-        title = input_file.name.removesuffix(".tar.gz")
-
-        if paper := process_latex(splitter, title, input_file):
-            (output_dir / f"{title}.json").write_text(
-                json.dumps(dc.asdict(paper), indent=2)
-            )
-            succesful_n += 1
+    with Timer() as timer:
+        successful_n = process_tex_files(input_files, num_workers, output_dir)
+    logger.info(timer)
 
     logger.info("Processed  : %d", len(input_files))
-    logger.info("Successful : %d", succesful_n)
+    logger.info("Successful : %d", successful_n)
+
+
+def process_tex_file(
+    splitter: SentenceSplitter, output_dir: Path, input_file: Path
+) -> bool:
+    """Parse LaTeX files into a paper. Returns True if the conversion was successful."""
+    title = input_file.name.removesuffix(".tar.gz")
+
+    if paper := process_latex(splitter, title, input_file):
+        (output_dir / f"{title}.json").write_text(
+            json.dumps(dc.asdict(paper), indent=2)
+        )
+        return True
+
+    return False
 
 
 @app.callback(help=__doc__)
