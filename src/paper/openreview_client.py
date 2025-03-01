@@ -556,7 +556,7 @@ def process_latex_file(
         content = abs_path.read_text()
         content = remove_latex_comments(content)
     except Exception as e:
-        logger.warning(f"Error reading {abs_path}: {e}")
+        logger.debug(f"Error reading {abs_path}: {e}")
         return ""
 
     include_pattern = re.compile(r"\\(?:input|include)\{([^}]+)\}")
@@ -721,15 +721,11 @@ def extract_bibliography_from_bibfiles(
             )
             bib_data = json.loads(result.stdout)
         except subprocess.CalledProcessError as e:
-            logger.exception(
-                f"Error processing bibliography file {bib_path}: {e.stderr}"
-            )
+            logger.debug(f"Error processing bibliography file {bib_path}: {e.stderr}")
             continue
         except json.JSONDecodeError as e:
-            logger.warning(f"Error parsing bibliography data from {bib_path}: {e}")
+            logger.debug(f"Error parsing bibliography data from {bib_path}: {e}")
             continue
-
-        logger.debug("Bib file was succesfully processed: %s", bib_path)
 
         for entry in bib_data:
             # Extract the citation key (bib id)
