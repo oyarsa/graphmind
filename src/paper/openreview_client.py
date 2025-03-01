@@ -18,6 +18,7 @@ The process for retrieving the whole data is running the subcommands in this ord
 """
 
 # pyright: basic
+import dataclasses as dc
 import io
 import itertools
 import json
@@ -28,7 +29,6 @@ import tarfile
 import tempfile
 from collections import defaultdict
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -112,7 +112,7 @@ def query_arxiv(
     print(f"Found {len(arxiv_results)} papers on arXiv")
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    output_file.write_text(json.dumps([asdict(r) for r in arxiv_results]))
+    output_file.write_text(json.dumps([dc.asdict(r) for r in arxiv_results]))
 
 
 @app.command(no_args_is_help=True)
@@ -200,7 +200,7 @@ def latex(
     print(f"Failed     : {failed_n}")
 
 
-@dataclass(frozen=True, kw_only=True)
+@dc.dataclass(frozen=True, kw_only=True)
 class ArxivResult:
     """Result of querying the arXiv API with a paper title from OpenReview."""
 
@@ -366,7 +366,7 @@ Each reference also includes the paragraphs where it's cited in the text.
 """
 
 
-@dataclass(frozen=True, kw_only=True)
+@dc.dataclass(frozen=True, kw_only=True)
 class Section:
     """A section in the paper."""
 
@@ -374,17 +374,17 @@ class Section:
     content: str
 
 
-@dataclass(frozen=True, kw_only=True)
+@dc.dataclass(frozen=True, kw_only=True)
 class Reference:
     """A bibliographic reference."""
 
     title: str
     year: str | None
     authors: list[str]
-    citation_contexts: list[str] = field(default_factory=list)
+    citation_contexts: list[str] = dc.field(default_factory=list)
 
 
-@dataclass(frozen=True, kw_only=True)
+@dc.dataclass(frozen=True, kw_only=True)
 class Paper:
     """Parsed paper content in Markdown with reference citations."""
 
@@ -938,7 +938,7 @@ def parse(
     """Parse LaTeX code from directory into JSON with sections and references."""
     splitter = SentenceSplitter()
     paper = process_latex(splitter, input_dir)
-    output_file.write_text(json.dumps(asdict(paper), indent=2, ensure_ascii=False))
+    output_file.write_text(json.dumps(dc.asdict(paper), indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
