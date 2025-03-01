@@ -541,7 +541,7 @@ def find_main_tex(directory: Path) -> Path:
 
 
 def process_latex_file(
-    file_path: Path, processed_files: set[Path] | None = None
+    file_path: Path, root_dir: Path, processed_files: set[Path] | None = None
 ) -> str:
     """Recursively process TeX inclusion directives."""
     if processed_files is None:
@@ -565,7 +565,7 @@ def process_latex_file(
         if not included_path.name.endswith(".tex"):
             included_path = included_path.with_name(f"{included_path.name}.tex")
 
-        return process_latex_file(abs_path.parent / included_path, processed_files)
+        return process_latex_file(root_dir / included_path, root_dir, processed_files)
 
     return include_pattern.sub(include_replacer, content)
 
@@ -923,7 +923,7 @@ def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> P
         except FileNotFoundError:
             die("Could not find main file")
 
-        consolidated_content = process_latex_file(main_tex)
+        consolidated_content = process_latex_file(main_tex, tmpdir)
         if not consolidated_content:
             die("No content processed. Aborting.")
 
