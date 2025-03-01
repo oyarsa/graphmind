@@ -670,7 +670,7 @@ def find_bib_files(base_dir: Path, latex_content: str) -> list[Path]:
 
 
 def extract_bibliography_from_bibfiles(
-    bib_paths: list[Path],
+    bib_paths: list[Path], tmpdir: Path
 ) -> dict[str, Reference]:
     """Extract bibliography entries from .bib files."""
     references: dict[str, Reference] = {}
@@ -679,27 +679,43 @@ def extract_bibliography_from_bibfiles(
         if not bib_path.exists():
             continue
 
-        pandoc_cmd = [
-            "pandoc",
-            "--quiet",
-            "-f",
-            "bibtex",
-            "-t",
-            "csljson",
-            str(bib_path),
-        ]
-
+        logger.debug("Processing bib file: %s", bib_path)
         try:
+            bib_content = bib_path.read_text(errors="replace")
+
+            # Fix problematic citations with accents
+            bib_content = re.sub(
+                r"@\w+\{[^{,]*?\\['`^\"]\w+",
+                lambda m: m.group(0).replace("\\", ""),
+                bib_content,
+            )
+
+            tmp_file = tmpdir / "clean.bib"
+            tmp_file.write_text(bib_content)
+
+            pandoc_cmd = [
+                "pandoc",
+                "--quiet",
+                "-f",
+                "bibtex",
+                "-t",
+                "csljson",
+                str(tmp_file),
+            ]
             result = subprocess.run(
                 pandoc_cmd, check=True, capture_output=True, text=True
             )
             bib_data = json.loads(result.stdout)
         except subprocess.CalledProcessError as e:
-            logger.warning(f"Error processing bibliography file {bib_path}: {e}")
-            return {}
+            logger.exception(
+                f"Error processing bibliography file {bib_path}: {e.stderr}"
+            )
+            continue
         except json.JSONDecodeError as e:
             logger.warning(f"Error parsing bibliography data from {bib_path}: {e}")
-            return {}
+            continue
+
+        logger.debug("Bib file was succesfully processed: %s", bib_path)
 
         for entry in bib_data:
             # Extract the citation key (bib id)
@@ -893,6 +909,8 @@ def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> P
     LaTeX is converted to Markdown, which is split into sections. The references and
     citations are extracted from bibliography files and sections.
     """
+    logger.debug("Processing file: %s", input_file)
+
     with tempfile.TemporaryDirectory() as tmpdir_:
         tmpdir = Path(tmpdir_)
 
@@ -912,7 +930,7 @@ def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> P
         consolidated_content = remove_arxiv_styling(consolidated_content)
 
         bib_files = find_bib_files(tmpdir, consolidated_content)
-        citationkey_to_reference = extract_bibliography_from_bibfiles(bib_files)
+        citationkey_to_reference = extract_bibliography_from_bibfiles(bib_files, tmpdir)
         if not citationkey_to_reference:
             logger.debug("No references from bib files. Trying bib items.")
             citationkey_to_reference = extract_bibliography_from_bibitems(
