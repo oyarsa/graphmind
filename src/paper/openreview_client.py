@@ -51,8 +51,6 @@ app = typer.Typer(
     help=__doc__,
 )
 
-ICLR_2024_ID = "ICLR.cc/2024/Conference"
-
 
 @app.command(name="arxiv", no_args_is_help=True)
 def query_arxiv(
@@ -292,9 +290,7 @@ def reviews(
     output_dir: Annotated[
         Path, typer.Argument(help="Output directory for OpenReview reviews file.")
     ],
-    venue_id: Annotated[
-        str, typer.Option("--venue", help="Venue ID to fetch data.")
-    ] = ICLR_2024_ID,
+    venue_id: Annotated[str, typer.Option("--venue", help="Venue ID to fetch data.")],
 ) -> None:
     """Download all reviews and metadata for papers from a conference in OpenReview."""
     client = api.OpenReviewClient(baseurl="https://api2.openreview.net")
