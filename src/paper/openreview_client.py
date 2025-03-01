@@ -571,7 +571,7 @@ def process_latex_file(
 
 
 def remove_arxiv_styling(latex_content: str) -> str:
-    """Remove custom arxiv styling directives."""
+    """Remove custom arxiv styling directives and problematic LaTeX commands."""
     # Remove lines with \usepackage or \RequirePackage that reference 'arxiv'
     no_package = re.sub(
         r"^(\\(?:usepackage|RequirePackage)\s*(\[[^\]]*\])?\s*\{[^}]*arxiv[^}]*\}.*\n?)",
@@ -579,13 +579,40 @@ def remove_arxiv_styling(latex_content: str) -> str:
         latex_content,
         flags=re.MULTILINE,
     )
+
     # Remove lines that explicitly include arxiv.sty
-    return re.sub(
+    no_arxiv = re.sub(
         r"^(\\(?:input|include)\s*\{[^}]*arxiv\.sty[^}]*\}.*\n?)",
         "",
         no_package,
         flags=re.MULTILINE,
     )
+
+    # Remove tcolorbox package
+    no_tcolorbox_pkg = re.sub(
+        r"^(\\(?:usepackage|RequirePackage)\s*(\[[^\]]*\])?\s*\{[^}]*tcolorbox[^}]*\}.*\n?)",
+        "",
+        no_arxiv,
+        flags=re.MULTILINE,
+    )
+
+    # Remove \newtcolorbox declarations
+    no_newtcolorbox = re.sub(
+        r"\\newtcolorbox\{[^}]+\}(\[[^\]]*\])?\{[^}]+\}",
+        "",
+        no_tcolorbox_pkg,
+        flags=re.MULTILINE,
+    )
+
+    # Remove tcolorbox environments
+    no_tcolorbox_env = re.sub(
+        r"\\begin\{tcolorbox\}(\[[^\]]*\])?.*?\\end\{tcolorbox\}",
+        "",
+        no_newtcolorbox,
+        flags=re.DOTALL,
+    )
+
+    return no_tcolorbox_env  # noqa: RET504
 
 
 def convert_to_markdown(latex_content: str) -> str | None:
