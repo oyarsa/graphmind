@@ -388,6 +388,7 @@ class Reference:
 class Paper:
     """Parsed paper content in Markdown with reference citations."""
 
+    title: str
     sections: list[Section]
     references: list[Reference]
 
@@ -861,32 +862,38 @@ def split_by_sections(markdown_content: str) -> list[Section]:
     return sections
 
 
-def process_latex(splitter: SentenceSplitter, input_dir: Path) -> Paper:
-    """Read LaTeX repository from `input_dir` and parse into `Paper`.
+def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> Paper:
+    """Read LaTeX repository from `input_file` and parse into `Paper`.
 
     LaTeX is converted to Markdown, which is split into sections. The references and
     citations are extracted from bibliography files and sections.
     """
-    try:
-        main_tex = find_main_tex(input_dir)
-    except FileNotFoundError as e:
-        print(e)
-        sys.exit(1)
+    with tempfile.TemporaryDirectory() as tmpdir_:
+        tmpdir = Path(tmpdir_)
 
-    consolidated_content = process_latex_file(main_tex)
-    if not consolidated_content:
-        print("No content processed. Aborting.")
-        sys.exit(1)
+        with tarfile.open(input_file, "r:gz") as tar:
+            tar.extractall(tmpdir)
 
-    consolidated_content = remove_arxiv_styling(consolidated_content)
+        try:
+            main_tex = find_main_tex(tmpdir)
+        except FileNotFoundError as e:
+            print(e)
+            sys.exit(1)
 
-    bib_files = find_bib_files(input_dir, consolidated_content)
-    citationkey_to_reference = extract_bibliography_from_bibfiles(bib_files)
-    if not citationkey_to_reference:
-        print("No references from bib files. Trying bib items.")
-        citationkey_to_reference = extract_bibliography_from_bibitems(
-            consolidated_content
-        )
+        consolidated_content = process_latex_file(main_tex)
+        if not consolidated_content:
+            print("No content processed. Aborting.")
+            sys.exit(1)
+
+        consolidated_content = remove_arxiv_styling(consolidated_content)
+
+        bib_files = find_bib_files(tmpdir, consolidated_content)
+        citationkey_to_reference = extract_bibliography_from_bibfiles(bib_files)
+        if not citationkey_to_reference:
+            print("No references from bib files. Trying bib items.")
+            citationkey_to_reference = extract_bibliography_from_bibitems(
+                consolidated_content
+            )
 
     citation_contexts = extract_citations_and_contexts(splitter, consolidated_content)
 
@@ -923,22 +930,26 @@ def process_latex(splitter: SentenceSplitter, input_dir: Path) -> Paper:
 
     sections = split_by_sections(markdown_content)
 
-    return Paper(sections=sections, references=references)
+    return Paper(title=title, sections=sections, references=references)
 
 
 @app.command(help=__doc__, no_args_is_help=True)
 def parse(
-    input_dir: Annotated[
-        Path, typer.Argument(help="Path to the LaTeX repository directory.")
+    input_file: Annotated[
+        Path, typer.Argument(help="Path to the tar.gz with LaTeX code.")
     ],
-    output_file: Annotated[
-        Path, typer.Argument(help="JSON output file with parsed data.")
+    output_dir: Annotated[
+        Path,
+        typer.Argument(help="Directory to save the JSON output file with parsed data."),
     ],
 ) -> None:
     """Parse LaTeX code from directory into JSON with sections and references."""
     splitter = SentenceSplitter()
-    paper = process_latex(splitter, input_dir)
-    output_file.write_text(json.dumps(dc.asdict(paper), indent=2, ensure_ascii=False))
+
+    title = input_file.name.removesuffix(".tar.gz")
+    paper = process_latex(splitter, title, input_file)
+
+    (output_dir / f"{title}.json").write_text(json.dumps(dc.asdict(paper), indent=2))
 
 
 if __name__ == "__main__":
