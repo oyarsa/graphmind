@@ -22,9 +22,9 @@ import dataclasses as dc
 import io
 import itertools
 import json
+import logging
 import re
 import subprocess
-import sys
 import tarfile
 import tempfile
 from collections import defaultdict
@@ -41,6 +41,8 @@ from openreview import api
 from tqdm import tqdm
 
 from paper.util.cli import die
+
+logger = logging.getLogger(__name__)
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -104,10 +106,10 @@ def query_arxiv(
 
     if not titles:
         die("No valid titles found.")
-    print(f"Found {len(titles)} papers in input file")
+    logger.info(f"Found {len(titles)} papers in input file")
 
     arxiv_results = _get_arxiv(titles, batch_size)
-    print(f"Found {len(arxiv_results)} papers on arXiv")
+    logger.info(f"Found {len(arxiv_results)} papers on arXiv")
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
     output_file.write_text(json.dumps([dc.asdict(r) for r in arxiv_results]))
@@ -184,18 +186,18 @@ def latex(
                 (output_dir / f"{result.title}.tar.gz").write_bytes(data)
                 downloaded_n += 1
             else:
-                print(f"Invalid tar.gz file for {result.title}")
+                logger.warning(f"Invalid tar.gz file for {result.title}")
                 failed_n += 1
         except Exception as e:
-            print(
+            logger.warning(
                 f"Error downloading LaTeX source for {result.title}"
                 f" - {type(e).__name__}: {e}"
             )
             failed_n += 1
 
-    print(f"Downloaded : {downloaded_n}")
-    print(f"Skipped    : {skipped_n}")
-    print(f"Failed     : {failed_n}")
+    logger.info(f"Downloaded : {downloaded_n}")
+    logger.info(f"Skipped    : {skipped_n}")
+    logger.info(f"Failed     : {failed_n}")
 
 
 @dc.dataclass(frozen=True, kw_only=True)
@@ -240,7 +242,7 @@ def _batch_search_arxiv(
                     )
                     break
     except Exception as e:
-        print(f"Error during batch search on arXiv: {e}")
+        logger.warning(f"Error during batch search on arXiv: {e}")
 
     return [result for title in titles if (result := results_map.get(title.lower()))]
 
@@ -298,14 +300,13 @@ def reviews(
         invitation=f"{venue_id}/-/Submission", details="replies"
     )
     if not submissions_raw:
-        print("Empty submissions list")
-        sys.exit(1)
+        die("Empty submissions list")
 
     submissions_all = [_note_to_dict(s) for s in submissions_raw]
     submissions_valid = [s for s in submissions_all if _is_valid(s, "contribution")]
 
-    print("Submissions - all:", len(submissions_all))
-    print("Submissions - valid:", len(submissions_valid))
+    logger.info("Submissions - all: %d", len(submissions_all))
+    logger.info("Submissions - valid: %d", len(submissions_valid))
 
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "openreview_all.json").write_text(json.dumps(submissions_all))
@@ -553,7 +554,7 @@ def process_latex_file(
     try:
         content = abs_path.read_text()
     except Exception as e:
-        print(f"Error reading {abs_path}: {e}")
+        logger.warning(f"Error reading {abs_path}: {e}")
         return ""
 
     include_pattern = re.compile(r"\\(?:input|include)\{([^}]+)\}")
@@ -613,7 +614,7 @@ def convert_to_markdown(latex_content: str) -> str | None:
             subprocess.run(pandoc_cmd, check=True)
             return markdown_file.read_text()
         except subprocess.CalledProcessError as e:
-            print("Error during pandoc conversion:", e)
+            logger.warning("Error during pandoc conversion: %s", e)
             return None
 
 
@@ -666,10 +667,10 @@ def extract_bibliography_from_bibfiles(
             )
             bib_data = json.loads(result.stdout)
         except subprocess.CalledProcessError as e:
-            print(f"Error processing bibliography file {bib_path}: {e}")
+            logger.warning(f"Error processing bibliography file {bib_path}: {e}")
             return {}
         except json.JSONDecodeError as e:
-            print(f"Error parsing bibliography data from {bib_path}: {e}")
+            logger.warning(f"Error parsing bibliography data from {bib_path}: {e}")
             return {}
 
         for entry in bib_data:
@@ -872,22 +873,20 @@ def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> P
 
         try:
             main_tex = find_main_tex(tmpdir)
-            print("Using main tex file:", main_tex)
-        except FileNotFoundError as e:
-            print(e)
-            sys.exit(1)
+            logger.debug("Using main tex file: %s", main_tex)
+        except FileNotFoundError:
+            die("Could not find main file")
 
         consolidated_content = process_latex_file(main_tex)
         if not consolidated_content:
-            print("No content processed. Aborting.")
-            sys.exit(1)
+            die("No content processed. Aborting.")
 
         consolidated_content = remove_arxiv_styling(consolidated_content)
 
         bib_files = find_bib_files(tmpdir, consolidated_content)
         citationkey_to_reference = extract_bibliography_from_bibfiles(bib_files)
         if not citationkey_to_reference:
-            print("No references from bib files. Trying bib items.")
+            logger.debug("No references from bib files. Trying bib items.")
             citationkey_to_reference = extract_bibliography_from_bibitems(
                 consolidated_content
             )
@@ -922,8 +921,7 @@ def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> P
 
     markdown_content = convert_to_markdown(consolidated_content)
     if markdown_content is None:
-        print("Error converting LaTeX to Markdown. Aborting.")
-        sys.exit(1)
+        die("Error converting LaTeX to Markdown. Aborting.")
 
     sections = split_by_sections(markdown_content)
 
