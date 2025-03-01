@@ -629,7 +629,7 @@ def remove_latex_comments(tex_string: str) -> str:
     )
 
 
-def convert_to_markdown(latex_content: str) -> str | None:
+def convert_to_markdown(latex_content: str, title: str) -> str | None:
     """Convert LaTeX file to Markdown with pandoc."""
     with tempfile.TemporaryDirectory() as tmp_dir_:
         tmp_dir = Path(tmp_dir_)
@@ -656,7 +656,9 @@ def convert_to_markdown(latex_content: str) -> str | None:
             subprocess.run(pandoc_cmd, check=True)
             return markdown_file.read_text()
         except subprocess.CalledProcessError as e:
-            logger.warning("Error during pandoc conversion: %s", e)
+            logger.warning(
+                "Error during pandoc conversion. Paper: %s. Error: %s", title, e
+            )
             return None
 
 
@@ -981,7 +983,7 @@ def process_latex(
         ref for ref in citationkey_to_reference.values() if ref.citation_contexts
     ]
 
-    markdown_content = convert_to_markdown(consolidated_content)
+    markdown_content = convert_to_markdown(consolidated_content, title)
     if markdown_content is None:
         logger.debug("Error converting LaTeX to Markdown. Aborting.")
         return None
