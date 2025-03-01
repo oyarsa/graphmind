@@ -564,8 +564,8 @@ def process_latex_file(
 
     def include_replacer(match: re.Match[str]) -> str:
         included_path = Path(match.group(1).strip())
-        if not included_path.suffix:
-            included_path = included_path.with_suffix(".tex")
+        if not included_path.name.endswith(".tex"):
+            included_path = included_path.with_name(f"{included_path.name}.tex")
 
         return process_latex_file(abs_path.parent / included_path, processed_files)
 
@@ -876,6 +876,7 @@ def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> P
 
         try:
             main_tex = find_main_tex(tmpdir)
+            print("Using main tex file:", main_tex)
         except FileNotFoundError as e:
             print(e)
             sys.exit(1)
