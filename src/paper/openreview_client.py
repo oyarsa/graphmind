@@ -8,6 +8,7 @@ The process for retrieving the whole data is running the subcommands in this ord
 """
 
 # pyright: basic
+import contextlib
 import dataclasses as dc
 import io
 import itertools
@@ -1126,6 +1127,86 @@ def process_tex_file(
         return True
 
     return False
+
+
+def process_conferences(base_dir: Path) -> list[dict[str, Any]]:
+    """Process reviews files and paper contents from conferences in `base_dir`."""
+    all_papers: list[dict[str, Any]] = []
+
+    conference_dirs = [d for d in base_dir.iterdir() if d.is_dir()]
+
+    for conf_path in conference_dirs:
+        conference = conf_path.name
+        arxiv_file = conf_path / "openreview_arxiv.json"
+        parsed_dir = conf_path / "parsed"
+
+        print(f"Processing {conference}...")
+
+        # Skip if required files/directories don't exist
+        if not arxiv_file.exists() or not parsed_dir.exists():
+            print(f"Skipping {conference} - missing required files")
+            continue
+
+        papers: list[dict[str, Any]] = json.loads(arxiv_file.read_bytes())
+        # Mapping of paper titles (arXiv) to parsed JSON files
+        title_to_path = {f.stem: f for f in parsed_dir.glob("*.json")}
+
+        matched = 0
+
+        for paper in tqdm(papers, desc=f"Processing papers in {conference}"):
+            title = paper.get("arxiv_title")
+            if not title:
+                continue
+
+            if matched_file := title_to_path.get(title):
+                with contextlib.suppress(Exception):
+                    content = json.loads(matched_file.read_bytes())
+                    matched += 1
+
+                all_papers.append({
+                    **paper,
+                    "paper_content": content,
+                    "conference": conference,
+                })
+
+        print(f"Matched: {matched}. Unmatched: {len(papers) - matched}.")
+
+    return all_papers
+
+
+@app.command(no_args_is_help=True)
+def merge(
+    input_dir: Annotated[
+        Path,
+        typer.Option(
+            "--input", "-i", help="Directory containing the data from all conferences."
+        ),
+    ],
+    output_file: Annotated[
+        Path,
+        typer.Option(
+            "--output", "-o", help="Path to output JSON file with merged data."
+        ),
+    ],
+) -> None:
+    """Merge data from all conferences, including reviews and parsed paper content.
+
+    Expects that `input_dir` contains a directory structure like this:
+
+    input_dir
+    ├── iclr2024
+    │  ├── openreview_arxiv.json
+    │  └── parsed
+    │     ├── paper1.json
+    │     └── paper2.json
+    └── iclr2025
+       ├── openreview_arxiv.json
+       └── parsed
+          └── paper3.json
+    """
+    all_papers = process_conferences(input_dir)
+    print(f"Processing complete. Total papers: {len(all_papers)}.")
+    output_file.write_text(json.dumps(all_papers, indent=2))
 
 
 @app.callback(help=__doc__)
