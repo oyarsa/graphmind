@@ -96,7 +96,8 @@ class Timer:
 
     def __str__(self) -> str:
         """Return "{name} took {time}"."""
-        return f"{self.name} took {self.human}"
+        name = self.name if self.name else "Timer"
+        return f"{name} took {self.human}"
 
 
 def setup_logging() -> None:

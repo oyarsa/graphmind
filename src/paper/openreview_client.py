@@ -23,12 +23,14 @@ import io
 import itertools
 import json
 import logging
+import multiprocessing as mp
 import re
 import subprocess
 import tarfile
 import tempfile
 from collections import defaultdict
 from collections.abc import Sequence
+from functools import partial
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -40,9 +42,10 @@ import typer
 from openreview import api
 from tqdm import tqdm
 
+from paper.util import Timer, setup_logging
 from paper.util.cli import die
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("paper.openreview")
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -521,7 +524,7 @@ def find_main_tex(directory: Path) -> Path:
     main_candidates = [
         tex_file
         for tex_file in tex_files
-        if "\\begin{document}" in tex_file.read_text()
+        if "\\begin{document}" in tex_file.read_text(errors="ignore")
     ]
 
     if not main_candidates:
@@ -540,7 +543,7 @@ def find_main_tex(directory: Path) -> Path:
 
 
 def process_latex_file(
-    file_path: Path, processed_files: set[Path] | None = None
+    file_path: Path, root_dir: Path, processed_files: set[Path] | None = None
 ) -> str:
     """Recursively process TeX inclusion directives."""
     if processed_files is None:
@@ -552,9 +555,10 @@ def process_latex_file(
     processed_files.add(abs_path)
 
     try:
-        content = abs_path.read_text()
+        content = abs_path.read_text(errors="replace")
+        content = remove_latex_comments(content)
     except Exception as e:
-        logger.warning(f"Error reading {abs_path}: {e}")
+        logger.debug(f"Error reading {abs_path}: {e}")
         return ""
 
     include_pattern = re.compile(r"\\(?:input|include)\{([^}]+)\}")
@@ -564,13 +568,13 @@ def process_latex_file(
         if not included_path.name.endswith(".tex"):
             included_path = included_path.with_name(f"{included_path.name}.tex")
 
-        return process_latex_file(abs_path.parent / included_path, processed_files)
+        return process_latex_file(root_dir / included_path, root_dir, processed_files)
 
     return include_pattern.sub(include_replacer, content)
 
 
 def remove_arxiv_styling(latex_content: str) -> str:
-    """Remove custom arxiv styling directives."""
+    """Remove custom arxiv styling directives and problematic LaTeX commands."""
     # Remove lines with \usepackage or \RequirePackage that reference 'arxiv'
     no_package = re.sub(
         r"^(\\(?:usepackage|RequirePackage)\s*(\[[^\]]*\])?\s*\{[^}]*arxiv[^}]*\}.*\n?)",
@@ -578,16 +582,54 @@ def remove_arxiv_styling(latex_content: str) -> str:
         latex_content,
         flags=re.MULTILINE,
     )
+
     # Remove lines that explicitly include arxiv.sty
-    return re.sub(
+    no_arxiv = re.sub(
         r"^(\\(?:input|include)\s*\{[^}]*arxiv\.sty[^}]*\}.*\n?)",
         "",
         no_package,
         flags=re.MULTILINE,
     )
 
+    # Remove tcolorbox package
+    no_tcolorbox_pkg = re.sub(
+        r"^(\\(?:usepackage|RequirePackage)\s*(\[[^\]]*\])?\s*\{[^}]*tcolorbox[^}]*\}.*\n?)",
+        "",
+        no_arxiv,
+        flags=re.MULTILINE,
+    )
 
-def convert_to_markdown(latex_content: str) -> str | None:
+    # Remove \newtcolorbox declarations
+    no_newtcolorbox = re.sub(
+        r"\\newtcolorbox\{[^}]+\}(\[[^\]]*\])?\{[^}]+\}",
+        "",
+        no_tcolorbox_pkg,
+        flags=re.MULTILINE,
+    )
+
+    # Remove tcolorbox environments
+    no_tcolorbox_env = re.sub(
+        r"\\begin\{tcolorbox\}(\[[^\]]*\])?.*?\\end\{tcolorbox\}",
+        "",
+        no_newtcolorbox,
+        flags=re.DOTALL,
+    )
+
+    return no_tcolorbox_env  # noqa: RET504
+
+
+def remove_latex_comments(tex_string: str) -> str:
+    """Remove lines that are entirely commented out from a TeX document string.
+
+    A line is considered fully commented if it only contains whitespace before the
+    comment character '%'.
+    """
+    return "\n".join(
+        line for line in tex_string.splitlines() if not line.lstrip().startswith("%")
+    )
+
+
+def convert_to_markdown(latex_content: str, title: str) -> str | None:
     """Convert LaTeX file to Markdown with pandoc."""
     with tempfile.TemporaryDirectory() as tmp_dir_:
         tmp_dir = Path(tmp_dir_)
@@ -611,10 +653,15 @@ def convert_to_markdown(latex_content: str) -> str | None:
         ]
 
         try:
-            subprocess.run(pandoc_cmd, check=True)
-            return markdown_file.read_text()
+            subprocess.run(pandoc_cmd, check=True, timeout=PANDOC_CMD_TIMEOUT)
+            return markdown_file.read_text(errors="ignore")
+        except subprocess.TimeoutExpired:
+            logger.warning("Command timeout during pandoc conversion. Paper: %s", title)
+            return None
         except subprocess.CalledProcessError as e:
-            logger.warning("Error during pandoc conversion: %s", e)
+            logger.warning(
+                "Error during pandoc conversion. Paper: %s. Error: %s", title, e
+            )
             return None
 
 
@@ -642,7 +689,7 @@ def find_bib_files(base_dir: Path, latex_content: str) -> list[Path]:
 
 
 def extract_bibliography_from_bibfiles(
-    bib_paths: list[Path],
+    bib_paths: list[Path], tmpdir: Path
 ) -> dict[str, Reference]:
     """Extract bibliography entries from .bib files."""
     references: dict[str, Reference] = {}
@@ -651,27 +698,48 @@ def extract_bibliography_from_bibfiles(
         if not bib_path.exists():
             continue
 
-        pandoc_cmd = [
-            "pandoc",
-            "--quiet",
-            "-f",
-            "bibtex",
-            "-t",
-            "csljson",
-            str(bib_path),
-        ]
-
+        logger.debug("Processing bib file: %s", bib_path)
         try:
+            bib_content = bib_path.read_text(errors="ignore")
+
+            # Fix problematic citations with accents
+            bib_content = re.sub(
+                r"@\w+\{[^{,]*?\\['`^\"]\w+",
+                lambda m: m.group(0).replace("\\", ""),
+                bib_content,
+            )
+            # Remove lines with question marks at the beginning of fields
+            bib_content = re.sub(r"\s+\?\s*(\w+)\s*=\s*\{[^}]*\},", "", bib_content)
+
+            tmp_file = tmpdir / "clean.bib"
+            tmp_file.write_text(bib_content)
+
+            pandoc_cmd = [
+                "pandoc",
+                "--quiet",
+                "-f",
+                "bibtex",
+                "-t",
+                "csljson",
+                str(tmp_file),
+            ]
             result = subprocess.run(
-                pandoc_cmd, check=True, capture_output=True, text=True
+                pandoc_cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=PANDOC_CMD_TIMEOUT,
             )
             bib_data = json.loads(result.stdout)
+        except subprocess.TimeoutExpired:
+            logger.warning("Command timeout during bibliography file processing.")
+            continue
         except subprocess.CalledProcessError as e:
-            logger.warning(f"Error processing bibliography file {bib_path}: {e}")
-            return {}
+            logger.debug(f"Error processing bibliography file {bib_path}: {e.stderr}")
+            continue
         except json.JSONDecodeError as e:
-            logger.warning(f"Error parsing bibliography data from {bib_path}: {e}")
-            return {}
+            logger.debug(f"Error parsing bibliography data from {bib_path}: {e}")
+            continue
 
         for entry in bib_data:
             # Extract the citation key (bib id)
@@ -859,12 +927,16 @@ def split_by_sections(markdown_content: str) -> list[Section]:
     return sections
 
 
-def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> Paper:
+def process_latex(
+    splitter: SentenceSplitter, title: str, input_file: Path
+) -> Paper | None:
     """Read LaTeX repository from `input_file` and parse into `Paper`.
 
     LaTeX is converted to Markdown, which is split into sections. The references and
     citations are extracted from bibliography files and sections.
     """
+    logger.debug("Processing file: %s", input_file)
+
     with tempfile.TemporaryDirectory() as tmpdir_:
         tmpdir = Path(tmpdir_)
 
@@ -875,16 +947,18 @@ def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> P
             main_tex = find_main_tex(tmpdir)
             logger.debug("Using main tex file: %s", main_tex)
         except FileNotFoundError:
-            die("Could not find main file")
+            logger.debug("Could not find main file")
+            return None
 
-        consolidated_content = process_latex_file(main_tex)
+        consolidated_content = process_latex_file(main_tex, tmpdir)
         if not consolidated_content:
-            die("No content processed. Aborting.")
+            logger.debug("No content processed. Aborting.")
+            return None
 
         consolidated_content = remove_arxiv_styling(consolidated_content)
 
         bib_files = find_bib_files(tmpdir, consolidated_content)
-        citationkey_to_reference = extract_bibliography_from_bibfiles(bib_files)
+        citationkey_to_reference = extract_bibliography_from_bibfiles(bib_files, tmpdir)
         if not citationkey_to_reference:
             logger.debug("No references from bib files. Trying bib items.")
             citationkey_to_reference = extract_bibliography_from_bibitems(
@@ -919,32 +993,157 @@ def process_latex(splitter: SentenceSplitter, title: str, input_file: Path) -> P
         ref for ref in citationkey_to_reference.values() if ref.citation_contexts
     ]
 
-    markdown_content = convert_to_markdown(consolidated_content)
+    markdown_content = convert_to_markdown(consolidated_content, title)
     if markdown_content is None:
-        die("Error converting LaTeX to Markdown. Aborting.")
+        logger.debug("Error converting LaTeX to Markdown. Aborting.")
+        return None
 
     sections = split_by_sections(markdown_content)
 
     return Paper(title=title, sections=sections, references=references)
 
 
+def process_tex_files(
+    input_files: list[Path], num_workers: int | None, output_dir: Path
+) -> int:
+    """Process all TeX `inpt_files` and save the results to `output_dir`."""
+    splitter = SentenceSplitter()
+
+    if num_workers is None or num_workers == 0:
+        num_workers = mp.cpu_count()
+
+    logger.debug("Using %d workers", num_workers)
+
+    if num_workers == 1:
+        return sum(
+            process_tex_file(splitter, output_dir, input_file)
+            for input_file in tqdm(input_files, desc="Converting LaTeX files")
+        )
+
+    # We need to re-initialise logging for each subprocess, or nothing is logged
+    with mp.Pool(processes=num_workers, initializer=setup_logging) as pool:
+        process_func = partial(process_tex_file, splitter, output_dir)
+        return sum(
+            tqdm(
+                pool.imap_unordered(process_func, input_files),
+                total=len(input_files),
+                desc="Converting LaTeX files",
+            )
+        )
+
+
+# Maximum time allowed for a Pandoc command, in seconds
+PANDOC_CMD_TIMEOUT = 30
+
+
 @app.command(help=__doc__, no_args_is_help=True)
 def parse(
-    input_file: Annotated[
-        Path, typer.Argument(help="Path to the tar.gz with LaTeX code.")
+    input_path: Annotated[
+        Path,
+        typer.Option(
+            "--input",
+            "-i",
+            help="Path to the tar.gz file(s) with LaTeX code. If the path is a"
+            " directory, checks for .tar.gz files inside it.",
+        ),
     ],
     output_dir: Annotated[
         Path,
-        typer.Argument(help="Directory to save the JSON output file with parsed data."),
+        typer.Option(
+            "--output",
+            "-o",
+            help="Directory to save the JSON output file with parsed data.",
+        ),
     ],
+    max_items: Annotated[
+        int | None,
+        typer.Option(
+            "--max-items",
+            "-n",
+            help="Number of items to process. If None, process all.",
+        ),
+    ] = None,
+    num_workers: Annotated[
+        int,
+        typer.Option(
+            "--workers",
+            "-j",
+            help="Number of workers for parallel processing. Set 0 for all CPUs.",
+        ),
+    ] = 1,
+    clean: Annotated[
+        bool, typer.Option(help="Ignore existing files, reprocessing everything.")
+    ] = False,
 ) -> None:
-    """Parse LaTeX code from directory into JSON with sections and references."""
-    splitter = SentenceSplitter()
+    """Parse LaTeX code from directory into JSON with sections and references.
 
-    title = input_file.name.removesuffix(".tar.gz")
-    paper = process_latex(splitter, title, input_file)
+    By default, we avoid reprocessing files that already have processed versions in
+    `output_dir`. Override that with `--clean` to reprocess everything.
 
-    (output_dir / f"{title}.json").write_text(json.dumps(dc.asdict(paper), indent=2))
+    Note: for each paper, we combine all TeX code files into a single one and use pandoc
+    to convert that to Markdown. However, not all LaTeX files can be parsed. We try to
+    remove some offending commands, but sometimes pandoc simply cannot process the LaTeX
+    file. In those cases, we just print a warning and give up on that paper. This also
+    applies to bib files. This seems to affect about 10% of the input files from arXiv.
+    """
+    if input_path.is_file():
+        input_files = [input_path]
+    else:
+        input_files = list(input_path.glob("*.tar.gz"))
+    input_files = input_files[:max_items]
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if clean:
+        done_titles: set[str] = set()
+    else:
+        done_titles = {
+            title_from_filename(file, ".json") for file in output_dir.glob("*.json")
+        }
+
+    skip_files = {
+        file
+        for file in input_files
+        if title_from_filename(file, ".tar.gz") in done_titles
+    }
+    input_files = [file for file in input_files if file not in skip_files]
+
+    with Timer() as timer:
+        successful_n = process_tex_files(input_files, num_workers, output_dir)
+    logger.info(timer)
+
+    logger.info("Processed  : %d", len(input_files))
+    logger.info("Skipped    : %d", len(skip_files))
+    logger.info("Successful : %d", successful_n)
+
+
+def title_from_filename(input_file: Path, ext: str) -> str:
+    """Get paper title from a file name and an extension (e.g. `.tar.gz` or `.json`).
+
+    This is useful because `Path.stem` doesn't work for `.tar.gz`.
+    """
+    return input_file.name.removesuffix(ext)
+
+
+def process_tex_file(
+    splitter: SentenceSplitter, output_dir: Path, input_file: Path
+) -> bool:
+    """Parse LaTeX files into a paper. Returns True if the conversion was successful."""
+    title = title_from_filename(input_file, ".tar.gz")
+
+    if paper := process_latex(splitter, title, input_file):
+        (output_dir / f"{title}.json").write_text(
+            json.dumps(dc.asdict(paper), indent=2)
+        )
+        return True
+
+    return False
+
+
+@app.callback(help=__doc__)
+def main() -> None:
+    """Empty callback for documentation."""
+    setup_logging()
 
 
 if __name__ == "__main__":
