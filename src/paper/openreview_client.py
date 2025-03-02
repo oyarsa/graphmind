@@ -1,18 +1,8 @@
 """Fetch conference paper data from the OpenReview API and download LaTeX from arXiv.
 
-Requires the following environment variables to be set:
-- OPENREVIEW_USERNAME
-- OPENREVIEW_PASSWORD
-
-These are the standard credentials you use to log into the OpenReview website.
-Example venue IDs:
-- ICLR.cc/2024/Conference
-- ICLR.cc/2025/Conference
-- NeurIPS.cc/2024/Conference
-
 The process for retrieving the whole data is running the subcommands in this order:
-- `reviews`: get the available paper information for a given conference
-- `arxiv`: find the arXiv IDs for the papers that are available there
+- `reviews`: get the available paper information for a given conference, including
+  arXiv paper IDs.
 - `latex`: use the arXiv IDs to download the LaTeX code for the papers
 - `parse`: convert LaTeX code to parsed paper with sections and references
 """
@@ -57,67 +47,6 @@ app = typer.Typer(
 )
 
 
-@app.command(name="arxiv", no_args_is_help=True)
-def query_arxiv(
-    reviews_file: Annotated[
-        Path,
-        typer.Option(
-            "--papers",
-            "-i",
-            help="Path to paper data from OpenReview. Can be a text file with one title"
-            " per line, or the actual JSON from the `reviews` subcommand.",
-        ),
-    ],
-    output_file: Annotated[
-        Path,
-        typer.Option(
-            "--output",
-            "-o",
-            help="Output path for JSON file with the arXiv information.",
-        ),
-    ],
-    max_papers: Annotated[
-        int | None,
-        typer.Option(
-            "--num-papers",
-            "-n",
-            help="How many papers to process. If None, processes all.",
-        ),
-    ] = None,
-    batch_size: Annotated[
-        int, typer.Option(help="Batch size to query the arXiv API.")
-    ] = 50,
-) -> None:
-    """Query the arXiv API to find which papers are available.
-
-    Saves an `arxiv.json` file with an array of objects with `id` and `title` fields.
-    Use this with the `latex` subcommand to download the LaTeX files.
-    """
-    if reviews_file.suffix == ".json":
-        papers = json.loads(reviews_file.read_text())[:max_papers]
-        titles: list[str] = [
-            title
-            for paper in papers
-            if (title := paper.get("content", {}).get("title", {}).get("value"))
-        ]
-    else:
-        titles = [
-            title
-            for line in reviews_file.read_text().splitlines()[:max_papers]
-            if (title := line.strip())
-        ]
-
-    if not titles:
-        die("No valid titles found.")
-    logger.info(f"Found {len(titles)} papers in input file")
-
-    arxiv_results = _get_arxiv(titles, batch_size)
-    logger.info(f"Found {len(arxiv_results)} papers on arXiv")
-
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    output_file.write_text(json.dumps([dc.asdict(r) for r in arxiv_results]))
-
-
 @app.command(no_args_is_help=True)
 def latex(
     reviews_file: Annotated[
@@ -159,7 +88,7 @@ def latex(
     You can override this with `--clean` and `--skip`.
     """
     papers: list[dict[str, str]] = json.loads(reviews_file.read_text())[:max_papers]
-    arxiv_results = [ArxivResult(title=p["title"], id=p["id"]) for p in papers]
+    arxiv_results = [ArxivResult(title=p["title"], id=p["arxiv_id"]) for p in papers]
 
     if clean_run:
         downloaded_prev = set()
@@ -211,8 +140,8 @@ class ArxivResult:
     id: str
 
 
-def _get_arxiv(paper_titles: list[str], batch_size: int) -> list[ArxivResult]:
-    """Get arXiv information for the papers that are present there."""
+def _get_arxiv(paper_titles: list[str], batch_size: int) -> dict[str, str]:
+    """Get mapping of paepr title to arXiv ID for the papers that are present there."""
     arxiv_client = arxiv.Client()
 
     arxiv_results: list[ArxivResult] = []
@@ -221,7 +150,7 @@ def _get_arxiv(paper_titles: list[str], batch_size: int) -> list[ArxivResult]:
     ):
         arxiv_results.extend(_batch_search_arxiv(arxiv_client, title_batch))
 
-    return arxiv_results
+    return {r.title: r.id for r in arxiv_results}
 
 
 def _batch_search_arxiv(
@@ -236,18 +165,18 @@ def _batch_search_arxiv(
         for result in client.results(
             arxiv.Search(query=query, max_results=len(titles))
         ):
-            result_title = result.title.lower()
+            result_title = result.title.casefold()
             for original_title in titles:
                 if _similar_titles(original_title, result_title):
-                    results_map[original_title.lower()] = ArxivResult(
+                    results_map[original_title.casefold()] = ArxivResult(
                         id=result.entry_id.split("/")[-1],
-                        title=result.title,
+                        title=original_title,
                     )
                     break
     except Exception as e:
         logger.warning(f"Error during batch search on arXiv: {e}")
 
-    return [result for title in titles if (result := results_map.get(title.lower()))]
+    return [result for title in titles if (result := results_map.get(title.casefold()))]
 
 
 def _similar_titles(title1: str, title2: str) -> bool:
@@ -296,8 +225,32 @@ def reviews(
         Path, typer.Argument(help="Output directory for OpenReview reviews file.")
     ],
     venue_id: Annotated[str, typer.Option("--venue", help="Venue ID to fetch data.")],
+    batch_size: Annotated[
+        int, typer.Option(help="Batch size to query the arXiv API.")
+    ] = 50,
+    max_papers: Annotated[
+        int | None,
+        typer.Option(
+            "--max-papers",
+            "-n",
+            help="Maximum number of papers to query. If None, use all.",
+        ),
+    ] = None,
 ) -> None:
-    """Download all reviews and metadata for papers from a conference in OpenReview."""
+    """Download all reviews and metadata for papers from a conference in OpenReview.
+
+    Also queries arXiv to find which papers are available there, adding their arXiv IDs.
+
+    Requires the following environment variables to be set:
+    - OPENREVIEW_USERNAME
+    - OPENREVIEW_PASSWORD
+
+    These are the standard credentials you use to log into the OpenReview website.
+    Example venue IDs:
+    - ICLR.cc/2024/Conference
+    - ICLR.cc/2025/Conference
+    - NeurIPS.cc/2024/Conference
+    """
     client = api.OpenReviewClient(baseurl="https://api2.openreview.net")
     submissions_raw = client.get_all_notes(
         invitation=f"{venue_id}/-/Submission", details="replies"
@@ -311,9 +264,34 @@ def reviews(
     logger.info("Submissions - all: %d", len(submissions_all))
     logger.info("Submissions - valid: %d", len(submissions_valid))
 
+    paper_titles = [
+        title
+        for paper in submissions_valid[:max_papers]
+        if (title := paper["content"].get("title", {}).get("value"))
+    ]
+
+    logger.info("Querying arXiv for %d paper titles", len(paper_titles))
+    arxiv_results = _get_arxiv(paper_titles, batch_size)
+    logger.info("Found %d papers on arXiv", len(arxiv_results))
+
+    submissions_with_arxiv: list[dict[str, Any]] = []
+    for paper in submissions_valid:
+        title = paper["content"].get("title", {}).get("value", "")
+        if arxiv_id := arxiv_results.get(title):
+            submissions_with_arxiv.append({
+                **paper,
+                "arxiv_id": arxiv_id,
+                "title": title,
+            })
+
+    logger.info("Submissions with arXiv IDs: %d", len(submissions_with_arxiv))
+
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "openreview_all.json").write_text(json.dumps(submissions_all))
     (output_dir / "openreview_valid.json").write_text(json.dumps(submissions_valid))
+    (output_dir / "openreview_arxiv.json").write_text(
+        json.dumps(submissions_with_arxiv)
+    )
 
 
 def _note_to_dict(note: api.Note) -> dict[str, Any]:
