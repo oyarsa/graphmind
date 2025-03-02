@@ -88,7 +88,14 @@ def latex(
     You can override this with `--clean` and `--skip`.
     """
     papers: list[dict[str, str]] = json.loads(reviews_file.read_text())[:max_papers]
-    arxiv_results = [ArxivResult(title=p["title"], id=p["arxiv_id"]) for p in papers]
+    arxiv_results = [
+        ArxivResult(
+            openreview_title=p["openreview_title"],
+            arxiv_title=p["arxiv_title"],
+            id=p["arxiv_id"],
+        )
+        for p in papers
+    ]
 
     if clean_run:
         downloaded_prev = set()
@@ -109,20 +116,20 @@ def latex(
     output_dir.mkdir(exist_ok=True, parents=True)
 
     for result in tqdm(arxiv_results, desc="Downloading LaTeX sources"):
-        if result.title in downloaded_prev:
+        if result.arxiv_title in downloaded_prev:
             skipped_n += 1
             continue
 
         try:
             if data := _download_latex_source(result.id):
-                (output_dir / f"{result.title}.tar.gz").write_bytes(data)
+                (output_dir / f"{result.arxiv_title}.tar.gz").write_bytes(data)
                 downloaded_n += 1
             else:
-                logger.warning(f"Invalid tar.gz file for {result.title}")
+                logger.warning(f"Invalid tar.gz file for {result.arxiv_title}")
                 failed_n += 1
         except Exception as e:
             logger.warning(
-                f"Error downloading LaTeX source for {result.title}"
+                f"Error downloading LaTeX source for {result.arxiv_title}"
                 f" - {type(e).__name__}: {e}"
             )
             failed_n += 1
@@ -136,11 +143,12 @@ def latex(
 class ArxivResult:
     """Result of querying the arXiv API with a paper title from OpenReview."""
 
-    title: str
+    openreview_title: str
+    arxiv_title: str
     id: str
 
 
-def _get_arxiv(paper_titles: list[str], batch_size: int) -> dict[str, str]:
+def _get_arxiv(paper_titles: list[str], batch_size: int) -> dict[str, ArxivResult]:
     """Get mapping of paepr title to arXiv ID for the papers that are present there."""
     arxiv_client = arxiv.Client()
 
@@ -150,7 +158,7 @@ def _get_arxiv(paper_titles: list[str], batch_size: int) -> dict[str, str]:
     ):
         arxiv_results.extend(_batch_search_arxiv(arxiv_client, title_batch))
 
-    return {r.title: r.id for r in arxiv_results}
+    return {r.openreview_title: r for r in arxiv_results}
 
 
 def _batch_search_arxiv(
@@ -170,7 +178,8 @@ def _batch_search_arxiv(
                 if _similar_titles(original_title, result_title):
                     results_map[original_title.casefold()] = ArxivResult(
                         id=result.entry_id.split("/")[-1],
-                        title=original_title,
+                        openreview_title=original_title,
+                        arxiv_title=result.title,
                     )
                     break
     except Exception as e:
@@ -277,11 +286,12 @@ def reviews(
     submissions_with_arxiv: list[dict[str, Any]] = []
     for paper in submissions_valid:
         title = paper["content"].get("title", {}).get("value", "")
-        if arxiv_id := arxiv_results.get(title):
+        if arxiv_result := arxiv_results.get(title):
             submissions_with_arxiv.append({
                 **paper,
-                "arxiv_id": arxiv_id,
-                "title": title,
+                "arxiv_id": arxiv_result.id,
+                "openreview_title": arxiv_result.openreview_title,
+                "arxiv_title": arxiv_result.arxiv_title,
             })
 
     logger.info("Submissions with arXiv IDs: %d", len(submissions_with_arxiv))
