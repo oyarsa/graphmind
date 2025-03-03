@@ -312,6 +312,7 @@ def _is_valid(paper: dict[str, Any], rating: str) -> bool:
     """Check if paper has at least one review with `rating`, PDF, title and abstract."""
     return all((
         _has_rating(paper, rating),
+        _has_rating(paper, "decision"),
         _has_field(paper, "pdf"),
         _has_field(paper, "title"),
         _has_field(paper, "abstract"),
