@@ -8,6 +8,7 @@ The process for retrieving the whole data is running the subcommands in this ord
 """
 
 # pyright: basic
+import contextlib
 import dataclasses as dc
 import io
 import itertools
@@ -19,10 +20,10 @@ import subprocess
 import tarfile
 import tempfile
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import partial
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, overload
 
 import arxiv  # type: ignore
 import backoff
@@ -32,8 +33,10 @@ import typer
 from openreview import api
 from tqdm import tqdm
 
+from paper import peerread as pr
 from paper.util import Timer, setup_logging
 from paper.util.cli import die
+from paper.util.serde import save_data
 
 logger = logging.getLogger("paper.openreview")
 
@@ -75,10 +78,6 @@ def latex(
         bool,
         typer.Option("--clean", help="If True, ignore previously downloaded files."),
     ] = False,
-    skip_file: Annotated[
-        Path | None,
-        typer.Option("--skip", help="File with paper titles to skip, one per line."),
-    ] = None,
 ) -> None:
     """Download LaTeX source files from arXiv data.
 
@@ -88,16 +87,17 @@ def latex(
     You can override this with `--clean` and `--skip`.
     """
     papers: list[dict[str, str]] = json.loads(reviews_file.read_text())[:max_papers]
-    arxiv_results = [ArxivResult(title=p["title"], id=p["arxiv_id"]) for p in papers]
+    arxiv_results = [
+        ArxivResult(
+            openreview_title=p["openreview_title"],
+            arxiv_title=p["arxiv_title"],
+            id=p["arxiv_id"],
+        )
+        for p in papers
+    ]
 
     if clean_run:
         downloaded_prev = set()
-    elif skip_file is not None:
-        downloaded_prev = {
-            name
-            for line in skip_file.read_text().splitlines()
-            if (name := line.strip())
-        }
     else:
         downloaded_prev = {
             path.stem for path in output_dir.glob("*.tar.gz") if path.is_file()
@@ -109,20 +109,20 @@ def latex(
     output_dir.mkdir(exist_ok=True, parents=True)
 
     for result in tqdm(arxiv_results, desc="Downloading LaTeX sources"):
-        if result.title in downloaded_prev:
+        if result.arxiv_title in downloaded_prev:
             skipped_n += 1
             continue
 
         try:
             if data := _download_latex_source(result.id):
-                (output_dir / f"{result.title}.tar.gz").write_bytes(data)
+                (output_dir / f"{result.arxiv_title}.tar.gz").write_bytes(data)
                 downloaded_n += 1
             else:
-                logger.warning(f"Invalid tar.gz file for {result.title}")
+                logger.warning(f"Invalid tar.gz file for {result.arxiv_title}")
                 failed_n += 1
         except Exception as e:
             logger.warning(
-                f"Error downloading LaTeX source for {result.title}"
+                f"Error downloading LaTeX source for {result.arxiv_title}"
                 f" - {type(e).__name__}: {e}"
             )
             failed_n += 1
@@ -136,47 +136,57 @@ def latex(
 class ArxivResult:
     """Result of querying the arXiv API with a paper title from OpenReview."""
 
-    title: str
+    openreview_title: str
+    arxiv_title: str
     id: str
 
 
-def _get_arxiv(paper_titles: list[str], batch_size: int) -> dict[str, str]:
-    """Get mapping of paepr title to arXiv ID for the papers that are present there."""
+def _get_arxiv(openreview_titles: list[str], batch_size: int) -> dict[str, ArxivResult]:
+    """Get mapping of OpenReview paper title to arXiv ID that exist on arXiv."""
     arxiv_client = arxiv.Client()
 
     arxiv_results: list[ArxivResult] = []
-    for title_batch in tqdm(
-        list(itertools.batched(paper_titles, batch_size)), desc="Querying arXiv"
+    for openreview_title_batch in tqdm(
+        list(itertools.batched(openreview_titles, batch_size)),
+        desc="Querying arXiv",
     ):
-        arxiv_results.extend(_batch_search_arxiv(arxiv_client, title_batch))
+        arxiv_results.extend(_batch_search_arxiv(arxiv_client, openreview_title_batch))
 
-    return {r.title: r.id for r in arxiv_results}
+    return {r.openreview_title: r for r in arxiv_results}
 
 
 def _batch_search_arxiv(
-    client: arxiv.Client, titles: Sequence[str]
+    client: arxiv.Client, openreview_titles: Sequence[str]
 ) -> list[ArxivResult]:
-    """Search multiple titles at once on arXiv and return matching results."""
-    or_queries = " OR ".join(f'ti:"{title}"' for title in titles)
+    """Search multiple OpenReview titles at once on arXiv and return matching results."""
+    or_queries = " OR ".join(
+        f'ti:"{openreview_title}"' for openreview_title in openreview_titles
+    )
     query = f"({or_queries})"
     results_map: dict[str, ArxivResult] = {}
+    openreview_titles = [t.casefold() for t in openreview_titles]
 
     try:
         for result in client.results(
-            arxiv.Search(query=query, max_results=len(titles))
+            arxiv.Search(query=query, max_results=len(openreview_titles))
         ):
-            result_title = result.title.casefold()
-            for original_title in titles:
-                if _similar_titles(original_title, result_title):
-                    results_map[original_title.casefold()] = ArxivResult(
+            arxiv_title = result.title
+            for openreview_title in openreview_titles:
+                if _similar_titles(openreview_title, arxiv_title):
+                    results_map[openreview_title] = ArxivResult(
                         id=result.entry_id.split("/")[-1],
-                        title=original_title,
+                        openreview_title=openreview_title,
+                        arxiv_title=arxiv_title,
                     )
                     break
     except Exception as e:
         logger.warning(f"Error during batch search on arXiv: {e}")
 
-    return [result for title in titles if (result := results_map.get(title.casefold()))]
+    return [
+        result
+        for openreview_title in openreview_titles
+        if (result := results_map.get(openreview_title))
+    ]
 
 
 def _similar_titles(title1: str, title2: str) -> bool:
@@ -264,24 +274,25 @@ def reviews(
     logger.info("Submissions - all: %d", len(submissions_all))
     logger.info("Submissions - valid: %d", len(submissions_valid))
 
-    paper_titles = [
-        title
+    openreview_titles = [
+        openreview_title
         for paper in submissions_valid[:max_papers]
-        if (title := paper["content"].get("title", {}).get("value"))
+        if (openreview_title := paper["content"].get("title", {}).get("value"))
     ]
 
-    logger.info("Querying arXiv for %d paper titles", len(paper_titles))
-    arxiv_results = _get_arxiv(paper_titles, batch_size)
-    logger.info("Found %d papers on arXiv", len(arxiv_results))
+    logger.info("Querying arXiv for %d paper titles", len(openreview_titles))
+    openreview_to_arxiv = _get_arxiv(openreview_titles, batch_size)
+    logger.info("Found %d papers on arXiv", len(openreview_to_arxiv))
 
     submissions_with_arxiv: list[dict[str, Any]] = []
     for paper in submissions_valid:
-        title = paper["content"].get("title", {}).get("value", "")
-        if arxiv_id := arxiv_results.get(title):
+        openreview_title = paper["content"].get("title", {}).get("value", "")
+        if arxiv_result := openreview_to_arxiv.get(openreview_title):
             submissions_with_arxiv.append({
                 **paper,
-                "arxiv_id": arxiv_id,
-                "title": title,
+                "arxiv_id": arxiv_result.id,
+                "openreview_title": arxiv_result.openreview_title,
+                "arxiv_title": arxiv_result.arxiv_title,
             })
 
     logger.info("Submissions with arXiv IDs: %d", len(submissions_with_arxiv))
@@ -303,23 +314,16 @@ def _is_valid(paper: dict[str, Any], rating: str) -> bool:
     """Check if paper has at least one review with `rating`, PDF, title and abstract."""
     return all((
         _has_rating(paper, rating),
+        _has_rating(paper, "decision"),
         _has_field(paper, "pdf"),
         _has_field(paper, "title"),
         _has_field(paper, "abstract"),
     ))
 
 
-def _review_has_rating(review: dict[str, Any], name: str) -> bool:
-    """Check if the review has the rating with given `name`.
-
-    Checks whether the `content.{name}` field is non-empty.
-    """
-    return bool(review["content"].get(name))
-
-
 def _has_rating(paper: dict[str, Any], name: str) -> bool:
     """Check if any review in `paper` has the rating with given `name`."""
-    return any(_review_has_rating(r, name) for r in paper["details"]["replies"])
+    return any(r["content"].get(name) for r in paper["details"]["replies"])
 
 
 def _has_field(paper: dict[str, Any], name: str) -> bool:
@@ -328,20 +332,6 @@ def _has_field(paper: dict[str, Any], name: str) -> bool:
     if isinstance(value, str):
         value = value.strip()
     return bool(value)
-
-
-"""Read a LaTeX directory, convert it to Markdown and extract sections and references.
-
-The script takes input and output paths. The input is a directory containing tex and
-other related files. We look for a "main" tex file that includes the others and start
-from it. We recursively include all tex files so we're left with a single tex file to
-process. We also look for `.bib` files referenced in the tex code.
-
-The output is a JSON file containing the extracted sections and references. The sections
-are the top-level sections with their numbers (or letters in the appendix). The
-references are all the papers from the `.bib` files, that are mentioned in the main text.
-Each reference also includes the paragraphs where it's cited in the text.
-"""
 
 
 @dc.dataclass(frozen=True, kw_only=True)
@@ -363,7 +353,7 @@ class Reference:
 
 
 @dc.dataclass(frozen=True, kw_only=True)
-class Paper:
+class LatexPaper:
     """Parsed paper content in Markdown with reference citations."""
 
     title: str
@@ -423,7 +413,7 @@ LATEX_CMD_PATTERN = re.compile(
 MATH_ENV_PATTERN = re.compile(r"\$\$.*?\$\$|\$.*?\$", re.DOTALL)
 
 
-def clean_latex(text: str) -> str:
+def _clean_latex(text: str) -> str:
     """Remove LaTeX commands except citation commands.
 
     Args:
@@ -445,7 +435,7 @@ def clean_latex(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def get_citation_keys(sentence: str) -> set[str]:
+def _get_citation_keys(sentence: str) -> set[str]:
     """Extract citation keys from a sentence.
 
     Args:
@@ -467,7 +457,7 @@ def get_citation_keys(sentence: str) -> set[str]:
     return keys
 
 
-def extract_citation_sentences(
+def _extract_citation_sentences(
     splitter: SentenceSplitter, paragraph: str
 ) -> dict[str, list[str]]:
     """Extract sentences containing citations from a paragraph.
@@ -479,18 +469,18 @@ def extract_citation_sentences(
     Returns:
         A dictionary mapping citation keys to the sentences that cite them.
     """
-    cleaned_text = clean_latex(paragraph)
+    cleaned_text = _clean_latex(paragraph)
     sentences = splitter.split(cleaned_text)
     citation_sentences: dict[str, list[str]] = defaultdict(list)
     for sentence in sentences:
         if CITATION_REGEX.search(sentence):
-            for key in get_citation_keys(sentence):
+            for key in _get_citation_keys(sentence):
                 citation_sentences[key].append(sentence)
 
     return citation_sentences
 
 
-def find_main_tex(directory: Path) -> Path:
+def _find_main_tex(directory: Path) -> Path:
     """Find entrypoint TeX file containing include directives for sections."""
     tex_files = list(directory.glob("**/*.tex"))
 
@@ -520,7 +510,7 @@ def find_main_tex(directory: Path) -> Path:
     return main_candidates[0]
 
 
-def process_latex_file(
+def _process_latex_file(
     file_path: Path, root_dir: Path, processed_files: set[Path] | None = None
 ) -> str:
     """Recursively process TeX inclusion directives."""
@@ -534,7 +524,7 @@ def process_latex_file(
 
     try:
         content = abs_path.read_text(errors="replace")
-        content = remove_latex_comments(content)
+        content = _remove_latex_comments(content)
     except Exception as e:
         logger.debug(f"Error reading {abs_path}: {e}")
         return ""
@@ -546,12 +536,12 @@ def process_latex_file(
         if not included_path.name.endswith(".tex"):
             included_path = included_path.with_name(f"{included_path.name}.tex")
 
-        return process_latex_file(root_dir / included_path, root_dir, processed_files)
+        return _process_latex_file(root_dir / included_path, root_dir, processed_files)
 
     return include_pattern.sub(include_replacer, content)
 
 
-def remove_arxiv_styling(latex_content: str) -> str:
+def _remove_arxiv_styling(latex_content: str) -> str:
     """Remove custom arxiv styling directives and problematic LaTeX commands."""
     # Remove lines with \usepackage or \RequirePackage that reference 'arxiv'
     no_package = re.sub(
@@ -596,7 +586,7 @@ def remove_arxiv_styling(latex_content: str) -> str:
     return no_tcolorbox_env  # noqa: RET504
 
 
-def remove_latex_comments(tex_string: str) -> str:
+def _remove_latex_comments(tex_string: str) -> str:
     """Remove lines that are entirely commented out from a TeX document string.
 
     A line is considered fully commented if it only contains whitespace before the
@@ -607,7 +597,7 @@ def remove_latex_comments(tex_string: str) -> str:
     )
 
 
-def convert_to_markdown(latex_content: str, title: str) -> str | None:
+def _convert_latex_to_markdown(latex_content: str, title: str) -> str | None:
     """Convert LaTeX file to Markdown with pandoc."""
     with tempfile.TemporaryDirectory() as tmp_dir_:
         tmp_dir = Path(tmp_dir_)
@@ -643,7 +633,7 @@ def convert_to_markdown(latex_content: str, title: str) -> str | None:
             return None
 
 
-def find_bib_files(base_dir: Path, latex_content: str) -> list[Path]:
+def _find_bib_files(base_dir: Path, latex_content: str) -> list[Path]:
     """Find all bibliography files referenced in the LaTeX document."""
     bib_paths: list[Path] = []
     bib_pattern = re.compile(r"\\bibliography\{([^}]+)\}")
@@ -666,7 +656,7 @@ def find_bib_files(base_dir: Path, latex_content: str) -> list[Path]:
     return bib_paths
 
 
-def extract_bibliography_from_bibfiles(
+def _extract_bibliography_from_bibfiles(
     bib_paths: list[Path], tmpdir: Path
 ) -> dict[str, Reference]:
     """Extract bibliography entries from .bib files."""
@@ -759,7 +749,7 @@ def extract_bibliography_from_bibfiles(
     return references
 
 
-def extract_bibliography_from_bibitems(latex_content: str) -> dict[str, Reference]:
+def _extract_bibliography_from_bibitems(latex_content: str) -> dict[str, Reference]:
     r"""Extract bibliography entries from \\bibitem commands in the LaTeX content."""
     references: dict[str, Reference] = {}
 
@@ -846,7 +836,7 @@ def extract_bibliography_from_bibitems(latex_content: str) -> dict[str, Referenc
     return references
 
 
-def extract_citations_and_contexts(
+def _extract_citations_and_contexts(
     splitter: SentenceSplitter, latex_content: str
 ) -> dict[str, list[str]]:
     """Extract citation keys and their context sentences from the LaTeX content."""
@@ -859,7 +849,7 @@ def extract_citations_and_contexts(
             continue
 
         # Extract citations at sentence level only if citations exist
-        paragraph_citations = extract_citation_sentences(splitter, paragraph)
+        paragraph_citations = _extract_citation_sentences(splitter, paragraph)
 
         # Merge with overall citation contexts
         for key, sentences in paragraph_citations.items():
@@ -870,7 +860,7 @@ def extract_citations_and_contexts(
     return citation_contexts
 
 
-def split_by_sections(markdown_content: str) -> list[Section]:
+def _split_markdown_sections(markdown_content: str) -> list[Section]:
     """Split markdown content by top-level sections only."""
     sections: list[Section] = []
 
@@ -905,9 +895,9 @@ def split_by_sections(markdown_content: str) -> list[Section]:
     return sections
 
 
-def process_latex(
+def _process_latex(
     splitter: SentenceSplitter, title: str, input_file: Path
-) -> Paper | None:
+) -> LatexPaper | None:
     """Read LaTeX repository from `input_file` and parse into `Paper`.
 
     LaTeX is converted to Markdown, which is split into sections. The references and
@@ -922,28 +912,30 @@ def process_latex(
             tar.extractall(path=tmpdir, filter="data")
 
         try:
-            main_tex = find_main_tex(tmpdir)
+            main_tex = _find_main_tex(tmpdir)
             logger.debug("Using main tex file: %s", main_tex)
         except FileNotFoundError:
             logger.debug("Could not find main file")
             return None
 
-        consolidated_content = process_latex_file(main_tex, tmpdir)
+        consolidated_content = _process_latex_file(main_tex, tmpdir)
         if not consolidated_content:
             logger.debug("No content processed. Aborting.")
             return None
 
-        consolidated_content = remove_arxiv_styling(consolidated_content)
+        consolidated_content = _remove_arxiv_styling(consolidated_content)
 
-        bib_files = find_bib_files(tmpdir, consolidated_content)
-        citationkey_to_reference = extract_bibliography_from_bibfiles(bib_files, tmpdir)
+        bib_files = _find_bib_files(tmpdir, consolidated_content)
+        citationkey_to_reference = _extract_bibliography_from_bibfiles(
+            bib_files, tmpdir
+        )
         if not citationkey_to_reference:
             logger.debug("No references from bib files. Trying bib items.")
-            citationkey_to_reference = extract_bibliography_from_bibitems(
+            citationkey_to_reference = _extract_bibliography_from_bibitems(
                 consolidated_content
             )
 
-    citation_contexts = extract_citations_and_contexts(splitter, consolidated_content)
+    citation_contexts = _extract_citations_and_contexts(splitter, consolidated_content)
 
     # Match citations to references and populate contexts
     for citation_key, contexts in citation_contexts.items():
@@ -971,20 +963,20 @@ def process_latex(
         ref for ref in citationkey_to_reference.values() if ref.citation_contexts
     ]
 
-    markdown_content = convert_to_markdown(consolidated_content, title)
+    markdown_content = _convert_latex_to_markdown(consolidated_content, title)
     if markdown_content is None:
         logger.debug("Error converting LaTeX to Markdown. Aborting.")
         return None
 
-    sections = split_by_sections(markdown_content)
+    sections = _split_markdown_sections(markdown_content)
 
-    return Paper(title=title, sections=sections, references=references)
+    return LatexPaper(title=title, sections=sections, references=references)
 
 
-def process_tex_files(
+def _process_tex_files(
     input_files: list[Path], num_workers: int | None, output_dir: Path
 ) -> int:
-    """Process all TeX `inpt_files` and save the results to `output_dir`."""
+    """Process all TeX `input_files` and save the results to `output_dir`."""
     splitter = SentenceSplitter()
 
     if num_workers is None or num_workers == 0:
@@ -994,13 +986,13 @@ def process_tex_files(
 
     if num_workers == 1:
         return sum(
-            process_tex_file(splitter, output_dir, input_file)
+            _process_tex_file(splitter, output_dir, input_file)
             for input_file in tqdm(input_files, desc="Converting LaTeX files")
         )
 
     # We need to re-initialise logging for each subprocess, or nothing is logged
     with mp.Pool(processes=num_workers, initializer=setup_logging) as pool:
-        process_func = partial(process_tex_file, splitter, output_dir)
+        process_func = partial(_process_tex_file, splitter, output_dir)
         return sum(
             tqdm(
                 pool.imap_unordered(process_func, input_files),
@@ -1076,18 +1068,18 @@ def parse(
         done_titles: set[str] = set()
     else:
         done_titles = {
-            title_from_filename(file, ".json") for file in output_dir.glob("*.json")
+            _title_from_filename(file, ".json") for file in output_dir.glob("*.json")
         }
 
     skip_files = {
         file
         for file in input_files
-        if title_from_filename(file, ".tar.gz") in done_titles
+        if _title_from_filename(file, ".tar.gz") in done_titles
     }
     input_files = [file for file in input_files if file not in skip_files]
 
     with Timer() as timer:
-        successful_n = process_tex_files(input_files, num_workers, output_dir)
+        successful_n = _process_tex_files(input_files, num_workers, output_dir)
     logger.info(timer)
 
     logger.info("Processed  : %d", len(input_files))
@@ -1095,7 +1087,7 @@ def parse(
     logger.info("Successful : %d", successful_n)
 
 
-def title_from_filename(input_file: Path, ext: str) -> str:
+def _title_from_filename(input_file: Path, ext: str) -> str:
     """Get paper title from a file name and an extension (e.g. `.tar.gz` or `.json`).
 
     This is useful because `Path.stem` doesn't work for `.tar.gz`.
@@ -1103,19 +1095,275 @@ def title_from_filename(input_file: Path, ext: str) -> str:
     return input_file.name.removesuffix(ext)
 
 
-def process_tex_file(
+def _process_tex_file(
     splitter: SentenceSplitter, output_dir: Path, input_file: Path
 ) -> bool:
     """Parse LaTeX files into a paper. Returns True if the conversion was successful."""
-    title = title_from_filename(input_file, ".tar.gz")
+    title = _title_from_filename(input_file, ".tar.gz")
 
-    if paper := process_latex(splitter, title, input_file):
+    if paper := _process_latex(splitter, title, input_file):
         (output_dir / f"{title}.json").write_text(
             json.dumps(dc.asdict(paper), indent=2)
         )
         return True
 
     return False
+
+
+@app.command(no_args_is_help=True)
+def preprocess(
+    input_dir: Annotated[
+        Path,
+        typer.Option(
+            "--input", "-i", help="Directory containing the data from all conferences."
+        ),
+    ],
+    output_file: Annotated[
+        Path, typer.Option("--output", "-o", help="Path to output file.")
+    ],
+) -> None:
+    """Merge data from all conferences, including reviews and parsed paper content.
+
+    Expects that `input_dir` contains a directory structure like this:
+
+    input_dir
+    ├── iclr2024
+    │  ├── openreview_arxiv.json
+    │  └── parsed
+    │     ├── paper1.json
+    │     └── paper2.json
+    └── iclr2025
+       ├── openreview_arxiv.json
+       └── parsed
+          └── paper3.json
+
+    Where the papers inside `parsed` directories are named after the arXiv title.
+
+    The output is a JSON with an array of pr.Paper.
+    """
+    papers_raw = _process_conferences(input_dir)
+    papers_processed = [
+        _process_paper(paper) for paper in tqdm(papers_raw, "Processing raw papers")
+    ]
+    papers_valid = [p for p in papers_processed if p]
+
+    logger.info("Raw papers: %d", len(papers_raw))
+    logger.info("Processed papers: %d", len(papers_processed))
+    logger.info("Valid papers: %d", len(papers_valid))
+
+    other_ratings = sum(len(r.other_ratings) for p in papers_valid for r in p.reviews)
+    logger.info("Other ratings: %d", other_ratings)
+
+    save_data(output_file, papers_valid)
+
+
+def _process_conferences(base_dir: Path) -> list[dict[str, Any]]:
+    """Process reviews files and paper contents from conferences in `base_dir`."""
+    all_papers: list[dict[str, Any]] = []
+
+    conference_dirs = [d for d in base_dir.iterdir() if d.is_dir()]
+
+    for conf_path in conference_dirs:
+        conference = conf_path.name
+        arxiv_file = conf_path / "openreview_arxiv.json"
+        parsed_dir = conf_path / "parsed"
+
+        logger.info(f"Processing {conference}...")
+
+        # Skip if required files/directories don't exist
+        if not arxiv_file.exists() or not parsed_dir.exists():
+            logger.info(f"Skipping {conference} - missing required files")
+            continue
+
+        papers: list[dict[str, Any]] = json.loads(arxiv_file.read_bytes())
+        # Mapping of paper titles (arXiv) to parsed JSON files
+        title_to_path = {f.stem: f for f in parsed_dir.glob("*.json")}
+
+        matched = 0
+
+        for paper in tqdm(papers, desc=f"Processing papers in {conference}"):
+            arxiv_title = paper.get("arxiv_title")
+            if not arxiv_title:
+                continue
+
+            if matched_file := title_to_path.get(arxiv_title):
+                with contextlib.suppress(Exception):
+                    content = json.loads(matched_file.read_bytes())
+                    matched += 1
+
+                all_papers.append({
+                    **paper,
+                    "paper_content": content,
+                    "conference": conference,
+                })
+
+        logger.info(f"Matched: {matched}. Unmatched: {len(papers) - matched}.")
+
+    return all_papers
+
+
+def _process_paper(paper_raw: dict[str, Any]) -> pr.Paper | None:
+    """Transform a raw paper into a `pr.Paper`.
+
+    Returns None if there are no valid reviews with "contribution" ratings or there are
+    less than 5 valid references (excludes "Unknown Reference").
+    """
+    reviews: list[dict[str, Any]] = paper_raw["details"]["replies"]
+    parsed: dict[str, Any] = paper_raw["paper_content"]
+
+    reviews_processed = _process_reviews(reviews)
+    references = _process_references(parsed["references"])
+    if not reviews_processed or len(references) < 5:
+        return None
+
+    sections = [
+        pr.PaperSection(heading=s["heading"], text=s["content"])
+        for s in parsed["sections"]
+    ]
+    approval = _find_approval(reviews)
+
+    content: dict[str, Any] = paper_raw["content"]
+    abstract = _value(str, content, "abstract", "")
+    authors = _value(list, content, "authors", [])
+
+    return pr.Paper(
+        title=parsed["title"],
+        reviews=reviews_processed,
+        abstract=abstract,
+        authors=authors,
+        sections=sections,
+        approval=approval,
+        conference=paper_raw["conference"],
+        references=references,
+    )
+
+
+def _find_approval(reviews: list[dict[str, Any]]) -> bool | None:
+    """Find the review with a decision, if it exists."""
+    for reply in reviews:
+        content = reply["content"]
+        if decision := content.get("decision", {}).get("value"):
+            return decision.lower() != "reject"
+
+    return None
+
+
+def _process_references(references: list[dict[str, Any]]) -> list[pr.PaperReference]:
+    """Transform a raw reference into a `pr.PaperReference`.
+
+    Ignores references with title "Unknown Reference". It's possible that the output
+    list is empty.
+    """
+    output: list[pr.PaperReference] = []
+
+    for ref in references:
+        if ref["title"] == "Unknown Reference":
+            continue
+
+        output.append(
+            pr.PaperReference(
+                title=ref["title"],
+                year=ref["year"] or 0,
+                authors=ref["authors"],
+                contexts=[
+                    pr.CitationContext(sentence=sentence, polarity=None)
+                    for sentence in ref["citation_contexts"]
+                ],
+            )
+        )
+
+    return output
+
+
+def _process_reviews(reviews: list[dict[str, Any]]) -> list[pr.PaperReview]:
+    """Transform raw reviews into a list of `pr.PaperReview`.
+
+    If a review doesn't contain a valid `contribution`, it's skipped.
+    The rationale is a combination of the review's sections: summary, strengths,
+    weaknesses, questions and limitations. If none of these are given, the review will
+    be empty.
+    Other integer ratings will be stored in a separate dictionary.
+    """
+    output: list[pr.PaperReview] = []
+
+    for review in reviews:
+        content = review["content"]
+
+        rating = _value(_rating, content, "contribution")
+        if rating is None:
+            continue
+
+        confidence = _value(_rating, content, "confidence")
+        rationale = "\n\n".join(
+            f"{key.capitalize()}: {value}"
+            for key in [
+                "summary",
+                "strengths",
+                "weaknesses",
+                "questions",
+                "limitations",
+            ]
+            if (value := _value(str, content, key))
+        )
+        other_ratings: dict[str, int] = {
+            key: value
+            for key, item in content.items()
+            if (value := _rating(item.get("value")))
+        }
+
+        output.append(
+            pr.PaperReview(
+                rating=rating,
+                confidence=confidence,
+                rationale=rationale,
+                other_ratings=other_ratings,
+            )
+        )
+
+    return output
+
+
+@overload
+def _value[T](
+    type_: Callable[[Any], T], item: dict[str, Any], key: str, default: T
+) -> T: ...
+
+
+@overload
+def _value[T](
+    type_: Callable[[Any], T], item: dict[str, Any], key: str, default: None = None
+) -> T | None: ...
+
+
+def _value[T](
+    type_: Callable[[Any], T], item: dict[str, Any], key: str, default: T | None = None
+) -> T | None:
+    """Take the value under `key.value`, as is common with the OpenReview API.
+
+    As the value type is Any, you can use `type_` to make sure the output is of a given
+    type, including a custom conversion function.
+    """
+    value = item.get(key, {}).get("value", default)
+    if value is None:
+        return None
+    return type_(value)
+
+
+def _rating(x: Any) -> int | None:
+    """Parse a rating from a value.
+
+    If the rating is an int, return it directly. Otherwise, try to extract the rating
+    from a string, such as "4 - good" or "1: poor".
+    """
+    if isinstance(x, int):
+        return x
+
+    try:
+        fst, _ = re.split(r"[\s\W]+", str(x), maxsplit=1)
+        return int(fst)
+    except ValueError as e:
+        logger.debug("Could not convert rating to int: %s", e)
+        return None
 
 
 @app.callback(help=__doc__)
