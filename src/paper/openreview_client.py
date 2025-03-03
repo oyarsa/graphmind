@@ -1116,11 +1116,11 @@ def process_conferences(base_dir: Path) -> list[dict[str, Any]]:
         arxiv_file = conf_path / "openreview_arxiv.json"
         parsed_dir = conf_path / "parsed"
 
-        print(f"Processing {conference}...")
+        logger.info(f"Processing {conference}...")
 
         # Skip if required files/directories don't exist
         if not arxiv_file.exists() or not parsed_dir.exists():
-            print(f"Skipping {conference} - missing required files")
+            logger.info(f"Skipping {conference} - missing required files")
             continue
 
         papers: list[dict[str, Any]] = json.loads(arxiv_file.read_bytes())
@@ -1145,7 +1145,7 @@ def process_conferences(base_dir: Path) -> list[dict[str, Any]]:
                     "conference": conference,
                 })
 
-        print(f"Matched: {matched}. Unmatched: {len(papers) - matched}.")
+        logger.info(f"Matched: {matched}. Unmatched: {len(papers) - matched}.")
 
     return all_papers
 
@@ -1183,7 +1183,7 @@ def merge(
     Where the papers inside `parsed` directories are named after the arXiv title.
     """
     all_papers = process_conferences(input_dir)
-    print(f"Processing complete. Total papers: {len(all_papers)}.")
+    logger.info(f"Processing complete. Total papers: {len(all_papers)}.")
     output_file.write_text(json.dumps(all_papers, indent=2))
 
 
