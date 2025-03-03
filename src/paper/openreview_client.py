@@ -76,10 +76,6 @@ def latex(
         bool,
         typer.Option("--clean", help="If True, ignore previously downloaded files."),
     ] = False,
-    skip_file: Annotated[
-        Path | None,
-        typer.Option("--skip", help="File with paper titles to skip, one per line."),
-    ] = None,
 ) -> None:
     """Download LaTeX source files from arXiv data.
 
@@ -100,12 +96,6 @@ def latex(
 
     if clean_run:
         downloaded_prev = set()
-    elif skip_file is not None:
-        downloaded_prev = {
-            name
-            for line in skip_file.read_text().splitlines()
-            if (name := line.strip())
-        }
     else:
         downloaded_prev = {
             path.stem for path in output_dir.glob("*.tar.gz") if path.is_file()
