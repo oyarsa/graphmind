@@ -98,6 +98,7 @@ class Paper(Record):
     conference: Annotated[
         str, Field(description="Conference where the paper was published")
     ]
+    year: Annotated[int | None, Field(description="Paper publication year")] = None
 
     @property
     @override
