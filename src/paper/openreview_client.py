@@ -20,10 +20,10 @@ import subprocess
 import tarfile
 import tempfile
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import partial
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, overload
 
 import arxiv  # type: ignore
 import backoff
@@ -33,8 +33,10 @@ import typer
 from openreview import api
 from tqdm import tqdm
 
+from paper import peerread as pr
 from paper.util import Timer, setup_logging
 from paper.util.cli import die
+from paper.util.serde import save_data
 
 logger = logging.getLogger("paper.openreview")
 
@@ -1152,7 +1154,7 @@ def process_conferences(base_dir: Path) -> list[dict[str, Any]]:
 
 
 @app.command(no_args_is_help=True)
-def merge(
+def preprocess(
     input_dir: Annotated[
         Path,
         typer.Option(
@@ -1160,10 +1162,7 @@ def merge(
         ),
     ],
     output_file: Annotated[
-        Path,
-        typer.Option(
-            "--output", "-o", help="Path to output JSON file with merged data."
-        ),
+        Path, typer.Option("--output", "-o", help="Path to output file.")
     ],
 ) -> None:
     """Merge data from all conferences, including reviews and parsed paper content.
@@ -1182,10 +1181,187 @@ def merge(
           └── paper3.json
 
     Where the papers inside `parsed` directories are named after the arXiv title.
+
+    The output is a JSON with an array of pr.Paper.
     """
-    all_papers = process_conferences(input_dir)
-    logger.info(f"Processing complete. Total papers: {len(all_papers)}.")
-    output_file.write_text(json.dumps(all_papers, indent=2))
+    papers_raw = process_conferences(input_dir)
+    papers_processed = [
+        _process_paper(paper) for paper in tqdm(papers_raw, "Processing raw papers")
+    ]
+    papers_valid = [p for p in papers_processed if p]
+
+    logger.info("Raw papers: %d", len(papers_raw))
+    logger.info("Processed papers: %d", len(papers_processed))
+    logger.info("Valid papers: %d", len(papers_valid))
+
+    other_ratings = sum(len(r.other_ratings) for p in papers_valid for r in p.reviews)
+    logger.info("Other ratings: %d", other_ratings)
+
+    save_data(output_file, papers_valid)
+
+
+def _process_paper(paper_raw: dict[str, Any]) -> pr.Paper | None:
+    """Transform a raw paper into a `pr.Paper`.
+
+    Returns None if there are no valid reviews with "contribution" ratings or there are
+    less than 5 valid references (excludes "Unknown Reference").
+    """
+    reviews: list[dict[str, Any]] = paper_raw["details"]["replies"]
+    parsed: dict[str, Any] = paper_raw["paper_content"]
+
+    reviews_processed = _process_reviews(reviews)
+    references = _process_references(parsed["references"])
+    if not reviews_processed or len(references) < 5:
+        return None
+
+    sections = [
+        pr.PaperSection(heading=s["heading"], text=s["content"])
+        for s in parsed["sections"]
+    ]
+    approval = _find_approval(reviews)
+
+    content: dict[str, Any] = paper_raw["content"]
+    abstract = _value(str, content, "abstract", "")
+    authors = _value(list, content, "authors", [])
+
+    return pr.Paper(
+        title=parsed["title"],
+        reviews=reviews_processed,
+        abstract=abstract,
+        authors=authors,
+        sections=sections,
+        approval=approval,
+        conference=paper_raw["conference"],
+        references=references,
+    )
+
+
+def _find_approval(reviews: list[dict[str, Any]]) -> bool | None:
+    """Find the review with a decision, if it exists."""
+    for reply in reviews:
+        content = reply["content"]
+        if decision := content.get("decision", {}).get("value"):
+            return decision.lower() != "reject"
+
+    return None
+
+
+def _process_references(references: list[dict[str, Any]]) -> list[pr.PaperReference]:
+    """Transform a raw reference into a `pr.PaperReference`.
+
+    Ignores references with title "Unknown Reference". It's possible that the output
+    list is empty.
+    """
+    output: list[pr.PaperReference] = []
+
+    for ref in references:
+        if ref["title"] == "Unknown Reference":
+            continue
+
+        output.append(
+            pr.PaperReference(
+                title=ref["title"],
+                year=ref["year"] or 0,
+                authors=ref["authors"],
+                contexts=[
+                    pr.CitationContext(sentence=sentence, polarity=None)
+                    for sentence in ref["citation_contexts"]
+                ],
+            )
+        )
+
+    return output
+
+
+def _process_reviews(reviews: list[dict[str, Any]]) -> list[pr.PaperReview]:
+    """Transform raw reviews into a list of `pr.PaperReview`.
+
+    If a review doesn't contain a valid `contribution`, it's skipped.
+    The rationale is a combination of the review's sections: summary, strengths,
+    weaknesses, questions and limitations. If none of these are given, the review will
+    be empty.
+    Other integer ratings will be stored in a separate dictionary.
+    """
+    output: list[pr.PaperReview] = []
+
+    for review in reviews:
+        content = review["content"]
+
+        rating = _value(_rating, content, "contribution")
+        if rating is None:
+            continue
+
+        confidence = _value(_rating, content, "confidence")
+        rationale = "\n\n".join(
+            f"{key.capitalize()}: {value}"
+            for key in [
+                "summary",
+                "strengths",
+                "weaknesses",
+                "questions",
+                "limitations",
+            ]
+            if (value := _value(str, content, key))
+        )
+        other_ratings: dict[str, int] = {
+            key: value
+            for key, item in content.items()
+            if (value := _rating(item.get("value")))
+        }
+
+        output.append(
+            pr.PaperReview(
+                rating=rating,
+                confidence=confidence,
+                rationale=rationale,
+                other_ratings=other_ratings,
+            )
+        )
+
+    return output
+
+
+@overload
+def _value[T](
+    type_: Callable[[Any], T], item: dict[str, Any], key: str, default: T
+) -> T: ...
+
+
+@overload
+def _value[T](
+    type_: Callable[[Any], T], item: dict[str, Any], key: str, default: None = None
+) -> T | None: ...
+
+
+def _value[T](
+    type_: Callable[[Any], T], item: dict[str, Any], key: str, default: T | None = None
+) -> T | None:
+    """Take the value under `key.value`, as is common with the OpenReview API.
+
+    As the value type is Any, you can use `type_` to make sure the output is of a given
+    type, including a custom conversion function.
+    """
+    value = item.get(key, {}).get("value", default)
+    if value is None:
+        return None
+    return type_(value)
+
+
+def _rating(x: Any) -> int | None:
+    """Parse a rating from a value.
+
+    If the rating is an int, return it directly. Otherwise, try to extract the rating
+    from a string, such as "4 - good" or "1: poor".
+    """
+    if isinstance(x, int):
+        return x
+
+    try:
+        fst, _ = re.split(r"[\s\W]+", str(x), maxsplit=1)
+        return int(fst)
+    except ValueError as e:
+        logger.debug("Could not convert rating to int: %s", e)
+        return None
 
 
 @app.callback(help=__doc__)
