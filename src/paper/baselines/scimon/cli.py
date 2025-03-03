@@ -2,7 +2,7 @@
 
 import typer
 
-from paper.scimon import build, citations, kg, query, semantic
+from paper.baselines.scimon import build, citations, kg, query, semantic
 
 app = typer.Typer(
     name="scimon",

@@ -13,7 +13,7 @@ import typer
 from tqdm import tqdm
 
 from paper import gpt
-from paper.scimon.graph import AnnotatedGraphResult, graph_from_json
+from paper.baselines.scimon.graph import AnnotatedGraphResult, graph_from_json
 from paper.util.serde import load_data, save_data
 
 app = typer.Typer(

@@ -21,8 +21,8 @@ import typer
 from paper import embedding as emb
 from paper import gpt
 from paper import semantic_scholar as s2
-from paper.scimon import citations, kg, semantic
-from paper.scimon.graph import Graph, GraphData
+from paper.baselines.scimon import citations, kg, semantic
+from paper.baselines.scimon.graph import Graph, GraphData
 from paper.util import Timer, get_params, render_params, setup_logging
 from paper.util.serde import load_data, save_data
 

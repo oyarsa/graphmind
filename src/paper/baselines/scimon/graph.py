@@ -12,8 +12,8 @@ from pydantic import BaseModel, ConfigDict
 
 from paper import embedding as emb
 from paper import gpt
-from paper.scimon import citations, kg, semantic
-from paper.scimon.model import PaperAnnotated
+from paper.baselines.scimon import citations, kg, semantic
+from paper.baselines.scimon.model import PaperAnnotated
 from paper.util.serde import Record, load_data
 
 logger = logging.getLogger(__name__)
