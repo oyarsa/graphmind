@@ -10,6 +10,7 @@ The process for retrieving the whole data is running the subcommands in this ord
 # pyright: basic
 import contextlib
 import dataclasses as dc
+import datetime as dt
 import io
 import itertools
 import json
@@ -20,7 +21,7 @@ import subprocess
 import tarfile
 import tempfile
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from functools import partial
 from pathlib import Path
 from typing import Annotated, Any, overload
@@ -34,7 +35,7 @@ from openreview import api
 from tqdm import tqdm
 
 from paper import peerread as pr
-from paper.util import Timer, setup_logging
+from paper.util import Timer, groupby, setup_logging
 from paper.util.cli import die
 from paper.util.serde import save_data
 
@@ -1145,14 +1146,11 @@ def preprocess(
     papers_processed = [
         _process_paper(paper) for paper in tqdm(papers_raw, "Processing raw papers")
     ]
-    papers_valid = [p for p in papers_processed if p]
+    papers_valid = _deduplicate_papers(p for p in papers_processed if p)
 
     logger.info("Raw papers: %d", len(papers_raw))
     logger.info("Processed papers: %d", len(papers_processed))
     logger.info("Valid papers: %d", len(papers_valid))
-
-    other_ratings = sum(len(r.other_ratings) for p in papers_valid for r in p.reviews)
-    logger.info("Other ratings: %d", other_ratings)
 
     save_data(output_file, papers_valid)
 
@@ -1225,6 +1223,8 @@ def _process_paper(paper_raw: dict[str, Any]) -> pr.Paper | None:
     content: dict[str, Any] = paper_raw["content"]
     abstract = _value(str, content, "abstract", "")
     authors = _value(list, content, "authors", [])
+    # Year from creation timestamp (in ms)
+    year = dt.datetime.fromtimestamp(paper_raw["cdate"] / 1000, tz=dt.UTC).year
 
     return pr.Paper(
         title=parsed["title"],
@@ -1235,7 +1235,16 @@ def _process_paper(paper_raw: dict[str, Any]) -> pr.Paper | None:
         approval=approval,
         conference=paper_raw["conference"],
         references=references,
+        year=year,
     )
+
+
+def _deduplicate_papers(papers: Iterable[pr.Paper]) -> list[pr.Paper]:
+    """Remove paper duplicates by title taking the earliest paper by year."""
+    return [
+        min(paper_group, key=lambda p: p.year if p.year is not None else float("inf"))
+        for paper_group in groupby(papers, key=lambda x: x.title).values()
+    ]
 
 
 def _find_approval(reviews: list[dict[str, Any]]) -> bool | None:
