@@ -17,7 +17,7 @@ from typing import Annotated
 import dotenv
 import typer
 
-from paper import scimon
+from paper.baselines import scimon
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     Demonstration,

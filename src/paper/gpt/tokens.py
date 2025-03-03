@@ -22,8 +22,8 @@ import polars as pl
 import tiktoken
 import typer
 
-from paper import scimon
 from paper import semantic_scholar as s2
+from paper.baselines import scimon
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS as DEMO_PROMPTS,
 )

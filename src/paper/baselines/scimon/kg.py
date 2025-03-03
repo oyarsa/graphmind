@@ -22,7 +22,7 @@ from pydantic import BaseModel, ConfigDict
 
 from paper import embedding as emb
 from paper import gpt
-from paper.scimon.model import PaperTerms
+from paper.baselines.scimon.model import PaperTerms
 from paper.util import setup_logging
 from paper.util.serde import load_data, save_data
 
