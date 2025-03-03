@@ -139,44 +139,52 @@ class ArxivResult:
     id: str
 
 
-def _get_arxiv(paper_titles: list[str], batch_size: int) -> dict[str, ArxivResult]:
-    """Get mapping of paepr title to arXiv ID for the papers that are present there."""
+def _get_arxiv(openreview_titles: list[str], batch_size: int) -> dict[str, ArxivResult]:
+    """Get mapping of OpenReview paper title to arXiv ID that exist on arXiv."""
     arxiv_client = arxiv.Client()
 
     arxiv_results: list[ArxivResult] = []
-    for title_batch in tqdm(
-        list(itertools.batched(paper_titles, batch_size)), desc="Querying arXiv"
+    for openreview_title_batch in tqdm(
+        list(itertools.batched(openreview_titles, batch_size)),
+        desc="Querying arXiv",
     ):
-        arxiv_results.extend(_batch_search_arxiv(arxiv_client, title_batch))
+        arxiv_results.extend(_batch_search_arxiv(arxiv_client, openreview_title_batch))
 
     return {r.openreview_title: r for r in arxiv_results}
 
 
 def _batch_search_arxiv(
-    client: arxiv.Client, titles: Sequence[str]
+    client: arxiv.Client, openreview_titles: Sequence[str]
 ) -> list[ArxivResult]:
-    """Search multiple titles at once on arXiv and return matching results."""
-    or_queries = " OR ".join(f'ti:"{title}"' for title in titles)
+    """Search multiple OpenReview titles at once on arXiv and return matching results."""
+    or_queries = " OR ".join(
+        f'ti:"{openreview_title}"' for openreview_title in openreview_titles
+    )
     query = f"({or_queries})"
     results_map: dict[str, ArxivResult] = {}
+    openreview_titles = [t.casefold() for t in openreview_titles]
 
     try:
         for result in client.results(
-            arxiv.Search(query=query, max_results=len(titles))
+            arxiv.Search(query=query, max_results=len(openreview_titles))
         ):
-            result_title = result.title.casefold()
-            for original_title in titles:
-                if _similar_titles(original_title, result_title):
-                    results_map[original_title.casefold()] = ArxivResult(
+            arxiv_title = result.title
+            for openreview_title in openreview_titles:
+                if _similar_titles(openreview_title, arxiv_title):
+                    results_map[openreview_title] = ArxivResult(
                         id=result.entry_id.split("/")[-1],
-                        openreview_title=original_title,
-                        arxiv_title=result.title,
+                        openreview_title=openreview_title,
+                        arxiv_title=arxiv_title,
                     )
                     break
     except Exception as e:
         logger.warning(f"Error during batch search on arXiv: {e}")
 
-    return [result for title in titles if (result := results_map.get(title.casefold()))]
+    return [
+        result
+        for openreview_title in openreview_titles
+        if (result := results_map.get(openreview_title))
+    ]
 
 
 def _similar_titles(title1: str, title2: str) -> bool:
@@ -264,20 +272,20 @@ def reviews(
     logger.info("Submissions - all: %d", len(submissions_all))
     logger.info("Submissions - valid: %d", len(submissions_valid))
 
-    paper_titles = [
-        title
+    openreview_titles = [
+        openreview_title
         for paper in submissions_valid[:max_papers]
-        if (title := paper["content"].get("title", {}).get("value"))
+        if (openreview_title := paper["content"].get("title", {}).get("value"))
     ]
 
-    logger.info("Querying arXiv for %d paper titles", len(paper_titles))
-    arxiv_results = _get_arxiv(paper_titles, batch_size)
-    logger.info("Found %d papers on arXiv", len(arxiv_results))
+    logger.info("Querying arXiv for %d paper titles", len(openreview_titles))
+    openreview_to_arxiv = _get_arxiv(openreview_titles, batch_size)
+    logger.info("Found %d papers on arXiv", len(openreview_to_arxiv))
 
     submissions_with_arxiv: list[dict[str, Any]] = []
     for paper in submissions_valid:
-        title = paper["content"].get("title", {}).get("value", "")
-        if arxiv_result := arxiv_results.get(title):
+        openreview_title = paper["content"].get("title", {}).get("value", "")
+        if arxiv_result := openreview_to_arxiv.get(openreview_title):
             submissions_with_arxiv.append({
                 **paper,
                 "arxiv_id": arxiv_result.id,
@@ -310,17 +318,9 @@ def _is_valid(paper: dict[str, Any], rating: str) -> bool:
     ))
 
 
-def _review_has_rating(review: dict[str, Any], name: str) -> bool:
-    """Check if the review has the rating with given `name`.
-
-    Checks whether the `content.{name}` field is non-empty.
-    """
-    return bool(review["content"].get(name))
-
-
 def _has_rating(paper: dict[str, Any], name: str) -> bool:
     """Check if any review in `paper` has the rating with given `name`."""
-    return any(_review_has_rating(r, name) for r in paper["details"]["replies"])
+    return any(r["content"].get(name) for r in paper["details"]["replies"])
 
 
 def _has_field(paper: dict[str, Any], name: str) -> bool:
@@ -329,20 +329,6 @@ def _has_field(paper: dict[str, Any], name: str) -> bool:
     if isinstance(value, str):
         value = value.strip()
     return bool(value)
-
-
-"""Read a LaTeX directory, convert it to Markdown and extract sections and references.
-
-The script takes input and output paths. The input is a directory containing tex and
-other related files. We look for a "main" tex file that includes the others and start
-from it. We recursively include all tex files so we're left with a single tex file to
-process. We also look for `.bib` files referenced in the tex code.
-
-The output is a JSON file containing the extracted sections and references. The sections
-are the top-level sections with their numbers (or letters in the appendix). The
-references are all the papers from the `.bib` files, that are mentioned in the main text.
-Each reference also includes the paragraphs where it's cited in the text.
-"""
 
 
 @dc.dataclass(frozen=True, kw_only=True)
@@ -1144,11 +1130,11 @@ def process_conferences(base_dir: Path) -> list[dict[str, Any]]:
         matched = 0
 
         for paper in tqdm(papers, desc=f"Processing papers in {conference}"):
-            title = paper.get("arxiv_title")
-            if not title:
+            arxiv_title = paper.get("arxiv_title")
+            if not arxiv_title:
                 continue
 
-            if matched_file := title_to_path.get(title):
+            if matched_file := title_to_path.get(arxiv_title):
                 with contextlib.suppress(Exception):
                     content = json.loads(matched_file.read_bytes())
                     matched += 1
@@ -1193,6 +1179,8 @@ def merge(
        ├── openreview_arxiv.json
        └── parsed
           └── paper3.json
+
+    Where the papers inside `parsed` directories are named after the arXiv title.
     """
     all_papers = process_conferences(input_dir)
     print(f"Processing complete. Total papers: {len(all_papers)}.")
