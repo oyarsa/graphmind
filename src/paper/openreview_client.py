@@ -1122,6 +1122,12 @@ def preprocess(
     output_file: Annotated[
         Path, typer.Option("--output", "-o", help="Path to output file.")
     ],
+    num_papers: Annotated[
+        int | None,
+        typer.Option(
+            "--num-papers", "-n", help="Number of papers to keep in the output."
+        ),
+    ] = None,
 ) -> None:
     """Merge data from all conferences, including reviews and parsed paper content.
 
@@ -1142,17 +1148,22 @@ def preprocess(
 
     The output is a JSON with an array of pr.Paper.
     """
+    if num_papers == 0:
+        num_papers = None
+
     papers_raw = _process_conferences(input_dir)
     papers_processed = [
         _process_paper(paper) for paper in tqdm(papers_raw, "Processing raw papers")
     ]
     papers_valid = _deduplicate_papers(p for p in papers_processed if p)
+    papers_saved = papers_valid[:num_papers]
 
     logger.info("Raw papers: %d", len(papers_raw))
     logger.info("Processed papers: %d", len(papers_processed))
     logger.info("Valid papers: %d", len(papers_valid))
+    logger.info("Saving papers: %d", len(papers_saved))
 
-    save_data(output_file, papers_valid)
+    save_data(output_file, papers_saved)
 
 
 def _process_conferences(base_dir: Path) -> list[dict[str, Any]]:
