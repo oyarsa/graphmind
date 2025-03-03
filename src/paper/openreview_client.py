@@ -353,7 +353,7 @@ class Reference:
 
 
 @dc.dataclass(frozen=True, kw_only=True)
-class Paper:
+class LatexPaper:
     """Parsed paper content in Markdown with reference citations."""
 
     title: str
@@ -413,7 +413,7 @@ LATEX_CMD_PATTERN = re.compile(
 MATH_ENV_PATTERN = re.compile(r"\$\$.*?\$\$|\$.*?\$", re.DOTALL)
 
 
-def clean_latex(text: str) -> str:
+def _clean_latex(text: str) -> str:
     """Remove LaTeX commands except citation commands.
 
     Args:
@@ -435,7 +435,7 @@ def clean_latex(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def get_citation_keys(sentence: str) -> set[str]:
+def _get_citation_keys(sentence: str) -> set[str]:
     """Extract citation keys from a sentence.
 
     Args:
@@ -457,7 +457,7 @@ def get_citation_keys(sentence: str) -> set[str]:
     return keys
 
 
-def extract_citation_sentences(
+def _extract_citation_sentences(
     splitter: SentenceSplitter, paragraph: str
 ) -> dict[str, list[str]]:
     """Extract sentences containing citations from a paragraph.
@@ -469,18 +469,18 @@ def extract_citation_sentences(
     Returns:
         A dictionary mapping citation keys to the sentences that cite them.
     """
-    cleaned_text = clean_latex(paragraph)
+    cleaned_text = _clean_latex(paragraph)
     sentences = splitter.split(cleaned_text)
     citation_sentences: dict[str, list[str]] = defaultdict(list)
     for sentence in sentences:
         if CITATION_REGEX.search(sentence):
-            for key in get_citation_keys(sentence):
+            for key in _get_citation_keys(sentence):
                 citation_sentences[key].append(sentence)
 
     return citation_sentences
 
 
-def find_main_tex(directory: Path) -> Path:
+def _find_main_tex(directory: Path) -> Path:
     """Find entrypoint TeX file containing include directives for sections."""
     tex_files = list(directory.glob("**/*.tex"))
 
@@ -510,7 +510,7 @@ def find_main_tex(directory: Path) -> Path:
     return main_candidates[0]
 
 
-def process_latex_file(
+def _process_latex_file(
     file_path: Path, root_dir: Path, processed_files: set[Path] | None = None
 ) -> str:
     """Recursively process TeX inclusion directives."""
@@ -524,7 +524,7 @@ def process_latex_file(
 
     try:
         content = abs_path.read_text(errors="replace")
-        content = remove_latex_comments(content)
+        content = _remove_latex_comments(content)
     except Exception as e:
         logger.debug(f"Error reading {abs_path}: {e}")
         return ""
@@ -536,12 +536,12 @@ def process_latex_file(
         if not included_path.name.endswith(".tex"):
             included_path = included_path.with_name(f"{included_path.name}.tex")
 
-        return process_latex_file(root_dir / included_path, root_dir, processed_files)
+        return _process_latex_file(root_dir / included_path, root_dir, processed_files)
 
     return include_pattern.sub(include_replacer, content)
 
 
-def remove_arxiv_styling(latex_content: str) -> str:
+def _remove_arxiv_styling(latex_content: str) -> str:
     """Remove custom arxiv styling directives and problematic LaTeX commands."""
     # Remove lines with \usepackage or \RequirePackage that reference 'arxiv'
     no_package = re.sub(
@@ -586,7 +586,7 @@ def remove_arxiv_styling(latex_content: str) -> str:
     return no_tcolorbox_env  # noqa: RET504
 
 
-def remove_latex_comments(tex_string: str) -> str:
+def _remove_latex_comments(tex_string: str) -> str:
     """Remove lines that are entirely commented out from a TeX document string.
 
     A line is considered fully commented if it only contains whitespace before the
@@ -597,7 +597,7 @@ def remove_latex_comments(tex_string: str) -> str:
     )
 
 
-def convert_to_markdown(latex_content: str, title: str) -> str | None:
+def _convert_latex_to_markdown(latex_content: str, title: str) -> str | None:
     """Convert LaTeX file to Markdown with pandoc."""
     with tempfile.TemporaryDirectory() as tmp_dir_:
         tmp_dir = Path(tmp_dir_)
@@ -633,7 +633,7 @@ def convert_to_markdown(latex_content: str, title: str) -> str | None:
             return None
 
 
-def find_bib_files(base_dir: Path, latex_content: str) -> list[Path]:
+def _find_bib_files(base_dir: Path, latex_content: str) -> list[Path]:
     """Find all bibliography files referenced in the LaTeX document."""
     bib_paths: list[Path] = []
     bib_pattern = re.compile(r"\\bibliography\{([^}]+)\}")
@@ -656,7 +656,7 @@ def find_bib_files(base_dir: Path, latex_content: str) -> list[Path]:
     return bib_paths
 
 
-def extract_bibliography_from_bibfiles(
+def _extract_bibliography_from_bibfiles(
     bib_paths: list[Path], tmpdir: Path
 ) -> dict[str, Reference]:
     """Extract bibliography entries from .bib files."""
@@ -749,7 +749,7 @@ def extract_bibliography_from_bibfiles(
     return references
 
 
-def extract_bibliography_from_bibitems(latex_content: str) -> dict[str, Reference]:
+def _extract_bibliography_from_bibitems(latex_content: str) -> dict[str, Reference]:
     r"""Extract bibliography entries from \\bibitem commands in the LaTeX content."""
     references: dict[str, Reference] = {}
 
@@ -836,7 +836,7 @@ def extract_bibliography_from_bibitems(latex_content: str) -> dict[str, Referenc
     return references
 
 
-def extract_citations_and_contexts(
+def _extract_citations_and_contexts(
     splitter: SentenceSplitter, latex_content: str
 ) -> dict[str, list[str]]:
     """Extract citation keys and their context sentences from the LaTeX content."""
@@ -849,7 +849,7 @@ def extract_citations_and_contexts(
             continue
 
         # Extract citations at sentence level only if citations exist
-        paragraph_citations = extract_citation_sentences(splitter, paragraph)
+        paragraph_citations = _extract_citation_sentences(splitter, paragraph)
 
         # Merge with overall citation contexts
         for key, sentences in paragraph_citations.items():
@@ -860,7 +860,7 @@ def extract_citations_and_contexts(
     return citation_contexts
 
 
-def split_by_sections(markdown_content: str) -> list[Section]:
+def _split_markdown_sections(markdown_content: str) -> list[Section]:
     """Split markdown content by top-level sections only."""
     sections: list[Section] = []
 
@@ -895,9 +895,9 @@ def split_by_sections(markdown_content: str) -> list[Section]:
     return sections
 
 
-def process_latex(
+def _process_latex(
     splitter: SentenceSplitter, title: str, input_file: Path
-) -> Paper | None:
+) -> LatexPaper | None:
     """Read LaTeX repository from `input_file` and parse into `Paper`.
 
     LaTeX is converted to Markdown, which is split into sections. The references and
@@ -912,28 +912,30 @@ def process_latex(
             tar.extractall(path=tmpdir, filter="data")
 
         try:
-            main_tex = find_main_tex(tmpdir)
+            main_tex = _find_main_tex(tmpdir)
             logger.debug("Using main tex file: %s", main_tex)
         except FileNotFoundError:
             logger.debug("Could not find main file")
             return None
 
-        consolidated_content = process_latex_file(main_tex, tmpdir)
+        consolidated_content = _process_latex_file(main_tex, tmpdir)
         if not consolidated_content:
             logger.debug("No content processed. Aborting.")
             return None
 
-        consolidated_content = remove_arxiv_styling(consolidated_content)
+        consolidated_content = _remove_arxiv_styling(consolidated_content)
 
-        bib_files = find_bib_files(tmpdir, consolidated_content)
-        citationkey_to_reference = extract_bibliography_from_bibfiles(bib_files, tmpdir)
+        bib_files = _find_bib_files(tmpdir, consolidated_content)
+        citationkey_to_reference = _extract_bibliography_from_bibfiles(
+            bib_files, tmpdir
+        )
         if not citationkey_to_reference:
             logger.debug("No references from bib files. Trying bib items.")
-            citationkey_to_reference = extract_bibliography_from_bibitems(
+            citationkey_to_reference = _extract_bibliography_from_bibitems(
                 consolidated_content
             )
 
-    citation_contexts = extract_citations_and_contexts(splitter, consolidated_content)
+    citation_contexts = _extract_citations_and_contexts(splitter, consolidated_content)
 
     # Match citations to references and populate contexts
     for citation_key, contexts in citation_contexts.items():
@@ -961,20 +963,20 @@ def process_latex(
         ref for ref in citationkey_to_reference.values() if ref.citation_contexts
     ]
 
-    markdown_content = convert_to_markdown(consolidated_content, title)
+    markdown_content = _convert_latex_to_markdown(consolidated_content, title)
     if markdown_content is None:
         logger.debug("Error converting LaTeX to Markdown. Aborting.")
         return None
 
-    sections = split_by_sections(markdown_content)
+    sections = _split_markdown_sections(markdown_content)
 
-    return Paper(title=title, sections=sections, references=references)
+    return LatexPaper(title=title, sections=sections, references=references)
 
 
-def process_tex_files(
+def _process_tex_files(
     input_files: list[Path], num_workers: int | None, output_dir: Path
 ) -> int:
-    """Process all TeX `inpt_files` and save the results to `output_dir`."""
+    """Process all TeX `input_files` and save the results to `output_dir`."""
     splitter = SentenceSplitter()
 
     if num_workers is None or num_workers == 0:
@@ -984,13 +986,13 @@ def process_tex_files(
 
     if num_workers == 1:
         return sum(
-            process_tex_file(splitter, output_dir, input_file)
+            _process_tex_file(splitter, output_dir, input_file)
             for input_file in tqdm(input_files, desc="Converting LaTeX files")
         )
 
     # We need to re-initialise logging for each subprocess, or nothing is logged
     with mp.Pool(processes=num_workers, initializer=setup_logging) as pool:
-        process_func = partial(process_tex_file, splitter, output_dir)
+        process_func = partial(_process_tex_file, splitter, output_dir)
         return sum(
             tqdm(
                 pool.imap_unordered(process_func, input_files),
@@ -1066,18 +1068,18 @@ def parse(
         done_titles: set[str] = set()
     else:
         done_titles = {
-            title_from_filename(file, ".json") for file in output_dir.glob("*.json")
+            _title_from_filename(file, ".json") for file in output_dir.glob("*.json")
         }
 
     skip_files = {
         file
         for file in input_files
-        if title_from_filename(file, ".tar.gz") in done_titles
+        if _title_from_filename(file, ".tar.gz") in done_titles
     }
     input_files = [file for file in input_files if file not in skip_files]
 
     with Timer() as timer:
-        successful_n = process_tex_files(input_files, num_workers, output_dir)
+        successful_n = _process_tex_files(input_files, num_workers, output_dir)
     logger.info(timer)
 
     logger.info("Processed  : %d", len(input_files))
@@ -1085,7 +1087,7 @@ def parse(
     logger.info("Successful : %d", successful_n)
 
 
-def title_from_filename(input_file: Path, ext: str) -> str:
+def _title_from_filename(input_file: Path, ext: str) -> str:
     """Get paper title from a file name and an extension (e.g. `.tar.gz` or `.json`).
 
     This is useful because `Path.stem` doesn't work for `.tar.gz`.
@@ -1093,13 +1095,13 @@ def title_from_filename(input_file: Path, ext: str) -> str:
     return input_file.name.removesuffix(ext)
 
 
-def process_tex_file(
+def _process_tex_file(
     splitter: SentenceSplitter, output_dir: Path, input_file: Path
 ) -> bool:
     """Parse LaTeX files into a paper. Returns True if the conversion was successful."""
-    title = title_from_filename(input_file, ".tar.gz")
+    title = _title_from_filename(input_file, ".tar.gz")
 
-    if paper := process_latex(splitter, title, input_file):
+    if paper := _process_latex(splitter, title, input_file):
         (output_dir / f"{title}.json").write_text(
             json.dumps(dc.asdict(paper), indent=2)
         )
@@ -1108,7 +1110,54 @@ def process_tex_file(
     return False
 
 
-def process_conferences(base_dir: Path) -> list[dict[str, Any]]:
+@app.command(no_args_is_help=True)
+def preprocess(
+    input_dir: Annotated[
+        Path,
+        typer.Option(
+            "--input", "-i", help="Directory containing the data from all conferences."
+        ),
+    ],
+    output_file: Annotated[
+        Path, typer.Option("--output", "-o", help="Path to output file.")
+    ],
+) -> None:
+    """Merge data from all conferences, including reviews and parsed paper content.
+
+    Expects that `input_dir` contains a directory structure like this:
+
+    input_dir
+    ├── iclr2024
+    │  ├── openreview_arxiv.json
+    │  └── parsed
+    │     ├── paper1.json
+    │     └── paper2.json
+    └── iclr2025
+       ├── openreview_arxiv.json
+       └── parsed
+          └── paper3.json
+
+    Where the papers inside `parsed` directories are named after the arXiv title.
+
+    The output is a JSON with an array of pr.Paper.
+    """
+    papers_raw = _process_conferences(input_dir)
+    papers_processed = [
+        _process_paper(paper) for paper in tqdm(papers_raw, "Processing raw papers")
+    ]
+    papers_valid = [p for p in papers_processed if p]
+
+    logger.info("Raw papers: %d", len(papers_raw))
+    logger.info("Processed papers: %d", len(papers_processed))
+    logger.info("Valid papers: %d", len(papers_valid))
+
+    other_ratings = sum(len(r.other_ratings) for p in papers_valid for r in p.reviews)
+    logger.info("Other ratings: %d", other_ratings)
+
+    save_data(output_file, papers_valid)
+
+
+def _process_conferences(base_dir: Path) -> list[dict[str, Any]]:
     """Process reviews files and paper contents from conferences in `base_dir`."""
     all_papers: list[dict[str, Any]] = []
 
@@ -1151,53 +1200,6 @@ def process_conferences(base_dir: Path) -> list[dict[str, Any]]:
         logger.info(f"Matched: {matched}. Unmatched: {len(papers) - matched}.")
 
     return all_papers
-
-
-@app.command(no_args_is_help=True)
-def preprocess(
-    input_dir: Annotated[
-        Path,
-        typer.Option(
-            "--input", "-i", help="Directory containing the data from all conferences."
-        ),
-    ],
-    output_file: Annotated[
-        Path, typer.Option("--output", "-o", help="Path to output file.")
-    ],
-) -> None:
-    """Merge data from all conferences, including reviews and parsed paper content.
-
-    Expects that `input_dir` contains a directory structure like this:
-
-    input_dir
-    ├── iclr2024
-    │  ├── openreview_arxiv.json
-    │  └── parsed
-    │     ├── paper1.json
-    │     └── paper2.json
-    └── iclr2025
-       ├── openreview_arxiv.json
-       └── parsed
-          └── paper3.json
-
-    Where the papers inside `parsed` directories are named after the arXiv title.
-
-    The output is a JSON with an array of pr.Paper.
-    """
-    papers_raw = process_conferences(input_dir)
-    papers_processed = [
-        _process_paper(paper) for paper in tqdm(papers_raw, "Processing raw papers")
-    ]
-    papers_valid = [p for p in papers_processed if p]
-
-    logger.info("Raw papers: %d", len(papers_raw))
-    logger.info("Processed papers: %d", len(papers_processed))
-    logger.info("Valid papers: %d", len(papers_valid))
-
-    other_ratings = sum(len(r.other_ratings) for p in papers_valid for r in p.reviews)
-    logger.info("Other ratings: %d", other_ratings)
-
-    save_data(output_file, papers_valid)
 
 
 def _process_paper(paper_raw: dict[str, Any]) -> pr.Paper | None:
