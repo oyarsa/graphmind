@@ -1155,13 +1155,15 @@ def preprocess(
     papers_processed = [
         _process_paper(paper) for paper in tqdm(papers_raw, "Processing raw papers")
     ]
-    papers_valid = _deduplicate_papers(p for p in papers_processed if p)
-    papers_saved = papers_valid[:num_papers]
+    papers_valid = [p for p in papers_processed if p]
+    papers_dedup = _deduplicate_papers(papers_valid)
+    papers_saved = papers_dedup[:num_papers]
     train, test = _split_dataset(papers_saved)
 
     logger.info("Raw papers: %d", len(papers_raw))
     logger.info("Processed papers: %d", len(papers_processed))
     logger.info("Valid papers: %d", len(papers_valid))
+    logger.info("Deduplicated papers: %d", len(papers_dedup))
     logger.info(
         "Saving papers: %d. Train: %d, test: %d.",
         len(papers_saved),
