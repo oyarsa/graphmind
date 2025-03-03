@@ -1119,8 +1119,8 @@ def preprocess(
             "--input", "-i", help="Directory containing the data from all conferences."
         ),
     ],
-    output_file: Annotated[
-        Path, typer.Option("--output", "-o", help="Path to output file.")
+    output_dir: Annotated[
+        Path, typer.Option("--output", "-o", help="Path to output directory.")
     ],
     num_papers: Annotated[
         int | None,
@@ -1157,13 +1157,20 @@ def preprocess(
     ]
     papers_valid = _deduplicate_papers(p for p in papers_processed if p)
     papers_saved = papers_valid[:num_papers]
+    train, test = _split_dataset(papers_saved)
 
     logger.info("Raw papers: %d", len(papers_raw))
     logger.info("Processed papers: %d", len(papers_processed))
     logger.info("Valid papers: %d", len(papers_valid))
-    logger.info("Saving papers: %d", len(papers_saved))
+    logger.info(
+        "Saving papers: %d. Train: %d, test: %d.",
+        len(papers_saved),
+        len(train),
+        len(test),
+    )
 
-    save_data(output_file, papers_saved)
+    save_data(output_dir / "openreview_train.json", train)
+    save_data(output_dir / "openreview_test.json", test)
 
 
 def _process_conferences(base_dir: Path) -> list[dict[str, Any]]:
@@ -1256,6 +1263,14 @@ def _deduplicate_papers(papers: Iterable[pr.Paper]) -> list[pr.Paper]:
         min(paper_group, key=lambda p: p.year if p.year is not None else float("inf"))
         for paper_group in groupby(papers, key=lambda x: x.title).values()
     ]
+
+
+def _split_dataset(
+    papers: list[pr.Paper],
+) -> tuple[list[pr.Paper], list[pr.Paper]]:
+    """Split dataset into train/test with 50:50 ratio."""
+    n = len(papers) // 2
+    return papers[:n], papers[n:]
 
 
 def _find_approval(reviews: list[dict[str, Any]]) -> bool | None:
