@@ -252,6 +252,35 @@ def main(
     )
     assert petersum.exists()
 
+    title("SciMON build")
+    scimon_graph = output_dir / "peerread_with_scimon.json"
+    _checkrun(
+        scimon_graph,
+        "scimon",
+        "build",
+        "--ann",
+        s2_terms,
+        "--peerread",
+        peer_with_ref,
+        "--output",
+        scimon_graph,
+    )
+    assert scimon_graph.exists()
+
+    title("SciMON query")
+    scimon_peer = output_dir / "peerread_with_scimon.json"
+    _checkrun(
+        scimon_peer,
+        "scimon",
+        "query",
+        "--ann-peer",
+        peer_terms,
+        "--graph",
+        scimon_graph,
+        "--output",
+        scimon_peer,
+    )
+
 
 def _checkrun(path: Path, *cmd: object) -> None:
     """Run command only if `path` does not already exist.
