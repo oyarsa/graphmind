@@ -72,13 +72,13 @@ def main(
         typer.Option(
             help="Range of years to fetch papers. Can be like `2017-2022` or `2010`."
         ),
-    ] = "2012-2021",
+    ] = "2018-2023",
     limit_year: Annotated[
         int,
         typer.Option(
             help="Number of papers per year range per primary area. Set to 0 for all."
         ),
-    ] = 10,
+    ] = 100,
     limit_page: Annotated[
         int,
         typer.Option(help="Number of papers per queried page.", max=100),

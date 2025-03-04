@@ -39,7 +39,9 @@ import aiohttp
 import dotenv
 import typer
 from pydantic import ValidationError
+from tqdm import tqdm
 
+from paper import embedding as emb
 from paper import peerread as pr
 from paper.semantic_scholar.model import (
     PaperFromPeerRead,
@@ -153,6 +155,9 @@ async def _download_main_info(
     """
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
 
+    if limit_papers == 0:
+        limit_papers = None
+
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
     papers = load_data(input_file, pr.Paper)[:limit_papers]
     title_to_paper = {paper.title: paper for paper in papers}
@@ -196,19 +201,30 @@ async def _download_reference_info(
     output_path: Path,
     min_fuzzy: int,
     limit_papers: int | None,
+    top_k: int | None,
 ) -> None:
-    """Download paper information for reference papers.
-
-    We obtain the unique titles from the references of all papers and get their info. We
-    also store the query title.
-    """
+    """Download paper information for reference papers."""
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
+    if limit_papers == 0:
+        limit_papers = None
 
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
     papers = load_data(input_file, pr.Paper)[:limit_papers]
-    unique_titles = {
-        reference.title for paper in papers for reference in paper.references
-    }
+
+    if top_k == 0:
+        top_k = None
+
+    if top_k is None:
+        titles = [ref.title for paper in papers for ref in paper.references]
+    else:
+        encoder = emb.Encoder()
+        titles = [
+            _get_top_k_titles(encoder, paper, top_k)
+            for paper in tqdm(papers, desc=f"Filtering top {top_k} references")
+        ]
+
+    unique_titles = {title for titles in titles for title in titles}
+    logger.info(f"{len(unique_titles)} unique titles")
 
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
@@ -239,6 +255,21 @@ async def _download_reference_info(
     output_path.mkdir(parents=True, exist_ok=True)
     save_data(output_path / "valid.json", [paper for paper in results if paper])
     save_data(output_path / "final.json", results_filtered)
+
+
+def _get_top_k_titles(encoder: emb.Encoder, paper: pr.Paper, k: int) -> list[str]:
+    """Get top `k` reference titles from `paper`.
+
+    References are sorted by cosine similarity between the reference and main paper
+    titles.
+    """
+    ref_titles = [r.title for r in paper.references]
+
+    references_emb = encoder.batch_encode(ref_titles)
+    title_emb = encoder.encode(paper.title)
+    sim = emb.similarities(title_emb, references_emb)
+
+    return [ref_titles[idx] for idx in emb.top_k_indices(sim, k)]
 
 
 app = typer.Typer(
@@ -279,7 +310,11 @@ def main(
     ] = 80,
     limit: Annotated[
         int | None,
-        typer.Option("--limit", "-n", help="Limit on the number of papers to query."),
+        typer.Option(
+            "--limit",
+            "-n",
+            help="Limit on the number of papers to query. Use 0 for all.",
+        ),
     ] = None,
 ) -> None:
     """Download paper information for PeerRead main papers."""
@@ -316,12 +351,38 @@ def references(
     ] = 80,
     limit: Annotated[
         int | None,
-        typer.Option("--limit", "-n", help="Limit on the number of papers to query."),
+        typer.Option(
+            "--limit",
+            "-n",
+            help="Limit on the number of papers to query. Use 0 for all.",
+        ),
     ] = None,
+    top_k: Annotated[
+        int,
+        typer.Option(
+            "--top-k",
+            "-k",
+            help="How many references to query per paper, sorted by semantic similarity."
+            " Use 0 to query all.",
+        ),
+    ] = 20,
 ) -> None:
-    """Download paper information for reference papers."""
+    """Download paper information for reference papers.
+
+    For each paper, we take only the top K references by title semantic similarity if
+    `top_k` is not 0 or None.
+
+    We obtain the unique titles from the references of all papers and get their info. We
+    also store the query title.
+    """
     arun_safe(
-        _download_reference_info, input_file, fields, output_path, min_fuzzy, limit
+        _download_reference_info,
+        input_file,
+        fields,
+        output_path,
+        min_fuzzy,
+        limit,
+        top_k,
     )
 
 

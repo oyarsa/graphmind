@@ -51,7 +51,6 @@ MAX_RETRIES = 5
 S2_RECOMMENDATIONS_BASE_URL = (
     "https://api.semanticscholar.org/recommendations/v1/papers/forpaper"
 )
-VALID_FROM = ("recent", "all-cs")
 
 MAX_CONCURRENT_REQUESTS = 1
 REQUESTS_PER_SECOND = 1
@@ -123,12 +122,14 @@ def main(
     )),
     limit_papers: Annotated[
         int | None,
-        typer.Option(help="Number of papers to download recommendations from"),
+        typer.Option(
+            help="Number of papers to download recommendations for. Use 0 for all."
+        ),
     ] = None,
     limit_recommendations: Annotated[
         int,
         typer.Option(help="Number of recommendations per paper.", max=500),
-    ] = 100,
+    ] = 30,
 ) -> None:
     """Download recommended papers for each paper in the PeerRead dataset.
 
@@ -172,6 +173,8 @@ async def download_paper_recomendation(
     if not fields:
         die("No valid --fields. It should be a comma-separated strings of field names.")
 
+    if limit_papers == 0:
+        limit_papers = None
     if limit_papers is not None and limit_papers <= 0:
         die(f"Paper limit should be non-negative. Got {limit_papers}.")
 
@@ -306,14 +309,10 @@ async def _fetch_paper_recommendations(
         List of S2 recommended papers. If there was an error, prints it and returns an
         empty list.
     """
-    output: list[Paper] = []
-    for from_ in VALID_FROM:
-        results = await _fetch_paper_recommendations_from(
-            session, paper, fields, limit_recommendations, from_=from_
-        )
-        output.extend(results)
-
-    return _deduplicate_papers(output)
+    results = await _fetch_paper_recommendations_from(
+        session, paper, fields, limit_recommendations
+    )
+    return _deduplicate_papers(results)
 
 
 def _deduplicate_papers(papers: Iterable[Paper]) -> list[Paper]:
@@ -334,7 +333,6 @@ async def _fetch_paper_recommendations_from(
     paper: s2.PaperFromPeerRead,
     fields: Iterable[str],
     limit_recommendations: int,
-    from_: str,
 ) -> list[Paper]:
     """Fetch paper recommendations for a paper. Only returns data from `fields`.
 
@@ -343,7 +341,6 @@ async def _fetch_paper_recommendations_from(
         paper: S2 paper to be queried through its paperId.
         fields: List of fields to retrieve. Restrict this only to the bare essentials
             to ensure the payloads are lightweight.
-        from_: Pool of papers to recommend from: "recent" or "all-cs".
         limit_recommendations: Maximum number of recommendations per paper.
             Must be <= 500.
 
@@ -351,11 +348,8 @@ async def _fetch_paper_recommendations_from(
         List of S2 recommended papers. If there was an error, prints it and returns an
         empty list.
     """
-    if from_ not in VALID_FROM:
-        raise ValueError(f"Invalid 'from' value. Must be one of: {VALID_FROM}")
-
     params = {
-        "from": from_,
+        "from": "all-cs",
         "fields": ",".join(fields),
         "limit": limit_recommendations,
     }
