@@ -50,6 +50,7 @@ gpt = "paper.gpt.cli:app"
 scimon = "paper.baselines.scimon.cli:app"
 peter = "paper.peter.cli:app"
 openreview = "paper.openreview_client:app"
+paper = "paper.cli:app"
 
 [tool.ruff.format]
 preview = true
