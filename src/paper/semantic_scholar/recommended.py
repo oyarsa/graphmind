@@ -122,7 +122,9 @@ def main(
     )),
     limit_papers: Annotated[
         int | None,
-        typer.Option(help="Number of papers to download recommendations from"),
+        typer.Option(
+            help="Number of papers to download recommendations for. Use 0 for all."
+        ),
     ] = None,
     limit_recommendations: Annotated[
         int,
@@ -171,6 +173,8 @@ async def download_paper_recomendation(
     if not fields:
         die("No valid --fields. It should be a comma-separated strings of field names.")
 
+    if limit_papers == 0:
+        limit_papers = None
     if limit_papers is not None and limit_papers <= 0:
         die(f"Paper limit should be non-negative. Got {limit_papers}.")
 
@@ -337,7 +341,6 @@ async def _fetch_paper_recommendations_from(
         paper: S2 paper to be queried through its paperId.
         fields: List of fields to retrieve. Restrict this only to the bare essentials
             to ensure the payloads are lightweight.
-        from_: Pool of papers to recommend from: "recent" or "all-cs".
         limit_recommendations: Maximum number of recommendations per paper.
             Must be <= 500.
 

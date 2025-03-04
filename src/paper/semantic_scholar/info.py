@@ -155,6 +155,9 @@ async def _download_main_info(
     """
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
 
+    if limit_papers == 0:
+        limit_papers = None
+
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
     papers = load_data(input_file, pr.Paper)[:limit_papers]
     title_to_paper = {paper.title: paper for paper in papers}
@@ -202,6 +205,8 @@ async def _download_reference_info(
 ) -> None:
     """Download paper information for reference papers."""
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
+    if limit_papers == 0:
+        limit_papers = None
 
     fields = [f for field in fields_str.split(",") if (f := field.strip())]
     papers = load_data(input_file, pr.Paper)[:limit_papers]
@@ -305,7 +310,11 @@ def main(
     ] = 80,
     limit: Annotated[
         int | None,
-        typer.Option("--limit", "-n", help="Limit on the number of papers to query."),
+        typer.Option(
+            "--limit",
+            "-n",
+            help="Limit on the number of papers to query. Use 0 for all.",
+        ),
     ] = None,
 ) -> None:
     """Download paper information for PeerRead main papers."""
@@ -342,7 +351,11 @@ def references(
     ] = 80,
     limit: Annotated[
         int | None,
-        typer.Option("--limit", "-n", help="Limit on the number of papers to query."),
+        typer.Option(
+            "--limit",
+            "-n",
+            help="Limit on the number of papers to query. Use 0 for all.",
+        ),
     ] = None,
     top_k: Annotated[
         int,
