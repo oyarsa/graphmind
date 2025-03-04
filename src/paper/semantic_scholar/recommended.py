@@ -128,7 +128,7 @@ def main(
     limit_recommendations: Annotated[
         int,
         typer.Option(help="Number of recommendations per paper.", max=500),
-    ] = 100,
+    ] = 30,
 ) -> None:
     """Download recommended papers for each paper in the PeerRead dataset.
 
