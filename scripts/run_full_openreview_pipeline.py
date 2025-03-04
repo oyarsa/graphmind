@@ -53,6 +53,17 @@ def main(
             "--related", help="Number of related papers for PETER (each type)."
         ),
     ] = 2,
+    references_top_k: Annotated[
+        int,
+        typer.Option(
+            "--references-k",
+            help="How many references to query per paper, sorted by semantic similarity.",
+        ),
+    ] = 20,
+    num_recommendations: Annotated[
+        int,
+        typer.Option("--recommended", help="Number of recommendations per paper."),
+    ] = 30,
 ) -> None:
     """Run the full PETER pipeline from PeerRead preprocessing to graph building."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -83,6 +94,8 @@ def main(
         "main",
         processed,
         info_main_dir,
+        "--limit",
+        0,
     )
     assert info_main.exists()
 
@@ -95,6 +108,10 @@ def main(
         "references",
         processed,
         info_ref_dir,
+        "--limit",
+        0,
+        "--top-k",
+        references_top_k,
     )
     assert info_ref.exists()
 
@@ -106,6 +123,10 @@ def main(
         "src/paper/semantic_scholar/recommended.py",
         info_main,
         recommended_dir,
+        "--limit-papers",
+        0,
+        "--limit-recommendations",
+        num_recommendations,
     )
     assert recommended.exists()
 
