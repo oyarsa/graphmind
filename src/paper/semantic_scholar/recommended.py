@@ -51,7 +51,6 @@ MAX_RETRIES = 5
 S2_RECOMMENDATIONS_BASE_URL = (
     "https://api.semanticscholar.org/recommendations/v1/papers/forpaper"
 )
-VALID_FROM = ("recent", "all-cs")
 
 MAX_CONCURRENT_REQUESTS = 1
 REQUESTS_PER_SECOND = 1
@@ -306,14 +305,10 @@ async def _fetch_paper_recommendations(
         List of S2 recommended papers. If there was an error, prints it and returns an
         empty list.
     """
-    output: list[Paper] = []
-    for from_ in VALID_FROM:
-        results = await _fetch_paper_recommendations_from(
-            session, paper, fields, limit_recommendations, from_=from_
-        )
-        output.extend(results)
-
-    return _deduplicate_papers(output)
+    results = await _fetch_paper_recommendations_from(
+        session, paper, fields, limit_recommendations
+    )
+    return _deduplicate_papers(results)
 
 
 def _deduplicate_papers(papers: Iterable[Paper]) -> list[Paper]:
@@ -334,7 +329,6 @@ async def _fetch_paper_recommendations_from(
     paper: s2.PaperFromPeerRead,
     fields: Iterable[str],
     limit_recommendations: int,
-    from_: str,
 ) -> list[Paper]:
     """Fetch paper recommendations for a paper. Only returns data from `fields`.
 
@@ -351,11 +345,8 @@ async def _fetch_paper_recommendations_from(
         List of S2 recommended papers. If there was an error, prints it and returns an
         empty list.
     """
-    if from_ not in VALID_FROM:
-        raise ValueError(f"Invalid 'from' value. Must be one of: {VALID_FROM}")
-
     params = {
-        "from": from_,
+        "from": "all-cs",
         "fields": ",".join(fields),
         "limit": limit_recommendations,
     }
