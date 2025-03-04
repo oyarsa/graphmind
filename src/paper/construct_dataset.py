@@ -85,7 +85,7 @@ def main(
         typer.Option(
             help="How many papers from PeerRead will be used to construct the datasets."
             " This applies after S2 matching. We will always use the full S2 and"
-            " recommendations data."
+            " recommendations data. Use 0 for all papers."
         ),
     ] = None,
     seed: Annotated[
@@ -103,12 +103,15 @@ def main(
     recommended_papers = load_data(recommended_file, s2.PaperRecommended)
     area_papers = load_data(areas_file, s2.PaperArea) if areas_file else []
 
+    if num_peerread == 0:
+        num_peerread = None
+
     peerread_augmented = _augment_peeread(
         peerread_papers, reference_papers, min_references
     )
     peerread_sampled = (
         random.sample(peerread_augmented, k=num_peerread)
-        if num_peerread
+        if num_peerread is not None
         else peerread_augmented
     )
     s2_references = _unique_peerread_refs(peerread_sampled)
