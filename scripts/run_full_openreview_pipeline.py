@@ -98,19 +98,6 @@ def main(
     )
     assert info_ref.exists()
 
-    title("Info areas")
-    s2_areas = output_dir / "s2_areas.json"
-    _checkrun(
-        s2_areas,
-        "src/paper/semantic_scholar/areas.py",
-        s2_areas,
-        "--years",
-        "2013-2017",
-        "--limit-year",
-        "0",
-    )
-    assert s2_areas.exists()
-
     title("Recommended")
     recommended_dir = output_dir / "s2_recommended"
     recommended = recommended_dir / "papers_recommended.json"
