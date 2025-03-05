@@ -1,4 +1,4 @@
-"""Construct SciMON graphs."""
+"""Construct and query SciMON graphs."""
 
 import typer
 

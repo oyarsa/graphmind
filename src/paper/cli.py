@@ -14,7 +14,6 @@ app = typer.Typer(
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,
     help="Paper analysis and processing tools.",
-    add_completion=False,
 )
 app.add_typer(peerread.app, name="peerread")
 app.add_typer(gpt.app, name="gpt")

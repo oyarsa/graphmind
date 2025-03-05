@@ -1,4 +1,4 @@
-"""Create PETER graphs."""
+"""Construct and query PETER graphs."""
 
 from __future__ import annotations
 
