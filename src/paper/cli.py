@@ -2,7 +2,7 @@
 
 import typer
 
-from paper import openreview_client as openreview
+from paper import orc
 from paper.baselines.scimon import cli as scimon
 from paper.gpt import cli as gpt
 from paper.peerread import cli as peerread
@@ -19,7 +19,7 @@ app.add_typer(peerread.app, name="peerread")
 app.add_typer(gpt.app, name="gpt")
 app.add_typer(scimon.app, name="scimon")
 app.add_typer(peter.app, name="peter")
-app.add_typer(openreview.app, name="openreview")
+app.add_typer(orc.app, name="orc")
 
 
 if __name__ == "__main__":

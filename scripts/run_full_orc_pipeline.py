@@ -1,4 +1,4 @@
-"""Run the full PETER pipeline from PeerRead preprocessing to graph building.
+"""Run the full ORC pipeline preprocessing to graph building.
 
 We reuse existing files if possible. If you want a clean slate, use the `--force` option.
 Note that this doesn't re-download the raw PeerRead dataset because it's too large. If
@@ -71,10 +71,11 @@ def main(
         shutil.rmtree(output_dir)
 
     title("Preprocess")
-    processed = output_dir / "openreview_merged.json"
+    processed = output_dir / "orc_merged.json"
     _checkrun(
         processed,
-        "openreview",
+        "paper",
+        "orc",
         "preprocess",
         "--input",
         input_dir,
