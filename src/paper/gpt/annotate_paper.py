@@ -7,6 +7,7 @@ paper plus the prompts used and the extracted terms.
 from __future__ import annotations
 
 import asyncio
+import itertools
 import logging
 from collections.abc import Sequence
 from enum import StrEnum
@@ -19,6 +20,7 @@ import typer
 from pydantic import BaseModel, ConfigDict, Field
 from rich.console import Console
 from rich.table import Table
+from tqdm import tqdm
 
 from paper import semantic_scholar as s2
 from paper.gpt.model import (
@@ -183,6 +185,9 @@ def run(
     log: Annotated[
         DetailOptions, typer.Option(help="How much detail to show in output logging.")
     ] = DetailOptions.NONE,
+    batch_size: Annotated[
+        int, typer.Option(help="Size of the batches being annotated.")
+    ] = 100,
 ) -> None:
     """Extract key terms for problems and methods from S2 Papers."""
     asyncio.run(
@@ -200,6 +205,7 @@ def run(
             continue_,
             log,
             paper_type,
+            batch_size,
         )
     )
 
@@ -218,6 +224,7 @@ async def annotate_papers(
     continue_: bool,
     show_log: DetailOptions,
     paper_type: PaperType,
+    batch_size: int,
 ) -> None:
     """Extract problem and method terms from each paper.
 
@@ -249,6 +256,7 @@ async def annotate_papers(
             the extracted entities. Note: the types of terms vary by output type,
             dependent on the prompt.
         paper_type: Type of the paper input data.
+        batch_size: Number of items per annotation batch.
     """
     params = get_params()
     logger.info(render_params(params))
@@ -304,6 +312,7 @@ async def annotate_papers(
             user_prompt_abstract,
             abstract_demonstrations,
             output_intermediate_file,
+            batch_size,
         )
     output_valid = [ann for ann in output.result if ann.item.is_valid()]
 
@@ -355,30 +364,35 @@ async def _annotate_papers(
     user_prompt_abstract: PromptTemplate,
     abstract_demonstrations: str,
     output_intermediate_path: Path,
+    batch_size: int,
 ) -> GPTResult[list[PromptResult[PaperAnnotated]]]:
     """Annotate papers to add key terms. Runs multiple tasks concurrently."""
     ann_outputs: list[PromptResult[PaperAnnotated]] = []
     total_cost = 0
 
-    tasks = [
-        _annotate_paper_single(
-            client,
-            paper,
-            user_prompt_term,
-            user_prompt_abstract,
-            abstract_demonstrations,
-        )
-        for paper in papers
-    ]
+    batches = list(itertools.batched(papers, batch_size))
+    for batch_idx, batch in enumerate(tqdm(batches, desc="Processing batches"), 1):
+        batch_tasks = [
+            _annotate_paper_single(
+                client,
+                paper,
+                user_prompt_term,
+                user_prompt_abstract,
+                abstract_demonstrations,
+            )
+            for paper in batch
+        ]
 
-    for task in progress.as_completed(tasks, desc="Extracting paper terms"):
-        result = await task
-        total_cost += result.cost
+        for task in progress.as_completed(
+            batch_tasks, desc=f"Annotating batch {batch_idx}"
+        ):
+            result = await task
+            total_cost += result.cost
 
-        ann_outputs.append(result.result)
-        append_intermediate_result(
-            PaperAnnotated, output_intermediate_path, result.result
-        )
+            ann_outputs.append(result.result)
+            append_intermediate_result(
+                PaperAnnotated, output_intermediate_path, result.result
+            )
 
     return GPTResult(result=ann_outputs, cost=total_cost)
 

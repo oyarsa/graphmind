@@ -12,6 +12,7 @@ information that can be useful for evaluating papers.
 from __future__ import annotations
 
 import asyncio
+import itertools
 import logging
 import random
 from collections.abc import Iterable, Mapping
@@ -21,6 +22,7 @@ from typing import Annotated
 import dotenv
 import typer
 from pydantic import BaseModel, ConfigDict, Field
+from tqdm import tqdm
 
 from paper import related_papers as rp
 from paper.gpt.model import (
@@ -112,6 +114,9 @@ def run(
         typer.Option("--continue", help="Use existing intermediate results."),
     ] = False,
     seed: Annotated[int, typer.Option(help="Random seed used for data shuffling.")] = 0,
+    batch_size: Annotated[
+        int, typer.Option(help="Size of the batches being summarised.")
+    ] = 100,
 ) -> None:
     """Summarise PETER-related papers."""
     asyncio.run(
@@ -125,6 +130,7 @@ def run(
             continue_papers,
             continue_,
             seed,
+            batch_size,
         )
     )
 
@@ -145,6 +151,7 @@ async def summarise_related(
     continue_papers_file: Path | None,
     continue_: bool,
     seed: int,
+    batch_size: int,
 ) -> None:
     """Summarise PETER-related papers.
 
@@ -162,6 +169,7 @@ async def summarise_related(
             exist, we use those results and skip processing papers in them.
         continue_: If True, use existing data from `continue_papers_file`.
         seed: Random seed used for input data shuffling and for the GPT call.
+        batch_size: Number of items per batch.
 
     Note: See `PETER_SUMMARISE_USER_PROMPTS` for summarisation prompt options.
 
@@ -215,7 +223,11 @@ async def summarise_related(
 
     with Timer() as timer:
         results = await _summarise_papers(
-            client, prompt_pol, papers_remaining.remaining, output_intermediate_file
+            client,
+            prompt_pol,
+            papers_remaining.remaining,
+            output_intermediate_file,
+            batch_size,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -235,6 +247,7 @@ async def _summarise_papers(
     prompt_pol: Mapping[rp.ContextPolarity, PromptTemplate],
     ann_graphs: Iterable[rp.PaperResult],
     output_intermediate_file: Path,
+    batch_size: int,
 ) -> GPTResult[list[PromptResult[PaperWithRelatedSummary]]]:
     """Summarise information from PETER-related papers for use as paper evaluation input.
 
@@ -243,6 +256,7 @@ async def _summarise_papers(
         prompt_pol: Prompt templates for related papers by polarity.
         ann_graphs: Annotated PeerRead papers with their graph data.
         output_intermediate_file: File to write new results after each task is completed.
+        batch_size: Number of items per batch.
 
     Returns:
         List of classified papers and their prompts wrapped in a GPTResult.
@@ -250,18 +264,22 @@ async def _summarise_papers(
     results: list[PromptResult[PaperWithRelatedSummary]] = []
     total_cost = 0
 
-    tasks = [
-        _summarise_paper(client, ann_graph, prompt_pol) for ann_graph in ann_graphs
-    ]
+    batches = list(itertools.batched(ann_graphs, batch_size))
+    for batch_idx, batch in enumerate(tqdm(batches, desc="Processing batches"), 1):
+        batch_tasks = [
+            _summarise_paper(client, ann_graph, prompt_pol) for ann_graph in batch
+        ]
 
-    for task in progress.as_completed(tasks, desc="Summarising related papers"):
-        result = await task
-        total_cost += result.cost
+        for task in progress.as_completed(
+            batch_tasks, desc=f"Summarising batch {batch_idx}"
+        ):
+            result = await task
+            total_cost += result.cost
 
-        results.append(result.result)
-        append_intermediate_result(
-            PaperWithRelatedSummary, output_intermediate_file, result.result
-        )
+            results.append(result.result)
+            append_intermediate_result(
+                PaperWithRelatedSummary, output_intermediate_file, result.result
+            )
 
     return GPTResult(results, total_cost)
 
