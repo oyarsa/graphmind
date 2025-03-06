@@ -6,9 +6,9 @@ import re
 from collections.abc import Sequence
 from enum import StrEnum
 from functools import cached_property, reduce
-from typing import Annotated, override
+from typing import Annotated, Self, override
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from paper.util import fix_spaces_before_punctuation, hashstr
 from paper.util.serde import Record
@@ -58,6 +58,13 @@ class CitationContext(BaseModel):
             description="Polarity of the citation context between main and reference papers."
         ),
     ]
+
+    @model_validator(mode="after")
+    def truncate_sentence(self) -> Self:
+        """Truncate the context sentence to 256 characters."""
+        if self.sentence:
+            self.sentence = self.sentence[:256]
+        return self
 
 
 class PaperReference(BaseModel):
