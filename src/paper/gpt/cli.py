@@ -1,10 +1,4 @@
-"""CLI entrypoint for GPT models and tasks.
-
-- context: Run context classification on PeerRead references.
-- graph: Extract concept graph from an PeerRead and perform classification on it.
-- eval_full: Paper evaluation based on the full text only.
-- tokens: Estimate input tokens from different prompts and demonstrations.
-"""
+"""Prompt-based tools for paper evaluation, annotation and tasks using the OpenAI API."""
 
 import logging
 from collections.abc import Iterable
@@ -97,7 +91,7 @@ evals_subcommands = [
 app.add_typer(
     _new_app("eval", evals_subcommands),
     name="eval",
-    help="Evaluate a paper",
+    help="Evaluate papers novelty ratings.",
 )
 
 

@@ -1,10 +1,10 @@
 """Fetch conference paper data from the OpenReview API and download LaTeX from arXiv.
 
 The process for retrieving the whole data is running the subcommands in this order:
-- `reviews`: get the available paper information for a given conference, including
-  arXiv paper IDs.
-- `latex`: use the arXiv IDs to download the LaTeX code for the papers
-- `parse`: convert LaTeX code to parsed paper with sections and references
+- reviews
+- latex
+- parse
+- preprocess
 """
 
 # pyright: basic
@@ -1007,7 +1007,7 @@ def _process_tex_files(
 PANDOC_CMD_TIMEOUT = 30
 
 
-@app.command(help=__doc__, no_args_is_help=True)
+@app.command(no_args_is_help=True)
 def parse(
     input_path: Annotated[
         Path,
