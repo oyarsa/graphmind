@@ -113,8 +113,8 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
             }
         elif tier == 4:
             limits = {
-                "gpt-4o-mini": (10_000, 4_000_000),
-                "gpt-4o": (10_000, 800_000),
+                "gpt-4o-mini": (10_000, 10_000_000),
+                "gpt-4o": (10_000, 2_000_000),
             }
         elif tier == 5:
             raise ValueError(message.format(tier=5))
