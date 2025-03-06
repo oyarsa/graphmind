@@ -281,13 +281,18 @@ class ModelClient:
         # at the last item of the collection. I'm not actually sure the problem is here,
         # but I've had enough cases that came back to this that I'm writing this here.
         try:
-            async with self.semaphore, self.rate_limiter.limit(**chat_params):
-                return await self.client.beta.chat.completions.parse(**chat_params)
+            async with (
+                self.semaphore,
+                self.rate_limiter.limit(**chat_params) as update_usage,
+            ):
+                response = await self.client.beta.chat.completions.parse(**chat_params)
+                await update_usage(response)
+                return response
         except openai.APIError as e:
             logger.warning("\nCaught an API error: %s", e)
             raise
-        except Exception as e:
-            logger.warning("\nCaught non-API error. Returning None: %s", e)
+        except Exception:
+            logger.exception("\nCaught non-API error. Returning None: %s")
             return None
 
 
