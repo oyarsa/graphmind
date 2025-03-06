@@ -299,7 +299,6 @@ class GPTContext(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    text: Annotated[str, Field(description="Full text of the context mention")]
     polarity: Annotated[
         peerread.ContextPolarity,
         Field(description="Whether the citation context is positive or negative"),
