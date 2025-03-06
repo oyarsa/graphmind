@@ -209,7 +209,11 @@ class ModelClient:
         self.semaphore = asyncio.Semaphore(simultaneous_requests)
 
     async def run[T: BaseModel](
-        self, class_: type[T], system_prompt: str, user_prompt: str
+        self,
+        class_: type[T],
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int | None = None,
     ) -> GPTResult[T | None]:
         """Run the GPT query and return a parsed object of `class_`.
 
@@ -232,6 +236,7 @@ class ModelClient:
                 reproducible.
             temperature: Temperature for the model, between 0 and 2. Defaults to 0 to
                 try to get consistent outputs from the model.
+            max_tokens: Maximum number of tokens in the output.
 
         Returns:
             Result with the cost for the request and the result object parsed. If there
@@ -252,6 +257,7 @@ class ModelClient:
                 response_format=class_,
                 seed=self.seed,
                 temperature=self.temperature,
+                max_tokens=max_tokens,
             )
         except Exception:
             logger.exception("Error when calling OpenAI. Gave up on retrying")
