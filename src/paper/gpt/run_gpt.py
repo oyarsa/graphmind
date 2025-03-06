@@ -1,6 +1,5 @@
 """Interact with the OpenAI API."""
 
-import asyncio
 import logging
 import os
 from collections.abc import Mapping, Sequence
@@ -66,15 +65,6 @@ class GPTResult[T]:
 
     result: T
     cost: float
-
-
-GPT_REASONABLE_SIMULTANEOUS_REQUESTS = int(os.getenv("GPT_MAX_REQUESTS", "100"))
-"""The default is an empirically established number of simultaneous requests to GPT API.
-
-Defaults to 100, but it's overridable via the `GPT_MAX_REQUESTS` environment variable.
-This seems to be a number that doesn't break the rate limiter, but is high enough to
-still deliver good performance.
-"""
 
 
 def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
@@ -152,7 +142,6 @@ class ModelClient:
         model: str,
         seed: int,
         temperature: float = 0,
-        simultaneous_requests: int = GPT_REASONABLE_SIMULTANEOUS_REQUESTS,
         base_url: str | None = None,
     ) -> None:
         """Create client for OpenAI-compatible APIs.
@@ -167,9 +156,6 @@ class ModelClient:
             seed: Seed to give the model.
             temperature: How unpredictable the model is. Set this 0 to be as
                 deterministic as possible, but it's still not guaranteed.
-            simultaneous_requests: How many requests can be made at the same time. This
-                acts in conjunction with a rate limiter to prevent the API being
-                bombarded.
             base_url: URL of the API being used. If not provided, use OpenAI.
         """
         is_openai = base_url is None or "openai" in base_url
@@ -195,19 +181,6 @@ class ModelClient:
 
         self.rate_limiter = get_rate_limiter(api_tier, model)
 
-        # Semaphore to control the number of simultaneous requests to the GPT API.
-        #
-        # This isn't the same as a rate limiter, so we use both. The rate limiter
-        # ensures we don't get 429 errors from the API. This semaphore is so we don't
-        # make thousands of requests to the API at the same time, as that kind of breaks
-        # the rate limiter and leads to deadlocks.
-        #
-        # This should be used in the client code around the `run_gpt` case, and all the
-        # requests must be made in the same block. This doesn't matter if you only make
-        # one request per async task, but in cases where there are more, grouping them
-        # avoids deadlocks.
-        self.semaphore = asyncio.Semaphore(simultaneous_requests)
-
     async def run[T: BaseModel](
         self,
         class_: type[T],
@@ -217,13 +190,8 @@ class ModelClient:
     ) -> GPTResult[T | None]:
         """Run the GPT query and return a parsed object of `class_`.
 
-        Uses Structured Outputs to get a valid object.
-
-        NOTE: You must group all calls inside an async task in the same block and wrap
-        it in `GPT_SEMAPHORE`. If you don't, you'll likely run into deadlocks once you
-        start making thousands of concurrent requests.
-
-        See also: https://platform.openai.com/docs/guides/structured-outputs
+        Uses Structured Outputs to get a valid object. See also:
+        https://platform.openai.com/docs/guides/structured-outputs
 
         Args:
             class_: The class to parse the Structured Outputs. Must be a Pydantic
@@ -281,10 +249,7 @@ class ModelClient:
         # at the last item of the collection. I'm not actually sure the problem is here,
         # but I've had enough cases that came back to this that I'm writing this here.
         try:
-            async with (
-                self.semaphore,
-                self.rate_limiter.limit(**chat_params) as update_usage,
-            ):
+            async with self.rate_limiter.limit(**chat_params) as update_usage:
                 response = await self.client.beta.chat.completions.parse(**chat_params)
                 await update_usage(response)
                 return response
