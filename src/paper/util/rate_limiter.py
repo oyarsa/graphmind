@@ -1,37 +1,16 @@
-"""Rate limiter for the OpenAI API. Works for both request and token limits."""
-# openlimit: Maximize your usage of OpenAI models without hitting rate limits
-
-# Copyright (C) 2024 shobrook
-#
-# This file is part of openlimit.
-#
-# openlimit is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# openlimit is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with openlimit. If not, see <https://www.gnu.org/licenses/>.
-#
-# ---------------------------------------------------------------------------------
-# Modifications:
-# - 2024-10-25: oyarsa - Move only what I use to a single file and add type hints.
-# ---------------------------------------------------------------------------------
-
-from __future__ import annotations
+"""Rate limiter for the OpenAI API using a sliding window."""
 
 import asyncio
 import time
+from collections import deque
+from collections.abc import AsyncGenerator, Iterable
+from contextlib import asynccontextmanager
 from typing import Any, TypedDict
 
 import tiktoken
 
-_GPT_TOKENISER = tiktoken.get_encoding("cl100k_base")
+# Initialize the tokenizer - you may need to change this based on your model
+_TOKENIZER = tiktoken.get_encoding("cl100k_base")
 
 
 class Message(TypedDict):
@@ -42,164 +21,113 @@ class Message(TypedDict):
     name: str | None
 
 
-class Bucket:
-    """Bucket used to track capacity in the leaky bucket algorithm."""
+def _count_tokens(
+    messages: Iterable[Message], max_tokens: int = 50, n: int = 1, **_: Any
+) -> int:
+    """Calculate total tokens that will be consumed by a chat request.
 
-    def __init__(self, rate_limit: float, bucket_size_in_seconds: float) -> None:
-        self._bucket_size_in_seconds = bucket_size_in_seconds
-        self._rate_per_sec: float = rate_limit / 60
-        self._capacity: float = self._rate_per_sec * self._bucket_size_in_seconds
-        self._last_checked: float = time.time()
+    The arguments have the same names as the ones from the OpenAI `client` API parameters.
 
-    def get_capacity(self, current_time: float) -> float:
-        """Calculate how much capacity was obtained throughout the elapsed time."""
-        time_passed = current_time - self._last_checked
-        return min(
-            self._rate_per_sec * self._bucket_size_in_seconds,
-            self._capacity + time_passed * self._rate_per_sec,
-        )
-
-    def set_capacity(self, new_capacity: float, current_time: float) -> None:
-        """Set capacity to new value and the last check tie to the cureent time."""
-        self._last_checked = current_time
-        self._capacity = new_capacity
-
-
-class Buckets:
-    """Collection of multiple leaky buckets, usually one per type of limit.
-
-    E.g. one for requests per time, and another for tokens per time. All of them need
-    to be filled for a request to be made.
+    Args:
+        messages: Data sent to the API.
+        max_tokens: Maximum number of tokens the output.
+        n: How many outputs are generated.
     """
+    num_tokens = n * max_tokens
 
-    def __init__(self, buckets: list[Bucket]) -> None:
-        self.buckets = buckets
+    for message in messages:
+        # Every message follows <im_start>{role/name}\n{content}<im_end>\n
+        num_tokens += 4
+        for key, value in message.items():
+            num_tokens += len(_TOKENIZER.encode(str(value)))
+            if key == "name":  # If there's a name, the role is omitted
+                num_tokens -= 1  # Role is always required and always 1 token
 
-    def _get_capacities(self, current_time: float) -> list[float]:
-        """Get capacities for all buckets."""
-        return [
-            bucket.get_capacity(current_time=current_time) for bucket in self.buckets
-        ]
+    # Every reply is primed with <im_start>assistant
+    num_tokens += 2
 
-    def _set_capacities(self, new_capacities: list[float], current_time: float) -> None:
-        """Set capacities for all buckets using `new_capacities` with `current_time`.
-
-        Capacities should be in order for each bucket.
-        """
-        for new_capacity, bucket in zip(new_capacities, self.buckets):
-            bucket.set_capacity(new_capacity, current_time=current_time)
-
-    def _has_capacity(self, amounts: list[float]) -> bool:
-        """Check if all buckets have the capacity for the requested `amounts`.
-
-        Amounts should be in order for each bucket.
-        """
-        current_time = time.time()
-        new_capacities = self._get_capacities(current_time=current_time)
-
-        has_capacity = all(
-            amount <= capacity for amount, capacity in zip(amounts, new_capacities)
-        )
-
-        if has_capacity:
-            new_capacities = [
-                capacity - amount for capacity, amount in zip(new_capacities, amounts)
-            ]
-
-        self._set_capacities(new_capacities, current_time=current_time)
-        return has_capacity
-
-    def wait_for_capacity_sync(
-        self, amounts: list[float], sleep_interval: float = 0.1
-    ) -> None:
-        """Loop and sleep until the required amounts per bucket has been filled."""
-        while not self._has_capacity(amounts):
-            time.sleep(sleep_interval)
-
-    async def wait_for_capacity(
-        self, amounts: list[float], sleep_interval: float = 0.1
-    ) -> None:
-        """Loop and async sleep until the required amounts per bucket has been filled."""
-        while not self._has_capacity(amounts):
-            await asyncio.sleep(sleep_interval)
+    return num_tokens
 
 
 class ChatRateLimiter:
-    """Rate limiter for chat API requests with both request and token limits."""
+    """Rate limiter for OpenAI API with both request and token limits."""
 
     def __init__(
-        self,
-        request_limit: float = 3500,
-        token_limit: float = 90000,
-        bucket_size_in_seconds: float = 1.0,
+        self, request_limit: int, token_limit: int, bucket_size_in_seconds: int = 60
     ) -> None:
+        """Initialize the rate limiter.
+
+        Args:
+            request_limit: Maximum number of requests per bucket window
+            token_limit: Maximum number of tokens per bucket window
+            bucket_size_in_seconds: Size of the sliding window (default: 60s)
+        """
         self.request_limit = request_limit
         self.token_limit = token_limit
-        self.sleep_interval = 1 / (self.request_limit / 60)
+        self.bucket_size = bucket_size_in_seconds
 
-        self._buckets = Buckets([
-            Bucket(request_limit, bucket_size_in_seconds),
-            Bucket(token_limit, bucket_size_in_seconds),
-        ])
+        # Sliding window tracking
+        self.request_timestamps: deque[float] = deque()
+        self.token_usage: deque[tuple[float, int]] = deque()
 
-    @staticmethod
-    def _count_tokens(
-        messages: list[Message], max_tokens: int = 15, n: int = 1, **_: Any
-    ) -> int:
-        """Calculate total tokens that will be consumed by a chat request."""
+        # Lock to prevent race conditions
+        self._lock = asyncio.Lock()
 
-        num_tokens = n * max_tokens
+    @asynccontextmanager
+    async def limit(
+        self, messages: Iterable[Message], **_: Any
+    ) -> AsyncGenerator[None, None]:
+        """Context manager to rate limit API calls.
 
-        for message in messages:
-            # Every message follows <im_start>{role/name}\n{content}<im_end>\n
-            num_tokens += 4
-            for key, value in message.items():
-                num_tokens += len(_GPT_TOKENISER.encode(str(value)))
-                if key == "name":  # If there's a name, the role is omitted
-                    num_tokens -= 1  # Role is always required and always 1 token
+        Waits until there's capacity before allowing the API call.
 
-        # Every reply is primed with <im_start>assistant
-        num_tokens += 2
+        Call this with the same parameters as the actual OpenAI call. We'll use only
+        `messages` and ignore the rest.
 
-        return num_tokens
+        Args:
+            messages: Data sent to the API. We use this to estimate token usage.
+        """
+        num_tokens = _count_tokens(messages)
 
-    async def wait_for_capacity(self, num_tokens: int) -> None:
-        """Wait asynchronously until capacity is available."""
-        await self._buckets.wait_for_capacity(
-            amounts=[1, num_tokens], sleep_interval=self.sleep_interval
-        )
+        await self._wait_for_capacity(num_tokens)
 
-    def wait_for_capacity_sync(self, num_tokens: int) -> None:
-        """Wait synchronously until capacity is available."""
-        self._buckets.wait_for_capacity_sync(
-            amounts=[1, num_tokens], sleep_interval=self.sleep_interval
-        )
+        try:
+            yield
+        finally:
+            async with self._lock:
+                self.request_timestamps.append(time.time())
+                self.token_usage.append((time.time(), num_tokens))
 
-    def limit(self, **kwargs: Any) -> ContextManager:
-        """Create a context manager that enforces the rate limits."""
-        num_tokens = self._count_tokens(**kwargs)
-        return ContextManager(num_tokens, self)
+    async def _wait_for_capacity(self, estimated_tokens: int) -> None:
+        """Wait until there's capacity for another request.
 
+        Args:
+            estimated_tokens: Estimated token usage for this request
+        """
+        while True:
+            current_time = time.time()
+            cutoff_time = current_time - self.bucket_size
 
-class ContextManager:
-    """Context manager for rate limiting."""
+            async with self._lock:
+                # Cleanup expired timestamps
+                while (
+                    self.request_timestamps and self.request_timestamps[0] < cutoff_time
+                ):
+                    self.request_timestamps.popleft()
 
-    def __init__(self, num_tokens: int, rate_limiter: ChatRateLimiter) -> None:
-        self.num_tokens = num_tokens
-        self.rate_limiter = rate_limiter
+                while self.token_usage and self.token_usage[0][0] < cutoff_time:
+                    self.token_usage.popleft()
 
-    def __enter__(self) -> None:
-        """Enter the context and wait for the rate limiter to acquire the capacity."""
-        self.rate_limiter.wait_for_capacity_sync(self.num_tokens)
+                # Check if we have capacity
+                current_requests = len(self.request_timestamps)
+                current_tokens = sum(tokens for _, tokens in self.token_usage)
 
-    def __exit__(self, *exc: object) -> bool:
-        """Leave the context. Does nothing."""
-        return False
+                if (
+                    current_requests < self.request_limit
+                    and current_tokens + estimated_tokens <= self.token_limit
+                ):
+                    # We have capacity, exit the wait loop
+                    break
 
-    async def __aenter__(self) -> None:
-        """Enter the context and await for the rate limiter to acquire the capacity."""
-        await self.rate_limiter.wait_for_capacity(self.num_tokens)
-
-    async def __aexit__(self, *exc: object) -> bool:
-        """Leave the context. Does nothing."""
-        return False
+            # No capacity, wait a bit and check again
+            await asyncio.sleep(0.05)
