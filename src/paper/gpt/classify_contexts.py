@@ -13,6 +13,7 @@ Data:
 """
 
 import asyncio
+import itertools
 import logging
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -21,6 +22,7 @@ from typing import Annotated, Self
 import dotenv
 import typer
 from pydantic import BaseModel, ConfigDict, Field, computed_field
+from tqdm import tqdm
 
 from paper import evaluation_metrics, peerread
 from paper import semantic_scholar as s2
@@ -107,6 +109,9 @@ def run(
         typer.Option("--continue", help="Use existing intermediate results"),
     ] = False,
     seed: Annotated[int, typer.Option(help="Seed to set in the OpenAI call.")] = 0,
+    batch_size: Annotated[
+        int, typer.Option(help="Size of the batches being classified.")
+    ] = 100,
 ) -> None:
     """Classify reference citation contexts by polarity."""
     asyncio.run(
@@ -120,6 +125,7 @@ def run(
             continue_papers,
             continue_,
             seed,
+            batch_size,
         )
     )
 
@@ -134,6 +140,7 @@ async def classify_contexts(
     continue_papers_file: Path | None,
     continue_: bool,
     seed: int,
+    batch_size: int,
 ) -> None:
     """Classify reference citation contexts by polarity."""
     params = get_params()
@@ -187,6 +194,7 @@ async def classify_contexts(
             papers_remaining.remaining,
             limit_references,
             output_intermediate_file,
+            batch_size,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -395,6 +403,7 @@ async def _classify_contexts(
     papers: Sequence[s2.PaperWithS2Refs],
     limit_references: int | None,
     output_intermediate_path: Path,
+    batch_size: int,
 ) -> GPTResult[list[PromptResult[PaperWithContextClassfied]]]:
     """Classify the contexts for each papers' references by polarity.
 
@@ -411,20 +420,23 @@ async def _classify_contexts(
     paper_outputs: list[PromptResult[PaperWithContextClassfied]] = []
     total_cost = 0
 
-    tasks = [
-        _classify_paper(client, limit_references, paper, user_prompt)
-        for paper in papers
-    ]
-    for task in progress.as_completed(
-        tasks, desc="Classifying paper reference contexts"
-    ):
-        result = await task
-        total_cost += result.cost
+    batches = list(itertools.batched(papers, batch_size))
+    for batch_idx, batch in enumerate(tqdm(batches, desc="Processing batches"), 1):
+        batch_tasks = [
+            _classify_paper(client, limit_references, paper, user_prompt)
+            for paper in batch
+        ]
 
-        paper_outputs.append(result.result)
-        append_intermediate_result(
-            PaperWithContextClassfied, output_intermediate_path, result.result
-        )
+        for task in progress.as_completed(
+            batch_tasks, desc=f"Classifying batch {batch_idx}"
+        ):
+            result = await task
+            total_cost += result.cost
+
+            paper_outputs.append(result.result)
+            append_intermediate_result(
+                PaperWithContextClassfied, output_intermediate_path, result.result
+            )
 
     return GPTResult(paper_outputs, total_cost)
 
