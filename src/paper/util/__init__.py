@@ -585,7 +585,7 @@ def at[T](seq: Sequence[T], idx: int, desc: str, title: str) -> T | None:
         return None
 
 
-def print_memory_usage(file: Path) -> None:
+def log_memory_usage(file: Path) -> None:
     """Print detailed memory usage information.
 
     1. Current Python process memory usage

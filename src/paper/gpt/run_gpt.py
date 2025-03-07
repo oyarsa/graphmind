@@ -13,6 +13,7 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel
 
 from paper.gpt.model import PromptResult
+from paper.util import log_memory_usage
 from paper.util.rate_limiter import ChatRateLimiter
 from paper.util.serde import (
     Record,
@@ -281,6 +282,7 @@ def append_intermediate_result[T: BaseModel](
     """
     try:
         save_data_jsonl(path, result)
+        log_memory_usage(path.parent / "memory.txt")
     except Exception:
         logger.exception("Error writing intermediate results to: %s", path)
 
