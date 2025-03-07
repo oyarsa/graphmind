@@ -596,7 +596,7 @@ def print_memory_usage(file: Path) -> None:
     """
 
     def log(x: str) -> None:
-        print(x)
+        logger.info(x)
         with file.open("a") as f:
             f.write(x + "\n" + "-" * 80 + "\n")
 
