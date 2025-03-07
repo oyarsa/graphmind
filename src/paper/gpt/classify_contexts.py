@@ -42,6 +42,7 @@ from paper.util import (
     ensure_envvar,
     get_params,
     hashstr,
+    print_memory_usage,
     progress,
     render_params,
     safediv,
@@ -416,6 +417,7 @@ async def _classify_contexts(
 
     batches = list(itertools.batched(papers, batch_size))
     for batch_idx, batch in enumerate(tqdm(batches, desc="Processing batches"), 1):
+        print_memory_usage(output_intermediate_path.parent / "memory.txt")
         batch_tasks = [
             _classify_paper(client, limit_references, paper, user_prompt)
             for paper in batch

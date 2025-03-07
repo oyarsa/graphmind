@@ -8,6 +8,7 @@ import hashlib
 import inspect
 import logging
 import os
+import platform
 import random
 import re
 import subprocess
@@ -19,6 +20,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Self, overload
 
+import psutil
 from thefuzz import fuzz  # type: ignore
 
 from paper.util import cli
@@ -581,3 +583,58 @@ def at[T](seq: Sequence[T], idx: int, desc: str, title: str) -> T | None:
             "Invalid index at '%s' (%s): %d out of %d", title, desc, idx, len(seq)
         )
         return None
+
+
+def print_memory_usage(file: Path) -> None:
+    """Print detailed memory usage information.
+
+    1. Current Python process memory usage
+    2. Overall system memory usage
+    3. Available memory remaining
+
+    Works on both macOS and Linux systems.
+    """
+
+    def log(x: str) -> None:
+        print(x)
+        with file.open("a") as f:
+            f.write(x + "\n" + "-" * 80 + "\n")
+
+    process = psutil.Process(os.getpid())
+
+    python_memory_usage = process.memory_info().rss / (1024 * 1024)
+    system_memory = psutil.virtual_memory()
+    total_memory_gb = system_memory.total / (1024 * 1024 * 1024)
+    used_memory_gb = system_memory.used / (1024 * 1024 * 1024)
+    available_memory_gb = system_memory.available / (1024 * 1024 * 1024)
+    memory_percent = system_memory.percent
+
+    system_name = platform.system()
+
+    log(f"System: {system_name}")
+    log(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    log(f"Python Process Memory Usage: {python_memory_usage:.2f} MB")
+    log("\nSystem Memory Statistics:")
+    log(f"  Total Memory: {total_memory_gb:.2f} GB")
+    log(f"  Used Memory: {used_memory_gb:.2f} GB ({memory_percent}%)")
+    log(f"  Available Memory: {available_memory_gb:.2f} GB")
+
+    if system_name == "Darwin":  # macOS
+        swap = psutil.swap_memory()
+        swap_total_gb = swap.total / (1024 * 1024 * 1024)
+        swap_used_gb = swap.used / (1024 * 1024 * 1024)
+        log("\nmacOS Swap Information:")
+        log(f"  Total Swap: {swap_total_gb:.2f} GB")
+        log(f"  Used Swap: {swap_used_gb:.2f} GB ({swap.percent}%)")
+
+    elif system_name == "Linux":
+        log("\nLinux-specific Memory Information:")
+        log(f"  Buffers: {system_memory.buffers / (1024 * 1024 * 1024):.2f} GB")  # type: ignore
+        log(f"  Cached: {system_memory.cached / (1024 * 1024 * 1024):.2f} GB")  # type: ignore
+
+        swap = psutil.swap_memory()
+        swap_total_gb = swap.total / (1024 * 1024 * 1024)
+        swap_used_gb = swap.used / (1024 * 1024 * 1024)
+        log("\nLinux Swap Information:")
+        log(f"  Total Swap: {swap_total_gb:.2f} GB")
+        log(f"  Used Swap: {swap_used_gb:.2f} GB ({swap.percent}%)")
