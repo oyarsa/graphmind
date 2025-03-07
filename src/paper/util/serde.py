@@ -51,6 +51,71 @@ def load_data[T: BaseModel](
 ) -> list[T]: ...
 
 
+def save_data_jsonl(file: Path, data: BaseModel) -> None:
+    """Save Pydantic object as a new line in `file`.
+
+    Args:
+        file: File where data will be saved. Creates its parent directory if it doesn't
+            exist.
+        data: The data to be saved.
+    """
+
+    file.parent.mkdir(parents=True, exist_ok=True)
+    with file.open("a") as f:
+        f.write(data.model_dump_json() + "\n")
+
+
+def load_data_jsonl[T: BaseModel](file: Path, type_: type[T]) -> list[T]:
+    """Load data from a JSON Lines (JSONL) `file`: a collection of objects, one per line.
+
+    Each line in the file should be a valid JSON object.
+
+    Args:
+        file: File path to read the data from, bytes content, or string content.
+        type_: Type of the objects to parse.
+
+    Returns:
+        List of data with the `type_` format, or a single object if `single=True`.
+
+    Raises:
+        `ValidationError` if the data is incompatible with `type_`.
+        `OSError` if the file operations fail.
+        `ValueError` if no valid objects are found in the file.
+    """
+
+    try:
+        result: list[T] = []
+        errors: list[str] = []
+
+        with file.open() as f:
+            for i, line in enumerate(f, 1):
+                if not line.strip():
+                    continue
+
+                try:
+                    result.append(type_.model_validate_json(line))
+                except ValidationError as e:
+                    # Collect errors with line numbers for better debugging
+                    errors.append(f"Line {i}: {e}")
+
+        if errors and not result:
+            # If all lines failed validation, raise an error
+            raise ValidationError(  # noqa: TRY301
+                f"All lines in {file} failed validation for {get_full_type_name(type_)}. "
+                f"First few errors: {'; '.join(errors[:3])}"
+            )
+
+    except ValidationError as e:
+        raise ValidationError(
+            f"Data from {file} is not valid for {get_full_type_name(type_)}"
+        ) from e
+    except json.JSONDecodeError as e:
+        line_num = e.lineno if hasattr(e, "lineno") else "unknown"
+        raise ValueError(f"Invalid JSON at line {line_num} in {file}: {e}") from e
+    else:
+        return result
+
+
 def load_data[T: BaseModel](
     file: Path | bytes,
     type_: type[T],
