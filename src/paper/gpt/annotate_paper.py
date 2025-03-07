@@ -394,9 +394,7 @@ async def _annotate_papers(
             total_cost += result.cost
 
             ann_outputs.append(result.result)
-            append_intermediate_result(
-                PaperAnnotated, output_intermediate_path, result.result
-            )
+            append_intermediate_result(output_intermediate_path, result.result)
 
     return GPTResult(result=ann_outputs, cost=total_cost)
 
