@@ -34,7 +34,7 @@ from paper.gpt.run_gpt import (
     GPTResult,
     ModelClient,
     append_intermediate_result,
-    get_remaining_items,
+    init_remaining_items,
 )
 from paper.util import (
     Timer,
@@ -167,14 +167,8 @@ async def classify_contexts(
     papers = data[:limit_papers]
     user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_intermediate_file = output_dir / "results.tmp.json"
-    papers_remaining = get_remaining_items(
-        PaperWithContextClassfied,
-        output_intermediate_file,
-        continue_papers_file,
-        papers,
-        continue_,
+    output_intermediate_file, papers_remaining = init_remaining_items(
+        PaperWithContextClassfied, output_dir, continue_papers_file, papers, continue_
     )
     if not papers_remaining.remaining:
         logger.info(
