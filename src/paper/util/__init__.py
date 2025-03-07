@@ -585,7 +585,7 @@ def at[T](seq: Sequence[T], idx: int, desc: str, title: str) -> T | None:
         return None
 
 
-def print_memory_usage(file: Path) -> None:
+def log_memory_usage(file: Path) -> None:
     """Print detailed memory usage information.
 
     1. Current Python process memory usage
@@ -596,9 +596,10 @@ def print_memory_usage(file: Path) -> None:
     """
 
     def log(x: str) -> None:
-        print(x)
+        logger.debug(x)
         with file.open("a") as f:
-            f.write(x + "\n" + "-" * 80 + "\n")
+            f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}]\n")
+            f.write(x + "\n" + "-" * 80 + "\n\n")
 
     process = psutil.Process(os.getpid())
 
