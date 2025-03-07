@@ -51,18 +51,24 @@ def load_data[T: BaseModel](
 ) -> list[T]: ...
 
 
-def save_data_jsonl(file: Path, data: BaseModel) -> None:
+def save_data_jsonl(
+    file: Path, data: BaseModel | Sequence[BaseModel], mode: Literal["w", "a"] = "a"
+) -> None:
     """Save Pydantic object as a new line in `file`.
 
     Args:
         file: File where data will be saved. Creates its parent directory if it doesn't
             exist.
         data: The data to be saved.
+        mode: How to open the file. Defaults to append.
     """
+    if isinstance(data, BaseModel):
+        data = [data]
 
     file.parent.mkdir(parents=True, exist_ok=True)
-    with file.open("a") as f:
-        f.write(data.model_dump_json() + "\n")
+    with file.open(mode) as f:
+        for entry in data:
+            f.write(entry.model_dump_json() + "\n")
 
 
 def load_data_jsonl[T: BaseModel](file: Path, type_: type[T]) -> list[T]:
