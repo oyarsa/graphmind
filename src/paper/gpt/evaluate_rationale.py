@@ -52,6 +52,10 @@ class GPTRationaleMetrics(BaseModel):
     metrics: Mapping[str, int]
     explanation: str
 
+    def is_valid(self) -> bool:
+        """Check if the rationale explanation is valid."""
+        return self.explanation == "<error>"
+
 
 class GPTRationaleBase(ABC, BaseModel):
     """Base class rationale evaluation metrics."""
@@ -60,6 +64,10 @@ class GPTRationaleBase(ABC, BaseModel):
     @abstractmethod
     def empty(cls) -> Self:
         """Return empty instance. Used for error handling."""
+
+    @abstractmethod
+    def is_valid(self) -> bool:
+        """Check if the instance is valid (not empty)."""
 
     @abstractmethod
     def metrics(self) -> GPTRationaleMetrics:
@@ -105,6 +113,10 @@ class GPTRationaleEvalSimple(GPTRationaleBase):
     @classmethod
     def empty(cls) -> Self:
         return cls(fluency=1, faithfulness=1, logical=1, explanation="<error>")
+
+    @override
+    def is_valid(self) -> bool:
+        return self.explanation == "<error>"
 
 
 class GraphWithEval(GraphResult):
@@ -332,9 +344,7 @@ async def _evaluate_rationales(
 
         results.append(result.result)
         if keep_intermediate:
-            append_intermediate_result(
-                GraphWithEval, output_intermediate_file, result.result
-            )
+            append_intermediate_result(output_intermediate_file, result.result)
 
     return GPTResult(results, total_cost)
 
@@ -357,6 +367,9 @@ async def _evaluate_rationale(
     type_ = EVAL_TYPES[prompt.type_name]
     result = await client.run(type_, prompt.system, user_prompt_text)
     rationale_eval = result.result or type_.empty()
+
+    if not rationale_eval.is_valid():
+        logger.warning(f"Paper: '{graph.paper.title}': invalid rationale evaluation")
 
     graph_eval = GraphWithEval.from_(graph, rationale_eval.metrics())
     wrong = [

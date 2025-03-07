@@ -434,9 +434,7 @@ async def _evaluate_reviews(
 
         results.append(result.result)
         if keep_intermediate:
-            append_intermediate_result(
-                PaperWithReviewEval, output_intermediate_file, result.result
-            )
+            append_intermediate_result(output_intermediate_file, result.result)
 
     return GPTResult(results, total_cost)
 

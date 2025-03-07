@@ -430,9 +430,7 @@ async def _classify_contexts(
             total_cost += result.cost
 
             paper_outputs.append(result.result)
-            append_intermediate_result(
-                PaperWithContextClassfied, output_intermediate_path, result.result
-            )
+            append_intermediate_result(output_intermediate_path, result.result)
 
     return GPTResult(paper_outputs, total_cost)
 

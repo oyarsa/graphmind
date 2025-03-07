@@ -277,9 +277,7 @@ async def _summarise_papers(
             total_cost += result.cost
 
             results.append(result.result)
-            append_intermediate_result(
-                PaperWithRelatedSummary, output_intermediate_file, result.result
-            )
+            append_intermediate_result(output_intermediate_file, result.result)
 
     return GPTResult(results, total_cost)
 

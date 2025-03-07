@@ -226,6 +226,10 @@ class GPTFull(BaseModel):
         """Output value for when there's an error."""
         return cls(rationale="<error>", rating=1)
 
+    def is_valid(self) -> bool:
+        """Check if instance is valid."""
+        return self.rationale == "<error>"
+
 
 def _load_demonstrations() -> dict[str, list[Demonstration]]:
     """Load demonstration files from the gpt.demonstrations package."""

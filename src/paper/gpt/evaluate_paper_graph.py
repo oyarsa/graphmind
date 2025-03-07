@@ -343,7 +343,7 @@ async def _evaluate_papers(
         total_cost += result.cost
 
         results.append(result.result)
-        append_intermediate_result(GraphResult, output_intermediate_file, result.result)
+        append_intermediate_result(output_intermediate_file, result.result)
 
     return GPTResult(results, total_cost)
 
@@ -376,11 +376,17 @@ async def _evaluate_paper(
         graph_cost = 0
         graph = Graph.empty()
 
+    if graph.is_empty():
+        logger.warning(f"Paper '{paper.title}': invalid Graph")
+
     eval_prompt_text = format_eval_template(
         eval_prompt, paper, graph, demonstrations, linearisation_method
     )
     eval_system_prompt = eval_prompt.system
     eval_result = await client.run(GPTFull, eval_system_prompt, eval_prompt_text)
+
+    if not eval_result.result or not eval_result.result.is_valid():
+        logger.warning(f"Paper '{paper.title}': invalid GPTFull (evaluation result)")
 
     eval_paper = paper.paper.paper
     evaluated = fix_evaluated_rating(eval_result.result or GPTFull.error())
