@@ -356,6 +356,10 @@ class GPTAbstractClassify(BaseModel):
         """Instance with empty strings for background and target."""
         return cls(background="", target="")
 
+    def is_valid(self) -> bool:
+        """Check if instance is valid, i.e. background and target are non-empty."""
+        return bool(self.background and self.target)
+
 
 async def _annotate_papers(
     client: ModelClient,
@@ -419,6 +423,11 @@ async def _annotate_paper_single(
 
     terms = result_term.result or PaperTerms.empty()
     abstract = result_abstract.result or GPTAbstractClassify.empty()
+
+    if not terms.is_valid():
+        logger.warning(f"Paper '{paper.title}': invalid PaperTerms")
+    if not abstract.is_valid():
+        logger.warning(f"Paper '{paper.title}': invalid GPTAbstractClassify")
 
     return GPTResult(
         result=PromptResult(
