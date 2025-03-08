@@ -37,7 +37,7 @@ from tqdm import tqdm
 from paper import peerread as pr
 from paper.util import Timer, groupby, setup_logging
 from paper.util.cli import die
-from paper.util.serde import save_data
+from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger("paper.openreview")
 
@@ -1386,6 +1386,77 @@ def _rating(x: Any) -> int | None:
     except ValueError as e:
         logger.debug("Could not convert rating to int: %s", e)
         return None
+
+
+@app.command(no_args_is_help=True)
+def split(
+    input_file: Annotated[
+        Path,
+        typer.Option(
+            "--input",
+            "-i",
+            help="Path to merged ORC data.",
+        ),
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Output directory for split data files."),
+    ],
+    train: Annotated[
+        float, typer.Option(help="Ratio or count of the training split.")
+    ] = 0.5,
+    dev: Annotated[float, typer.Option(help="Ratio or count of dev split.")] = 0.125,
+) -> None:
+    """Split the dataset into training, dev and test.
+
+    If train and dev are integers, they are treated as straight counts of the output
+    splits. If they're floats, they're treated as ratios.
+
+    If they're ratios, the train and dev ratios must sum from 0 to 1.
+    If they're counts, they must sum to less than the size of the data.
+
+    In all cases, the remainder is used for the test split.
+    """
+    data = load_data(input_file, pr.Paper)
+
+    n = len(data)
+
+    if train.is_integer():
+        if not dev.is_integer():
+            die("Train is integer, so dev must be too.")
+        if not (0 <= train < n):
+            die(f"Invalid train count: {train}")
+        if not (0 <= dev < n):
+            die(f"Invalid train count: {dev}")
+        if train + dev >= n:
+            die("Train and dev counts must sum to less than size of data")
+
+        train_n = int(train)
+        dev_n = int(dev)
+    else:  # train is ratio
+        if dev.is_integer():
+            die("Train is a ratio, so dev must be too.")
+        if not (0 <= train < 1):
+            die(f"Invalid train ratio: {train}")
+        if not (0 <= dev < 1):
+            die(f"Invalid train ratio: {dev}")
+        if train + dev >= 1:
+            die("Train and dev ratio must sum to less than 1")
+
+        train_n = int(n * train)
+        dev_n = int(n * dev)
+
+    train_split = data[:train_n]
+    dev_split = data[train_n : train_n + dev_n]
+    test_split = data[train_n + dev_n :]
+
+    logger.info("Train: %d", len(train_split))
+    logger.info("Dev: %d", len(dev_split))
+    logger.info("Test: %d", len(test_split))
+
+    save_data(output_dir / "train.json", train_split)
+    save_data(output_dir / "dev.json", dev_split)
+    save_data(output_dir / "test.json", test_split)
 
 
 @app.callback(help=__doc__)
