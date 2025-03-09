@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Annotated, Self
 
@@ -102,7 +102,7 @@ class Graph:
     def from_terms(
         cls,
         encoder: emb.Encoder,
-        terms: Sequence[PaperTerms],
+        terms: Iterable[PaperTerms],
         *,
         progress: bool = False,
     ) -> Self:
