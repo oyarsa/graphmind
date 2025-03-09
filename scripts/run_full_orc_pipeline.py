@@ -265,6 +265,8 @@ def main(
         peer_with_ref,
         "--output",
         scimon_graph,
+        "--num-annotated",
+        5000,
     )
     assert scimon_graph.exists()
 
