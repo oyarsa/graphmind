@@ -145,10 +145,9 @@ class Graph(BaseModel):
         for peer_paper in peerread_papers:
             title_to_id[peer_paper.title] = peer_paper.id
             peer_embedding = encoder.encode(s2.clean_title(peer_paper.title))
+            titles = [s2.clean_title(r.title_peer) for r in peer_paper.references]
 
-            s2_embeddings = encoder.encode([
-                s2.clean_title(r.title_peer) for r in peer_paper.references
-            ])
+            s2_embeddings = encoder.batch_encode(titles)
             s2_similarities = emb.similarities(peer_embedding, s2_embeddings)
 
             id_to_cited[peer_paper.id] = [
