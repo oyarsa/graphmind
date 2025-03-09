@@ -254,7 +254,7 @@ def main(
     assert petersum.exists()
 
     title("SciMON build")
-    scimon_graph = output_dir / "peerread_with_scimon.json"
+    scimon_graph = output_dir / "scimon_graph.json"
     _checkrun(
         scimon_graph,
         "scimon",
