@@ -2,7 +2,7 @@
 
 import typer
 
-from paper import orc, split
+from paper import construct_dataset, orc, split
 from paper.baselines.scimon import cli as scimon
 from paper.gpt import cli as gpt
 from paper.peerread import cli as peerread
@@ -21,7 +21,8 @@ app.add_typer(scimon.app, name="scimon")
 app.add_typer(peter.app, name="peter")
 app.add_typer(orc.app, name="orc")
 
-app.command(no_args_is_help=True, name="split")(split.split)
+app.command(no_args_is_help=True, name="split")(split.main)
+app.command(no_args_is_help=True, name="construct")(construct_dataset.main)
 
 
 if __name__ == "__main__":

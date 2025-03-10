@@ -22,7 +22,7 @@ app = typer.Typer(
 
 
 @app.command(no_args_is_help=True)
-def split(
+def main(
     input_file: Annotated[
         Path,
         typer.Option(
