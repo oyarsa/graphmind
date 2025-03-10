@@ -7,6 +7,7 @@ from paper.baselines.scimon import cli as scimon
 from paper.gpt import cli as gpt
 from paper.peerread import cli as peerread
 from paper.peter import cli as peter
+from paper.semantic_scholar import cli as s2
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -20,6 +21,7 @@ app.add_typer(gpt.app, name="gpt")
 app.add_typer(scimon.app, name="scimon")
 app.add_typer(peter.app, name="peter")
 app.add_typer(orc.app, name="orc")
+app.add_typer(s2.app, name="s2")
 
 app.command(no_args_is_help=True, name="split")(split.main)
 app.command(no_args_is_help=True, name="construct")(construct_dataset.main)
