@@ -81,7 +81,3 @@ using the flag `--continue-papers path/to/result.tmp.json`. This will avoid re-p
 data.
 
 Run `uv run gpt context --help` to see more information about the commands.
-
-## More information
-
-For full documentation on how to use the GPT tools, see [`CLI.md`](./CLI.md).

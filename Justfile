@@ -35,14 +35,6 @@ check-all: check test spell type
 watch:
     watchexec --exts=py --clear --restart "just check-all"
 
-# Generate CLI documentation files
-clidoc:
-    #!/usr/bin/env bash
-    for module in gpt peter scimon peerread; do
-        uv run typer "paper.$module.cli" utils docs --output "src/paper/$module/CLI.md" &
-    done
-    wait
-
 # Run end-to-end tests with pytest
 e2e:
     uv run pytest -s --runslow tests/
