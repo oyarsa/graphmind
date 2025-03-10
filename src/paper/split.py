@@ -138,7 +138,8 @@ def balanced(
 
     class_items = groupby(data, key=lambda d: _get_paper(d)["rating"])
     for items in class_items.values():
-        output_data.extend(random.sample(items, main_count))
+        sample = items if len(items) <= main_count else random.sample(items, main_count)
+        output_data.extend(sample)
 
     print("\nOutput frequencies")
     _print_frequencies(_get_frequencies(output_data))
