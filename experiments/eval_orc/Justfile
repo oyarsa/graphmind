@@ -1,0 +1,245 @@
+root := `git rev-parse --show-toplevel`
+eval_cmd := "uv run gpt eval"
+
+# Configuration selector
+demos := env("DEMOS", "review_clean_5_1")
+model := env("MODEL", "4o-mini")
+data := env("DATA", "dev")
+n := env("N", "10")
+output_dir := env("OUTPUT", "output")
+
+# Full data paths
+data_full := root + "/output/venus/split/"+data+".json"
+
+eval_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_full
+output := root+"/"+output_dir+"/eval/graph/"+data+"/"+model+"/"+demos
+
+_default:
+    @echo "Environment variables:"
+    @echo "    MODEL: '4o' or '4o-mini' (default: '4o-mini')"
+    @echo "    DATA: 'dev' or 'test' (default: 'dev')"
+    @echo "    DEMOS: see 'gpt demos' (default: 'review_clean_5_1')."
+    @echo
+    @just --list --unsorted
+
+_t msg:
+    @echo '{{ style("warning") }}>>> {{msg}}{{ NORMAL }}'
+
+# Graph evaluation
+_graph prompt:
+    {{eval_cmd}} graph run {{eval_flags}} --output {{output}}/graph/{{prompt}} --eval-prompt {{prompt}}
+
+# Graph-eval with abstract-only prompt
+[group: 'graph']
+graph-sans: (_t "Running graph evaluation - sans mode")
+    @just _graph sans
+
+# Graph-eval with PETER prompt
+[group: 'graph']
+graph-related: (_t "Running graph evaluation - PETER (related) mode")
+    @just _graph related
+
+# Graph-eval with full graph prompt
+[group: 'graph']
+graph-all: (_t "Running graph evaluation - main graph mode")
+    @just _graph full-graph
+
+# Graph-eval with title and graph prompt
+[group: 'graph']
+graph-title: (_t "Running graph evaluation - title-only graph")
+    @just _graph title-graph
+
+# Graph-eval with only graphs prompt
+[group: 'graph']
+graph-only: (_t "Running graph evaluation - graphs only")
+    @just _graph only-graph
+
+# Run all graph versions
+[group: 'graph']
+all-graphs: (_t "Run all main graph versions and show metrics")
+    @just graph-sans
+    @just graph-related
+    @just graph-only
+    @just graph-title
+    @just graph-all
+    @just metrics
+
+fluent_output := root+"/"+output_dir+"/graph-fluent/"+data+"/"+model+"/"+demos
+
+# Graph evaluation with fluent linearisation
+_graph-fluent prompt:
+    {{eval_cmd}} graph run {{eval_flags}} --linearisation fluent \
+        --output {{fluent_output}}/{{prompt}} \
+        --eval-prompt {{prompt}}
+
+# Graph-eval with full graph prompt
+[group: 'graph-fluent']
+graph-fluent-all: (_t "Running graph evaluation - fluent main graph mode")
+    @just _graph-fluent full-graph
+
+# Graph-eval with title and graph prompt
+[group: 'graph-fluent']
+graph-fluent-title: (_t "Running graph evaluation - fluent title-only graph")
+    @just _graph-fluent title-graph
+
+# Graph-eval with only graphs prompt
+[group: 'graph-fluent']
+graph-fluent-only: (_t "Running graph evaluation - fluent graphs only")
+    @just _graph-fluent only-graph
+
+# Run all fluent graph versions
+[group: 'graph-fluent']
+all-fluent-graphs: (_t "Run all fluent main graph versions and show metrics")
+    @just graph-fluent-only
+    @just graph-fluent-title
+    @just graph-fluent-all
+    @just metrics
+
+# Run all unique experiments (sans/PETER/graph)
+all: (_t "Comparing sans/PETER/graph variants")
+    @just graph-sans
+    @just graph-related
+    @just graph-all
+
+# Show metrics for all available runs
+metrics:
+    #!/usr/bin/env fish
+    echo "Metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
+    {{root}}/scripts/experiments/show_eval_results.fish {{output}}/**/metrics.json
+
+ablation_output := root+"/"+output_dir+"/graph-ablation/"+data+"/"+model+"/"+demos
+
+# Graph evaluation - graph component ablation
+_graph-ablation eval-prompt graph-prompt:
+    {{eval_cmd}} graph run {{eval_flags}} \
+        --output {{ablation_output}}/g_{{graph-prompt}}-e_{{eval-prompt}} \
+        --eval-prompt {{eval-prompt}} \
+        --graph-prompt {{graph-prompt}}
+
+# Graph-eval with full graph prompt
+[group: 'graph-ablation']
+graph-ablation-full: (_t "Running graph ablation - full graph with all components")
+    @just _graph-ablation full-graph full
+
+# Graph-eval with without experiments
+[group: 'graph-ablation']
+graph-ablation-noexp: (_t "Running graph ablation - full graph without experiments")
+    @just _graph-ablation full-graph noexperiments
+
+# Graph-eval with without methods
+[group: 'graph-ablation']
+graph-ablation-nomethod: (_t "Running graph ablation - full graph without methods")
+    @just _graph-ablation full-graph nomethod
+
+# Graph-eval with without detail
+[group: 'graph-ablation']
+graph-ablation-nodetail: (_t "Running graph ablation - full graph without detail")
+    @just _graph-ablation full-graph nodetail
+
+# All graph abalation versions
+[group: 'graph-ablation']
+graph-ablation-all: (_t "Running graph ablation - all variants")
+    @just graph-ablation-full
+    @just graph-ablation-nomethod
+    @just graph-ablation-noexp
+    @just graph-ablation-nodetail
+    @just ablation-metrics
+
+# Show metrics for all available runs
+ablation-metrics:
+    #!/usr/bin/env fish
+    echo "Ablation metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
+    {{root}}/scripts/experiments/show_eval_results.fish {{ablation_output}}/**/metrics.json
+
+# Flags for cited-only and semantic-only PETER
+data_cited := root + "/output/peter_c2_s0_sum/result.json"
+cited_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_cited
+
+data_semantic := root + "/output/peter_c0_s2_sum/result.json"
+semantic_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_semantic
+
+peter_ablation_output := root+"/"+output_dir+"/peter-ablation/"+data+"/"+model+"/"+demos
+
+# Cited-only PETER
+_peter-cited-ablation eval-prompt graph-prompt:
+    {{eval_cmd}} graph run {{cited_flags}} \
+        --output {{peter_ablation_output}}/cited-g_{{graph-prompt}}-e_{{eval-prompt}} \
+        --eval-prompt {{eval-prompt}} \
+        --graph-prompt {{graph-prompt}}
+
+# Cited-only PETER
+_peter-semantic-ablation eval-prompt graph-prompt:
+    {{eval_cmd}} graph run {{semantic_flags}} \
+        --output {{peter_ablation_output}}/semantic-g_{{graph-prompt}}-e_{{eval-prompt}} \
+        --eval-prompt {{eval-prompt}} \
+        --graph-prompt {{graph-prompt}}
+
+# Full graph with semantic-only PETER
+[group: 'peter-ablation']
+peter-cited-full: (_t "Running full graph with cited-only PETER")
+    @just _peter-cited-ablation full-graph full
+
+# Full graph with semantic-only PETER
+[group: 'peter-ablation']
+peter-semantic-full: (_t "Running full graph with semantic-only PETER")
+    @just _peter-semantic-ablation full-graph full
+
+# Full graph with no PETER related papers
+[group: 'peter-ablation']
+peter-norel: (_t "Running full graph with no PETER papers")
+    @just _graph norel-graph
+
+# Run both semantic and cited PETER ablations
+[group: 'peter-ablation']
+peter-ablation-all: (_t "Running PETER ablation - cited and semantic-only")
+    @just peter-semantic-full
+    @just peter-norel
+    @just peter-ablation-metrics
+
+# Show metrics for PETER ablations
+peter-ablation-metrics:
+    #!/usr/bin/env fish
+    echo "PETER ablation metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
+    {{root}}/scripts/experiments/show_eval_results.fish {{peter_ablation_output}}/**/metrics.json
+
+rationale_data := root+"/output/eval/4o/graph/full-graph/result.json"
+rationale_flags := " -n " + n + " -m " + model +  " --graphs " + rationale_data
+rationale_output := root+"/"+output_dir+"/eval-rationale/{{model}}"
+
+# Run rationale evaluation on GPT 4o output
+rationale:
+    {{eval_cmd}} rationale run {{rationale_flags}} --output {{rationale_output}}
+
+# Metrics for all experiments for paper output
+all-metrics:
+    #!/usr/bin/env fish
+    echo "Metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
+    {{root}}/scripts/experiments/show_eval_results.fish {{root}}/{{output_dir}}/**/metrics.json
+
+# Run all experiments for paper output
+all-experiments: (_t "Running ALL experiments")
+    @just _t "Baselines"
+    @just graph-sans
+    @just graph-related
+
+    @just _t "Basic graph versions"
+    @just graph-only
+    @just graph-title
+    @just graph-all
+
+    @just _t "Fluent graph versions"
+    @just graph-fluent-only
+    @just graph-fluent-title
+    @just graph-fluent-all
+
+    @just _t "Graph ablations"
+    @just graph-ablation-nomethod
+    @just graph-ablation-noexp
+    @just graph-ablation-nodetail
+
+    @just _t "Peter ablations"
+    @just peter-cited-full
+    @just peter-semantic-full
+    @just peter-norel
+
+    @just all-metrics
