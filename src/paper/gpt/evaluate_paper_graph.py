@@ -15,6 +15,7 @@ The output is the input annotated papers with a predicted novelty rating.
 from __future__ import annotations
 
 import asyncio
+import itertools
 import logging
 import os
 import random
@@ -25,6 +26,7 @@ from typing import Annotated
 
 import dotenv
 import typer
+from tqdm import tqdm
 
 from paper import peerread as pr
 from paper.gpt.evaluate_paper import (
@@ -159,6 +161,9 @@ def run(
             help="How to convert the extracted graph into text for evaluation."
         ),
     ] = LinearisationMethod.TOPO,
+    batch_size: Annotated[
+        int, typer.Option(help="Number of requests per batch.")
+    ] = 100,
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers."""
     asyncio.run(
@@ -175,6 +180,7 @@ def run(
             demos,
             demo_prompt,
             linearisation,
+            batch_size,
         )
     )
 
@@ -198,6 +204,7 @@ async def evaluate_papers(
     demonstrations_key: str | None,
     demo_prompt_key: str,
     linearisation_method: LinearisationMethod,
+    batch_size: int,
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers.
 
@@ -225,6 +232,7 @@ async def evaluate_papers(
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
             available options or `list_prompts` for more.
         linearisation_method: How to convert the extract graph into text for evaluation.
+        batch_size: Number of items per batch.
 
     Returns:
         None. The output is saved to `output_dir`.
@@ -276,6 +284,7 @@ async def evaluate_papers(
             output_intermediate_file,
             demonstrations,
             linearisation_method,
+            batch_size,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -303,10 +312,11 @@ async def _evaluate_papers(
     client: ModelClient,
     eval_prompt: PromptTemplate,
     graph_prompt: PromptTemplate,
-    paper: Sequence[PaperWithRelatedSummary],
+    papers: Sequence[PaperWithRelatedSummary],
     output_intermediate_file: Path,
     demonstrations: str,
     linearisation_method: LinearisationMethod,
+    batch_size: int,
 ) -> GPTResult[list[PromptResult[GraphResult]]]:
     """Evaluate paper novelty using a paper graph and PETER-related papers.
 
@@ -314,11 +324,12 @@ async def _evaluate_papers(
         client: OpenAI client to use GPT.
         eval_prompt: Prompt template for novelty evaluation.
         graph_prompt: Prompt template for graph extraction.
-        paper: Annotated PeerRead papers with their summarised graph data.
+        papers: Annotated PeerRead papers with their summarised graph data.
         output_intermediate_file: File to write new results after paper is evaluated.
         demonstrations: Text of demonstrations for few-shot prompting.
         linearisation_method: How to transform the extract graph into text for
             evaluation.
+        batch_size: Number of items per batch.
 
     Returns:
         List of evaluated papers and their prompts wrapped in a GPTResult.
@@ -326,24 +337,26 @@ async def _evaluate_papers(
     results: list[PromptResult[GraphResult]] = []
     total_cost = 0
 
-    tasks = [
-        _evaluate_paper(
-            client,
-            paper,
-            eval_prompt,
-            graph_prompt,
-            demonstrations,
-            linearisation_method,
-        )
-        for paper in paper
-    ]
+    batches = list(itertools.batched(papers, batch_size))
+    for batch in tqdm(batches, desc="Evalauting papers"):
+        tasks = [
+            _evaluate_paper(
+                client,
+                paper,
+                eval_prompt,
+                graph_prompt,
+                demonstrations,
+                linearisation_method,
+            )
+            for paper in batch
+        ]
 
-    for task in progress.as_completed(tasks, desc="Evaluating papers"):
-        result = await task
-        total_cost += result.cost
+        for task in progress.as_completed(tasks, desc="Evaluating batch"):
+            result = await task
+            total_cost += result.cost
 
-        results.append(result.result)
-        append_intermediate_result(output_intermediate_file, result.result)
+            results.append(result.result)
+            append_intermediate_result(output_intermediate_file, result.result)
 
     return GPTResult(results, total_cost)
 
