@@ -337,26 +337,32 @@ async def _evaluate_papers(
     results: list[PromptResult[GraphResult]] = []
     total_cost = 0
 
-    batches = list(itertools.batched(papers, batch_size))
-    for batch in tqdm(batches, desc="Evalauting papers"):
-        tasks = [
-            _evaluate_paper(
-                client,
-                paper,
-                eval_prompt,
-                graph_prompt,
-                demonstrations,
-                linearisation_method,
-            )
-            for paper in batch
-        ]
+    with tqdm(
+        total=len(papers), desc="Evaluating papers", position=0, leave=True
+    ) as pbar_papers:
+        for batch in itertools.batched(papers, batch_size):
+            tasks = [
+                _evaluate_paper(
+                    client,
+                    paper,
+                    eval_prompt,
+                    graph_prompt,
+                    demonstrations,
+                    linearisation_method,
+                )
+                for paper in batch
+            ]
 
-        for task in progress.as_completed(tasks, desc="Evaluating batch"):
-            result = await task
-            total_cost += result.cost
+            for task in progress.as_completed(
+                tasks, desc="Evaluating batch", position=1, leave=False
+            ):
+                result = await task
+                total_cost += result.cost
 
-            results.append(result.result)
-            append_intermediate_result(output_intermediate_file, result.result)
+                results.append(result.result)
+                append_intermediate_result(output_intermediate_file, result.result)
+
+            pbar_papers.update(len(batch))
 
     return GPTResult(results, total_cost)
 
