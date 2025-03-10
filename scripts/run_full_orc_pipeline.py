@@ -91,7 +91,9 @@ def main(
     info_main = info_main_dir / "final.json"
     _checkrun(
         info_main,
-        "src/paper/semantic_scholar/info.py",
+        "paper",
+        "s2",
+        "info",
         "main",
         processed,
         info_main_dir,
@@ -105,7 +107,9 @@ def main(
     info_ref = info_ref_dir / "final.json"
     _checkrun(
         info_ref,
-        "src/paper/semantic_scholar/info.py",
+        "paper",
+        "s2",
+        "info",
         "references",
         processed,
         info_ref_dir,
@@ -121,7 +125,9 @@ def main(
     recommended = recommended_dir / "papers_recommended.json"
     _checkrun(
         recommended,
-        "src/paper/semantic_scholar/recommended.py",
+        "paper",
+        "s2",
+        "recommended",
         info_main,
         recommended_dir,
         "--limit-papers",
@@ -137,7 +143,8 @@ def main(
     peer_related = subset_dir / "peerread_related.json"
     _checkrun(
         peer_with_ref,
-        "src/paper/construct_dataset.py",
+        "paper",
+        "construct",
         "--peerread",
         processed,
         "--references",
@@ -156,6 +163,7 @@ def main(
     context = context_dir / "results.json"
     _checkrun(
         context,
+        "paper",
         "gpt",
         "context",
         "run",
@@ -173,6 +181,7 @@ def main(
     peer_terms = peer_terms_dir / "results_valid.json"
     _checkrun(
         peer_terms,
+        "paper",
         "gpt",
         "terms",
         "run",
@@ -190,6 +199,7 @@ def main(
     s2_terms = s2_terms_dir / "results_valid.json"
     _checkrun(
         s2_terms,
+        "paper",
         "gpt",
         "terms",
         "run",
@@ -206,6 +216,7 @@ def main(
     peter_graph = output_dir / "peter_graph.json"
     _checkrun(
         peter_graph,
+        "paper",
         "peter",
         "build",
         "--ann",
@@ -221,6 +232,7 @@ def main(
     title("Peter PeerRead")
     _checkrun(
         peter_peer,
+        "paper",
         "peter",
         "peerread",
         "--graph",
@@ -241,6 +253,7 @@ def main(
     petersum = petersum_dir / "result.json"
     _checkrun(
         petersum,
+        "paper",
         "gpt",
         "petersum",
         "run",
@@ -257,6 +270,7 @@ def main(
     scimon_graph = output_dir / "scimon_graph.json"
     _checkrun(
         scimon_graph,
+        "paper",
         "scimon",
         "build",
         "--ann",
@@ -274,6 +288,7 @@ def main(
     scimon_peer = output_dir / "peerread_with_scimon.json"
     _checkrun(
         scimon_peer,
+        "paper",
         "scimon",
         "query",
         "--ann-peer",

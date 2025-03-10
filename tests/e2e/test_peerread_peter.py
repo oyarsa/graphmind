@@ -17,17 +17,19 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
 
     title("Check if PeerRead is available")
     if not raw_path.exists():
-        run("peerread", "download", raw_path)
+        run("paper", "peerread", "download", raw_path)
 
     title("Preprocess")
     processed = tmp_path / "peerread_merged.json"
-    run("peerread", "preprocess", raw_path, processed, "-n", 100)
+    run("paper", "peerread", "preprocess", raw_path, processed, "-n", 100)
     assert processed.exists()
 
     title("Info main")
     info_main_dir = tmp_path / "s2_info_main"
     run(
-        "src/paper/semantic_scholar/info.py",
+        "paper",
+        "s2",
+        "info",
         "main",
         processed,
         info_main_dir,
@@ -40,7 +42,9 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     title("Info references")
     info_ref_dir = tmp_path / "s2_info_references"
     run(
-        "src/paper/semantic_scholar/info.py",
+        "paper",
+        "s2",
+        "info",
         "references",
         processed,
         info_ref_dir,
@@ -53,7 +57,9 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     title("Info areas")
     s2_areas = tmp_path / "s2_areas.json"
     run(
-        "src/paper/semantic_scholar/areas.py",
+        "paper",
+        "s2",
+        "areas",
         s2_areas,
         "--years",
         "2020",
@@ -68,14 +74,15 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
 
     title("Recommended")
     recommended_dir = tmp_path / "s2_recommended"
-    run("src/paper/semantic_scholar/recommended.py", info_main, recommended_dir)
+    run("paper", "s2", "recommended", info_main, recommended_dir)
     recommended = recommended_dir / "papers_recommended.json"
     assert recommended.exists()
 
     title("Construct dataset")
     subset_dir = tmp_path / "subset"
     run(
-        "src/paper/construct_dataset.py",
+        "paper",
+        "construct",
         "--peerread",
         processed,
         "--references",
@@ -95,6 +102,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     run_parallel_commands(
         [
             (
+                "paper",
                 "gpt",
                 "context",
                 "run",
@@ -106,6 +114,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
                 "10",
             ),
             (
+                "paper",
                 "gpt",
                 "terms",
                 "run",
@@ -117,6 +126,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
                 "10",
             ),
             (
+                "paper",
                 "gpt",
                 "terms",
                 "run",
@@ -140,6 +150,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     title("Peter Build")
     peter_graph = tmp_path / "peter_graph.json"
     run(
+        "paper",
         "peter",
         "build",
         "--ann",
@@ -154,6 +165,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     peter_peer = tmp_path / "peerread_with_peter.json"
     title("Peter PeerRead")
     run(
+        "paper",
         "peter",
         "peerread",
         "--graph",
@@ -168,6 +180,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     title("GPT PETER summarisation")
     petersum_dir = tmp_path / "peter_summarised"
     run(
+        "paper",
         "gpt",
         "petersum",
         "run",
@@ -182,6 +195,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     title("GPT eval sans")
     eval_sans_dir = tmp_path / "eval-sans"
     run(
+        "paper",
         "gpt",
         "eval",
         "sans",
@@ -200,6 +214,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     eval_peter_dir = tmp_path / "eval-peter"
     eval_peter = eval_peter_dir / "result.json"
     run(
+        "paper",
         "gpt",
         "eval",
         "peter",

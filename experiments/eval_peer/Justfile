@@ -1,5 +1,5 @@
 root := `git rev-parse --show-toplevel`
-eval_cmd := "uv run gpt eval"
+eval_cmd := "uv run paper gpt eval"
 
 # Configuration selector
 demos := env("DEMOS", "review_clean_5_1")
