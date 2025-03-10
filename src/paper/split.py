@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 import typer
 
+from paper.util import get_params, render_params, setup_logging
 from paper.util.cli import die
 
 logger = logging.getLogger("paper.split")
@@ -34,10 +35,8 @@ def split(
         Path,
         typer.Option("--output", "-o", help="Output directory for split data files."),
     ],
-    train: Annotated[
-        float, typer.Option(help="Ratio or count of the training split.")
-    ] = 0.5,
-    dev: Annotated[float, typer.Option(help="Ratio or count of dev split.")] = 0.125,
+    train: Annotated[float, typer.Option(help="Ratio or count of the training split.")],
+    dev: Annotated[float, typer.Option(help="Ratio or count of dev split.")],
 ) -> None:
     """Split the dataset into training, dev and test.
 
@@ -52,6 +51,10 @@ def split(
     Note: the format of the data is irrelevant, as long as it's a JSON array. No
     transformations are applied.
     """
+    setup_logging()
+    params = get_params()
+    logger.info(render_params(params))
+
     data: list[dict[str, Any]] = json.loads(input_file.read_bytes())
 
     n = len(data)
@@ -92,6 +95,7 @@ def split(
     (output_dir / "train.json").write_text(json.dumps(train_split))
     (output_dir / "dev.json").write_text(json.dumps(dev_split))
     (output_dir / "test.json").write_text(json.dumps(test_split))
+    (output_dir / "params.json").write_text(json.dumps(params))
 
 
 if __name__ == "__main__":
