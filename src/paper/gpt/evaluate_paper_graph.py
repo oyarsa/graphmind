@@ -370,14 +370,14 @@ async def _evaluate_paper(
             else Graph.empty()
         )
         graph_cost = graph_result.cost
+
+        if graph.is_empty():
+            logger.warning(f"Paper '{paper.title}': invalid Graph")
     else:
         graph_system_prompt = None
         graph_prompt_text = None
         graph_cost = 0
         graph = Graph.empty()
-
-    if graph.is_empty():
-        logger.warning(f"Paper '{paper.title}': invalid Graph")
 
     eval_prompt_text = format_eval_template(
         eval_prompt, paper, graph, demonstrations, linearisation_method

@@ -228,7 +228,7 @@ class GPTFull(BaseModel):
 
     def is_valid(self) -> bool:
         """Check if instance is valid."""
-        return self.rationale == "<error>"
+        return self.rationale != "<error>"
 
 
 def _load_demonstrations() -> dict[str, list[Demonstration]]:
