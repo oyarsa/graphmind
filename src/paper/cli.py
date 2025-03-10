@@ -22,8 +22,8 @@ app.add_typer(scimon.app, name="scimon")
 app.add_typer(peter.app, name="peter")
 app.add_typer(orc.app, name="orc")
 app.add_typer(s2.app, name="s2")
+app.add_typer(split.app, name="split")
 
-app.command(no_args_is_help=True, name="split")(split.main)
 app.command(no_args_is_help=True, name="construct")(construct_dataset.main)
 
 
