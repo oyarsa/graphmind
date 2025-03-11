@@ -19,3 +19,12 @@ Main text:
 Novelty rating: {rating}
 Rationale: {rationale}
 """
+
+[[prompts]]
+name = "abstract_bin"
+prompt = """
+Title: {title}
+Abstract: {abstract}
+Novelty label: {label}
+Rationale: {rationale}
+"""

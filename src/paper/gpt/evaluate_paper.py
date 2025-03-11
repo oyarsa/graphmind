@@ -207,6 +207,7 @@ def format_demonstrations(
             main_text=demo.text,
             rationale=demo.rationale,
             rating=demo.rating,
+            label=demo.label,
         )
         for demo in demonstrations
     )
