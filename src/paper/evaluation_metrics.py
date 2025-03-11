@@ -92,11 +92,14 @@ class Metrics(BaseModel):
 
 
 def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
-    """Calculate classification metrics for multi-class classification (labels 1-5).
+    """Calculate classification metrics for multi-class classification.
+
+    The labels can be either in 1-5 or binary (0/1). This is determined by the range of
+    values in the inputs.
 
     Args:
-        y_true: Ground truth labels (values 1-5)
-        y_pred: Predicted labels (values 1-5)
+        y_true: Ground truth labels (values 1-5 or 0/1)
+        y_pred: Predicted labels (values 1-5 or 0/1)
 
     Returns:
         Metrics object containing macro-averaged precision, recall, F1 score, accuracy,

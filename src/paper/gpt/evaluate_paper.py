@@ -213,18 +213,15 @@ class GPTFull(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     rationale: Annotated[str, Field(description="How you reached your novelty rating.")]
-    rating: Annotated[
+    label: Annotated[
         int,
-        Field(
-            description="The novelty rating - how novel the paper is judged to be. Must"
-            " be between 1 and 5.",
-        ),
+        Field(description="1 if the paper is novel, or 0 if it's not novel."),
     ]
 
     @classmethod
     def error(cls) -> Self:
         """Output value for when there's an error."""
-        return cls(rationale="<error>", rating=1)
+        return cls(rationale="<error>", label=0)
 
     def is_valid(self) -> bool:
         """Check if instance is valid."""
@@ -245,20 +242,20 @@ EVALUATE_DEMONSTRATIONS = _load_demonstrations()
 
 
 def fix_evaluated_rating(evaluated: GPTFull) -> GPTFull:
-    """Fix evaluated rating if out of range by clamping to [1, 5].
+    """Fix evaluated label if out of range by converting to 0/1.
+
+    Any label that isn't 1 will be treated as 0.
 
     Args:
         evaluated: Evaluation result to be checked.
 
     Returns:
-        Same input if valid rating, or new object with fixed rating.
+        Same input if valid label, or new object with fixed label.
     """
-    if evaluated.rating in range(1, 6):
-        return evaluated
+    if evaluated.label not in [0, 1]:
+        logger.warning("Invalid label: %d. Converting to 0/1", evaluated.label)
 
-    logger.warning("Invalid rating: %d. Clamping to 1-5.", evaluated.rating)
-    clamped_rating = max(1, min(evaluated.rating, 5))
-    return replace_fields(evaluated, rating=clamped_rating)
+    return replace_fields(evaluated, label=evaluated.label == 1)
 
 
 class RatingMode(StrEnum):

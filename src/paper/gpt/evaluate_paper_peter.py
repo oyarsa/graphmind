@@ -314,9 +314,7 @@ async def _classify_paper(
 
     return GPTResult(
         result=PromptResult(
-            item=PaperResult.from_s2peer(
-                paper, classified.rating, classified.rationale
-            ),
+            item=PaperResult.from_s2peer(paper, classified.label, classified.rationale),
             prompt=Prompt(system=user_prompt.system, user=user_prompt_text),
         ),
         cost=result.cost,

@@ -425,7 +425,7 @@ async def _evaluate_paper(
         result=PromptResult(
             item=GraphResult(
                 paper=PaperResult.from_s2peer(
-                    eval_paper, evaluated.rating, evaluated.rationale
+                    eval_paper, evaluated.label, evaluated.rationale
                 ),
                 graph=graph,
             ),
