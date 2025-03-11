@@ -37,7 +37,7 @@ class PaperResult(s2.PaperWithS2Refs):
         return cls.model_validate(
             paper.model_dump()
             | {
-                "y_true": paper.rating,
+                "y_true": paper.label,
                 "rationale_true": paper.rationale,
                 "y_pred": y_pred,
                 "rationale_pred": rationale_pred,
@@ -132,12 +132,12 @@ def display_metrics(
     y_pred = [r.y_pred for r in results]
 
     output = ["Metrics:", str(metrics)]
-    for values, label in [(y_true, "Gold"), (y_pred, "Predicted")]:
-        output.append(f"\n{label} distribution:")
-        for rating in range(1, 6):
-            count = sum(y == rating for y in values)
+    for values, section in [(y_true, "Gold"), (y_pred, "Predicted")]:
+        output.append(f"\n{section} distribution:")
+        for label in metrics.mode.labels():
+            count = sum(y == label for y in values)
             output.append(
-                f"  {rating}: {count}/{len(values)} ({safediv(count, len(values)):.2%})"
+                f"  {label}: {count}/{len(values)} ({safediv(count, len(values)):.2%})"
             )
     return "\n".join(output)
 
