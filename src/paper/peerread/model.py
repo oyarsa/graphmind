@@ -38,6 +38,12 @@ class PaperReview(BaseModel):
         dict[str, int], Field(description="Other available ratings")
     ] = {}
 
+    @computed_field
+    @property
+    def label(self) -> int:
+        """Convert rating to binary label."""
+        return int(self.rating >= 3)
+
 
 class ContextPolarity(StrEnum):
     """Binary polarity where "neutral" is converted to "positive"."""

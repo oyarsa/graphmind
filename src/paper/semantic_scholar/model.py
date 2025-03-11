@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Annotated, Self, override
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from paper import peerread as pr
 from paper.peerread.model import clean_maintext
@@ -183,6 +183,12 @@ class PaperWithS2Refs(Record):
     rating: Annotated[int, Field(description="Novelty rating")]
     rationale: Annotated[str, Field(description="Rationale for the novelty rating")]
 
+    @computed_field
+    @property
+    def label(self) -> int:
+        """Convert rating to binary label."""
+        return int(self.rating >= 3)
+
     @property
     def id(self) -> str:
         """Identify an PeerRead by the combination of its `title` and `abstract`.
@@ -291,6 +297,12 @@ class PeerReadWithFullS2(Record):
         Field(description="References made in the paper with full S2 data"),
     ]
 
+    @computed_field
+    @property
+    def label(self) -> int:
+        """Convert rating to binary label."""
+        return int(self.rating >= 3)
+
     @property
     def id(self) -> str:
         """Identify a PeerRead paper by the combination of its `title` and `abstract`.
@@ -352,6 +364,12 @@ class PaperWithReferenceEnriched(BaseModel):
         Field(description="References made in the paper with their abstracts"),
     ]
 
+    @computed_field
+    @property
+    def label(self) -> int:
+        """Convert rating to binary label."""
+        return int(self.rating >= 3)
+
 
 class ReferenceWithAbstract(pr.PaperReference):
     """PeerRead reference with the added abstract and the original S2 title.
@@ -388,6 +406,12 @@ class PaperWithFullReference(Record):
         Sequence[ReferenceWithAbstract],
         Field(description="References made in the paper with their abstracts"),
     ]
+
+    @computed_field
+    @property
+    def label(self) -> int:
+        """Convert rating to binary label."""
+        return int(self.rating >= 3)
 
     @property
     @override

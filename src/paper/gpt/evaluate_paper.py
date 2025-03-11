@@ -8,7 +8,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Annotated, Self, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from paper import evaluation_metrics
 from paper import semantic_scholar as s2
@@ -155,6 +155,12 @@ class Demonstration(BaseModel):
     text: Annotated[str, Field(description="Paper full main text")]
     rationale: Annotated[str, Field(description="Rationale given by a reviewer")]
     rating: Annotated[int, Field(description="Rating from the rationale")]
+
+    @computed_field
+    @property
+    def label(self) -> int:
+        """Convert rating to binary label."""
+        return int(self.rating >= 3)
 
 
 def get_demonstrations(demonstrations_key: str | None, prompt_key: str) -> str:
