@@ -36,21 +36,6 @@ class Record(BaseModel, ABC):
         """Unique identification for the object."""
 
 
-@overload
-def load_data[T: BaseModel](
-    file: Path | bytes, type_: type[T], use_alias: bool = True, *, single: Literal[True]
-) -> T: ...
-
-
-@overload
-def load_data[T: BaseModel](
-    file: Path | bytes,
-    type_: type[T],
-    use_alias: bool = True,
-    single: Literal[False] = False,
-) -> list[T]: ...
-
-
 def save_data_jsonl(
     file: Path, data: BaseModel | Sequence[BaseModel], mode: Literal["w", "a"] = "a"
 ) -> None:
@@ -120,6 +105,21 @@ def load_data_jsonl[T: BaseModel](file: Path, type_: type[T]) -> list[T]:
         raise ValueError(f"Invalid JSON at line {line_num} in {file}: {e}") from e
     else:
         return result
+
+
+@overload
+def load_data[T: BaseModel](
+    file: Path | bytes, type_: type[T], use_alias: bool = True, *, single: Literal[True]
+) -> T: ...
+
+
+@overload
+def load_data[T: BaseModel](
+    file: Path | bytes,
+    type_: type[T],
+    use_alias: bool = True,
+    single: Literal[False] = False,
+) -> list[T]: ...
 
 
 def load_data[T: BaseModel](

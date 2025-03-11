@@ -19,6 +19,7 @@ from typing import Annotated, Protocol, Self
 
 import typer
 from pydantic import BaseModel, ConfigDict
+from tqdm import tqdm
 
 import paper.semantic_scholar as s2
 from paper import embedding as emb
@@ -123,7 +124,11 @@ class Graph(BaseModel):
 
     @classmethod
     def from_papers(
-        cls, encoder: emb.Encoder, peerread_papers: Iterable[MainPaper]
+        cls,
+        encoder: emb.Encoder,
+        peerread_papers: Iterable[MainPaper],
+        *,
+        progress: bool = False,
     ) -> Self:
         """For each main paper, sort cited papers by title similarity.
 
@@ -133,14 +138,16 @@ class Graph(BaseModel):
         title_to_id: dict[str, str] = {}
         id_to_cited: dict[str, list[Citation]] = {}
 
+        if progress:
+            peerread_papers = tqdm(peerread_papers, desc="Citation graph")
+
         logger.debug("Processing papers.")
         for peer_paper in peerread_papers:
             title_to_id[peer_paper.title] = peer_paper.id
             peer_embedding = encoder.encode(s2.clean_title(peer_paper.title))
+            titles = [s2.clean_title(r.title_peer) for r in peer_paper.references]
 
-            s2_embeddings = encoder.encode([
-                s2.clean_title(r.title_peer) for r in peer_paper.references
-            ])
+            s2_embeddings = encoder.batch_encode(titles)
             s2_similarities = emb.similarities(peer_embedding, s2_embeddings)
 
             id_to_cited[peer_paper.id] = [

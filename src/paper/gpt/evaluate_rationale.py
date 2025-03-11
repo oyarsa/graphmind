@@ -54,7 +54,7 @@ class GPTRationaleMetrics(BaseModel):
 
     def is_valid(self) -> bool:
         """Check if the rationale explanation is valid."""
-        return self.explanation == "<error>"
+        return self.explanation != "<error>"
 
 
 class GPTRationaleBase(ABC, BaseModel):
@@ -116,7 +116,7 @@ class GPTRationaleEvalSimple(GPTRationaleBase):
 
     @override
     def is_valid(self) -> bool:
-        return self.explanation == "<error>"
+        return self.explanation != "<error>"
 
 
 class GraphWithEval(GraphResult):

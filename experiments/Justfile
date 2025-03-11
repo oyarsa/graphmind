@@ -2,9 +2,13 @@
 _default:
     @just --list --unsorted
 
-# Evaluation
-eval *args:
-    @just -f eval/Justfile {{args}}
+# Evaluation (PeerRead)
+eval_peer *args:
+    @just -f eval_peer/Justfile {{args}}
+
+# Evaluation (ORC)
+eval_orc *args:
+    @just -f eval_orc/Justfile {{args}}
 
 # Reviews
 reviews *args:

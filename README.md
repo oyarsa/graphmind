@@ -35,12 +35,12 @@ Use the `uv run peerread` command for PeerRead dataset preprocessing:
 ```console
 # > Preprocess PeerRead dataset
 # Download the dataset from GitHub.
-$ uv run peerread download data/PeerRead
+$ uv run paper peerread download data/PeerRead
 # Output will be saved to `output`. The final file is `output/peerread_merged.json`.
-$ uv run peerread preprocess data/peerread output
+$ uv run paper peerread preprocess data/peerread output
 
 # More information on the commands and options
-$ uv run peerreapeerread --help
+$ uv run paper peerread --help
 ```
 
 ## Graph Generation
@@ -52,21 +52,21 @@ generation tool:
 # Generate the graphs from PeerRead papers
 $ export OPENAI_API_KEY=...   # set the environment variable or use the .env file
 $ export OPENAI_BASE_URL=...  # optional, if using an alternative API
-$ uv run gpt graph run output/peerread_merged output/graph
+$ uv run paper gpt graph run output/peerread_merged output/graph
 
 # See the available prompts
-$ uv run graph prompts
+$ uv run paper graph prompts
 
 # For more information on the available options
-$ uv run gpt graph --help
-$ uv run gpt graph run --help
-$ uv run gpt graph prompts --help
+$ uv run paper gpt graph --help
+$ uv run paper gpt graph run --help
+$ uv run paper gpt graph prompts --help
 ```
 
 For more information, see the documentation for each module:
 
 - [`peerread/README.md`](./src/paper/peerread/README.md).
-- [`scimon/README.md`](./src/paper/scimon/README.md).
+- [`baselines/scimon/README.md`](./src/paper/baselines/scimon/README.md).
 - [`peter/README.md`](./src/paper/peter/README.md).
 - [`gpt/README.md`](./src/paper/gpt/README.md).
 
@@ -85,8 +85,8 @@ If you're running Python scripts or commands (e.g. see `peerread` above), you ca
 the `python`. Example:
 
 ```console
-$ uv run src/paper/construct_dataset.py
-$ uv run peerread
+$ uv run src/paper/construct_dataset.py  # also `paper construct`
+$ uv run paper peerread
 ```
 
 See [uv's documentation](https://docs.astral.sh/uv/concepts/projects/run/) for more

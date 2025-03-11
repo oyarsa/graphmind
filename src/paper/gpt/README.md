@@ -38,17 +38,17 @@ API by setting the `OPENAI_BASE_URL` environment variable. The API key should be
 accordingly.
 
 ```console
-$ uv run gpt graph run output/peerread_merged.json output/graph
+$ uv run paper gpt graph run output/peerread_merged.json output/graph
 ```
 
 The default logging level is INFO, but there's some DEBUG output that can be useful.
 Change the level using the `LOG_LEVEL` environment variable.
 
 ```console
-$ LOG_LEVEL=DEBUG uv run gpt graph run output/peerread_merged.json output/graph
+$ LOG_LEVEL=DEBUG uv run paper gpt graph run output/peerread_merged.json output/graph
 ```
 
-Run `uv run gpt graph --help` to see more information about the commands.
+Run `uv run paper gpt graph --help` to see more information about the commands.
 
 ## Context classification
 
@@ -67,7 +67,7 @@ parts of the pipeline.
 This script also requires an OpenAI key. See above.
 
 ```console
-$ uv run gpt context run output/peerread_merged.json output/context
+$ uv run paper gpt context run output/peerread_merged.json output/context
 ```
 
 This will save the following files in `output/context`:
@@ -80,8 +80,4 @@ If something happens, it's possible to continue the execution from where it last
 using the flag `--continue-papers path/to/result.tmp.json`. This will avoid re-processing
 data.
 
-Run `uv run gpt context --help` to see more information about the commands.
-
-## More information
-
-For full documentation on how to use the GPT tools, see [`CLI.md`](./CLI.md).
+Run `uv run paper gpt context --help` to see more information about the commands.

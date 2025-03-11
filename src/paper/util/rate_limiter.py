@@ -20,6 +20,19 @@ class Message(TypedDict):
     name: str | None
 
 
+def _message_num_tokens(value: object) -> int:
+    """Count the number of tokens in `value`, treated as a string.
+
+    Uses the GPT-4 tokeniser. If it somehow fails (e.g. invalid special tokens), we
+    approximate the number as 1.5 * number of words (split by whitespace).
+    """
+    valstr = str(value)
+    try:
+        return len(_TOKENIZER.encode(valstr))
+    except Exception:
+        return int(len(valstr.split()) * 1.5)
+
+
 def _count_tokens(
     messages: Iterable[Message], max_tokens: int | None = None, n: int = 1, **_: Any
 ) -> int:
@@ -40,7 +53,7 @@ def _count_tokens(
         # Every message follows <im_start>{role/name}\n{content}<im_end>\n
         num_tokens += 4
         for key, value in message.items():
-            num_tokens += len(_TOKENIZER.encode(str(value)))
+            num_tokens += _message_num_tokens(value)
             if key == "name":  # If there's a name, the role is omitted
                 num_tokens -= 1  # Role is always required and always 1 token
 

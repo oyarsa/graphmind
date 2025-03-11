@@ -13,6 +13,7 @@ This takes two inputs:
 from __future__ import annotations
 
 import logging
+import random
 from pathlib import Path
 from typing import Annotated
 
@@ -52,8 +53,15 @@ def main(
         str, typer.Option("--model", help="SentenceTransformer model to use.")
     ] = "all-mpnet-base-v2",
     test: Annotated[bool, typer.Option(help="Test graph saving and loading.")] = False,
+    num_annotated: Annotated[
+        int | None,
+        typer.Option(help="Number of annotated papers used for graph (sampled)."),
+    ] = None,
+    seed: Annotated[int, typer.Option(help="Seed for random sample")] = 0,
 ) -> None:
     """Build the three SciMON graphs (KG, semantic and citations) as a single structure."""
+    random.seed(seed)
+
     setup_logging()
     params = get_params()
     logger.info(render_params(params))
@@ -63,8 +71,8 @@ def main(
     ann = gpt.PromptResult.unwrap(
         load_data(annotated_file, gpt.PromptResult[gpt.PaperAnnotated])
     )
-    peerread_papers = load_data(peerread_file, s2.PaperWithS2Refs)
-    terms = [x.terms for x in ann]
+    if num_annotated:
+        ann = random.sample(ann, num_annotated)
 
     logger.info("Initialising encoder.")
     encoder = emb.Encoder(model_name)
@@ -76,14 +84,17 @@ def main(
         semantic_graph = semantic.Graph.from_annotated(encoder, ann, progress=True)
     logger.info(timer_semantic)
 
-    logger.info("Building KG: %d terms", len(terms))
+    logger.info("Building KG: %d terms", len(ann))
     with Timer("KG") as timer_kg:
-        kg_graph = kg.Graph.from_terms(encoder, terms, progress=True)
+        kg_graph = kg.Graph.from_terms(encoder, (x.terms for x in ann), progress=True)
     logger.info(timer_kg)
 
+    peerread_papers = load_data(peerread_file, s2.PaperWithS2Refs)
     logger.info("Building Citation: %d papers", len(peerread_papers))
     with Timer("Citation") as timer_citation:
-        citation_graph = citations.Graph.from_papers(encoder, peerread_papers)
+        citation_graph = citations.Graph.from_papers(
+            encoder, peerread_papers, progress=True
+        )
     logger.info(timer_citation)
 
     logger.info("Saving graphs")
