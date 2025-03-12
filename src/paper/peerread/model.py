@@ -159,6 +159,12 @@ class Paper(Record):
 
     @computed_field
     @property
+    def label(self) -> int:
+        """Convert rating to binary label."""
+        return int(self.rating >= 3)
+
+    @computed_field
+    @property
     def rationale(self) -> str:
         """Rationale from main review."""
         return self.review.rationale
