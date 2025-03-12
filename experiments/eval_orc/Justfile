@@ -4,21 +4,25 @@ eval_cmd := "uv run paper gpt eval"
 # Configuration selector
 demos := env("DEMOS", "review_clean_5_1")
 model := env("MODEL", "4o-mini")
-data := env("DATA", "dev")
 n := env("N", "10")
 output_dir := env("OUTPUT", "output")
+data_dir := env("DATA_DIR", "output/venus/split")
+data := env("DATA", "dev")
 
 # Full data paths
-data_full := root + "/output/venus/split/"+data+".json"
+data_full := root + "/"+data_dir+"/"+data+".json"
 
 eval_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_full
 output := root+"/"+output_dir+"/eval/graph/"+data+"/"+model+"/"+demos
 
 _default:
     @echo "Environment variables:"
-    @echo "    MODEL: '4o' or '4o-mini' (default: '4o-mini')"
-    @echo "    DATA: 'dev' or 'test' (default: 'dev')"
-    @echo "    DEMOS: see 'gpt demos' (default: 'review_clean_5_1')."
+    @echo "    DEMOS: see 'paper gpt demos' (default: 'review_clean_5_1')."
+    @echo "    MODEL: '4o' or '4o-mini' (default: '4o-mini')."
+    @echo "    N: how many items to use. Use 0 for all (default: 10)."
+    @echo "    OUTPUT_DIR: where to save the outputs (default: 'output')."
+    @echo "    DATA_DIR: source of the input data files (default 'output/venus/split')."
+    @echo "    DATA: which split to use; contents of DATA_DIR (default: 'dev')."
     @echo
     @just --list --unsorted
 
