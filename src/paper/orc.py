@@ -367,6 +367,43 @@ def reviews(
     )
 
 
+@app.command(no_args_is_help=True)
+def download_all(
+    output_dir: Annotated[
+        Path, typer.Argument(help="Output directory for OpenReview reviews file.")
+    ],
+) -> None:
+    """Download reviews and arXiv IDs for the following conferences.
+
+    - ICLR 2022, 2023, 2024, 2025
+    - NeurIPS 2022, 2023, 2024
+
+    Each one gets its own subdirectory under `output_dir`.
+    """
+    # <venue ID, directory name>
+    conferences = [
+        ("ICLR.cc/2022", "iclr2022"),
+        ("ICLR.cc/2023", "iclr2023"),
+        ("ICLR.cc/2024", "iclr2024"),
+        ("ICLR.cc/2025", "iclr2025"),
+        ("NeurIPS.cc/2022", "neurips2022"),
+        ("NeurIPS.cc/2023", "neurips2023"),
+        ("NeurIPS.cc/2024", "neurips2024"),
+    ]
+
+    with tqdm(total=len(conferences)) as pbar:
+        for venue_id, dir_name in conferences:
+            pbar.set_description(f"{venue_id}")
+
+            dir_path = output_dir / dir_name
+            if dir_path.exists():
+                pbar.update(1)
+                continue
+
+            reviews(dir_path, venue_id, query_arxiv=False)
+            pbar.update(1)
+
+
 def _normalise_title(title: str) -> str:
     return title.casefold()
 
