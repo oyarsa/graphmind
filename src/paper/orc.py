@@ -315,6 +315,8 @@ def reviews(
     - ICLR.cc/2025/Conference
     - NeurIPS.cc/2024/Conference
     """
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     submissions_raw = get_conference_submissions(venue_id)
     if not submissions_raw:
         logger.warning("No submissions available for %s", venue_id)
