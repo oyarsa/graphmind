@@ -29,9 +29,10 @@ from typing import Annotated, Any, overload
 import arxiv  # type: ignore
 import backoff
 import nltk  # type: ignore
+import openreview as openreview_v1
 import requests
 import typer
-from openreview import api
+from openreview import api as openreview_v2
 from tqdm import tqdm
 
 from paper import peerread as pr
@@ -143,7 +144,7 @@ class ArxivResult:
 
 
 def _get_arxiv(openreview_titles: list[str], batch_size: int) -> dict[str, ArxivResult]:
-    """Get mapping of OpenReview paper title to arXiv ID that exist on arXiv."""
+    """Get mapping of OpenReview paper title (casefold) to arXiv ID that exist on arXiv."""
     arxiv_client = arxiv.Client()
 
     arxiv_results: list[ArxivResult] = []
@@ -153,7 +154,7 @@ def _get_arxiv(openreview_titles: list[str], batch_size: int) -> dict[str, Arxiv
     ):
         arxiv_results.extend(_batch_search_arxiv(arxiv_client, openreview_title_batch))
 
-    return {r.openreview_title: r for r in arxiv_results}
+    return {_normalise_title(r.openreview_title): r for r in arxiv_results}
 
 
 def _batch_search_arxiv(
@@ -165,7 +166,7 @@ def _batch_search_arxiv(
     )
     query = f"({or_queries})"
     results_map: dict[str, ArxivResult] = {}
-    openreview_titles = [t.casefold() for t in openreview_titles]
+    openreview_titles = [_normalise_title(t) for t in openreview_titles]
 
     try:
         for result in client.results(
@@ -230,6 +231,46 @@ def _is_valid_targz(content: bytes) -> bool:
         return True
 
 
+def get_conference_submissions(
+    venue_id: str,
+) -> list[openreview_v1.Note | openreview_v2.Note]:
+    """Get all submissions with reviews for `venue_id`.
+
+    Tries both API versions and submissions/blind submissions.
+    """
+    sections = ["Submission", "Blind_Submission"]
+
+    client_v2 = openreview_v2.OpenReviewClient(baseurl="https://api2.openreview.net")
+    for section in sections:
+        if submissions := client_v2.get_all_notes(
+            invitation=f"{venue_id}/-/{section}", details="replies"
+        ):
+            return submissions
+
+    client_v1 = openreview_v1.Client(baseurl="https://api.openreview.net")
+    for section in sections:
+        if submissions := client_v1.get_all_notes(
+            invitation=f"{venue_id}/-/{section}", details="directReplies"
+        ):
+            return submissions
+
+    return []
+
+
+RATING_KEYS = [
+    "contribution",
+    "technical_novelty_and_significance",
+    "empirical_novelty_and_significance",
+]
+"""Valid keys for target ratings.
+
+ICLR 2024 and 2025, and NeurIPS 2022-2024 use 'contribution'.
+ICLR 2022 and 2023 use technical/empirical novelty.
+
+Our target rating is the max of the available ratings.
+"""
+
+
 @app.command(no_args_is_help=True)
 def reviews(
     output_dir: Annotated[
@@ -247,6 +288,9 @@ def reviews(
             help="Maximum number of papers to query. If None, use all.",
         ),
     ] = None,
+    query_arxiv: Annotated[
+        bool, typer.Option("--arxiv/--no-arxiv", help="Query arXiv for papers")
+    ] = True,
 ) -> None:
     """Download all reviews and metadata for papers from a conference in OpenReview.
 
@@ -257,38 +301,57 @@ def reviews(
     - OPENREVIEW_PASSWORD
 
     These are the standard credentials you use to log into the OpenReview website.
+
+    Supports conference using both v1 and v2 APIs.
     Example venue IDs:
+
+    API v1:
+    - ICLR.cc/2022/Conference
+    - ICLR.cc/2023/Conference
+    - NeurIPS.cc/2022/Conference
+    - NeurIPS.cc/2023/Conference
+
+    API v2:
     - ICLR.cc/2024/Conference
     - ICLR.cc/2025/Conference
     - NeurIPS.cc/2024/Conference
     """
-    client = api.OpenReviewClient(baseurl="https://api2.openreview.net")
-    submissions_raw = client.get_all_notes(
-        invitation=f"{venue_id}/-/Submission", details="replies"
-    )
+    submissions_raw = get_conference_submissions(venue_id)
     if not submissions_raw:
-        die("Empty submissions list")
+        die("No submissions available")
 
     submissions_all = [_note_to_dict(s) for s in submissions_raw]
-    submissions_valid = [s for s in submissions_all if _is_valid(s, "contribution")]
-
     logger.info("Submissions - all: %d", len(submissions_all))
+    (output_dir / "openreview_all.json").write_text(json.dumps(submissions_all))
+
+    submissions_valid = [s for s in submissions_all if _is_valid(s, RATING_KEYS)]
     logger.info("Submissions - valid: %d", len(submissions_valid))
+    (output_dir / "openreview_valid.json").write_text(json.dumps(submissions_valid))
+
+    if not submissions_valid:
+        die("No valid submissions")
 
     openreview_titles = [
         openreview_title
         for paper in submissions_valid[:max_papers]
-        if (openreview_title := paper["content"].get("title", {}).get("value"))
+        if (openreview_title := _get_value(paper["content"], "title"))
     ]
+
+    if not query_arxiv:
+        logger.info("Skipping arXiv query.")
+        return
 
     logger.info("Querying arXiv for %d paper titles", len(openreview_titles))
     openreview_to_arxiv = _get_arxiv(openreview_titles, batch_size)
     logger.info("Found %d papers on arXiv", len(openreview_to_arxiv))
+    (output_dir / "openreview_arxiv_raw.json").write_text(
+        json.dumps([dc.asdict(v) for v in openreview_to_arxiv.values()])
+    )
 
     submissions_with_arxiv: list[dict[str, Any]] = []
     for paper in submissions_valid:
-        openreview_title = paper["content"].get("title", {}).get("value", "")
-        if arxiv_result := openreview_to_arxiv.get(openreview_title):
+        openreview_title = _get_value(paper["content"], "title") or ""
+        if arxiv_result := openreview_to_arxiv.get(_normalise_title(openreview_title)):
             submissions_with_arxiv.append({
                 **paper,
                 "arxiv_id": arxiv_result.id,
@@ -299,22 +362,24 @@ def reviews(
     logger.info("Submissions with arXiv IDs: %d", len(submissions_with_arxiv))
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "openreview_all.json").write_text(json.dumps(submissions_all))
-    (output_dir / "openreview_valid.json").write_text(json.dumps(submissions_valid))
     (output_dir / "openreview_arxiv.json").write_text(
         json.dumps(submissions_with_arxiv)
     )
 
 
-def _note_to_dict(note: api.Note) -> dict[str, Any]:
+def _normalise_title(title: str) -> str:
+    return title.casefold()
+
+
+def _note_to_dict(note: openreview_v1.Note | openreview_v2.Note) -> dict[str, Any]:
     """Convert OpenReview API `Note` to dict with additional `details` object."""
     return note.to_json() | {"details": note.details}
 
 
-def _is_valid(paper: dict[str, Any], rating: str) -> bool:
+def _is_valid(paper: dict[str, Any], rating_keys: Iterable[str]) -> bool:
     """Check if paper has at least one review with `rating`, PDF, title and abstract."""
     return all((
-        _has_rating(paper, rating),
+        any(_has_rating(paper, key) for key in rating_keys),
         _has_rating(paper, "decision"),
         _has_field(paper, "pdf"),
         _has_field(paper, "title"),
@@ -322,14 +387,32 @@ def _is_valid(paper: dict[str, Any], rating: str) -> bool:
     ))
 
 
+def _get_reviews(paper: dict[str, Any]) -> list[dict[str, Any]]:
+    """Get reviews from paper object: either `replies` or `directReplies`."""
+    details = paper["details"]
+    if "replies" in details:
+        return paper["details"]["replies"]
+    if "directReplies" in details:
+        return paper["details"]["directReplies"]
+
+    raise ValueError("Paper does not have review replies")
+
+
 def _has_rating(paper: dict[str, Any], name: str) -> bool:
     """Check if any review in `paper` has the rating with given `name`."""
-    return any(r["content"].get(name) for r in paper["details"]["replies"])
+    return any(r["content"].get(name) for r in _get_reviews(paper))
+
+
+def _get_value(item: dict[str, Any], key: str) -> Any | None:
+    value = item.get(key, {})
+    if isinstance(value, dict):
+        return value.get("value")
+    return value
 
 
 def _has_field(paper: dict[str, Any], name: str) -> bool:
     """Check if the `paper` has a field with `name` and non-empty value."""
-    value = paper["content"].get(name, {}).get("value")
+    value = _get_value(paper["content"], name)
     if isinstance(value, str):
         value = value.strip()
     return bool(value)
@@ -1216,10 +1299,10 @@ def _process_conferences(base_dir: Path) -> list[dict[str, Any]]:
 def _process_paper(paper_raw: dict[str, Any]) -> pr.Paper | None:
     """Transform a raw paper into a `pr.Paper`.
 
-    Returns None if there are no valid reviews with "contribution" ratings or there are
+    Returns None if there are no valid reviews with `RATING_KEYS` or there are
     less than 5 valid references (excludes "Unknown Reference").
     """
-    reviews: list[dict[str, Any]] = paper_raw["details"]["replies"]
+    reviews = _get_reviews(paper_raw)
     parsed: dict[str, Any] = paper_raw["paper_content"]
 
     reviews_processed = _process_reviews(reviews)
@@ -1311,7 +1394,7 @@ def _process_reviews(reviews: list[dict[str, Any]]) -> list[pr.PaperReview]:
     for review in reviews:
         content = review["content"]
 
-        rating = _value(_rating, content, "contribution")
+        rating = _max_value(_value(_rating, content, key) for key in RATING_KEYS)
         if rating is None:
             continue
 
@@ -1343,6 +1426,15 @@ def _process_reviews(reviews: list[dict[str, Any]]) -> list[pr.PaperReview]:
         )
 
     return output
+
+
+def _max_value(values: Iterable[int | None]) -> int | None:
+    """Find the maximum value in an iterable, ignoring None values.
+
+    Returns None if the iterable is empty or contains only None values.
+    """
+    filtered_values = [v for v in values if v is not None]
+    return max(filtered_values) if filtered_values else None
 
 
 @overload
