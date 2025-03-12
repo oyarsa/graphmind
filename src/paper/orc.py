@@ -373,6 +373,9 @@ def download_all(
     output_dir: Annotated[
         Path, typer.Argument(help="Output directory for OpenReview reviews file.")
     ],
+    query_arxiv: Annotated[
+        bool, typer.Option("--arxiv/--no-arxiv", help="Query arXiv for papers")
+    ] = True,
 ) -> None:
     """Download reviews and arXiv IDs for the following conferences.
 
@@ -401,7 +404,7 @@ def download_all(
                 pbar.update(1)
                 continue
 
-            reviews(dir_path, venue_id, query_arxiv=False)
+            reviews(dir_path, f"{venue_id}/Conference", query_arxiv=query_arxiv)
             pbar.update(1)
 
 
