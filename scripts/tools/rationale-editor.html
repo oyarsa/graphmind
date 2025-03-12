@@ -1,0 +1,295 @@
+<!-- Edit rationales for evaluation demonstrations. -->
+
+<!-- Review rationales contain more content than just the novel assessment, which is the only thing -->
+<!-- we want so we don't confuse the model. This tool is used to load the sampled demonstrations JSON -->
+<!-- and manually edit the rationale text. You can also select which are "chosen" for a smaller subset -->
+<!-- to use. -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced JSON Rationale Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="font-sans text-gray-800 p-6 max-w-7xl mx-auto">
+    <h1 class="text-2xl font-bold text-gray-700 mb-4">Enhanced JSON Rationale Editor</h1>
+    <p class="mb-4">This tool helps you edit the <code class="bg-gray-100 px-1 rounded">rationale</code> fields in your JSON objects and save the edited versions as <code class="bg-gray-100 px-1 rounded">rationale_edited</code>. It also displays the <code class="bg-gray-100 px-1 rounded">title</code>, <code class="bg-gray-100 px-1 rounded">rating</code>, and <code class="bg-gray-100 px-1 rounded">label</code> values.</p>
+
+    <div class="mb-6">
+        <label for="fileInput" class="block mb-2">Select your JSON file: </label>
+        <input type="file" id="fileInput" accept=".json" class="border border-gray-300 p-2 rounded">
+    </div>
+
+    <div id="editor" class="hidden">
+        <div id="objectKeys" class="font-mono bg-gray-100 p-2 rounded mb-3"></div>
+        <div class="text-gray-600 italic mb-3">Currently editing object <span id="currentIndex" class="font-medium">0</span> of <span id="totalObjects" class="font-medium">0</span></div>
+
+        <div class="flex items-center gap-4 mb-6">
+            <button id="prevBtn" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors" disabled>Previous</button>
+            <button id="nextBtn" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded transition-colors">Next</button>
+            <div class="flex items-center ml-6 p-2 bg-blue-50 border border-blue-200 rounded">
+                <input type="checkbox" id="chosenCheckbox" class="mr-2 transform scale-110">
+                <label for="chosenCheckbox" class="font-semibold text-blue-700">Chosen</label>
+            </div>
+            <button id="saveBtn" class="ml-auto bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded transition-colors">Save Edited JSON</button>
+            <div class="font-bold ml-4">Progress: <span id="progressCount">0</span>/<span id="totalCount">0</span></div>
+        </div>
+
+        <div class="flex gap-5 w-full">
+            <div class="flex-1 border border-gray-300 rounded p-4 bg-gray-50">
+                <h2 class="text-xl font-bold text-gray-700 mb-4">Original Rationale</h2>
+                <div id="objectMetadata" class="bg-blue-50 p-3 rounded mb-3 border-l-4 border-blue-500">
+                    <div class="mb-1">
+                        <span class="font-bold text-gray-700 mr-1">Title:</span>
+                        <span id="objectTitle" class="font-mono"></span>
+                    </div>
+                    <div class="mb-1">
+                        <span class="font-bold text-gray-700 mr-1">Rating:</span>
+                        <span id="objectRating" class="font-mono"></span>
+                    </div>
+                    <div>
+                        <span class="font-bold text-gray-700 mr-1">Label:</span>
+                        <span id="objectLabel" class="font-mono"></span>
+                    </div>
+                </div>
+                <div id="originalRationale" class="w-full min-h-[300px] p-3 border border-gray-300 rounded font-inherit text-sm overflow-auto whitespace-pre-wrap"></div>
+            </div>
+            <div class="flex-1 border border-gray-300 rounded p-4 bg-gray-50">
+                <h2 class="text-xl font-bold text-gray-700 mb-4">Edited Rationale</h2>
+                <div id="objectMetadataCopy" class="bg-blue-50 p-3 rounded mb-3 border-l-4 border-blue-500">
+                    <div class="mb-1">
+                        <span class="font-bold text-gray-700 mr-1">Title:</span>
+                        <span id="objectTitleCopy" class="font-mono"></span>
+                    </div>
+                    <div class="mb-1">
+                        <span class="font-bold text-gray-700 mr-1">Rating:</span>
+                        <span id="objectRatingCopy" class="font-mono"></span>
+                    </div>
+                    <div>
+                        <span class="font-bold text-gray-700 mr-1">Label:</span>
+                        <span id="objectLabelCopy" class="font-mono"></span>
+                    </div>
+                </div>
+                <textarea id="editedRationale" placeholder="Edit the rationale here..." class="w-full min-h-[300px] p-3 border border-gray-300 rounded font-inherit text-sm"></textarea>
+            </div>
+        </div>
+
+        <details class="mt-5">
+            <summary class="cursor-pointer p-2 bg-gray-200 rounded">Show Current Object</summary>
+            <div id="currentObject" class="max-h-[200px] overflow-y-auto mt-3 font-mono whitespace-pre-wrap bg-gray-100 p-3 rounded text-sm"></div>
+        </details>
+    </div>
+
+    <div id="statusMessage" class="mt-4 p-3 rounded hidden"></div>
+
+    <script>
+        let jsonData = null;
+        let currentIndex = 0;
+        let editedCount = 0;
+
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+        document.getElementById('prevBtn').addEventListener('click', showPrevious);
+        document.getElementById('nextBtn').addEventListener('click', showNext);
+        document.getElementById('saveBtn').addEventListener('click', saveJSON);
+        document.getElementById('chosenCheckbox').addEventListener('change', updateChosen);
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    jsonData = JSON.parse(e.target.result);
+
+                    // Check if the data is an array
+                    if (!Array.isArray(jsonData)) {
+                        throw new Error('The JSON file must contain an array of objects');
+                    }
+
+                    // Check if array items have rationale property
+                    if (jsonData.length > 0 && !jsonData[0].hasOwnProperty('rationale')) {
+                        showStatus('Warning: The first object does not have a "rationale" property. This might not be the correct file format.', 'error');
+                    }
+
+                    // Initialize the editor
+                    document.getElementById('editor').classList.remove('hidden');
+                    document.getElementById('totalObjects').textContent = jsonData.length;
+                    document.getElementById('totalCount').textContent = jsonData.length;
+
+                    // Count items that already have rationale_edited
+                    editedCount = jsonData.filter(item => item.hasOwnProperty('rationale_edited') && item.rationale_edited.trim() !== '').length;
+
+                    updateProgressCount();
+                    showCurrent();
+
+                } catch (error) {
+                    showStatus('Error parsing JSON file: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function showCurrent() {
+            if (!jsonData || jsonData.length === 0) return;
+
+            const currentObject = jsonData[currentIndex];
+            const originalRationale = currentObject.rationale || '';
+            // If rationale_edited already exists, use it, otherwise use the original rationale
+            const editedRationale = currentObject.rationale_edited || originalRationale;
+
+            document.getElementById('currentIndex').textContent = currentIndex + 1;
+
+            // Get object metadata
+            const title = currentObject.title || currentObject.name || currentObject.id || `Object ${currentIndex + 1}`;
+            const rating = currentObject.rating || 'N/A';
+            const label = currentObject.hasOwnProperty('label') ? currentObject.label : 'N/A';
+
+            // Format label as boolean and apply appropriate styling
+            const formattedLabel = label === 'N/A' ? 'N/A' : String(label);
+
+            // Display metadata in both panels
+            document.getElementById('objectTitle').textContent = title;
+            document.getElementById('objectRating').textContent = rating;
+            document.getElementById('objectLabel').textContent = formattedLabel;
+
+            // Apply color coding to label based on boolean value
+            let objectLabelClass;
+            if (typeof label === 'boolean') {
+                const colour = label === true ? 'green' : 'red';
+                objectLabelClass = `font-mono font-bold py-1 px-2 rounded inline-block bg-${colour}-600 text-white`;
+            } else {
+                objectLabelClass = 'font-mono';
+            }
+            document.getElementById('objectLabel').className = objectLabelClass;
+
+            document.getElementById('objectTitleCopy').textContent = title;
+            document.getElementById('objectRatingCopy').textContent = rating;
+            document.getElementById('objectLabelCopy').textContent = formattedLabel;
+            // Apply same label styling to copy panel
+            document.getElementById('objectLabelCopy').className = objectLabelClas;
+
+            // Set the original rationale content
+            const originalElement = document.getElementById('originalRationale');
+            originalElement.textContent = originalRationale;
+
+            // Set the edited rationale and adjust height
+            const editedElement = document.getElementById('editedRationale');
+            editedElement.value = editedRationale;
+
+            // Update checkbox state
+            document.getElementById('chosenCheckbox').checked = !!currentObject.chosen;
+
+            // Adjust textarea height to match the original content height
+            setTimeout(() => {
+                editedElement.style.height = originalElement.offsetHeight + 'px';
+            }, 0);
+            document.getElementById('currentObject').textContent = JSON.stringify(currentObject, null, 2);
+
+            // Display object keys
+            const keysList = Object.keys(currentObject).join(', ');
+            document.getElementById('objectKeys').textContent = `Keys: ${keysList}`;
+
+            // Update button states
+            document.getElementById('prevBtn').disabled = (currentIndex === 0);
+            document.getElementById('nextBtn').textContent = (currentIndex === jsonData.length - 1) ? 'Finish' : 'Next';
+        }
+
+        function saveCurrentEdits() {
+            if (!jsonData || jsonData.length === 0) return;
+
+            const editedText = document.getElementById('editedRationale').value;
+            const currentObject = jsonData[currentIndex];
+
+            // Check if this is a new edit or updating an existing one
+            const isNewEdit = !currentObject.hasOwnProperty('rationale_edited');
+            const wasEmpty = currentObject.hasOwnProperty('rationale_edited') && currentObject.rationale_edited.trim() === '';
+
+            // Save the edited rationale
+            currentObject.rationale_edited = editedText;
+
+            // Update the edit count if this is a new edit
+            if ((isNewEdit || wasEmpty) && editedText.trim() !== '') {
+                editedCount++;
+                updateProgressCount();
+            } else if (!isNewEdit && !wasEmpty && editedText.trim() === '') {
+                // If the field was edited before but is now empty, decrement count
+                editedCount--;
+                updateProgressCount();
+            }
+        }
+
+        function showPrevious() {
+            if (currentIndex > 0) {
+                saveCurrentEdits();
+                currentIndex--;
+                showCurrent();
+            }
+        }
+
+        function showNext() {
+            if (currentIndex < jsonData.length - 1) {
+                saveCurrentEdits();
+                currentIndex++;
+                showCurrent();
+            } else {
+                saveCurrentEdits();
+                showStatus('All objects processed. You can now save the edited JSON.', 'success');
+            }
+        }
+
+        function updateProgressCount() {
+            document.getElementById('progressCount').textContent = editedCount;
+        }
+
+        function saveJSON() {
+            if (!jsonData) return;
+
+            // Save current edits before saving the file
+            saveCurrentEdits();
+
+            // Create blob and download link
+            const jsonString = JSON.stringify(jsonData, null, 2);
+            const blob = new Blob([jsonString], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = 'rationale_edited.json';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+
+            showStatus('JSON file has been saved with edited rationales.', 'success');
+        }
+
+        function updateChosen(event) {
+            if (!jsonData || jsonData.length === 0) return;
+
+            // Save the chosen state to the current object
+            jsonData[currentIndex].chosen = event.target.checked;
+
+            // Update the current object display
+            document.getElementById('currentObject').textContent = JSON.stringify(jsonData[currentIndex], null, 2);
+        }
+
+        function showStatus(message, type) {
+            const statusElement = document.getElementById('statusMessage');
+            statusElement.textContent = message;
+            statusElement.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+
+            const colour = type === 'error' ? 'red' : 'green';
+            statusElement.classList.add(`bg-${colour}-100`, `text-${colour}-800`);
+
+            // Auto hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusElement.classList.add('hidden');
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>
