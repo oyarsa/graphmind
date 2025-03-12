@@ -14,6 +14,14 @@ class TargetMode(Enum):
     INT = "int"
     BIN = "bin"
 
+    def labels(self) -> list[int]:
+        """Labels represented by this mode."""
+        match self:
+            case TargetMode.INT:
+                return list(range(1, 6))
+            case TargetMode.BIN:
+                return [0, 1]
+
 
 class Metrics(BaseModel):
     """Classification and regression metrics."""
@@ -61,12 +69,7 @@ class Metrics(BaseModel):
         """Format confusion matrix as a string with row and column labels."""
         n = len(self.confusion)
 
-        if self.mode is TargetMode.BIN:
-            labels = [0, 1]
-        else:
-            labels = range(1, 6)
-
-        label_strs = [str(label) for label in labels]
+        label_strs = [str(label) for label in self.mode.labels()]
 
         margin = 3
         col_label_padding = 8  # Space before column numbers
@@ -92,11 +95,14 @@ class Metrics(BaseModel):
 
 
 def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
-    """Calculate classification metrics for multi-class classification (labels 1-5).
+    """Calculate classification metrics for multi-class classification.
+
+    The labels can be either in 1-5 or binary (0/1). This is determined by the range of
+    values in the inputs.
 
     Args:
-        y_true: Ground truth labels (values 1-5)
-        y_pred: Predicted labels (values 1-5)
+        y_true: Ground truth labels (values 1-5 or 0/1)
+        y_pred: Predicted labels (values 1-5 or 0/1)
 
     Returns:
         Metrics object containing macro-averaged precision, recall, F1 score, accuracy,

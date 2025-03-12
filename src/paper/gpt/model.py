@@ -519,6 +519,12 @@ class Paper(Record):
     rationale: str
     rating: int
 
+    @computed_field
+    @property
+    def label(self) -> int:
+        """Convert rating to binary label."""
+        return int(self.rating >= 3)
+
 
 class ReviewEvaluation(BaseModel):
     """Peer review with its original rating and predicted rating from GPT."""
@@ -545,6 +551,20 @@ class ReviewEvaluation(BaseModel):
         str | None,
         Field(description="GPT's explanation for the predicted rating"),
     ] = None
+
+    @computed_field
+    @property
+    def label(self) -> int:
+        """Convert rating to binary label."""
+        return int(self.rating >= 3)
+
+    @computed_field
+    @property
+    def predicted_label(self) -> int | None:
+        """Convert predicted rating rating to binary label."""
+        if self.predicted_rating is None:
+            return None
+        return int(self.predicted_rating >= 3)
 
 
 class PaperWithReviewEval(Record):
@@ -573,6 +593,12 @@ class PaperWithReviewEval(Record):
     review: Annotated[ReviewEvaluation, Field(description="Main review for the paper")]
     rationale: Annotated[str, Field(description="Rationale for the main review")]
     rating: Annotated[int, Field(description="Rating (1-5) for the main review")]
+
+    @computed_field
+    @property
+    def label(self) -> int:
+        """Convert rating to binary label."""
+        return int(self.rating >= 3)
 
     @property
     @override

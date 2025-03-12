@@ -510,7 +510,7 @@ async def _evaluate_paper_reviews(
             confidence=review.confidence,
             rationale=review.rationale,
             extracted_rationale=extracted_rationale,
-            predicted_rating=apply_rating_mode(evaluated.rating, mode),
+            predicted_rating=apply_rating_mode(evaluated.label, mode),
             predicted_rationale=evaluated.rationale,
         )
 

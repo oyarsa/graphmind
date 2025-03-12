@@ -222,5 +222,41 @@ def new_review_evaluation(
     )
 
 
+@app.command(short_help="Novelty evaluation with binary label.", no_args_is_help=True)
+def eval_binary(
+    input_file: Annotated[
+        Path, typer.Argument(help="Input JSON with paper data (peerread_merged.json)")
+    ],
+    output_file: Annotated[
+        Path, typer.Argument(help="Path to output JSON file with the demonstrations")
+    ],
+    num_entries: Annotated[
+        int, typer.Option("--entries", "-n", help="Number of entries to sample")
+    ] = 10,
+    seed: int = 0,
+) -> None:
+    """Create demonstrations for few-shot prompting of novelty evaluation.
+
+    Takes a number of entries to sample and returns the chosen papers with their rating
+    and rationale. The number of entries should be even, and we'll pick an equal number
+    of positive and negative reviews.
+
+    The output is a file with the paper title, abstract, main text, novelty rating,
+    novelty label (binary) and rationale.
+    """
+    random.seed(seed)
+
+    data = load_data(input_file, pr.Paper)
+    n = num_entries // 2
+
+    pos = [x for x in data if x.label]
+    neg = [x for x in data if not x.label]
+
+    pos_sampled = random.sample(pos, n)
+    neg_sampled = random.sample(neg, n)
+
+    save_data(output_file, pos_sampled + neg_sampled)
+
+
 if __name__ == "__main__":
     app()

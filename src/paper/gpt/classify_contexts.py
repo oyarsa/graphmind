@@ -291,6 +291,12 @@ class PaperWithContextClassfied(Record):
         """
         return hashstr(self.title + self.abstract)
 
+    @computed_field
+    @property
+    def label(self) -> int:
+        """Convert rating to binary label."""
+        return int(self.rating >= 3)
+
 
 class GPTContext(BaseModel):
     """Context from a paper reference with GPT-classified polarity.

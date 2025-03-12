@@ -8,7 +8,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Annotated, Self, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from paper import evaluation_metrics
 from paper import semantic_scholar as s2
@@ -37,7 +37,7 @@ class PaperResult(s2.PaperWithS2Refs):
         return cls.model_validate(
             paper.model_dump()
             | {
-                "y_true": paper.rating,
+                "y_true": paper.label,
                 "rationale_true": paper.rationale,
                 "y_pred": y_pred,
                 "rationale_pred": rationale_pred,
@@ -132,12 +132,12 @@ def display_metrics(
     y_pred = [r.y_pred for r in results]
 
     output = ["Metrics:", str(metrics)]
-    for values, label in [(y_true, "Gold"), (y_pred, "Predicted")]:
-        output.append(f"\n{label} distribution:")
-        for rating in range(1, 6):
-            count = sum(y == rating for y in values)
+    for values, section in [(y_true, "Gold"), (y_pred, "Predicted")]:
+        output.append(f"\n{section} distribution:")
+        for label in metrics.mode.labels():
+            count = sum(y == label for y in values)
             output.append(
-                f"  {rating}: {count}/{len(values)} ({safediv(count, len(values)):.2%})"
+                f"  {label}: {count}/{len(values)} ({safediv(count, len(values)):.2%})"
             )
     return "\n".join(output)
 
@@ -155,6 +155,12 @@ class Demonstration(BaseModel):
     text: Annotated[str, Field(description="Paper full main text")]
     rationale: Annotated[str, Field(description="Rationale given by a reviewer")]
     rating: Annotated[int, Field(description="Rating from the rationale")]
+
+    @computed_field
+    @property
+    def label(self) -> int:
+        """Convert rating to binary label."""
+        return int(self.rating >= 3)
 
 
 def get_demonstrations(demonstrations_key: str | None, prompt_key: str) -> str:
@@ -201,6 +207,7 @@ def format_demonstrations(
             main_text=demo.text,
             rationale=demo.rationale,
             rating=demo.rating,
+            label=demo.label,
         )
         for demo in demonstrations
     )
@@ -213,18 +220,15 @@ class GPTFull(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     rationale: Annotated[str, Field(description="How you reached your novelty rating.")]
-    rating: Annotated[
+    label: Annotated[
         int,
-        Field(
-            description="The novelty rating - how novel the paper is judged to be. Must"
-            " be between 1 and 5.",
-        ),
+        Field(description="1 if the paper is novel, or 0 if it's not novel."),
     ]
 
     @classmethod
     def error(cls) -> Self:
         """Output value for when there's an error."""
-        return cls(rationale="<error>", rating=1)
+        return cls(rationale="<error>", label=0)
 
     def is_valid(self) -> bool:
         """Check if instance is valid."""
@@ -245,20 +249,20 @@ EVALUATE_DEMONSTRATIONS = _load_demonstrations()
 
 
 def fix_evaluated_rating(evaluated: GPTFull) -> GPTFull:
-    """Fix evaluated rating if out of range by clamping to [1, 5].
+    """Fix evaluated label if out of range by converting to 0/1.
+
+    Any label that isn't 1 will be treated as 0.
 
     Args:
         evaluated: Evaluation result to be checked.
 
     Returns:
-        Same input if valid rating, or new object with fixed rating.
+        Same input if valid label, or new object with fixed label.
     """
-    if evaluated.rating in range(1, 6):
-        return evaluated
+    if evaluated.label not in [0, 1]:
+        logger.warning("Invalid label: %d. Converting to 0/1", evaluated.label)
 
-    logger.warning("Invalid rating: %d. Clamping to 1-5.", evaluated.rating)
-    clamped_rating = max(1, min(evaluated.rating, 5))
-    return replace_fields(evaluated, rating=clamped_rating)
+    return replace_fields(evaluated, label=evaluated.label == 1)
 
 
 class RatingMode(StrEnum):
