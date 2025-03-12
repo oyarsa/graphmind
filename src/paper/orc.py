@@ -37,7 +37,6 @@ from tqdm import tqdm
 
 from paper import peerread as pr
 from paper.util import Timer, groupby, setup_logging
-from paper.util.cli import die
 from paper.util.serde import save_data
 
 logger = logging.getLogger("paper.openreview")
@@ -318,7 +317,8 @@ def reviews(
     """
     submissions_raw = get_conference_submissions(venue_id)
     if not submissions_raw:
-        die("No submissions available")
+        logger.warning("No submissions available for %s", venue_id)
+        return
 
     submissions_all = [_note_to_dict(s) for s in submissions_raw]
     logger.info("Submissions - all: %d", len(submissions_all))
@@ -329,7 +329,8 @@ def reviews(
     (output_dir / "openreview_valid.json").write_text(json.dumps(submissions_valid))
 
     if not submissions_valid:
-        die("No valid submissions")
+        logger.warning("No valid submissions for %s", venue_id)
+        return
 
     openreview_titles = [
         openreview_title
