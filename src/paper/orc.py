@@ -1633,5 +1633,50 @@ def main() -> None:
     setup_logging()
 
 
+@app.command(no_args_is_help=True, name="all")
+def all_(
+    data_dir: Annotated[
+        Path, typer.Argument(help="Output directory for OpenReview reviews file.")
+    ],
+    output_file: Annotated[
+        Path, typer.Argument(help="Path to save the output JSON file.")
+    ],
+    num_papers: Annotated[
+        int | None,
+        typer.Option(
+            "--num-papers",
+            "-n",
+            help="How many papers to process. If None, processes all.",
+        ),
+    ] = None,
+    clean_run: Annotated[
+        bool,
+        typer.Option("--clean", help="If True, ignore previously downloaded files."),
+    ] = False,
+) -> None:
+    """Run full ORC pipeline.
+
+    - Download reviews from the OpenReview API.
+    - Download LaTeX code from arXiv.
+    - Transform the LaTeX code into Markdown and JSON with citations.
+    - Merge and transform into a single file.
+
+    These are the conferences used:
+
+    - ICLR 2022, 2023, 2024, 2025
+    - NeurIPS 2022, 2023, 2024
+
+    ICLR 2022 and 2023 have "technical" and "empirical" novelty as ratings. We use the
+    higher one for the target. For the rest, we use the "contribution" rating.
+
+    These are all numerical ratings from 1 to 4. We also convert them to binary, with
+    1-2 being not novel and 3-4 being novel.
+    """
+    download_all(data_dir, query_arxiv=False)
+    latex_all(data_dir, max_papers=num_papers, clean_run=clean_run)
+    parse_all(data_dir, max_items=num_papers, clean=clean_run)
+    preprocess(data_dir, output_file, num_papers=num_papers)
+
+
 if __name__ == "__main__":
     app()
