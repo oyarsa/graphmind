@@ -85,7 +85,7 @@ def latex(
     The arXiv data is fetched with the `arxiv` subcommand.
 
     By default, skips re-downloading files that already exist in the output directory.
-    You can override this with `--clean` and `--skip`.
+    You can override this with `--clean`.
     """
     papers: list[dict[str, str]] = json.loads(reviews_file.read_text())[:max_papers]
     arxiv_results = [
