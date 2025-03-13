@@ -5,6 +5,14 @@ The process for retrieving the whole data is running the subcommands in this ord
 - latex
 - parse
 - preprocess
+
+To download all the relevant conference information, use:
+- download-all
+- latex-all
+- parse-all
+- preprocess
+
+Use the same output/data directory for all of them.
 """
 
 # pyright: basic
