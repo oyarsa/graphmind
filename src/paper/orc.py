@@ -85,7 +85,7 @@ def latex(
     The arXiv data is fetched with the `arxiv` subcommand.
 
     By default, skips re-downloading files that already exist in the output directory.
-    You can override this with `--clean` and `--skip`.
+    You can override this with `--clean`.
     """
     papers: list[dict[str, str]] = json.loads(reviews_file.read_text())[:max_papers]
     arxiv_results = [
@@ -228,6 +228,49 @@ def _is_valid_targz(content: bytes) -> bool:
         return False
     else:
         return True
+
+
+@app.command(no_args_is_help=True)
+def latex_all(
+    data_dir: Annotated[
+        Path,
+        typer.Option(
+            "--input",
+            "-i",
+            help="Path to directory with data downloaded with `download-all`.",
+        ),
+    ],
+    max_papers: Annotated[
+        int | None,
+        typer.Option(
+            "--num-papers",
+            "-n",
+            help="How many papers to process. If None, processes all.",
+        ),
+    ] = None,
+    clean_run: Annotated[
+        bool,
+        typer.Option("--clean", help="If True, ignore previously downloaded files."),
+    ] = False,
+) -> None:
+    """Download LaTeX source files from arXiv for data downloaded from `download-all`.
+
+    The `--input` parameter should be the same directory as the `output_dir` from
+    `download-all`.
+
+    By default, skips re-downloading files that already exist in the output directory.
+    You can override this with `--clean`.
+    """
+    venue_dirs = list(data_dir.iterdir())
+    for i, venue_dir in enumerate(venue_dirs, 1):
+        logger.info("\n>>> [%d/%d] %s", i, len(venue_dirs), venue_dir.name)
+
+        arxiv_file = venue_dir / "openreview_arxiv.json"
+        if not arxiv_file.exists():
+            logger.warning("No arXiv data file for: %s", venue_dir)
+            continue
+
+        latex(arxiv_file, venue_dir / "files", max_papers, clean_run)
 
 
 def get_conference_submissions(
