@@ -1177,6 +1177,59 @@ PANDOC_CMD_TIMEOUT = 30
 
 
 @app.command(no_args_is_help=True)
+def parse_all(
+    data_dir: Annotated[
+        Path,
+        typer.Option(
+            "--input",
+            "-i",
+            help="Path to directory with data downloaded with `download-all`.",
+        ),
+    ],
+    max_items: Annotated[
+        int | None,
+        typer.Option(
+            "--max-items",
+            "-n",
+            help="Number of items to process. If None, process all.",
+        ),
+    ] = None,
+    num_workers: Annotated[
+        int,
+        typer.Option(
+            "--workers",
+            "-j",
+            help="Number of workers for parallel processing. Set 0 for all CPUs.",
+        ),
+    ] = 1,
+    clean: Annotated[
+        bool, typer.Option(help="Ignore existing files, reprocessing everything.")
+    ] = False,
+) -> None:
+    """Parse LaTeX code from data directory from `latex-all`.
+
+    By default, we avoid reprocessing files that already have processed versions in
+    `output_dir`. Override that with `--clean` to reprocess everything.
+
+    Note: for each paper, we combine all TeX code files into a single one and use pandoc
+    to convert that to Markdown. However, not all LaTeX files can be parsed. We try to
+    remove some offending commands, but sometimes pandoc simply cannot process the LaTeX
+    file. In those cases, we just print a warning and give up on that paper. This also
+    applies to bib files. This seems to affect about 10% of the input files from arXiv.
+    """
+    venue_dirs = list(data_dir.iterdir())
+    for i, venue_dir in enumerate(venue_dirs, 1):
+        logger.info("\n>>> [%d/%d] %s", i, len(venue_dirs), venue_dir.name)
+
+        latex_dir = venue_dir / "files"
+        if not latex_dir.exists():
+            logger.warning("No downloaded LaTeX data files for: %s", venue_dir)
+            continue
+
+        parse(latex_dir, venue_dir / "parsed", max_items, num_workers, clean)
+
+
+@app.command(no_args_is_help=True)
 def parse(
     input_path: Annotated[
         Path,
