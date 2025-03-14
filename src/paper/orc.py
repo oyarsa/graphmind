@@ -288,23 +288,31 @@ def get_conference_submissions(
 
     Tries both API versions and submissions/blind submissions.
     """
+    clients = [
+        openreview_v2.OpenReviewClient(baseurl="https://api2.openreview.net"),
+        openreview_v1.Client(baseurl="https://api.openreview.net"),
+    ]
     sections = ["Submission", "Blind_Submission"]
+    details = ["replies", "directReplies"]
 
-    client_v2 = openreview_v2.OpenReviewClient(baseurl="https://api2.openreview.net")
-    for section in sections:
-        if submissions := client_v2.get_all_notes(
-            invitation=f"{venue_id}/-/{section}", details="replies"
+    submissions_all: list[openreview_v1.Note | openreview_v2.Note] = []
+
+    for client, section, detail in itertools.product(clients, sections, details):
+        if submissions := client.get_all_notes(
+            invitation=f"{venue_id}/-/{section}", details=detail
         ):
-            return submissions
+            submissions_all.extend(submissions)
 
-    client_v1 = openreview_v1.Client(baseurl="https://api.openreview.net")
-    for section in sections:
-        if submissions := client_v1.get_all_notes(
-            invitation=f"{venue_id}/-/{section}", details="directReplies"
-        ):
-            return submissions
+    # Querying both replies and directReplies might yield duplicate papers, so let's
+    # keep only the first seen.
+    title_to_paper: dict[str, openreview_v1.Note | openreview_v2.Note] = {}
 
-    return []
+    for paper in submissions_all:
+        title: str | None = _get_value(paper.content, "title")  # type: ignore
+        if title and title not in title_to_paper:
+            title_to_paper[title] = paper
+
+    return list(title_to_paper.values())
 
 
 RATING_KEYS = [
@@ -557,6 +565,7 @@ class SentenceSplitter:
         except LookupError:
             # If the tokenizer is not available, download it
             nltk.download("punkt")  # type: ignore
+            nltk.download("punkt_tab")  # type: ignore
 
     def split(self, text: str) -> list[str]:
         """Split text into sentences.
@@ -1494,7 +1503,7 @@ def _find_approval(reviews: list[dict[str, Any]]) -> bool | None:
     """Find the review with a decision, if it exists."""
     for reply in reviews:
         content = reply["content"]
-        if decision := content.get("decision", {}).get("value"):
+        if decision := _get_value(content, "decision"):
             return decision.lower() != "reject"
 
     return None
@@ -1560,7 +1569,7 @@ def _process_reviews(reviews: list[dict[str, Any]]) -> list[pr.PaperReview]:
         other_ratings: dict[str, int] = {
             key: value
             for key, item in content.items()
-            if (value := _rating(item.get("value")))
+            if (value := _rating(_nested_value(item)))
         }
 
         output.append(
@@ -1604,10 +1613,19 @@ def _value[T](
     As the value type is Any, you can use `type_` to make sure the output is of a given
     type, including a custom conversion function.
     """
-    value = item.get(key, {}).get("value", default)
+    value = _nested_value(item.get(key, {}), default)
     if value is None:
         return None
     return type_(value)
+
+
+def _nested_value(
+    value: Any | dict[str, Any], default: Any | None = None
+) -> Any | None:
+    """If `value` is a dict, gets its nested `value` field. Otherwise, returns as-is."""
+    if isinstance(value, dict):
+        return value.get("value", default)
+    return value
 
 
 def _rating(x: Any) -> int | None:
