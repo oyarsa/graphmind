@@ -1495,7 +1495,7 @@ def _find_approval(reviews: list[dict[str, Any]]) -> bool | None:
     """Find the review with a decision, if it exists."""
     for reply in reviews:
         content = reply["content"]
-        if decision := content.get("decision", {}).get("value"):
+        if decision := _get_value(content, "decision"):
             return decision.lower() != "reject"
 
     return None
@@ -1561,7 +1561,7 @@ def _process_reviews(reviews: list[dict[str, Any]]) -> list[pr.PaperReview]:
         other_ratings: dict[str, int] = {
             key: value
             for key, item in content.items()
-            if (value := _rating(item.get("value")))
+            if (value := _rating(_nested_value(item)))
         }
 
         output.append(
@@ -1605,10 +1605,19 @@ def _value[T](
     As the value type is Any, you can use `type_` to make sure the output is of a given
     type, including a custom conversion function.
     """
-    value = item.get(key, {}).get("value", default)
+    value = _nested_value(item.get(key, {}), default)
     if value is None:
         return None
     return type_(value)
+
+
+def _nested_value(
+    value: Any | dict[str, Any], default: Any | None = None
+) -> Any | None:
+    """If `value` is a dict, gets its nested `value` field. Otherwise, returns as-is."""
+    if isinstance(value, dict):
+        return value.get("value", default)
+    return value
 
 
 def _rating(x: Any) -> int | None:
