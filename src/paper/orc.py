@@ -288,23 +288,31 @@ def get_conference_submissions(
 
     Tries both API versions and submissions/blind submissions.
     """
+    clients = [
+        openreview_v2.OpenReviewClient(baseurl="https://api2.openreview.net"),
+        openreview_v1.Client(baseurl="https://api.openreview.net"),
+    ]
     sections = ["Submission", "Blind_Submission"]
+    details = ["replies", "directReplies"]
 
-    client_v2 = openreview_v2.OpenReviewClient(baseurl="https://api2.openreview.net")
-    for section in sections:
-        if submissions := client_v2.get_all_notes(
-            invitation=f"{venue_id}/-/{section}", details="replies"
+    submissions_all: list[openreview_v1.Note | openreview_v2.Note] = []
+
+    for client, section, detail in itertools.product(clients, sections, details):
+        if submissions := client.get_all_notes(
+            invitation=f"{venue_id}/-/{section}", details=detail
         ):
-            return submissions
+            submissions_all.extend(submissions)
 
-    client_v1 = openreview_v1.Client(baseurl="https://api.openreview.net")
-    for section in sections:
-        if submissions := client_v1.get_all_notes(
-            invitation=f"{venue_id}/-/{section}", details="directReplies"
-        ):
-            return submissions
+    # Querying both replies and directReplies might yield duplicate papers, so let's
+    # keep only the first seen.
+    title_to_paper: dict[str, openreview_v1.Note | openreview_v2.Note] = {}
 
-    return []
+    for paper in submissions_all:
+        title: str | None = _get_value(paper.content, "title")  # type: ignore
+        if title and title not in title_to_paper:
+            title_to_paper[title] = paper
+
+    return list(title_to_paper.values())
 
 
 RATING_KEYS = [
