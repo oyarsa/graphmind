@@ -557,6 +557,7 @@ class SentenceSplitter:
         except LookupError:
             # If the tokenizer is not available, download it
             nltk.download("punkt")  # type: ignore
+            nltk.download("punkt_tab")  # type: ignore
 
     def split(self, text: str) -> list[str]:
         """Split text into sentences.
