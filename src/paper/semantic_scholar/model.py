@@ -182,6 +182,7 @@ class PaperWithS2Refs(Record):
     ]
     rating: Annotated[int, Field(description="Novelty rating")]
     rationale: Annotated[str, Field(description="Rationale for the novelty rating")]
+    year: Annotated[int | None, Field(description="Paper publication year")] = None
 
     @computed_field
     @property
@@ -217,6 +218,7 @@ class PaperWithS2Refs(Record):
             references=s2_references,
             rating=peer.rating,
             rationale=peer.rationale,
+            year=peer.year,
         )
 
 
@@ -238,6 +240,7 @@ class PeerReadPaperWithS2(pr.Paper):
             approval=pr.approval,
             references=pr.references,
             conference=pr.conference,
+            year=pr.year,
             s2=s2_result,
             fuzz_ratio=title_ratio(pr.title, s2_result.title),
         )

@@ -58,6 +58,7 @@ class _PaperMetadata(BaseModel):
     sections: Sequence[PaperSection]
     references: Sequence[PaperReference]
     conference: str
+    year: int | None
 
 
 def _merge_section(subsections: Sequence[PaperSection]) -> PaperSection | None:
@@ -248,6 +249,7 @@ def _process_metadata(
             continue
 
         authors = get_icase(data, "authors", list[str]())
+        year = get_icase(data, "year")
 
         metadata_valid.append(
             _PaperMetadata(
@@ -258,6 +260,7 @@ def _process_metadata(
                 sections=_group_sections(sections),
                 references=_process_references(data),
                 conference=conference,
+                year=year,
             )
         )
 
@@ -332,6 +335,7 @@ def _merge_review_metadata(
                 references=metadata.references,
                 conference=metadata.conference,
                 approval=review.accepted,
+                year=metadata.year,
                 reviews=[
                     PaperReview(
                         rating=r.rating,

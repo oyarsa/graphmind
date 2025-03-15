@@ -281,6 +281,7 @@ class PaperWithContextClassfied(Record):
             description="S2 paper referenced in the paper with their contexts classified."
         ),
     ]
+    year: Annotated[int | None, Field(description="Paper publication year")] = None
 
     @property
     def id(self) -> str:
@@ -392,6 +393,7 @@ async def _classify_paper(
             rationale=paper.rationale,
             rating=paper.rating,
             references=classified_references,
+            year=paper.year,
         ),
     )
     return GPTResult(result, total_cost)
