@@ -230,20 +230,16 @@ def downsample(
 
     console = Console(file=sys.stderr)
 
-    # Print input distribution and target ratios
+    # Print input distribution
     table_input = Table(title="Input distribution")
     table_input.add_column("Value", style="cyan")
     table_input.add_column("Count", style="magenta", justify="right")
     table_input.add_column("Current %", style="green", justify="right")
-    table_input.add_column("Target %", style="yellow", justify="right")
 
-    for i, value in enumerate(unique_values):
+    for value in unique_values:
         items = grouped_data[value]
         current_percent = (len(items) / len(data)) * 100
-        target_percent = ratio_values[i]
-        table_input.add_row(
-            str(value), str(len(items)), f"{current_percent:.1f}%", f"{target_percent}%"
-        )
+        table_input.add_row(str(value), str(len(items)), f"{current_percent:.1f}%")
 
     console.print(table_input)
 
@@ -280,15 +276,11 @@ def downsample(
     table_output.add_column("Value", style="cyan")
     table_output.add_column("Count", style="magenta", justify="right")
     table_output.add_column("Actual %", style="green", justify="right")
-    table_output.add_column("Target %", style="yellow", justify="right")
 
-    for i, value in enumerate(unique_values):
+    for value in unique_values:
         count = sum(1 for item in output_data if get_key_value(item) == value)
         actual_percent = (count / len(output_data)) * 100
-        target_percent = ratio_values[i]
-        table_output.add_row(
-            str(value), str(count), f"{actual_percent:.1f}%", f"{target_percent}%"
-        )
+        table_output.add_row(str(value), str(count), f"{actual_percent:.1f}%")
 
     console.print(table_output)
 
