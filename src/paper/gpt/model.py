@@ -814,3 +814,23 @@ class PaperRelatedSummarised(Record):
             score=related.score,
             polarity=peerread.ContextPolarity(related.polarity),
         )
+
+
+class S2PaperWithACUs(Record):
+    """Paper with extract atomic content units (ACUs)."""
+
+    paper: s2.Paper
+    acus: Sequence[str]
+    salient_acus: Sequence[str]
+
+    @classmethod
+    def from_(
+        cls, paper: s2.Paper, acus: Sequence[str], salient: Sequence[str]
+    ) -> Self:
+        """New paper with extracted ACUs."""
+        return cls(paper=paper, acus=acus, salient_acus=salient)
+
+    @property
+    @override
+    def id(self) -> str:
+        return self.paper.id

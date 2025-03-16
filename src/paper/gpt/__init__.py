@@ -6,4 +6,5 @@ from paper.gpt.classify_contexts import (
 from paper.gpt.model import PaperAnnotated as PaperAnnotated
 from paper.gpt.model import PaperTerms as PaperTerms
 from paper.gpt.model import PeerReadAnnotated as PeerReadAnnotated
+from paper.gpt.model import S2PaperWithACUs as S2PaperWithACUs
 from paper.gpt.run_gpt import PromptResult as PromptResult
