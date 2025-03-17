@@ -39,6 +39,11 @@ class Encoder:
             model_name, device=device or _get_best_device()
         )
 
+    @property
+    def dimensions(self) -> int | None:
+        """Dimensions of the embeddings of the model."""
+        return self._model.get_sentence_embedding_dimension()
+
     @overload
     def encode(self, text: str) -> Vector: ...
 
