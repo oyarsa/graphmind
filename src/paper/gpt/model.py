@@ -817,7 +817,7 @@ class PaperRelatedSummarised(Record):
 
 
 class S2PaperWithACUs(Record):
-    """Paper with extract atomic content units (ACUs)."""
+    """S2 Paper with extract atomic content units (ACUs)."""
 
     paper: s2.Paper
     acus: Sequence[str]
@@ -826,6 +826,26 @@ class S2PaperWithACUs(Record):
     @classmethod
     def from_(
         cls, paper: s2.Paper, acus: Sequence[str], salient: Sequence[str]
+    ) -> Self:
+        """New paper with extracted ACUs."""
+        return cls(paper=paper, acus=acus, salient_acus=salient)
+
+    @property
+    @override
+    def id(self) -> str:
+        return self.paper.id
+
+
+class PeerPaperWithACUs(Record):
+    """PeerRead Paper with extract atomic content units (ACUs)."""
+
+    paper: peerread.Paper
+    acus: Sequence[str]
+    salient_acus: Sequence[str]
+
+    @classmethod
+    def from_(
+        cls, paper: peerread.Paper, acus: Sequence[str], salient: Sequence[str]
     ) -> Self:
         """New paper with extracted ACUs."""
         return cls(paper=paper, acus=acus, salient_acus=salient)
