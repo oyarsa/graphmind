@@ -116,7 +116,11 @@ class VectorDatabase:
     def search(
         self, query_sentences: Iterable[str], k: int = 5, threshold: float = 0.7
     ) -> list[SearchResult]:
-        """Search sentences in database. Returns top K with similarity over `threshold`."""
+        """Search sentences in database. Returns top K with similarity over `threshold`.
+
+        Excludes exact matches (same sentence) from results to avoid retrieving the
+        original query sentence when searching within the dataset used to build the database.
+        """
         results: list[SearchResult] = []
 
         for batch in itertools.batched(query_sentences, self.batch_size):
@@ -128,19 +132,22 @@ class VectorDatabase:
                 zip(scores, indices)
             ):
                 matches: list[SearchMatch] = []
+                query_sentence = batch[q_idx]
 
                 for score, idx in zip(sentence_scores, sentence_indices):
                     if score >= threshold and idx < len(self.sentence_map):
                         original_sentence, doc_id = self.sentence_map[idx]
-                        matches.append(
-                            SearchMatch(
-                                sentence=original_sentence,
-                                score=float(score),
-                                doc_id=doc_id,
+                        # Skip exact matches to avoid retrieving the original sentence
+                        if original_sentence != query_sentence:
+                            matches.append(
+                                SearchMatch(
+                                    sentence=original_sentence,
+                                    score=float(score),
+                                    doc_id=doc_id,
+                                )
                             )
-                        )
 
-                results.append(SearchResult(query=batch[q_idx], matches=matches))
+                results.append(SearchResult(query=query_sentence, matches=matches))
 
         return results
 
