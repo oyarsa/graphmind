@@ -36,8 +36,11 @@ class SearchMatch(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     sentence: str
+    """Sentence retrieved from the database."""
     score: float
+    """Similarity score with the query."""
     doc_id: int
+    """Index of the document where the sentence came from."""
 
 
 class SearchResult(BaseModel):
@@ -46,7 +49,9 @@ class SearchResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     query: str
+    """Sentence used to query the database."""
     matches: list[SearchMatch]
+    """Retrieved sentences with scores."""
 
 
 class VectorDatabase:
@@ -55,6 +60,15 @@ class VectorDatabase:
     _INDEX_FILE = "index.faiss"
     _METADATA_FILE = "metadata.json"
 
+    encoder: emb.Encoder
+    """Encoder model used to generate vector embeddings for sentences."""
+    index: faiss.IndexFlatIP
+    """Index for vector search."""
+    sentence_map: list[tuple[str, int]]
+    """Pairs of (sentence, document index)."""
+    batch_size: int
+    """Size of the batch during database construction."""
+
     def __init__(
         self,
         encoder: emb.Encoder,
@@ -62,6 +76,7 @@ class VectorDatabase:
         sentence_map: list[tuple[str, int]],
         batch_size: int,
     ) -> None:
+        """Use `VectorDatabase.load` or `VectorDatabase.empty` to construct a new DB."""
         self.encoder = encoder
         self.index = index
         self.sentence_map = sentence_map
@@ -69,7 +84,7 @@ class VectorDatabase:
 
     @classmethod
     def empty(cls, encoder: emb.Encoder, batch_size: int = 1000) -> Self:
-        """Create a new empty vector database with the given vectorizer."""
+        """Create a new empty vector database with the given encoder."""
         index = faiss.IndexFlatIP(encoder.dimensions)
         return cls(encoder=encoder, index=index, sentence_map=[], batch_size=batch_size)
 
@@ -112,7 +127,6 @@ class VectorDatabase:
             for q_idx, (sentence_scores, sentence_indices) in enumerate(
                 zip(scores, indices)
             ):
-                # Filter by threshold and create results
                 matches: list[SearchMatch] = []
 
                 for score, idx in zip(sentence_scores, sentence_indices):
@@ -131,7 +145,12 @@ class VectorDatabase:
         return results
 
     def save(self, db_dir: Path) -> None:
-        """Save database index and metadata to `db_dir`."""
+        """Save database to `db_dir`.
+
+        Saves two files:
+        - `_INDEX_FILE`: indexed vectors.
+        - `_METADATA_FILE`: other information needed to construct the database.
+        """
         db_dir.mkdir(parents=True, exist_ok=True)
 
         index_path = db_dir / self._INDEX_FILE
@@ -184,7 +203,9 @@ def build(
         total_docs += len(doc_batch)
 
     db.save(output_dir)
-    logger.info(f"Done: {total_sentences} sentences from {total_docs} documents")
+    logger.info(
+        f"Built database with {total_sentences} sentences from {total_docs} documents"
+    )
 
 
 type PaperWithACUs = gpt.S2PaperWithACUs | gpt.PeerPaperWithACUs
