@@ -26,7 +26,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = typer.Typer()
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
+    help=__doc__,
+)
 
 
 class SentenceVectorizer:
@@ -164,7 +171,7 @@ class VectorDatabase:
         )
 
 
-@app.command()
+@app.command(no_args_is_help=True)
 def build(
     input_file: Annotated[
         Path, typer.Argument(help="Input JSON file with documents to index")
@@ -230,7 +237,7 @@ class PaperResult(BaseModel):
     results: list[SearchResult]
 
 
-@app.command()
+@app.command(no_args_is_help=True)
 def query(
     db_file: Annotated[Path, typer.Argument(help="Vector database file")],
     input_file: Annotated[
