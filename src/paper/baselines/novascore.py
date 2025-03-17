@@ -10,20 +10,15 @@ from pathlib import Path
 from typing import Annotated, Self
 
 import faiss  # type: ignore
-import numpy as np
-import numpy.typing as npt
 import typer
 from pydantic import BaseModel, ConfigDict
-from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
+from paper import embedding as emb
 from paper import gpt
+from paper.util import setup_logging
 from paper.util.serde import load_data, save_data
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 app = typer.Typer(
@@ -32,23 +27,7 @@ app = typer.Typer(
     rich_markup_mode="rich",
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,
-    help=__doc__,
 )
-
-
-class SentenceVectorizer:
-    """Vector encoder for sentences."""
-
-    def __init__(self, model_name: str, batch_size: int) -> None:
-        self.model_name = model_name
-        self.model = SentenceTransformer(model_name)
-        self.batch_size = batch_size
-        self.dimension = self.model.get_sentence_embedding_dimension()
-
-    def encode_batch(self, sentences: Iterable[str]) -> npt.NDArray[np.float32]:
-        """Encode list of sentences into embedding matrix."""
-        tensor = self.model.encode(list(sentences), show_progress_bar=False)
-        return np.array(tensor).astype("float32")
 
 
 class SearchMatch(BaseModel):
@@ -78,20 +57,21 @@ class VectorDatabase:
 
     def __init__(
         self,
-        vectorizer: SentenceVectorizer,
+        encoder: emb.Encoder,
         index: faiss.IndexFlatIP,
         sentence_map: list[tuple[str, int]],
+        batch_size: int,
     ) -> None:
-        """Private constructor - use factory methods instead."""
-        self.vectorizer = vectorizer
+        self.encoder = encoder
         self.index = index
         self.sentence_map = sentence_map
+        self.batch_size = batch_size
 
     @classmethod
-    def empty(cls, vectorizer: SentenceVectorizer) -> "VectorDatabase":
+    def empty(cls, encoder: emb.Encoder, batch_size: int = 1000) -> Self:
         """Create a new empty vector database with the given vectorizer."""
-        index = faiss.IndexFlatIP(vectorizer.dimension)
-        return cls(vectorizer=vectorizer, index=index, sentence_map=[])
+        index = faiss.IndexFlatIP(encoder.dimensions)
+        return cls(encoder=encoder, index=index, sentence_map=[], batch_size=batch_size)
 
     @classmethod
     def load(cls, db_dir: Path) -> Self:
@@ -105,34 +85,29 @@ class VectorDatabase:
 
         return cls(
             index=index,
-            vectorizer=SentenceVectorizer(
-                model_name=metadata["model_name"],
-                batch_size=metadata["batch_size"],
-            ),
+            encoder=emb.Encoder(metadata["model_name"]),
             sentence_map=metadata["sentence_map"],
+            batch_size=metadata["batch_size"],
         )
 
     def add_sentences(self, sentences: Iterable[str], doc_id: int) -> None:
         """Add sentences to index."""
-        for batch in itertools.batched(sentences, self.vectorizer.batch_size):
+        for batch in itertools.batched(sentences, self.batch_size):
             for sentence in batch:
                 self.sentence_map.append((sentence, doc_id))
 
-            self.index.add(self.vectorizer.encode_batch(batch))  # type: ignore
+            self.index.add(self.encoder.encode(batch))  # type: ignore
 
     def search(
         self, query_sentences: Iterable[str], k: int = 5, threshold: float = 0.7
     ) -> list[SearchResult]:
         """Search sentences in database. Returns top K with similarity over `threshold`."""
         results: list[SearchResult] = []
-        batch_size = self.vectorizer.batch_size
 
-        for batch in itertools.batched(query_sentences, batch_size):
-            query_vectors = self.vectorizer.encode_batch(batch)
+        for batch in itertools.batched(query_sentences, self.batch_size):
+            query_vectors = self.encoder.encode(batch)
 
-            scores, indices = self.index.search(  # type: ignore
-                np.array(query_vectors).astype("float32"), k
-            )
+            scores, indices = self.index.search(query_vectors, k)  # type: ignore
 
             for q_idx, (sentence_scores, sentence_indices) in enumerate(
                 zip(scores, indices)
@@ -164,8 +139,8 @@ class VectorDatabase:
 
         (db_dir / self._METADATA_FILE).write_text(
             json.dumps({
-                "batch_size": self.vectorizer.batch_size,
-                "model_name": self.vectorizer.model_name,
+                "batch_size": self.batch_size,
+                "model_name": self.encoder.model_name,
                 "sentence_map": self.sentence_map,
             })
         )
@@ -174,22 +149,24 @@ class VectorDatabase:
 @app.command(no_args_is_help=True)
 def build(
     input_file: Annotated[
-        Path, typer.Argument(help="Input JSON file with documents to index")
+        Path,
+        typer.Option("--input", "-i", help="Input JSON file with documents to index."),
     ],
-    output_file: Annotated[
-        Path, typer.Argument(help="Output file where to save the vector database")
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output directory where to save the vector database files.",
+        ),
     ],
     model: Annotated[
         str, typer.Option(help="Name of the sentence transformer model")
-    ] = "all-MiniLM-L6-v2",
+    ] = "all-mpnet-base-v2",
     batch_size: Annotated[int, typer.Option(help="Batch size for processing")] = 1000,
 ) -> None:
     """Build a vector database from sentences in the acus field of input JSON documents."""
-    logger.info(f"Building vector database from {input_file} using model {model}")
-
-    db = VectorDatabase.empty(
-        SentenceVectorizer(model_name=model, batch_size=batch_size)
-    )
+    db = VectorDatabase.empty(emb.Encoder(model), batch_size)
 
     input_data = load_data(input_file, gpt.PromptResult[gpt.S2PaperWithACUs])
     input_batches = list(itertools.batched(input_data, batch_size))
@@ -206,7 +183,7 @@ def build(
 
         total_docs += len(doc_batch)
 
-    db.save(output_file)
+    db.save(output_dir)
     logger.info(f"Done: {total_sentences} sentences from {total_docs} documents")
 
 
@@ -239,21 +216,24 @@ class PaperResult(BaseModel):
 
 @app.command(no_args_is_help=True)
 def query(
-    db_file: Annotated[Path, typer.Argument(help="Vector database file")],
-    input_file: Annotated[
-        Path, typer.Argument(help="Input JSON file with query documents")
+    db_dir: Annotated[
+        Path, typer.Option("--db", help="Directory with vector database files.")
     ],
-    output_file: Annotated[Path, typer.Argument(help="Output JSON file for results")],
-    top_k: Annotated[int, typer.Option(help="Number of top matches to return")] = 5,
-    threshold: Annotated[float, typer.Option(help="Similarity threshold")] = 0.7,
+    input_file: Annotated[
+        Path,
+        typer.Option("--input", "-i", help="Input JSON file with query documents."),
+    ],
+    output_file: Annotated[
+        Path, typer.Option("--output", "-o", help="Output JSON file for results.")
+    ],
+    top_k: Annotated[int, typer.Option(help="Number of top matches to return.")] = 5,
+    threshold: Annotated[float, typer.Option(help="Similarity threshold.")] = 0.7,
     paper_type: Annotated[
-        PaperType, typer.Option(help="Type of paper for the input data")
+        PaperType, typer.Option(help="Type of paper for the input data.")
     ] = PaperType.S2,
 ) -> None:
-    """Query the vector database with sentences from the acus field of query documents."""
-    logger.info(f"Querying vector database {db_file} with documents from {input_file}")
-
-    db = VectorDatabase.load(db_file)
+    """Query the vector database with sentences from the papers ACUs."""
+    db = VectorDatabase.load(db_dir)
 
     logger.info(f"Loading input documents from {input_file}")
     input_docs = load_data(input_file, gpt.PromptResult[paper_type.get_type()])
@@ -273,6 +253,11 @@ def query(
     save_data(output_file, results)
 
 
+@app.callback(help=__doc__)
+def main() -> None:
+    """Empty callback for documentation."""
+    setup_logging()
+
+
 if __name__ == "__main__":
-    app.callback()(lambda: None)
     app()
