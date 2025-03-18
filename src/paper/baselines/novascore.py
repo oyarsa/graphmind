@@ -11,12 +11,14 @@ from typing import Annotated, Self
 
 import faiss  # type: ignore
 import typer
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 from tqdm import tqdm
 
 from paper import embedding as emb
 from paper import gpt
-from paper.util import setup_logging
+from paper.gpt.evaluate_paper import calculate_paper_metrics, display_metrics
+from paper.gpt.model import PeerPaperWithACUs
+from paper.util import get_params, render_params, setup_logging
 from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
@@ -400,6 +402,121 @@ def query(
 
     logger.info(f"Processed {len(results)} documents with {total_queries} queries.")
     save_data(output_file, results)
+
+
+def _evaluate_paper(
+    db: VectorDatabase,
+    paper: PaperWithACUs,
+    *,
+    threshold: float,
+    alpha: float,
+    beta: float,
+    gamma: float,
+) -> float:
+    salient_acus = set(paper.salient_acus)
+
+    salience_ratio = len(salient_acus) / len(paper.acus)
+    weight_salient = 1
+
+    weight_nonsalient = min(
+        weight_salient,
+        alpha * (salience_ratio - beta) ** 3 + gamma,
+    )
+
+    acu_novelty_matches = db.find_best(paper.acus, threshold=threshold)
+    total_score = 0.0
+    for acu, match in zip(paper.acus, acu_novelty_matches):
+        novelty = match is None
+        salience = acu in salient_acus
+
+        total_score += novelty * (
+            weight_salient * salience + weight_nonsalient * (1 - salience)
+        )
+
+    return total_score / len(paper.acus)
+
+
+class PaperEvaluated(BaseModel):
+    """Result of querying paper ACUs in vector database."""
+
+    model_config = ConfigDict(frozen=True)
+
+    paper: PeerPaperWithACUs
+    """Original PeerRead input paper with extracted ACUs."""
+    novascore: float
+    """Score derived from the NovaSCORE method."""
+    novalabel: int
+    """Binary version of the score given a threshold."""
+
+    @property
+    @computed_field
+    def y_true(self) -> int:
+        """Gold label for novelty (binary)."""
+        return self.paper.paper.label
+
+    @property
+    @computed_field
+    def y_pred(self) -> int:
+        """Predicted label for novelty (binary)."""
+        return self.novalabel
+
+
+@app.command(no_args_is_help=True)
+def evaluate(
+    db_dir: Annotated[
+        Path, typer.Option("--db", help="Directory with vector database files.")
+    ],
+    input_file: Annotated[
+        Path,
+        typer.Option("--input", "-i", help="Input JSON file with query documents."),
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Output directory to save the results."),
+    ],
+    sim_threshold: Annotated[float, typer.Option(help="Similarity threshold.")] = 0.7,
+    limit_papers: Annotated[
+        int | None,
+        typer.Option("--limit", "-n", help="The number of papers to process."),
+    ] = 10,
+    # TODO: figure out weights and threshold
+    score_threshold: Annotated[
+        float, typer.Option(help="NovaSCORE threshold for binary novelty.")
+    ] = 0.5,
+    alpha: Annotated[float, typer.Option(help="NovaSCORE parameter.")] = 0,
+    beta: Annotated[float, typer.Option(help="NovaSCORE parameter.")] = 0,
+    gamma: Annotated[float, typer.Option(help="NovaSCORE parameter.")] = 0,
+) -> None:
+    """Query the vector database with sentences from the papers ACUs."""
+    params = get_params()
+    logger.info(render_params(params))
+
+    if limit_papers == 0:
+        limit_papers = None
+
+    db = VectorDatabase.load(db_dir)
+    papers = gpt.PromptResult.unwrap(
+        load_data(input_file, gpt.PromptResult[PeerPaperWithACUs])
+    )[:limit_papers]
+
+    results: list[PaperEvaluated] = []
+
+    for paper in tqdm(papers, desc="Processing documents"):
+        score = _evaluate_paper(
+            db, paper, threshold=sim_threshold, alpha=alpha, beta=beta, gamma=gamma
+        )
+        results.append(
+            PaperEvaluated(
+                paper=paper, novascore=score, novalabel=int(score > score_threshold)
+            )
+        )
+
+    metrics = calculate_paper_metrics(results, 0)
+    logger.info("%s\n", display_metrics(metrics, results))
+
+    save_data(output_dir / "result.json", results)
+    save_data(output_dir / "metrics.json", metrics)
+    save_data(output_dir / "params.json", params)
 
 
 @app.callback(help=__doc__)
