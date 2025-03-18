@@ -255,8 +255,6 @@ async def _extract_acus(
 class _GPTACU(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    # I believe the summary is only here to ensure the model "understands" the text. We
-    # don't use it, only the ACUs.
     summary: Annotated[str, Field(description="Document summary.")]
     all_acus: Annotated[list[str], Field(description="Array of ACU strings.")]
     salient_acus: Annotated[
@@ -297,7 +295,9 @@ async def _extract_acu_single(
 
     return GPTResult(
         result=PromptResult(
-            item=S2PaperWithACUs.from_(paper, item.all_acus, item.salient_acus),
+            item=S2PaperWithACUs.from_(
+                paper, item.all_acus, item.salient_acus, item.summary
+            ),
             prompt=Prompt(system=_EXTRACT_ACU_SYSTEM_PROMPT, user=user_prompt_text),
         ),
         cost=result.cost,

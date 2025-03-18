@@ -822,13 +822,14 @@ class S2PaperWithACUs(Record):
     paper: s2.Paper
     acus: Sequence[str]
     salient_acus: Sequence[str]
+    summary: str
 
     @classmethod
     def from_(
-        cls, paper: s2.Paper, acus: Sequence[str], salient: Sequence[str]
+        cls, paper: s2.Paper, acus: Sequence[str], salient: Sequence[str], summary: str
     ) -> Self:
         """New paper with extracted ACUs."""
-        return cls(paper=paper, acus=acus, salient_acus=salient)
+        return cls(paper=paper, acus=acus, salient_acus=salient, summary=summary)
 
     @property
     @override
@@ -842,13 +843,18 @@ class PeerPaperWithACUs(Record):
     paper: peerread.Paper
     acus: Sequence[str]
     salient_acus: Sequence[str]
+    summary: str
 
     @classmethod
     def from_(
-        cls, paper: peerread.Paper, acus: Sequence[str], salient: Sequence[str]
+        cls,
+        paper: peerread.Paper,
+        acus: Sequence[str],
+        salient: Sequence[str],
+        summary: str,
     ) -> Self:
         """New paper with extracted ACUs."""
-        return cls(paper=paper, acus=acus, salient_acus=salient)
+        return cls(paper=paper, acus=acus, salient_acus=salient, summary=summary)
 
     @property
     @override
