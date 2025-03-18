@@ -57,8 +57,10 @@ class SearchResult(BaseModel):
 class VectorDatabase:
     """Database for embedded sentences."""
 
-    _INDEX_FILE = "index.faiss"
-    _METADATA_FILE = "metadata.json"
+    INDEX_FILE = "index.faiss"
+    """File with indexed documents with vector embeddings."""
+    METADATA_FILE = "metadata.json"
+    """File with JSON metadata needed to construct the database."""
 
     encoder: emb.Encoder
     """Encoder model used to generate vector embeddings for sentences."""
@@ -90,10 +92,15 @@ class VectorDatabase:
 
     @classmethod
     def load(cls, db_dir: Path) -> Self:
-        """Load a vector database from disk."""
+        """Load a vector database from disk.
 
-        index_path = db_dir / cls._INDEX_FILE
-        metadata_path = db_dir / cls._METADATA_FILE
+        Expects the following files inside `db_dir`:
+        - `VectorDatabase.INDEX_FILE`
+        - `VectorDatabase.METADATA_FILE`
+        """
+
+        index_path = db_dir / cls.INDEX_FILE
+        metadata_path = db_dir / cls.METADATA_FILE
 
         index = faiss.read_index(str(index_path))
         metadata = json.loads(metadata_path.read_bytes())
@@ -155,15 +162,15 @@ class VectorDatabase:
         """Save database to `db_dir`.
 
         Saves two files:
-        - `_INDEX_FILE`: indexed vectors.
-        - `_METADATA_FILE`: other information needed to construct the database.
+        - `VectorDatabase.INDEX_FILE`
+        - `VectorDatabase.METADATA_FILE`
         """
         db_dir.mkdir(parents=True, exist_ok=True)
 
-        index_path = db_dir / self._INDEX_FILE
+        index_path = db_dir / self.INDEX_FILE
         faiss.write_index(self.index, str(index_path))
 
-        (db_dir / self._METADATA_FILE).write_text(
+        (db_dir / self.METADATA_FILE).write_text(
             json.dumps({
                 "batch_size": self.batch_size,
                 "model_name": self.encoder.model_name,
