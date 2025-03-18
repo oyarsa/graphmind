@@ -90,7 +90,7 @@ class VectorDatabase:
 
         Args:
             encoder: Method used to convert input sentences to vectors.
-            batch_size: Number of sentences per batch when adding senteces to the index.
+            batch_size: Number of sentences per batch when adding sentences to the index.
         """
         index = faiss.IndexFlatIP(encoder.dimensions)
         return cls(encoder=encoder, index=index, sentence_map=[], batch_size=batch_size)
@@ -135,36 +135,41 @@ class VectorDatabase:
         k: int = 5,
         threshold: float = 0.7,
         query_doc_id: str | None = None,
+        max_retrieval_factor: int = 5,
     ) -> list[SearchResult]:
         """Search sentences in database. Returns top `k` with similarity over `threshold`.
 
         Excludes matches from the same document (based on document ID) to avoid
         retrieving sentences from the same paper when searching within the dataset used
         to build the database.
+
+        Uses batch processing for efficient vector search with a retrieval factor
+        multiplier to ensure enough matches after filtering.
         """
+        actual_k = k * max_retrieval_factor
         results: list[SearchResult] = []
 
         for sentences_batch in itertools.batched(query_sentences, self.batch_size):
             query_vectors = self.encoder.encode(sentences_batch)
 
-            scores: list[list[float]]
-            indices: list[list[int]]
-            # Use K*2 to account for cases that will be removed because they're from the
-            # same document. We're out of luck if all top K*2 are from the same document.
-            scores, indices = self.index.search(query_vectors, k * 2)  # type: ignore
+            # Initial batch search with larger k to account for filtering
+            scores_batch: list[list[float]]
+            indices_batch: list[list[int]]
+            scores_batch, indices_batch = self.index.search(query_vectors, actual_k)  # type: ignore
 
-            for query_sentence, sentence_scores, sentence_indices in zip(
-                sentences_batch, scores, indices, strict=True
+            for query_sentence, scores, indices in zip(
+                sentences_batch, scores_batch, indices_batch
             ):
                 matches: list[SearchMatch] = []
 
-                for score, idx in zip(sentence_scores, sentence_indices):
-                    if score < threshold:
+                for score, idx in zip(scores, indices):
+                    # Skip if score is below threshold or index is invalid
+                    if score < threshold or idx >= len(self.sentence_map):
                         continue
 
                     original_sentence, doc_id = self.sentence_map[idx]
-                    # Skip matches from the same document to avoid retrieving sentences
-                    # from the same paper
+
+                    # Skip matches from the same document
                     if doc_id == query_doc_id:
                         continue
 
@@ -176,6 +181,15 @@ class VectorDatabase:
                         )
                     )
 
+                if len(matches) < k:
+                    logger.warning(
+                        "Not enough matches for sentence after retrieving %d results."
+                        " Query document ID: %s",
+                        actual_k,
+                        query_doc_id,
+                    )
+
+                # Sort by score and take top k
                 matches.sort(key=lambda m: m.score, reverse=True)
                 results.append(SearchResult(query=query_sentence, matches=matches[:k]))
 
