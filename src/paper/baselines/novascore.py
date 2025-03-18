@@ -96,10 +96,11 @@ class VectorDatabase:
         return cls(encoder=encoder, index=index, sentence_map=[], batch_size=batch_size)
 
     @classmethod
-    def load(cls, db_dir: Path) -> Self:
+    def load(cls, db_dir: Path, batch_size: int | None = None) -> Self:
         """Load a vector database from disk.
 
-        Expects the files created by `save`.
+        Expects the files created by `save`. If `batch_size` is given, it overrides the
+        one from the metadata.
         """
 
         index_path = db_dir / cls.INDEX_FILE
@@ -112,7 +113,7 @@ class VectorDatabase:
             index=index,
             encoder=emb.Encoder(metadata["model_name"]),
             sentence_map=metadata["sentence_map"],
-            batch_size=metadata["batch_size"],
+            batch_size=batch_size or int(metadata["batch_size"]),
         )
 
     def add_sentences(self, sentences: Iterable[str], doc_id: str) -> None:
@@ -233,6 +234,9 @@ def build(
             help="Output directory where to save the vector database files.",
         ),
     ],
+    db_dir: Annotated[
+        Path | None, typer.Option("--db", help="Directory with vector database files.")
+    ] = None,
     model: Annotated[
         str, typer.Option(help="Name of the sentence transformer model")
     ] = "all-mpnet-base-v2",
@@ -241,8 +245,15 @@ def build(
         PaperType, typer.Option(help="Type of paper for the input data.")
     ] = PaperType.S2,
 ) -> None:
-    """Build a vector database from sentences in the acus field of input JSON documents."""
-    db = VectorDatabase.empty(emb.Encoder(model), batch_size)
+    """Build a vector database from sentences in the acus field of input JSON documents.
+
+    If `--db` is given, we load an existing database and add to it. If not, we create
+    a new from scratch with `--model`.
+    """
+    if db_dir is not None:
+        db = VectorDatabase.load(db_dir, batch_size)
+    else:
+        db = VectorDatabase.empty(emb.Encoder(model), batch_size)
 
     input_data = load_data(input_file, gpt.PromptResult[paper_type.get_type()])
     input_batches = list(itertools.batched(input_data, batch_size))
