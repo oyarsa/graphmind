@@ -201,6 +201,24 @@ class VectorDatabase:
         )
 
 
+type PaperWithACUs = gpt.S2PaperWithACUs | gpt.PeerPaperWithACUs
+
+
+class PaperType(StrEnum):
+    """Whether the paper came from the S2 API or PeerRead dataset."""
+
+    S2 = "s2"
+    PeerRead = "peerread"
+
+    def get_type(self) -> type[PaperWithACUs]:
+        """Returns concrete model type for the paper."""
+        match self:
+            case self.S2:
+                return gpt.S2PaperWithACUs
+            case self.PeerRead:
+                return gpt.PeerPaperWithACUs
+
+
 @app.command(no_args_is_help=True)
 def build(
     input_file: Annotated[
@@ -219,11 +237,14 @@ def build(
         str, typer.Option(help="Name of the sentence transformer model")
     ] = "all-mpnet-base-v2",
     batch_size: Annotated[int, typer.Option(help="Batch size for processing")] = 1000,
+    paper_type: Annotated[
+        PaperType, typer.Option(help="Type of paper for the input data.")
+    ] = PaperType.S2,
 ) -> None:
     """Build a vector database from sentences in the acus field of input JSON documents."""
     db = VectorDatabase.empty(emb.Encoder(model), batch_size)
 
-    input_data = load_data(input_file, gpt.PromptResult[gpt.S2PaperWithACUs])
+    input_data = load_data(input_file, gpt.PromptResult[paper_type.get_type()])
     input_batches = list(itertools.batched(input_data, batch_size))
 
     total_docs = 0
@@ -241,24 +262,6 @@ def build(
     logger.info(
         f"Built database with {total_sentences} sentences from {total_docs} documents"
     )
-
-
-type PaperWithACUs = gpt.S2PaperWithACUs | gpt.PeerPaperWithACUs
-
-
-class PaperType(StrEnum):
-    """Whether the paper came from the S2 API or PeerRead dataset."""
-
-    S2 = "s2"
-    PeerRead = "peerread"
-
-    def get_type(self) -> type[PaperWithACUs]:
-        """Returns concrete model type for the paper."""
-        match self:
-            case self.S2:
-                return gpt.S2PaperWithACUs
-            case self.PeerRead:
-                return gpt.PeerPaperWithACUs
 
 
 class PaperResult(BaseModel):
