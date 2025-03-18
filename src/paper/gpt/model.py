@@ -702,6 +702,21 @@ class PaperTerms(BaseModel):
 type PaperToAnnotate = s2.Paper | s2.PaperWithS2Refs
 
 
+class PaperType(StrEnum):
+    """Whether the paper came from the S2 API or PeerRead dataset."""
+
+    S2 = "s2"
+    PeerRead = "peerread"
+
+    def get_type(self) -> type[PaperToAnnotate]:
+        """Returns concrete model type for the paper."""
+        match self:
+            case self.S2:
+                return s2.Paper
+            case self.PeerRead:
+                return s2.PaperWithS2Refs
+
+
 class PaperAnnotated(Record):
     """`PaperToAnnotate` with its annotated key terms. Includes GPT prompts used."""
 
