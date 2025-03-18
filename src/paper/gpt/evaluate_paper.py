@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from enum import StrEnum
 from importlib import resources
 from pathlib import Path
-from typing import Annotated, Self, cast
+from typing import Annotated, Protocol, Self, cast
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
@@ -98,8 +98,22 @@ class PaperMetrics(evaluation_metrics.Metrics):
         )
 
 
+class Evaluated(Protocol):
+    """Object with `y_true` and `y_pred` fields."""
+
+    @property
+    def y_true(self) -> int:
+        """Gold label."""
+        ...
+
+    @property
+    def y_pred(self) -> int:
+        """Predicted label."""
+        ...
+
+
 def calculate_paper_metrics(
-    papers: Sequence[PaperResult], cost: float
+    papers: Sequence[Evaluated], cost: float
 ) -> evaluation_metrics.Metrics:
     """Calculate evaluation metrics, including how much it cost.
 
@@ -114,7 +128,7 @@ def calculate_paper_metrics(
 
 
 def display_metrics(
-    metrics: evaluation_metrics.Metrics, results: Sequence[PaperResult]
+    metrics: evaluation_metrics.Metrics, results: Sequence[Evaluated]
 ) -> str:
     """Display metrics and distribution statistics from the results.
 
