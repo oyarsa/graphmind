@@ -346,9 +346,6 @@ def build(
     batch_size: Annotated[
         int, typer.Option(help="Batch size for processing")
     ] = DEFAULT_BATCH_SIZE,
-    paper_type: Annotated[
-        gpt.PaperACUType, typer.Option(help="Type of paper for the input data.")
-    ] = gpt.PaperACUType.S2,
     limit_papers: Annotated[
         int | None,
         typer.Option("--limit", "-n", help="The number of papers to process."),
@@ -366,7 +363,7 @@ def build(
 
     logger.info(f"Loading input data from {input_file}")
     papers = gpt.PromptResult.unwrap(
-        load_data(input_file, gpt.PromptResult[paper_type.get_type()])
+        load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs])
     )[:limit_papers]
 
     if not papers:
@@ -417,9 +414,6 @@ def query(
     threshold: Annotated[
         float, typer.Option(help="Similarity threshold.", min=0.0, max=1.0)
     ] = DEFAULT_SIMILARITY_THRESHOLD,
-    paper_type: Annotated[
-        gpt.PaperACUType, typer.Option(help="Type of paper for the input data.")
-    ] = gpt.PaperACUType.S2,
     limit_papers: Annotated[
         int | None,
         typer.Option("--limit", "-n", help="The number of papers to process."),
@@ -429,7 +423,7 @@ def query(
     db = VectorDatabase.load(db_dir)
 
     papers = gpt.PromptResult.unwrap(
-        load_data(input_file, gpt.PromptResult[paper_type.get_type()])
+        load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs])
     )[:limit_papers]
 
     if not papers:
@@ -460,7 +454,7 @@ def query(
 
 def _evaluate_paper(
     db: VectorDatabase,
-    paper: gpt.PaperWithACUs,
+    paper: gpt.PeerPaperWithACUs,
     *,
     threshold: float,
     alpha: float,

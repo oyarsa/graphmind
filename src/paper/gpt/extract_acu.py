@@ -17,8 +17,13 @@ import dotenv
 import typer
 from pydantic import BaseModel, ConfigDict, Field
 
-from paper import semantic_scholar as s2
-from paper.gpt.model import Prompt, PromptResult, S2PaperWithACUs
+from paper.gpt.model import (
+    PaperACUType,
+    PaperInput,
+    PaperWithACUs,
+    Prompt,
+    PromptResult,
+)
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
@@ -71,6 +76,9 @@ def run(
             help="The path to the output directory where the files will be saved.",
         ),
     ],
+    paper_type: Annotated[
+        PaperACUType, typer.Option(help="Type of paper for the input data.")
+    ],
     model: Annotated[
         str,
         typer.Option("--model", "-m", help="The model to use for the extraction."),
@@ -110,6 +118,7 @@ def run(
         extract_acu(
             model,
             peerread_path,
+            paper_type,
             limit_papers,
             user_prompt,
             output_dir,
@@ -136,6 +145,7 @@ _EXTRACT_ACU_SYSTEM_PROMPT = (
 async def extract_acu(
     model: str,
     related_path: Path,
+    paper_type: PaperACUType,
     limit_papers: int | None,
     user_prompt_key: str,
     output_dir: Path,
@@ -149,6 +159,7 @@ async def extract_acu(
     Args:
         model: GPT model code to use.
         related_path: Path to the JSON file containing the input papers data.
+        paper_type: Type of the input papers.
         limit_papers: Number of papers to process. If 0 or None, process all.
         user_prompt_key: Key to the user prompt to use for paper evaluation. See
             `EXTRACT_ACU_SYSTEM_PROMPT` for available options or `list_prompts` for
@@ -176,11 +187,11 @@ async def extract_acu(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
-    papers = shuffled(load_data(related_path, s2.Paper))[:limit_papers]
+    papers = shuffled(load_data(related_path, paper_type.get_type()))[:limit_papers]
     user_prompt = ACU_EXTRACTION_USER_PROMPTS[user_prompt_key]
 
     output_intermediate_file, papers_remaining = init_remaining_items(
-        S2PaperWithACUs, output_dir, continue_papers_file, papers, continue_
+        PaperWithACUs, output_dir, continue_papers_file, papers, continue_
     )
 
     with Timer() as timer:
@@ -220,10 +231,10 @@ async def extract_acu(
 async def _extract_acus(
     client: ModelClient,
     user_prompt: PromptTemplate,
-    papers: Sequence[s2.Paper],
+    papers: Sequence[PaperInput],
     output_intermediate_file: Path,
     keep_intermediate: bool,
-) -> GPTResult[list[PromptResult[S2PaperWithACUs]]]:
+) -> GPTResult[list[PromptResult[PaperWithACUs]]]:
     """Extract ACUs for each related paper's abstract.
 
     Args:
@@ -236,7 +247,7 @@ async def _extract_acus(
     Returns:
         List of papers with evaluated reviews wrapped in a GPTResult.
     """
-    results: list[PromptResult[S2PaperWithACUs]] = []
+    results: list[PromptResult[PaperWithACUs]] = []
     total_cost = 0
 
     tasks = [_extract_acu_single(client, paper, user_prompt) for paper in papers]
@@ -272,8 +283,8 @@ class _GPTACU(BaseModel):
 
 
 async def _extract_acu_single(
-    client: ModelClient, paper: s2.Paper, user_prompt: PromptTemplate
-) -> GPTResult[PromptResult[S2PaperWithACUs]]:
+    client: ModelClient, paper: PaperInput, user_prompt: PromptTemplate
+) -> GPTResult[PromptResult[PaperWithACUs]]:
     """Extract ACUs for a single paper.
 
     Args:
@@ -295,7 +306,7 @@ async def _extract_acu_single(
 
     return GPTResult(
         result=PromptResult(
-            item=S2PaperWithACUs.from_(
+            item=PaperWithACUs.from_(
                 paper, item.all_acus, item.salient_acus, item.summary
             ),
             prompt=Prompt(system=_EXTRACT_ACU_SYSTEM_PROMPT, user=user_prompt_text),

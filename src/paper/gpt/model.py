@@ -831,17 +831,25 @@ class PaperRelatedSummarised(Record):
         )
 
 
-class S2PaperWithACUs(Record):
-    """S2 Paper with extract atomic content units (ACUs)."""
+type PaperInput = s2.Paper | peerread.Paper
+"""Type of input paper, either from S2 or PeerRead/ORC."""
 
-    paper: s2.Paper
+
+class PaperWithACUs(Record):
+    """Paper (S2 or PeerRead) with extract atomic content units (ACUs)."""
+
+    paper: PaperInput
     acus: Sequence[str]
     salient_acus: Sequence[str]
     summary: str
 
     @classmethod
     def from_(
-        cls, paper: s2.Paper, acus: Sequence[str], salient: Sequence[str], summary: str
+        cls,
+        paper: PaperInput,
+        acus: Sequence[str],
+        salient: Sequence[str],
+        summary: str,
     ) -> Self:
         """New paper with extracted ACUs."""
         return cls(paper=paper, acus=acus, salient_acus=salient, summary=summary)
@@ -850,6 +858,21 @@ class S2PaperWithACUs(Record):
     @override
     def id(self) -> str:
         return self.paper.id
+
+
+class PaperACUType(StrEnum):
+    """Whether the paper came from the S2 API or PeerRead dataset."""
+
+    S2 = "s2"
+    PeerRead = "peerread"
+
+    def get_type(self) -> type[PaperInput]:
+        """Returns concrete model type for the paper."""
+        match self:
+            case self.S2:
+                return s2.Paper
+            case self.PeerRead:
+                return peerread.Paper
 
 
 class PeerPaperWithACUs(Record):
@@ -875,21 +898,3 @@ class PeerPaperWithACUs(Record):
     @override
     def id(self) -> str:
         return self.paper.id
-
-
-type PaperWithACUs = S2PaperWithACUs | PeerPaperWithACUs
-
-
-class PaperACUType(StrEnum):
-    """Whether the paper came from the S2 API or PeerRead dataset."""
-
-    S2 = "s2"
-    PeerRead = "peerread"
-
-    def get_type(self) -> type[PaperWithACUs]:
-        """Returns concrete model type for the paper."""
-        match self:
-            case self.S2:
-                return S2PaperWithACUs
-            case self.PeerRead:
-                return PeerPaperWithACUs
