@@ -9,7 +9,6 @@ import itertools
 import json
 import logging
 from collections.abc import Iterable
-from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Self
 
@@ -21,7 +20,6 @@ from tqdm import tqdm
 from paper import embedding as emb
 from paper import gpt
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
-from paper.gpt.model import PeerPaperWithACUs
 from paper.util import get_params, render_params, setup_logging
 from paper.util.cli import die
 from paper.util.serde import load_data, save_data
@@ -325,24 +323,6 @@ class VectorDatabase:
         )
 
 
-type PaperWithACUs = gpt.S2PaperWithACUs | gpt.PeerPaperWithACUs
-
-
-class PaperType(StrEnum):
-    """Whether the paper came from the S2 API or PeerRead dataset."""
-
-    S2 = "s2"
-    PeerRead = "peerread"
-
-    def get_type(self) -> type[PaperWithACUs]:
-        """Returns concrete model type for the paper."""
-        match self:
-            case self.S2:
-                return gpt.S2PaperWithACUs
-            case self.PeerRead:
-                return gpt.PeerPaperWithACUs
-
-
 @app.command(no_args_is_help=True)
 def build(
     input_file: Annotated[
@@ -367,8 +347,8 @@ def build(
         int, typer.Option(help="Batch size for processing")
     ] = DEFAULT_BATCH_SIZE,
     paper_type: Annotated[
-        PaperType, typer.Option(help="Type of paper for the input data.")
-    ] = PaperType.S2,
+        gpt.PaperACUType, typer.Option(help="Type of paper for the input data.")
+    ] = gpt.PaperACUType.S2,
     limit_papers: Annotated[
         int | None,
         typer.Option("--limit", "-n", help="The number of papers to process."),
@@ -413,7 +393,7 @@ class PaperResult(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    paper: PaperWithACUs
+    paper: gpt.PaperWithACUs
     """The original paper with its ACUs."""
     results: list[SearchResult]
     """Search results for each ACU in the paper."""
@@ -438,8 +418,8 @@ def query(
         float, typer.Option(help="Similarity threshold.", min=0.0, max=1.0)
     ] = DEFAULT_SIMILARITY_THRESHOLD,
     paper_type: Annotated[
-        PaperType, typer.Option(help="Type of paper for the input data.")
-    ] = PaperType.S2,
+        gpt.PaperACUType, typer.Option(help="Type of paper for the input data.")
+    ] = gpt.PaperACUType.S2,
     limit_papers: Annotated[
         int | None,
         typer.Option("--limit", "-n", help="The number of papers to process."),
@@ -480,7 +460,7 @@ def query(
 
 def _evaluate_paper(
     db: VectorDatabase,
-    paper: PaperWithACUs,
+    paper: gpt.PaperWithACUs,
     *,
     threshold: float,
     alpha: float,
@@ -547,7 +527,7 @@ class PaperEvaluated(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    paper: PeerPaperWithACUs
+    paper: gpt.PeerPaperWithACUs
     """Original PeerRead input paper with extracted ACUs."""
     novascore: float
     """Score derived from the NovaSCORE method (0.0 to 1.0)."""
@@ -583,7 +563,7 @@ class EvaluationConfig(BaseModel):
 
 
 def run_evaluation(
-    db: VectorDatabase, papers: list[PeerPaperWithACUs], config: EvaluationConfig
+    db: VectorDatabase, papers: list[gpt.PeerPaperWithACUs], config: EvaluationConfig
 ) -> list[PaperEvaluated]:
     """Run the NovaSCORE evaluation on a list of papers.
 
@@ -672,7 +652,7 @@ def evaluate(
 
     logger.info(f"Loading papers from {input_file}")
     papers = gpt.PromptResult.unwrap(
-        load_data(input_file, gpt.PromptResult[PeerPaperWithACUs])
+        load_data(input_file, gpt.PromptResult[gpt.PeerPaperWithACUs])
     )[:limit_papers]
 
     if not papers:

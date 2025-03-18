@@ -860,3 +860,21 @@ class PeerPaperWithACUs(Record):
     @override
     def id(self) -> str:
         return self.paper.id
+
+
+type PaperWithACUs = S2PaperWithACUs | PeerPaperWithACUs
+
+
+class PaperACUType(StrEnum):
+    """Whether the paper came from the S2 API or PeerRead dataset."""
+
+    S2 = "s2"
+    PeerRead = "peerread"
+
+    def get_type(self) -> type[PaperWithACUs]:
+        """Returns concrete model type for the paper."""
+        match self:
+            case self.S2:
+                return S2PaperWithACUs
+            case self.PeerRead:
+                return PeerPaperWithACUs
