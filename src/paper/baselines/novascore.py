@@ -1,4 +1,8 @@
-"""Novascore method from Ai et al 2024."""
+"""Novascore method from Ai et al 2024.
+
+This module implements the NovaSCORE method for evaluating the novelty of academic papers
+based on their Atomic Content Units (ACUs).
+"""
 # pyright: basic
 
 import itertools
@@ -19,7 +23,17 @@ from paper import gpt
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
 from paper.gpt.model import PeerPaperWithACUs
 from paper.util import get_params, render_params, setup_logging
+from paper.util.cli import die
 from paper.util.serde import load_data, save_data
+
+DEFAULT_MODEL = "all-mpnet-base-v2"
+DEFAULT_BATCH_SIZE = 1000
+DEFAULT_TOP_K = 5
+DEFAULT_SIMILARITY_THRESHOLD = 0.6
+DEFAULT_SCORE_THRESHOLD = 0.5
+DEFAULT_SALIENT_ALPHA = 0
+DEFAULT_SALIENT_BETA = 0.5
+DEFAULT_SALIENT_GAMMA = 1
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +101,7 @@ class VectorDatabase:
         self.batch_size = batch_size
 
     @classmethod
-    def empty(cls, encoder: emb.Encoder, batch_size: int = 1000) -> Self:
+    def empty(cls, encoder: emb.Encoder, batch_size: int = DEFAULT_BATCH_SIZE) -> Self:
         """Create a new empty vector database with the given encoder.
 
         Args:
@@ -103,8 +117,18 @@ class VectorDatabase:
 
         Expects the files created by `save`. If `batch_size` is given, it overrides the
         one from the metadata.
-        """
 
+        Args:
+            db_dir: Directory containing the database files.
+            batch_size: Optional batch size to override the saved value.
+
+        Returns:
+            A loaded VectorDatabase instance.
+
+        Raises:
+            FileNotFoundError: If the index or metadata files don't exist.
+            json.JSONDecodeError: If the metadata file contains invalid JSON.
+        """
         index_path = db_dir / cls.INDEX_FILE
         metadata_path = db_dir / cls.METADATA_FILE
 
@@ -124,18 +148,31 @@ class VectorDatabase:
         `doc_id` represents the document where the sentences came from. If the sentences
         may come from different documents, call this function multiple times, one for
         each document.
-        """
-        for batch in itertools.batched(sentences, self.batch_size):
-            for sentence in batch:
-                self.sentence_map.append((sentence, doc_id))
 
+        Args:
+            sentences: Iterable of sentences to add to the database.
+            doc_id: Identifier for the document containing these sentences.
+        """
+        # Convert to list to avoid consuming the iterable multiple times
+        sentences_list = list(sentences)
+        if not sentences_list:
+            logger.warning(f"No sentences to add for document {doc_id}")
+            return
+
+        # Process in batches for efficiency
+        for batch in itertools.batched(sentences_list, self.batch_size):
+            # Prepare sentence map entries for this batch
+            batch_entries = [(sentence, doc_id) for sentence in batch]
+            self.sentence_map.extend(batch_entries)
+
+            # Encode and add to the index
             self.index.add(self.encoder.encode(batch))  # type: ignore
 
     def search(
         self,
         query_sentences: Iterable[str],
-        k: int = 5,
-        threshold: float = 0.7,
+        k: int = DEFAULT_TOP_K,
+        threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
         query_doc_id: str | None = None,
         max_retrieval_factor: int = 5,
     ) -> list[SearchResult]:
@@ -200,7 +237,7 @@ class VectorDatabase:
     def find_best(
         self,
         query_sentences: Iterable[str],
-        threshold: float = 0.7,
+        threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
         query_doc_id: str | None = None,
         max_retrieval_factor: int = 5,
     ) -> list[SearchMatch | None]:
@@ -265,13 +302,21 @@ class VectorDatabase:
         Saves two files:
         - `VectorDatabase.INDEX_FILE`
         - `VectorDatabase.METADATA_FILE`
+
+        Args:
+            db_dir: Directory where to save the database files.
+
+        Raises:
+            OSError: If there's an error creating the directory or writing the files.
         """
         db_dir.mkdir(parents=True, exist_ok=True)
 
         index_path = db_dir / self.INDEX_FILE
+        metadata_path = db_dir / self.METADATA_FILE
+
         faiss.write_index(self.index, str(index_path))
 
-        (db_dir / self.METADATA_FILE).write_text(
+        metadata_path.write_text(
             json.dumps({
                 "batch_size": self.batch_size,
                 "model_name": self.encoder.model_name,
@@ -317,11 +362,17 @@ def build(
     ] = None,
     model: Annotated[
         str, typer.Option(help="Name of the sentence transformer model")
-    ] = "all-mpnet-base-v2",
-    batch_size: Annotated[int, typer.Option(help="Batch size for processing")] = 1000,
+    ] = DEFAULT_MODEL,
+    batch_size: Annotated[
+        int, typer.Option(help="Batch size for processing")
+    ] = DEFAULT_BATCH_SIZE,
     paper_type: Annotated[
         PaperType, typer.Option(help="Type of paper for the input data.")
     ] = PaperType.S2,
+    limit_papers: Annotated[
+        int | None,
+        typer.Option("--limit", "-n", help="The number of papers to process."),
+    ] = 10,
 ) -> None:
     """Build a vector database from sentences in the acus field of input JSON documents.
 
@@ -333,33 +384,39 @@ def build(
     else:
         db = VectorDatabase.empty(emb.Encoder(model), batch_size)
 
-    input_data = load_data(input_file, gpt.PromptResult[paper_type.get_type()])
-    input_batches = list(itertools.batched(input_data, batch_size))
+    logger.info(f"Loading input data from {input_file}")
+    papers = gpt.PromptResult.unwrap(
+        load_data(input_file, gpt.PromptResult[paper_type.get_type()])
+    )[:limit_papers]
 
-    total_docs = 0
+    if not papers:
+        die("Input file is empty.")
+
     total_sentences = 0
 
-    for doc_batch in tqdm(input_batches):
-        for doc in doc_batch:
-            sentences = doc.item.acus
-            db.add_sentences(sentences, doc.item.id)
-            total_sentences += len(sentences)
-
-        total_docs += len(doc_batch)
+    for paper in tqdm(papers, desc="Processing papers"):
+        db.add_sentences(paper.acus, paper.id)
+        total_sentences += len(paper.acus)
 
     db.save(output_dir)
     logger.info(
-        f"Built database with {total_sentences} sentences from {total_docs} documents"
+        f"Built database with {total_sentences} sentences from {len(papers)} documents"
     )
 
 
 class PaperResult(BaseModel):
-    """Result of querying paper ACUs in vector database."""
+    """Result of querying paper ACUs in vector database.
+
+    Stores the results of searching a paper's ACUs in the vector database, including the
+    original paper and all search results for each ACU.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     paper: PaperWithACUs
+    """The original paper with its ACUs."""
     results: list[SearchResult]
+    """Search results for each ACU in the paper."""
 
 
 @app.command(no_args_is_help=True)
@@ -374,33 +431,50 @@ def query(
     output_file: Annotated[
         Path, typer.Option("--output", "-o", help="Output JSON file for results.")
     ],
-    top_k: Annotated[int, typer.Option(help="Number of top matches to return.")] = 5,
-    threshold: Annotated[float, typer.Option(help="Similarity threshold.")] = 0.7,
+    top_k: Annotated[
+        int, typer.Option(help="Number of top matches to return.", min=1)
+    ] = DEFAULT_TOP_K,
+    threshold: Annotated[
+        float, typer.Option(help="Similarity threshold.", min=0.0, max=1.0)
+    ] = DEFAULT_SIMILARITY_THRESHOLD,
     paper_type: Annotated[
         PaperType, typer.Option(help="Type of paper for the input data.")
     ] = PaperType.S2,
+    limit_papers: Annotated[
+        int | None,
+        typer.Option("--limit", "-n", help="The number of papers to process."),
+    ] = 10,
 ) -> None:
     """Query the vector database with sentences from the papers ACUs."""
     db = VectorDatabase.load(db_dir)
 
-    logger.info(f"Loading input documents from {input_file}")
-    input_docs = load_data(input_file, gpt.PromptResult[paper_type.get_type()])
-    logger.info(f"Loaded {len(input_docs)} documents")
+    papers = gpt.PromptResult.unwrap(
+        load_data(input_file, gpt.PromptResult[paper_type.get_type()])
+    )[:limit_papers]
+
+    if not papers:
+        die("Input file is empty.")
+
+    logger.info(f"Loaded {len(papers)} documents")
 
     results: list[PaperResult] = []
     total_queries = 0
 
-    for doc in tqdm(input_docs, desc="Processing documents"):
-        sentences = doc.item.acus
-        # Pass the document ID to exclude matches from the same document
+    for paper in tqdm(papers, desc="Querying papers"):
+        sentences = paper.acus
+        if not sentences:
+            logger.warning(f"Document {paper.id} has no ACUs to query")
+            continue
+
         query_results = db.search(
-            sentences, k=top_k, threshold=threshold, query_doc_id=doc.item.id
+            sentences, k=top_k, threshold=threshold, query_doc_id=paper.id
         )
         total_queries += len(sentences)
 
-        results.append(PaperResult(paper=doc.item, results=query_results))
+        results.append(PaperResult(paper=paper, results=query_results))
 
-    logger.info(f"Processed {len(results)} documents with {total_queries} queries.")
+    logger.info(f"Processed {len(results)} documents with {total_queries} queries")
+    logger.info(f"Saving results to {output_file}")
     save_data(output_file, results)
 
 
@@ -413,40 +487,72 @@ def _evaluate_paper(
     beta: float,
     gamma: float,
 ) -> float:
+    """Calculate the novelty score for a paper using the NovaSCORE method.
+
+    Args:
+        db: Vector database to search for similar ACUs.
+        paper: Paper with ACUs to evaluate.
+        threshold: Similarity threshold for considering an ACU as non-novel.
+        alpha: Weight parameter for the non-salient ACU formula.
+        beta: Offset parameter for the salience ratio in the formula.
+        gamma: Base weight parameter for non-salient ACUs.
+
+    Returns:
+        A novelty score between 0.0 and 1.0, where higher values indicate more novelty.
+
+    The formula for non-salient ACU weight is:
+        weight_nonsalient = min(1, alpha * (salience_ratio - beta)^3 + gamma)
+
+    Where salience_ratio is the proportion of salient ACUs in the paper (number of
+    salient ACUs divided by the total number of ACUs).
+    """
+    if not paper.acus:
+        logger.warning(f"Paper {paper.id} has no ACUs, returning zero novelty score")
+        return 0.0
+
     salient_acus = set(paper.salient_acus)
 
     salience_ratio = len(salient_acus) / len(paper.acus)
-    weight_salient = 1
+    weight_salient = 1.0  # Salient ACUs always have full weight
 
+    # Calculate weight for non-salient ACUs using the formula
     weight_nonsalient = min(
         weight_salient,
         alpha * (salience_ratio - beta) ** 3 + gamma,
     )
 
-    acu_novelty_matches = db.find_best(paper.acus, threshold=threshold)
+    acu_novelty_matches = db.find_best(
+        paper.acus, threshold=threshold, query_doc_id=paper.id
+    )
+
+    # Calculate the total novelty score
     total_score = 0.0
     for acu, match in zip(paper.acus, acu_novelty_matches):
-        novelty = match is None
-        salience = acu in salient_acus
+        novelty = 1 if match is None else 0
+        salient = acu in salient_acus
 
-        total_score += novelty * (
-            weight_salient * salience + weight_nonsalient * (1 - salience)
-        )
+        weight = weight_salient if salient else weight_nonsalient
+        total_score += novelty * weight
 
+    # Normalize by the number of ACUs
     return total_score / len(paper.acus)
 
 
 class PaperEvaluated(BaseModel):
-    """Result of querying paper ACUs in vector database."""
+    """Result of evaluating a paper's novelty using the NovaSCORE method.
+
+    This class stores the original paper, its calculated novelty score, and the binary
+    novelty label derived from thresholding the score.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     paper: PeerPaperWithACUs
     """Original PeerRead input paper with extracted ACUs."""
     novascore: float
-    """Score derived from the NovaSCORE method."""
+    """Score derived from the NovaSCORE method (0.0 to 1.0)."""
     novalabel: int
-    """Binary version of the score given a threshold."""
+    """Binary version of the score given a threshold (0 or 1)."""
 
     @property
     @computed_field
@@ -459,6 +565,61 @@ class PaperEvaluated(BaseModel):
     def y_pred(self) -> int:
         """Predicted label for novelty (binary)."""
         return self.novalabel
+
+
+class EvaluationConfig(BaseModel):
+    """Configuration for paper evaluation with NovaSCORE."""
+
+    sim_threshold: float = DEFAULT_SIMILARITY_THRESHOLD
+    """Threshold for similarity when determining novelty."""
+    score_threshold: float = DEFAULT_SCORE_THRESHOLD
+    """Threshold for converting NovaSCORE to binary label."""
+    alpha: float
+    """Weight parameter for non-salient ACU formula."""
+    beta: float
+    """Offset parameter for salience ratio in formula."""
+    gamma: float
+    """Base weight parameter for non-salient ACUs."""
+
+
+def run_evaluation(
+    db: VectorDatabase, papers: list[PeerPaperWithACUs], config: EvaluationConfig
+) -> list[PaperEvaluated]:
+    """Run the NovaSCORE evaluation on a list of papers.
+
+    Args:
+        db: Vector database to use for similarity search.
+        papers: List of papers to evaluate.
+        config: Evaluation configuration parameters.
+
+    Returns:
+        List of evaluated papers with novelty scores and labels.
+    """
+    results: list[PaperEvaluated] = []
+
+    for paper in tqdm(papers, desc="Evaluating papers"):
+        if not paper.acus:
+            logger.warning(f"Paper {paper.id} has no ACUs, skipping")
+            continue
+
+        score = _evaluate_paper(
+            db,
+            paper,
+            threshold=config.sim_threshold,
+            alpha=config.alpha,
+            beta=config.beta,
+            gamma=config.gamma,
+        )
+
+        results.append(
+            PaperEvaluated(
+                paper=paper,
+                novascore=score,
+                novalabel=int(score > config.score_threshold),
+            )
+        )
+
+    return results
 
 
 @app.command(no_args_is_help=True)
@@ -474,18 +635,30 @@ def evaluate(
         Path,
         typer.Option("--output", "-o", help="Output directory to save the results."),
     ],
-    sim_threshold: Annotated[float, typer.Option(help="Similarity threshold.")] = 0.7,
     limit_papers: Annotated[
         int | None,
         typer.Option("--limit", "-n", help="The number of papers to process."),
     ] = 10,
+    sim_threshold: Annotated[
+        float, typer.Option(help="Similarity threshold.", min=0.0, max=1.0)
+    ] = DEFAULT_SIMILARITY_THRESHOLD,
     # TODO: figure out weights and threshold
     score_threshold: Annotated[
-        float, typer.Option(help="NovaSCORE threshold for binary novelty.")
-    ] = 0.5,
-    alpha: Annotated[float, typer.Option(help="NovaSCORE parameter.")] = 0,
-    beta: Annotated[float, typer.Option(help="NovaSCORE parameter.")] = 0,
-    gamma: Annotated[float, typer.Option(help="NovaSCORE parameter.")] = 0,
+        float,
+        typer.Option(help="Threshold for binary novelty.", min=0.0, max=1.0),
+    ] = DEFAULT_SCORE_THRESHOLD,
+    alpha: Annotated[
+        float,
+        typer.Option(help="Alpha parameter for dynamic salient weight.", min=0, max=2),
+    ] = DEFAULT_SALIENT_ALPHA,
+    beta: Annotated[
+        float,
+        typer.Option(help="Beta parameter for dynamic salient weight.", min=0, max=1),
+    ] = DEFAULT_SALIENT_BETA,
+    gamma: Annotated[
+        float,
+        typer.Option(help="Gamma parameter for dynamic salient weight.", min=0, max=1),
+    ] = DEFAULT_SALIENT_GAMMA,
 ) -> None:
     """Query the vector database with sentences from the papers ACUs."""
     params = get_params()
@@ -494,26 +667,36 @@ def evaluate(
     if limit_papers == 0:
         limit_papers = None
 
+    logger.info(f"Loading vector database from {db_dir}")
     db = VectorDatabase.load(db_dir)
+
+    logger.info(f"Loading papers from {input_file}")
     papers = gpt.PromptResult.unwrap(
         load_data(input_file, gpt.PromptResult[PeerPaperWithACUs])
     )[:limit_papers]
 
-    results: list[PaperEvaluated] = []
+    if not papers:
+        raise typer.Exit(code=0)
 
-    for paper in tqdm(papers, desc="Processing documents"):
-        score = _evaluate_paper(
-            db, paper, threshold=sim_threshold, alpha=alpha, beta=beta, gamma=gamma
-        )
-        results.append(
-            PaperEvaluated(
-                paper=paper, novascore=score, novalabel=int(score > score_threshold)
-            )
-        )
+    logger.info(f"Loaded {len(papers)} papers")
+
+    config = EvaluationConfig(
+        sim_threshold=sim_threshold,
+        score_threshold=score_threshold,
+        alpha=alpha,
+        beta=beta,
+        gamma=gamma,
+    )
+    results = run_evaluation(db, papers, config)
+
+    if not results:
+        logger.warning("No results produced from evaluation")
+        return
 
     metrics = calculate_paper_metrics(results, 0)
     logger.info("%s\n", display_metrics(metrics, results))
 
+    logger.info(f"Saving results to {output_dir}")
     save_data(output_dir / "result.json", results)
     save_data(output_dir / "metrics.json", metrics)
     save_data(output_dir / "params.json", params)
