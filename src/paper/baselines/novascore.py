@@ -195,6 +195,68 @@ class VectorDatabase:
 
         return results
 
+    def find_best(
+        self,
+        query_sentences: Iterable[str],
+        threshold: float = 0.7,
+        query_doc_id: str | None = None,
+        max_retrieval_factor: int = 5,
+    ) -> list[SearchMatch | None]:
+        """Find the best match for each query sentence.
+
+        Returns the highest similarity match for each query sentence, or None if no
+        match is found above the threshold. Excludes matches from the same document.
+
+        Args:
+            query_sentences: Sentences to search for in the database.
+            threshold: Minimum similarity score to consider a match.
+            query_doc_id: ID of the document containing the query sentences (to exclude
+                matches)>
+            max_retrieval_factor: Multiplier for how many results to retrieve initially.
+
+        Returns:
+            A list of SearchMatch objects (one per query) or None where no match was
+            found.
+        """
+        # We need to retrieve more than 1 result because we might filter some out later
+        retrieval_k = max_retrieval_factor
+        results: list[SearchMatch | None] = []
+
+        for sentences_batch in itertools.batched(query_sentences, self.batch_size):
+            query_vectors = self.encoder.encode(sentences_batch)
+
+            scores_batch: list[list[float]]
+            indices_batch: list[list[int]]
+            scores_batch, indices_batch = self.index.search(query_vectors, retrieval_k)  # type: ignore
+
+            for scores, indices in zip(scores_batch, indices_batch):
+                best_match: SearchMatch | None = None
+                best_score = 0.0
+
+                for score, idx in zip(scores, indices):
+                    # Skip if score is below threshold or index is invalid
+                    if score < threshold or idx >= len(self.sentence_map):
+                        continue
+
+                    original_sentence, doc_id = self.sentence_map[idx]
+
+                    # Skip matches from the same document
+                    if doc_id == query_doc_id:
+                        continue
+
+                    # Keep track of the best match so far
+                    if best_match is None or score > best_score:
+                        best_match = SearchMatch(
+                            sentence=original_sentence,
+                            score=float(score),
+                            doc_id=doc_id,
+                        )
+                        best_score = score
+
+                results.append(best_match)
+
+        return results
+
     def save(self, db_dir: Path) -> None:
         """Save database to `db_dir`.
 
