@@ -86,7 +86,12 @@ class VectorDatabase:
 
     @classmethod
     def empty(cls, encoder: emb.Encoder, batch_size: int = 1000) -> Self:
-        """Create a new empty vector database with the given encoder."""
+        """Create a new empty vector database with the given encoder.
+
+        Args:
+            encoder: Method used to convert input sentences to vectors.
+            batch_size: Number of sentences per batch when adding senteces to the index.
+        """
         index = faiss.IndexFlatIP(encoder.dimensions)
         return cls(encoder=encoder, index=index, sentence_map=[], batch_size=batch_size)
 
@@ -94,9 +99,7 @@ class VectorDatabase:
     def load(cls, db_dir: Path) -> Self:
         """Load a vector database from disk.
 
-        Expects the following files inside `db_dir`:
-        - `VectorDatabase.INDEX_FILE`
-        - `VectorDatabase.METADATA_FILE`
+        Expects the files created by `save`.
         """
 
         index_path = db_dir / cls.INDEX_FILE
@@ -113,7 +116,12 @@ class VectorDatabase:
         )
 
     def add_sentences(self, sentences: Iterable[str], doc_id: str) -> None:
-        """Add sentences to index."""
+        """Add sentences to index in batches.
+
+        `doc_id` represents the document where the sentences came from. If the sentences
+        may come from different documents, call this function multiple times, one for
+        each document.
+        """
         for batch in itertools.batched(sentences, self.batch_size):
             for sentence in batch:
                 self.sentence_map.append((sentence, doc_id))
@@ -127,7 +135,7 @@ class VectorDatabase:
         threshold: float = 0.7,
         query_doc_id: str | None = None,
     ) -> list[SearchResult]:
-        """Search sentences in database. Returns top K with similarity over `threshold`.
+        """Search sentences in database. Returns top `k` with similarity over `threshold`.
 
         Excludes matches from the same document (based on document ID) to avoid
         retrieving sentences from the same paper when searching within the dataset used
