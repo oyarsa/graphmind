@@ -19,6 +19,9 @@ $ uv run pre-commit install
 See [Development Environment](#development-environment) and
 [CONTRIBUTING](/CONTRIBUTING.md) for more information.
 
+[`pandoc`](https://pandoc.org/installing.html) is required to parse the LaTeX files for
+the ORC dataset.
+
 After this setup, you're reading to process the datasets. See [Datasets](#datasets)
 below.
 

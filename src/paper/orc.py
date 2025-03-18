@@ -12,6 +12,9 @@ To download all the relevant conference information, use:
 - parse-all
 - preprocess
 
+`parse` and `parse-all` require pandoc to convert LaTeX to Markdown:
+https://pandoc.org/installing.html.
+
 Use the same output/data directory for all of them.
 """
 
@@ -45,6 +48,7 @@ from tqdm import tqdm
 
 from paper import peerread as pr
 from paper.util import Timer, groupby, setup_logging
+from paper.util.cli import die
 from paper.util.serde import save_data
 
 logger = logging.getLogger("paper.openreview")
@@ -1246,6 +1250,17 @@ def parse_all(
         parse(latex_dir, venue_dir / "parsed", max_items, num_workers, clean)
 
 
+def _check_pandoc() -> None:
+    """Check if pandoc is installed and available in PATH."""
+    try:
+        subprocess.run(["pandoc", "--version"], check=True, capture_output=True)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        die(
+            "pandoc is not installed but required for LaTeX parsing. "
+            "Please install it from https://pandoc.org/installing.html"
+        )
+
+
 @app.command(no_args_is_help=True)
 def parse(
     input_path: Annotated[
@@ -1296,6 +1311,8 @@ def parse(
     file. In those cases, we just print a warning and give up on that paper. This also
     applies to bib files. This seems to affect about 10% of the input files from arXiv.
     """
+    _check_pandoc()
+
     if input_path.is_file():
         input_files = [input_path]
     else:
