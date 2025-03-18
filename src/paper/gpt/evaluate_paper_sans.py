@@ -17,13 +17,12 @@ import dotenv
 import typer
 
 from paper import semantic_scholar as s2
+from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
     GPTFull,
     PaperResult,
-    calculate_paper_metrics,
-    display_metrics,
     fix_evaluated_rating,
     format_demonstrations,
 )

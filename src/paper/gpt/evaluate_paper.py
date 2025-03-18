@@ -1,19 +1,16 @@
 """Tools for evaluating paper novelty, displaying and calculating metrics."""
 
 import logging
-import statistics
 from collections.abc import Sequence
 from enum import StrEnum
 from importlib import resources
 from pathlib import Path
-from typing import Annotated, Protocol, Self, cast
+from typing import Annotated, Self, cast
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from paper import evaluation_metrics
 from paper import semantic_scholar as s2
 from paper.gpt.prompts import PromptTemplate, load_prompts
-from paper.util import safediv
 from paper.util.serde import load_data, replace_fields
 
 logger = logging.getLogger(__name__)
@@ -43,117 +40,6 @@ class PaperResult(s2.PaperWithS2Refs):
                 "rationale_pred": rationale_pred,
             }
         )
-
-
-class RatingStats(BaseModel):
-    """Mean/stdev/median stats on novelty ratings."""
-
-    model_config = ConfigDict(frozen=True)
-
-    mean: float
-    stdev: float
-    median: float
-
-    @classmethod
-    def calc(cls, values: Sequence[int]) -> Self:
-        """Calculate stats from sequence of values."""
-        return cls(
-            mean=statistics.mean(values),
-            stdev=statistics.stdev(values) if len(values) > 2 else 0,
-            median=statistics.median(values),
-        )
-
-    def __str__(self) -> str:
-        """Format stats one per line."""
-        return "\n".join([
-            f"mean   : {self.mean:.4f}",
-            f"stdev  : {self.stdev:.4f}",
-            f"median : {self.median:.4f}",
-        ])
-
-
-class PaperMetrics(evaluation_metrics.Metrics):
-    """Evaluation metrics with total API cost."""
-
-    cost: float
-    stats_pred: RatingStats
-    stats_true: RatingStats
-
-    @classmethod
-    def from_eval(
-        cls,
-        eval: evaluation_metrics.Metrics,
-        cost: float,
-        y_true: Sequence[int],
-        y_pred: Sequence[int],
-    ) -> Self:
-        """Build metrics with cost from standard evaluation metrics."""
-        return cls.model_validate(
-            eval.model_dump()
-            | {
-                "cost": cost,
-                "stats_pred": RatingStats.calc(y_pred),
-                "stats_true": RatingStats.calc(y_true),
-            }
-        )
-
-
-class Evaluated(Protocol):
-    """Object with `y_true` and `y_pred` fields."""
-
-    @property
-    def y_true(self) -> int:
-        """Gold label."""
-        ...
-
-    @property
-    def y_pred(self) -> int:
-        """Predicted label."""
-        ...
-
-
-def calculate_paper_metrics(
-    papers: Sequence[Evaluated], cost: float
-) -> evaluation_metrics.Metrics:
-    """Calculate evaluation metrics, including how much it cost.
-
-    See also `paper.evaluation_metrics.calculate_metrics`.
-    """
-    y_pred = [p.y_pred for p in papers]
-    y_true = [p.y_true for p in papers]
-
-    return PaperMetrics.from_eval(
-        evaluation_metrics.calculate_metrics(y_true, y_pred), cost, y_true, y_pred
-    )
-
-
-def display_metrics(
-    metrics: evaluation_metrics.Metrics, results: Sequence[Evaluated]
-) -> str:
-    """Display metrics and distribution statistics from the results.
-
-    `evaluation_metrics.Metrics` are displayed directly. The distribution statistics are
-    shown as the count and percentage of true/false for both gold and prediction.
-
-    Args:
-        metrics: Metrics calculated using `evaluation_metrics.calculate_metrics`.
-        results: Paper evaluation results.
-
-    Returns:
-        Formatted string showing both metrics and distribution statistics.
-    """
-    y_true = [r.y_true for r in results]
-    y_pred = [r.y_pred for r in results]
-
-    output = ["Metrics:", str(metrics)]
-    for values, section in [(y_true, "Gold"), (y_pred, "Predicted")]:
-        output.append(f"\n{section} distribution:")
-        for label in metrics.mode.labels():
-            count = sum(y == label for y in values)
-            output.append(
-                f"  {label}: {count}/{len(values)} ({safediv(count, len(values)):.2%})"
-            )
-    return "\n".join(output)
 
 
 EVALUATE_DEMONSTRATION_PROMPTS = load_prompts("eval_demonstrations")

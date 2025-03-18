@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 from paper import embedding as emb
 from paper import gpt
-from paper.gpt.evaluate_paper import calculate_paper_metrics, display_metrics
+from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
 from paper.gpt.model import PeerPaperWithACUs
 from paper.util import get_params, render_params, setup_logging
 from paper.util.serde import load_data, save_data
