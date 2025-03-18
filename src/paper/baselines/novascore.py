@@ -39,7 +39,7 @@ class SearchMatch(BaseModel):
     """Sentence retrieved from the database."""
     score: float
     """Similarity score with the query."""
-    doc_id: int
+    doc_id: str
     """Index of the document where the sentence came from."""
 
 
@@ -66,7 +66,7 @@ class VectorDatabase:
     """Encoder model used to generate vector embeddings for sentences."""
     index: faiss.IndexFlatIP
     """Index for vector search."""
-    sentence_map: list[tuple[str, int]]
+    sentence_map: list[tuple[str, str]]
     """Pairs of (sentence, document index)."""
     batch_size: int
     """Size of the batch during database construction."""
@@ -75,7 +75,7 @@ class VectorDatabase:
         self,
         encoder: emb.Encoder,
         index: faiss.IndexFlatIP,
-        sentence_map: list[tuple[str, int]],
+        sentence_map: list[tuple[str, str]],
         batch_size: int,
     ) -> None:
         """Use `VectorDatabase.load` or `VectorDatabase.empty` to construct a new DB."""
@@ -112,7 +112,7 @@ class VectorDatabase:
             batch_size=metadata["batch_size"],
         )
 
-    def add_sentences(self, sentences: Iterable[str], doc_id: int) -> None:
+    def add_sentences(self, sentences: Iterable[str], doc_id: str) -> None:
         """Add sentences to index."""
         for batch in itertools.batched(sentences, self.batch_size):
             for sentence in batch:
@@ -121,40 +121,54 @@ class VectorDatabase:
             self.index.add(self.encoder.encode(batch))  # type: ignore
 
     def search(
-        self, query_sentences: Iterable[str], k: int = 5, threshold: float = 0.7
+        self,
+        query_sentences: Iterable[str],
+        k: int = 5,
+        threshold: float = 0.7,
+        query_doc_id: str | None = None,
     ) -> list[SearchResult]:
         """Search sentences in database. Returns top K with similarity over `threshold`.
 
-        Excludes exact matches (same sentence) from results to avoid retrieving the
-        original query sentence when searching within the dataset used to build the database.
+        Excludes matches from the same document (based on document ID) to avoid
+        retrieving sentences from the same paper when searching within the dataset used
+        to build the database.
         """
         results: list[SearchResult] = []
 
-        for batch in itertools.batched(query_sentences, self.batch_size):
-            query_vectors = self.encoder.encode(batch)
+        for sentences_batch in itertools.batched(query_sentences, self.batch_size):
+            query_vectors = self.encoder.encode(sentences_batch)
 
-            scores, indices = self.index.search(query_vectors, k)  # type: ignore
+            scores: list[list[float]]
+            indices: list[list[int]]
+            # Use K*2 to account for cases that will be removed because they're from the
+            # same document. We're out of luck if all top K*2 are from the same document.
+            scores, indices = self.index.search(query_vectors, k * 2)  # type: ignore
 
-            for q_idx, (sentence_scores, sentence_indices) in enumerate(
-                zip(scores, indices)
+            for query_sentence, sentence_scores, sentence_indices in zip(
+                sentences_batch, scores, indices, strict=True
             ):
                 matches: list[SearchMatch] = []
-                query_sentence = batch[q_idx]
 
                 for score, idx in zip(sentence_scores, sentence_indices):
-                    if score >= threshold and idx < len(self.sentence_map):
-                        original_sentence, doc_id = self.sentence_map[idx]
-                        # Skip exact matches to avoid retrieving the original sentence
-                        if original_sentence != query_sentence:
-                            matches.append(
-                                SearchMatch(
-                                    sentence=original_sentence,
-                                    score=float(score),
-                                    doc_id=doc_id,
-                                )
-                            )
+                    if score < threshold:
+                        continue
 
-                results.append(SearchResult(query=query_sentence, matches=matches))
+                    original_sentence, doc_id = self.sentence_map[idx]
+                    # Skip matches from the same document to avoid retrieving sentences
+                    # from the same paper
+                    if doc_id == query_doc_id:
+                        continue
+
+                    matches.append(
+                        SearchMatch(
+                            sentence=original_sentence,
+                            score=float(score),
+                            doc_id=doc_id,
+                        )
+                    )
+
+                matches.sort(key=lambda m: m.score, reverse=True)
+                results.append(SearchResult(query=query_sentence, matches=matches[:k]))
 
         return results
 
@@ -208,10 +222,9 @@ def build(
     total_sentences = 0
 
     for doc_batch in tqdm(input_batches):
-        for doc_idx, doc in enumerate(doc_batch):
+        for doc in doc_batch:
             sentences = doc.item.acus
-            doc_global_id = total_docs + doc_idx
-            db.add_sentences(sentences, doc_global_id)
+            db.add_sentences(sentences, doc.item.id)
             total_sentences += len(sentences)
 
         total_docs += len(doc_batch)
@@ -279,7 +292,10 @@ def query(
 
     for doc in tqdm(input_docs, desc="Processing documents"):
         sentences = doc.item.acus
-        query_results = db.search(sentences, k=top_k, threshold=threshold)
+        # Pass the document ID to exclude matches from the same document
+        query_results = db.search(
+            sentences, k=top_k, threshold=threshold, query_doc_id=doc.item.id
+        )
         total_queries += len(sentences)
 
         results.append(PaperResult(paper=doc.item, results=query_results))
