@@ -257,7 +257,7 @@ class ModelClient:
             logger.warning("\nCaught an API error: %s", e)
             raise
         except Exception:
-            logger.exception("\nCaught non-API error. Returning None: %s")
+            logger.exception("\nCaught non-API error. Returning None.")
             return None
 
 
