@@ -702,6 +702,21 @@ class PaperTerms(BaseModel):
 type PaperToAnnotate = s2.Paper | s2.PaperWithS2Refs
 
 
+class PaperType(StrEnum):
+    """Whether the paper came from the S2 API or PeerRead dataset."""
+
+    S2 = "s2"
+    PeerRead = "peerread"
+
+    def get_type(self) -> type[PaperToAnnotate]:
+        """Returns concrete model type for the paper."""
+        match self:
+            case self.S2:
+                return s2.Paper
+            case self.PeerRead:
+                return s2.PaperWithS2Refs
+
+
 class PaperAnnotated(Record):
     """`PaperToAnnotate` with its annotated key terms. Includes GPT prompts used."""
 
@@ -814,3 +829,72 @@ class PaperRelatedSummarised(Record):
             score=related.score,
             polarity=peerread.ContextPolarity(related.polarity),
         )
+
+
+type PaperACUInput = s2.Paper | s2.PaperWithS2Refs
+"""Type of input paper, either from S2 or PeerRead/ORC."""
+
+
+class PaperWithACUs(Record):
+    """Paper (S2 or PeerRead) with extract atomic content units (ACUs)."""
+
+    paper: PaperACUInput
+    acus: Sequence[str]
+    salient_acus: Sequence[str]
+    summary: str
+
+    @classmethod
+    def from_(
+        cls,
+        paper: PaperACUInput,
+        acus: Sequence[str],
+        salient: Sequence[str],
+        summary: str,
+    ) -> Self:
+        """New paper with extracted ACUs."""
+        return cls(paper=paper, acus=acus, salient_acus=salient, summary=summary)
+
+    @property
+    @override
+    def id(self) -> str:
+        return self.paper.id
+
+
+class PaperACUType(StrEnum):
+    """Whether the paper came from the S2 API or PeerRead dataset."""
+
+    S2 = "s2"
+    PeerRead = "peerread"
+
+    def get_type(self) -> type[PaperACUInput]:
+        """Returns concrete model type for the paper."""
+        match self:
+            case self.S2:
+                return s2.Paper
+            case self.PeerRead:
+                return s2.PaperWithS2Refs
+
+
+class PeerPaperWithACUs(Record):
+    """PeerRead Paper with extract atomic content units (ACUs)."""
+
+    paper: peerread.Paper
+    acus: Sequence[str]
+    salient_acus: Sequence[str]
+    summary: str
+
+    @classmethod
+    def from_(
+        cls,
+        paper: peerread.Paper,
+        acus: Sequence[str],
+        salient: Sequence[str],
+        summary: str,
+    ) -> Self:
+        """New paper with extracted ACUs."""
+        return cls(paper=paper, acus=acus, salient_acus=salient, summary=summary)
+
+    @property
+    @override
+    def id(self) -> str:
+        return self.paper.id

@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 from tqdm import tqdm
 
 from paper import peerread as pr
-from paper.gpt.evaluate_paper import RatingStats
+from paper.evaluation_metrics import RatingStats
 from paper.util.serde import load_data, save_data
 
 AspectLabel = tuple[int, int, str]

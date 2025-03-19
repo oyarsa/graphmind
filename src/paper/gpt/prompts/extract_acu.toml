@@ -1,0 +1,44 @@
+[[prompts]]
+name = "simple"
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+paper's title and abstract. Based on this, your task is to extract all atomic content \
+units from the paper.
+
+1. First, extract the list of all atomic content units (ACUs) from a given document. An \
+ACU is an elementary information unit in the document that does not require further \
+division. When identifying any named entity, temporal entity, location entity, or \
+attribute, avoid using indirect references. Instead, specify the actual entity, \
+attribute, or noun directly. For example, replace ‘this company’ with the actual name \
+of the company, ‘this location’ with the actual location name, ‘it’ with the actual \
+subject being referred, etc.
+
+2. Then, summarize the given document.
+
+3. Finally, using the summary, identify the most salient ACUs from the full list of \
+ACUs. The salient ACUs should be those explicitly mentioned in the summary.
+
+#####
+-Demonstration-
+Example document:
+
+Enzon Inc. said tests of a new anti-cancer drug to treat a form of leukemia showed \
+positive results, Abraham Abuchowski, president of the pharmeutical company, told the \
+annual meeting. Enzon also said it filed its first new drug application with the FDA \
+for an orphan drug that treats severe combined immunodeficiency disease, or SCID. The \
+company has about 10.8 million common shares outstanding. Eastman Kodak Co. ownas an 18% \
+interest in Enzon.
+
+Example ACUs:
+- Enzon Inc. reported positive results from tests of a new anti-cancer drug for leukemia.
+- Abraham Abuchowski is the president of Enzon Inc.
+- Enzon Inc. filed a new drug with the FDA to treat immunodeficiency disease.
+- Enzon Inc. has about 10.8 million common shares outstanding.
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+#####
+Output:
+"""

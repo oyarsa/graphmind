@@ -22,11 +22,11 @@ from rich.console import Console
 from rich.table import Table
 from tqdm import tqdm
 
-from paper import semantic_scholar as s2
 from paper.gpt.model import (
     PaperAnnotated,
     PaperTerms,
     PaperToAnnotate,
+    PaperType,
     Prompt,
     PromptResult,
 )
@@ -94,21 +94,6 @@ class DetailOptions(StrEnum):
     NONE = "none"
     TABLE = "table"
     DETAIL = "detail"
-
-
-class PaperType(StrEnum):
-    """Whether the paper came from the S2 API or PeerRead dataset."""
-
-    S2 = "s2"
-    PeerRead = "peerread"
-
-    def get_type(self) -> type[PaperToAnnotate]:
-        """Returns concrete model type for the paper."""
-        match self:
-            case self.S2:
-                return s2.Paper
-            case self.PeerRead:
-                return s2.PaperWithS2Refs
 
 
 @app.command(help=__doc__, no_args_is_help=True)

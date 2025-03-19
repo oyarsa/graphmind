@@ -3,7 +3,7 @@
 import typer
 
 from paper import construct_dataset, orc, split
-from paper.baselines.scimon import cli as scimon
+from paper.baselines import cli as baselines
 from paper.gpt import cli as gpt
 from paper.peerread import cli as peerread
 from paper.peter import cli as peter
@@ -18,7 +18,7 @@ app = typer.Typer(
 )
 app.add_typer(peerread.app, name="peerread")
 app.add_typer(gpt.app, name="gpt")
-app.add_typer(scimon.app, name="scimon")
+app.add_typer(baselines.app, name="baselines")
 app.add_typer(peter.app, name="peter")
 app.add_typer(orc.app, name="orc")
 app.add_typer(s2.app, name="s2")
