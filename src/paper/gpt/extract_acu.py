@@ -18,8 +18,8 @@ import typer
 from pydantic import BaseModel, ConfigDict, Field
 
 from paper.gpt.model import (
+    PaperACUInput,
     PaperACUType,
-    PaperInput,
     PaperWithACUs,
     Prompt,
     PromptResult,
@@ -231,7 +231,7 @@ async def extract_acu(
 async def _extract_acus(
     client: ModelClient,
     user_prompt: PromptTemplate,
-    papers: Sequence[PaperInput],
+    papers: Sequence[PaperACUInput],
     output_intermediate_file: Path,
     keep_intermediate: bool,
 ) -> GPTResult[list[PromptResult[PaperWithACUs]]]:
@@ -283,7 +283,7 @@ class _GPTACU(BaseModel):
 
 
 async def _extract_acu_single(
-    client: ModelClient, paper: PaperInput, user_prompt: PromptTemplate
+    client: ModelClient, paper: PaperACUInput, user_prompt: PromptTemplate
 ) -> GPTResult[PromptResult[PaperWithACUs]]:
     """Extract ACUs for a single paper.
 

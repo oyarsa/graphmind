@@ -831,14 +831,14 @@ class PaperRelatedSummarised(Record):
         )
 
 
-type PaperInput = s2.Paper | peerread.Paper
+type PaperACUInput = s2.Paper | s2.PaperWithS2Refs
 """Type of input paper, either from S2 or PeerRead/ORC."""
 
 
 class PaperWithACUs(Record):
     """Paper (S2 or PeerRead) with extract atomic content units (ACUs)."""
 
-    paper: PaperInput
+    paper: PaperACUInput
     acus: Sequence[str]
     salient_acus: Sequence[str]
     summary: str
@@ -846,7 +846,7 @@ class PaperWithACUs(Record):
     @classmethod
     def from_(
         cls,
-        paper: PaperInput,
+        paper: PaperACUInput,
         acus: Sequence[str],
         salient: Sequence[str],
         summary: str,
@@ -866,13 +866,13 @@ class PaperACUType(StrEnum):
     S2 = "s2"
     PeerRead = "peerread"
 
-    def get_type(self) -> type[PaperInput]:
+    def get_type(self) -> type[PaperACUInput]:
         """Returns concrete model type for the paper."""
         match self:
             case self.S2:
                 return s2.Paper
             case self.PeerRead:
-                return peerread.Paper
+                return s2.PaperWithS2Refs
 
 
 class PeerPaperWithACUs(Record):
