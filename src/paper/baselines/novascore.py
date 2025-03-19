@@ -19,6 +19,7 @@ from tqdm import tqdm
 
 from paper import embedding as emb
 from paper import gpt
+from paper import semantic_scholar as s2
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
 from paper.util import get_params, render_params, setup_logging
 from paper.util.cli import die
@@ -363,7 +364,7 @@ def build(
 
     logger.info(f"Loading input data from {input_file}")
     papers = gpt.PromptResult.unwrap(
-        load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs])
+        load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs[s2.Paper]])
     )[:limit_papers]
 
     if not papers:
@@ -454,7 +455,7 @@ def query(
 
 def _evaluate_paper(
     db: VectorDatabase,
-    paper: gpt.PeerPaperWithACUs,
+    paper: gpt.PaperWithACUs[s2.PaperWithS2Refs],
     *,
     threshold: float,
     alpha: float,
@@ -521,7 +522,7 @@ class PaperEvaluated(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    paper: gpt.PeerPaperWithACUs
+    paper: gpt.PaperWithACUs[s2.PaperWithS2Refs]
     """Original PeerRead input paper with extracted ACUs."""
     novascore: float
     """Score derived from the NovaSCORE method (0.0 to 1.0)."""
@@ -557,7 +558,9 @@ class EvaluationConfig(BaseModel):
 
 
 def run_evaluation(
-    db: VectorDatabase, papers: list[gpt.PeerPaperWithACUs], config: EvaluationConfig
+    db: VectorDatabase,
+    papers: list[gpt.PaperWithACUs[s2.PaperWithS2Refs]],
+    config: EvaluationConfig,
 ) -> list[PaperEvaluated]:
     """Run the NovaSCORE evaluation on a list of papers.
 
@@ -648,7 +651,7 @@ def evaluate(
 
     logger.info(f"Loading papers from {input_file}")
     papers = gpt.PromptResult.unwrap(
-        load_data(input_file, gpt.PromptResult[gpt.PeerPaperWithACUs])
+        load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs[s2.PaperWithS2Refs]])
     )[:limit_papers]
 
     if not papers:
