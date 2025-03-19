@@ -528,14 +528,14 @@ class PaperEvaluated(BaseModel):
     novalabel: int
     """Binary version of the score given a threshold (0 or 1)."""
 
-    @property
     @computed_field
+    @property
     def y_true(self) -> int:
         """Gold label for novelty (binary)."""
         return self.paper.paper.label
 
-    @property
     @computed_field
+    @property
     def y_pred(self) -> int:
         """Predicted label for novelty (binary)."""
         return self.novalabel
@@ -616,7 +616,6 @@ def evaluate(
     sim_threshold: Annotated[
         float, typer.Option(help="Similarity threshold.", min=0.0, max=1.0)
     ] = DEFAULT_SIMILARITY_THRESHOLD,
-    # TODO: figure out weights and threshold
     score_threshold: Annotated[
         float,
         typer.Option(help="Threshold for binary novelty.", min=0.0, max=1.0),
@@ -634,7 +633,10 @@ def evaluate(
         typer.Option(help="Gamma parameter for dynamic salient weight.", min=0, max=1),
     ] = DEFAULT_SALIENT_GAMMA,
 ) -> None:
-    """Query the vector database with sentences from the papers ACUs."""
+    """Calculate novelty score from input papers using the NovaSCORE database.
+
+    Input is the output of `gpt.extract_acu` with `PeerRead` papers.
+    """
     params = get_params()
     logger.info(render_params(params))
 
