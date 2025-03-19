@@ -349,7 +349,9 @@ def build(
     ] = DEFAULT_BATCH_SIZE,
     limit_papers: Annotated[
         int | None,
-        typer.Option("--limit", "-n", help="The number of papers to process."),
+        typer.Option(
+            "--limit", "-n", help="The number of papers to process. Use 0 for all."
+        ),
     ] = 10,
 ) -> None:
     """Build a vector database from sentences in the acus field of input JSON documents.
@@ -361,6 +363,9 @@ def build(
         db = VectorDatabase.load(db_dir, batch_size)
     else:
         db = VectorDatabase.empty(emb.Encoder(model), batch_size)
+
+    if limit_papers == 0:
+        limit_papers = None
 
     logger.info(f"Loading input data from {input_file}")
     papers = gpt.PromptResult.unwrap(
@@ -417,11 +422,16 @@ def query(
     ] = DEFAULT_SIMILARITY_THRESHOLD,
     limit_papers: Annotated[
         int | None,
-        typer.Option("--limit", "-n", help="The number of papers to process."),
+        typer.Option(
+            "--limit", "-n", help="The number of papers to process. Use 0 for all."
+        ),
     ] = 10,
 ) -> None:
     """Query the vector database with sentences from the papers ACUs."""
     db = VectorDatabase.load(db_dir)
+
+    if limit_papers == 0:
+        limit_papers = None
 
     papers = gpt.PromptResult.unwrap(
         load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs])
@@ -614,7 +624,9 @@ def evaluate(
     ],
     limit_papers: Annotated[
         int | None,
-        typer.Option("--limit", "-n", help="The number of papers to process."),
+        typer.Option(
+            "--limit", "-n", help="The number of papers to process. Use 0 for all."
+        ),
     ] = 10,
     sim_threshold: Annotated[
         float, typer.Option(help="Similarity threshold.", min=0.0, max=1.0)
