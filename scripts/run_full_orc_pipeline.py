@@ -299,6 +299,60 @@ def main(
         scimon_peer,
     )
 
+    title("Extract ACUs S2")
+    acu_s2_dir = output_dir / "acu-s2"
+    acu_s2 = acu_s2_dir / "results.json"
+    _checkrun(
+        acu_s2,
+        "paper",
+        "gpt",
+        "acus",
+        "run",
+        "--related",
+        peer_related,
+        "--output",
+        acu_s2_dir,
+        "--paper-type",
+        "s2",
+        "--limit",
+        "0",
+    )
+    assert acu_s2.exists()
+
+    title("Extract ACUs PeerRead")
+    acu_peerread_dir = output_dir / "acu-peerread"
+    acu_peerread = acu_peerread_dir / "results.json"
+    _checkrun(
+        acu_peerread,
+        "paper",
+        "gpt",
+        "acus",
+        "run",
+        "--related",
+        peer_with_ref,
+        "--output",
+        acu_peerread_dir,
+        "--paper-type",
+        "peerread",
+        "--limit",
+        "0",
+    )
+    assert acu_peerread.exists()
+
+    title("Build Nova database")
+    acu_db = output_dir / "acu-db"
+    _checkrun(
+        acu_db,
+        "paperbaselines",
+        "nova",
+        "build",
+        "--input",
+        acu_s2,
+        "--output",
+        acu_db,
+    )
+    assert acu_db.exists()
+
 
 def _checkrun(path: Path, *cmd: object) -> None:
     """Run command only if `path` does not already exist.
