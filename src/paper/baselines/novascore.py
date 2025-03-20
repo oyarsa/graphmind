@@ -6,7 +6,6 @@ based on their Atomic Content Units (ACUs).
 # pyright: basic
 
 import logging
-import random
 from pathlib import Path
 from typing import Annotated
 
@@ -17,7 +16,7 @@ from tqdm import tqdm
 from paper import gpt
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
-from paper.util import get_params, render_params, setup_logging
+from paper.util import get_params, render_params, sample, setup_logging
 from paper.util.cli import die
 from paper.util.serde import load_data, save_data
 from paper.vector_db import SearchMatch, SearchResult, VectorDatabase
@@ -57,7 +56,8 @@ def build(
         ),
     ],
     db_dir: Annotated[
-        Path | None, typer.Option("--db", help="Directory with vector database files.")
+        Path | None,
+        typer.Option("--db", help="Directory with vector database files to update."),
     ] = None,
     model: Annotated[
         str, typer.Option(help="Name of the sentence transformer model")
@@ -99,8 +99,7 @@ def build(
     papers = gpt.PromptResult.unwrap(
         load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs[s2.Paper]])
     )
-    if limit_papers is not None:
-        papers = random.sample(papers, limit_papers)
+    papers = sample(papers, limit_papers)
 
     if not papers:
         die("Input file is empty.")
@@ -109,8 +108,7 @@ def build(
     for paper in papers:
         sentences.extend(paper.acus)
 
-    if limit_sentences is not None:
-        sentences = random.sample(sentences, limit_sentences)
+    sentences = sample(sentences, limit_sentences)
 
     db.add_sentences(sentences)
 

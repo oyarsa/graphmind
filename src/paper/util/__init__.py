@@ -639,3 +639,13 @@ def log_memory_usage(file: Path) -> None:
         log("\nLinux Swap Information:")
         log(f"  Total Swap: {swap_total_gb:.2f} GB")
         log(f"  Used Swap: {swap_used_gb:.2f} GB ({swap.percent}%)")
+
+
+def sample[T](items: Sequence[T], k: int | None) -> list[T]:
+    """Choose `k` unique elements from `items`.
+
+    If `k` is None or 0, or if the number of `items` is less than `k`, returns `items`.
+    """
+    if k is None or k == 0 or len(items) <= k:
+        return list(items)
+    return random.sample(items, k)
