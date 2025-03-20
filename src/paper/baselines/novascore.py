@@ -305,6 +305,9 @@ def _find_best_match(result: SearchResult, threshold: float) -> SearchMatch | No
     This can be used to answer the question: "does this sentence have at least one item
     with high similarity?".
     """
+    if not result.matches:
+        return None
+
     best_match = max(result.matches, key=lambda m: m.score)
     if best_match.score >= threshold:
         return best_match
