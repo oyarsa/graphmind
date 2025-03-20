@@ -270,9 +270,10 @@ def main(
     assert petersum.exists()
 
     title("SciMON build")
-    scimon_graph = output_dir / "scimon_graph.json"
+    scimon_graph_dir = output_dir / "scimon_graph"
+    scimon_kg_file = scimon_graph_dir / "kg_graph.json"
     _checkrun(
-        scimon_graph,
+        scimon_kg_file,
         "paper",
         "scimon",
         "build",
@@ -280,12 +281,12 @@ def main(
         s2_terms,
         "--peerread",
         peer_with_ref,
-        "--output",
-        scimon_graph,
+        "--output-dir",
+        scimon_graph_dir,
         "--num-annotated",
         5000,
     )
-    assert scimon_graph.exists()
+    assert scimon_kg_file.exists()
 
     title("SciMON query")
     scimon_peer = output_dir / "peerread_with_scimon.json"
@@ -296,8 +297,8 @@ def main(
         "query",
         "--ann-peer",
         peer_terms,
-        "--graph",
-        scimon_graph,
+        "--graph-dir",
+        scimon_graph_dir,
         "--output",
         scimon_peer,
     )

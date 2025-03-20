@@ -4,4 +4,3 @@ from paper.baselines.scimon.graph import AnnotatedGraphResult as AnnotatedGraphR
 from paper.baselines.scimon.graph import Graph as Graph
 from paper.baselines.scimon.graph import GraphData as GraphData
 from paper.baselines.scimon.graph import QueryResult as QueryResult
-from paper.baselines.scimon.graph import graph_from_json as graph_from_json
