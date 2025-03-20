@@ -82,7 +82,7 @@ def build(
             "-s",
             help="The number of sentences to use to build the index. Use 0 for all.",
         ),
-    ] = 200_000,
+    ] = 500_000,
 ) -> None:
     """Build a vector database from sentences in the acus field of input JSON documents.
 
