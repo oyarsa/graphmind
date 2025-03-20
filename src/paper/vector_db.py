@@ -159,10 +159,12 @@ class VectorDatabase:
         scores, indices = self.index.search(query_vectors, k)  # type: ignore
 
         return [
-            SearchResult(
+            SearchResult.model_construct(
                 query=query,
                 matches=[
-                    SearchMatch(sentence=self.sentences[idx], score=float(score))
+                    SearchMatch.model_construct(
+                        sentence=self.sentences[idx], score=float(score)
+                    )
                     for score, idx in zip(scores_row, indices_row)
                     if score >= threshold
                 ],
