@@ -20,7 +20,7 @@ from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
 from paper.util import get_params, render_params, setup_logging
 from paper.util.cli import die
 from paper.util.serde import load_data, save_data
-from paper.vector_db import SearchResult, VectorDatabase
+from paper.vector_db import SearchMatch, SearchResult, VectorDatabase
 
 DEFAULT_MODEL = "all-mpnet-base-v2"
 DEFAULT_BATCH_SIZE = 1000
@@ -129,7 +129,7 @@ class PaperResult(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    paper: gpt.PaperWithACUs
+    paper: gpt.PaperWithACUs[s2.PaperWithS2Refs]
     """The original paper with its ACUs."""
     results: list[SearchResult]
     """Search results for each ACU in the paper."""
@@ -167,7 +167,7 @@ def query(
         limit_papers = None
 
     papers = gpt.PromptResult.unwrap(
-        load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs])
+        load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs[s2.PaperWithS2Refs]])
     )[:limit_papers]
 
     if not papers:
@@ -195,8 +195,7 @@ def query(
 
 
 def _evaluate_paper(
-    db: VectorDatabase,
-    paper: gpt.PaperWithACUs[s2.PaperWithS2Refs],
+    paper_result: PaperResult,
     *,
     threshold: float,
     alpha: float,
@@ -206,8 +205,7 @@ def _evaluate_paper(
     """Calculate the novelty score for a paper using the NovaSCORE method.
 
     Args:
-        db: Vector database to search for similar ACUs.
-        paper: Paper with ACUs to evaluate.
+        paper_result: Paper result with ACUs and their search results.
         threshold: Similarity threshold for considering an ACU as non-novel.
         alpha: Weight parameter for the non-salient ACU formula.
         beta: Offset parameter for the salience ratio in the formula.
@@ -222,6 +220,8 @@ def _evaluate_paper(
     Where salience_ratio is the proportion of salient ACUs in the paper (number of
     salient ACUs divided by the total number of ACUs).
     """
+    paper = paper_result.paper
+
     if not paper.acus:
         logger.warning(f"Paper {paper.id} has no ACUs, returning zero novelty score")
         return 0.0
@@ -237,12 +237,12 @@ def _evaluate_paper(
         alpha * (salience_ratio - beta) ** 3 + gamma,
     )
 
-    acu_novelty_matches = db.find_best(paper.acus, threshold=threshold)
-
     # Calculate the total novelty score
     total_score = 0.0
-    for acu, match in zip(paper.acus, acu_novelty_matches):
+    for acu, result in zip(paper.acus, paper_result.results, strict=True):
+        match = _find_best_match(result, threshold)
         novelty = 1 if match is None else 0
+
         salient = acu in salient_acus
 
         weight = weight_salient if salient else weight_nonsalient
@@ -250,6 +250,18 @@ def _evaluate_paper(
 
     # Normalize by the number of ACUs
     return total_score / len(paper.acus)
+
+
+def _find_best_match(result: SearchResult, threshold: float) -> SearchMatch | None:
+    """Return best match in `result` if it's above the `threshold`, or None.
+
+    This can be used to answer the question: "does this sentence have at least one item
+    with high similarity?".
+    """
+    best_match = max(result.matches, key=lambda m: m.score)
+    if best_match.score >= threshold:
+        return best_match
+    return None
 
 
 class PaperEvaluated(BaseModel):
@@ -297,15 +309,13 @@ class EvaluationConfig(BaseModel):
 
 
 def run_evaluation(
-    db: VectorDatabase,
-    papers: list[gpt.PaperWithACUs[s2.PaperWithS2Refs]],
+    paper_results: list[PaperResult],
     config: EvaluationConfig,
 ) -> list[PaperEvaluated]:
-    """Run the NovaSCORE evaluation on a list of papers.
+    """Run the NovaSCORE evaluation on a list of papers using saved query results.
 
     Args:
-        db: Vector database to use for similarity search.
-        papers: List of papers to evaluate.
+        paper_results: List of paper results with search results for each ACU.
         config: Evaluation configuration parameters.
 
     Returns:
@@ -313,14 +323,14 @@ def run_evaluation(
     """
     results: list[PaperEvaluated] = []
 
-    for paper in tqdm(papers, desc="Evaluating papers"):
+    for paper_result in tqdm(paper_results, desc="Evaluating papers"):
+        paper = paper_result.paper
         if not paper.acus:
             logger.warning(f"Paper {paper.id} has no ACUs, skipping")
             continue
 
         score = _evaluate_paper(
-            db,
-            paper,
+            paper_result,
             threshold=config.sim_threshold,
             alpha=config.alpha,
             beta=config.beta,
@@ -340,12 +350,9 @@ def run_evaluation(
 
 @app.command(no_args_is_help=True)
 def evaluate(
-    db_dir: Annotated[
-        Path, typer.Option("--db", help="Directory with vector database files.")
-    ],
-    input_file: Annotated[
+    results_file: Annotated[
         Path,
-        typer.Option("--input", "-i", help="Input JSON file with query documents."),
+        typer.Option("--results", help="Input JSON file with saved query results."),
     ],
     output_dir: Annotated[
         Path,
@@ -377,9 +384,10 @@ def evaluate(
         typer.Option(help="Gamma parameter for dynamic salient weight.", min=0, max=1),
     ] = DEFAULT_SALIENT_GAMMA,
 ) -> None:
-    """Calculate novelty score from input papers using the NovaSCORE database.
+    """Calculate novelty score using saved query results.
 
-    Input is the output of `gpt.extract_acu` with `PeerRead` papers.
+    Input is the output of the `query` command, which contains papers with their ACUs and
+    search results for each ACU.
     """
     params = get_params()
     logger.info(render_params(params))
@@ -387,18 +395,13 @@ def evaluate(
     if limit_papers == 0:
         limit_papers = None
 
-    logger.info(f"Loading vector database from {db_dir}")
-    db = VectorDatabase.load(db_dir)
+    logger.info(f"Loading query results from {results_file}")
+    paper_results = load_data(results_file, PaperResult)
 
-    logger.info(f"Loading papers from {input_file}")
-    papers = gpt.PromptResult.unwrap(
-        load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs[s2.PaperWithS2Refs]])
-    )[:limit_papers]
+    if limit_papers:
+        paper_results = paper_results[:limit_papers]
 
-    if not papers:
-        raise typer.Exit(code=0)
-
-    logger.info(f"Loaded {len(papers)} papers")
+    logger.info(f"Loaded results for {len(paper_results)} papers")
 
     config = EvaluationConfig(
         sim_threshold=sim_threshold,
@@ -407,13 +410,9 @@ def evaluate(
         beta=beta,
         gamma=gamma,
     )
-    results = run_evaluation(db, papers, config)
+    results = run_evaluation(paper_results, config)
 
-    if not results:
-        logger.warning("No results produced from evaluation")
-        return
-
-    metrics = calculate_paper_metrics(results, 0)
+    metrics = calculate_paper_metrics(results, cost=0)
     logger.info("%s\n", display_metrics(metrics, results))
 
     logger.info(f"Saving results to {output_dir}")
