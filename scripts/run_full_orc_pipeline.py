@@ -301,7 +301,7 @@ def main(
 
     title("Extract ACUs S2")
     acu_s2_dir = output_dir / "acu-s2"
-    acu_s2 = acu_s2_dir / "results.json"
+    acu_s2 = acu_s2_dir / "result.json"
     _checkrun(
         acu_s2,
         "paper",
@@ -321,7 +321,7 @@ def main(
 
     title("Extract ACUs PeerRead")
     acu_peerread_dir = output_dir / "acu-peerread"
-    acu_peerread = acu_peerread_dir / "results.json"
+    acu_peerread = acu_peerread_dir / "result.json"
     _checkrun(
         acu_peerread,
         "paper",
@@ -359,7 +359,8 @@ def main(
     assert acu_db.exists()
 
     title("Query Nova database")
-    acu_query = output_dir / "acu-db"
+    acu_query_dir = output_dir / "acu-query"
+    acu_query = acu_query_dir / "result.jsonl"
     _checkrun(
         acu_query,
         "paper",
