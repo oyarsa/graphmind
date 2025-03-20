@@ -52,7 +52,7 @@ def citations_(
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
-    ] = "all-mpnet-base-v2",
+    ] = emb.DEFAULT_SENTENCE_MODEL,
 ) -> None:
     """Create citations graph with the reference papers sorted by title similarity."""
     logger.info(display_params())
@@ -86,7 +86,7 @@ def semantic_(
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
-    ] = "all-mpnet-base-v2",
+    ] = emb.DEFAULT_SENTENCE_MODEL,
 ) -> None:
     """Create citations graph with the reference papers sorted by title similarity."""
     logger.info(display_params())
@@ -127,7 +127,7 @@ def build(
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
-    ] = "all-mpnet-base-v2",
+    ] = emb.DEFAULT_SENTENCE_MODEL,
 ) -> None:
     """Create citations graph with the reference papers sorted by title similarity."""
     logger.info(display_params())

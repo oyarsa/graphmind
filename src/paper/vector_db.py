@@ -15,8 +15,8 @@ import typer
 from pydantic import BaseModel, ConfigDict
 
 from paper import embedding as emb
+from paper.embedding import DEFAULT_SENTENCE_MODEL
 
-DEFAULT_MODEL = "all-mpnet-base-v2"
 DEFAULT_BATCH_SIZE = 1000
 DEFAULT_TOP_K = 5
 DEFAULT_SIMILARITY_THRESHOLD = 0.6
@@ -86,7 +86,9 @@ class VectorDatabase:
 
     @classmethod
     def empty(
-        cls, encoder_model: str = DEFAULT_MODEL, batch_size: int = DEFAULT_BATCH_SIZE
+        cls,
+        encoder_model: str = DEFAULT_SENTENCE_MODEL,
+        batch_size: int = DEFAULT_BATCH_SIZE,
     ) -> Self:
         """Create a new empty vector database with the given encoder.
 

@@ -19,6 +19,8 @@ type Matrix = npt.NDArray[np.float32]
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_SENTENCE_MODEL = "all-MiniLM-L6-v2"
+
 
 class Encoder:
     """SentenceTransformer-based text to vector encoder.
@@ -27,7 +29,7 @@ class Encoder:
     """
 
     def __init__(
-        self, model_name: str = "all-mpnet-base-v2", device: str | None = None
+        self, model_name: str = DEFAULT_SENTENCE_MODEL, device: str | None = None
     ) -> None:
         # `sentence_transformers` has a bug where they don't clean up their semaphores
         # properly, so we suppress this.

@@ -47,7 +47,7 @@ def main(
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
-    ] = "all-mpnet-base-v2",
+    ] = emb.DEFAULT_SENTENCE_MODEL,
     query: Annotated[str | None, typer.Option(help="Test query for the graph")] = None,
 ) -> None:
     """Build a KG graph from extracted terms from papers."""

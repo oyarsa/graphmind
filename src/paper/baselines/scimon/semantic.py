@@ -41,7 +41,7 @@ def main(
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
-    ] = "all-mpnet-base-v2",
+    ] = emb.DEFAULT_SENTENCE_MODEL,
     limit: Annotated[
         int | None, typer.Option(help="Maximum number of papers to process.")
     ] = None,

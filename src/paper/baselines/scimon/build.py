@@ -51,7 +51,7 @@ def main(
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
-    ] = "all-mpnet-base-v2",
+    ] = emb.DEFAULT_SENTENCE_MODEL,
     test: Annotated[bool, typer.Option(help="Test graph saving and loading.")] = False,
     num_annotated: Annotated[
         int | None,

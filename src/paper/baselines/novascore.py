@@ -19,9 +19,13 @@ from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
 from paper.util import get_params, render_params, sample, setup_logging
 from paper.util.cli import die
 from paper.util.serde import load_data, save_data
-from paper.vector_db import SearchMatch, SearchResult, VectorDatabase
+from paper.vector_db import (
+    DEFAULT_SENTENCE_MODEL,
+    SearchMatch,
+    SearchResult,
+    VectorDatabase,
+)
 
-DEFAULT_MODEL = "all-mpnet-base-v2"
 DEFAULT_BATCH_SIZE = 1000
 DEFAULT_TOP_K = 5
 DEFAULT_SIMILARITY_THRESHOLD = 0.6
@@ -61,7 +65,7 @@ def build(
     ] = None,
     model: Annotated[
         str, typer.Option(help="Name of the sentence transformer model")
-    ] = DEFAULT_MODEL,
+    ] = DEFAULT_SENTENCE_MODEL,
     batch_size: Annotated[
         int, typer.Option(help="Batch size for processing")
     ] = DEFAULT_BATCH_SIZE,
