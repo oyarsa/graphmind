@@ -8,6 +8,7 @@ based on their Atomic Content Units (ACUs).
 import itertools
 import json
 import logging
+import random
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Annotated, Self
@@ -353,6 +354,14 @@ def build(
             "--limit", "-n", help="The number of papers to process. Use 0 for all."
         ),
     ] = 10,
+    limit_sentences: Annotated[
+        int | None,
+        typer.Option(
+            "--sentences",
+            "-s",
+            help="The number of sentences to use to build the index. Use 0 for all.",
+        ),
+    ] = 200_000,
 ) -> None:
     """Build a vector database from sentences in the acus field of input JSON documents.
 
@@ -366,24 +375,31 @@ def build(
 
     if limit_papers == 0:
         limit_papers = None
+    if limit_sentences == 0:
+        limit_sentences = None
 
     logger.info(f"Loading input data from {input_file}")
     papers = gpt.PromptResult.unwrap(
         load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs[s2.Paper]])
-    )[:limit_papers]
+    )
+    if limit_papers is not None:
+        papers = random.sample(papers, limit_papers)
 
     if not papers:
         die("Input file is empty.")
 
-    total_sentences = 0
+    sentences: list[str] = []
+    for paper in papers:
+        sentences.extend(paper.acus)
 
-    for paper in tqdm(papers, desc="Processing papers"):
-        db.add_sentences(paper.acus, paper.id)
-        total_sentences += len(paper.acus)
+    if limit_sentences is not None:
+        sentences = random.sample(sentences, limit_sentences)
+
+    db.add_sentences(sentences, "")
 
     db.save(output_dir)
     logger.info(
-        f"Built database with {total_sentences} sentences from {len(papers)} documents"
+        f"Built database with {len(sentences)} sentences from {len(papers)} documents"
     )
 
 
