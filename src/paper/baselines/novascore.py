@@ -5,7 +5,9 @@ based on their Atomic Content Units (ACUs).
 """
 # pyright: basic
 
+import gc
 import logging
+import os
 from pathlib import Path
 from typing import Annotated
 
@@ -16,15 +18,24 @@ from tqdm import tqdm
 from paper import gpt
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
-from paper.util import get_params, render_params, sample, setup_logging
+from paper.util import (
+    get_params,
+    log_memory_usage,
+    render_params,
+    sample,
+    setup_logging,
+)
 from paper.util.cli import die
-from paper.util.serde import load_data, save_data
+from paper.util.serde import load_data, save_data, save_data_jsonl
 from paper.vector_db import (
     DEFAULT_SENTENCE_MODEL,
     SearchMatch,
     SearchResult,
     VectorDatabase,
 )
+
+GC_ITERATIONS = int(os.getenv("GC_ITERATIONS", "100"))
+"""How often should we manually call the GC."""
 
 DEFAULT_BATCH_SIZE = 1000
 DEFAULT_TOP_K = 5
@@ -144,10 +155,15 @@ def query(
     ],
     input_file: Annotated[
         Path,
-        typer.Option("--input", "-i", help="Input JSON file with query documents."),
+        typer.Option(
+            "--input", "-i", help="Input JSONLines file with query documents."
+        ),
     ],
-    output_file: Annotated[
-        Path, typer.Option("--output", "-o", help="Output JSON file for results.")
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--output", "-o", help="Path to directory where results will be saved."
+        ),
     ],
     top_k: Annotated[
         int, typer.Option(help="Number of top matches to return.", min=1)
@@ -163,6 +179,9 @@ def query(
     ] = 10,
 ) -> None:
     """Query the vector database with sentences from the papers ACUs."""
+    params = get_params()
+    logger.info(render_params(params))
+
     db = VectorDatabase.load(db_dir)
 
     if limit_papers == 0:
@@ -177,23 +196,43 @@ def query(
 
     logger.info(f"Loaded {len(papers)} documents")
 
-    results: list[PaperResult] = []
-    total_queries = 0
+    # Use JSONL files so we don't have to keep the whole result in memory
+    output_file = output_dir / "result.jsonl"
+    output_file.unlink(missing_ok=True)
 
-    for paper in tqdm(papers, desc="Querying papers"):
+    memory_file = output_dir / "memory.txt"
+    memory_file.unlink(missing_ok=True)
+    log_memory_usage(memory_file)
+
+    total_queries = 0
+    total_documents = 0
+
+    for i, paper in enumerate(tqdm(papers, desc="Querying papers")):
         sentences = paper.acus
+        total_queries += len(sentences)
+
         if not sentences:
             logger.warning(f"Document {paper.id} has no ACUs to query")
             continue
 
         query_results = db.search(sentences, k=top_k, threshold=threshold)
-        total_queries += len(sentences)
+        result = PaperResult(paper=paper, results=query_results)
+        save_data_jsonl(output_file, result)
 
-        results.append(PaperResult(paper=paper, results=query_results))
+        # Explicitly free memory from results
+        del result
+        del query_results
+        del sentences
 
-    logger.info(f"Processed {len(results)} documents with {total_queries} queries")
-    logger.info(f"Saving results to {output_file}")
-    save_data(output_file, results)
+        if i % GC_ITERATIONS == 0:
+            log_memory_usage(memory_file)
+            gc.collect()
+
+        total_documents += 1
+
+    logger.info(f"Processed {total_documents} documents with {total_queries} queries")
+    logger.info(f"Results saved to {output_file}")
+    save_data(output_dir / "params.json", params)
 
 
 def _evaluate_paper(
