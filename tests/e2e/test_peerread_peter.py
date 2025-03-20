@@ -148,7 +148,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     assert peer_terms.exists()
 
     title("Peter Build")
-    peter_graph = tmp_path / "peter_graph.json"
+    peter_graph_dir = tmp_path / "peter_graph"
     run(
         "paper",
         "peter",
@@ -157,10 +157,10 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         s2_terms,
         "--context",
         context,
-        "--output",
-        peter_graph,
+        "--output-dir",
+        peter_graph_dir,
     )
-    assert peter_graph.exists()
+    assert peter_graph_dir.exists()
 
     peter_peer = tmp_path / "peerread_with_peter.json"
     title("Peter PeerRead")
@@ -168,8 +168,8 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "paper",
         "peter",
         "peerread",
-        "--graph",
-        peter_graph,
+        "--graph-dir",
+        peter_graph_dir,
         "--peerread-ann",
         peer_terms,
         "--output",

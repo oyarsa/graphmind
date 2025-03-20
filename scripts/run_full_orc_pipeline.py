@@ -213,9 +213,12 @@ def main(
     assert s2_terms.exists()
 
     title("Peter Build")
-    peter_graph = output_dir / "peter_graph.json"
+    peter_graph_dir = output_dir / "peter_graph"
+    peter_graph_file = (
+        peter_graph_dir / "citation_graph.json"
+    )  # We check for this file to exist
     _checkrun(
-        peter_graph,
+        peter_graph_file,
         "paper",
         "peter",
         "build",
@@ -223,10 +226,10 @@ def main(
         s2_terms,
         "--context",
         context,
-        "--output",
-        peter_graph,
+        "--output-dir",
+        peter_graph_dir,
     )
-    assert peter_graph.exists()
+    assert peter_graph_file.exists()
 
     peter_peer = output_dir / "peerread_with_peter.json"
     title("Peter PeerRead")
@@ -235,8 +238,8 @@ def main(
         "paper",
         "peter",
         "peerread",
-        "--graph",
-        peter_graph,
+        "--graph-dir",
+        peter_graph_dir,
         "--peerread-ann",
         peer_terms,
         "--num-citations",

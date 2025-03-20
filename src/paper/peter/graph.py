@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import gc
+import json
 import logging
 from collections.abc import Iterable
 from pathlib import Path
@@ -14,7 +16,7 @@ from paper.peter import citations, semantic
 from paper.peter.citations import ContextPolarity
 from paper.related_papers import PaperRelated, PaperSource, QueryResult
 from paper.util import Timer
-from paper.util.serde import load_data
+from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,10 @@ class Graph:
 
     CITATION_TOP_K: ClassVar[int] = 5
     SEMANTIC_TOP_K: ClassVar[int] = 5
+
+    CITATION_FILENAME: ClassVar[str] = "citation_graph.json"
+    SEMANTIC_FILENAME: ClassVar[str] = "semantic_graph.json"
+    METADATA_FILENAME: ClassVar[str] = "metadata.json"
 
     _citation: citations.Graph
     _semantic: semantic.Graph
@@ -92,32 +98,81 @@ class Graph:
         )
 
     @classmethod
-    def from_papers(
+    def build(
         cls,
         encoder: emb.Encoder,
         papers_ann: Iterable[semantic.PaperAnnotated],
         papers_context: Iterable[citations.PaperWithContextClassfied],
-    ) -> Self:
-        """Create new PETER graph from annotated papers and classified contexts."""
+        output_dir: Path,
+    ) -> None:
+        """Build PETER graph from annotated papers and classified contexts.
+
+        Args:
+            encoder: Text to vector encoder to use on the nodes.
+            papers_ann: Papers to be processed into semantic graph nodes.
+            papers_context: Papers to be processed into citation graph nodes.
+            output_dir: Directory where to save the graph.
+        """
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        citation_file = output_dir / cls.CITATION_FILENAME
+        semantic_file = output_dir / cls.SEMANTIC_FILENAME
+        metadata_file = output_dir / cls.METADATA_FILENAME
 
         logger.debug("Creating semantic graph.")
         with Timer("Semantic") as timer_semantic:
             semantic_graph = semantic.Graph.from_papers(
                 encoder, papers_ann, progress=True
             )
+            logger.debug("Saving semantic graph")
+            save_data(semantic_file, semantic_graph.to_data())
         logger.debug(timer_semantic)
+
+        # Clear the semantic graph to free memory
+        del semantic_graph
+        # Collect twice to handle cycles
+        gc.collect()
+        gc.collect()
 
         logger.debug("Creating citations graph.")
         with Timer("Citations") as timer_citations:
             citation_graph = citations.Graph.from_papers(
                 encoder, papers_context, progress=True
             )
+            logger.debug("Saving citation graph")
+            save_data(citation_file, citation_graph)
         logger.debug(timer_citations)
+
+        logger.debug("Saving graph metadata")
+        metadata_file.write_text(json.dumps({"encoder_model": encoder.model_name}))
+
+    @classmethod
+    def load(cls, graph_dir: Path) -> Self:
+        """Load a Graph from a directory.
+
+        Raises:
+            pydantic.ValidationError: If the graph data is malformed.
+            FileNotFoundError: If any of the required files is missing.
+        """
+        citation_file = graph_dir / cls.CITATION_FILENAME
+        semantic_file = graph_dir / cls.SEMANTIC_FILENAME
+        metadata_file = graph_dir / cls.METADATA_FILENAME
+
+        if not all(f.exists() for f in [citation_file, semantic_file, metadata_file]):
+            raise FileNotFoundError(f"Missing one or more graph files in {graph_dir}")
+
+        metadata: dict[str, str] = json.loads(metadata_file.read_bytes())
+        encoder_model = metadata["encoder_model"]
+
+        citation_graph = load_data(citation_file, citations.Graph, single=True)
+
+        semantic_data = load_data(semantic_file, semantic.GraphData, single=True)
+        semantic_graph = semantic_data.to_graph(emb.Encoder(encoder_model))
 
         return cls(
             citation=citation_graph,
             semantic=semantic_graph,
-            encoder_model=encoder.model_name,
+            encoder_model=encoder_model,
         )
 
 
@@ -137,11 +192,3 @@ class GraphData(BaseModel):
             semantic=self.semantic.to_graph(),
             encoder_model=self.encoder_model,
         )
-
-
-def graph_from_json(file: Path) -> Graph:
-    """Read full `Graph` from a JSON `file`.
-
-    See `GraphData` for more info.
-    """
-    return load_data(file, GraphData, single=True).to_graph()
