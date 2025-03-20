@@ -5,26 +5,22 @@ based on their Atomic Content Units (ACUs).
 """
 # pyright: basic
 
-import itertools
-import json
 import logging
 import random
-from collections.abc import Iterable
 from pathlib import Path
-from typing import Annotated, Self
+from typing import Annotated
 
-import faiss  # type: ignore
 import typer
 from pydantic import BaseModel, ConfigDict, computed_field
 from tqdm import tqdm
 
-from paper import embedding as emb
 from paper import gpt
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
 from paper.util import get_params, render_params, setup_logging
 from paper.util.cli import die
 from paper.util.serde import load_data, save_data
+from paper.vector_db import SearchResult, VectorDatabase
 
 DEFAULT_MODEL = "all-mpnet-base-v2"
 DEFAULT_BATCH_SIZE = 1000
@@ -44,204 +40,6 @@ app = typer.Typer(
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,
 )
-
-
-class SearchMatch(BaseModel):
-    """Match from searching a query in the database."""
-
-    model_config = ConfigDict(frozen=True)
-
-    sentence: str
-    """Sentence retrieved from the database."""
-    score: float
-    """Similarity score with the query."""
-
-
-class SearchResult(BaseModel):
-    """Search result with all matches for a query."""
-
-    model_config = ConfigDict(frozen=True)
-
-    query: str
-    """Sentence used to query the database."""
-    matches: list[SearchMatch]
-    """Retrieved sentences with scores."""
-
-
-class VectorDatabase:
-    """Database for embedded sentences."""
-
-    INDEX_FILE = "index.faiss"
-    """File with indexed documents with vector embeddings."""
-    METADATA_FILE = "metadata.json"
-    """File with JSON metadata needed to construct the database."""
-
-    encoder: emb.Encoder
-    """Encoder model used to generate vector embeddings for sentences."""
-    index: faiss.IndexFlatIP
-    """Index for vector search."""
-    sentences: list[str]
-    """Input sentences."""
-    batch_size: int
-    """Size of the batch during database construction."""
-
-    def __init__(
-        self,
-        encoder: emb.Encoder,
-        index: faiss.IndexFlatIP,
-        sentences: list[str],
-        batch_size: int,
-    ) -> None:
-        """Use `VectorDatabase.load` or `VectorDatabase.empty` to construct a new DB."""
-        self.encoder = encoder
-        self.index = index
-        self.sentences = sentences
-        self.batch_size = batch_size
-
-    @classmethod
-    def empty(cls, encoder: emb.Encoder, batch_size: int = DEFAULT_BATCH_SIZE) -> Self:
-        """Create a new empty vector database with the given encoder.
-
-        Args:
-            encoder: Method used to convert input sentences to vectors.
-            batch_size: Number of sentences per batch when adding sentences to the index.
-        """
-        index = faiss.IndexFlatIP(encoder.dimensions)
-        return cls(encoder=encoder, index=index, sentences=[], batch_size=batch_size)
-
-    @classmethod
-    def load(cls, db_dir: Path, batch_size: int | None = None) -> Self:
-        """Load a vector database from disk.
-
-        Expects the files created by `save`. If `batch_size` is given, it overrides the
-        one from the metadata.
-
-        Args:
-            db_dir: Directory containing the database files.
-            batch_size: Optional batch size to override the saved value.
-
-        Returns:
-            A loaded VectorDatabase instance.
-
-        Raises:
-            FileNotFoundError: If the index or metadata files don't exist.
-            json.JSONDecodeError: If the metadata file contains invalid JSON.
-        """
-        index_path = db_dir / cls.INDEX_FILE
-        metadata_path = db_dir / cls.METADATA_FILE
-
-        index = faiss.read_index(str(index_path))
-        metadata = json.loads(metadata_path.read_bytes())
-
-        return cls(
-            index=index,
-            encoder=emb.Encoder(metadata["model_name"]),
-            sentences=metadata["sentences"],
-            batch_size=batch_size or int(metadata["batch_size"]),
-        )
-
-    def add_sentences(self, sentences: Iterable[str]) -> None:
-        """Add sentences to index in batches.
-
-        Args:
-            sentences: Iterable of sentences to add to the database.
-        """
-        sentences_ = list(sentences)
-
-        self.sentences.extend(sentences_)
-        self.index.add(  # type: ignore
-            self.encoder.batch_encode(
-                sentences_, batch_size=self.batch_size, progress=True
-            )
-        )
-
-    def search(
-        self,
-        query_sentences: Iterable[str],
-        k: int = DEFAULT_TOP_K,
-        threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
-    ) -> list[SearchResult]:
-        """Search sentences in database. Returns top `k` with similarity over `threshold`."""
-        results: list[SearchResult] = []
-
-        for sentences_batch in itertools.batched(query_sentences, self.batch_size):
-            query_vectors = self.encoder.encode(sentences_batch)
-
-            # Initial batch search with larger k to account for filtering
-            scores_batch: list[list[float]]
-            indices_batch: list[list[int]]
-            scores_batch, indices_batch = self.index.search(query_vectors, k)  # type: ignore
-
-            for query_sentence, scores, indices in zip(
-                sentences_batch, scores_batch, indices_batch
-            ):
-                matches: list[SearchMatch] = []
-
-                for score, idx in zip(scores, indices):
-                    # Skip if score is below threshold or index is invalid
-                    if score < threshold or idx >= len(self.sentences):
-                        continue
-
-                    original_sentence = self.sentences[idx]
-
-                    matches.append(
-                        SearchMatch(sentence=original_sentence, score=float(score))
-                    )
-
-                results.append(SearchResult(query=query_sentence, matches=matches[:k]))
-
-        return results
-
-    def find_best(
-        self,
-        query_sentences: Iterable[str],
-        threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
-    ) -> list[SearchMatch | None]:
-        """Find the best match for each query sentence.
-
-        Returns the highest similarity match for each query sentence, or None if no
-        match is found above the threshold.
-
-        Args:
-            query_sentences: Sentences to search for in the database.
-            threshold: Minimum similarity score to consider a match.
-
-        Returns:
-            A list of SearchMatch objects (one per query) or None where no match was
-            found.
-        """
-        return [
-            next(iter(result.matches), None)
-            for result in self.search(query_sentences, threshold=threshold, k=1)
-        ]
-
-    def save(self, db_dir: Path) -> None:
-        """Save database to `db_dir`.
-
-        Saves two files:
-        - `VectorDatabase.INDEX_FILE`
-        - `VectorDatabase.METADATA_FILE`
-
-        Args:
-            db_dir: Directory where to save the database files.
-
-        Raises:
-            OSError: If there's an error creating the directory or writing the files.
-        """
-        db_dir.mkdir(parents=True, exist_ok=True)
-
-        index_path = db_dir / self.INDEX_FILE
-        metadata_path = db_dir / self.METADATA_FILE
-
-        faiss.write_index(self.index, str(index_path))
-
-        metadata_path.write_text(
-            json.dumps({
-                "batch_size": self.batch_size,
-                "model_name": self.encoder.model_name,
-                "sentences": self.sentences,
-            })
-        )
 
 
 @app.command(no_args_is_help=True)
@@ -290,7 +88,7 @@ def build(
     if db_dir is not None:
         db = VectorDatabase.load(db_dir, batch_size)
     else:
-        db = VectorDatabase.empty(emb.Encoder(model), batch_size)
+        db = VectorDatabase.empty(model, batch_size)
 
     if limit_papers == 0:
         limit_papers = None
