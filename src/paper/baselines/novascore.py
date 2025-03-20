@@ -26,7 +26,7 @@ from paper.util import (
     setup_logging,
 )
 from paper.util.cli import die
-from paper.util.serde import load_data, save_data, save_data_jsonl
+from paper.util.serde import load_data, load_data_jsonl, save_data, save_data_jsonl
 from paper.vector_db import (
     DEFAULT_SENTENCE_MODEL,
     SearchMatch,
@@ -443,7 +443,7 @@ def evaluate(
         limit_papers = None
 
     logger.info(f"Loading query results from {results_file}")
-    paper_results = load_data(results_file, PaperResult)
+    paper_results = load_data_jsonl(results_file, PaperResult)
 
     if limit_papers:
         paper_results = paper_results[:limit_papers]
