@@ -6,8 +6,9 @@ based on their Atomic Content Units (ACUs).
 # pyright: basic
 
 import gc
+import itertools
 import logging
-import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
 
@@ -20,7 +21,6 @@ from paper import semantic_scholar as s2
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
 from paper.util import (
     get_params,
-    log_memory_usage,
     render_params,
     sample,
     setup_logging,
@@ -33,9 +33,6 @@ from paper.vector_db import (
     SearchResult,
     VectorDatabase,
 )
-
-GC_ITERATIONS = int(os.getenv("GC_ITERATIONS", "100"))
-"""How often should we manually call the GC."""
 
 DEFAULT_BATCH_SIZE = 1000
 DEFAULT_TOP_K = 5
@@ -148,6 +145,43 @@ class PaperResult(BaseModel):
     """Search results for each ACU in the paper."""
 
 
+def _query_papers(
+    db: VectorDatabase,
+    output_file: Path,
+    papers: Sequence[gpt.PaperWithACUs[s2.PaperWithS2Refs]],
+    threshold: float,
+    top_k: int,
+    batch_size: int,
+) -> int:
+    total_queries = 0
+
+    with tqdm(total=len(papers), desc="Querying papers") as pbar:
+        for batch in itertools.batched(papers, batch_size):
+            for paper in batch:
+                sentences = paper.acus
+                total_queries += len(sentences)
+
+                if not sentences:
+                    logger.warning(f"Document {paper.id} has no ACUs to query")
+                    continue
+
+                query_results = db.search(sentences, k=top_k, threshold=threshold)
+                result = PaperResult.model_construct(paper=paper, results=query_results)
+                save_data_jsonl(output_file, result)
+
+                # Explicitly free memory from results to reduce memory usage
+                del result
+                del query_results
+                del sentences
+
+                pbar.update(1)
+
+            gc.collect()
+            gc.collect()
+
+    return total_queries
+
+
 @app.command(no_args_is_help=True)
 def query(
     db_dir: Annotated[
@@ -155,9 +189,7 @@ def query(
     ],
     input_file: Annotated[
         Path,
-        typer.Option(
-            "--input", "-i", help="Input JSONLines file with query documents."
-        ),
+        typer.Option("--input", "-i", help="Input JSON file with documents to query."),
     ],
     output_dir: Annotated[
         Path,
@@ -177,6 +209,9 @@ def query(
             "--limit", "-n", help="The number of papers to process. Use 0 for all."
         ),
     ] = 10,
+    batch_size: Annotated[
+        int, typer.Option(help="Size of batches when processing papers.")
+    ] = 100,
 ) -> None:
     """Query the vector database with sentences from the papers ACUs."""
     params = get_params()
@@ -200,38 +235,9 @@ def query(
     output_file = output_dir / "result.jsonl"
     output_file.unlink(missing_ok=True)
 
-    memory_file = output_dir / "memory.txt"
-    memory_file.unlink(missing_ok=True)
-    log_memory_usage(memory_file)
+    total_queries = _query_papers(db, output_file, papers, threshold, top_k, batch_size)
 
-    total_queries = 0
-    total_documents = 0
-
-    for i, paper in enumerate(tqdm(papers, desc="Querying papers")):
-        sentences = paper.acus
-        total_queries += len(sentences)
-
-        if not sentences:
-            logger.warning(f"Document {paper.id} has no ACUs to query")
-            continue
-
-        query_results = db.search(sentences, k=top_k, threshold=threshold)
-        result = PaperResult(paper=paper, results=query_results)
-        save_data_jsonl(output_file, result)
-
-        # Explicitly free memory from results
-        del result
-        del query_results
-        del sentences
-
-        if i % GC_ITERATIONS == 0:
-            log_memory_usage(memory_file)
-            gc.collect()
-
-        total_documents += 1
-
-    logger.info(f"Processed {total_documents} documents with {total_queries} queries")
-    logger.info(f"Results saved to {output_file}")
+    logger.info(f"Processed {len(papers)} documents with {total_queries} queries")
     save_data(output_dir / "params.json", params)
 
 
