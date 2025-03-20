@@ -594,6 +594,7 @@ def log_memory_usage(file: Path) -> None:
 
     Works on both macOS and Linux systems.
     """
+    file.parent.mkdir(parents=True, exist_ok=True)
 
     def log(x: str) -> None:
         logger.debug(x)
