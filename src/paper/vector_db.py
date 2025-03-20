@@ -4,10 +4,9 @@ Uses SentenceTransformers to build sentence embeddings and faiss to create the i
 """
 # pyright: basic
 
-import itertools
 import json
 import logging
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Self
 
@@ -147,44 +146,31 @@ class VectorDatabase:
 
     def search(
         self,
-        query_sentences: Iterable[str],
+        query_sentences: Sequence[str],
         k: int = DEFAULT_TOP_K,
         threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
     ) -> list[SearchResult]:
         """Search sentences in database. Returns top `k` with similarity over `threshold`."""
-        results: list[SearchResult] = []
+        query_vectors = self.encoder.batch_encode(
+            query_sentences, batch_size=self.batch_size
+        )
+        scores, indices = self.index.search(query_vectors, k)  # type: ignore
 
-        for sentences_batch in itertools.batched(query_sentences, self.batch_size):
-            query_vectors = self.encoder.encode(sentences_batch)
-
-            # Initial batch search with larger k to account for filtering
-            scores_batch: list[list[float]]
-            indices_batch: list[list[int]]
-            scores_batch, indices_batch = self.index.search(query_vectors, k)  # type: ignore
-
-            for query_sentence, scores, indices in zip(
-                sentences_batch, scores_batch, indices_batch
-            ):
-                matches: list[SearchMatch] = []
-
-                for score, idx in zip(scores, indices):
-                    # Skip if score is below threshold or index is invalid
-                    if score < threshold or idx >= len(self.sentences):
-                        continue
-
-                    original_sentence = self.sentences[idx]
-
-                    matches.append(
-                        SearchMatch(sentence=original_sentence, score=float(score))
-                    )
-
-                results.append(SearchResult(query=query_sentence, matches=matches[:k]))
-
-        return results
+        return [
+            SearchResult(
+                query=query,
+                matches=[
+                    SearchMatch(sentence=self.sentences[idx], score=float(score))
+                    for score, idx in zip(scores_row, indices_row)
+                    if score >= threshold
+                ],
+            )
+            for query, scores_row, indices_row in zip(query_sentences, scores, indices)
+        ]
 
     def find_best(
         self,
-        query_sentences: Iterable[str],
+        query_sentences: Sequence[str],
         threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
     ) -> list[SearchMatch | None]:
         """Find the best match for each query sentence.
