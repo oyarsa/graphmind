@@ -343,15 +343,39 @@ def main(
     acu_db = output_dir / "acu-db"
     _checkrun(
         acu_db,
-        "paperbaselines",
+        "paper",
+        "baselines",
         "nova",
         "build",
         "--input",
         acu_s2,
         "--output",
         acu_db,
+        "--limit",
+        0,
+        "--sentences",
+        500_000,
     )
     assert acu_db.exists()
+
+    title("Query Nova database")
+    acu_query = output_dir / "acu-db"
+    _checkrun(
+        acu_query,
+        "paper",
+        "baselines",
+        "nova",
+        "query",
+        "--db",
+        acu_db,
+        "--input",
+        acu_peerread,
+        "--output",
+        acu_query,
+        "--limit",
+        0,
+    )
+    assert acu_query.exists()
 
 
 def _checkrun(path: Path, *cmd: object) -> None:
