@@ -55,8 +55,6 @@ class SearchMatch(BaseModel):
     """Sentence retrieved from the database."""
     score: float
     """Similarity score with the query."""
-    doc_id: str
-    """Index of the document where the sentence came from."""
 
 
 class SearchResult(BaseModel):
@@ -82,8 +80,8 @@ class VectorDatabase:
     """Encoder model used to generate vector embeddings for sentences."""
     index: faiss.IndexFlatIP
     """Index for vector search."""
-    sentence_map: list[tuple[str, str]]
-    """Pairs of (sentence, document index)."""
+    sentences: list[str]
+    """Input sentences."""
     batch_size: int
     """Size of the batch during database construction."""
 
@@ -91,13 +89,13 @@ class VectorDatabase:
         self,
         encoder: emb.Encoder,
         index: faiss.IndexFlatIP,
-        sentence_map: list[tuple[str, str]],
+        sentences: list[str],
         batch_size: int,
     ) -> None:
         """Use `VectorDatabase.load` or `VectorDatabase.empty` to construct a new DB."""
         self.encoder = encoder
         self.index = index
-        self.sentence_map = sentence_map
+        self.sentences = sentences
         self.batch_size = batch_size
 
     @classmethod
@@ -109,7 +107,7 @@ class VectorDatabase:
             batch_size: Number of sentences per batch when adding sentences to the index.
         """
         index = faiss.IndexFlatIP(encoder.dimensions)
-        return cls(encoder=encoder, index=index, sentence_map=[], batch_size=batch_size)
+        return cls(encoder=encoder, index=index, sentences=[], batch_size=batch_size)
 
     @classmethod
     def load(cls, db_dir: Path, batch_size: int | None = None) -> Self:
@@ -138,54 +136,32 @@ class VectorDatabase:
         return cls(
             index=index,
             encoder=emb.Encoder(metadata["model_name"]),
-            sentence_map=metadata["sentence_map"],
+            sentences=metadata["sentences"],
             batch_size=batch_size or int(metadata["batch_size"]),
         )
 
-    def add_sentences(self, sentences: Iterable[str], doc_id: str) -> None:
+    def add_sentences(self, sentences: Iterable[str]) -> None:
         """Add sentences to index in batches.
-
-        `doc_id` represents the document where the sentences came from. If the sentences
-        may come from different documents, call this function multiple times, one for
-        each document.
 
         Args:
             sentences: Iterable of sentences to add to the database.
-            doc_id: Identifier for the document containing these sentences.
         """
-        # Convert to list to avoid consuming the iterable multiple times
-        sentences_list = list(sentences)
-        if not sentences_list:
-            logger.warning(f"No sentences to add for document {doc_id}")
-            return
+        sentences_ = list(sentences)
 
-        # Process in batches for efficiency
-        for batch in itertools.batched(sentences_list, self.batch_size):
-            # Prepare sentence map entries for this batch
-            batch_entries = [(sentence, doc_id) for sentence in batch]
-            self.sentence_map.extend(batch_entries)
-
-            # Encode and add to the index
-            self.index.add(self.encoder.encode(batch))  # type: ignore
+        self.sentences.extend(sentences_)
+        self.index.add(  # type: ignore
+            self.encoder.batch_encode(
+                sentences_, batch_size=self.batch_size, progress=True
+            )
+        )
 
     def search(
         self,
         query_sentences: Iterable[str],
         k: int = DEFAULT_TOP_K,
         threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
-        query_doc_id: str | None = None,
-        max_retrieval_factor: int = 5,
     ) -> list[SearchResult]:
-        """Search sentences in database. Returns top `k` with similarity over `threshold`.
-
-        Excludes matches from the same document (based on document ID) to avoid
-        retrieving sentences from the same paper when searching within the dataset used
-        to build the database.
-
-        Uses batch processing for efficient vector search with a retrieval factor
-        multiplier to ensure enough matches after filtering.
-        """
-        actual_k = k * max_retrieval_factor
+        """Search sentences in database. Returns top `k` with similarity over `threshold`."""
         results: list[SearchResult] = []
 
         for sentences_batch in itertools.batched(query_sentences, self.batch_size):
@@ -194,7 +170,7 @@ class VectorDatabase:
             # Initial batch search with larger k to account for filtering
             scores_batch: list[list[float]]
             indices_batch: list[list[int]]
-            scores_batch, indices_batch = self.index.search(query_vectors, actual_k)  # type: ignore
+            scores_batch, indices_batch = self.index.search(query_vectors, k)  # type: ignore
 
             for query_sentence, scores, indices in zip(
                 sentences_batch, scores_batch, indices_batch
@@ -203,33 +179,15 @@ class VectorDatabase:
 
                 for score, idx in zip(scores, indices):
                     # Skip if score is below threshold or index is invalid
-                    if score < threshold or idx >= len(self.sentence_map):
+                    if score < threshold or idx >= len(self.sentences):
                         continue
 
-                    original_sentence, doc_id = self.sentence_map[idx]
-
-                    # Skip matches from the same document
-                    if doc_id == query_doc_id:
-                        continue
+                    original_sentence = self.sentences[idx]
 
                     matches.append(
-                        SearchMatch(
-                            sentence=original_sentence,
-                            score=float(score),
-                            doc_id=doc_id,
-                        )
+                        SearchMatch(sentence=original_sentence, score=float(score))
                     )
 
-                if len(matches) < k:
-                    logger.warning(
-                        "Not enough matches for sentence after retrieving %d results."
-                        " Query document ID: %s",
-                        actual_k,
-                        query_doc_id,
-                    )
-
-                # Sort by score and take top k
-                matches.sort(key=lambda m: m.score, reverse=True)
                 results.append(SearchResult(query=query_sentence, matches=matches[:k]))
 
         return results
@@ -238,63 +196,24 @@ class VectorDatabase:
         self,
         query_sentences: Iterable[str],
         threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
-        query_doc_id: str | None = None,
-        max_retrieval_factor: int = 5,
     ) -> list[SearchMatch | None]:
         """Find the best match for each query sentence.
 
         Returns the highest similarity match for each query sentence, or None if no
-        match is found above the threshold. Excludes matches from the same document.
+        match is found above the threshold.
 
         Args:
             query_sentences: Sentences to search for in the database.
             threshold: Minimum similarity score to consider a match.
-            query_doc_id: ID of the document containing the query sentences (to exclude
-                matches)>
-            max_retrieval_factor: Multiplier for how many results to retrieve initially.
 
         Returns:
             A list of SearchMatch objects (one per query) or None where no match was
             found.
         """
-        # We need to retrieve more than 1 result because we might filter some out later
-        retrieval_k = max_retrieval_factor
-        results: list[SearchMatch | None] = []
-
-        for sentences_batch in itertools.batched(query_sentences, self.batch_size):
-            query_vectors = self.encoder.encode(sentences_batch)
-
-            scores_batch: list[list[float]]
-            indices_batch: list[list[int]]
-            scores_batch, indices_batch = self.index.search(query_vectors, retrieval_k)  # type: ignore
-
-            for scores, indices in zip(scores_batch, indices_batch):
-                best_match: SearchMatch | None = None
-                best_score = 0.0
-
-                for score, idx in zip(scores, indices):
-                    # Skip if score is below threshold or index is invalid
-                    if score < threshold or idx >= len(self.sentence_map):
-                        continue
-
-                    original_sentence, doc_id = self.sentence_map[idx]
-
-                    # Skip matches from the same document
-                    if doc_id == query_doc_id:
-                        continue
-
-                    # Keep track of the best match so far
-                    if best_match is None or score > best_score:
-                        best_match = SearchMatch(
-                            sentence=original_sentence,
-                            score=float(score),
-                            doc_id=doc_id,
-                        )
-                        best_score = score
-
-                results.append(best_match)
-
-        return results
+        return [
+            next(iter(result.matches), None)
+            for result in self.search(query_sentences, threshold=threshold, k=1)
+        ]
 
     def save(self, db_dir: Path) -> None:
         """Save database to `db_dir`.
@@ -320,7 +239,7 @@ class VectorDatabase:
             json.dumps({
                 "batch_size": self.batch_size,
                 "model_name": self.encoder.model_name,
-                "sentence_map": self.sentence_map,
+                "sentences": self.sentences,
             })
         )
 
@@ -395,7 +314,7 @@ def build(
     if limit_sentences is not None:
         sentences = random.sample(sentences, limit_sentences)
 
-    db.add_sentences(sentences, "")
+    db.add_sentences(sentences)
 
     db.save(output_dir)
     logger.info(
@@ -467,9 +386,7 @@ def query(
             logger.warning(f"Document {paper.id} has no ACUs to query")
             continue
 
-        query_results = db.search(
-            sentences, k=top_k, threshold=threshold, query_doc_id=paper.id
-        )
+        query_results = db.search(sentences, k=top_k, threshold=threshold)
         total_queries += len(sentences)
 
         results.append(PaperResult(paper=paper, results=query_results))
@@ -522,9 +439,7 @@ def _evaluate_paper(
         alpha * (salience_ratio - beta) ** 3 + gamma,
     )
 
-    acu_novelty_matches = db.find_best(
-        paper.acus, threshold=threshold, query_doc_id=paper.id
-    )
+    acu_novelty_matches = db.find_best(paper.acus, threshold=threshold)
 
     # Calculate the total novelty score
     total_score = 0.0
