@@ -49,7 +49,7 @@ graph-related: (_t "Running graph evaluation - PETER (related) mode")
 
 # Graph-eval with full graph prompt
 [group: 'graph']
-graph-all: (_t "Running graph evaluation - main graph mode")
+graph-full: (_t "Running graph evaluation - full graph mode")
     @just _graph full-graph
 
 # Graph-eval with title and graph prompt
@@ -69,7 +69,7 @@ all-graphs: (_t "Run all main graph versions and show metrics")
     @just graph-related
     @just graph-only
     @just graph-title
-    @just graph-all
+    @just graph-full
     @just metrics
 
 fluent_output := root+"/"+output_dir+"/graph-fluent/"+data+"/"+model+"/"+demos
@@ -103,11 +103,11 @@ all-fluent-graphs: (_t "Run all fluent main graph versions and show metrics")
     @just graph-fluent-all
     @just metrics
 
-# Run all unique experiments (sans/PETER/graph)
-all: (_t "Comparing sans/PETER/graph variants")
+# Run all unique experiments (sans/PETER/full graph)
+all-standard: (_t "Comparing sans/PETER/graph variants")
     @just graph-sans
     @just graph-related
-    @just graph-all
+    @just graph-full
 
 # Show metrics for all available runs
 metrics:
@@ -151,10 +151,11 @@ graph-ablation-all: (_t "Running graph ablation - all variants")
     @just graph-ablation-nomethod
     @just graph-ablation-noexp
     @just graph-ablation-nodetail
-    @just ablation-metrics
+    @just graph-ablation-metrics
 
 # Show metrics for all available runs
-ablation-metrics:
+[group: 'graph-ablation']
+graph-ablation-metrics:
     #!/usr/bin/env fish
     echo "Ablation metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{ablation_output}}/**/metrics.json
@@ -200,6 +201,7 @@ peter-ablation-all: (_t "Running PETER ablation - cited and semantic-only")
     @just peter-ablation-metrics
 
 # Show metrics for PETER ablations
+[group: 'peter-ablation']
 peter-ablation-metrics:
     #!/usr/bin/env fish
     echo "PETER ablation metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
@@ -228,7 +230,7 @@ all-experiments: (_t "Running ALL experiments")
     @just _t "Basic graph versions"
     @just graph-only
     @just graph-title
-    @just graph-all
+    @just graph-full
 
     @just _t "Fluent graph versions"
     @just graph-fluent-only
