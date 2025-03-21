@@ -802,6 +802,13 @@ class PaperWithRelatedSummary(Record):
         return self.paper.abstract
 
 
+class RelatedPaperSource(StrEnum):
+    """Denote where the related paper came from."""
+
+    CITATIONS = "citations"
+    SEMANTIC = "semantic"
+
+
 class PaperRelatedSummarised(Record):
     """PETER-related paper with summary."""
 
@@ -812,6 +819,7 @@ class PaperRelatedSummarised(Record):
     abstract: str
     score: float
     polarity: peerread.ContextPolarity
+    source: RelatedPaperSource
 
     @property
     def id(self) -> str:
@@ -828,6 +836,7 @@ class PaperRelatedSummarised(Record):
             abstract=related.abstract,
             score=related.score,
             polarity=peerread.ContextPolarity(related.polarity),
+            source=RelatedPaperSource(related.source),
         )
 
 
