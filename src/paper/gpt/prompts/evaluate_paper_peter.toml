@@ -1,3 +1,4 @@
+# TODO: Fix prompts to use binary novelty label instead of 1-5 rating
 [[prompts]]
 name = "simple"
 system = """\
@@ -11,10 +12,10 @@ main paper's title and abstract and some related papers. These related papers ar
 separated by "supporting" papers (those that corroborate the paper's ideas, methods,
 approach, etc.) and "contrasting" papers (those that go against the paper's ideas).
 
-Based on this content, approve or reject the paper. First, generate the rationale for \
-your decision, then give the final decision. Keep in mind that this paper was submitted \
-to a very high-quality conference, so make sure to only approve papers that are of \
-outstanding quality.
+Based on this content, decide whether the paper is novel enough or not. If it is, give \
+it a label of 1. If it isn't, give it a label of 0. This should reflect how much the \
+paper brings and develops new ideas previously unseen in the literature. First, generate \
+the rationale for your novelty rating, then give the final novelty rating.
 
 #####
 {demonstrations}
@@ -43,10 +44,10 @@ prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title and abstract.
 
-Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
-reflect how much the paper brings and develops new ideas previously unseen in the \
-literature. First, generate the rationale for your novelty rating, then give the final \
-novelty rating.
+Based on this content, decide whether the paper is novel enough or not. If it is, give \
+it a label of 1. If it isn't, give it a label of 0. This should reflect how much the \
+paper brings and develops new ideas previously unseen in the literature. First, generate \
+the rationale for your novelty rating, then give the final novelty rating.
 
 #####
 {demonstrations}
