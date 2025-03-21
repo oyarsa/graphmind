@@ -100,6 +100,7 @@ def split(
     logger.info("Dev: %d", len(dev_split))
     logger.info("Test: %d", len(test_split))
 
+    output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "train.json").write_text(json.dumps(train_split))
     (output_dir / "dev.json").write_text(json.dumps(dev_split))
     (output_dir / "test.json").write_text(json.dumps(test_split))
