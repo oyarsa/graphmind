@@ -275,6 +275,7 @@ def main(
     _checkrun(
         scimon_kg_file,
         "paper",
+        "baselines",
         "scimon",
         "build",
         "--ann",
@@ -293,6 +294,7 @@ def main(
     _checkrun(
         scimon_peer,
         "paper",
+        "baselines",
         "scimon",
         "query",
         "--ann-peer",
