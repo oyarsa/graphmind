@@ -232,10 +232,11 @@ all-experiments: (_t "Running ALL experiments")
     @just graph-title
     @just graph-full
 
-    @just _t "Fluent graph versions"
-    @just graph-fluent-only
-    @just graph-fluent-title
-    @just graph-fluent-all
+    # Fluent is really bad. It's here for archival purposes.
+    # @just _t "Fluent graph versions"
+    # @just graph-fluent-only
+    # @just graph-fluent-title
+    # @just graph-fluent-all
 
     @just _t "Graph ablations"
     @just graph-ablation-nomethod
