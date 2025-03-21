@@ -2,11 +2,11 @@ root := `git rev-parse --show-toplevel`
 eval_cmd := "uv run paper gpt eval"
 
 # Configuration selector
-demos := env("DEMOS", "review_clean_5_1")
+demos := env("DEMOS", "orc_10")
 model := env("MODEL", "4o-mini")
 n := env("N", "10")
 output_dir := env("OUTPUT", "output")
-data_dir := env("DATA_DIR", "output/venus/split")
+data_dir := env("DATA_DIR", "output/split")
 data := env("DATA", "dev")
 
 # Full data paths
@@ -17,11 +17,15 @@ output := root+"/"+output_dir+"/eval/graph/"+data+"/"+model+"/"+demos
 
 _default:
     @echo "Environment variables:"
+    @echo
+    @echo "Required:"
+    @echo "    DATA_DIR: source of the input data files."
+    @echo
+    @echo "Optional:"
     @echo "    DEMOS: see 'paper gpt demos' (default: 'review_clean_5_1')."
     @echo "    MODEL: '4o' or '4o-mini' (default: '4o-mini')."
     @echo "    N: how many items to use. Use 0 for all (default: 10)."
     @echo "    OUTPUT_DIR: where to save the outputs (default: 'output')."
-    @echo "    DATA_DIR: source of the input data files (default 'output/venus/split')."
     @echo "    DATA: which split to use; contents of DATA_DIR (default: 'dev')."
     @echo
     @just --list --unsorted
@@ -155,28 +159,23 @@ ablation-metrics:
     echo "Ablation metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{ablation_output}}/**/metrics.json
 
-# Flags for cited-only and semantic-only PETER
-data_cited := root + "/output/peter_c2_s0_sum/result.json"
-cited_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_cited
-
-data_semantic := root + "/output/peter_c0_s2_sum/result.json"
-semantic_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_semantic
-
 peter_ablation_output := root+"/"+output_dir+"/peter-ablation/"+data+"/"+model+"/"+demos
 
 # Cited-only PETER
 _peter-cited-ablation eval-prompt graph-prompt:
-    {{eval_cmd}} graph run {{cited_flags}} \
+    {{eval_cmd}} graph run {{eval_flags}} \
         --output {{peter_ablation_output}}/cited-g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
-        --graph-prompt {{graph-prompt}}
+        --graph-prompt {{graph-prompt}} \
+        --sources citations
 
-# Cited-only PETER
+# Semantic-only PETER
 _peter-semantic-ablation eval-prompt graph-prompt:
-    {{eval_cmd}} graph run {{semantic_flags}} \
+    {{eval_cmd}} graph run {{eval_flags}} \
         --output {{peter_ablation_output}}/semantic-g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
-        --graph-prompt {{graph-prompt}}
+        --graph-prompt {{graph-prompt}} \
+        --sources semantic
 
 # Full graph with semantic-only PETER
 [group: 'peter-ablation']
