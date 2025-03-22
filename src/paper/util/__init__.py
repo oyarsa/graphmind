@@ -579,7 +579,7 @@ def at[T](seq: Sequence[T], idx: int, desc: str, title: str) -> T | None:
     try:
         return seq[idx]
     except IndexError:
-        logger.warning(
+        logger.debug(
             "Invalid index at '%s' (%s): %d out of %d", title, desc, idx, len(seq)
         )
         return None
