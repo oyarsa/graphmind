@@ -5,7 +5,7 @@ eval_cmd := "uv run paper gpt eval"
 demos := env("DEMOS", "orc_10")
 model := env("MODEL", "4o-mini")
 n := env("N", "10")
-output_dir := env("OUTPUT", "output")
+output_dir := env("OUTPUT", "output/eval_orc")
 data_dir := env("DATA_DIR", "output/split")
 data := env("DATA", "dev")
 
@@ -25,7 +25,7 @@ _default:
     @echo "    DEMOS: see 'paper gpt demos' (default: 'review_clean_5_1')."
     @echo "    MODEL: '4o' or '4o-mini' (default: '4o-mini')."
     @echo "    N: how many items to use. Use 0 for all (default: 10)."
-    @echo "    OUTPUT_DIR: where to save the outputs (default: 'output')."
+    @echo "    OUTPUT_DIR: where to save the outputs (default: 'output/eval_orc')."
     @echo "    DATA: which split to use; contents of DATA_DIR (default: 'dev')."
     @echo
     @just --list --unsorted
