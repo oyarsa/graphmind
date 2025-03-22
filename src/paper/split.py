@@ -13,7 +13,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from paper.util import get_params, groupby, render_params, setup_logging
+from paper.util import get_in, get_params, groupby, render_params, setup_logging
 from paper.util.cli import die
 from paper.util.serde import save_data
 
@@ -164,7 +164,15 @@ def _print_frequencies(frequencies: Counter[int]) -> None:
 
 
 def _get_paper(item: dict[str, Any]) -> dict[str, Any]:
-    return item["item"]["paper"]["paper"]
+    paths = [
+        "item.paper.paper",  # gpt.PromptResult<gpt.PaperWithRelatedSummary>
+        "ann.paper",  # scimon.AnnotatedGraphResult
+    ]
+    for path in paths:
+        if (x := get_in(item, path)) is not None:
+            return x
+
+    return item
 
 
 @app.command(no_args_is_help=True)
@@ -211,10 +219,7 @@ def downsample(
 
     def get_key_value(item: dict[str, Any]) -> Any:
         """Get key from item. Supports both nested paper items and raw ORC output."""
-        try:
-            paper = _get_paper(item)
-        except KeyError:
-            paper = item
+        paper = _get_paper(item)
 
         if key not in paper:
             return None
