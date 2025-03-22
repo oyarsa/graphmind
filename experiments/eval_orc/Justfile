@@ -144,6 +144,16 @@ graph-ablation-nomethod: (_t "Running graph ablation - full graph without method
 graph-ablation-nodetail: (_t "Running graph ablation - full graph without detail")
     @just _graph-ablation full-graph nodetail
 
+# Graph-eval with only supporting papers
+[group: 'graph-ablation']
+graph-ablation-positive: (_t "Running graph ablation - full graph with supporting only")
+    @just _graph-ablation full-graph full-graph-positive
+
+# Graph-eval with only contrasting papers
+[group: 'graph-ablation']
+graph-ablation-negative: (_t "Running graph ablation - full graph with contrasting only")
+    @just _graph-ablation full-graph full-graph-negative
+
 # All graph abalation versions
 [group: 'graph-ablation']
 graph-ablation-all: (_t "Running graph ablation - all variants")
@@ -151,6 +161,8 @@ graph-ablation-all: (_t "Running graph ablation - all variants")
     @just graph-ablation-nomethod
     @just graph-ablation-noexp
     @just graph-ablation-nodetail
+    @just graph-ablation-positive
+    @just graph-ablation-negative
     @just graph-ablation-metrics
 
 # Show metrics for all available runs

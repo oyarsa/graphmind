@@ -218,3 +218,88 @@ Paper summary:
 #####
 Output:
 """
+
+# Full graph with only positive/supporting papers
+[[prompts]]
+name = "full-graph-positive"
+system = """\
+Given the following target paper, a summary and a selection of related papers supporting \
+the main paper, give it a novelty rating.
+"""
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+main paper's title, a summary of its key points and some related papers.
+
+The paper summary describes the most important information about the paper and its \
+contents. It summarises key aspects, which you can use to build a more comprehensive \
+understanding of the paper.
+
+The related papers support the main paper, i.e. they corroborate the paper's ideas, methods, \
+approach, etc. Use these related papers to understand the context around the main paper, \
+so you know what other works exist in comparison with the main paper.
+
+Based on this content, decide whether the paper is novel enough or not. If it is, give \
+it a label of 1. If it isn't, give it a label of 0. This should reflect how much the \
+paper brings and develops new ideas previously unseen in the literature. First, generate \
+the rationale for your novelty rating, then give the final novelty rating.
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+Paper summary:
+{graph}
+
+Supporting papers:
+{positive}
+
+#####
+Output:
+"""
+
+# Full graph with only negative/contrasting papers
+[[prompts]]
+name = "full-graph-negative"
+system = """\
+Given the following target paper, a summary and a selection of related papers \
+contrasting the main paper, give it a novelty rating.
+"""
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+main paper's title, a summary of its key points and some related papers.
+
+The paper summary describes the most important information about the paper and its \
+contents. It summarises key aspects, which you can use to build a more comprehensive \
+understanding of the paper.
+
+The related papers contrast the main paper, i.e. they go against the main paper's \
+ideas. Use these related papers to understand the context around the main paper, \
+so you know what other works exist in comparison with the main paper.
+
+Based on this content, decide whether the paper is novel enough or not. If it is, give \
+it a label of 1. If it isn't, give it a label of 0. This should reflect how much the \
+paper brings and develops new ideas previously unseen in the literature. First, generate \
+the rationale for your novelty rating, then give the final novelty rating.
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+Paper summary:
+{graph}
+
+Supporting papers:
+{positive}
+
+Contrasting papers:
+{negative}
+
+#####
+Output:
+"""
