@@ -650,3 +650,36 @@ def sample[T](items: Sequence[T], k: int | None) -> list[T]:
     if k is None or k == 0 or len(items) <= k:
         return list(items)
     return random.sample(items, k)
+
+
+@overload
+def get_in(data: dict[str, Any], path: str, default: Any) -> Any: ...
+
+
+@overload
+def get_in(data: dict[str, Any], path: str, default: None = None) -> Any | None: ...
+
+
+def get_in(data: dict[str, Any], path: str, default: Any = None) -> Any | None:
+    """Retrieve a value from a nested dictionary using a dot-separated path.
+
+    Args:
+        data: The dictionary to traverse.
+        path: A dot-separated string representing the path (e.g., "a.b.c").
+        default: Value to return if the path doesn't exist.
+
+    Returns:
+        The value at the specified path, or the default value if the path doesn't exist.
+    """
+    if not path:
+        return data
+
+    keys = path.split(".")
+    current: Any = data
+
+    for key in keys:
+        if not isinstance(current, dict) or key not in current:
+            return default
+        current = current[key]
+
+    return current

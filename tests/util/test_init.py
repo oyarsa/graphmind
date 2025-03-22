@@ -11,6 +11,7 @@ from paper.util import (
     groupby,
     fix_spaces_before_punctuation,
     on_exception,
+    get_in,
 )
 
 
@@ -363,3 +364,30 @@ def test_on_exception_no_logger_swallows_exception():
 
     result = failing_function()
     assert result == "error"
+
+
+@pytest.mark.parametrize(
+    "data, path, expected",
+    [
+        ({"a": 1}, "a", 1),
+        ({"a": {"b": 2}}, "a.b", 2),
+        ({"a": {"b": {"c": 3}}}, "a.b.c", 3),
+        ({"a": 1}, "b", None),
+        ({"a": 1}, "", {"a": 1}),
+        ({"a": {"b": 2}}, "a.c.d", None),
+        ({"a": 1}, "a.b", None),
+        (
+            {"user": {"profile": {"name": "John", "age": 30}}},
+            "user.profile.name",
+            "John",
+        ),
+        ({"a": {"b": None}}, "a.b", None),
+        ({"a": {"b": False}}, "a.b", False),
+        ({}, "a", None),
+        ({"a": {}}, "a", {}),
+    ],
+)
+def test_get_by_path_parametrized(
+    data: dict[str, Any], path: str, expected: Any | None
+):
+    assert get_in(data, path) == expected
