@@ -250,8 +250,8 @@ all-experiments: (_t "Running ALL experiments")
     @just graph-related
 
     @just _t "Basic graph versions"
-    @just graph-only
-    @just graph-title
+    # @just graph-only
+    # @just graph-title
     @just graph-full
 
     # Fluent is really bad. It's here for archival purposes.
@@ -261,9 +261,9 @@ all-experiments: (_t "Running ALL experiments")
     # @just graph-fluent-all
 
     @just _t "Graph ablations"
-    @just graph-ablation-nomethod
-    @just graph-ablation-noexp
-    @just graph-ablation-nodetail
+    # @just graph-ablation-nomethod
+    # @just graph-ablation-noexp
+    # @just graph-ablation-nodetail
 
     @just _t "Peter ablations"
     @just peter-cited-full
