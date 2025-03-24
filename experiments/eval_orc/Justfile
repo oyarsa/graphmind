@@ -240,7 +240,7 @@ data_scimon := root + "/"+data_dir+"/scimon/"+data+".json"
 scimon_flags := "--demos " + demos + " -n " + n + " -m " + model + " --ann-graph " + data_scimon
 
 _scimon prompt:
-    {{eval_cmd}} scimon run {{scimon_flags}} --output {{output}}/scimon/{{prompt}} --user-prompt {{prompt}}
+    {{eval_cmd}} scimon run {{scimon_flags}} --output {{output}}/scimon/scimon-{{prompt}} --user-prompt {{prompt}}
 
 # SciMON evaluation
 scimon: (_t "Running SciMON evaluation")
