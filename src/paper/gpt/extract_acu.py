@@ -187,17 +187,23 @@ async def extract_acu(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
+    paper_type_ = paper_type.get_type()
     papers = shuffled(load_data(related_path, paper_type.get_type()))[:limit_papers]
     user_prompt = ACU_EXTRACTION_USER_PROMPTS[user_prompt_key]
 
     output_intermediate_file, papers_remaining = init_remaining_items(
-        PaperWithACUs, output_dir, continue_papers_file, papers, continue_
+        PaperWithACUs[paper_type_],
+        output_dir,
+        continue_papers_file,
+        papers,
+        continue_,
     )
 
     with Timer() as timer:
         results = await _extract_acus(
             client,
             user_prompt,
+            paper_type_,
             papers_remaining.remaining,
             output_intermediate_file,
             keep_intermediate,
@@ -228,18 +234,20 @@ async def extract_acu(
         logger.warning("Some papers are missing from the result.")
 
 
-async def _extract_acus(
+async def _extract_acus[T: PaperACUInput](
     client: ModelClient,
     user_prompt: PromptTemplate,
-    papers: Sequence[PaperACUInput],
+    type_: type[T],
+    papers: Sequence[T],
     output_intermediate_file: Path,
     keep_intermediate: bool,
-) -> GPTResult[list[PromptResult[PaperWithACUs]]]:
+) -> GPTResult[list[PromptResult[PaperWithACUs[T]]]]:
     """Extract ACUs for each related paper's abstract.
 
     Args:
         client: OpenAI client to use GPT.
         user_prompt: User prompt template to use for extraction to be filled.
+        type_: Type of the input paper.
         papers: Related papers from the S2 API.
         output_intermediate_file: File to write new results after each task.
         keep_intermediate: Keep intermediate results to be used in future runs.
@@ -247,10 +255,10 @@ async def _extract_acus(
     Returns:
         List of papers with evaluated reviews wrapped in a GPTResult.
     """
-    results: list[PromptResult[PaperWithACUs]] = []
+    results: list[PromptResult[PaperWithACUs[T]]] = []
     total_cost = 0
 
-    tasks = [_extract_acu_single(client, paper, user_prompt) for paper in papers]
+    tasks = [_extract_acu_single(client, type_, paper, user_prompt) for paper in papers]
 
     for task in progress.as_completed(tasks, desc="Processing papers"):
         result = await task
@@ -282,14 +290,15 @@ class _GPTACU(BaseModel):
         return self.summary == "<error>"
 
 
-async def _extract_acu_single(
-    client: ModelClient, paper: PaperACUInput, user_prompt: PromptTemplate
-) -> GPTResult[PromptResult[PaperWithACUs]]:
+async def _extract_acu_single[T: PaperACUInput](
+    client: ModelClient, type_: type[T], paper: T, user_prompt: PromptTemplate
+) -> GPTResult[PromptResult[PaperWithACUs[T]]]:
     """Extract ACUs for a single paper.
 
     Args:
         client: OpenAI client to use GPT.
-        paper: Related paper from the S2 API.
+        type_: Type of the input paper.
+        paper: Input paper (S2 related paper or PeerRead main paper).
         user_prompt: User prompt template to use for extraction to be filled.
 
     Returns:
@@ -306,7 +315,7 @@ async def _extract_acu_single(
 
     return GPTResult(
         result=PromptResult(
-            item=PaperWithACUs.from_(
+            item=PaperWithACUs[type_].from_(
                 paper, item.all_acus, item.salient_acus, item.summary
             ),
             prompt=Prompt(system=_EXTRACT_ACU_SYSTEM_PROMPT, user=user_prompt_text),

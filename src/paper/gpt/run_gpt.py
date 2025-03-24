@@ -1,5 +1,6 @@
 """Interact with the OpenAI API."""
 
+import asyncio
 import logging
 import os
 from collections.abc import Mapping, Sequence
@@ -148,6 +149,7 @@ class ModelClient:
         seed: int,
         temperature: float = 0,
         base_url: str | None = None,
+        timeout: float = 60,
     ) -> None:
         """Create client for OpenAI-compatible APIs.
 
@@ -162,6 +164,7 @@ class ModelClient:
             temperature: How unpredictable the model is. Set this 0 to be as
                 deterministic as possible, but it's still not guaranteed.
             base_url: URL of the API being used. If not provided, use OpenAI.
+            timeout: Timeout in seconds for the API calls.
         """
         is_openai = base_url is None or "openai" in base_url
         model = MODEL_SYNONYMS.get(model, model)
@@ -175,6 +178,7 @@ class ModelClient:
         self.model = model
         self.seed = seed
         self.temperature = temperature
+        self.timeout = timeout
 
         if not is_openai:
             api_tier = -1
@@ -246,18 +250,26 @@ class ModelClient:
 
         return GPTResult(result=completion.choices[0].message.parsed, cost=cost)
 
-    @backoff.on_exception(backoff.expo, openai.APIError, max_tries=5, logger=logger)
+    @backoff.on_exception(
+        backoff.expo,
+        (openai.APIError, asyncio.TimeoutError),
+        max_tries=5,
+        logger=logger,
+    )
     async def _call_gpt(self, **chat_params: Any):  # noqa: ANN202
         try:
             async with self.rate_limiter.limit(**chat_params) as update_usage:
-                response = await self.client.beta.chat.completions.parse(**chat_params)
+                response = await asyncio.wait_for(
+                    self.client.beta.chat.completions.parse(**chat_params),
+                    timeout=self.timeout,
+                )
                 await update_usage(response)
                 return response
         except openai.APIError as e:
             logger.warning("\nCaught an API error: %s", e)
             raise
         except Exception:
-            logger.exception("\nCaught non-API error. Returning None: %s")
+            logger.exception("\nCaught non-API error. Returning None.")
             return None
 
 

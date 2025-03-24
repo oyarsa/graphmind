@@ -3,7 +3,7 @@ name = "abstract"
 prompt = """
 Title: {title}
 Abstract: {abstract}
-Novelty rating: {rating}
+Novelty label: {label}
 Rationale: {rationale}
 """
 
@@ -16,15 +16,6 @@ Abstract: {abstract}
 Main text:
 {main_text}
 
-Novelty rating: {rating}
-Rationale: {rationale}
-"""
-
-[[prompts]]
-name = "abstract_bin"
-prompt = """
-Title: {title}
-Abstract: {abstract}
 Novelty label: {label}
 Rationale: {rationale}
 """

@@ -2,12 +2,13 @@ root := `git rev-parse --show-toplevel`
 eval_cmd := "uv run paper gpt eval"
 
 # Configuration selector
-demos := env("DEMOS", "review_clean_5_1")
+demos := env("DEMOS", "orc_10")
 model := env("MODEL", "4o-mini")
 n := env("N", "10")
-output_dir := env("OUTPUT", "output")
-data_dir := env("DATA_DIR", "output/venus/split")
+output_dir := env("OUTPUT", "output/eval_orc")
+data_dir := env("DATA_DIR", "output/split")
 data := env("DATA", "dev")
+clean := env("CLEAN", "")
 
 # Full data paths
 data_full := root + "/"+data_dir+"/"+data+".json"
@@ -17,12 +18,18 @@ output := root+"/"+output_dir+"/eval/graph/"+data+"/"+model+"/"+demos
 
 _default:
     @echo "Environment variables:"
+    @echo
+    @echo "Required:"
+    @echo "    DATA_DIR: source of the input data files."
+    @echo
+    @echo "Optional:"
     @echo "    DEMOS: see 'paper gpt demos' (default: 'review_clean_5_1')."
     @echo "    MODEL: '4o' or '4o-mini' (default: '4o-mini')."
     @echo "    N: how many items to use. Use 0 for all (default: 10)."
-    @echo "    OUTPUT_DIR: where to save the outputs (default: 'output')."
-    @echo "    DATA_DIR: source of the input data files (default 'output/venus/split')."
+    @echo "    OUTPUT_DIR: where to save the outputs (default: 'output/eval_orc')."
     @echo "    DATA: which split to use; contents of DATA_DIR (default: 'dev')."
+    @echo "    CLEAN: set to 1 to remove output dir without confirmation, 0 to skip cleaning,"
+    @echo "           or leave undefined to prompt for confirmation."
     @echo
     @just --list --unsorted
 
@@ -45,7 +52,7 @@ graph-related: (_t "Running graph evaluation - PETER (related) mode")
 
 # Graph-eval with full graph prompt
 [group: 'graph']
-graph-all: (_t "Running graph evaluation - main graph mode")
+graph-full: (_t "Running graph evaluation - full graph mode")
     @just _graph full-graph
 
 # Graph-eval with title and graph prompt
@@ -65,7 +72,7 @@ all-graphs: (_t "Run all main graph versions and show metrics")
     @just graph-related
     @just graph-only
     @just graph-title
-    @just graph-all
+    @just graph-full
     @just metrics
 
 fluent_output := root+"/"+output_dir+"/graph-fluent/"+data+"/"+model+"/"+demos
@@ -99,11 +106,11 @@ all-fluent-graphs: (_t "Run all fluent main graph versions and show metrics")
     @just graph-fluent-all
     @just metrics
 
-# Run all unique experiments (sans/PETER/graph)
-all: (_t "Comparing sans/PETER/graph variants")
+# Run all unique experiments (sans/PETER/full graph)
+all-standard: (_t "Comparing sans/PETER/graph variants")
     @just graph-sans
     @just graph-related
-    @just graph-all
+    @just graph-full
 
 # Show metrics for all available runs
 metrics:
@@ -140,6 +147,16 @@ graph-ablation-nomethod: (_t "Running graph ablation - full graph without method
 graph-ablation-nodetail: (_t "Running graph ablation - full graph without detail")
     @just _graph-ablation full-graph nodetail
 
+# Graph-eval with only supporting papers
+[group: 'graph-ablation']
+graph-ablation-positive: (_t "Running graph ablation - full graph with supporting only")
+    @just _graph-ablation full-graph full-graph-positive
+
+# Graph-eval with only contrasting papers
+[group: 'graph-ablation']
+graph-ablation-negative: (_t "Running graph ablation - full graph with contrasting only")
+    @just _graph-ablation full-graph full-graph-negative
+
 # All graph abalation versions
 [group: 'graph-ablation']
 graph-ablation-all: (_t "Running graph ablation - all variants")
@@ -147,36 +164,34 @@ graph-ablation-all: (_t "Running graph ablation - all variants")
     @just graph-ablation-nomethod
     @just graph-ablation-noexp
     @just graph-ablation-nodetail
-    @just ablation-metrics
+    @just graph-ablation-positive
+    @just graph-ablation-negative
+    @just graph-ablation-metrics
 
 # Show metrics for all available runs
-ablation-metrics:
+[group: 'graph-ablation']
+graph-ablation-metrics:
     #!/usr/bin/env fish
     echo "Ablation metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{ablation_output}}/**/metrics.json
-
-# Flags for cited-only and semantic-only PETER
-data_cited := root + "/output/peter_c2_s0_sum/result.json"
-cited_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_cited
-
-data_semantic := root + "/output/peter_c0_s2_sum/result.json"
-semantic_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_semantic
 
 peter_ablation_output := root+"/"+output_dir+"/peter-ablation/"+data+"/"+model+"/"+demos
 
 # Cited-only PETER
 _peter-cited-ablation eval-prompt graph-prompt:
-    {{eval_cmd}} graph run {{cited_flags}} \
+    {{eval_cmd}} graph run {{eval_flags}} \
         --output {{peter_ablation_output}}/cited-g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
-        --graph-prompt {{graph-prompt}}
+        --graph-prompt {{graph-prompt}} \
+        --sources citations
 
-# Cited-only PETER
+# Semantic-only PETER
 _peter-semantic-ablation eval-prompt graph-prompt:
-    {{eval_cmd}} graph run {{semantic_flags}} \
+    {{eval_cmd}} graph run {{eval_flags}} \
         --output {{peter_ablation_output}}/semantic-g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
-        --graph-prompt {{graph-prompt}}
+        --graph-prompt {{graph-prompt}} \
+        --sources semantic
 
 # Full graph with semantic-only PETER
 [group: 'peter-ablation']
@@ -201,6 +216,7 @@ peter-ablation-all: (_t "Running PETER ablation - cited and semantic-only")
     @just peter-ablation-metrics
 
 # Show metrics for PETER ablations
+[group: 'peter-ablation']
 peter-ablation-metrics:
     #!/usr/bin/env fish
     echo "PETER ablation metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
@@ -220,30 +236,66 @@ all-metrics:
     echo "Metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{root}}/{{output_dir}}/**/metrics.json
 
+data_scimon := root + "/"+data_dir+"/scimon/"+data+".json"
+scimon_flags := "--demos " + demos + " -n " + n + " -m " + model + " --ann-graph " + data_scimon
+
+_scimon prompt:
+    {{eval_cmd}} scimon run {{scimon_flags}} --output {{output}}/scimon/{{prompt}} --user-prompt {{prompt}}
+
+# SciMON evaluation
+scimon: (_t "Running SciMON evaluation")
+    @just _scimon simple
+
+# Clean the output directory based on CLEAN env var
+_clean-output:
+    #!/usr/bin/env fish
+    if test "{{clean}}" = "1"
+        echo "Cleaning output directory: {{root}}/{{output_dir}}"
+        command rm -rf "{{root}}/{{output_dir}}"
+    else if test "{{clean}}" = "0"
+        echo "Skipping directory removal"
+    else
+        # CLEAN is undefined or has another value, prompt for confirmation
+        echo "Will clean output directory: {{root}}/{{output_dir}}"
+        read -P "Are you sure you want to remove this directory? [y/N] " confirm
+        if string match -q -i "y" "$confirm"
+            echo "Cleaning output directory..."
+            command rm -rf "{{root}}/{{output_dir}}"
+        else
+            echo "Skipping directory removal"
+        end
+    end
+
 # Run all experiments for paper output
 all-experiments: (_t "Running ALL experiments")
+    @just _clean-output
+
     @just _t "Baselines"
     @just graph-sans
     @just graph-related
 
     @just _t "Basic graph versions"
-    @just graph-only
-    @just graph-title
-    @just graph-all
+    # @just graph-only
+    # @just graph-title
+    @just graph-full
 
-    @just _t "Fluent graph versions"
-    @just graph-fluent-only
-    @just graph-fluent-title
-    @just graph-fluent-all
+    # Fluent is really bad. It's here for archival purposes.
+    # @just _t "Fluent graph versions"
+    # @just graph-fluent-only
+    # @just graph-fluent-title
+    # @just graph-fluent-all
 
     @just _t "Graph ablations"
-    @just graph-ablation-nomethod
-    @just graph-ablation-noexp
-    @just graph-ablation-nodetail
+    # @just graph-ablation-nomethod
+    # @just graph-ablation-noexp
+    # @just graph-ablation-nodetail
 
     @just _t "Peter ablations"
     @just peter-cited-full
     @just peter-semantic-full
     @just peter-norel
+
+    @just _t "SciMON"
+    @just scimon
 
     @just all-metrics

@@ -1,13 +1,14 @@
+# TODO: Fix prompts to use binary novelty label instead of 1-5 rating
 [[prompts]]
 name = "simple"
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and the full body text.
 
-Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
-reflect how much the paper brings and develops new ideas previously unseen in the \
-literature. First, generate the rationale for your novelty rating, then give the final \
-novelty rating.
+Based on this content, decide whether the paper is novel enough or not. If it is, give \
+it a label of 1. If it isn't, give it a label of 0. This should reflect how much the \
+paper brings and develops new ideas previously unseen in the literature. First, generate \
+the rationale for your novelty rating, then give the final novelty rating.
 
 #####
 {demonstrations}
@@ -95,10 +96,10 @@ prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title and abstract.
 
-Based on this content, assign the paper a novelty rating from 1 to 5. This rating should \
-reflect how much the paper brings and develops new ideas previously unseen in the \
-literature. First, generate the rationale for your novelty rating, then give the final \
-novelty rating.
+Based on this content, decide whether the paper is novel enough or not. If it is, give \
+it a label of 1. If it isn't, give it a label of 0. This should reflect how much the \
+paper brings and develops new ideas previously unseen in the literature. First, generate \
+the rationale for your novelty rating, then give the final novelty rating.
 
 #####
 {demonstrations}

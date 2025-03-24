@@ -148,7 +148,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     assert peer_terms.exists()
 
     title("Peter Build")
-    peter_graph = tmp_path / "peter_graph.json"
+    peter_graph_dir = tmp_path / "peter_graph"
     run(
         "paper",
         "peter",
@@ -157,10 +157,10 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         s2_terms,
         "--context",
         context,
-        "--output",
-        peter_graph,
+        "--output-dir",
+        peter_graph_dir,
     )
-    assert peter_graph.exists()
+    assert peter_graph_dir.exists()
 
     peter_peer = tmp_path / "peerread_with_peter.json"
     title("Peter PeerRead")
@@ -168,8 +168,8 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "paper",
         "peter",
         "peerread",
-        "--graph",
-        peter_graph,
+        "--graph-dir",
+        peter_graph_dir,
         "--peerread-ann",
         peer_terms,
         "--output",
@@ -227,3 +227,43 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "eval_4",
     )
     assert eval_peter.exists()
+
+    title("Extract ACUs")
+    acu_s2_dir = tmp_path / "acu-s2"
+    acu_peerread_dir = tmp_path / "acu-peerread"
+    run_parallel_commands(
+        [
+            (
+                "paper",
+                "gpt",
+                "acus",
+                "run",
+                "--related",
+                peer_related,
+                "--output",
+                acu_s2_dir,
+                "--paper-type",
+                "s2",
+                "--limit",
+                "10",
+            ),
+            (
+                "paper",
+                "gpt",
+                "acus",
+                "run",
+                "--related",
+                peer_with_ref,
+                "--output",
+                acu_peerread_dir,
+                "--paper-type",
+                "peerread",
+                "--limit",
+                "10",
+            ),
+        ]
+    )
+    acu_s2 = acu_s2_dir / "results.json"
+    acu_peerread = acu_peerread_dir / "results.json"
+    assert acu_s2.exists()
+    assert acu_peerread.exists()

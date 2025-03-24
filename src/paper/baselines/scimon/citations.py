@@ -2,8 +2,7 @@
 
 Calculates title sentence embedding for the PeerRead main paper and each S2 reference
 using a SentenceTransformer, then keeping a sorted list by similarity. At query time,
-the user can specify the number of most similar papers to retrieve. SciMON uses the
-`all-mpnet-base-v2` model and K = 5.
+the user can specify the number of most similar papers to retrieve. SciMON uses K=5.
 
 Takes as input the output of `semantic_scholar.construct_daset`: the file
 `peerread_with_s2_references.json` of type `peerread.PaperWithS2Refs`. The similarity is
@@ -53,7 +52,7 @@ def main(
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
-    ] = "all-mpnet-base-v2",
+    ] = emb.DEFAULT_SENTENCE_MODEL,
 ) -> None:
     """Create citations graph with the reference papers sorted by title similarity."""
     logger.info(display_params())

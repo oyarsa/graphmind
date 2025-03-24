@@ -21,11 +21,10 @@ from paper.baselines import scimon
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
-    Demonstration,
     GPTFull,
     PaperResult,
     fix_evaluated_rating,
-    format_demonstrations,
+    get_demonstrations,
 )
 from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
@@ -102,7 +101,7 @@ def run(
     ] = False,
     seed: Annotated[int, typer.Option(help="Random seed used for data shuffling.")] = 0,
     demos: Annotated[
-        Path | None,
+        str | None,
         typer.Option(help="File containing demonstrations to use in few-shot prompt"),
     ] = None,
     demo_prompt: Annotated[
@@ -145,7 +144,7 @@ async def evaluate_papers(
     continue_papers_file: Path | None,
     continue_: bool,
     seed: int,
-    demonstrations_file: Path | None,
+    demonstrations_key: str | None,
     demo_prompt_key: str,
 ) -> None:
     """Evaluate a paper's novelty based on SciMON graph-extracted terms.
@@ -172,7 +171,7 @@ async def evaluate_papers(
             are there, we use those results and skip processing them.
         continue_: If True, use data from `continue_papers`.
         seed: Random seed used for shuffling.
-        demonstrations_file: Path to demonstrations file for use with few-shot prompting.
+        demonstrations_key: Key to the demonstrations file for use with few-shot prompting.
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
             available options or `list_prompts` for more.
@@ -204,11 +203,7 @@ async def evaluate_papers(
 
     user_prompt = SCIMON_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
-    demonstration_data = (
-        load_data(demonstrations_file, Demonstration) if demonstrations_file else []
-    )
-    demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
-    demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
+    demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_intermediate_file = output_dir / "results.tmp.json"

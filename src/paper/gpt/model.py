@@ -802,6 +802,13 @@ class PaperWithRelatedSummary(Record):
         return self.paper.abstract
 
 
+class RelatedPaperSource(StrEnum):
+    """Denote where the related paper came from."""
+
+    CITATIONS = "citations"
+    SEMANTIC = "semantic"
+
+
 class PaperRelatedSummarised(Record):
     """PETER-related paper with summary."""
 
@@ -812,6 +819,7 @@ class PaperRelatedSummarised(Record):
     abstract: str
     score: float
     polarity: peerread.ContextPolarity
+    source: RelatedPaperSource
 
     @property
     def id(self) -> str:
@@ -828,6 +836,7 @@ class PaperRelatedSummarised(Record):
             abstract=related.abstract,
             score=related.score,
             polarity=peerread.ContextPolarity(related.polarity),
+            source=RelatedPaperSource(related.source),
         )
 
 
@@ -835,10 +844,10 @@ type PaperACUInput = s2.Paper | s2.PaperWithS2Refs
 """Type of input paper, either from S2 or PeerRead/ORC."""
 
 
-class PaperWithACUs(Record):
+class PaperWithACUs[T: PaperACUInput](Record):
     """Paper (S2 or PeerRead) with extract atomic content units (ACUs)."""
 
-    paper: PaperACUInput
+    paper: T
     acus: Sequence[str]
     salient_acus: Sequence[str]
     summary: str
@@ -846,7 +855,7 @@ class PaperWithACUs(Record):
     @classmethod
     def from_(
         cls,
-        paper: PaperACUInput,
+        paper: T,
         acus: Sequence[str],
         salient: Sequence[str],
         summary: str,

@@ -6,6 +6,7 @@ The inputs are:
   `scimon.build`.
 """
 
+import logging
 from pathlib import Path
 from typing import Annotated
 
@@ -13,8 +14,10 @@ import typer
 from tqdm import tqdm
 
 from paper import gpt
-from paper.baselines.scimon.graph import AnnotatedGraphResult, graph_from_json
+from paper.baselines.scimon.graph import AnnotatedGraphResult, Graph
 from paper.util.serde import load_data, save_data
+
+logger = logging.getLogger(__name__)
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -34,10 +37,6 @@ def main(
             help="JSON file containing the annotated PeerRead papers data.",
         ),
     ],
-    graph_file: Annotated[
-        Path,
-        typer.Option("--graph", help="JSON file containing the SciMON graphs."),
-    ],
     output_file: Annotated[
         Path,
         typer.Option(
@@ -45,12 +44,18 @@ def main(
             help="Path to the output file with annotated papers and their graph results.",
         ),
     ],
+    graph_dir: Annotated[
+        Path,
+        typer.Option(
+            "--graph-dir", help="Directory containing the SciMON graph files."
+        ),
+    ],
 ) -> None:
-    """Query all annotatedd papers in the graph."""
+    """Query all annotated papers in the graph."""
     anns = gpt.PromptResult.unwrap(
         load_data(annotated_file, gpt.PromptResult[gpt.PeerReadAnnotated])
     )
-    graph = graph_from_json(graph_file)
+    graph = Graph.load(graph_dir)
 
     ann_result = [
         AnnotatedGraphResult(ann=ann, result=graph.query_all(ann))

@@ -48,6 +48,7 @@ from paper.gpt.model import (
     PeerReadAnnotated,
     Prompt,
     PromptResult,
+    RelatedPaperSource,
 )
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
@@ -163,6 +164,10 @@ def run(
     batch_size: Annotated[
         int, typer.Option(help="Number of requests per batch.")
     ] = 100,
+    sources: Annotated[
+        list[RelatedPaperSource],
+        typer.Option(help="What sources to use for related papers."),
+    ] = [RelatedPaperSource.CITATIONS, RelatedPaperSource.SEMANTIC],  # noqa: B006
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers."""
     asyncio.run(
@@ -180,6 +185,7 @@ def run(
             demo_prompt,
             linearisation,
             batch_size,
+            set(sources),
         )
     )
 
@@ -204,6 +210,7 @@ async def evaluate_papers(
     demo_prompt_key: str,
     linearisation_method: LinearisationMethod,
     batch_size: int,
+    sources: set[RelatedPaperSource],
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers.
 
@@ -232,6 +239,7 @@ async def evaluate_papers(
             available options or `list_prompts` for more.
         linearisation_method: How to convert the extract graph into text for evaluation.
         batch_size: Number of items per batch.
+        sources: What kinds of related paper sources to use.
 
     Returns:
         None. The output is saved to `output_dir`.
@@ -284,6 +292,7 @@ async def evaluate_papers(
             demonstrations,
             linearisation_method,
             batch_size,
+            sources,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -316,6 +325,7 @@ async def _evaluate_papers(
     demonstrations: str,
     linearisation_method: LinearisationMethod,
     batch_size: int,
+    sources: set[RelatedPaperSource],
 ) -> GPTResult[list[PromptResult[GraphResult]]]:
     """Evaluate paper novelty using a paper graph and PETER-related papers.
 
@@ -329,6 +339,7 @@ async def _evaluate_papers(
         linearisation_method: How to transform the extract graph into text for
             evaluation.
         batch_size: Number of items per batch.
+        sources: What kinds of related paper sources to use.
 
     Returns:
         List of evaluated papers and their prompts wrapped in a GPTResult.
@@ -348,6 +359,7 @@ async def _evaluate_papers(
                     graph_prompt,
                     demonstrations,
                     linearisation_method,
+                    sources,
                 )
                 for paper in batch
             ]
@@ -373,6 +385,7 @@ async def _evaluate_paper(
     graph_prompt: PromptTemplate,
     demonstrations: str,
     linearisation_method: LinearisationMethod,
+    sources: set[RelatedPaperSource],
 ) -> GPTResult[PromptResult[GraphResult]]:
     if "graph" in eval_prompt.name:
         graph_prompt_text = format_graph_template(graph_prompt, paper.paper)
@@ -398,7 +411,7 @@ async def _evaluate_paper(
         graph = Graph.empty()
 
     eval_prompt_text = format_eval_template(
-        eval_prompt, paper, graph, demonstrations, linearisation_method
+        eval_prompt, paper, graph, demonstrations, linearisation_method, sources
     )
     eval_system_prompt = eval_prompt.system
     eval_result = await client.run(GPTFull, eval_system_prompt, eval_prompt_text)
@@ -450,17 +463,19 @@ def format_eval_template(
     graph: Graph,
     demonstrations: str,
     method: LinearisationMethod,
+    sources: set[RelatedPaperSource],
 ) -> str:
     """Format evaluation template using the paper graph and PETER-queried related papers."""
+    related = [p for p in paper.related if p.source in sources]
     return prompt.template.format(
         title=paper.title,
         abstract=paper.abstract,
         demonstrations=demonstrations,
         positive=_format_related(
-            p for p in paper.related if p.polarity is pr.ContextPolarity.POSITIVE
+            p for p in related if p.polarity is pr.ContextPolarity.POSITIVE
         ),
         negative=_format_related(
-            p for p in paper.related if p.polarity is pr.ContextPolarity.NEGATIVE
+            p for p in related if p.polarity is pr.ContextPolarity.NEGATIVE
         ),
         graph=graph.to_text(method),
     )

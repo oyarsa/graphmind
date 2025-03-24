@@ -52,7 +52,7 @@ def citations_(
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
-    ] = "all-mpnet-base-v2",
+    ] = emb.DEFAULT_SENTENCE_MODEL,
 ) -> None:
     """Create citations graph with the reference papers sorted by title similarity."""
     logger.info(display_params())
@@ -86,7 +86,7 @@ def semantic_(
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
-    ] = "all-mpnet-base-v2",
+    ] = emb.DEFAULT_SENTENCE_MODEL,
 ) -> None:
     """Create citations graph with the reference papers sorted by title similarity."""
     logger.info(display_params())
@@ -121,15 +121,15 @@ def build(
             help="File with PeerRead papers with classified contexts.",
         ),
     ],
-    output_file: Annotated[
+    output_dir: Annotated[
         Path,
-        typer.Option("--output", help="Full graph as a JSON file."),
+        typer.Option("--output-dir", help="Directory where graph files will be saved."),
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
-    ] = "all-mpnet-base-v2",
+    ] = emb.DEFAULT_SENTENCE_MODEL,
 ) -> None:
-    """Create citations graph with the reference papers sorted by title similarity."""
+    """Create PETER graph with semantic and citation graphs."""
     logger.info(display_params())
 
     logger.debug("Loading annotated papers.")
@@ -145,23 +145,21 @@ def build(
     encoder = emb.Encoder(model_name)
 
     logger.debug("Building graph.")
-    main_graph = graph.Graph.from_papers(encoder, papers_ann, papers_context)
-
-    logger.info("Saving graph.")
-    save_data(output_file, main_graph.to_data())
+    graph.Graph.build(encoder, papers_ann, papers_context, output_dir)
 
 
 @app.command(no_args_is_help=True)
 def query(
-    graph_file: Annotated[
-        Path, typer.Option("--graph", help="Path to full graph file.")
-    ],
     ann_file: Annotated[
         Path,
         typer.Option(
             "--peerread-ann",
             help="File with PeerRead papers with extracted backgrounds and targets.",
         ),
+    ],
+    graph_dir: Annotated[
+        Path,
+        typer.Option("--graph-dir", help="Directory containing separate graph files."),
     ],
     titles: Annotated[
         list[str] | None,
@@ -195,7 +193,7 @@ def query(
         ]
 
     logger.debug("Loading graph.")
-    main_graph = graph.graph_from_json(graph_file)
+    main_graph = graph.Graph.load(graph_dir)
 
     for paper in papers:
         logger.debug("Querying graph.")
@@ -220,9 +218,6 @@ def query(
 
 @app.command(no_args_is_help=True)
 def peerread(
-    graph_file: Annotated[
-        Path, typer.Option("--graph", help="Path to full graph file.")
-    ],
     ann_file: Annotated[
         Path,
         typer.Option(
@@ -232,6 +227,10 @@ def peerread(
     ],
     output_file: Annotated[
         Path, typer.Option("--output", help="Output file to save the result data.")
+    ],
+    graph_dir: Annotated[
+        Path,
+        typer.Option("--graph-dir", help="Directory containing separate graph files."),
     ],
     num_papers: Annotated[
         int | None,
@@ -262,7 +261,7 @@ def peerread(
     )[:num_papers]
 
     logger.debug("Loading graph.")
-    main_graph = graph.graph_from_json(graph_file)
+    main_graph = graph.Graph.load(graph_dir)
 
     results = [
         rp.PaperResult(

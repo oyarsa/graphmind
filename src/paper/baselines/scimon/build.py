@@ -1,7 +1,4 @@
-"""Build the three SciMON graphs (KG, semantic and citations) as a single structure.
-
-The stored graph needs to be converted to a real one in memory because of how the
-embeddings are stored.
+"""Build the three SciMON graphs (KG, semantic and citations).
 
 This takes two inputs:
 - Annotated papers wrapped in prompts (`gpt.PromptResult[gpt.PaperAnnotated]`) from
@@ -22,10 +19,9 @@ import typer
 from paper import embedding as emb
 from paper import gpt
 from paper import semantic_scholar as s2
-from paper.baselines.scimon import citations, kg, semantic
-from paper.baselines.scimon.graph import Graph, GraphData
+from paper.baselines.scimon.graph import Graph
 from paper.util import Timer, get_params, render_params, setup_logging
-from paper.util.serde import load_data, save_data
+from paper.util.serde import load_data
 
 logger = logging.getLogger("paper.scimon.build")
 
@@ -46,12 +42,13 @@ def main(
     peerread_file: Annotated[
         Path, typer.Option("--peerread", help="File with PeerRead and references.")
     ],
-    output_file: Annotated[
-        Path, typer.Option("--output", help="Output file with the constructed graphs.")
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output-dir", help="Directory to store the constructed graphs."),
     ],
     model_name: Annotated[
         str, typer.Option("--model", help="SentenceTransformer model to use.")
-    ] = "all-mpnet-base-v2",
+    ] = emb.DEFAULT_SENTENCE_MODEL,
     test: Annotated[bool, typer.Option(help="Test graph saving and loading.")] = False,
     num_annotated: Annotated[
         int | None,
@@ -59,7 +56,9 @@ def main(
     ] = None,
     seed: Annotated[int, typer.Option(help="Seed for random sample")] = 0,
 ) -> None:
-    """Build the three SciMON graphs (KG, semantic and citations) as a single structure."""
+    """Build the three SciMON graphs (KG, semantic and citations)."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     random.seed(seed)
 
     setup_logging()
@@ -77,46 +76,27 @@ def main(
     logger.info("Initialising encoder.")
     encoder = emb.Encoder(model_name)
 
-    logger.info("Building graphs")
-
-    logger.info("Building Semantic: %d annotations", len(ann))
-    with Timer("Semantic") as timer_semantic:
-        semantic_graph = semantic.Graph.from_annotated(encoder, ann, progress=True)
-    logger.info(timer_semantic)
-
-    logger.info("Building KG: %d terms", len(ann))
-    with Timer("KG") as timer_kg:
-        kg_graph = kg.Graph.from_terms(encoder, (x.terms for x in ann), progress=True)
-    logger.info(timer_kg)
-
     peerread_papers = load_data(peerread_file, s2.PaperWithS2Refs)
-    logger.info("Building Citation: %d papers", len(peerread_papers))
-    with Timer("Citation") as timer_citation:
-        citation_graph = citations.Graph.from_papers(
-            encoder, peerread_papers, progress=True
-        )
-    logger.info(timer_citation)
 
-    logger.info("Saving graphs")
-    graph = Graph(
-        kg=kg_graph,
-        semantic=semantic_graph,
-        citations=citation_graph,
-        encoder_model=model_name,
-    )
-    graph_data = GraphData.from_graph(graph, metadata=params)
-    save_data(output_file, graph_data)
+    with Timer("Building all graphs") as timer_all:
+        Graph.build(
+            encoder=encoder,
+            annotated=ann,
+            peerread_papers=peerread_papers,
+            output_dir=output_dir,
+            metadata=params,
+            progress=True,
+        )
+    logger.info(timer_all)
 
     if test:
         logger.debug("Testing loading the graph from saved data.")
-        _test_load(output_file)
+        _test_load(output_dir)
 
 
 def _test_load(path: Path) -> None:
     """Test if graph data stored in `path` loads into a valid graph. Tests all three."""
-    data = load_data(path, GraphData, single=True)
-
-    graph = data.to_graph()
+    graph = Graph.load(path)
 
     kg_result = graph.kg.query("machine learning")
     logger.info("KG: %s", kg_result.model_dump_json(indent=2))

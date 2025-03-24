@@ -579,7 +579,7 @@ def at[T](seq: Sequence[T], idx: int, desc: str, title: str) -> T | None:
     try:
         return seq[idx]
     except IndexError:
-        logger.warning(
+        logger.debug(
             "Invalid index at '%s' (%s): %d out of %d", title, desc, idx, len(seq)
         )
         return None
@@ -594,6 +594,7 @@ def log_memory_usage(file: Path) -> None:
 
     Works on both macOS and Linux systems.
     """
+    file.parent.mkdir(parents=True, exist_ok=True)
 
     def log(x: str) -> None:
         logger.debug(x)
@@ -639,3 +640,46 @@ def log_memory_usage(file: Path) -> None:
         log("\nLinux Swap Information:")
         log(f"  Total Swap: {swap_total_gb:.2f} GB")
         log(f"  Used Swap: {swap_used_gb:.2f} GB ({swap.percent}%)")
+
+
+def sample[T](items: Sequence[T], k: int | None) -> list[T]:
+    """Choose `k` unique elements from `items`.
+
+    If `k` is None or 0, or if the number of `items` is less than `k`, returns `items`.
+    """
+    if k is None or k == 0 or len(items) <= k:
+        return list(items)
+    return random.sample(items, k)
+
+
+@overload
+def get_in(data: dict[str, Any], path: str, default: Any) -> Any: ...
+
+
+@overload
+def get_in(data: dict[str, Any], path: str, default: None = None) -> Any | None: ...
+
+
+def get_in(data: dict[str, Any], path: str, default: Any = None) -> Any | None:
+    """Retrieve a value from a nested dictionary using a dot-separated path.
+
+    Args:
+        data: The dictionary to traverse.
+        path: A dot-separated string representing the path (e.g., "a.b.c").
+        default: Value to return if the path doesn't exist.
+
+    Returns:
+        The value at the specified path, or the default value if the path doesn't exist.
+    """
+    if not path:
+        return data
+
+    keys = path.split(".")
+    current: Any = data
+
+    for key in keys:
+        if not isinstance(current, dict) or key not in current:
+            return default
+        current = current[key]
+
+    return current

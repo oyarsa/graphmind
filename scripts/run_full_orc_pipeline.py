@@ -213,9 +213,12 @@ def main(
     assert s2_terms.exists()
 
     title("Peter Build")
-    peter_graph = output_dir / "peter_graph.json"
+    peter_graph_dir = output_dir / "peter_graph"
+    peter_graph_file = (
+        peter_graph_dir / "citation_graph.json"
+    )  # We check for this file to exist
     _checkrun(
-        peter_graph,
+        peter_graph_file,
         "paper",
         "peter",
         "build",
@@ -223,10 +226,10 @@ def main(
         s2_terms,
         "--context",
         context,
-        "--output",
-        peter_graph,
+        "--output-dir",
+        peter_graph_dir,
     )
-    assert peter_graph.exists()
+    assert peter_graph_file.exists()
 
     peter_peer = output_dir / "peerread_with_peter.json"
     title("Peter PeerRead")
@@ -235,8 +238,8 @@ def main(
         "paper",
         "peter",
         "peerread",
-        "--graph",
-        peter_graph,
+        "--graph-dir",
+        peter_graph_dir,
         "--peerread-ann",
         peer_terms,
         "--num-citations",
@@ -267,37 +270,119 @@ def main(
     assert petersum.exists()
 
     title("SciMON build")
-    scimon_graph = output_dir / "scimon_graph.json"
+    scimon_graph_dir = output_dir / "scimon_graph"
+    scimon_kg_file = scimon_graph_dir / "kg_graph.json"
     _checkrun(
-        scimon_graph,
+        scimon_kg_file,
         "paper",
+        "baselines",
         "scimon",
         "build",
         "--ann",
         s2_terms,
         "--peerread",
         peer_with_ref,
-        "--output",
-        scimon_graph,
+        "--output-dir",
+        scimon_graph_dir,
         "--num-annotated",
         5000,
     )
-    assert scimon_graph.exists()
+    assert scimon_kg_file.exists()
 
     title("SciMON query")
     scimon_peer = output_dir / "peerread_with_scimon.json"
     _checkrun(
         scimon_peer,
         "paper",
+        "baselines",
         "scimon",
         "query",
         "--ann-peer",
         peer_terms,
-        "--graph",
-        scimon_graph,
+        "--graph-dir",
+        scimon_graph_dir,
         "--output",
         scimon_peer,
     )
+
+    title("Extract ACUs S2")
+    acu_s2_dir = output_dir / "acu-s2"
+    acu_s2 = acu_s2_dir / "result.json"
+    _checkrun(
+        acu_s2,
+        "paper",
+        "gpt",
+        "acus",
+        "run",
+        "--related",
+        peer_related,
+        "--output",
+        acu_s2_dir,
+        "--paper-type",
+        "s2",
+        "--limit",
+        "0",
+    )
+    assert acu_s2.exists()
+
+    title("Extract ACUs PeerRead")
+    acu_peerread_dir = output_dir / "acu-peerread"
+    acu_peerread = acu_peerread_dir / "result.json"
+    _checkrun(
+        acu_peerread,
+        "paper",
+        "gpt",
+        "acus",
+        "run",
+        "--related",
+        peer_with_ref,
+        "--output",
+        acu_peerread_dir,
+        "--paper-type",
+        "peerread",
+        "--limit",
+        "0",
+    )
+    assert acu_peerread.exists()
+
+    title("Build Nova database")
+    acu_db = output_dir / "acu-db"
+    _checkrun(
+        acu_db,
+        "paper",
+        "baselines",
+        "nova",
+        "build",
+        "--input",
+        acu_s2,
+        "--output",
+        acu_db,
+        "--limit",
+        0,
+        "--sentences",
+        500_000,
+    )
+    assert acu_db.exists()
+
+    title("Query Nova database")
+    acu_query_dir = output_dir / "acu-query"
+    acu_query = acu_query_dir / "result.jsonl"
+    _checkrun(
+        acu_query,
+        "paper",
+        "baselines",
+        "nova",
+        "query",
+        "--db",
+        acu_db,
+        "--input",
+        acu_peerread,
+        "--output",
+        acu_query,
+        "--limit",
+        0,
+    )
+    assert acu_query.exists()
 
 
 def _checkrun(path: Path, *cmd: object) -> None:

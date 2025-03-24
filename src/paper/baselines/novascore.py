@@ -5,26 +5,35 @@ based on their Atomic Content Units (ACUs).
 """
 # pyright: basic
 
+import gc
 import itertools
-import json
 import logging
-from collections.abc import Iterable
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Annotated, Self
+from typing import Annotated
 
-import faiss  # type: ignore
 import typer
 from pydantic import BaseModel, ConfigDict, computed_field
 from tqdm import tqdm
 
-from paper import embedding as emb
 from paper import gpt
+from paper import semantic_scholar as s2
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
-from paper.util import get_params, render_params, setup_logging
+from paper.util import (
+    get_params,
+    render_params,
+    sample,
+    setup_logging,
+)
 from paper.util.cli import die
-from paper.util.serde import load_data, save_data
+from paper.util.serde import load_data, load_data_jsonl, save_data, save_data_jsonl
+from paper.vector_db import (
+    DEFAULT_SENTENCE_MODEL,
+    SearchMatch,
+    SearchResult,
+    VectorDatabase,
+)
 
-DEFAULT_MODEL = "all-mpnet-base-v2"
 DEFAULT_BATCH_SIZE = 1000
 DEFAULT_TOP_K = 5
 DEFAULT_SIMILARITY_THRESHOLD = 0.6
@@ -44,285 +53,6 @@ app = typer.Typer(
 )
 
 
-class SearchMatch(BaseModel):
-    """Match from searching a query in the database."""
-
-    model_config = ConfigDict(frozen=True)
-
-    sentence: str
-    """Sentence retrieved from the database."""
-    score: float
-    """Similarity score with the query."""
-    doc_id: str
-    """Index of the document where the sentence came from."""
-
-
-class SearchResult(BaseModel):
-    """Search result with all matches for a query."""
-
-    model_config = ConfigDict(frozen=True)
-
-    query: str
-    """Sentence used to query the database."""
-    matches: list[SearchMatch]
-    """Retrieved sentences with scores."""
-
-
-class VectorDatabase:
-    """Database for embedded sentences."""
-
-    INDEX_FILE = "index.faiss"
-    """File with indexed documents with vector embeddings."""
-    METADATA_FILE = "metadata.json"
-    """File with JSON metadata needed to construct the database."""
-
-    encoder: emb.Encoder
-    """Encoder model used to generate vector embeddings for sentences."""
-    index: faiss.IndexFlatIP
-    """Index for vector search."""
-    sentence_map: list[tuple[str, str]]
-    """Pairs of (sentence, document index)."""
-    batch_size: int
-    """Size of the batch during database construction."""
-
-    def __init__(
-        self,
-        encoder: emb.Encoder,
-        index: faiss.IndexFlatIP,
-        sentence_map: list[tuple[str, str]],
-        batch_size: int,
-    ) -> None:
-        """Use `VectorDatabase.load` or `VectorDatabase.empty` to construct a new DB."""
-        self.encoder = encoder
-        self.index = index
-        self.sentence_map = sentence_map
-        self.batch_size = batch_size
-
-    @classmethod
-    def empty(cls, encoder: emb.Encoder, batch_size: int = DEFAULT_BATCH_SIZE) -> Self:
-        """Create a new empty vector database with the given encoder.
-
-        Args:
-            encoder: Method used to convert input sentences to vectors.
-            batch_size: Number of sentences per batch when adding sentences to the index.
-        """
-        index = faiss.IndexFlatIP(encoder.dimensions)
-        return cls(encoder=encoder, index=index, sentence_map=[], batch_size=batch_size)
-
-    @classmethod
-    def load(cls, db_dir: Path, batch_size: int | None = None) -> Self:
-        """Load a vector database from disk.
-
-        Expects the files created by `save`. If `batch_size` is given, it overrides the
-        one from the metadata.
-
-        Args:
-            db_dir: Directory containing the database files.
-            batch_size: Optional batch size to override the saved value.
-
-        Returns:
-            A loaded VectorDatabase instance.
-
-        Raises:
-            FileNotFoundError: If the index or metadata files don't exist.
-            json.JSONDecodeError: If the metadata file contains invalid JSON.
-        """
-        index_path = db_dir / cls.INDEX_FILE
-        metadata_path = db_dir / cls.METADATA_FILE
-
-        index = faiss.read_index(str(index_path))
-        metadata = json.loads(metadata_path.read_bytes())
-
-        return cls(
-            index=index,
-            encoder=emb.Encoder(metadata["model_name"]),
-            sentence_map=metadata["sentence_map"],
-            batch_size=batch_size or int(metadata["batch_size"]),
-        )
-
-    def add_sentences(self, sentences: Iterable[str], doc_id: str) -> None:
-        """Add sentences to index in batches.
-
-        `doc_id` represents the document where the sentences came from. If the sentences
-        may come from different documents, call this function multiple times, one for
-        each document.
-
-        Args:
-            sentences: Iterable of sentences to add to the database.
-            doc_id: Identifier for the document containing these sentences.
-        """
-        # Convert to list to avoid consuming the iterable multiple times
-        sentences_list = list(sentences)
-        if not sentences_list:
-            logger.warning(f"No sentences to add for document {doc_id}")
-            return
-
-        # Process in batches for efficiency
-        for batch in itertools.batched(sentences_list, self.batch_size):
-            # Prepare sentence map entries for this batch
-            batch_entries = [(sentence, doc_id) for sentence in batch]
-            self.sentence_map.extend(batch_entries)
-
-            # Encode and add to the index
-            self.index.add(self.encoder.encode(batch))  # type: ignore
-
-    def search(
-        self,
-        query_sentences: Iterable[str],
-        k: int = DEFAULT_TOP_K,
-        threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
-        query_doc_id: str | None = None,
-        max_retrieval_factor: int = 5,
-    ) -> list[SearchResult]:
-        """Search sentences in database. Returns top `k` with similarity over `threshold`.
-
-        Excludes matches from the same document (based on document ID) to avoid
-        retrieving sentences from the same paper when searching within the dataset used
-        to build the database.
-
-        Uses batch processing for efficient vector search with a retrieval factor
-        multiplier to ensure enough matches after filtering.
-        """
-        actual_k = k * max_retrieval_factor
-        results: list[SearchResult] = []
-
-        for sentences_batch in itertools.batched(query_sentences, self.batch_size):
-            query_vectors = self.encoder.encode(sentences_batch)
-
-            # Initial batch search with larger k to account for filtering
-            scores_batch: list[list[float]]
-            indices_batch: list[list[int]]
-            scores_batch, indices_batch = self.index.search(query_vectors, actual_k)  # type: ignore
-
-            for query_sentence, scores, indices in zip(
-                sentences_batch, scores_batch, indices_batch
-            ):
-                matches: list[SearchMatch] = []
-
-                for score, idx in zip(scores, indices):
-                    # Skip if score is below threshold or index is invalid
-                    if score < threshold or idx >= len(self.sentence_map):
-                        continue
-
-                    original_sentence, doc_id = self.sentence_map[idx]
-
-                    # Skip matches from the same document
-                    if doc_id == query_doc_id:
-                        continue
-
-                    matches.append(
-                        SearchMatch(
-                            sentence=original_sentence,
-                            score=float(score),
-                            doc_id=doc_id,
-                        )
-                    )
-
-                if len(matches) < k:
-                    logger.warning(
-                        "Not enough matches for sentence after retrieving %d results."
-                        " Query document ID: %s",
-                        actual_k,
-                        query_doc_id,
-                    )
-
-                # Sort by score and take top k
-                matches.sort(key=lambda m: m.score, reverse=True)
-                results.append(SearchResult(query=query_sentence, matches=matches[:k]))
-
-        return results
-
-    def find_best(
-        self,
-        query_sentences: Iterable[str],
-        threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
-        query_doc_id: str | None = None,
-        max_retrieval_factor: int = 5,
-    ) -> list[SearchMatch | None]:
-        """Find the best match for each query sentence.
-
-        Returns the highest similarity match for each query sentence, or None if no
-        match is found above the threshold. Excludes matches from the same document.
-
-        Args:
-            query_sentences: Sentences to search for in the database.
-            threshold: Minimum similarity score to consider a match.
-            query_doc_id: ID of the document containing the query sentences (to exclude
-                matches)>
-            max_retrieval_factor: Multiplier for how many results to retrieve initially.
-
-        Returns:
-            A list of SearchMatch objects (one per query) or None where no match was
-            found.
-        """
-        # We need to retrieve more than 1 result because we might filter some out later
-        retrieval_k = max_retrieval_factor
-        results: list[SearchMatch | None] = []
-
-        for sentences_batch in itertools.batched(query_sentences, self.batch_size):
-            query_vectors = self.encoder.encode(sentences_batch)
-
-            scores_batch: list[list[float]]
-            indices_batch: list[list[int]]
-            scores_batch, indices_batch = self.index.search(query_vectors, retrieval_k)  # type: ignore
-
-            for scores, indices in zip(scores_batch, indices_batch):
-                best_match: SearchMatch | None = None
-                best_score = 0.0
-
-                for score, idx in zip(scores, indices):
-                    # Skip if score is below threshold or index is invalid
-                    if score < threshold or idx >= len(self.sentence_map):
-                        continue
-
-                    original_sentence, doc_id = self.sentence_map[idx]
-
-                    # Skip matches from the same document
-                    if doc_id == query_doc_id:
-                        continue
-
-                    # Keep track of the best match so far
-                    if best_match is None or score > best_score:
-                        best_match = SearchMatch(
-                            sentence=original_sentence,
-                            score=float(score),
-                            doc_id=doc_id,
-                        )
-                        best_score = score
-
-                results.append(best_match)
-
-        return results
-
-    def save(self, db_dir: Path) -> None:
-        """Save database to `db_dir`.
-
-        Saves two files:
-        - `VectorDatabase.INDEX_FILE`
-        - `VectorDatabase.METADATA_FILE`
-
-        Args:
-            db_dir: Directory where to save the database files.
-
-        Raises:
-            OSError: If there's an error creating the directory or writing the files.
-        """
-        db_dir.mkdir(parents=True, exist_ok=True)
-
-        index_path = db_dir / self.INDEX_FILE
-        metadata_path = db_dir / self.METADATA_FILE
-
-        faiss.write_index(self.index, str(index_path))
-
-        metadata_path.write_text(
-            json.dumps({
-                "batch_size": self.batch_size,
-                "model_name": self.encoder.model_name,
-                "sentence_map": self.sentence_map,
-            })
-        )
-
-
 @app.command(no_args_is_help=True)
 def build(
     input_file: Annotated[
@@ -338,18 +68,29 @@ def build(
         ),
     ],
     db_dir: Annotated[
-        Path | None, typer.Option("--db", help="Directory with vector database files.")
+        Path | None,
+        typer.Option("--db", help="Directory with vector database files to update."),
     ] = None,
     model: Annotated[
         str, typer.Option(help="Name of the sentence transformer model")
-    ] = DEFAULT_MODEL,
+    ] = DEFAULT_SENTENCE_MODEL,
     batch_size: Annotated[
         int, typer.Option(help="Batch size for processing")
     ] = DEFAULT_BATCH_SIZE,
     limit_papers: Annotated[
         int | None,
-        typer.Option("--limit", "-n", help="The number of papers to process."),
+        typer.Option(
+            "--limit", "-n", help="The number of papers to process. Use 0 for all."
+        ),
     ] = 10,
+    limit_sentences: Annotated[
+        int | None,
+        typer.Option(
+            "--sentences",
+            "-s",
+            help="The number of sentences to use to build the index. Use 0 for all.",
+        ),
+    ] = 500_000,
 ) -> None:
     """Build a vector database from sentences in the acus field of input JSON documents.
 
@@ -359,25 +100,33 @@ def build(
     if db_dir is not None:
         db = VectorDatabase.load(db_dir, batch_size)
     else:
-        db = VectorDatabase.empty(emb.Encoder(model), batch_size)
+        db = VectorDatabase.empty(model, batch_size)
+
+    if limit_papers == 0:
+        limit_papers = None
+    if limit_sentences == 0:
+        limit_sentences = None
 
     logger.info(f"Loading input data from {input_file}")
     papers = gpt.PromptResult.unwrap(
-        load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs])
-    )[:limit_papers]
+        load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs[s2.Paper]])
+    )
+    papers = sample(papers, limit_papers)
 
     if not papers:
         die("Input file is empty.")
 
-    total_sentences = 0
+    sentences: list[str] = []
+    for paper in papers:
+        sentences.extend(paper.acus)
 
-    for paper in tqdm(papers, desc="Processing papers"):
-        db.add_sentences(paper.acus, paper.id)
-        total_sentences += len(paper.acus)
+    sentences = sample(sentences, limit_sentences)
+
+    db.add_sentences(sentences)
 
     db.save(output_dir)
     logger.info(
-        f"Built database with {total_sentences} sentences from {len(papers)} documents"
+        f"Built database with {len(sentences)} sentences from {len(papers)} documents"
     )
 
 
@@ -390,10 +139,47 @@ class PaperResult(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    paper: gpt.PaperWithACUs
+    paper: gpt.PaperWithACUs[s2.PaperWithS2Refs]
     """The original paper with its ACUs."""
     results: list[SearchResult]
     """Search results for each ACU in the paper."""
+
+
+def _query_papers(
+    db: VectorDatabase,
+    output_file: Path,
+    papers: Sequence[gpt.PaperWithACUs[s2.PaperWithS2Refs]],
+    threshold: float,
+    top_k: int,
+    batch_size: int,
+) -> int:
+    total_queries = 0
+
+    with tqdm(total=len(papers), desc="Querying papers") as pbar:
+        for batch in itertools.batched(papers, batch_size):
+            for paper in batch:
+                sentences = paper.acus
+                total_queries += len(sentences)
+
+                if not sentences:
+                    logger.warning(f"Document {paper.id} has no ACUs to query")
+                    continue
+
+                query_results = db.search(sentences, k=top_k, threshold=threshold)
+                result = PaperResult.model_construct(paper=paper, results=query_results)
+                save_data_jsonl(output_file, result)
+
+                # Explicitly free memory from results to reduce memory usage
+                del result
+                del query_results
+                del sentences
+
+                pbar.update(1)
+
+            gc.collect()
+            gc.collect()
+
+    return total_queries
 
 
 @app.command(no_args_is_help=True)
@@ -403,10 +189,13 @@ def query(
     ],
     input_file: Annotated[
         Path,
-        typer.Option("--input", "-i", help="Input JSON file with query documents."),
+        typer.Option("--input", "-i", help="Input JSON file with documents to query."),
     ],
-    output_file: Annotated[
-        Path, typer.Option("--output", "-o", help="Output JSON file for results.")
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--output", "-o", help="Path to directory where results will be saved."
+        ),
     ],
     top_k: Annotated[
         int, typer.Option(help="Number of top matches to return.", min=1)
@@ -416,14 +205,25 @@ def query(
     ] = DEFAULT_SIMILARITY_THRESHOLD,
     limit_papers: Annotated[
         int | None,
-        typer.Option("--limit", "-n", help="The number of papers to process."),
+        typer.Option(
+            "--limit", "-n", help="The number of papers to process. Use 0 for all."
+        ),
     ] = 10,
+    batch_size: Annotated[
+        int, typer.Option(help="Size of batches when processing papers.")
+    ] = 100,
 ) -> None:
     """Query the vector database with sentences from the papers ACUs."""
+    params = get_params()
+    logger.info(render_params(params))
+
     db = VectorDatabase.load(db_dir)
 
+    if limit_papers == 0:
+        limit_papers = None
+
     papers = gpt.PromptResult.unwrap(
-        load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs])
+        load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs[s2.PaperWithS2Refs]])
     )[:limit_papers]
 
     if not papers:
@@ -431,30 +231,18 @@ def query(
 
     logger.info(f"Loaded {len(papers)} documents")
 
-    results: list[PaperResult] = []
-    total_queries = 0
+    # Use JSONL files so we don't have to keep the whole result in memory
+    output_file = output_dir / "result.jsonl"
+    output_file.unlink(missing_ok=True)
 
-    for paper in tqdm(papers, desc="Querying papers"):
-        sentences = paper.acus
-        if not sentences:
-            logger.warning(f"Document {paper.id} has no ACUs to query")
-            continue
+    total_queries = _query_papers(db, output_file, papers, threshold, top_k, batch_size)
 
-        query_results = db.search(
-            sentences, k=top_k, threshold=threshold, query_doc_id=paper.id
-        )
-        total_queries += len(sentences)
-
-        results.append(PaperResult(paper=paper, results=query_results))
-
-    logger.info(f"Processed {len(results)} documents with {total_queries} queries")
-    logger.info(f"Saving results to {output_file}")
-    save_data(output_file, results)
+    logger.info(f"Processed {len(papers)} documents with {total_queries} queries")
+    save_data(output_dir / "params.json", params)
 
 
 def _evaluate_paper(
-    db: VectorDatabase,
-    paper: gpt.PeerPaperWithACUs,
+    paper_result: PaperResult,
     *,
     threshold: float,
     alpha: float,
@@ -464,8 +252,7 @@ def _evaluate_paper(
     """Calculate the novelty score for a paper using the NovaSCORE method.
 
     Args:
-        db: Vector database to search for similar ACUs.
-        paper: Paper with ACUs to evaluate.
+        paper_result: Paper result with ACUs and their search results.
         threshold: Similarity threshold for considering an ACU as non-novel.
         alpha: Weight parameter for the non-salient ACU formula.
         beta: Offset parameter for the salience ratio in the formula.
@@ -480,6 +267,8 @@ def _evaluate_paper(
     Where salience_ratio is the proportion of salient ACUs in the paper (number of
     salient ACUs divided by the total number of ACUs).
     """
+    paper = paper_result.paper
+
     if not paper.acus:
         logger.warning(f"Paper {paper.id} has no ACUs, returning zero novelty score")
         return 0.0
@@ -495,14 +284,12 @@ def _evaluate_paper(
         alpha * (salience_ratio - beta) ** 3 + gamma,
     )
 
-    acu_novelty_matches = db.find_best(
-        paper.acus, threshold=threshold, query_doc_id=paper.id
-    )
-
     # Calculate the total novelty score
     total_score = 0.0
-    for acu, match in zip(paper.acus, acu_novelty_matches):
+    for acu, result in zip(paper.acus, paper_result.results, strict=True):
+        match = _find_best_match(result, threshold)
         novelty = 1 if match is None else 0
+
         salient = acu in salient_acus
 
         weight = weight_salient if salient else weight_nonsalient
@@ -510,6 +297,21 @@ def _evaluate_paper(
 
     # Normalize by the number of ACUs
     return total_score / len(paper.acus)
+
+
+def _find_best_match(result: SearchResult, threshold: float) -> SearchMatch | None:
+    """Return best match in `result` if it's above the `threshold`, or None.
+
+    This can be used to answer the question: "does this sentence have at least one item
+    with high similarity?".
+    """
+    if not result.matches:
+        return None
+
+    best_match = max(result.matches, key=lambda m: m.score)
+    if best_match.score >= threshold:
+        return best_match
+    return None
 
 
 class PaperEvaluated(BaseModel):
@@ -521,21 +323,21 @@ class PaperEvaluated(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    paper: gpt.PeerPaperWithACUs
+    paper: gpt.PaperWithACUs[s2.PaperWithS2Refs]
     """Original PeerRead input paper with extracted ACUs."""
     novascore: float
     """Score derived from the NovaSCORE method (0.0 to 1.0)."""
     novalabel: int
     """Binary version of the score given a threshold (0 or 1)."""
 
-    @property
     @computed_field
+    @property
     def y_true(self) -> int:
         """Gold label for novelty (binary)."""
         return self.paper.paper.label
 
-    @property
     @computed_field
+    @property
     def y_pred(self) -> int:
         """Predicted label for novelty (binary)."""
         return self.novalabel
@@ -557,13 +359,13 @@ class EvaluationConfig(BaseModel):
 
 
 def run_evaluation(
-    db: VectorDatabase, papers: list[gpt.PeerPaperWithACUs], config: EvaluationConfig
+    paper_results: list[PaperResult],
+    config: EvaluationConfig,
 ) -> list[PaperEvaluated]:
-    """Run the NovaSCORE evaluation on a list of papers.
+    """Run the NovaSCORE evaluation on a list of papers using saved query results.
 
     Args:
-        db: Vector database to use for similarity search.
-        papers: List of papers to evaluate.
+        paper_results: List of paper results with search results for each ACU.
         config: Evaluation configuration parameters.
 
     Returns:
@@ -571,14 +373,14 @@ def run_evaluation(
     """
     results: list[PaperEvaluated] = []
 
-    for paper in tqdm(papers, desc="Evaluating papers"):
+    for paper_result in tqdm(paper_results, desc="Evaluating papers"):
+        paper = paper_result.paper
         if not paper.acus:
             logger.warning(f"Paper {paper.id} has no ACUs, skipping")
             continue
 
         score = _evaluate_paper(
-            db,
-            paper,
+            paper_result,
             threshold=config.sim_threshold,
             alpha=config.alpha,
             beta=config.beta,
@@ -598,12 +400,9 @@ def run_evaluation(
 
 @app.command(no_args_is_help=True)
 def evaluate(
-    db_dir: Annotated[
-        Path, typer.Option("--db", help="Directory with vector database files.")
-    ],
-    input_file: Annotated[
+    results_file: Annotated[
         Path,
-        typer.Option("--input", "-i", help="Input JSON file with query documents."),
+        typer.Option("--results", help="Input JSON file with saved query results."),
     ],
     output_dir: Annotated[
         Path,
@@ -611,12 +410,13 @@ def evaluate(
     ],
     limit_papers: Annotated[
         int | None,
-        typer.Option("--limit", "-n", help="The number of papers to process."),
+        typer.Option(
+            "--limit", "-n", help="The number of papers to process. Use 0 for all."
+        ),
     ] = 10,
     sim_threshold: Annotated[
         float, typer.Option(help="Similarity threshold.", min=0.0, max=1.0)
     ] = DEFAULT_SIMILARITY_THRESHOLD,
-    # TODO: figure out weights and threshold
     score_threshold: Annotated[
         float,
         typer.Option(help="Threshold for binary novelty.", min=0.0, max=1.0),
@@ -634,25 +434,24 @@ def evaluate(
         typer.Option(help="Gamma parameter for dynamic salient weight.", min=0, max=1),
     ] = DEFAULT_SALIENT_GAMMA,
 ) -> None:
-    """Query the vector database with sentences from the papers ACUs."""
+    """Calculate novelty score using saved query results.
+
+    Input is the output of the `query` command, which contains papers with their ACUs and
+    search results for each ACU.
+    """
     params = get_params()
     logger.info(render_params(params))
 
     if limit_papers == 0:
         limit_papers = None
 
-    logger.info(f"Loading vector database from {db_dir}")
-    db = VectorDatabase.load(db_dir)
+    logger.info(f"Loading query results from {results_file}")
+    paper_results = load_data_jsonl(results_file, PaperResult)
 
-    logger.info(f"Loading papers from {input_file}")
-    papers = gpt.PromptResult.unwrap(
-        load_data(input_file, gpt.PromptResult[gpt.PeerPaperWithACUs])
-    )[:limit_papers]
+    if limit_papers:
+        paper_results = paper_results[:limit_papers]
 
-    if not papers:
-        raise typer.Exit(code=0)
-
-    logger.info(f"Loaded {len(papers)} papers")
+    logger.info(f"Loaded results for {len(paper_results)} papers")
 
     config = EvaluationConfig(
         sim_threshold=sim_threshold,
@@ -661,13 +460,9 @@ def evaluate(
         beta=beta,
         gamma=gamma,
     )
-    results = run_evaluation(db, papers, config)
+    results = run_evaluation(paper_results, config)
 
-    if not results:
-        logger.warning("No results produced from evaluation")
-        return
-
-    metrics = calculate_paper_metrics(results, 0)
+    metrics = calculate_paper_metrics(results, cost=0)
     logger.info("%s\n", display_metrics(metrics, results))
 
     logger.info(f"Saving results to {output_dir}")
