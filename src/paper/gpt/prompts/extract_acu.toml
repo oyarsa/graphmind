@@ -50,8 +50,8 @@ The following data contains information about a scientific paper. It includes th
 paper's title and abstract. Based on this, your task is to extract all atomic content \
 units from the paper.
 
-1. First, extract the list of all atomic content units (ACUs) from the scientific paper abstract. 
-An ACU is an elementary information unit that captures a single, specific claim, finding, 
+1. First, extract the list of all atomic content units (ACUs) from the scientific paper abstract.
+An ACU is an elementary information unit that captures a single, specific claim, finding,
 method, or concept from the paper. Each ACU should be:
    - Self-contained and complete (a full sentence that can stand on its own)
    - Specific and detailed (including precise methods, values, or findings when mentioned)
@@ -101,6 +101,76 @@ Example ACUs:
 - The computational benefits require appropriate hardware implementation.
 - The optimization method works with any pre-trained deep network.
 - Sigma-Delta networks are named after the mathematical concept of measuring change.
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+#####
+Output:
+"""
+
+[[prompts]]
+name = "sci"
+prompt = """
+Extract atomic content units (ACUs) from this scientific paper. An ACU represents a single, indivisible fact or claim from the paper.
+
+For scientific papers, good ACUs should:
+1. Capture specific scientific findings, methodologies, or conclusions
+2. Preserve precise technical details, measurements, and relationships
+3. Maintain scientific accuracy without simplification
+4. Use the same technical terminology as the original text
+5. Include all relevant entities, values, and conditions for each claim
+6. Be standalone statements that can be individually verified
+
+When extracting ACUs:
+- Replace pronouns with their specific referents
+- Preserve numeric values and units exactly as stated
+- Maintain relationships between variables, conditions, and outcomes
+- Include methodology details when relevant to findings
+- Separate compound statements into individual claims
+
+#####
+-Demonstration-
+Example document 1:
+
+Enzon Inc. said tests of a new anti-cancer drug to treat a form of leukemia showed positive results, Abraham Abuchowski, president of the pharmeutical company, told the annual meeting. Enzon also said it filed its first new drug application with the FDA for an orphan drug that treats severe combined immunodeficiency disease, or SCID. The company has about 10.8 million common shares outstanding. Eastman Kodak Co. ownas an 18% interest in Enzon.
+
+Example ACUs:
+- Enzon Inc. conducted tests of a new anti-cancer drug for treating a form of leukemia.
+- Tests of Enzon Inc.'s new anti-cancer drug for leukemia showed positive results.
+- Abraham Abuchowski is the president of Enzon Inc.
+- Abraham Abuchowski reported the positive test results at the annual meeting.
+- Enzon Inc. filed its first new drug application with the FDA.
+- The new drug application filed by Enzon Inc. with the FDA is for an orphan drug.
+- The orphan drug developed by Enzon Inc. treats severe combined immunodeficiency disease (SCID).
+- Enzon Inc. has approximately 10.8 million common shares outstanding.
+- Eastman Kodak Co. owns an 18% interest in Enzon Inc.
+
+Example document 2:
+
+In a randomized controlled trial, researchers investigated the effects of a novel SGLT2 inhibitor on HbA1c levels in patients with type 2 diabetes. 128 participants were administered either 100mg of the inhibitor or a placebo daily for 12 weeks. Results showed that the treatment group (n=64) experienced a mean reduction in HbA1c of 1.8% (95% CI: 1.5-2.1%), compared to 0.4% (95% CI: 0.2-0.6%) in the control group (p<0.001). Additionally, the treatment group showed significant improvements in fasting plasma glucose (-2.3 mmol/L vs -0.6 mmol/L, p<0.001) and body weight (-2.7 kg vs -0.5 kg, p<0.01). Seven patients (10.9%) in the treatment group reported mild gastrointestinal side effects, compared to three patients (4.7%) in the placebo group.
+
+Example ACUs:
+- Researchers conducted a randomized controlled trial to investigate the effects of a novel SGLT2 inhibitor on HbA1c levels.
+- The study focused on patients with type 2 diabetes.
+- The trial included 128 participants in total.
+- 64 participants received 100mg of the SGLT2 inhibitor daily.
+- 64 participants received a placebo daily.
+- The treatment duration was 12 weeks.
+- The treatment group experienced a mean reduction in HbA1c of 1.8%.
+- The 95% confidence interval for HbA1c reduction in the treatment group was 1.5-2.1%.
+- The control group experienced a mean reduction in HbA1c of 0.4%.
+- The 95% confidence interval for HbA1c reduction in the control group was 0.2-0.6%.
+- The difference in HbA1c reduction between groups was statistically significant (p<0.001).
+- The treatment group showed a reduction in fasting plasma glucose of 2.3 mmol/L.
+- The control group showed a reduction in fasting plasma glucose of 0.6 mmol/L.
+- The difference in fasting plasma glucose reduction was statistically significant (p<0.001).
+- The treatment group showed a reduction in body weight of 2.7 kg.
+- The control group showed a reduction in body weight of 0.5 kg.
+- The difference in body weight reduction was statistically significant (p<0.01).
+- Seven patients (10.9%) in the treatment group reported mild gastrointestinal side effects.
+- Three patients (4.7%) in the placebo group reported mild gastrointestinal side effects.
 
 -Data-
 Title: {title}
