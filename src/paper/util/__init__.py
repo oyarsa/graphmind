@@ -20,6 +20,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Self, overload
 
+import polars as pl
 import psutil
 from thefuzz import fuzz  # type: ignore
 
@@ -683,3 +684,9 @@ def get_in(data: dict[str, Any], path: str, default: Any = None) -> Any | None:
         current = current[key]
 
     return current
+
+
+def describe(values: Iterable[int]) -> str:
+    """Print descriptive statistics of `values`."""
+    pl.Config.set_tbl_hide_column_data_types(True).set_tbl_hide_dataframe_shape(True)
+    return str(pl.Series(values).describe())
