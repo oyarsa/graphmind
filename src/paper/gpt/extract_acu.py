@@ -10,6 +10,7 @@ User prompt and output type definition from Ai et al 2025, p. 11.
 """
 
 import asyncio
+import itertools
 import logging
 import random
 from collections.abc import Sequence
@@ -19,6 +20,7 @@ from typing import Annotated, Self
 import dotenv
 import typer
 from pydantic import BaseModel, ConfigDict, Field
+from tqdm import tqdm
 
 from paper.gpt.model import (
     PaperACUInput,
@@ -114,6 +116,9 @@ def run(
         int,
         typer.Option(help="Random seed used for the GPT API and to shuffle the data."),
     ] = 0,
+    batch_size: Annotated[
+        int, typer.Option(help="Number of requests per batch.")
+    ] = 100,
 ) -> None:
     """Evaluate each review's novelty rating based on the review text."""
     asyncio.run(
@@ -128,6 +133,7 @@ def run(
             continue_,
             seed,
             keep_intermediate,
+            batch_size,
         )
     )
 
@@ -155,6 +161,7 @@ async def extract_acu(
     continue_: bool,
     seed: int,
     keep_intermediate: bool,
+    batch_size: int,
 ) -> None:
     """Extract ACUs from each related paper's abstract.
 
@@ -171,6 +178,7 @@ async def extract_acu(
         continue_: If True, use data from `continue_papers_file`.
         keep_intermediate: Keep intermediate results to be used with `continue`.
         seed: Seed for the OpenAI API call and to shuffle the data.
+        batch_size: Number of items per batch.
     """
     random.seed(seed)
     params = get_params()
@@ -209,6 +217,7 @@ async def extract_acu(
             papers_remaining.remaining,
             output_intermediate_file,
             keep_intermediate,
+            batch_size,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -245,6 +254,7 @@ async def _extract_acus[T: PaperACUInput](
     papers: Sequence[T],
     output_intermediate_file: Path,
     keep_intermediate: bool,
+    batch_size: int,
 ) -> GPTResult[list[PromptResult[PaperWithACUs[T]]]]:
     """Extract ACUs for each related paper's abstract.
 
@@ -255,6 +265,7 @@ async def _extract_acus[T: PaperACUInput](
         papers: Related papers from the S2 API.
         output_intermediate_file: File to write new results after each task.
         keep_intermediate: Keep intermediate results to be used in future runs.
+        batch_size: Number of items per batch.
 
     Returns:
         List of papers with evaluated reviews wrapped in a GPTResult.
@@ -262,15 +273,26 @@ async def _extract_acus[T: PaperACUInput](
     results: list[PromptResult[PaperWithACUs[T]]] = []
     total_cost = 0
 
-    tasks = [_extract_acu_single(client, type_, paper, user_prompt) for paper in papers]
+    with tqdm(
+        total=len(papers), desc="Processing papers", position=0, leave=True
+    ) as pbar_papers:
+        for batch in itertools.batched(papers, batch_size):
+            tasks = [
+                _extract_acu_single(client, type_, paper, user_prompt)
+                for paper in batch
+            ]
 
-    for task in progress.as_completed(tasks, desc="Processing papers"):
-        result = await task
-        total_cost += result.cost
+            for task in progress.as_completed(
+                tasks, desc="Processing batch", position=1, leave=False
+            ):
+                result = await task
+                total_cost += result.cost
 
-        results.append(result.result)
-        if keep_intermediate:
-            append_intermediate_result(output_intermediate_file, result.result)
+                results.append(result.result)
+                if keep_intermediate:
+                    append_intermediate_result(output_intermediate_file, result.result)
+
+            pbar_papers.update(len(batch))
 
     return GPTResult(results, total_cost)
 
