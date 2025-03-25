@@ -224,7 +224,8 @@ def query(
 
     papers = gpt.PromptResult.unwrap(
         load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs[s2.PaperWithS2Refs]])
-    )[:limit_papers]
+    )
+    papers = sample(papers, limit_papers)
 
     if not papers:
         die("Input file is empty.")
@@ -446,10 +447,7 @@ def evaluate(
         limit_papers = None
 
     logger.info(f"Loading query results from {results_file}")
-    paper_results = load_data_jsonl(results_file, PaperResult)
-
-    if limit_papers:
-        paper_results = paper_results[:limit_papers]
+    paper_results = sample(load_data_jsonl(results_file, PaperResult), limit_papers)
 
     logger.info(f"Loaded results for {len(paper_results)} papers")
 
