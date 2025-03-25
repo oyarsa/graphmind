@@ -467,6 +467,7 @@ def format_eval_template(
             p for p in related if p.polarity is pr.ContextPolarity.NEGATIVE
         ),
         graph=graph.to_text(method),
+        approval=paper.paper.paper.approval,
     )
 
 
