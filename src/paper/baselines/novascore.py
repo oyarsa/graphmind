@@ -19,12 +19,7 @@ from tqdm import tqdm
 from paper import gpt
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
-from paper.util import (
-    get_params,
-    render_params,
-    sample,
-    setup_logging,
-)
+from paper.util import get_params, render_params, sample, setup_logging
 from paper.util.cli import die
 from paper.util.serde import load_data, load_data_jsonl, save_data, save_data_jsonl
 from paper.vector_db import (
@@ -92,7 +87,10 @@ def build(
         ),
     ] = 500_000,
 ) -> None:
-    """Build a vector database from sentences in the acus field of input JSON documents.
+    """Build a vector database from sentences in the `acus` field of input JSON documents.
+
+    The input documents should be the output of `paper gpt acus` with `s2.Paper` (e.g.
+    `peerrelated.json` from `paper construct`).
 
     If `--db` is given, we load an existing database and add to it. If not, we create
     a new from scratch with `--model`.
@@ -155,6 +153,9 @@ def _query_papers(
 ) -> int:
     total_queries = 0
 
+    # This can consume a lot of memory depending on the size of the database and the
+    # input, so we manually engage the GC to reduce the memory usage.
+
     with tqdm(total=len(papers), desc="Querying papers") as pbar:
         for batch in itertools.batched(papers, batch_size):
             for paper in batch:
@@ -176,6 +177,7 @@ def _query_papers(
 
                 pbar.update(1)
 
+            # Reduce memory usage
             gc.collect()
             gc.collect()
 
@@ -213,7 +215,13 @@ def query(
         int, typer.Option(help="Size of batches when processing papers.")
     ] = 100,
 ) -> None:
-    """Query the vector database with sentences from the papers ACUs."""
+    """Query the vector database with sentences from the papers ACUs.
+
+    The input documents should be the output of `paper gpt acus` with `s2.PaperWithS2Refs`
+    (e.g. `peerread_with_s2_references.json` from `paper construct`).
+
+    The output is a JSON file that has each input paper along with the retrieved ACUs.
+    """
     params = get_params()
     logger.info(render_params(params))
 
@@ -224,7 +232,8 @@ def query(
 
     papers = gpt.PromptResult.unwrap(
         load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs[s2.PaperWithS2Refs]])
-    )[:limit_papers]
+    )
+    papers = sample(papers, limit_papers)
 
     if not papers:
         die("Input file is empty.")
@@ -359,8 +368,7 @@ class EvaluationConfig(BaseModel):
 
 
 def run_evaluation(
-    paper_results: list[PaperResult],
-    config: EvaluationConfig,
+    paper_results: list[PaperResult], config: EvaluationConfig
 ) -> list[PaperEvaluated]:
     """Run the NovaSCORE evaluation on a list of papers using saved query results.
 
@@ -391,7 +399,7 @@ def run_evaluation(
             PaperEvaluated(
                 paper=paper,
                 novascore=score,
-                novalabel=int(score > config.score_threshold),
+                novalabel=int(score >= config.score_threshold),
             )
         )
 
@@ -446,10 +454,7 @@ def evaluate(
         limit_papers = None
 
     logger.info(f"Loading query results from {results_file}")
-    paper_results = load_data_jsonl(results_file, PaperResult)
-
-    if limit_papers:
-        paper_results = paper_results[:limit_papers]
+    paper_results = sample(load_data_jsonl(results_file, PaperResult), limit_papers)
 
     logger.info(f"Loaded results for {len(paper_results)} papers")
 
