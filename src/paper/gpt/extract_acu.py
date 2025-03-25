@@ -99,7 +99,7 @@ def run(
             help="The user prompt to use for ACU extraction.",
             click_type=cli.Choice(ACU_EXTRACTION_USER_PROMPTS),
         ),
-    ] = "simple",
+    ] = "sci",
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run.")
     ] = None,
