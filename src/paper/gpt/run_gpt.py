@@ -10,6 +10,7 @@ from typing import Any
 
 import backoff
 import openai
+import tiktoken
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 
@@ -150,6 +151,7 @@ class ModelClient:
         temperature: float = 0,
         base_url: str | None = None,
         timeout: float = 60,
+        max_input_tokens: int | None = 90_000,
     ) -> None:
         """Create client for OpenAI-compatible APIs.
 
@@ -165,6 +167,8 @@ class ModelClient:
                 deterministic as possible, but it's still not guaranteed.
             base_url: URL of the API being used. If not provided, use OpenAI.
             timeout: Timeout in seconds for the API calls.
+            max_input_tokens: Maximum number of tokens allowed in the input.
+                If set, will truncate the `user_prompt` if it exceeds this limit.
         """
         is_openai = base_url is None or "openai" in base_url
         model = MODEL_SYNONYMS.get(model, model)
@@ -179,6 +183,7 @@ class ModelClient:
         self.seed = seed
         self.temperature = temperature
         self.timeout = timeout
+        self.max_input_tokens = max_input_tokens
 
         if not is_openai:
             api_tier = -1
@@ -189,6 +194,40 @@ class ModelClient:
             api_tier = 1
 
         self.rate_limiter = get_rate_limiter(api_tier, model)
+
+    def _prepare_messages(
+        self, system_prompt: str, user_prompt: str
+    ) -> list[dict[str, str]]:
+        """Prepare messages for the API call, applying token limits if needed.
+
+        Args:
+            system_prompt: Text for the system prompt.
+            user_prompt: Text for the user prompt.
+
+        Returns:
+            List of message dictionaries in the format expected by the API.
+        """
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        if self.max_input_tokens is None:
+            return messages
+
+        system_tokens = count_tokens(system_prompt)
+        user_tokens = count_tokens(user_prompt)
+
+        if system_tokens + user_tokens <= self.max_input_tokens:
+            return messages
+
+        available_tokens = max(0, self.max_input_tokens - system_tokens)
+        truncated_user_prompt = truncate_text(user_prompt, available_tokens)
+
+        return [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": truncated_user_prompt},
+        ]
 
     async def run[T: BaseModel](
         self,
@@ -227,10 +266,7 @@ class ModelClient:
         try:
             completion = await self._call_gpt(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
+                messages=self._prepare_messages(system_prompt, user_prompt),
                 response_format=class_,
                 seed=self.seed,
                 temperature=self.temperature,
@@ -268,8 +304,8 @@ class ModelClient:
         except openai.APIError as e:
             logger.warning("\nCaught an API error: %s", e)
             raise
-        except Exception:
-            logger.exception("\nCaught non-API error. Returning None.")
+        except Exception as e:
+            logger.warning("\nCaught non-API error. Returning None: %s", e)
             return None
 
 
@@ -433,3 +469,30 @@ def rotate_path(path: Path) -> None:
 
     # Rename the original file to use the next available number
     path.rename(path.with_name(f"{path.name}.{rotation}"))
+
+
+_TOKENISER = tiktoken.get_encoding("cl100k_base")
+
+
+def count_tokens(text: str) -> int:
+    """Count the number of tokens in `text`."""
+    return len(_TOKENISER.encode(text))
+
+
+def truncate_text(text: str, max_tokens: int) -> str:
+    """Truncate text to a maximum number of tokens.
+
+    Args:
+        text: The text to truncate.
+        max_tokens: Maximum number of tokens allowed.
+
+    Returns:
+        The truncated text.
+    """
+    tokens = _TOKENISER.encode(text)
+
+    if len(tokens) <= max_tokens:
+        return text
+
+    truncated_tokens = tokens[:max_tokens]
+    return _TOKENISER.decode(truncated_tokens)

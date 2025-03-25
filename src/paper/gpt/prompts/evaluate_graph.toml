@@ -17,10 +17,16 @@ ideas, methods, approach, etc.) and "contrasting" papers (those that go against 
 paper's ideas). Use these related papers to understand the context around the main paper, \
 so you know what other works exist in comparison with the main paper.
 
-Based on this content, decide whether the paper is novel enough or not. If it is, give \
-it a label of 1. If it isn't, give it a label of 0. This should reflect how much the \
-paper brings and develops new ideas previously unseen in the literature. First, generate \
-the rationale for your novelty rating, then give the final novelty rating.
+Based on this, decide whether the paper is novel. It is novel if brings new ideas or \
+develops new ideas previously unseen. Make sure that the ideas are truly unique. The \
+paper is not novel if anything similar to it has been done before. Be very thorough. \
+When in doubt, tend towards the not novel label.
+
+First, generate the rationale for your novelty label, then give the final novelty label. \
+It should be 1 for a novel paper, or 0 otherwise. If you're uncertain, assign the 0 \
+(not novel) label.
+
+If the paper approval decision is "True", the novelty label should be 1 (novel).
 
 #####
 {demonstrations}
@@ -28,6 +34,7 @@ the rationale for your novelty rating, then give the final novelty rating.
 -Data-
 Title: {title}
 Abstract: {abstract}
+Approval decision: {approval}
 
 Paper summary:
 {graph}
@@ -66,10 +73,14 @@ it a label of 1. If it isn't, give it a label of 0. This should reflect how much
 paper brings and develops new ideas previously unseen in the literature. First, generate \
 the rationale for your novelty rating, then give the final novelty rating.
 
+If the paper approval decision is "True", the novelty label should be 1 (novel).
+
 #####
 {demonstrations}
 
 -Data-
+Approval decision: {approval}
+
 Paper summary:
 {graph}
 
@@ -107,11 +118,14 @@ it a label of 1. If it isn't, give it a label of 0. This should reflect how much
 paper brings and develops new ideas previously unseen in the literature. First, generate \
 the rationale for your novelty rating, then give the final novelty rating.
 
+If the paper approval decision is "True", the novelty label should be 1 (novel).
+
 #####
 {demonstrations}
 
 -Data-
 Title: {title}
+Approval decision: {approval}
 
 Paper summary:
 {graph}
@@ -144,12 +158,15 @@ it a label of 1. If it isn't, give it a label of 0. This should reflect how much
 paper brings and develops new ideas previously unseen in the literature. First, generate \
 the rationale for your novelty rating, then give the final novelty rating.
 
+If the paper approval decision is "True", the novelty label should be 1 (novel).
+
 #####
 {demonstrations}
 
 -Data-
 Title: {title}
 Abstract: {abstract}
+Approval decision: {approval}
 
 Supporting papers:
 {positive}
@@ -176,12 +193,15 @@ it a label of 1. If it isn't, give it a label of 0. This should reflect how much
 paper brings and develops new ideas previously unseen in the literature. First, generate \
 the rationale for your novelty rating, then give the final novelty rating.
 
+If the paper approval decision is "True", the novelty label should be 1 (novel).
+
 #####
 {demonstrations}
 
 -Data-
 Title: {title}
 Abstract: {abstract}
+Approval decision: {approval}
 
 #####
 Output:
@@ -205,12 +225,15 @@ it a label of 1. If it isn't, give it a label of 0. This should reflect how much
 paper brings and develops new ideas previously unseen in the literature. First, generate \
 the rationale for your novelty rating, then give the final novelty rating.
 
+If the paper approval decision is "True", the novelty label should be 1 (novel).
+
 #####
 {demonstrations}
 
 -Data-
 Title: {title}
 Abstract: {abstract}
+Approval decision: {approval}
 
 Paper summary:
 {graph}
@@ -243,12 +266,15 @@ it a label of 1. If it isn't, give it a label of 0. This should reflect how much
 paper brings and develops new ideas previously unseen in the literature. First, generate \
 the rationale for your novelty rating, then give the final novelty rating.
 
+If the paper approval decision is "True", the novelty label should be 1 (novel).
+
 #####
 {demonstrations}
 
 -Data-
 Title: {title}
 Abstract: {abstract}
+Approval decision: {approval}
 
 Paper summary:
 {graph}
@@ -290,6 +316,7 @@ the rationale for your novelty rating, then give the final novelty rating.
 -Data-
 Title: {title}
 Abstract: {abstract}
+Approval decision: {approval}
 
 Paper summary:
 {graph}

@@ -124,6 +124,7 @@ def balanced(
     main_class: Annotated[
         int, typer.Option("--class", help="Which class to base the balance.")
     ],
+    key: Annotated[str, typer.Option(help="Key of the class in the object.")],
 ) -> None:
     """Sample the input file so that it's balanced with the chosen `class."""
     setup_logging()
@@ -132,7 +133,7 @@ def balanced(
 
     data: list[dict[str, Any]] = json.loads(input_file.read_bytes())
 
-    frequencies = _get_frequencies(data)
+    frequencies = _get_frequencies(data, key)
     print("Input frequencies")
     _print_frequencies(frequencies)
 
@@ -142,19 +143,19 @@ def balanced(
     main_count = frequencies[main_class]
     output_data: list[dict[str, Any]] = []
 
-    class_items = groupby(data, key=lambda d: _get_paper(d)["rating"])
+    class_items = groupby(data, key=lambda d: _get_paper(d)[key])
     for items in class_items.values():
         sample = items if len(items) <= main_count else random.sample(items, main_count)
         output_data.extend(sample)
 
     print("\nOutput frequencies")
-    _print_frequencies(_get_frequencies(output_data))
+    _print_frequencies(_get_frequencies(output_data, key))
 
     save_data(output_file, output_data)
 
 
-def _get_frequencies(data: list[dict[str, Any]]) -> Counter[int]:
-    return Counter(_get_paper(d)["rating"] for d in data)
+def _get_frequencies(data: list[dict[str, Any]], key: str) -> Counter[int]:
+    return Counter(_get_paper(d)[key] for d in data)
 
 
 def _print_frequencies(frequencies: Counter[int]) -> None:

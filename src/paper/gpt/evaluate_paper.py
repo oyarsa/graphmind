@@ -115,15 +115,15 @@ def format_demonstrations(
 
 
 class GPTFull(BaseModel):
-    """Decision on if the paper should be published and the reason for the decision."""
+    """Evaluation of whether the paper is novel."""
 
     model_config = ConfigDict(frozen=True)
 
-    rationale: Annotated[str, Field(description="How you reached your novelty rating.")]
     label: Annotated[
         int,
         Field(description="1 if the paper is novel, or 0 if it's not novel."),
     ]
+    rationale: Annotated[str, Field(description="How you reached your novelty label.")]
 
     @classmethod
     def error(cls) -> Self:

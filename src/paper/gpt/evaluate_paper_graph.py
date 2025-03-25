@@ -422,17 +422,6 @@ async def _evaluate_paper(
     eval_paper = paper.paper.paper
     evaluated = fix_evaluated_rating(eval_result.result or GPTFull.error())
 
-    sep = f"\n\n{'-' * 80}\n\n"
-    if graph_prompt_text:
-        combined_system_prompt = f"{graph_system_prompt}{sep}{eval_system_prompt}"
-    else:
-        combined_system_prompt = eval_system_prompt
-
-    if graph_prompt_text:
-        combined_user_prompt = f"{graph_prompt_text}{sep}{eval_prompt_text}"
-    else:
-        combined_user_prompt = eval_prompt_text
-
     return GPTResult(
         result=PromptResult(
             item=GraphResult(
@@ -441,7 +430,7 @@ async def _evaluate_paper(
                 ),
                 graph=graph,
             ),
-            prompt=Prompt(system=combined_system_prompt, user=combined_user_prompt),
+            prompt=Prompt(system=eval_system_prompt, user=eval_prompt_text),
         ),
         cost=graph_cost + eval_result.cost,
     )
@@ -478,6 +467,7 @@ def format_eval_template(
             p for p in related if p.polarity is pr.ContextPolarity.NEGATIVE
         ),
         graph=graph.to_text(method),
+        approval=paper.paper.paper.approval,
     )
 
 
