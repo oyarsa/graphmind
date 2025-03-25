@@ -12,6 +12,7 @@ User prompt and output type definition from Ai et al 2025, p. 11.
 import asyncio
 import logging
 import random
+import statistics
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated, Self
@@ -226,6 +227,15 @@ async def extract_acu(
         "Total salient ACUs: %d. Average: %f.",
         salient_total,
         salient_total / len(results_items),
+    )
+    acu_word_lengths = [len(acu.split()) for i in results_items for acu in i.acus]
+    logger.info(
+        "Number of words per ACUs. Min: %d, max: %d, mean: %f, median: %f, stdev: %f",
+        min(acu_word_lengths),
+        max(acu_word_lengths),
+        statistics.mean(acu_word_lengths),
+        statistics.median(acu_word_lengths),
+        statistics.stdev(acu_word_lengths),
     )
 
     save_data(output_dir / "result.json", results_all)
