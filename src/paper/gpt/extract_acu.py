@@ -5,8 +5,6 @@ The input can be the either the main or related papers from `paper construct`:
 - peerread_related.json (s2.Paper): `s2` type
 
 Select the appropriate type with `--paper-type`.
-
-User prompt and output type definition from Ai et al 2025, p. 11.
 """
 
 import asyncio
