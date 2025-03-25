@@ -1,3 +1,6 @@
+# This is the original prompt from the original paper, but it performs badly with our
+# implementation. This is likely because they were using custom demonstrations but did
+# not provide them, and their code is unavailable at this time.
 [[prompts]]
 name = "simple"
 prompt = """
