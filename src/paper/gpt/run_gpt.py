@@ -304,8 +304,8 @@ class ModelClient:
         except openai.APIError as e:
             logger.warning("\nCaught an API error: %s", e)
             raise
-        except Exception:
-            logger.exception("\nCaught non-API error. Returning None.")
+        except Exception as e:
+            logger.warning("\nCaught non-API error. Returning None: %s", e)
             return None
 
 
