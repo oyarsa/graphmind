@@ -87,7 +87,10 @@ def build(
         ),
     ] = 500_000,
 ) -> None:
-    """Build a vector database from sentences in the acus field of input JSON documents.
+    """Build a vector database from sentences in the `acus` field of input JSON documents.
+
+    The input documents should be the output of `paper gpt acus` with `s2.Paper` (e.g.
+    `peerrelated.json` from `paper construct`).
 
     If `--db` is given, we load an existing database and add to it. If not, we create
     a new from scratch with `--model`.
@@ -150,6 +153,9 @@ def _query_papers(
 ) -> int:
     total_queries = 0
 
+    # This can consume a lot of memory depending on the size of the database and the
+    # input, so we manually engage the GC to reduce the memory usage.
+
     with tqdm(total=len(papers), desc="Querying papers") as pbar:
         for batch in itertools.batched(papers, batch_size):
             for paper in batch:
@@ -171,6 +177,7 @@ def _query_papers(
 
                 pbar.update(1)
 
+            # Reduce memory usage
             gc.collect()
             gc.collect()
 
@@ -208,7 +215,13 @@ def query(
         int, typer.Option(help="Size of batches when processing papers.")
     ] = 100,
 ) -> None:
-    """Query the vector database with sentences from the papers ACUs."""
+    """Query the vector database with sentences from the papers ACUs.
+
+    The input documents should be the output of `paper gpt acus` with `s2.PaperWithS2Refs`
+    (e.g. `peerread_with_s2_references.json` from `paper construct`).
+
+    The output is a JSON file that has each input paper along with the retrieved ACUs.
+    """
     params = get_params()
     logger.info(render_params(params))
 
