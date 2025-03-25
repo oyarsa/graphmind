@@ -391,7 +391,7 @@ def run_evaluation(
             PaperEvaluated(
                 paper=paper,
                 novascore=score,
-                novalabel=int(score > config.score_threshold),
+                novalabel=int(score >= config.score_threshold),
             )
         )
 
