@@ -19,12 +19,7 @@ from tqdm import tqdm
 from paper import gpt
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
-from paper.util import (
-    get_params,
-    render_params,
-    sample,
-    setup_logging,
-)
+from paper.util import get_params, render_params, sample, setup_logging
 from paper.util.cli import die
 from paper.util.serde import load_data, load_data_jsonl, save_data, save_data_jsonl
 from paper.vector_db import (
@@ -360,8 +355,7 @@ class EvaluationConfig(BaseModel):
 
 
 def run_evaluation(
-    paper_results: list[PaperResult],
-    config: EvaluationConfig,
+    paper_results: list[PaperResult], config: EvaluationConfig
 ) -> list[PaperEvaluated]:
     """Run the NovaSCORE evaluation on a list of papers using saved query results.
 
