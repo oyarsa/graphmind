@@ -23,7 +23,7 @@ _default:
     @echo "    DATA_DIR: source of the input data files."
     @echo
     @echo "Optional:"
-    @echo "    DEMOS: see 'paper gpt demos' (default: 'review_clean_5_1')."
+    @echo "    DEMOS: see 'paper gpt demos' (default: 'orc_10')."
     @echo "    MODEL: '4o' or '4o-mini' (default: '4o-mini')."
     @echo "    N: how many items to use. Use 0 for all (default: 10)."
     @echo "    OUTPUT_DIR: where to save the outputs (default: 'output/eval_orc')."
