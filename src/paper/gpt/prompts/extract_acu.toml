@@ -49,7 +49,8 @@ Output:
 [[prompts]]
 name = "sci"
 prompt = """
-Extract atomic content units (ACUs) from this scientific paper. An ACU represents a single, indivisible fact or claim from the paper.
+Extract atomic content units (ACUs) from this scientific paper. An ACU represents a \
+single, indivisible fact or claim from the paper.
 
 For scientific papers, good ACUs should:
 1. Capture specific scientific findings, methodologies, or conclusions
@@ -67,10 +68,16 @@ When extracting ACUs:
 - Separate compound statements into individual claims
 
 #####
--Demonstration-
-Example document 1:
+-Demonstrations-
 
-Enzon Inc. said tests of a new anti-cancer drug to treat a form of leukemia showed positive results, Abraham Abuchowski, president of the pharmeutical company, told the annual meeting. Enzon also said it filed its first new drug application with the FDA for an orphan drug that treats severe combined immunodeficiency disease, or SCID. The company has about 10.8 million common shares outstanding. Eastman Kodak Co. ownas an 18% interest in Enzon.
+--Example document 1--
+
+Enzon Inc. said tests of a new anti-cancer drug to treat a form of leukemia showed \
+positive results, Abraham Abuchowski, president of the pharmeutical company, told the \
+annual meeting. Enzon also said it filed its first new drug application with the FDA \
+for an orphan drug that treats severe combined immunodeficiency disease, or SCID. The \
+company has about 10.8 million common shares outstanding. Eastman Kodak Co. ownas an \
+18% interest in Enzon.
 
 Example ACUs:
 - Enzon Inc. conducted tests of a new anti-cancer drug for treating a form of leukemia.
@@ -83,12 +90,21 @@ Example ACUs:
 - Enzon Inc. has approximately 10.8 million common shares outstanding.
 - Eastman Kodak Co. owns an 18% interest in Enzon Inc.
 
-Example document 2:
+--Example document 2--
 
-In a randomized controlled trial, researchers investigated the effects of a novel SGLT2 inhibitor on HbA1c levels in patients with type 2 diabetes. 128 participants were administered either 100mg of the inhibitor or a placebo daily for 12 weeks. Results showed that the treatment group (n=64) experienced a mean reduction in HbA1c of 1.8% (95% CI: 1.5-2.1%), compared to 0.4% (95% CI: 0.2-0.6%) in the control group (p<0.001). Additionally, the treatment group showed significant improvements in fasting plasma glucose (-2.3 mmol/L vs -0.6 mmol/L, p<0.001) and body weight (-2.7 kg vs -0.5 kg, p<0.01). Seven patients (10.9%) in the treatment group reported mild gastrointestinal side effects, compared to three patients (4.7%) in the placebo group.
+In a randomized controlled trial, researchers investigated the effects of a novel SGLT2 \
+inhibitor on HbA1c levels in patients with type 2 diabetes. 128 participants were \
+administered either 100mg of the inhibitor or a placebo daily for 12 weeks. Results \
+showed that the treatment group (n=64) experienced a mean reduction in HbA1c of 1.8% \
+(95% CI: 1.5-2.1%), compared to 0.4% (95% CI: 0.2-0.6%) in the control group (p<0.001). \
+Additionally, the treatment group showed significant improvements in fasting plasma \
+glucose (-2.3 mmol/L vs -0.6 mmol/L, p<0.001) and body weight (-2.7 kg vs -0.5 kg, \
+p<0.01). Seven patients (10.9%) in the treatment group reported mild gastrointestinal \
+side effects, compared to three patients (4.7%) in the placebo group.
 
 Example ACUs:
-- Researchers conducted a randomized controlled trial to investigate the effects of a novel SGLT2 inhibitor on HbA1c levels.
+- Researchers conducted a randomized controlled trial to investigate the effects of a \
+novel SGLT2 inhibitor on HbA1c levels.
 - The study focused on patients with type 2 diabetes.
 - The trial included 128 participants in total.
 - 64 participants received 100mg of the SGLT2 inhibitor daily.
