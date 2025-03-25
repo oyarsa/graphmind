@@ -302,10 +302,10 @@ class ModelClient:
                 await update_usage(response)
                 return response
         except openai.APIError as e:
-            logger.warning("\nCaught an API error: %s", e)
+            logger.warning("API error: %s", e)
             raise
         except Exception as e:
-            logger.warning("\nCaught non-API error. Returning None: %s", e)
+            logger.warning("Non-API error: %s", e)
             return None
 
 

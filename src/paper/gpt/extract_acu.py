@@ -1,12 +1,14 @@
 """Extract Atomic Content Units (ACUs) from related paper abstracts.
 
-The input is the set of related papers from `paper construct`, `peerread_related.json`,
-i.e. an array of s2.Paper.
+The input can be the either the main or related papers from `paper construct`:
+- peerread_with_s2_references.json (s2.PaperWithS2Refs): `peerread` type
+- peerread_related.json (s2.Paper): `s2` type
 
-User prompt and output type definition (`_GPTACU`) from Ai et al 2025, p. 11.
+Select the appropriate type with `--paper-type`.
 """
 
 import asyncio
+import itertools
 import logging
 import random
 from collections.abc import Sequence
@@ -16,6 +18,7 @@ from typing import Annotated, Self
 import dotenv
 import typer
 from pydantic import BaseModel, ConfigDict, Field
+from tqdm import tqdm
 
 from paper.gpt.model import (
     PaperACUInput,
@@ -36,12 +39,13 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
+    describe,
     ensure_envvar,
     get_params,
     progress,
     render_params,
+    sample,
     setup_logging,
-    shuffled,
 )
 from paper.util.serde import load_data, save_data
 
@@ -64,9 +68,7 @@ def run(
     peerread_path: Annotated[
         Path,
         typer.Option(
-            "--related",
-            help="The path to the JSON file containing the related papers"
-            " (peerread_related.json).",
+            "--input", help="The path to the JSON file containing the input papers."
         ),
     ],
     output_dir: Annotated[
@@ -97,7 +99,7 @@ def run(
             help="The user prompt to use for ACU extraction.",
             click_type=cli.Choice(ACU_EXTRACTION_USER_PROMPTS),
         ),
-    ] = "simple",
+    ] = "sci",
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run.")
     ] = None,
@@ -112,6 +114,9 @@ def run(
         int,
         typer.Option(help="Random seed used for the GPT API and to shuffle the data."),
     ] = 0,
+    batch_size: Annotated[
+        int, typer.Option(help="Number of requests per batch.")
+    ] = 100,
 ) -> None:
     """Evaluate each review's novelty rating based on the review text."""
     asyncio.run(
@@ -126,6 +131,7 @@ def run(
             continue_,
             seed,
             keep_intermediate,
+            batch_size,
         )
     )
 
@@ -153,6 +159,7 @@ async def extract_acu(
     continue_: bool,
     seed: int,
     keep_intermediate: bool,
+    batch_size: int,
 ) -> None:
     """Extract ACUs from each related paper's abstract.
 
@@ -169,6 +176,7 @@ async def extract_acu(
         continue_: If True, use data from `continue_papers_file`.
         keep_intermediate: Keep intermediate results to be used with `continue`.
         seed: Seed for the OpenAI API call and to shuffle the data.
+        batch_size: Number of items per batch.
     """
     random.seed(seed)
     params = get_params()
@@ -188,7 +196,7 @@ async def extract_acu(
     )
 
     paper_type_ = paper_type.get_type()
-    papers = shuffled(load_data(related_path, paper_type.get_type()))[:limit_papers]
+    papers = sample(load_data(related_path, paper_type.get_type()), limit_papers)
     user_prompt = ACU_EXTRACTION_USER_PROMPTS[user_prompt_key]
 
     output_intermediate_file, papers_remaining = init_remaining_items(
@@ -207,6 +215,7 @@ async def extract_acu(
             papers_remaining.remaining,
             output_intermediate_file,
             keep_intermediate,
+            batch_size,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -226,6 +235,8 @@ async def extract_acu(
         salient_total,
         salient_total / len(results_items),
     )
+    acu_word_lengths = [len(acu.split()) for i in results_items for acu in i.acus]
+    logger.info("Words per ACUs:\n%s", describe(acu_word_lengths))
 
     save_data(output_dir / "result.json", results_all)
     save_data(output_dir / "params.json", params)
@@ -241,6 +252,7 @@ async def _extract_acus[T: PaperACUInput](
     papers: Sequence[T],
     output_intermediate_file: Path,
     keep_intermediate: bool,
+    batch_size: int,
 ) -> GPTResult[list[PromptResult[PaperWithACUs[T]]]]:
     """Extract ACUs for each related paper's abstract.
 
@@ -251,6 +263,7 @@ async def _extract_acus[T: PaperACUInput](
         papers: Related papers from the S2 API.
         output_intermediate_file: File to write new results after each task.
         keep_intermediate: Keep intermediate results to be used in future runs.
+        batch_size: Number of items per batch.
 
     Returns:
         List of papers with evaluated reviews wrapped in a GPTResult.
@@ -258,20 +271,33 @@ async def _extract_acus[T: PaperACUInput](
     results: list[PromptResult[PaperWithACUs[T]]] = []
     total_cost = 0
 
-    tasks = [_extract_acu_single(client, type_, paper, user_prompt) for paper in papers]
+    with tqdm(
+        total=len(papers), desc="Processing papers", position=0, leave=True
+    ) as pbar_papers:
+        for batch in itertools.batched(papers, batch_size):
+            tasks = [
+                _extract_acu_single(client, type_, paper, user_prompt)
+                for paper in batch
+            ]
 
-    for task in progress.as_completed(tasks, desc="Processing papers"):
-        result = await task
-        total_cost += result.cost
+            for task in progress.as_completed(
+                tasks, desc="Processing batch", position=1, leave=False
+            ):
+                result = await task
+                total_cost += result.cost
 
-        results.append(result.result)
-        if keep_intermediate:
-            append_intermediate_result(output_intermediate_file, result.result)
+                results.append(result.result)
+                if keep_intermediate:
+                    append_intermediate_result(output_intermediate_file, result.result)
+
+            pbar_papers.update(len(batch))
 
     return GPTResult(results, total_cost)
 
 
-class _GPTACU(BaseModel):
+class GPTACU(BaseModel):
+    """Structured output for ACU extraction from paper abstract."""
+
     model_config = ConfigDict(frozen=True)
 
     summary: Annotated[str, Field(description="Document summary.")]
@@ -307,8 +333,8 @@ async def _extract_acu_single[T: PaperACUInput](
     user_prompt_text = user_prompt.template.format(
         title=paper.title, abstract=paper.abstract
     )
-    result = await client.run(_GPTACU, _EXTRACT_ACU_SYSTEM_PROMPT, user_prompt_text)
-    item = result.result or _GPTACU.empty()
+    result = await client.run(GPTACU, _EXTRACT_ACU_SYSTEM_PROMPT, user_prompt_text)
+    item = result.result or GPTACU.empty()
 
     if item.is_empty():
         logger.warning(f"Paper '{paper.title}': invalid ACUs")

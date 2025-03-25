@@ -14,11 +14,9 @@ WON'T DO:
 """
 
 import logging
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Annotated
 
-import polars as pl
 import tiktoken
 import typer
 
@@ -38,7 +36,7 @@ from paper.gpt.evaluate_paper_scimon import (
 )
 from paper.gpt.evaluate_paper_scimon import format_template as format_scimon
 from paper.gpt.run_gpt import MODEL_SYNONYMS, MODELS_ALLOWED
-from paper.util import cli, display_params, setup_logging
+from paper.util import cli, describe, display_params, setup_logging
 from paper.util.serde import load_data
 
 logger = logging.getLogger(__name__)
@@ -108,7 +106,7 @@ def sans(
 
     tokeniser = tiktoken.encoding_for_model(model)
     tokens = [len(tokeniser.encode(prompt)) for prompt in prompts]
-    logger.info("Token stats:\n%s\n", _describe(tokens))
+    logger.info("Token stats:\n%s\n", describe(tokens))
 
 
 @app.command(
@@ -174,13 +172,7 @@ def scimon_(
 
     tokeniser = tiktoken.encoding_for_model(model)
     tokens = [len(tokeniser.encode(prompt)) for prompt in prompts]
-    logger.info("Token stats:\n%s\n", _describe(tokens))
-
-
-def _describe(values: Iterable[int]) -> str:
-    """Print descriptive statistics of `values`."""
-    pl.Config.set_tbl_hide_column_data_types(True).set_tbl_hide_dataframe_shape(True)
-    return str(pl.Series(values).describe())
+    logger.info("Token stats:\n%s\n", describe(tokens))
 
 
 @app.callback()
