@@ -1,9 +1,12 @@
 """Extract Atomic Content Units (ACUs) from related paper abstracts.
 
-The input is the set of related papers from `paper construct`, `peerread_related.json`,
-i.e. an array of s2.Paper.
+The input can be the either the main or related papers from `paper construct`:
+- peerread_with_s2_references.json (s2.PaperWithS2Refs): `peerread` type
+- peerread_related.json (s2.Paper): `s2` type
 
-User prompt and output type definition (`_GPTACU`) from Ai et al 2025, p. 11.
+Select the appropriate type with `--paper-type`.
+
+User prompt and output type definition from Ai et al 2025, p. 11.
 """
 
 import asyncio
@@ -64,9 +67,7 @@ def run(
     peerread_path: Annotated[
         Path,
         typer.Option(
-            "--related",
-            help="The path to the JSON file containing the related papers"
-            " (peerread_related.json).",
+            "--input", help="The path to the JSON file containing the input papers."
         ),
     ],
     output_dir: Annotated[
@@ -271,7 +272,9 @@ async def _extract_acus[T: PaperACUInput](
     return GPTResult(results, total_cost)
 
 
-class _GPTACU(BaseModel):
+class GPTACU(BaseModel):
+    """Structured output for ACU extraction from paper abstract."""
+
     model_config = ConfigDict(frozen=True)
 
     summary: Annotated[str, Field(description="Document summary.")]
@@ -307,8 +310,8 @@ async def _extract_acu_single[T: PaperACUInput](
     user_prompt_text = user_prompt.template.format(
         title=paper.title, abstract=paper.abstract
     )
-    result = await client.run(_GPTACU, _EXTRACT_ACU_SYSTEM_PROMPT, user_prompt_text)
-    item = result.result or _GPTACU.empty()
+    result = await client.run(GPTACU, _EXTRACT_ACU_SYSTEM_PROMPT, user_prompt_text)
+    item = result.result or GPTACU.empty()
 
     if item.is_empty():
         logger.warning(f"Paper '{paper.title}': invalid ACUs")
