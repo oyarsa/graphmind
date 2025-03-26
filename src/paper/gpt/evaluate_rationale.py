@@ -8,11 +8,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from abc import ABC, abstractmethod
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Annotated, Self, override
+from typing import Annotated, Self
 
 import dotenv
 import typer
@@ -35,8 +34,8 @@ from paper.util import (
     get_params,
     progress,
     render_params,
+    sample,
     setup_logging,
-    shuffled,
 )
 from paper.util.serde import load_data, save_data
 
@@ -46,7 +45,7 @@ logger = logging.getLogger(__name__)
 RATIONALE_EVAL_PROMPTS = load_prompts("evaluate_rationale")
 
 
-class GPTRationaleMetrics(BaseModel):
+class RationaleMetrics(BaseModel):
     """Metrics from rationale evaluation."""
 
     metrics: Mapping[str, int]
@@ -56,25 +55,12 @@ class GPTRationaleMetrics(BaseModel):
         """Check if the rationale explanation is valid."""
         return self.explanation != "<error>"
 
-
-class GPTRationaleBase(ABC, BaseModel):
-    """Base class rationale evaluation metrics."""
-
-    @classmethod
-    @abstractmethod
-    def empty(cls) -> Self:
-        """Return empty instance. Used for error handling."""
-
-    @abstractmethod
-    def is_valid(self) -> bool:
-        """Check if the instance is valid (not empty)."""
-
-    @abstractmethod
-    def metrics(self) -> GPTRationaleMetrics:
-        """All metrics in dictionary form."""
+    def invalid_metrics(self) -> list[str]:
+        """Get names of metrics with invalid values (outside of 1-5)."""
+        return [name for name, val in self.metrics.items() if val not in range(1, 6)]
 
 
-class GPTRationaleEvalSimple(GPTRationaleBase):
+class GPTRationaleEval(BaseModel):
     """Evaluation metrics from LLM judging of generated rationale."""
 
     model_config = ConfigDict(frozen=True)
@@ -98,9 +84,9 @@ class GPTRationaleEvalSimple(GPTRationaleBase):
     ]
     explanation: Annotated[str, Field(description="Explanation for your scores.")]
 
-    @override
-    def metrics(self) -> GPTRationaleMetrics:
-        return GPTRationaleMetrics(
+    def metrics(self) -> RationaleMetrics:
+        """Get rationale metrics as a dictionary of values and an explanation."""
+        return RationaleMetrics(
             metrics={
                 "fluency": self.fluency,
                 "faithfulness": self.faithfulness,
@@ -109,30 +95,26 @@ class GPTRationaleEvalSimple(GPTRationaleBase):
             explanation=self.explanation,
         )
 
-    @override
     @classmethod
     def empty(cls) -> Self:
+        """Empty instance of the output in case of errors."""
         return cls(fluency=1, faithfulness=1, logical=1, explanation="<error>")
 
-    @override
     def is_valid(self) -> bool:
+        """Check if this instance is invalid (created from `empty()`)."""
         return self.explanation != "<error>"
 
 
 class GraphWithEval(GraphResult):
     """`GraphResult` with LLM-as-judge evaluation of generated rationale."""
 
-    eval_metrics: GPTRationaleMetrics
+    eval_metrics: RationaleMetrics
 
     @classmethod
-    def from_(cls, graph: GraphResult, eval: GPTRationaleMetrics) -> Self:
+    def from_(cls, graph: GraphResult, eval: RationaleMetrics) -> Self:
         """Create `GraphWithEval` from existing `GraphResult` and evaluation result."""
         return cls(graph=graph.graph, paper=graph.paper, eval_metrics=eval)
 
-
-EVAL_TYPES: Mapping[str, type[GPTRationaleBase]] = {
-    "simple": GPTRationaleEvalSimple,
-}
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -255,19 +237,14 @@ async def evaluate_rationales(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
-    papers = PromptResult.unwrap(
-        shuffled(load_data(graph_path, PromptResult[GraphResult]))
-    )[:limit_papers]
+    papers = sample(
+        PromptResult.unwrap(load_data(graph_path, PromptResult[GraphResult])),
+        limit_papers,
+    )
 
     prompt = RATIONALE_EVAL_PROMPTS[prompt_key]
     if not prompt.system:
         raise ValueError("Chosen prompt doesn't contain system prompt.")
-
-    if prompt.type_name not in EVAL_TYPES:
-        valid_types = sorted(EVAL_TYPES)
-        raise ValueError(
-            f"Prompt type '{prompt.type_name}' is invalid. Must be one of {valid_types}."
-        )
 
     output_intermediate_file, papers_remaining = init_remaining_items(
         GraphWithEval, output_dir, continue_papers_file, papers, continue_
@@ -297,7 +274,7 @@ async def evaluate_rationales(
         logger.warning("Some papers are missing from the result.")
 
 
-def _display_label_dist(graph_evals: Sequence[GraphWithEval]) -> str:
+def _display_label_dist(graph_evals: Iterable[GraphWithEval]) -> str:
     """Display distribution of values for the metrics from `graph_evals`."""
     graph_metrics = [graph.eval_metrics.metrics for graph in graph_evals]
     output = [">>> Metrics distributions:"]
@@ -364,21 +341,16 @@ async def _evaluate_rationale(
     """
 
     user_prompt_text = format_template(graph.paper, graph.paper.rationale_pred, prompt)
-    type_ = EVAL_TYPES[prompt.type_name]
-    result = await client.run(type_, prompt.system, user_prompt_text)
-    rationale_eval = result.result or type_.empty()
+    result = await client.run(GPTRationaleEval, prompt.system, user_prompt_text)
+    rationale_eval = result.result or GPTRationaleEval.empty()
 
     if not rationale_eval.is_valid():
         logger.warning(f"Paper: '{graph.paper.title}': invalid rationale evaluation")
 
     graph_eval = GraphWithEval.from_(graph, rationale_eval.metrics())
-    wrong = [
-        name
-        for name, val in graph_eval.eval_metrics.metrics.items()
-        if val not in range(1, 6)
-    ]
-    if wrong:
-        logger.warning(f"{graph.paper.title}: invalid metric values: {wrong}")
+
+    if invalid := graph_eval.eval_metrics.invalid_metrics():
+        logger.warning(f"{graph.paper.title}: invalid metric values: {invalid}")
 
     return GPTResult(
         result=PromptResult(
