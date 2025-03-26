@@ -10,9 +10,13 @@ The following data contains information about a scientific paper. It includes th
 title and abstract. It also contains a novelty assessment label and the reasons for it.
 Your task is to evaluate the rationale according to the following criteria:
 
-- Fluency: how well-written the text is.
-- Faithfulness: whether the rationale justifies the novelty rating.
+- Fluency: how well-written the text is. How easy it is to understand and to follow its
+  ideas.
+- Faithfulness: whether the rationale justifies the novelty label. For example, if the
+  text is mostly positive, so should the label.
 - Logical coherence: if the evidence given in the rationale supports its conclusion.
+  That is, if the rationale highlights many similar ideas to the assessed paper, the
+  label should not be novel.
 
 All scores must be given from 1 to 5.
 
