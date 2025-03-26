@@ -1,4 +1,4 @@
-"""Run the full PETER pipeline from PeerRead preprocessing to graph building.
+"""Run the full PeerRead pipeline preprocessing to graph building.
 
 We reuse existing files if possible. If you want a clean slate, use the `--force` option.
 Note that this doesn't re-download the raw PeerRead dataset because it's too large. If
@@ -24,13 +24,22 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def main(
-    input_dir: Annotated[Path, typer.Argument(help="Path to the PeerRead dataset.")],
+    input_dir: Annotated[
+        Path, typer.Option("--input", "-i", help="Path to the PeerRead dataset.")
+    ],
     output_dir: Annotated[
-        Path, typer.Argument(help="Directory where the generated file will be saved.")
+        Path,
+        typer.Option(
+            "--output", "-o", help="Directory where the generated file will be saved."
+        ),
     ],
     force: Annotated[
         bool, typer.Option(help="Discard existing generated files.")
     ] = False,
+    num_papers: Annotated[
+        int,
+        typer.Option(help="Number of papers from the dataset. Use 0 for all items."),
+    ] = 0,
     construct_count: Annotated[
         int,
         typer.Option(
@@ -44,6 +53,17 @@ def main(
             "--related", help="Number of related papers for PETER (each type)."
         ),
     ] = 2,
+    references_top_k: Annotated[
+        int,
+        typer.Option(
+            "--references-k",
+            help="How many references to query per paper, sorted by semantic similarity.",
+        ),
+    ] = 20,
+    num_recommendations: Annotated[
+        int,
+        typer.Option("--recommended", help="Number of recommendations per paper."),
+    ] = 30,
 ) -> None:
     """Run the full PETER pipeline from PeerRead preprocessing to graph building."""
     title("Check if PeerRead is available")
@@ -56,7 +76,16 @@ def main(
 
     title("Preprocess")
     processed = output_dir / "peerread_merged.json"
-    _checkrun(processed, "paper", "peerread", "preprocess", input_dir, processed)
+    _checkrun(
+        processed,
+        "paper",
+        "peerread",
+        "preprocess",
+        input_dir,
+        processed,
+        "--num-papers",
+        num_papers,
+    )
     assert processed.exists()
 
     title("Info main")
@@ -70,6 +99,8 @@ def main(
         "main",
         processed,
         info_main_dir,
+        "--limit",
+        0,
     )
     assert info_main.exists()
 
@@ -84,6 +115,10 @@ def main(
         "references",
         processed,
         info_ref_dir,
+        "--limit",
+        0,
+        "--top-k",
+        references_top_k,
     )
     assert info_ref.exists()
 
@@ -112,6 +147,10 @@ def main(
         "recommended",
         info_main,
         recommended_dir,
+        "--limit-papers",
+        0,
+        "--limit-recommendations",
+        num_recommendations,
     )
     assert recommended.exists()
 
@@ -191,9 +230,12 @@ def main(
     assert s2_terms.exists()
 
     title("Peter Build")
-    peter_graph = output_dir / "peter_graph.json"
+    peter_graph_dir = output_dir / "peter_graph"
+    peter_graph_file = (
+        peter_graph_dir / "citation_graph.json"
+    )  # We check for this file to exist
     _checkrun(
-        peter_graph,
+        peter_graph_file,
         "paper",
         "peter",
         "build",
@@ -201,10 +243,10 @@ def main(
         s2_terms,
         "--context",
         context,
-        "--output",
-        peter_graph,
+        "--output-dir",
+        peter_graph_dir,
     )
-    assert peter_graph.exists()
+    assert peter_graph_file.exists()
 
     peter_peer = output_dir / "peerread_with_peter.json"
     title("Peter PeerRead")
@@ -213,8 +255,8 @@ def main(
         "paper",
         "peter",
         "peerread",
-        "--graph",
-        peter_graph,
+        "--graph-dir",
+        peter_graph_dir,
         "--peerread-ann",
         peer_terms,
         "--num-citations",
@@ -243,6 +285,121 @@ def main(
         0,
     )
     assert petersum.exists()
+
+    title("SciMON build")
+    scimon_graph_dir = output_dir / "scimon_graph"
+    scimon_kg_file = scimon_graph_dir / "kg_graph.json"
+    _checkrun(
+        scimon_kg_file,
+        "paper",
+        "baselines",
+        "scimon",
+        "build",
+        "--ann",
+        s2_terms,
+        "--peerread",
+        peer_with_ref,
+        "--output-dir",
+        scimon_graph_dir,
+        "--num-annotated",
+        5000,
+    )
+    assert scimon_kg_file.exists()
+
+    title("SciMON query")
+    scimon_peer = output_dir / "peerread_with_scimon.json"
+    _checkrun(
+        scimon_peer,
+        "paper",
+        "baselines",
+        "scimon",
+        "query",
+        "--ann-peer",
+        peer_terms,
+        "--graph-dir",
+        scimon_graph_dir,
+        "--output",
+        scimon_peer,
+    )
+
+    title("Extract ACUs S2")
+    acu_s2_dir = output_dir / "acu-s2"
+    acu_s2 = acu_s2_dir / "result.json"
+    _checkrun(
+        acu_s2,
+        "paper",
+        "gpt",
+        "acus",
+        "run",
+        "--related",
+        peer_related,
+        "--output",
+        acu_s2_dir,
+        "--paper-type",
+        "s2",
+        "--limit",
+        "0",
+    )
+    assert acu_s2.exists()
+
+    title("Extract ACUs PeerRead")
+    acu_peerread_dir = output_dir / "acu-peerread"
+    acu_peerread = acu_peerread_dir / "result.json"
+    _checkrun(
+        acu_peerread,
+        "paper",
+        "gpt",
+        "acus",
+        "run",
+        "--related",
+        peer_with_ref,
+        "--output",
+        acu_peerread_dir,
+        "--paper-type",
+        "peerread",
+        "--limit",
+        "0",
+    )
+    assert acu_peerread.exists()
+
+    title("Build Nova database")
+    acu_db = output_dir / "acu-db"
+    _checkrun(
+        acu_db,
+        "paper",
+        "baselines",
+        "nova",
+        "build",
+        "--input",
+        acu_s2,
+        "--output",
+        acu_db,
+        "--limit",
+        0,
+        "--sentences",
+        500_000,
+    )
+    assert acu_db.exists()
+
+    title("Query Nova database")
+    acu_query_dir = output_dir / "acu-query"
+    acu_query = acu_query_dir / "result.jsonl"
+    _checkrun(
+        acu_query,
+        "paper",
+        "baselines",
+        "nova",
+        "query",
+        "--db",
+        acu_db,
+        "--input",
+        acu_peerread,
+        "--output",
+        acu_query,
+        "--limit",
+        0,
+    )
+    assert acu_query.exists()
 
 
 def _checkrun(path: Path, *cmd: object) -> None:
