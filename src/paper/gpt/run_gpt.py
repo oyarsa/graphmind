@@ -476,7 +476,7 @@ _TOKENISER = tiktoken.get_encoding("cl100k_base")
 
 def count_tokens(text: str) -> int:
     """Count the number of tokens in `text`."""
-    return len(_TOKENISER.encode(text))
+    return len(safe_tokenise(text))
 
 
 def truncate_text(text: str, max_tokens: int) -> str:
@@ -489,10 +489,15 @@ def truncate_text(text: str, max_tokens: int) -> str:
     Returns:
         The truncated text.
     """
-    tokens = _TOKENISER.encode(text)
+    tokens = safe_tokenise(text)
 
     if len(tokens) <= max_tokens:
         return text
 
     truncated_tokens = tokens[:max_tokens]
     return _TOKENISER.decode(truncated_tokens)
+
+
+def safe_tokenise(text: str) -> list[int]:
+    """Tokenise `text` using the GPT tokeniser. Treats special tokens as regular text."""
+    return _TOKENISER.encode(text, disallowed_special=())
