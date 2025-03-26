@@ -394,7 +394,7 @@ def format_template(paper: PaperResult, rationale: str, prompt: PromptTemplate) 
     return prompt.template.format(
         title=paper.title,
         abstract=paper.abstract,
-        rating=paper.y_pred,
+        label=paper.label,
         rationale=rationale,
     )
 
