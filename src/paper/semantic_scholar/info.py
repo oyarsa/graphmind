@@ -263,6 +263,9 @@ def _get_top_k_titles(encoder: emb.Encoder, paper: pr.Paper, k: int) -> list[str
     References are sorted by cosine similarity between the reference and main paper
     titles.
     """
+    if not paper.references:
+        return []
+
     ref_titles = [r.title for r in paper.references]
 
     references_emb = encoder.batch_encode(ref_titles)
