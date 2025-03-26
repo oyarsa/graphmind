@@ -83,7 +83,7 @@ def main(
         "preprocess",
         input_dir,
         processed,
-        "--num-papers",
+        "--max-papers",
         num_papers,
     )
     assert processed.exists()

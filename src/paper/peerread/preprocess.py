@@ -374,6 +374,9 @@ def preprocess(
     """
     """Combine PeerRead data from multiple files into a single JSON."""
     papers_count = _count_papers(path)
+
+    if max_papers == 0:
+        max_papers = None
     if max_papers is not None:
         papers_count = min(max_papers, papers_count)
 
