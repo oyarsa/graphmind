@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import statistics
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
@@ -280,11 +281,14 @@ def _display_label_dist(graph_evals: Iterable[GraphWithEval]) -> str:
     output = [">>> Metrics distributions:"]
 
     for metric in sorted(graph_metrics[0]):
-        dist = Counter(g[metric] for g in graph_metrics)
-        total = sum(dist.values())
+        values = [g[metric] for g in graph_metrics]
+        dist = Counter(values)
+
+        mean = statistics.mean(values)
+        stdev = statistics.stdev(values)
 
         output.append(
-            f"> {metric} distribution ({total}):\n"
+            f"> {metric} distribution ({mean:.4f} +- {stdev:.4f}):\n"
             + "\n".join(f"- {label}: {count}" for label, count in sorted(dist.items()))
         )
 
