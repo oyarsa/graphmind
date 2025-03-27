@@ -1,6 +1,10 @@
 """Use LLM-as-judge to automatically evaluate generated novelty assessment rationales.
 
-The input is the the output of `gpt.evaluate_paper_graph`, `PromptResult[GraphResult]`.
+The input --type is one of:
+
+- `raw`: original dataset type, `peerread.Paper`
+- `graph`: output of `gpt.evaluate_paper_graph`, `PromptResult[GraphResult]`
+- `paper`: output of `gpt.evaluate_paper_scimon`, `PromptResult[PaperResult]`
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ import typer
 from pydantic import BaseModel, ConfigDict, Field
 from tqdm import tqdm
 
+from paper import peerread as pr
 from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.extract_graph import GraphResult
 from paper.gpt.model import Prompt, PromptResult
@@ -125,6 +130,10 @@ class GPTRationaleEval(BaseModel):
         return self.explanation != "<error>"
 
 
+# Type alias for input items
+type InputType = GraphResult | PaperResult | pr.Paper
+
+
 class GraphWithEval(GraphResult):
     """`GraphResult` with LLM-as-judge evaluation of generated rationale."""
 
@@ -134,6 +143,32 @@ class GraphWithEval(GraphResult):
     def from_(cls, graph: GraphResult, eval: RationaleMetrics) -> Self:
         """Create `GraphWithEval` from existing `GraphResult` and evaluation result."""
         return cls(graph=graph.graph, paper=graph.paper, eval_metrics=eval)
+
+
+class PaperWithEval(PaperResult):
+    """`PaperResult` with LLM-as-judge evaluation of generated rationale."""
+
+    eval_metrics: RationaleMetrics
+
+    @classmethod
+    def from_(cls, paper: PaperResult, eval: RationaleMetrics) -> Self:
+        """Create `PaperWithEval` from existing `PaperResult` and evaluation result."""
+        return cls.model_validate({**paper.model_dump(), "eval_metrics": eval})
+
+
+class PaperRawWithEval(pr.Paper):
+    """`Paper` with LLM-as-judge evaluation of generated rationale."""
+
+    eval_metrics: RationaleMetrics
+
+    @classmethod
+    def from_(cls, paper: pr.Paper, eval: RationaleMetrics) -> Self:
+        """Create `PaperRawWithEval` from existing `Paper` and evaluation result."""
+        return cls.model_validate({**paper.model_dump(), "eval_metrics": eval})
+
+
+# Type for results with evaluation metrics added
+type EvaluatedResult = GraphWithEval | PaperWithEval | PaperRawWithEval
 
 
 app = typer.Typer(
@@ -147,12 +182,12 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def run(
-    graph_path: Annotated[
+    input_path: Annotated[
         Path,
         typer.Option(
-            "--graphs",
-            help="The path to the JSON file containing the output of graph evaluation."
-            " (gpt.evaluate_paper_graph)",
+            "--input",
+            help="The path to the JSON file containing the output of evaluation."
+            " (gpt.evaluate_paper_graph, gpt.evaluate_paper_scimon or raw pr.Paper)",
         ),
     ],
     output_dir: Annotated[
@@ -162,6 +197,14 @@ def run(
             help="The path to the output directory where the files will be saved.",
         ),
     ],
+    input_type: Annotated[
+        str,
+        typer.Option(
+            "--type",
+            help="The type of input file",
+            click_type=cli.Choice(["graph", "paper", "raw"]),
+        ),
+    ] = "graph",
     model: Annotated[
         str,
         typer.Option("--model", "-m", help="The model to use for evaluation."),
@@ -189,7 +232,7 @@ def run(
         typer.Option("--continue", help="Use existing intermediate results."),
     ] = False,
     keep_intermediate: Annotated[
-        bool, typer.Option(help="Keep intermediate results.")
+        bool, typer.Option("--keep", help="Keep intermediate results.")
     ] = False,
     seed: Annotated[
         int,
@@ -199,11 +242,12 @@ def run(
         int, typer.Option(help="Size of the batches being evaluated.")
     ] = 100,
 ) -> None:
-    """Evaluate each paper's predicted rationale from graph evaluation."""
+    """Evaluate each paper's predicted rationale from graph or paper evaluation."""
     asyncio.run(
         evaluate_rationales(
             model,
-            graph_path,
+            input_path,
+            input_type,
             limit_papers,
             prompt,
             output_dir,
@@ -224,7 +268,8 @@ def main() -> None:
 
 async def evaluate_rationales(
     model: str,
-    graph_path: Path,
+    input_path: Path,
+    input_type: str,
     limit_papers: int | None,
     prompt_key: str,
     output_dir: Path,
@@ -234,11 +279,12 @@ async def evaluate_rationales(
     seed: int,
     batch_size: int,
 ) -> None:
-    """Evaluate each paper's predicted rationale from graph evaluation with LLM-as-judge.
+    """Evaluate each paper's predicted rationale from evaluation with LLM-as-judge.
 
     Args:
         model: GPT model code to use.
-        graph_path: Path to the JSON file containing the output of graph evaluation.
+        input_path: Path to the JSON file containing the output of evaluation.
+        input_type: Type of input file.
         limit_papers: Number of papers to process. If 0 or None, process all.
         prompt_key: Key to the prompt to use for rationale evaluation. See
             `RATIONALE_EVAL_USER_PROMPTS` for available options or `list_prompts` for
@@ -263,17 +309,33 @@ async def evaluate_rationales(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
-    papers = sample(
-        PromptResult.unwrap(load_data(graph_path, PromptResult[GraphResult])),
-        limit_papers,
-    )
+    match input_type.lower():
+        case "graph":
+            papers = sample(
+                PromptResult.unwrap(load_data(input_path, PromptResult[GraphResult])),
+                limit_papers,
+            )
+            result_class = GraphWithEval
+        case "paper":
+            papers = sample(
+                PromptResult.unwrap(load_data(input_path, PromptResult[PaperResult])),
+                limit_papers,
+            )
+            result_class = PaperWithEval
+        case "raw":
+            papers = sample(load_data(input_path, pr.Paper), limit_papers)
+            result_class = PaperRawWithEval
+        case _:
+            raise ValueError(
+                f"Invalid input_type: {input_type}. Must be 'graph', 'paper', or 'raw'."
+            )
 
     prompt = RATIONALE_EVAL_PROMPTS[prompt_key]
     if not prompt.system:
         raise ValueError("Chosen prompt doesn't contain system prompt.")
 
     output_intermediate_file, papers_remaining = init_remaining_items(
-        GraphWithEval, output_dir, continue_papers_file, papers, continue_
+        result_class, output_dir, continue_papers_file, papers, continue_
     )
 
     with Timer() as timer:
@@ -284,6 +346,7 @@ async def evaluate_rationales(
             output_intermediate_file,
             keep_intermediate,
             batch_size,
+            result_class,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -307,15 +370,15 @@ async def evaluate_rationales(
 
 
 def calculate_aggregate_metrics(
-    graph_evals: Iterable[GraphWithEval],
+    item_evals: Iterable[EvaluatedResult],
 ) -> AggregateMetrics:
     """Calculate mean and standard deviation for each metric."""
-    graph_metrics = [graph.eval_metrics.metrics for graph in graph_evals]
+    item_metrics = [item.eval_metrics.metrics for item in item_evals]
 
     metrics_stats: dict[str, MetricStats] = {}
 
-    for metric in sorted(graph_metrics[0]):
-        values = [g[metric] for g in graph_metrics]
+    for metric in sorted(item_metrics[0]):
+        values = [i[metric] for i in item_metrics]
         mean_value = statistics.mean(values)
         stdev_value = statistics.stdev(values)
         metrics_stats[metric] = MetricStats(mean=mean_value, stdev=stdev_value)
@@ -323,13 +386,13 @@ def calculate_aggregate_metrics(
     return AggregateMetrics(metrics=metrics_stats)
 
 
-def _display_label_dist(graph_evals: Iterable[GraphWithEval]) -> str:
-    """Display distribution of values for the metrics from `graph_evals`."""
-    graph_metrics = [graph.eval_metrics.metrics for graph in graph_evals]
+def _display_label_dist(item_evals: Iterable[EvaluatedResult]) -> str:
+    """Display distribution of values for the metrics from evaluated items."""
+    item_metrics = [item.eval_metrics.metrics for item in item_evals]
     output = [">>> Metrics distributions:"]
 
-    for metric in sorted(graph_metrics[0]):
-        values = [g[metric] for g in graph_metrics]
+    for metric in sorted(item_metrics[0]):
+        values = [i[metric] for i in item_metrics]
         dist = Counter(values)
 
         mean = statistics.mean(values)
@@ -346,30 +409,34 @@ def _display_label_dist(graph_evals: Iterable[GraphWithEval]) -> str:
 async def _evaluate_rationales(
     client: ModelClient,
     prompt: PromptTemplate,
-    graphs: Sequence[GraphResult],
+    items: Sequence[InputType],
     output_intermediate_file: Path,
     keep_intermediate: bool,
     batch_size: int,
-) -> GPTResult[list[PromptResult[GraphWithEval]]]:
+    result_class: type[EvaluatedResult],
+) -> GPTResult[list[PromptResult[EvaluatedResult]]]:
     """Evaluate the predicted paper rationales.
 
     Args:
         client: OpenAI client to use GPT.
         prompt: User and system prompt to use for rationale evaluation.
-        graphs: Outputs from graph evaluation.
+        items: Outputs from evaluation (either GraphResult or PaperResult).
         output_intermediate_file: File to write new results after each task.
         keep_intermediate: Keep intermediate results to be used in future runs.
         batch_size: Number of items per batch.
+        result_class: Class to use for the result (GraphWithEval or PaperWithEval).
 
     Returns:
         List of papers with evaluated rationales wrapped in a GPTResult.
     """
-    results: list[PromptResult[GraphWithEval]] = []
+    results: list[PromptResult[EvaluatedResult]] = []
     total_cost = 0
 
-    batches = list(itertools.batched(graphs, batch_size))
+    batches = list(itertools.batched(items, batch_size))
     for batch_idx, batch in enumerate(tqdm(batches, desc="Processing batches"), 1):
-        batch_tasks = [_evaluate_rationale(client, graph, prompt) for graph in batch]
+        batch_tasks = [
+            _evaluate_rationale(client, item, prompt, result_class) for item in batch
+        ]
 
         for task in progress.as_completed(
             batch_tasks, desc=f"Evaluating batch {batch_idx}"
@@ -385,42 +452,74 @@ async def _evaluate_rationales(
 
 
 async def _evaluate_rationale(
-    client: ModelClient, graph: GraphResult, prompt: PromptTemplate
-) -> GPTResult[PromptResult[GraphWithEval]]:
-    """Evaluate predicted rationale from graph evaluation.
+    client: ModelClient,
+    item: InputType,
+    prompt: PromptTemplate,
+    result_class: type[EvaluatedResult],
+) -> GPTResult[PromptResult[EvaluatedResult]]:
+    """Evaluate predicted rationale from evaluation.
 
     Args:
         client: OpenAI client to use GPT.
-        graph: Output from graph evaluation.
+        item: Output from evaluation.
         prompt: User and system prompt for rationale evaluation.
+        result_class: Class to use for the result.
 
     Returns:
         Paper with evaluated rationale wrapped in a GPTResult.
     """
+    if isinstance(item, GraphResult):
+        paper = item.paper
+        title = item.paper.title
+        rationale_pred = paper.rationale_pred
+    elif isinstance(item, PaperResult):
+        paper = item
+        title = item.title
+        rationale_pred = item.rationale_pred
+    else:
+        # Must be Paper since we're using InputType
+        paper = item
+        title = item.title
+        rationale_pred = item.rationale
 
-    user_prompt_text = format_template(graph.paper, graph.paper.rationale_pred, prompt)
+    user_prompt_text = format_template(paper, rationale_pred, prompt)
     result = await client.run(GPTRationaleEval, prompt.system, user_prompt_text)
     rationale_eval = result.result or GPTRationaleEval.empty()
 
     if not rationale_eval.is_valid():
-        logger.warning(f"Paper: '{graph.paper.title}': invalid rationale evaluation")
+        logger.warning(f"Paper: '{title}': invalid rationale evaluation")
 
-    graph_eval = GraphWithEval.from_(graph, rationale_eval.metrics())
+    metrics = rationale_eval.metrics()
 
-    if invalid := graph_eval.eval_metrics.invalid_metrics():
-        logger.warning(f"{graph.paper.title}: invalid metric values: {invalid}")
+    # TODO: clean this up (2025-03-27)
+    if isinstance(item, GraphResult) and result_class == GraphWithEval:
+        eval_result = GraphWithEval.from_(item, metrics)
+    elif isinstance(item, PaperResult) and result_class == PaperWithEval:
+        eval_result = PaperWithEval.from_(item, metrics)
+    elif isinstance(item, pr.Paper) and result_class == PaperRawWithEval:
+        eval_result = PaperRawWithEval.from_(item, metrics)
+    else:
+        raise TypeError(
+            f"Mismatched item type {type(item)} and result class {result_class}"
+        )
+
+    if invalid := eval_result.eval_metrics.invalid_metrics():
+        logger.warning(f"{title}: invalid metric values: {invalid}")
 
     return GPTResult(
         result=PromptResult(
-            item=graph_eval,
+            item=eval_result,
             prompt=Prompt(system=prompt.system, user=user_prompt_text),
         ),
         cost=result.cost,
     )
 
 
-def format_template(paper: PaperResult, rationale: str, prompt: PromptTemplate) -> str:
+def format_template(paper: InputType, rationale: str, prompt: PromptTemplate) -> str:
     """Format evaluation user template using the predicted rationale."""
+    if isinstance(paper, GraphResult):
+        paper = paper.paper
+
     return prompt.template.format(
         title=paper.title,
         abstract=paper.abstract,
