@@ -3,15 +3,16 @@
 import asyncio
 import logging
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import backoff
 import openai
 import tiktoken
 from openai import AsyncOpenAI
+from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
 
 from paper.gpt.model import PromptResult
@@ -286,6 +287,50 @@ class ModelClient:
 
         return GPTResult(result=completion.choices[0].message.parsed, cost=cost)
 
+    async def plain(
+        self, system_prompt: str, user_prompt: str, max_tokens: int | None = None
+    ) -> GPTResult[str | None]:
+        """Run the GPT query and return plain text output.
+
+        Uses the standard completion API.
+
+        Args:
+            system_prompt: Text for the system prompt (role: system).
+            user_prompt: Text for the user prompt (role: user).
+            max_tokens: Maximum number of tokens in the output.
+
+        Returns:
+            Result with the cost for the request and the plain text response. If there
+            was an error with the request, the result is None. The cost is provided
+            either way.
+        """
+        try:
+            completion = await self._call_gpt_plain(
+                model=self.model,
+                messages=self._prepare_messages(system_prompt, user_prompt),
+                seed=self.seed,
+                temperature=self.temperature,
+                max_tokens=max_tokens,
+            )
+        except Exception:
+            logger.exception("Error when calling OpenAI. Gave up on retrying")
+            return GPTResult(result=None, cost=0)
+
+        if completion is None:
+            return GPTResult(result=None, cost=0)
+
+        if usage := completion.usage:
+            cost = _calc_cost(self.model, usage.prompt_tokens, usage.completion_tokens)
+        else:
+            cost = 0
+
+        try:
+            content = completion.choices[0].message.content
+        except Exception:
+            content = None
+
+        return GPTResult(result=content, cost=cost)
+
     @backoff.on_exception(
         backoff.expo,
         (openai.APIError, asyncio.TimeoutError),
@@ -299,6 +344,41 @@ class ModelClient:
                     self.client.beta.chat.completions.parse(**chat_params),
                     timeout=self.timeout,
                 )
+                await update_usage(response)
+                return response
+        except openai.APIError as e:
+            logger.warning("API error: %s", e)
+            raise
+        except Exception as e:
+            logger.warning("Non-API error: %s", e)
+            return None
+
+    @backoff.on_exception(
+        backoff.expo,
+        (openai.APIError, asyncio.TimeoutError),
+        max_tries=5,
+        logger=logger,
+    )
+    async def _call_gpt_plain(self, **chat_params: Any) -> ChatCompletion | None:
+        """Call OpenAI API to generate plain text completions.
+
+        Args:
+            **chat_params: Parameters to pass to the chat.completions.create method.
+
+        Returns:
+            The ChatCompletion response object or None if there was an error.
+
+        Raises:
+            openai.APIError: If there was an API error that should be retried.
+        """
+        try:
+            async with self.rate_limiter.limit(**chat_params) as update_usage:
+                # Create the task with proper type annotation
+                task = cast(
+                    Awaitable[ChatCompletion],
+                    self.client.chat.completions.create(**chat_params),
+                )
+                response = await asyncio.wait_for(task, timeout=self.timeout)
                 await update_usage(response)
                 return response
         except openai.APIError as e:
