@@ -197,6 +197,7 @@ def downsample(
     count: Annotated[
         int | None, typer.Option(help="Total number of items in output dataset")
     ] = None,
+    seed: Annotated[int, typer.Option(help="Seed for random sample")] = 0,
 ) -> None:
     """Balance data according to specified ratios for a given key field.
 
@@ -211,6 +212,7 @@ def downsample(
     Example:
         ratio_balance -i input.json -o balanced.json --key approval --ratios "60/40"
     """
+    random.seed(seed)
     setup_logging()
     params = get_params()
     logger.info(render_params(params))
