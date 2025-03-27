@@ -48,6 +48,23 @@ logger = logging.getLogger(__name__)
 RATIONALE_EVAL_PROMPTS = load_prompts("evaluate_rationale")
 
 
+class MetricStats(BaseModel):
+    """Statistics for a single metric."""
+
+    model_config = ConfigDict(frozen=True)
+
+    mean: float
+    stdev: float
+
+
+class AggregateMetrics(BaseModel):
+    """Aggregate statistics for rationale metrics."""
+
+    model_config = ConfigDict(frozen=True)
+
+    metrics: dict[str, MetricStats]
+
+
 class RationaleMetrics(BaseModel):
     """Metrics from rationale evaluation."""
 
@@ -277,11 +294,33 @@ async def evaluate_rationales(
 
     logger.info("%s", _display_label_dist(results_items))
 
+    metrics = calculate_aggregate_metrics(results_items)
+    for metric_name, stats in metrics.metrics.items():
+        logger.info("%s: mean=%.4f, stdev=%.4f", metric_name, stats.mean, stats.stdev)
+
     save_data(output_dir / "result.json", results_all)
     save_data(output_dir / "params.json", params)
+    save_data(output_dir / "metrics.json", metrics)
 
     if len(results_all) != len(papers):
         logger.warning("Some papers are missing from the result.")
+
+
+def calculate_aggregate_metrics(
+    graph_evals: Iterable[GraphWithEval],
+) -> AggregateMetrics:
+    """Calculate mean and standard deviation for each metric."""
+    graph_metrics = [graph.eval_metrics.metrics for graph in graph_evals]
+
+    metrics_stats: dict[str, MetricStats] = {}
+
+    for metric in sorted(graph_metrics[0]):
+        values = [g[metric] for g in graph_metrics]
+        mean_value = statistics.mean(values)
+        stdev_value = statistics.stdev(values)
+        metrics_stats[metric] = MetricStats(mean=mean_value, stdev=stdev_value)
+
+    return AggregateMetrics(metrics=metrics_stats)
 
 
 def _display_label_dist(graph_evals: Iterable[GraphWithEval]) -> str:
