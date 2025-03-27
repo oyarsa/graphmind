@@ -194,12 +194,19 @@ def downsample(
     ratios: Annotated[
         str, typer.Option(help="Target ratios as string (e.g., '60/40' or '30/30/40')")
     ],
+    count: Annotated[
+        int | None, typer.Option(help="Total number of items in output dataset")
+    ] = None,
 ) -> None:
     """Balance data according to specified ratios for a given key field.
 
     The number of components in the ratio must match the number of unique values for the
     key. All ratio components must sum to 100. Each ratio corresponds to the labels in
     sorted order.
+
+    If count is specified, the output dataset will contain exactly that many items
+    while maintaining the specified ratios. Otherwise, the output will contain the maximum
+    number of items possible while maintaining the ratios.
 
     Example:
         ratio_balance -i input.json -o balanced.json --key approval --ratios "60/40"
@@ -251,22 +258,53 @@ def downsample(
 
     console.print(table_input)
 
-    # Find the limiting class (the one that would have the fewest items after scaling)
-    limiting_ratio = float("inf")
-    for i, value in enumerate(unique_values):
-        items = grouped_data[value]
-        # How many total items can we have if this class represents ratio_values[i]% of
-        # the total?
-        max_total = (len(items) * 100) / ratio_values[i]
-        limiting_ratio = min(limiting_ratio, max_total)
+    # Determine the target total count
+    if count is not None:
+        # User-specified total count
+        total_output_count = count
+    else:
+        # Find the limiting class (the one that would have the fewest items after scaling)
+        limiting_ratio = float("inf")
+        for i, value in enumerate(unique_values):
+            items = grouped_data[value]
+            # How many total items can we have if this class represents ratio_values[i]% of
+            # the total?
+            max_total = (len(items) * 100) / ratio_values[i]
+            limiting_ratio = min(limiting_ratio, max_total)
 
+        # Calculate the maximum possible total based on limiting ratio
+        total_output_count = 0
+        for i in range(len(ratio_values)):
+            # Calculate how many items we need from this class
+            total_output_count += int((limiting_ratio * ratio_values[i]) / 100)
+
+    # Verify the requested total is feasible
+    if count is not None:
+        for i, value in enumerate(unique_values):
+            # Calculate minimum required items for this class based on the ratio
+            min_required = (count * ratio_values[i]) / 100
+            available = len(grouped_data[value])
+            if available < min_required:
+                die(
+                    f"Not enough items for class '{value}'. Need {min_required:.1f}"
+                    f" but only have {available}. Reduce count or adjust ratios."
+                )
+
+    # Calculate target count for each class
     target_counts: dict[Any, int] = {}
-    total_output_count = 0
+    actual_total = 0
     for i, value in enumerate(unique_values):
         # Calculate how many items we need from this class
-        target_count = int((limiting_ratio * ratio_values[i]) / 100)
+        target_count = int((total_output_count * ratio_values[i]) / 100)
         target_counts[value] = target_count
-        total_output_count += target_count
+        actual_total += target_count
+
+    # Handle rounding issues by adjusting the largest class
+    if count is not None and actual_total != count:
+        adjustment = count - actual_total
+        # Find the largest class to adjust
+        largest_class = max(unique_values, key=lambda v: target_counts[v])
+        target_counts[largest_class] += adjustment
 
     output_data: list[dict[str, Any]] = []
     for value, items in grouped_data.items():
