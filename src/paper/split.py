@@ -13,7 +13,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from paper.util import get_in, get_params, groupby, render_params, setup_logging
+from paper.util import get_in, get_params, groupby, render_params, sample, setup_logging
 from paper.util.cli import die
 from paper.util.serde import save_data
 
@@ -145,8 +145,7 @@ def balanced(
 
     class_items = groupby(data, key=lambda d: _get_paper(d)[key])
     for items in class_items.values():
-        sample = items if len(items) <= main_count else random.sample(items, main_count)
-        output_data.extend(sample)
+        output_data.extend(sample(items, main_count))
 
     print("\nOutput frequencies")
     _print_frequencies(_get_frequencies(output_data, key))
@@ -311,11 +310,7 @@ def downsample(
     output_data: list[dict[str, Any]] = []
     for value, items in grouped_data.items():
         target = target_counts[value]
-        if len(items) <= target:
-            sampled = items
-        else:
-            sampled = random.sample(items, target)
-        output_data.extend(sampled)
+        output_data.extend(sample(items, target))
 
     random.shuffle(output_data)
 

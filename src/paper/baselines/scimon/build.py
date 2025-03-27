@@ -20,7 +20,7 @@ from paper import embedding as emb
 from paper import gpt
 from paper import semantic_scholar as s2
 from paper.baselines.scimon.graph import Graph
-from paper.util import Timer, get_params, render_params, setup_logging
+from paper.util import Timer, get_params, render_params, sample, setup_logging
 from paper.util.serde import load_data
 
 logger = logging.getLogger("paper.scimon.build")
@@ -70,8 +70,7 @@ def main(
     ann = gpt.PromptResult.unwrap(
         load_data(annotated_file, gpt.PromptResult[gpt.PaperAnnotated])
     )
-    if num_annotated:
-        ann = random.sample(ann, num_annotated)
+    ann = sample(ann, num_annotated)
 
     logger.info("Initialising encoder.")
     encoder = emb.Encoder(model_name)

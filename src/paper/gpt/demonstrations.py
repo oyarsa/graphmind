@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict
 from paper import peerread as pr
 from paper.gpt import annotate_paper as ann
 from paper.gpt import evaluate_paper as eval
-from paper.util import groupby, shuffled
+from paper.util import groupby, sample, shuffled
 from paper.util.serde import load_data, save_data
 
 app = typer.Typer(
@@ -53,7 +53,7 @@ def eval_sans(
     random.seed(seed)
 
     papers = load_data(input_file, pr.Paper)
-    papers_sample = random.sample(papers, num_entries)
+    papers_sample = sample(papers, num_entries)
 
     demonstrations = [new_eval_sans_demonstration(paper) for paper in papers_sample]
     save_data(output_file, demonstrations)
@@ -252,8 +252,8 @@ def eval_binary(
     pos = [x for x in data if x.label]
     neg = [x for x in data if not x.label]
 
-    pos_sampled = random.sample(pos, n)
-    neg_sampled = random.sample(neg, n)
+    pos_sampled = sample(pos, n)
+    neg_sampled = sample(neg, n)
 
     save_data(output_file, pos_sampled + neg_sampled)
 

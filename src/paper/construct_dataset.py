@@ -28,7 +28,7 @@ import typer
 
 from paper import peerread as pr
 from paper import semantic_scholar as s2
-from paper.util import get_params, render_params
+from paper.util import get_params, render_params, sample
 from paper.util.serde import Record, load_data, save_data
 
 app = typer.Typer(
@@ -109,11 +109,7 @@ def main(
     peerread_augmented = _augment_peeread(
         peerread_papers, reference_papers, min_references
     )
-    peerread_sampled = (
-        random.sample(peerread_augmented, k=num_peerread)
-        if num_peerread is not None
-        else peerread_augmented
-    )
+    peerread_sampled = sample(peerread_augmented, num_peerread)
     s2_references = _unique_peerread_refs(peerread_sampled)
     recommended_filtered = _filter_recommended(peerread_sampled, recommended_papers)
     related_papers = _dedup_related(s2_references + recommended_filtered + area_papers)
