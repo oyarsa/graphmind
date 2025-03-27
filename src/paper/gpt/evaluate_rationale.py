@@ -6,6 +6,7 @@ The input is the the output of `gpt.evaluate_paper_graph`, `PromptResult[GraphRe
 from __future__ import annotations
 
 import asyncio
+import itertools
 import logging
 import random
 import statistics
@@ -17,6 +18,7 @@ from typing import Annotated, Self
 import dotenv
 import typer
 from pydantic import BaseModel, ConfigDict, Field
+from tqdm import tqdm
 
 from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.extract_graph import GraphResult
@@ -176,6 +178,9 @@ def run(
         int,
         typer.Option(help="Random seed used for the GPT API and to shuffle the data."),
     ] = 0,
+    batch_size: Annotated[
+        int, typer.Option(help="Size of the batches being evaluated.")
+    ] = 100,
 ) -> None:
     """Evaluate each paper's predicted rationale from graph evaluation."""
     asyncio.run(
@@ -189,6 +194,7 @@ def run(
             continue_,
             keep_intermediate,
             seed,
+            batch_size,
         )
     )
 
@@ -209,6 +215,7 @@ async def evaluate_rationales(
     continue_: bool,
     keep_intermediate: bool,
     seed: int,
+    batch_size: int,
 ) -> None:
     """Evaluate each paper's predicted rationale from graph evaluation with LLM-as-judge.
 
@@ -224,6 +231,7 @@ async def evaluate_rationales(
         continue_: If True, use data from `continue_papers_file`.
         keep_intermediate: Keep intermediate results to be used with `continue`.
         seed: Seed for the OpenAI API call and to shuffle the data.
+        batch_size: Number of items per batch.
     """
     random.seed(seed)
     params = get_params()
@@ -258,6 +266,7 @@ async def evaluate_rationales(
             papers_remaining.remaining,
             output_intermediate_file,
             keep_intermediate,
+            batch_size,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -301,6 +310,7 @@ async def _evaluate_rationales(
     graphs: Sequence[GraphResult],
     output_intermediate_file: Path,
     keep_intermediate: bool,
+    batch_size: int,
 ) -> GPTResult[list[PromptResult[GraphWithEval]]]:
     """Evaluate the predicted paper rationales.
 
@@ -310,6 +320,7 @@ async def _evaluate_rationales(
         graphs: Outputs from graph evaluation.
         output_intermediate_file: File to write new results after each task.
         keep_intermediate: Keep intermediate results to be used in future runs.
+        batch_size: Number of items per batch.
 
     Returns:
         List of papers with evaluated rationales wrapped in a GPTResult.
@@ -317,15 +328,19 @@ async def _evaluate_rationales(
     results: list[PromptResult[GraphWithEval]] = []
     total_cost = 0
 
-    tasks = [_evaluate_rationale(client, graph, prompt) for graph in graphs]
+    batches = list(itertools.batched(graphs, batch_size))
+    for batch_idx, batch in enumerate(tqdm(batches, desc="Processing batches"), 1):
+        batch_tasks = [_evaluate_rationale(client, graph, prompt) for graph in batch]
 
-    for task in progress.as_completed(tasks, desc="Processing papers"):
-        result = await task
-        total_cost += result.cost
+        for task in progress.as_completed(
+            batch_tasks, desc=f"Evaluating batch {batch_idx}"
+        ):
+            result = await task
+            total_cost += result.cost
 
-        results.append(result.result)
-        if keep_intermediate:
-            append_intermediate_result(output_intermediate_file, result.result)
+            results.append(result.result)
+            if keep_intermediate:
+                append_intermediate_result(output_intermediate_file, result.result)
 
     return GPTResult(results, total_cost)
 
