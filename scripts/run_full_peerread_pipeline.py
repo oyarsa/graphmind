@@ -46,7 +46,7 @@ def main(
             "--construct",
             help="Number of items for constructed dataset. Use 0 for all items.",
         ),
-    ] = 50,
+    ] = 0,
     num_related: Annotated[
         int,
         typer.Option(
