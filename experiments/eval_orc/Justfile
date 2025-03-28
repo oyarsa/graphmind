@@ -249,18 +249,26 @@ scimon: (_t "Running SciMON evaluation")
 # Clean the output directory based on CLEAN env var
 _clean-output:
     #!/usr/bin/env fish
+    set output_path "{{root}}/{{output_dir}}"
+
+    # First check if the directory exists
+    if not test -d "$output_path"
+        echo "Output directory doesn't exist, nothing to clean"
+        exit 0
+    end
+
     if test "{{clean}}" = "1"
-        echo "Cleaning output directory: {{root}}/{{output_dir}}"
-        command rm -rf "{{root}}/{{output_dir}}"
+        echo "Cleaning output directory: $output_path"
+        command rm -rf "$output_path"
     else if test "{{clean}}" = "0"
         echo "Skipping directory removal"
     else
         # CLEAN is undefined or has another value, prompt for confirmation
-        echo "Will clean output directory: {{root}}/{{output_dir}}"
+        echo "Will clean output directory: $output_path"
         read -P "Are you sure you want to remove this directory? [y/N] " confirm
         if string match -q -i "y" "$confirm"
             echo "Cleaning output directory..."
-            command rm -rf "{{root}}/{{output_dir}}"
+            command rm -rf "$output_path"
         else
             echo "Skipping directory removal"
         end
