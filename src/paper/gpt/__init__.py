@@ -3,6 +3,8 @@
 from paper.gpt.classify_contexts import (
     PaperWithContextClassfied as PaperWithContextClassfied,
 )
+from paper.gpt.extract_graph import GraphResult as GraphResult
+from paper.gpt.model import EntityType as EntityType
 from paper.gpt.model import PaperACUInput as PaperACUInput
 from paper.gpt.model import PaperACUType as PaperACUType
 from paper.gpt.model import PaperAnnotated as PaperAnnotated
