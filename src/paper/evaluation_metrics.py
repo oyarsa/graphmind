@@ -1,8 +1,8 @@
 """Metric calculation (precision, recall, F1 and accuracy) for ratings 1-5."""
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from enum import Enum
-from typing import Protocol
+from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
@@ -61,38 +61,41 @@ class Metrics(BaseModel):
 
         out.extend([
             "Confusion Matrix:",
-            self._format_confusion(),
+            format_confusion(self.confusion, self.mode.labels()),
         ])
 
         return "\n".join(out)
 
-    def _format_confusion(self) -> str:
-        """Format confusion matrix as a string with row and column labels."""
-        n = len(self.confusion)
 
-        label_strs = [str(label) for label in self.mode.labels()]
+def format_confusion(
+    confusion: list[list[int]],
+    labels: Iterable[Any],
+    margin: int = 3,
+    col_padding: int = 8,
+    cell_width: int = 4,
+) -> str:
+    """Format confusion matrix as a string with row and column labels."""
+    n = len(confusion)
 
-        margin = 3
-        col_label_padding = 8  # Space before column numbers
-        cell_width = 4  # Width for numbers
+    label_strs = [str(label) for label in labels]
 
-        matrix_str = [
-            " " * (col_label_padding + cell_width + 2) + "Predicted",
+    matrix_str = [
+        " " * (col_padding + cell_width + 2) + "Predicted",
+        " " * margin
+        + " " * col_padding
+        + "".join(f"{label:>{cell_width}}" for label in label_strs),
+        "-" * (margin + col_padding + cell_width * n + 3),
+    ]
+
+    for i, row in enumerate(confusion):
+        row_str = (
             " " * margin
-            + " " * col_label_padding
-            + "".join(f"{label:>{cell_width}}" for label in label_strs),
-            "-" * (margin + col_label_padding + cell_width * n + 3),
-        ]
+            + f"True {label_strs[i]} |"
+            + "".join(f"{cell:>{cell_width}}" for cell in row)
+        )
+        matrix_str.append(row_str)
 
-        for i, row in enumerate(self.confusion):
-            row_str = (
-                " " * margin
-                + f"True {label_strs[i]} |"
-                + "".join(f"{cell:>{cell_width}}" for cell in row)
-            )
-            matrix_str.append(row_str)
-
-        return "\n".join(matrix_str)
+    return "\n".join(matrix_str)
 
 
 class Evaluated(Protocol):
