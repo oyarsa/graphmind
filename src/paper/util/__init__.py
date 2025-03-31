@@ -18,7 +18,7 @@ from collections.abc import Callable, Coroutine, Iterable, Mapping, Sequence
 from importlib import resources
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Self, overload
+from typing import Any, Self, cast, overload
 
 import polars as pl
 import psutil
@@ -681,7 +681,7 @@ def get_in(data: dict[str, Any], path: str, default: Any = None) -> Any | None:
     for key in keys:
         if not isinstance(current, dict) or key not in current:
             return default
-        current = current[key]
+        current = cast(Any, current[key])
 
     return current
 
