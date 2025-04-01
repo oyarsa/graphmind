@@ -27,6 +27,12 @@ dependencies = [
     "faiss-cpu>=1.10.0",
     "numpy>=2.1.3",
     "scipy-stubs>=1.15.2.1",
+    "transformers>=4.46.2",
+    "datasets>=3.5.0",
+    "peft>=0.15.1",
+    "torch>=2.5.1",
+    "bitsandbytes>=0.45.3 ; sys_platform != 'darwin'",
+    "toml>=0.10.2",
 ]
 
 [dependency-groups]
@@ -108,6 +114,7 @@ ignore = [
     "PTH123",   # Allow `open(p)` instead of `Path(p).open`
     "SIM108",   # Use ternary operation instead of if-else block
     "TRY003",   # Long messages outside exception class
+    "RET505",   # Allow `else` after `return`. I like this symmetry in some cases.
 ]
 
 [tool.ruff.lint.pydocstyle]
