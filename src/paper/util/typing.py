@@ -38,3 +38,18 @@ def isdict[K, V](
         return False
 
     return isinstance(next(iter(value.values())), valtype)
+
+
+def islist[T](value: object, type_: type[T]) -> TypeGuard[list[T]]:
+    """Return True is `value` is of type `list[T]`.
+
+    Checks the first item of the list to see if it's the correct type. If the list is
+    empty, it's considered of being of any type.
+    """
+    if not isinstance(value, list):
+        return False
+
+    if not value:  # Empty lists can be of any type
+        return True
+
+    return isinstance(value[0], type_)
