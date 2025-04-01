@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, TypeVar
+from typing import Any, Protocol, TypeGuard, TypeVar, cast
 
 _T_contra = TypeVar("_T_contra", contravariant=True)
 
@@ -16,3 +16,25 @@ class _SupportsLT(Protocol[_T_contra]):
 
 
 type SupportsLT = _SupportsLT[Any]
+
+
+def isdict[K, V](
+    value: object, valtype: type[V] = type[Any], keytype: type[K] = str
+) -> TypeGuard[dict[K, V]]:
+    """Return True is `value` is of type `dict[K, V]`.
+
+    Checks the first key/value pair to see if they are the correct type. If the dict is
+    empty, it's considered of being any type.
+    """
+    if not isinstance(value, dict):
+        return False
+
+    if not value:  # Empty dicts can be of any type
+        return True
+
+    value = cast(dict[Any, Any], value)
+
+    if not isinstance(next(iter(value.keys())), keytype):
+        return False
+
+    return isinstance(next(iter(value.values())), valtype)
