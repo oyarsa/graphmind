@@ -34,11 +34,8 @@ jobs:
       - name: Ruff check
         run: uv run ruff check .
 
-      - run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
-      - name: Pyright
-        uses: jakebailey/pyright-action@v2
-        with:
-          version: 1.1.393
+      - name: Basedpyright
+        run: uv run basedpyright
 
       - name: Unit tests
         run: uv run pytest tests/
