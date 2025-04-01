@@ -13,7 +13,7 @@ check:
 fmt:
     uv run ruff format .
 
-# Run basedpyright
+# Run basedpyright (type checker)
 type:
     uv run basedpyright .
 
@@ -25,13 +25,13 @@ pre-commit:
 spell:
     uv run codespell
 
-# Run ruff check, ruff format, and basedpyright
+# Run ruff check, format, spell checker, pre-commit, tests and type checker
 lint: fix fmt spell pre-commit test type
 
-# Check ruff lint and basedpyright
+# Check ruff check, tests, spell checker and type checker
 check-all: check test spell type
 
-# Watch Python files and run ruff and basedpyright on changes
+# Watch Python files and run `check-all` on changes
 watch:
     watchexec --exts=py --clear --restart "just check-all"
 
