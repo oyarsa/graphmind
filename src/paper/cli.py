@@ -2,9 +2,10 @@
 
 import typer
 
-from paper import construct_dataset, orc, split
+from paper import construct_dataset, split
 from paper.baselines import cli as baselines
 from paper.gpt import cli as gpt
+from paper.orc import cli as orc
 from paper.peerread import cli as peerread
 from paper.peter import cli as peter
 from paper.semantic_scholar import cli as s2
