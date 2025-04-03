@@ -1807,6 +1807,7 @@ dev = [
     { name = "icecream" },
     { name = "ipython" },
     { name = "jupyterlab" },
+    { name = "pdoc" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "ruff" },
@@ -1851,6 +1852,7 @@ dev = [
     { name = "icecream", specifier = ">=2.1.3" },
     { name = "ipython", specifier = ">=8.27.0" },
     { name = "jupyterlab", specifier = ">=4.2.5" },
+    { name = "pdoc", specifier = ">=15.0.1" },
     { name = "pre-commit", specifier = ">=3.8.0" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "ruff", specifier = ">=0.9.4" },
@@ -1863,6 +1865,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/66/94/68e2e17afaa9169cf6412ab0f28623903be73d1b32e208d9e8e541bb086d/parso-0.8.4.tar.gz", hash = "sha256:eb3a7b58240fb99099a345571deecc0f9540ea5f4dd2fe14c2a99d6b281ab92d", size = 400609 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c6/ac/dac4a63f978e4dcb3c6d3a78c4d8e0192a113d288502a1216950c41b1027/parso-0.8.4-py2.py3-none-any.whl", hash = "sha256:a418670a20291dacd2dddc80c377c5c3791378ee1e8d12bffc35420643d43f18", size = 103650 },
+]
+
+[[package]]
+name = "pdoc"
+version = "15.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "markupsafe" },
+    { name = "pygments" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bf/16/1b542af6f18a27de059f722c487a596681127897b6d31f78e46d6e5bf2fe/pdoc-15.0.1.tar.gz", hash = "sha256:3b08382c9d312243ee6c2a1813d0ff517a6ab84d596fa2c6c6b5255b17c3d666", size = 154174 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/4d/60d856a1b12fbf6ac1539efccfa138e57c6b88675c9867d84bbb46455cc1/pdoc-15.0.1-py3-none-any.whl", hash = "sha256:fd437ab8eb55f9b942226af7865a3801e2fb731665199b74fd9a44737dbe20f9", size = 144186 },
 ]
 
 [[package]]

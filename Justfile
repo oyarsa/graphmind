@@ -51,6 +51,10 @@ exp *args:
 typefiles:
     uv run basedpyright . | grep -o '/.*\.py' | sort | uniq -c | sort -n
 
+# Show documentation as HTML in a browser
+doc:
+    uv run pdoc paper --docformat google
+
 alias l := lint
 alias w := watch
 alias x := exp
