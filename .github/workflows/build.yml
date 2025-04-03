@@ -34,8 +34,8 @@ jobs:
       - name: Ruff check
         run: uv run ruff check .
 
-      - name: Basedpyright
-        run: uv run basedpyright
+      - name: Pyright
+        run: uv run pyright .
 
       - name: Unit tests
         run: uv run pytest tests/

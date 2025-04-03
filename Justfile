@@ -13,9 +13,9 @@ check:
 fmt:
     uv run ruff format .
 
-# Run basedpyright (type checker)
+# Run pyright (type checker)
 type:
-    uv run basedpyright .
+    uv run pyright .
 
 # Run pre-commit hooks manually on all files
 pre-commit:
@@ -49,7 +49,7 @@ exp *args:
 
 # Show all files with type errors
 typefiles:
-    uv run basedpyright . | grep -o '/.*\.py' | sort | uniq -c | sort -n
+    uv run pyright . | grep -o '/.*\.py' | sort | uniq -c | sort -n
 
 # Show documentation as HTML in a browser
 doc:
