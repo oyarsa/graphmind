@@ -139,7 +139,7 @@ exclude = [
 ]
 
 [tool.codespell]
-skip = "*.json,*.ipynb,.venv,output,*tmp,data"
+skip = "*.json,*.ipynb,.venv,output,*tmp,data,docs"
 
 [build-system]
 requires = ["hatchling"]
