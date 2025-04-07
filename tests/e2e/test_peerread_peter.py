@@ -6,6 +6,7 @@ import pytest
 
 from paper.util import git_root
 from paper.util.cmd import run, run_parallel_commands, title
+from tests.helpers import assertpath  # type: ignore[reportMissingImports]
 
 ROOT_DIR = git_root()
 
@@ -22,7 +23,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     title("Preprocess")
     processed = tmp_path / "peerread_merged.json"
     run("paper", "peerread", "preprocess", raw_path, processed, "-n", 100)
-    assert processed.exists()
+    assertpath(processed)
 
     title("Info main")
     info_main_dir = tmp_path / "s2_info_main"
@@ -37,7 +38,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "1",
     )
     info_main = info_main_dir / "final.json"
-    assert info_main.exists()
+    assertpath(info_main)
 
     title("Info references")
     info_ref_dir = tmp_path / "s2_info_references"
@@ -52,7 +53,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "1",
     )
     info_ref = info_ref_dir / "final.json"
-    assert info_ref.exists()
+    assertpath(info_ref)
 
     title("Info areas")
     s2_areas = tmp_path / "s2_areas.json"
@@ -70,13 +71,13 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "--limit-areas",
         "2",
     )
-    assert s2_areas.exists()
+    assertpath(s2_areas)
 
     title("Recommended")
     recommended_dir = tmp_path / "s2_recommended"
     run("paper", "s2", "recommended", info_main, recommended_dir)
     recommended = recommended_dir / "papers_recommended.json"
-    assert recommended.exists()
+    assertpath(recommended)
 
     title("Construct dataset")
     subset_dir = tmp_path / "subset"
@@ -94,7 +95,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     )
     peer_with_ref = subset_dir / "peerread_with_s2_references.json"
     peer_related = subset_dir / "peerread_related.json"
-    assert peer_with_ref.exists()
+    assertpath(peer_with_ref)
 
     context_dir = tmp_path / "context"
     peer_terms_dir = tmp_path / "peerread-terms"
@@ -143,9 +144,9 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     s2_terms = s2_terms_dir / "results_valid.json"
     peer_terms = peer_terms_dir / "results_valid.json"
 
-    assert context.exists()
-    assert s2_terms.exists()
-    assert peer_terms.exists()
+    assertpath(context)
+    assertpath(s2_terms)
+    assertpath(peer_terms)
 
     title("Peter Build")
     peter_graph_dir = tmp_path / "peter_graph"
@@ -160,7 +161,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "--output-dir",
         peter_graph_dir,
     )
-    assert peter_graph_dir.exists()
+    assertpath(peter_graph_dir)
 
     peter_peer = tmp_path / "peerread_with_peter.json"
     title("Peter PeerRead")
@@ -175,7 +176,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "--output",
         peter_peer,
     )
-    assert peter_peer.exists()
+    assertpath(peter_peer)
 
     title("GPT PETER summarisation")
     petersum_dir = tmp_path / "peter_summarised"
@@ -190,7 +191,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         petersum_dir,
     )
     petersum = petersum_dir / "result.json"
-    assert petersum.exists()
+    assertpath(petersum)
 
     title("GPT eval sans")
     eval_sans_dir = tmp_path / "eval-sans"
@@ -208,7 +209,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "eval_4",
     )
     eval_sans = eval_sans_dir / "result.json"
-    assert eval_sans.exists()
+    assertpath(eval_sans)
 
     title("GPT eval PETER")
     eval_peter_dir = tmp_path / "eval-peter"
@@ -226,7 +227,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "--demos",
         "eval_4",
     )
-    assert eval_peter.exists()
+    assertpath(eval_peter)
 
     title("Extract ACUs")
     acu_s2_dir = tmp_path / "acu-s2"
@@ -265,5 +266,5 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     )
     acu_s2 = acu_s2_dir / "results.json"
     acu_peerread = acu_peerread_dir / "results.json"
-    assert acu_s2.exists()
-    assert acu_peerread.exists()
+    assertpath(acu_s2)
+    assertpath(acu_peerread)
