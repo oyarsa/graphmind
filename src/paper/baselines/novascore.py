@@ -441,6 +441,13 @@ def evaluate(
         float,
         typer.Option(help="Gamma parameter for dynamic salient weight.", min=0, max=1),
     ] = DEFAULT_SALIENT_GAMMA,
+    save_results: Annotated[
+        bool,
+        typer.Option(
+            "--save/--no-save",
+            help="Whether to save the results. If False, saves on the metrics.",
+        ),
+    ] = True,
 ) -> None:
     """Calculate novelty score using saved query results.
 
@@ -471,9 +478,10 @@ def evaluate(
     logger.info("%s\n", display_metrics(metrics, results))
 
     logger.info(f"Saving results to {output_dir}")
-    save_data(output_dir / "result.json", results)
     save_data(output_dir / "metrics.json", metrics)
     save_data(output_dir / "params.json", params)
+    if save_results:
+        save_data(output_dir / "result.json", results)
 
 
 @app.callback(help=__doc__)
