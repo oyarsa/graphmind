@@ -33,6 +33,7 @@ dependencies = [
     "torch>=2.5.1",
     "bitsandbytes>=0.45.3 ; sys_platform != 'darwin'",
     "toml>=0.10.2",
+    "google-genai>=1.10.0",
 ]
 
 [dependency-groups]
