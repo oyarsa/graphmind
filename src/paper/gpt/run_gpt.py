@@ -6,12 +6,12 @@ import os
 from collections.abc import Awaitable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import backoff
 import openai
 import tiktoken
-from openai import AsyncOpenAI
+from openai import NOT_GIVEN, AsyncOpenAI
 from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
 
@@ -27,6 +27,8 @@ MODEL_SYNONYMS: Mapping[str, str] = {
     "gpt-4o-mini": "gpt-4o-mini-2024-07-18",
     "4o": "gpt-4o-2024-08-06",
     "gpt-4o": "gpt-4o-2024-08-06",
+    "gpt-4o-search-preview": "gpt-4o-search-preview-2025-03-11",
+    "gpt-4o-mini-search-preview": "gpt-4o-mini-search-preview-2025-03-11",
 }
 """Mapping between short and common model names and their full versioned names."""
 MODELS_ALLOWED: Sequence[str] = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.values())
@@ -34,7 +36,9 @@ MODELS_ALLOWED: Sequence[str] = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.va
 
 MODEL_COSTS: Mapping[str, tuple[float, float]] = {
     "gpt-4o-mini-2024-07-18": (0.15, 0.6),
+    "gpt-4o-mini-search-preview-2025-03-11": (0.15, 0.6),
     "gpt-4o-2024-08-06": (2.5, 10),
+    "gpt-4o-search-preview-2025-03-11": (2.5, 10),
 }
 """Cost in $ per 1M tokens: (input cost, output cost).
 
@@ -149,6 +153,7 @@ class ModelClient:
         base_url: str | None = None,
         timeout: float = 60,
         max_input_tokens: int | None = 90_000,
+        log_exception: bool | None = None,
     ) -> None:
         """Create client for OpenAI-compatible APIs.
 
@@ -166,6 +171,9 @@ class ModelClient:
             timeout: Timeout in seconds for the API calls.
             max_input_tokens: Maximum number of tokens allowed in the input.
                 If set, will truncate the `user_prompt` if it exceeds this limit.
+            log_exception: If True, log full traceback for non-API exceptions. If False,
+                log the exception description as a warning. If None, get value from
+                the `LOG_EXCEPTION` environment variable (1 or 0), defaulting to 0.
         """
         is_openai = base_url is None or "openai" in base_url
         model = MODEL_SYNONYMS.get(model, model)
@@ -181,6 +189,11 @@ class ModelClient:
         self.temperature = temperature
         self.timeout = timeout
         self.max_input_tokens = max_input_tokens
+
+        if log_exception is not None:
+            self.should_log_exception = log_exception
+        else:
+            self.should_log_exception = os.getenv("LOG_EXCEPTION", "0") == "1"
 
         if not is_openai:
             api_tier = -1
@@ -284,7 +297,11 @@ class ModelClient:
         return GPTResult(result=completion.choices[0].message.parsed, cost=cost)
 
     async def plain(
-        self, system_prompt: str, user_prompt: str, max_tokens: int | None = None
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int | None = None,
+        search_level: Literal["low", "medium", "high"] | None = None,
     ) -> GPTResult[str | None]:
         """Run the GPT query and return plain text output.
 
@@ -294,19 +311,33 @@ class ModelClient:
             system_prompt: Text for the system prompt (role: system).
             user_prompt: Text for the user prompt (role: user).
             max_tokens: Maximum number of tokens in the output.
+            search_level: If given, use the web search tool with this context size.
+                Search results will be given as part of the textual response only.
+                See https://platform.openai.com/docs/guides/tools-web-search?api-mode=chat
+                for more information.
 
         Returns:
             Result with the cost for the request and the plain text response. If there
             was an error with the request, the result is None. The cost is provided
             either way.
         """
+        is_search = search_level is not None
+
+        # Remove temperature and seed for web search models, as they aren't supported.
+        temperature = self.temperature if not is_search else NOT_GIVEN
+        seed = self.seed if not is_search else NOT_GIVEN
+        search_options = (
+            {"search_context_size": search_level} if is_search else NOT_GIVEN
+        )
+
         try:
             completion = await self._call_gpt_plain(
                 model=self.model,
                 messages=self._prepare_messages(system_prompt, user_prompt),
-                seed=self.seed,
-                temperature=self.temperature,
+                seed=seed,
+                temperature=temperature,
                 max_tokens=max_tokens,
+                web_search_options=search_options,
             )
         except Exception:
             logger.exception("Error when calling OpenAI. Gave up on retrying")
@@ -348,6 +379,10 @@ class ModelClient:
         except Exception as e:
             logger.warning("Non-API error: %s", e)
             return None
+
+    def _log_exception(self, msg: str, exc: Exception) -> None:
+        log = logger.exception if self.should_log_exception else logger.warning
+        log(msg, exc)
 
     @backoff.on_exception(
         backoff.expo,
