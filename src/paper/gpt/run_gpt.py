@@ -18,11 +18,7 @@ from pydantic import BaseModel
 from paper.gpt.model import PromptResult
 from paper.util import log_memory_usage
 from paper.util.rate_limiter import ChatRateLimiter
-from paper.util.serde import (
-    Record,
-    load_data_jsonl,
-    save_data_jsonl,
-)
+from paper.util.serde import Record, load_data_jsonl, save_data_jsonl
 
 logger = logging.getLogger(__name__)
 
