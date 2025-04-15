@@ -450,6 +450,36 @@ def get_icase[T](data: Mapping[str, T], key: str, default: T | None = None) -> T
     return default
 
 
+def removeprefix_icase(text: str, prefix: str) -> str:
+    """Remove a prefix from text in a case-insensitive way.
+
+    Preserves the original case of the remaining text.
+
+    Args:
+        text: The original string.
+        prefix: The prefix to remove.
+
+    Returns:
+        String with prefix removed if found (case-insensitive), otherwise the original
+        string.
+
+    Examples:
+        >>> removeprefix_icase("ABCdef", "abc")
+        'def'
+        >>> removeprefix_icase("aBcdef", "abc")
+        'def'
+        >>> removeprefix_icase("abcdef", "abc")
+        'def'
+        >>> removeprefix_icase("xyz", "abc")
+        'xyz'
+        >>> removeprefix_icase("", "abc")
+        ''
+    """
+    if text.lower().startswith(prefix.lower()):
+        return text[len(prefix) :]
+    return text
+
+
 def format_numbered_list(
     items: Iterable[str],
     prefix: str = "",

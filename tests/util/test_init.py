@@ -12,6 +12,7 @@ from paper.util import (
     fix_spaces_before_punctuation,
     on_exception,
     get_in,
+    removeprefix_icase,
 )
 
 
@@ -391,3 +392,17 @@ def test_get_by_path_parametrized(
     data: dict[str, Any], path: str, expected: Any | None
 ):
     assert get_in(data, path) == expected
+
+
+@pytest.mark.parametrize(
+    "string, prefix, expected",
+    [
+        ("ABCdef", "abc", "def"),
+        ("aBcdef", "abc", "def"),
+        ("abcdef", "abc", "def"),
+        ("xyz", "abc", "xyz"),
+        ("", "abc", ""),
+    ],
+)
+def test_removeprefix_icase(string: str, prefix: str, expected: str) -> None:
+    assert removeprefix_icase(string, prefix) == expected
