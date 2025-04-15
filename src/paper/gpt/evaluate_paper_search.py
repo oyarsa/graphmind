@@ -2,6 +2,10 @@
 
 The input is the output of `gpt.summarise_related_peter`. The output is the input
 annotated papers with a predicted novelty rating.
+
+Note: this version cannot use demonstrations, which is why they're not supported. This
+is because they confuse the web search grounding, making the LLM fetch tons of unrelated
+pages because they were in the demos.
 """
 
 from __future__ import annotations
@@ -20,12 +24,9 @@ from tqdm import tqdm
 
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
 from paper.gpt.evaluate_paper import (
-    EVALUATE_DEMONSTRATION_PROMPTS,
-    EVALUATE_DEMONSTRATIONS,
     GPTFull,
     PaperResult,
     fix_evaluated_rating,
-    get_demonstrations,
 )
 from paper.gpt.model import (
     PaperWithRelatedSummary,
@@ -125,20 +126,6 @@ def run(
     seed: Annotated[
         int, typer.Option(help="Random seed used for data shuffling and OpenAI API.")
     ] = 0,
-    demos: Annotated[
-        str | None,
-        typer.Option(
-            help="Name of file containing demonstrations to use in few-shot prompt.",
-            click_type=cli.Choice(EVALUATE_DEMONSTRATIONS),
-        ),
-    ] = None,
-    demo_prompt: Annotated[
-        str,
-        typer.Option(
-            help="User prompt to use for building the few-shot demonstrations.",
-            click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
-        ),
-    ] = "abstract",
     batch_size: Annotated[
         int, typer.Option(help="Number of requests per batch.")
     ] = 100,
@@ -154,8 +141,6 @@ def run(
             continue_papers,
             continue_,
             seed,
-            demos,
-            demo_prompt,
             batch_size,
         )
     )
@@ -176,8 +161,6 @@ async def evaluate_papers(
     continue_papers_file: Path | None,
     continue_: bool,
     seed: int,
-    demonstrations_key: str | None,
-    demo_prompt_key: str,
     batch_size: int,
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers.
@@ -198,10 +181,6 @@ async def evaluate_papers(
             are there, we use those results and skip processing them.
         continue_: If True, ignore `continue_papers` and run everything from scratch.
         seed: Random seed used for shuffling and for the GPT call.
-        demonstrations_key: Key to the demonstrations file for use with few-shot prompting.
-        demo_prompt_key: Key to the demonstration prompt to use during evaluation to
-            build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
-            available options or `list_prompts` for more.
         batch_size: Number of items per batch.
 
     Returns:
@@ -231,8 +210,6 @@ async def evaluate_papers(
             f"Eval prompt {eval_prompt.name!r} does not have a system prompt."
         )
 
-    demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
-
     output_intermediate_file, papers_remaining = init_remaining_items(
         PaperResult, output_dir, continue_papers_file, papers, continue_
     )
@@ -243,7 +220,6 @@ async def evaluate_papers(
             eval_prompt,
             papers_remaining.remaining,
             output_intermediate_file,
-            demonstrations,
             batch_size,
         )
 
@@ -273,7 +249,6 @@ async def _evaluate_papers(
     eval_prompt: PromptTemplate,
     papers: Sequence[PaperWithRelatedSummary],
     output_intermediate_file: Path,
-    demonstrations: str,
     batch_size: int,
 ) -> GPTResult[list[PromptResult[PaperResult]]]:
     """Evaluate paper novelty using a paper graph and PETER-related papers.
@@ -283,7 +258,6 @@ async def _evaluate_papers(
         eval_prompt: Prompt template for novelty evaluation.
         papers: Annotated PeerRead papers with their summarised graph data.
         output_intermediate_file: File to write new results after paper is evaluated.
-        demonstrations: Text of demonstrations for few-shot prompting.
         batch_size: Number of items per batch.
 
     Returns:
@@ -296,10 +270,7 @@ async def _evaluate_papers(
         total=len(papers), desc="Evaluating papers", position=0, leave=True
     ) as pbar_papers:
         for batch in itertools.batched(papers, batch_size):
-            tasks = [
-                _evaluate_paper(client, paper, eval_prompt, demonstrations)
-                for paper in batch
-            ]
+            tasks = [_evaluate_paper(client, paper, eval_prompt) for paper in batch]
 
             for task in progress.as_completed(
                 tasks, desc="Evaluating batch", position=1, leave=False
@@ -316,12 +287,9 @@ async def _evaluate_papers(
 
 
 async def _evaluate_paper(
-    client: LLMClient,
-    paper: PaperWithRelatedSummary,
-    eval_prompt: PromptTemplate,
-    demonstrations: str,
+    client: LLMClient, paper: PaperWithRelatedSummary, eval_prompt: PromptTemplate
 ) -> GPTResult[PromptResult[PaperResult]]:
-    prompt_text = format_template(eval_prompt, paper.paper, demonstrations)
+    prompt_text = format_template(eval_prompt, paper.paper)
     system_prompt = eval_prompt.system
     result_str = await client.plain(system_prompt, prompt_text, search_level="low")
     result = result_str.map(_parse_result)
@@ -342,12 +310,9 @@ async def _evaluate_paper(
     )
 
 
-def format_template(
-    prompt: PromptTemplate, paper: PeerReadAnnotated, demonstrations: str
-) -> str:
-    """Format graph extraction template using annotated paper."""
+def format_template(prompt: PromptTemplate, paper: PeerReadAnnotated) -> str:
+    """Format evaluation template using annotated paper."""
     return prompt.template.format(
-        demonstrations=demonstrations,
         title=paper.title,
         abstract=paper.abstract,
         approval=paper.paper.approval,
