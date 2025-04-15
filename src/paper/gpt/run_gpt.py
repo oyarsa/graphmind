@@ -103,8 +103,8 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
     """
     message = (
         "Tier {tier} limits are not set. Please provide the limits. You can find them on"
-        " https://platform.openai.com/settings/organization/limits or using the"
-        " `scripts/tools/rate_limits.py` tool"
+        " https://platform.openai.com/settings/organization/limits, using the"
+        " `scripts/tools/rate_limits.py` tool or on https://ai.google.dev/gemini-api/docs/rate-limits#tier-1"
     )
 
     # <request_limit, token_limit> per minute
@@ -114,7 +114,11 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
         rate_limits = (1_000, 1_000_000)
     else:
         if tier == 1:
-            raise ValueError(message.format(tier=1))
+            limits = {
+                "gemini-2.5-pro": (150, 2_000_000),
+                "gemini-2.0-flash": (2_000, 4_000_000),
+                "gemini-2.0-flash-lite": (4_000, 4_000_000),
+            }
         if tier == 2:
             raise ValueError(message.format(tier=2))
         if tier == 3:
