@@ -14,6 +14,8 @@ from typing import Any, Literal, cast, override
 import backoff
 import openai
 import tiktoken
+from google import genai  # type: ignore
+from google.genai import errors, types  # type: ignore
 from openai import NOT_GIVEN, AsyncOpenAI
 from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
@@ -522,6 +524,251 @@ class OpenAIClient(LLMClient):
         except Exception as e:
             logger.warning("Non-API error: %s", e)
             return None
+
+
+class GeminiClient(LLMClient):
+    """Client to communicate with the Google Gemini API."""
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        seed: int,
+        temperature: float = 0,
+        base_url: str | None = None,
+        timeout: float = 60,
+        max_input_tokens: int | None = 90_000,
+        log_exception: bool | None = None,
+    ) -> None:
+        """Create client for the Google Gemini API.
+
+        Args:
+            api_key: Authentication key.
+            model: Model code to use. See your API documentation for the name.
+            seed: Seed to give the model.
+            temperature: How unpredictable the model is. Set this 0 to be as
+                deterministic as possible, but it's still not guaranteed.
+            base_url: Ignored, as the Gemini client doesn't have a use for it.
+            timeout: Timeout in seconds for the API calls.
+            max_input_tokens: Maximum number of tokens allowed in the input.
+                If set, will truncate the `user_prompt` if it exceeds this limit.
+            log_exception: If True, log full traceback for non-API exceptions. If False,
+                log the exception description as a warning. If None, get value from
+                the `LOG_EXCEPTION` environment variable (1 or 0), defaulting to 0.
+        """
+        model = MODEL_SYNONYMS.get(model, model)
+
+        if model not in MODELS_ALLOWED:
+            raise ValueError(
+                f"Invalid model: {model!r}. Should be one of: {MODELS_ALLOWED}."
+            )
+
+        self.client = genai.Client(api_key=api_key)
+        self.model = model
+        self.seed = seed
+        self.temperature = temperature
+        self.timeout = timeout
+        self.max_input_tokens = max_input_tokens
+        self.base_url = base_url
+
+        if log_exception is not None:
+            self.should_log_exception = log_exception
+        else:
+            self.should_log_exception = os.getenv("LOG_EXCEPTION", "0") == "1"
+
+        if api_tier_s := os.getenv("GEMINI_API_TIER"):
+            api_tier = int(api_tier_s)
+        else:
+            logger.warning("GEMINI_API_TIER unset. Defaulting to tier 1.")
+            api_tier = 1
+
+        self.rate_limiter = get_rate_limiter(api_tier, model)
+
+    @override
+    async def run[T: BaseModel](
+        self,
+        class_: type[T],
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int | None = None,
+    ) -> GPTResult[T | None]:
+        """Run the query and return a parsed object of `class_`.
+
+        Uses Structured Outputs to get a valid object. See also:
+        https://ai.google.dev/gemini-api/docs/structured-output?lang=python#supply-schema-in-config
+
+        Args:
+            class_: The class to parse the Structured Outputs. Must be a Pydantic
+                BaseModel. Note that this is the class (type) itself, not an instance.
+            system_prompt: Text for the system prompt (role: system).
+            user_prompt: Text for the user prompt (role: user).
+            max_tokens: Maximum number of tokens in the output.
+
+        Returns:
+            Result with the cost for the request and the result object parsed. If there
+            was an error with the request (mainly when making the request itself or
+            parsing the result), the object is None. The cost is provided either way.
+        """
+
+        system_prompt, user_prompt = _prepare_messages(
+            system_prompt, user_prompt, self.max_input_tokens
+        )
+        try:
+            completion = await self._call_api(
+                model=self.model,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=class_,
+                    system_instruction=system_prompt,
+                    temperature=self.temperature,
+                    seed=self.seed,
+                    max_output_tokens=max_tokens,
+                ),
+            )
+        except Exception:
+            logger.exception("Error when calling the API. Gave up on retrying")
+            completion = None
+
+        if completion is None:
+            return GPTResult(result=None, cost=0)
+
+        if usage := completion.usage_metadata:
+            cost = _calc_cost(
+                self.model,
+                usage.prompt_token_count or 0,
+                usage.candidates_token_count or 0,
+            )
+        else:
+            cost = 0
+
+        parsed: Any = completion.parsed  # type: ignore
+        if not isinstance(parsed, class_):  # Invalid structured output type
+            return GPTResult(result=None, cost=cost)
+
+        return GPTResult(result=parsed, cost=cost)
+
+    @override
+    async def plain(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int | None = None,
+        search_level: Literal["low", "medium", "high"] | None = None,
+    ) -> GPTResult[str | None]:
+        """Run the query and return plain text output.
+
+        Uses the standard completion API.
+
+        Args:
+            system_prompt: Text for the system prompt (role: system).
+            user_prompt: Text for the user prompt (role: user).
+            max_tokens: Maximum number of tokens in the output.
+            search_level: If given, use the web search tool with this context size.
+                Gemini doesn't support specifying the level, so any setting will have
+                the same effect.
+
+        Returns:
+            Result with the cost for the request and the plain text response. If there
+            was an error with the request, the result is None. The cost is provided
+            either way.
+        """
+        is_search = search_level is not None
+        system_prompt, user_prompt = _prepare_messages(
+            system_prompt, user_prompt, self.max_input_tokens
+        )
+
+        try:
+            completion = await self._call_api(
+                model=self.model,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    seed=self.seed,
+                    temperature=self.temperature,
+                    max_output_tokens=max_tokens,
+                    tools=[types.Tool(google_search=types.GoogleSearch())]
+                    if is_search
+                    else None,
+                ),
+            )
+        except Exception:
+            logger.exception("Error when calling the API. Gave up on retrying")
+            return GPTResult(result=None, cost=0)
+
+        if completion is None:
+            return GPTResult(result=None, cost=0)
+
+        if usage := completion.usage_metadata:
+            cost = _calc_cost(
+                self.model,
+                usage.prompt_token_count or 0,
+                usage.candidates_token_count or 0,
+            )
+        else:
+            cost = 0
+
+        try:
+            content = _gemini_content(completion)
+        except Exception:
+            content = None
+
+        return GPTResult(result=content, cost=cost)
+
+    def _log_exception(self, msg: str, exc: Exception) -> None:
+        log = logger.exception if self.should_log_exception else logger.warning
+        log(msg, exc)
+
+    @backoff.on_exception(
+        backoff.expo,
+        (errors.APIError, asyncio.TimeoutError),
+        max_tries=5,
+        logger=logger,
+    )
+    async def _call_api(
+        self, **chat_params: Any
+    ) -> types.GenerateContentResponse | None:
+        """Call OpenAI API to generate plain text completions.
+
+        Args:
+            **chat_params: Parameters to pass to the chat.completions.create method.
+
+        Returns:
+            The GenerateContentResponse response object or None if there was an error.
+
+        Raises:
+            google.genai.errors.APIError: If there was an API error that should be
+            retried.
+        """
+        try:
+            async with self.rate_limiter.limit(**chat_params) as update_usage:
+                # Create the task with proper type annotation
+                response = await asyncio.wait_for(
+                    self.client.aio.models.generate_content(**chat_params),
+                    timeout=self.timeout,
+                )
+                await update_usage(response)
+                return response
+        except openai.APIError as e:
+            logger.warning("API error: %s", e)
+            raise
+        except Exception as e:
+            logger.warning("Non-API error: %s", e)
+            return None
+
+
+def _gemini_content(completion: types.GenerateContentResponse) -> str:
+    """Get full content text from Gemini completion."""
+    if (
+        (candidates := completion.candidates)
+        and (candidate := candidates[0])
+        and (content := candidate.content)
+        and (parts := content.parts)
+    ):
+        return "\n".join(each.text for each in parts if each.text)
+
+    return ""
 
 
 def append_intermediate_result[T: BaseModel](
