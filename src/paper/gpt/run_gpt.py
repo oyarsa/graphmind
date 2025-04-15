@@ -123,9 +123,9 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
                 "gemini-2.0-flash": (2_000, 4_000_000),
                 "gemini-2.0-flash-lite": (4_000, 4_000_000),
             }
-        if tier == 2:
+        elif tier == 2:
             raise ValueError(message.format(tier=2))
-        if tier == 3:
+        elif tier == 3:
             limits = {
                 "gpt-4o-mini": (5_000, 4_000_000),
                 "gpt-4o": (5_000, 800_000),
