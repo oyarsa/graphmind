@@ -37,7 +37,7 @@ from paper.gpt.model import (
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     GPTResult,
-    OpenAIClient,
+    LLMClient,
     append_intermediate_result,
     init_remaining_items,
 )
@@ -209,7 +209,7 @@ async def evaluate_papers(
 
     api_key = ensure_envvar("OPENAI_API_KEY")
     base_url = os.getenv("OPENAI_BASE_URL")
-    client = OpenAIClient(api_key=api_key, model=model, seed=seed, base_url=base_url)
+    client = LLMClient.new(api_key=api_key, model=model, seed=seed, base_url=base_url)
 
     papers = shuffled(
         PromptResult.unwrap(
@@ -261,7 +261,7 @@ async def evaluate_papers(
 
 
 async def _evaluate_papers(
-    client: OpenAIClient,
+    client: LLMClient,
     eval_prompt: PromptTemplate,
     papers: Sequence[PaperWithRelatedSummary],
     output_intermediate_file: Path,
@@ -308,7 +308,7 @@ async def _evaluate_papers(
 
 
 async def _evaluate_paper(
-    client: OpenAIClient,
+    client: LLMClient,
     paper: PaperWithRelatedSummary,
     eval_prompt: PromptTemplate,
     demonstrations: str,
