@@ -14,6 +14,7 @@ from paper.gpt import (
     evaluate_paper_peter,
     evaluate_paper_sans,
     evaluate_paper_scimon,
+    evaluate_paper_search,
     evaluate_rationale,
     evaluate_reviews,
     extract_acu,
@@ -81,6 +82,11 @@ evals_subcommands = [
         "graph",
         "Evaluate paper using paper graph with PETER-query related papers.",
         evaluate_paper_graph,
+    ),
+    (
+        "search",
+        "Evaluate paper using LLM grounded with web search.",
+        evaluate_paper_search,
     ),
     ("reviews", "Evaluate individual reviews for novelty.", evaluate_reviews),
     (
