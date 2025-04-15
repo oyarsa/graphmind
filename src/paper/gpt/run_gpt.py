@@ -32,6 +32,9 @@ MODEL_SYNONYMS: Mapping[str, str] = {
     "gpt-4o": "gpt-4o-2024-08-06",
     "gpt-4o-search": "gpt-4o-search-preview-2025-03-11",
     "gpt-4o-mini-search": "gpt-4o-mini-search-preview-2025-03-11",
+    "gemini-2.0-flash": "gemini-2.0-flash-001",
+    "gemini-2.0-flash-lite": "gemini-2.0-flash-lite-001",
+    "gemini-2.5-pro": "gemini-2.5-pro-preview-03-25",
 }
 """Mapping between short and common model names and their full versioned names."""
 MODELS_ALLOWED: Sequence[str] = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.values())
@@ -42,6 +45,9 @@ MODEL_COSTS: Mapping[str, tuple[float, float]] = {
     "gpt-4o-mini-search-preview-2025-03-11": (0.15, 0.6),
     "gpt-4o-2024-08-06": (2.5, 10),
     "gpt-4o-search-preview-2025-03-11": (2.5, 10),
+    "gemini-2.0-flash-001": (0.10, 0.40),
+    "gemini-2.0-flash-lite-001": (0.075, 0.30),
+    "gemini-2.5-pro-preview-03-25": (1.25, 2.5),
 }
 """Cost in $ per 1M tokens: (input cost, output cost).
 
