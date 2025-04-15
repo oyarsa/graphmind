@@ -1,9 +1,11 @@
 """Interact with the OpenAI API."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
-from collections.abc import Awaitable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -73,6 +75,10 @@ class GPTResult[T]:
 
     result: T
     cost: float
+
+    def map[U](self, func: Callable[[T], U]) -> GPTResult[U]:
+        """Apply `func` to inner value and return new result."""
+        return GPTResult(result=func(self.result), cost=self.cost)
 
 
 def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
