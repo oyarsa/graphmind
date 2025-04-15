@@ -1,5 +1,7 @@
 """Rate limiter for the OpenAI API using a sliding window."""
 
+from __future__ import annotations
+
 import asyncio
 import time
 from collections.abc import AsyncGenerator, Callable, Coroutine, Iterable
@@ -7,6 +9,7 @@ from contextlib import asynccontextmanager
 from typing import Any, TypedDict
 
 import tiktoken
+from google.genai.types import GenerateContentResponse  # type: ignore
 from openai.types.chat import ChatCompletion
 
 _TOKENIZER = tiktoken.get_encoding("cl100k_base")
@@ -111,7 +114,12 @@ class ChatRateLimiter:
     @asynccontextmanager
     async def limit(
         self, messages: Iterable[Message], **kwargs: Any
-    ) -> AsyncGenerator[Callable[[int | ChatCompletion], Coroutine[None, None, None]]]:
+    ) -> AsyncGenerator[
+        Callable[
+            [int | ChatCompletion | GenerateContentResponse],
+            Coroutine[None, None, None],
+        ]
+    ]:
         """Context manager for waiting until for capacity before allowing the API call.
 
         It takes the messages being given to the API call and any other parameters that
@@ -119,8 +127,9 @@ class ChatRateLimiter:
 
         The context manager yield an update function to update the token usage with the
         following arguments:
-            actual_tokens: The count of tokens, or a ChatCompletion object. If the
-            completion has a valid usage, use `completion.usage.total_tokens`.
+            actual_tokens: The count of tokens, a `ChatCompletion` object (OpenAI) or
+                a `GenerateContentResponse` (Gemini).
+            If the completion has a valid usage object, use total tokens from it.
 
         Before the request, we estimate the number of tokens that will be spent based
         on the `max_token` request parameter. Use the update function for more precise
@@ -148,13 +157,18 @@ class ChatRateLimiter:
         try:
             # Callback for updating with actual token usage
             async def update_with_actual_usage(
-                actual_tokens: int | ChatCompletion,
+                actual_tokens: int | ChatCompletion | GenerateContentResponse,
             ) -> None:
                 if isinstance(actual_tokens, ChatCompletion):
                     usage = actual_tokens.usage
                     if usage is None:
                         return
                     actual_tokens = usage.total_tokens
+                elif isinstance(actual_tokens, GenerateContentResponse):
+                    usage = actual_tokens.usage_metadata
+                    if usage is None or usage.total_token_count is None:
+                        return
+                    actual_tokens = usage.total_token_count
 
                 async with self._lock:
                     if request_id in self._requests:
