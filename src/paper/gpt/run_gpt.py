@@ -186,6 +186,57 @@ def _prepare_messages(
 class LLMClient(ABC):
     """ABC for LLM clients."""
 
+    @classmethod
+    def new(
+        cls,
+        *,
+        api_key: str,
+        model: str,
+        seed: int,
+        temperature: float = 0,
+        base_url: str | None = None,
+        timeout: float = 60,
+        max_input_tokens: int | None = 90_000,
+        log_exception: bool | None = None,
+    ) -> LLMClient:
+        """Create a client for Gemini, OpenAI or other compatible APIs.
+
+        Uses separate implementations for Gemini and OpenAI. If the model contains,
+        'gemini', the Gemini client is used. Everything else goes to the OpenAI-compatible
+        client.
+
+        You can also use this with Ollama, OpenRouter and other OpenAI-compatible APIs.
+        They must be compatible with Structured Outputs.
+
+        Args:
+            api_key: Authentication key. For Ollama, this can be anything, but it must
+                be non-empty.
+            model: Model code to use. See your API documentation for the name.
+            seed: Seed to give the model.
+            temperature: How unpredictable the model is. Set this 0 to be as
+                deterministic as possible, but it's still not guaranteed.
+            base_url: URL of the API being used. If not provided, use OpenAI.
+            timeout: Timeout in seconds for the API calls.
+            max_input_tokens: Maximum number of tokens allowed in the input.
+                If set, will truncate the `user_prompt` if it exceeds this limit.
+            log_exception: If True, log full traceback for non-API exceptions. If False,
+                log the exception description as a warning. If None, get value from
+                the `LOG_EXCEPTION` environment variable (1 or 0), defaulting to 0.
+        """
+        if "gemini" in model:
+            raise NotImplementedError("Gemini is not implemented yet.")
+
+        return ModelClient(
+            api_key=api_key,
+            model=model,
+            seed=seed,
+            temperature=temperature,
+            base_url=base_url,
+            timeout=timeout,
+            max_input_tokens=max_input_tokens,
+            log_exception=log_exception,
+        )
+
     @abstractmethod
     async def run[T: BaseModel](
         self,
