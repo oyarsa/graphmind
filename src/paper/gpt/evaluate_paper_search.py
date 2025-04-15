@@ -12,7 +12,7 @@ import logging
 import random
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Self
 
 import dotenv
 import typer
@@ -65,6 +65,16 @@ app = typer.Typer(
 )
 
 
+class SearchModel(str):
+    """Search model name. Must be either Gemini or GPT with search."""
+
+    def __new__(cls, model: str) -> Self:
+        """Validate that the model is a valid search model."""
+        if "gemini" not in model and "search" not in model:
+            raise ValueError("Model must be either Gemini or GPT with search")
+        return super().__new__(cls, model)
+
+
 @app.command(help=__doc__, no_args_is_help=True)
 def run(
     paper_file: Annotated[
@@ -83,11 +93,14 @@ def run(
         ),
     ],
     model: Annotated[
-        str,
+        SearchModel,
         typer.Option(
-            "--model", "-m", help="The model to use for both extraction and evaluation."
+            "--model",
+            "-m",
+            help="The model to use for evaluation. Must support search.",
+            parser=SearchModel,
         ),
-    ] = "gpt-4o-mini-search",
+    ] = SearchModel("gpt-4o-mini-search"),  # noqa: B008
     limit_papers: Annotated[
         int,
         typer.Option("--limit", "-n", help="The number of papers to process."),
@@ -203,9 +216,6 @@ async def evaluate_papers(
 
     if limit_papers == 0:
         limit_papers = None
-
-    if "gemini" not in model and "search" not in model:
-        raise ValueError("Model must be either from Gemini or be GPT with search")
 
     client = LLMClient.new(model=model, seed=seed)
 
