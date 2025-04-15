@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 import asyncio
 import logging
 import os
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, cast, override
 
 import backoff
 import openai
@@ -146,7 +147,31 @@ def _find_best_match(
     return limits[max(matching_prefixes, key=len)]
 
 
-class ModelClient:
+class BaseClient(ABC):
+    """ABC for LLM clients."""
+
+    @abstractmethod
+    async def run[T: BaseModel](
+        self,
+        class_: type[T],
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int | None = None,
+    ) -> GPTResult[T | None]:
+        """Run the query and return a parsed object of `class_`."""
+
+    @abstractmethod
+    async def plain(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int | None = None,
+        search_level: Literal["low", "medium", "high"] | None = None,
+    ) -> GPTResult[str | None]:
+        """Run the GPT query and return plain text output."""
+
+
+class ModelClient(BaseClient):
     """Client to communicate with the OpenAI API."""
 
     def __init__(
@@ -245,6 +270,7 @@ class ModelClient:
             {"role": "user", "content": truncated_user_prompt},
         ]
 
+    @override
     async def run[T: BaseModel](
         self,
         class_: type[T],
@@ -302,6 +328,7 @@ class ModelClient:
 
         return GPTResult(result=completion.choices[0].message.parsed, cost=cost)
 
+    @override
     async def plain(
         self,
         system_prompt: str,
