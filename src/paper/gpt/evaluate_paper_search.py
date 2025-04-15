@@ -23,11 +23,7 @@ import typer
 from tqdm import tqdm
 
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
-from paper.gpt.evaluate_paper import (
-    GPTFull,
-    PaperResult,
-    fix_evaluated_rating,
-)
+from paper.gpt.evaluate_paper import GPTFull, PaperResult, fix_evaluated_rating
 from paper.gpt.model import (
     PaperWithRelatedSummary,
     PeerReadAnnotated,
@@ -43,7 +39,6 @@ from paper.gpt.run_gpt import (
 )
 from paper.util import (
     Timer,
-    cli,
     get_params,
     progress,
     removeprefix_icase,
@@ -51,7 +46,7 @@ from paper.util import (
     setup_logging,
     shuffled,
 )
-from paper.util.cli import die
+from paper.util.cli import Choice, die
 from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
@@ -100,7 +95,7 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for paper evaluation.",
-            click_type=cli.Choice(SEARCH_EVAL_USER_PROMPTS),
+            click_type=Choice(SEARCH_EVAL_USER_PROMPTS),
         ),
     ] = "simple",
     continue_papers: Annotated[
