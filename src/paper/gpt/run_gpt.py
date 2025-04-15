@@ -30,8 +30,8 @@ MODEL_SYNONYMS: Mapping[str, str] = {
     "gpt-4o-mini": "gpt-4o-mini-2024-07-18",
     "4o": "gpt-4o-2024-08-06",
     "gpt-4o": "gpt-4o-2024-08-06",
-    "gpt-4o-search-preview": "gpt-4o-search-preview-2025-03-11",
-    "gpt-4o-mini-search-preview": "gpt-4o-mini-search-preview-2025-03-11",
+    "gpt-4o-search": "gpt-4o-search-preview-2025-03-11",
+    "gpt-4o-mini-search": "gpt-4o-mini-search-preview-2025-03-11",
 }
 """Mapping between short and common model names and their full versioned names."""
 MODELS_ALLOWED: Sequence[str] = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.values())
