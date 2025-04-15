@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast, override
+from typing import Any, ClassVar, Literal, cast, override
 
 import backoff
 import openai
@@ -21,7 +21,7 @@ from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
 
 from paper.gpt.model import PromptResult
-from paper.util import log_memory_usage
+from paper.util import ensure_envvar, log_memory_usage
 from paper.util.rate_limiter import ChatRateLimiter
 from paper.util.serde import Record, load_data_jsonl, save_data_jsonl
 
@@ -202,13 +202,16 @@ def _prepare_messages(
 class LLMClient(ABC):
     """ABC for LLM clients."""
 
+    API_KEY_VAR: ClassVar[str]
+    """Name of the environment variable holding the API key."""
+
     @classmethod
     def new(
         cls,
         *,
-        api_key: str,
         model: str,
         seed: int,
+        api_key: str | None = None,
         temperature: float = 0,
         base_url: str | None = None,
         timeout: float = 60,
@@ -225,10 +228,10 @@ class LLMClient(ABC):
         They must be compatible with Structured Outputs.
 
         Args:
-            api_key: Authentication key. For Ollama, this can be anything, but it must
-                be non-empty.
             model: Model code to use. See your API documentation for the name.
             seed: Seed to give the model.
+            api_key: Authentication key. If absent, we'll fetch from the implementation's
+                environment variable (e.g. OPENAI_API_KEY or GEMINI_API_KEY).
             temperature: How unpredictable the model is. Set this 0 to be as
                 deterministic as possible, but it's still not guaranteed.
             base_url: URL of the API being used. If not provided, use OpenAI.
@@ -239,11 +242,10 @@ class LLMClient(ABC):
                 log the exception description as a warning. If None, get value from
                 the `LOG_EXCEPTION` environment variable (1 or 0), defaulting to 0.
         """
-        if "gemini" in model:
-            raise NotImplementedError("Gemini is not implemented yet.")
+        impl_class = GeminiClient if "gemini" in model else OpenAIClient
 
-        return OpenAIClient(
-            api_key=api_key,
+        return impl_class(
+            api_key=api_key or ensure_envvar(impl_class.API_KEY_VAR),
             model=model,
             seed=seed,
             temperature=temperature,
@@ -276,6 +278,8 @@ class LLMClient(ABC):
 
 class OpenAIClient(LLMClient):
     """Client to communicate with the OpenAI API."""
+
+    API_KEY_VAR: ClassVar[str] = "OPENAI_API_KEY"
 
     def __init__(
         self,
@@ -528,6 +532,8 @@ class OpenAIClient(LLMClient):
 
 class GeminiClient(LLMClient):
     """Client to communicate with the Google Gemini API."""
+
+    API_KEY_VAR: ClassVar[str] = "GEMINI_API_KEY"
 
     def __init__(
         self,
