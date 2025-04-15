@@ -32,7 +32,7 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    ModelClient,
+    OpenAIClient,
     append_intermediate_result,
     init_remaining_items,
 )
@@ -191,7 +191,7 @@ async def extract_acu(
     if limit_papers == 0:
         limit_papers = None
 
-    client = ModelClient(
+    client = OpenAIClient(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
@@ -246,7 +246,7 @@ async def extract_acu(
 
 
 async def _extract_acus[T: PaperACUInput](
-    client: ModelClient,
+    client: OpenAIClient,
     user_prompt: PromptTemplate,
     type_: type[T],
     papers: Sequence[T],
@@ -317,7 +317,7 @@ class GPTACU(BaseModel):
 
 
 async def _extract_acu_single[T: PaperACUInput](
-    client: ModelClient, type_: type[T], paper: T, user_prompt: PromptTemplate
+    client: OpenAIClient, type_: type[T], paper: T, user_prompt: PromptTemplate
 ) -> GPTResult[PromptResult[PaperWithACUs[T]]]:
     """Extract ACUs for a single paper.
 

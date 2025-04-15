@@ -32,7 +32,7 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    ModelClient,
+    OpenAIClient,
     append_intermediate_result,
     get_remaining_items,
 )
@@ -193,7 +193,7 @@ async def evaluate_papers(
     if limit_papers == 0:
         limit_papers = None
 
-    client = ModelClient(
+    client = OpenAIClient(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
@@ -247,7 +247,7 @@ async def evaluate_papers(
 
 
 async def _classify_papers(
-    client: ModelClient,
+    client: OpenAIClient,
     user_prompt: PromptTemplate,
     ann_graphs: Sequence[scimon.AnnotatedGraphResult],
     output_intermediate_file: Path,
@@ -290,7 +290,7 @@ submitted to a high-quality scientific conference.
 
 
 async def _classify_paper(
-    client: ModelClient,
+    client: OpenAIClient,
     ann_result: scimon.AnnotatedGraphResult,
     user_prompt: PromptTemplate,
     demonstrations: str,

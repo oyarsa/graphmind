@@ -19,7 +19,7 @@ from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATIONS,
     get_demonstrations,
 )
-from paper.gpt.run_gpt import GPTResult, ModelClient
+from paper.gpt.run_gpt import GPTResult, OpenAIClient
 from paper.util import cli, ensure_envvar, progress, sample
 from paper.util.serde import load_data, save_data
 
@@ -81,7 +81,7 @@ class ModelResult(BaseModel):
 
 
 async def evaluate_paper(
-    client: ModelClient, paper: pr.Paper, demonstrations: str
+    client: OpenAIClient, paper: pr.Paper, demonstrations: str
 ) -> GPTResult[Result]:
     """Evaluate `paper` using the given `client`."""
     user_text = USER_PROMPT.format(
@@ -242,7 +242,7 @@ async def evaluate_model(
     model: str, papers: list[pr.Paper], demonstrations: str
 ) -> ModelResult:
     """Evaluate all papers using the specified model."""
-    client = ModelClient(
+    client = OpenAIClient(
         api_key=ensure_envvar("OPENROUTER_API_KEY"),
         seed=0,
         base_url="https://openrouter.ai/api/v1",

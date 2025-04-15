@@ -31,7 +31,7 @@ from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     GPTResult,
-    ModelClient,
+    OpenAIClient,
     append_intermediate_result,
     init_remaining_items,
 )
@@ -305,7 +305,7 @@ async def evaluate_rationales(
     if limit_papers == 0:
         limit_papers = None
 
-    client = ModelClient(
+    client = OpenAIClient(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
@@ -407,7 +407,7 @@ def _display_label_dist(item_evals: Iterable[EvaluatedResult]) -> str:
 
 
 async def _evaluate_rationales(
-    client: ModelClient,
+    client: OpenAIClient,
     prompt: PromptTemplate,
     items: Sequence[InputType],
     output_intermediate_file: Path,
@@ -452,7 +452,7 @@ async def _evaluate_rationales(
 
 
 async def _evaluate_rationale(
-    client: ModelClient,
+    client: OpenAIClient,
     item: InputType,
     prompt: PromptTemplate,
     result_class: type[EvaluatedResult],

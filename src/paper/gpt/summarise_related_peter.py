@@ -37,7 +37,7 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    ModelClient,
+    OpenAIClient,
     append_intermediate_result,
     get_remaining_items,
 )
@@ -190,7 +190,7 @@ async def summarise_related(
     if limit_papers == 0:
         limit_papers = None
 
-    client = ModelClient(
+    client = OpenAIClient(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
@@ -243,7 +243,7 @@ async def summarise_related(
 
 
 async def _summarise_papers(
-    client: ModelClient,
+    client: OpenAIClient,
     prompt_pol: Mapping[rp.ContextPolarity, PromptTemplate],
     ann_graphs: Iterable[rp.PaperResult],
     output_intermediate_file: Path,
@@ -291,7 +291,7 @@ paper.
 
 
 async def _summarise_paper(
-    client: ModelClient,
+    client: OpenAIClient,
     ann_result: rp.PaperResult,
     prompt_pol: Mapping[rp.ContextPolarity, PromptTemplate],
 ) -> GPTResult[PromptResult[PaperWithRelatedSummary]]:
@@ -337,7 +337,7 @@ class GPTRelatedSummary(BaseModel):
 
 
 async def _summarise_paper_related(
-    client: ModelClient,
+    client: OpenAIClient,
     paper: PeerReadAnnotated,
     related: rp.PaperRelated,
     user_prompt: PromptTemplate,

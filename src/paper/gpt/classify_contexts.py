@@ -32,7 +32,7 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    ModelClient,
+    OpenAIClient,
     append_intermediate_result,
     init_remaining_items,
 )
@@ -158,7 +158,7 @@ async def classify_contexts(
     if limit_references == 0:
         limit_references = None
 
-    client = ModelClient(
+    client = OpenAIClient(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
@@ -320,7 +320,7 @@ _CONTEXT_SYSTEM_PROMPT = (
 
 
 async def _classify_paper(
-    client: ModelClient,
+    client: OpenAIClient,
     limit_references: int | None,
     paper: s2.PaperWithS2Refs,
     user_prompt: PromptTemplate,
@@ -400,7 +400,7 @@ async def _classify_paper(
 
 
 async def _classify_contexts(
-    client: ModelClient,
+    client: OpenAIClient,
     user_prompt: PromptTemplate,
     papers: Sequence[s2.PaperWithS2Refs],
     limit_references: int | None,

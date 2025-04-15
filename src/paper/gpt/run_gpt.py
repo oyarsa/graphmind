@@ -226,7 +226,7 @@ class LLMClient(ABC):
         if "gemini" in model:
             raise NotImplementedError("Gemini is not implemented yet.")
 
-        return ModelClient(
+        return OpenAIClient(
             api_key=api_key,
             model=model,
             seed=seed,
@@ -258,7 +258,7 @@ class LLMClient(ABC):
         """Run the GPT query and return plain text output."""
 
 
-class ModelClient(LLMClient):
+class OpenAIClient(LLMClient):
     """Client to communicate with the OpenAI API."""
 
     def __init__(

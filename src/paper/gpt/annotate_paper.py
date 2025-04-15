@@ -35,7 +35,7 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    ModelClient,
+    OpenAIClient,
     append_intermediate_result,
     get_remaining_items,
 )
@@ -256,7 +256,7 @@ async def annotate_papers(
         limit_papers = None
 
     env = mustenv("OPENAI_API_KEY")
-    client = ModelClient(api_key=env["OPENAI_API_KEY"], model=model, seed=seed)
+    client = OpenAIClient(api_key=env["OPENAI_API_KEY"], model=model, seed=seed)
     user_prompt_terms = _TERM_USER_PROMPTS[user_prompt_term_key]
     user_prompt_abstract = _ABS_USER_PROMPTS[user_prompt_abstract_key]
 
@@ -347,7 +347,7 @@ class GPTAbstractClassify(BaseModel):
 
 
 async def _annotate_papers(
-    client: ModelClient,
+    client: OpenAIClient,
     papers: Sequence[PaperToAnnotate],
     user_prompt_term: PromptTemplate,
     user_prompt_abstract: PromptTemplate,
@@ -385,7 +385,7 @@ async def _annotate_papers(
 
 
 async def _annotate_paper_single(
-    client: ModelClient,
+    client: OpenAIClient,
     paper: PaperToAnnotate,
     user_prompt_term: PromptTemplate,
     user_prompt_abstract: PromptTemplate,

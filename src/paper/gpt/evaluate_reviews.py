@@ -37,7 +37,7 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    ModelClient,
+    OpenAIClient,
     append_intermediate_result,
     get_remaining_items,
 )
@@ -260,7 +260,7 @@ async def evaluate_reviews(
     if limit_papers == 0:
         limit_papers = None
 
-    client = ModelClient(
+    client = OpenAIClient(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
@@ -383,7 +383,7 @@ def _format_demonstrations(
 
 
 async def _evaluate_reviews(
-    client: ModelClient,
+    client: OpenAIClient,
     user_prompt: PromptTemplate,
     extract_prompt: PromptTemplate | None,
     papers: Sequence[pr.Paper],
@@ -448,7 +448,7 @@ class _GPTRationale(BaseModel):
 
 
 async def _evaluate_paper_reviews(
-    client: ModelClient,
+    client: OpenAIClient,
     paper: pr.Paper,
     user_prompt: PromptTemplate,
     extract_prompt: PromptTemplate | None,
