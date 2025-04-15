@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import itertools
 import logging
-import os
 import random
 from collections.abc import Sequence
 from pathlib import Path
@@ -44,7 +43,6 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    ensure_envvar,
     get_params,
     progress,
     removeprefix_icase,
@@ -84,13 +82,12 @@ def run(
             help="The path to the output directory where the files will be saved.",
         ),
     ],
-    # TODO: Use search preview/Gemini
     model: Annotated[
         str,
         typer.Option(
             "--model", "-m", help="The model to use for both extraction and evaluation."
         ),
-    ] = "gpt-4o-mini",
+    ] = "gpt-4o-mini-search",
     limit_papers: Annotated[
         int,
         typer.Option("--limit", "-n", help="The number of papers to process."),
@@ -207,9 +204,10 @@ async def evaluate_papers(
     if limit_papers == 0:
         limit_papers = None
 
-    api_key = ensure_envvar("OPENAI_API_KEY")
-    base_url = os.getenv("OPENAI_BASE_URL")
-    client = LLMClient.new(api_key=api_key, model=model, seed=seed, base_url=base_url)
+    if "gemini" not in model and "search" not in model:
+        raise ValueError("Model must be either from Gemini or be GPT with search")
+
+    client = LLMClient.new(model=model, seed=seed)
 
     papers = shuffled(
         PromptResult.unwrap(
