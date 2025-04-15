@@ -20,7 +20,6 @@ class Message(TypedDict):
 
     role: str
     content: str
-    name: str | None
 
 
 def _message_num_tokens(value: object) -> int:
@@ -113,7 +112,10 @@ class ChatRateLimiter:
 
     @asynccontextmanager
     async def limit(
-        self, messages: Iterable[Message], **kwargs: Any
+        self,
+        messages: Iterable[Message] | None = None,
+        contents: str | None = None,
+        **kwargs: Any,
     ) -> AsyncGenerator[
         Callable[
             [int | ChatCompletion | GenerateContentResponse],
@@ -135,6 +137,17 @@ class ChatRateLimiter:
         on the `max_token` request parameter. Use the update function for more precise
         tracking.
         """
+        if messages:
+            # Fine, we'll use that as-is
+            pass
+        elif contents:
+            # Transform Gemini-style contents string to OpenAI-style message:
+            messages = [
+                {"role": "user", "content": contents},
+            ]
+        else:
+            raise ValueError("Either messages or contents need to be passed to limiter")
+
         estimated_tokens = _count_tokens(messages, **kwargs)
         request_id = id(object())  # Generate a unique ID
 
