@@ -334,6 +334,7 @@ def _parse_result(text: str | None) -> GPTFull:
     If the text is invalid, returns `GPTFull.error()`.
     """
     if not text:
+        logger.warning("Result parsing: empty text")
         return GPTFull.error()
 
     label = None
@@ -356,6 +357,7 @@ def _parse_result(text: str | None) -> GPTFull:
             rationale.append(line)
 
     if label is None:
+        logger.warning(f"Result parsing: label could not be found:\n\n{text}")
         return GPTFull.error()
 
     return GPTFull(label=label, rationale="\n".join(rationale))
