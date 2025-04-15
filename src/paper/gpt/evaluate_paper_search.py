@@ -16,7 +16,7 @@ import logging
 import random
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Annotated, Self
+from typing import Annotated
 
 import dotenv
 import typer
@@ -51,6 +51,7 @@ from paper.util import (
     setup_logging,
     shuffled,
 )
+from paper.util.cli import die
 from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
@@ -64,16 +65,6 @@ app = typer.Typer(
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,
 )
-
-
-class SearchModel(str):
-    """Search model name. Must be either Gemini or GPT with search."""
-
-    def __new__(cls, model: str) -> Self:
-        """Validate that the model is a valid search model."""
-        if "gemini" not in model and "search" not in model:
-            raise ValueError("Model must be either Gemini or GPT with search")
-        return super().__new__(cls, model)
 
 
 @app.command(help=__doc__, no_args_is_help=True)
@@ -94,14 +85,13 @@ def run(
         ),
     ],
     model: Annotated[
-        SearchModel,
+        str,
         typer.Option(
             "--model",
             "-m",
             help="The model to use for evaluation. Must support search.",
-            parser=SearchModel,
         ),
-    ] = SearchModel("gpt-4o-mini-search"),  # noqa: B008
+    ] = "gpt-4o-mini-search",
     limit_papers: Annotated[
         int,
         typer.Option("--limit", "-n", help="The number of papers to process."),
@@ -196,6 +186,9 @@ async def evaluate_papers(
     if limit_papers == 0:
         limit_papers = None
 
+    if "gemini" not in model and "search" not in model:
+        die("Model must be either Gemini or GPT with search")
+
     client = LLMClient.new(model=model, seed=seed)
 
     papers = shuffled(
@@ -206,9 +199,7 @@ async def evaluate_papers(
 
     eval_prompt = SEARCH_EVAL_USER_PROMPTS[eval_prompt_key]
     if not eval_prompt.system:
-        raise ValueError(
-            f"Eval prompt {eval_prompt.name!r} does not have a system prompt."
-        )
+        die(f"Eval prompt {eval_prompt.name!r} does not have a system prompt.")
 
     output_intermediate_file, papers_remaining = init_remaining_items(
         PaperResult, output_dir, continue_papers_file, papers, continue_
