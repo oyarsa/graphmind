@@ -157,9 +157,21 @@ def _find_best_match(
     return limits[max(matching_prefixes, key=len)]
 
 
-def _prepare_messages(
+def _prepare_messages_gpt(
     system_prompt: str, user_prompt: str, max_input_tokens: int | None
 ) -> list[dict[str, str]]:
+    prepared_system, prepared_user = _prepare_messages(
+        system_prompt, user_prompt, max_input_tokens
+    )
+    return [
+        {"role": "system", "content": prepared_system},
+        {"role": "user", "content": prepared_user},
+    ]
+
+
+def _prepare_messages(
+    system_prompt: str, user_prompt: str, max_input_tokens: int | None
+) -> tuple[str, str]:
     """Prepare messages for the API call, applying token limits if needed.
 
     Args:
@@ -168,29 +180,21 @@ def _prepare_messages(
         max_input_tokens: Maximum number of input/prompt tokens.
 
     Returns:
-        List of message dictionaries in the format expected by the API.
+        Tuple of (system, user) prompts.
     """
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
-    ]
-
     if max_input_tokens is None:
-        return messages
+        return system_prompt, user_prompt
 
     system_tokens = count_tokens(system_prompt)
     user_tokens = count_tokens(user_prompt)
 
     if system_tokens + user_tokens <= max_input_tokens:
-        return messages
+        return system_prompt, user_prompt
 
     available_tokens = max(0, max_input_tokens - system_tokens)
     truncated_user_prompt = truncate_text(user_prompt, available_tokens)
 
-    return [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": truncated_user_prompt},
-    ]
+    return system_prompt, truncated_user_prompt
 
 
 class LLMClient(ABC):
@@ -371,7 +375,7 @@ class OpenAIClient(LLMClient):
         try:
             completion = await self._call_gpt(
                 model=self.model,
-                messages=_prepare_messages(
+                messages=_prepare_messages_gpt(
                     system_prompt, user_prompt, self.max_input_tokens
                 ),
                 response_format=class_,
@@ -431,7 +435,7 @@ class OpenAIClient(LLMClient):
         try:
             completion = await self._call_gpt_plain(
                 model=self.model,
-                messages=_prepare_messages(
+                messages=_prepare_messages_gpt(
                     system_prompt, user_prompt, self.max_input_tokens
                 ),
                 seed=seed,
