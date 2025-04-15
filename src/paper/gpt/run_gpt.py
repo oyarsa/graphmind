@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import asyncio
 import logging
 import os
+from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -147,6 +147,42 @@ def _find_best_match(
     return limits[max(matching_prefixes, key=len)]
 
 
+def _prepare_messages(
+    system_prompt: str, user_prompt: str, max_input_tokens: int | None
+) -> list[dict[str, str]]:
+    """Prepare messages for the API call, applying token limits if needed.
+
+    Args:
+        system_prompt: Text for the system prompt.
+        user_prompt: Text for the user prompt.
+        max_input_tokens: Maximum number of input/prompt tokens.
+
+    Returns:
+        List of message dictionaries in the format expected by the API.
+    """
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    if max_input_tokens is None:
+        return messages
+
+    system_tokens = count_tokens(system_prompt)
+    user_tokens = count_tokens(user_prompt)
+
+    if system_tokens + user_tokens <= max_input_tokens:
+        return messages
+
+    available_tokens = max(0, max_input_tokens - system_tokens)
+    truncated_user_prompt = truncate_text(user_prompt, available_tokens)
+
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": truncated_user_prompt},
+    ]
+
+
 class BaseClient(ABC):
     """ABC for LLM clients."""
 
@@ -236,40 +272,6 @@ class ModelClient(BaseClient):
 
         self.rate_limiter = get_rate_limiter(api_tier, model)
 
-    def _prepare_messages(
-        self, system_prompt: str, user_prompt: str
-    ) -> list[dict[str, str]]:
-        """Prepare messages for the API call, applying token limits if needed.
-
-        Args:
-            system_prompt: Text for the system prompt.
-            user_prompt: Text for the user prompt.
-
-        Returns:
-            List of message dictionaries in the format expected by the API.
-        """
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-
-        if self.max_input_tokens is None:
-            return messages
-
-        system_tokens = count_tokens(system_prompt)
-        user_tokens = count_tokens(user_prompt)
-
-        if system_tokens + user_tokens <= self.max_input_tokens:
-            return messages
-
-        available_tokens = max(0, self.max_input_tokens - system_tokens)
-        truncated_user_prompt = truncate_text(user_prompt, available_tokens)
-
-        return [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": truncated_user_prompt},
-        ]
-
     @override
     async def run[T: BaseModel](
         self,
@@ -308,7 +310,9 @@ class ModelClient(BaseClient):
         try:
             completion = await self._call_gpt(
                 model=self.model,
-                messages=self._prepare_messages(system_prompt, user_prompt),
+                messages=_prepare_messages(
+                    system_prompt, user_prompt, self.max_input_tokens
+                ),
                 response_format=class_,
                 seed=self.seed,
                 temperature=self.temperature,
@@ -366,7 +370,9 @@ class ModelClient(BaseClient):
         try:
             completion = await self._call_gpt_plain(
                 model=self.model,
-                messages=self._prepare_messages(system_prompt, user_prompt),
+                messages=_prepare_messages(
+                    system_prompt, user_prompt, self.max_input_tokens
+                ),
                 seed=seed,
                 temperature=temperature,
                 max_tokens=max_tokens,
