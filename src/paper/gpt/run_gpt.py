@@ -183,7 +183,7 @@ def _prepare_messages(
     ]
 
 
-class BaseClient(ABC):
+class LLMClient(ABC):
     """ABC for LLM clients."""
 
     @abstractmethod
@@ -207,7 +207,7 @@ class BaseClient(ABC):
         """Run the GPT query and return plain text output."""
 
 
-class ModelClient(BaseClient):
+class ModelClient(LLMClient):
     """Client to communicate with the OpenAI API."""
 
     def __init__(
