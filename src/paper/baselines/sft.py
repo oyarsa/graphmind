@@ -1,4 +1,4 @@
-"""Fine-tune a 3 model (e.g. Llama) using LoRA for a rating prediction task.
+"""Fine-tune a model (e.g. Llama) using LoRA for a rating prediction task.
 
 Can use two types of input:
 - basic: paper title and abstract
@@ -12,7 +12,7 @@ import json
 import platform
 import random
 import warnings
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated, Literal, cast
 
@@ -40,9 +40,9 @@ from transformers import (
     TrainingArguments,
 )
 
+from paper import gpt
+from paper import peerread as pr
 from paper.evaluation_metrics import Metrics, calculate_metrics
-from paper.gpt.extract_graph import ExtractedGraph
-from paper.gpt.model import PaperWithRelatedSummary, PromptResult
 from paper.util import metrics, sample
 from paper.util.serde import load_data
 
@@ -56,6 +56,9 @@ class LoraConfig(BaseModel):
     target_modules: Annotated[list[str], Field(description="Target modules for LoRA")]
 
 
+# Using Literal instead of Enum because the latter bugs out with tomlw when writing
+# the configuration file.
+type LabelMode = Literal["original", "binary"]
 type InputMode = Literal["basic", "graph"]
 
 
@@ -331,55 +334,97 @@ def load_dataset(
     """
     if model_input == "basic":
         data = sample(
-            PromptResult.unwrap(load_data(file, PromptResult[PaperWithRelatedSummary])),
+            gpt.PromptResult.unwrap(
+                load_data(file, gpt.PromptResult[gpt.PaperWithRelatedSummary])
+            ),
             n,
         )
         return preprocess_dataset_basic(data, label_mode)
 
-    data = sample(PromptResult.unwrap(load_data(file, PromptResult[ExtractedGraph])), n)
+    data = sample(
+        gpt.PromptResult.unwrap(load_data(file, gpt.PromptResult[gpt.ExtractedGraph])),
+        n,
+    )
     return preprocess_dataset_graph(data, label_mode)
 
 
+def _fix_rating(rating: int, label_mode: LabelMode) -> int:
+    """Fix rating for model compatibility.
+
+    If `label_mode` is `original`, convert 1-4 to 0-3.
+    Else (binary), ratings >= 3 become 1, and the rest 0.
+    """
+    if label_mode == "original":
+        return rating - 1
+
+    return int(rating >= 3)
+
+
 def preprocess_dataset_basic(
-    dataset: list[PaperWithRelatedSummary], label_mode: LabelMode
+    dataset: list[gpt.PaperWithRelatedSummary], label_mode: LabelMode
 ) -> Dataset:
     """Convert raw dataset into HuggingFace dataset format and prepare for training.
 
-    Transforms the raw JSON data into a format suitable for training, combining
-    title and abstract as input text and adjusting ratings to 0-indexed format.
+    Converts the label to the appropriate mode and builds the input prompt from the
+    paper title and abstract.
     """
     papers = [item.paper.paper for item in dataset]
-    texts = [f"Title: {paper.title}\nAbstract: {paper.abstract}" for paper in papers]
 
-    if label_mode == "original":
-        # Convert 1-4 to 0-3 for model compatibility
-        labels = [paper.rating - 1 for paper in papers]
-    else:  # binary
-        labels = [int(paper.rating >= 3) for paper in papers]
+    texts = [f"Title: {paper.title}\nAbstract: {paper.abstract}" for paper in papers]
+    labels = [_fix_rating(paper.rating, label_mode) for paper in papers]
 
     return Dataset.from_dict({"text": texts, "label": labels})
 
 
 def preprocess_dataset_graph(
-    dataset: list[ExtractedGraph], label_mode: LabelMode
+    dataset: list[gpt.ExtractedGraph], label_mode: LabelMode
 ) -> Dataset:
     """Convert raw dataset into HuggingFace dataset format and prepare for training.
 
-    Transforms the raw JSON data into a format suitable for training, combining
-    title and abstract as input text and adjusting ratings to 0-indexed format.
+    Converts the label to the appropriate mode and builds the input prompt from the
+    paper graph and related papers.
     """
-    texts = [
-        f"Title: {item.paper.title}\nAbstract: {item.paper.abstract}\nGraph: {item.graph.to_text()}"
-        for item in dataset
-    ]
-
-    if label_mode == "original":
-        # Convert 1-4 to 0-3 for model compatibility
-        labels = [item.paper.rating - 1 for item in dataset]
-    else:  # binary
-        labels = [int(item.paper.rating >= 3) for item in dataset]
+    texts = [_format_graph_template(item.paper, item.graph) for item in dataset]
+    labels = [_fix_rating(item.paper.rating, label_mode) for item in dataset]
 
     return Dataset.from_dict({"text": texts, "label": labels})
+
+
+GRAPH_PROMPT = """\
+Title: {title}
+Abstract: {abstract}
+
+Paper summary:
+{graph}
+
+Supporting papers:
+{positive}
+
+Contrasting papers:
+{negative}
+"""
+
+
+def _format_graph_template(paper: gpt.PaperWithRelatedSummary, graph: gpt.Graph) -> str:
+    """Format graph template using the paper graph and PETER-queried related papers."""
+    return GRAPH_PROMPT.format(
+        title=paper.title,
+        abstract=paper.abstract,
+        positive=_format_related(
+            p for p in paper.related if p.polarity is pr.ContextPolarity.POSITIVE
+        ),
+        negative=_format_related(
+            p for p in paper.related if p.polarity is pr.ContextPolarity.NEGATIVE
+        ),
+        graph=graph.to_text(),
+    )
+
+
+def _format_related(related: Iterable[gpt.PaperRelatedSummarised]) -> str:
+    """Build prompt from related papers titles and summaries."""
+    return "\n\n".join(
+        f"Title: {paper.title}\nSummary: {paper.summary}\n" for paper in related
+    )
 
 
 def setup_model_and_tokeniser(
@@ -651,9 +696,6 @@ def evaluate_model(
         output_dir=output_dir,
         label_mode=label_mode,
     )
-
-
-LabelMode = Literal["original", "binary"]
 
 
 def evaluate_model_predictions(
