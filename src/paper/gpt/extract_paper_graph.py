@@ -287,7 +287,7 @@ async def _extract_graph(
     return GPTResult(
         result=PromptResult(
             item=ExtractedGraph(
-                paper=paper.paper.paper,
+                paper=paper,
                 graph=graph,
             ),
             prompt=Prompt(system=prompt.system, user=prompt_text),
