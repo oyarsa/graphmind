@@ -1,4 +1,4 @@
-"""Extract a hierachical graph representing a paper from its full contents.
+"""Extract a hierarchical graph representing a paper from its full contents.
 
 The input is the output of `gpt.summarise_related_peter`. These are the PETER-queried
 papers with the related papers summarised. This then converts the paper content to a
@@ -151,7 +151,7 @@ async def extract_graphs(
     seed: int,
     batch_size: int,
 ) -> None:
-    """Extract hiearchical graphs from paper contents.
+    """Extract hierarchical graphs from paper contents.
 
     The papers should come from `gpt.summarise_related_peter`.
 
@@ -232,7 +232,7 @@ async def _extract_graphs(
     output_intermediate_file: Path,
     batch_size: int,
 ) -> GPTResult[list[PromptResult[ExtractedGraph]]]:
-    """Extract hiearchical graphs from paper contents.
+    """Extract hierarchical graphs from paper contents.
 
     Args:
         client: OpenAI client to use GPT.
