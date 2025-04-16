@@ -106,6 +106,10 @@ class Maybe[T](ABC):
     def unwrap_or[U](self, default: T | U) -> T | U:
         """Extract the contained value, or return the default value if Nothing."""
 
+    @abstractmethod
+    def unwrap_f[U](self, f: Callable[[], U]) -> T | U:
+        """Extract the contained value, or use function result if Nothing."""
+
 
 class Just[T](Maybe[T]):
     """A Maybe that contains a value."""
@@ -134,6 +138,10 @@ class Just[T](Maybe[T]):
 
     @override
     def unwrap_or[U](self, default: T | U) -> T | U:
+        return self.value
+
+    @override
+    def unwrap_f[U](self, f: Callable[[], U]) -> T | U:
         return self.value
 
     def __eq__(self, other: object) -> bool:
@@ -169,6 +177,10 @@ class Nothing[T](Maybe[T]):
     @override
     def unwrap_or[U](self, default: T | U) -> T | U:
         return default
+
+    @override
+    def unwrap_f[U](self, f: Callable[[], U]) -> T | U:
+        return f()
 
     def __eq__(self, other: object) -> bool:
         """Items are equal if they're both Nothing."""
