@@ -1,6 +1,8 @@
-"""Fine-tune a Llama 3 model using LoRA for a rating prediction task.
+"""Fine-tune a 3 model (e.g. Llama) using LoRA for a rating prediction task.
 
-Uses as input the paper title and abstract.
+Can use two types of input:
+- basic: paper title and abstract
+- graph: in addition to basic, includes the hierarchical graph and related papers
 """
 # pyright: basic
 
@@ -12,7 +14,7 @@ import random
 import warnings
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Literal, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -39,7 +41,10 @@ from transformers import (
 )
 
 from paper.evaluation_metrics import Metrics, calculate_metrics
-from paper.util import metrics
+from paper.gpt.extract_graph import ExtractedGraph
+from paper.gpt.model import PaperWithRelatedSummary, PromptResult
+from paper.util import metrics, sample
+from paper.util.serde import load_data
 
 
 class LoraConfig(BaseModel):
@@ -49,6 +54,9 @@ class LoraConfig(BaseModel):
     alpha: Annotated[int, Field(description="LoRA alpha parameter")]
     dropout: Annotated[float, Field(description="Dropout probability for LoRA layers")]
     target_modules: Annotated[list[str], Field(description="Target modules for LoRA")]
+
+
+type InputMode = Literal["basic", "graph"]
 
 
 class ModelConfig(BaseModel):
@@ -62,6 +70,10 @@ class ModelConfig(BaseModel):
     label_mode: Annotated[
         LabelMode, Field(description="What label mode to use (binary/original).")
     ] = "original"
+    input_mode: Annotated[
+        InputMode,
+        Field(description="What input to use for the model (minimal vs full graph)"),
+    ] = "basic"
 
 
 class TrainingConfig(BaseModel):
@@ -169,9 +181,15 @@ def train(
 
     config = read_config(config_path)
 
-    train_dataset = load_dataset(train_file, num_train, config.model.label_mode)
-    dev_dataset = load_dataset(dev_file, num_dev, config.model.label_mode)
-    test_dataset = load_dataset(test_file, num_test, config.model.label_mode)
+    train_dataset = load_dataset(
+        train_file, num_train, config.model.label_mode, config.model.input_mode
+    )
+    dev_dataset = load_dataset(
+        dev_file, num_dev, config.model.label_mode, config.model.input_mode
+    )
+    test_dataset = load_dataset(
+        test_file, num_test, config.model.label_mode, config.model.input_mode
+    )
 
     model, tokeniser = setup_model_and_tokeniser(config)
     lora_model = configure_lora(model, config)
@@ -270,7 +288,9 @@ def infer(
 
     model, tokeniser = setup_model_and_tokeniser(config, model_path)
 
-    dataset = load_dataset(input_file, num_examples, config.model.label_mode)
+    dataset = load_dataset(
+        input_file, num_examples, config.model.label_mode, config.model.input_mode
+    )
     dataset_tokenised = tokenise_dataset(dataset, tokeniser, config)
 
     data_collator = DataCollatorWithPadding(tokenizer=tokeniser)
@@ -302,33 +322,62 @@ def suppress_hf_warnings() -> None:
     )
 
 
-def load_dataset(file: Path, n: int | None, label_mode: LabelMode) -> Dataset:
+def load_dataset(
+    file: Path, n: int | None, label_mode: LabelMode, model_input: InputMode
+) -> Dataset:
     """Load JSON file and prepare input dataset.
 
     See `preprocess_dataset` for how the data is prepared.
     """
-    data = json.loads(file.read_bytes())
-    if n is not None:
-        data = random.sample(data, k=n)
-    return preprocess_dataset(data, label_mode)
+    if model_input == "basic":
+        data = sample(
+            PromptResult.unwrap(load_data(file, PromptResult[PaperWithRelatedSummary])),
+            n,
+        )
+        return preprocess_dataset_basic(data, label_mode)
+
+    data = sample(PromptResult.unwrap(load_data(file, PromptResult[ExtractedGraph])), n)
+    return preprocess_dataset_graph(data, label_mode)
 
 
-def preprocess_dataset(dataset: list[dict[str, Any]], label_mode: LabelMode) -> Dataset:
+def preprocess_dataset_basic(
+    dataset: list[PaperWithRelatedSummary], label_mode: LabelMode
+) -> Dataset:
     """Convert raw dataset into HuggingFace dataset format and prepare for training.
 
     Transforms the raw JSON data into a format suitable for training, combining
     title and abstract as input text and adjusting ratings to 0-indexed format.
     """
-    papers = [item["item"]["paper"]["paper"] for item in dataset]
+    papers = [item.paper.paper for item in dataset]
+    texts = [f"Title: {paper.title}\nAbstract: {paper.abstract}" for paper in papers]
+
+    if label_mode == "original":
+        # Convert 1-4 to 0-3 for model compatibility
+        labels = [paper.rating - 1 for paper in papers]
+    else:  # binary
+        labels = [int(paper.rating >= 3) for paper in papers]
+
+    return Dataset.from_dict({"text": texts, "label": labels})
+
+
+def preprocess_dataset_graph(
+    dataset: list[ExtractedGraph], label_mode: LabelMode
+) -> Dataset:
+    """Convert raw dataset into HuggingFace dataset format and prepare for training.
+
+    Transforms the raw JSON data into a format suitable for training, combining
+    title and abstract as input text and adjusting ratings to 0-indexed format.
+    """
     texts = [
-        f"Title: {paper['title']}\nAbstract: {paper['abstract']}" for paper in papers
+        f"Title: {item.paper.title}\nAbstract: {item.paper.abstract}\nGraph: {item.graph.to_text()}"
+        for item in dataset
     ]
 
     if label_mode == "original":
         # Convert 1-4 to 0-3 for model compatibility
-        labels = [paper["rating"] - 1 for paper in papers]
+        labels = [item.paper.rating - 1 for item in dataset]
     else:  # binary
-        labels = [int(paper["rating"] >= 3) for paper in papers]
+        labels = [int(item.paper.rating >= 3) for item in dataset]
 
     return Dataset.from_dict({"text": texts, "label": labels})
 

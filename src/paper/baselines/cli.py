@@ -2,7 +2,7 @@
 
 import typer
 
-from paper.baselines import novascore
+from paper.baselines import novascore, sft
 from paper.baselines.scimon import cli as scimon
 
 app = typer.Typer(
@@ -16,6 +16,7 @@ app = typer.Typer(
 
 app.add_typer(scimon.app, name="scimon")
 app.add_typer(novascore.app, name="nova")
+app.add_typer(sft.app, name="sft")
 
 if __name__ == "__main__":
     app()
