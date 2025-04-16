@@ -44,7 +44,8 @@ from paper import gpt
 from paper import peerread as pr
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import Metrics, calculate_metrics
-from paper.util import metrics, sample
+from paper.util import describe, metrics, sample
+from paper.util.cli import Choice
 from paper.util.serde import load_data, save_data
 
 
@@ -761,7 +762,7 @@ def evaluate_model_predictions(
 class FormattedData(BaseModel):
     """Container for original data and its formatted representation for the model."""
 
-    original_data: gpt.PaperWithRelatedSummary | gpt.ExtractedGraph
+    paper: gpt.PaperWithRelatedSummary | gpt.ExtractedGraph
     input: str
 
 
@@ -779,9 +780,12 @@ def format(
             help="Path to save the formatted data.",
         ),
     ],
-    input_mode: Annotated[
+    mode: Annotated[
         str,
-        typer.Option(help="Input mode to use (basic or graph)."),
+        typer.Option(
+            help="Input mode to use (basic or graph).",
+            click_type=Choice(["basic", "graph"]),
+        ),
     ],
     num_examples: Annotated[
         int | None,
@@ -797,7 +801,9 @@ def format(
     """
     random.seed(seed)
 
-    if input_mode == "basic":
+    formatted_items: list[FormattedData] = []
+
+    if mode == "basic":
         data = sample(
             gpt.PromptResult.unwrap(
                 load_data(input_file, gpt.PromptResult[gpt.PaperWithRelatedSummary])
@@ -806,12 +812,12 @@ def format(
         )
         formatted_items = [
             FormattedData(
-                original_data=item,
+                paper=item,
                 input=_format_basic_template(item.paper.paper),
             )
             for item in data
         ]
-    elif input_mode == "graph":
+    elif mode == "graph":
         data = sample(
             gpt.PromptResult.unwrap(
                 load_data(input_file, gpt.PromptResult[gpt.ExtractedGraph])
@@ -819,9 +825,12 @@ def format(
             num_examples,
         )
         formatted_items = [
-            FormattedData(original_data=item, input=_format_graph_template(item))
+            FormattedData(paper=item, input=_format_graph_template(item))
             for item in data
         ]
+
+    num_tokens = [gpt.count_tokens(x.input) for x in formatted_items]
+    print(describe(num_tokens))
 
     save_data(output_file, formatted_items)
 
