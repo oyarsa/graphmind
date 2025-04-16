@@ -343,7 +343,7 @@ class Graph(Record):
         return not self.title
 
     @on_exception(default="<error>", logger=logger)
-    def to_text(self, method: LinearisationMethod) -> str:
+    def to_text(self, method: LinearisationMethod = LinearisationMethod.TOPO) -> str:
         """Convert graph to LLM-readable text using the linearisation `method`.
 
         If the graph is empty, returns an empty string.
