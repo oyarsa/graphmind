@@ -42,9 +42,10 @@ from transformers import (
 
 from paper import gpt
 from paper import peerread as pr
+from paper import semantic_scholar as s2
 from paper.evaluation_metrics import Metrics, calculate_metrics
 from paper.util import metrics, sample
-from paper.util.serde import load_data
+from paper.util.serde import load_data, save_data
 
 
 class LoraConfig(BaseModel):
@@ -368,12 +369,15 @@ def preprocess_dataset_basic(
     Converts the label to the appropriate mode and builds the input prompt from the
     paper title and abstract.
     """
-    papers = [item.paper.paper for item in dataset]
-
-    texts = [f"Title: {paper.title}\nAbstract: {paper.abstract}" for paper in papers]
-    labels = [_fix_rating(paper.rating, label_mode) for paper in papers]
+    texts = [_format_basic_template(item.paper.paper) for item in dataset]
+    labels = [_fix_rating(item.paper.paper.rating, label_mode) for item in dataset]
 
     return Dataset.from_dict({"text": texts, "label": labels})
+
+
+def _format_basic_template(paper: s2.PaperWithS2Refs) -> str:
+    """Format basic template using paper title and abstract."""
+    return f"Title: {paper.title}\nAbstract: {paper.abstract}"
 
 
 def preprocess_dataset_graph(
@@ -384,7 +388,7 @@ def preprocess_dataset_graph(
     Converts the label to the appropriate mode and builds the input prompt from the
     paper graph and related papers.
     """
-    texts = [_format_graph_template(item.paper, item.graph) for item in dataset]
+    texts = [_format_graph_template(item) for item in dataset]
     labels = [_fix_rating(item.paper.rating, label_mode) for item in dataset]
 
     return Dataset.from_dict({"text": texts, "label": labels})
@@ -405,8 +409,10 @@ Contrasting papers:
 """
 
 
-def _format_graph_template(paper: gpt.PaperWithRelatedSummary, graph: gpt.Graph) -> str:
+def _format_graph_template(item: gpt.ExtractedGraph) -> str:
     """Format graph template using the paper graph and PETER-queried related papers."""
+    paper = item.paper
+    graph = item.graph
     return GRAPH_PROMPT.format(
         title=paper.title,
         abstract=paper.abstract,
@@ -750,6 +756,74 @@ def evaluate_model_predictions(
     print(f"Raw predictions saved to {prediction_path}")
 
     return metrics_result
+
+
+class FormattedData(BaseModel):
+    """Container for original data and its formatted representation for the model."""
+
+    original_data: gpt.PaperWithRelatedSummary | gpt.ExtractedGraph
+    input: str
+
+
+@app.command(no_args_is_help=True)
+def format(
+    input_file: Annotated[
+        Path,
+        typer.Option("--input", "-i", help="Path to the input file for formatting."),
+    ],
+    output_file: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Path to save the formatted data.",
+        ),
+    ],
+    input_mode: Annotated[
+        str,
+        typer.Option(help="Input mode to use (basic or graph)."),
+    ],
+    num_examples: Annotated[
+        int | None,
+        typer.Option(help="Number of examples to format. If None, use all items."),
+    ] = None,
+    seed: Annotated[int, typer.Option(help="Seed used to sample the dataset.")] = 0,
+) -> None:
+    """Format input data according to the specified mode and save it.
+
+    Reads data from the input file, formats the text representation based on the
+    input_mode ('basic' or 'graph'), and saves the original data along with the
+    formatted text to the output file.
+    """
+    random.seed(seed)
+
+    if input_mode == "basic":
+        data = sample(
+            gpt.PromptResult.unwrap(
+                load_data(input_file, gpt.PromptResult[gpt.PaperWithRelatedSummary])
+            ),
+            num_examples,
+        )
+        formatted_items = [
+            FormattedData(
+                original_data=item,
+                input=_format_basic_template(item.paper.paper),
+            )
+            for item in data
+        ]
+    elif input_mode == "graph":
+        data = sample(
+            gpt.PromptResult.unwrap(
+                load_data(input_file, gpt.PromptResult[gpt.ExtractedGraph])
+            ),
+            num_examples,
+        )
+        formatted_items = [
+            FormattedData(original_data=item, input=_format_graph_template(item))
+            for item in data
+        ]
+
+    save_data(output_file, formatted_items)
 
 
 if __name__ == "__main__":
