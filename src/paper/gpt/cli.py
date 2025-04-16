@@ -18,6 +18,7 @@ from paper.gpt import (
     evaluate_rationale,
     evaluate_reviews,
     extract_acu,
+    extract_paper_graph,
     summarise_related_peter,
     tokens,
 )
@@ -63,6 +64,7 @@ main_subcommands = [
     ("tokens", "Estimate input tokens for tasks and prompts.", tokens),
     ("petersum", "Summarise PETER related papers.", summarise_related_peter),
     ("acus", "Extract Atomic Content Units from related papers", extract_acu),
+    ("graph", "Extract hierchical graph from paper contents", extract_paper_graph),
 ]
 app = _new_app("gpt", main_subcommands)
 
