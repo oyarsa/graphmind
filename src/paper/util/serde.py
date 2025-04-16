@@ -122,6 +122,8 @@ def load_data[T: BaseModel](
 ) -> list[T]: ...
 
 
+# TODO: Improve validation error reporting. It currently prints the errors for _every_
+# item in the list, which is not helpful.
 def load_data[T: BaseModel](
     file: Path | bytes,
     type_: type[T],
