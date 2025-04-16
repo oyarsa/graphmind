@@ -14,6 +14,7 @@ from typing import override
 from pydantic import BaseModel, ConfigDict
 
 from paper import hierarchical_graph
+from paper import semantic_scholar as s2
 from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.model import Graph, Prompt, PromptResult
 from paper.util.serde import Record, save_data
@@ -26,6 +27,18 @@ class GraphResult(Record):
 
     graph: Graph
     paper: PaperResult
+
+    @property
+    @override
+    def id(self) -> str:
+        return self.paper.id
+
+
+class ExtractedGraph(Record):
+    """Extracted graph with the original paper."""
+
+    graph: Graph
+    paper: s2.PaperWithS2Refs
 
     @property
     @override
