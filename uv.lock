@@ -1811,6 +1811,7 @@ dependencies = [
     { name = "tqdm" },
     { name = "transformers" },
     { name = "typer" },
+    { name = "typing-extensions" },
 ]
 
 [package.dev-dependencies]
@@ -1857,6 +1858,7 @@ requires-dist = [
     { name = "tqdm", specifier = ">=4.66.5" },
     { name = "transformers", specifier = ">=4.46.2" },
     { name = "typer", specifier = ">=0.12.5" },
+    { name = "typing-extensions", specifier = ">=4.12.2" },
 ]
 
 [package.metadata.requires-dev]
