@@ -111,7 +111,7 @@ class AppConfig(BaseModel):
     """Main application configuration."""
 
     model: ModelConfig
-    lora: LoraConfig
+    lora: LoraConfig | None = None
     training: TrainingConfig
 
 
@@ -210,7 +210,8 @@ def train(
     )
 
     model, tokeniser = setup_model_and_tokeniser(config)
-    lora_model = configure_lora(model, config)
+    if config.lora:
+        model = configure_lora(model, config)
 
     output_dir.mkdir(exist_ok=True, parents=True)
 
@@ -219,14 +220,14 @@ def train(
     test_dataset_tokenised = tokenise_dataset(test_dataset, tokeniser, config)
 
     trainer = train_model(
-        lora_model,
+        model,
         tokeniser,
         train_dataset_tokenised,
         dev_dataset_tokenised,
         output_dir,
         config,
     )
-    save_model(lora_model, tokeniser, output_dir, config)
+    save_model(model, tokeniser, output_dir, config)
 
     print(
         evaluate_model(
@@ -540,6 +541,9 @@ def configure_lora[T: PreTrainedModel](model: T, config: AppConfig) -> T:
 
     model.config.label2id = {str(i + 1): i for i in range(config.model.num_labels)}
     model.config.id2label = {id: label for label, id in model.config.label2id.items()}
+
+    if config.lora is None:
+        raise ValueError("LoRA configuration must be present")
 
     lora_config = PeftLoraConfig(
         r=config.lora.r,
