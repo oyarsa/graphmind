@@ -9,6 +9,7 @@ Can use two types of input:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import platform
 import random
@@ -47,9 +48,11 @@ from paper import gpt
 from paper import peerread as pr
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import Metrics, calculate_metrics
-from paper.util import describe, metrics, sample
+from paper.util import describe, metrics, sample, setup_logging
 from paper.util.cli import Choice
 from paper.util.serde import load_data, save_data
+
+logger = logging.getLogger(__name__)
 
 
 class LoraConfig(BaseModel):
@@ -202,6 +205,7 @@ def train(
         num_dev = num_examples
         num_test = num_examples
 
+    logger.debug("Loading datasets: start")
     train_dataset = load_dataset(
         train_file, num_train, config.model.label_mode, config.model.input_mode
     )
@@ -211,17 +215,26 @@ def train(
     test_dataset = load_dataset(
         test_file, num_test, config.model.label_mode, config.model.input_mode
     )
+    logger.debug("Loading datasets: done")
 
+    logger.debug("Setting up model: start")
     model, tokeniser = setup_model_and_tokeniser(config)
+    logger.debug("Setting up model: done")
+
     if config.lora:
+        logger.debug("Setting up LoRA: start")
         model = configure_lora(model, config)
+        logger.debug("Setting up LoRA: done")
 
     output_dir.mkdir(exist_ok=True, parents=True)
 
+    logger.debug("Tokenising dataset: start")
     train_dataset_tokenised = tokenise_dataset(train_dataset, tokeniser, config)
     dev_dataset_tokenised = tokenise_dataset(dev_dataset, tokeniser, config)
     test_dataset_tokenised = tokenise_dataset(test_dataset, tokeniser, config)
+    logger.debug("Tokenising dataset: end")
 
+    logger.debug("Training model: start")
     trainer = train_model(
         model,
         tokeniser,
@@ -230,15 +243,21 @@ def train(
         output_dir,
         config,
     )
-    save_model(model, tokeniser, output_dir, config)
+    logger.debug("Training model: end")
 
-    print(
+    logger.debug("Saving model: start")
+    save_model(model, tokeniser, output_dir, config)
+    logger.debug("Saving model: end")
+
+    logger.debug("Evaluating: start")
+    logger.info(
+        "\n%s",
         evaluate_model(
             trainer, test_dataset_tokenised, output_dir, config.model.label_mode
-        )
+        ),
     )
-    print()
-    print(gpu_mem)
+    logger.info(gpu_mem)
+    logger.debug("Evaluating: end")
 
 
 def read_config(file: Path) -> AppConfig:
@@ -296,7 +315,7 @@ def infer(
 
     model_config_path = model_path / "config.toml"
     if config_path is None and model_config_path.exists():
-        print(f"Using configuration from model directory: {model_config_path}")
+        logger.info(f"Using configuration from model directory: {model_config_path}")
         config_path = model_config_path
     elif config_path is None:
         raise typer.BadParameter(
@@ -328,12 +347,12 @@ def infer(
         compute_metrics=compute_metrics,
     )
 
-    print(f"\nRunning inference on {len(dataset)} examples...")
-    print(
-        evaluate_model(trainer, dataset_tokenised, output_dir, config.model.label_mode)
+    logger.info(f"\nRunning inference on {len(dataset)} examples...")
+    logger.info(
+        "\n%s",
+        evaluate_model(trainer, dataset_tokenised, output_dir, config.model.label_mode),
     )
-    print()
-    print(gpu_mem)
+    logger.info(gpu_mem)
 
 
 def suppress_hf_warnings() -> None:
@@ -687,7 +706,7 @@ def save_model(
     tokeniser.save_pretrained(final_dir)
     (final_dir / "config.toml").write_text(toml.dumps(config.model_dump()))
 
-    print(f"Model, tokeniser, and configuration saved to {final_dir}")
+    logger.info(f"Model, tokeniser, and configuration saved to {final_dir}")
 
 
 def evaluate_model(
@@ -707,7 +726,7 @@ def evaluate_model(
         output_dir: Directory to save evaluation results.
         label_mode: Type of label from the data.
     """
-    print("\nRunning evaluation on test set...")
+    logger.info("\nRunning evaluation on test set...")
 
     predictions = trainer.predict(test_dataset_tokenised)  # pyright: ignore
     true_labels = predictions.label_ids
@@ -772,8 +791,8 @@ def evaluate_model_predictions(
 
     prediction_path.write_text(json.dumps(prediction_data, indent=2))
 
-    print(f"Evaluation metrics saved to {metrics_path}")
-    print(f"Raw predictions saved to {prediction_path}")
+    logger.info(f"Evaluation metrics saved to {metrics_path}")
+    logger.info(f"Raw predictions saved to {prediction_path}")
 
     return metrics_result
 
@@ -849,9 +868,15 @@ def format(
         ]
 
     num_tokens = [gpt.count_tokens(x.input) for x in formatted_items]
-    print(describe(num_tokens))
+    logger.info("\n%s", describe(num_tokens))
 
     save_data(output_file, formatted_items)
+
+
+@app.callback()
+def main() -> None:
+    """Set up logging."""
+    setup_logging()
 
 
 if __name__ == "__main__":
