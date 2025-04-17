@@ -178,7 +178,7 @@ def train(
     Uses train data for training, dev data for validation during training, and test data
     for final evaluation.
 
-    The dataset format is the output of `paper gpt petersum` from `paper-hypergraph`.
+    The dataset format is the output of `paper gpt petersum`.
     """
     random.seed(seed)
     suppress_hf_warnings()
@@ -271,8 +271,7 @@ def infer(
     The configuration is loaded from the model directory if available, or can be
     explicitly provided via the --config option.
 
-    The dataset format is the same as used for training: output of `paper gpt petersum`
-    from `paper-hypergraph`.
+    The dataset format is the same as used for training: output of `paper gpt petersum`.
     """
     random.seed(seed)
     suppress_hf_warnings()
