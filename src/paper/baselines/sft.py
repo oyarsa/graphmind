@@ -493,13 +493,23 @@ def setup_model_and_tokeniser(
         if config.model.quantisation_enabled and cuda_available()
         else None
     )
-    model = AutoModelForSequenceClassification.from_pretrained(
-        model_name,
-        num_labels=config.model.num_labels,
-        device_map="auto",
-        torch_dtype=torch.float16 if cuda_available() else None,
-        quantization_config=quantisation_config,
-    )
+
+    # Try f16/multi-device configuration. If it fails, use the simplest possible.
+    try:
+        model = AutoModelForSequenceClassification.from_pretrained(
+            model_name,
+            num_labels=config.model.num_labels,
+            device_map="auto",
+            torch_dtype=torch.float16 if cuda_available() else None,
+            quantization_config=quantisation_config,
+        )
+    except ValueError:
+        logger.info("Using basic configuration (no fp16, single device).")
+        model = AutoModelForSequenceClassification.from_pretrained(
+            model_name,
+            num_labels=config.model.num_labels,
+        )
+
     model.config.use_cache = False
 
     tokeniser = AutoTokenizer.from_pretrained(model_name)
