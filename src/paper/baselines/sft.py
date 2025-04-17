@@ -475,7 +475,7 @@ def setup_model_and_tokeniser(
         model_name,
         num_labels=config.model.num_labels,
         device_map="auto",
-        torch_dtype=torch.float16,
+        torch_dtype=torch.float16 if cuda_available() else None,
         quantization_config=quantisation_config,
     )
     model.config.use_cache = False
@@ -610,7 +610,7 @@ def train_model(
         eval_steps=config.training.eval_steps,
         load_best_model_at_end=True,
         learning_rate=config.training.learning_rate,
-        fp16=True,
+        fp16=cuda_available(),
         report_to="none",
         metric_for_best_model="accuracy",
         greater_is_better=True,
