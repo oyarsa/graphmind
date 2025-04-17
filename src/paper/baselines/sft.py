@@ -168,6 +168,13 @@ def train(
         int | None,
         typer.Option(help="Number of test examples to use. If None, use all items."),
     ] = None,
+    num_examples: Annotated[
+        int | None,
+        typer.Option(
+            help="Number of examples to use for all splits. If given, overrides"
+            " --num-dev, --num-train and --num-test"
+        ),
+    ] = None,
     seed: Annotated[int, typer.Option(help="Seed used to sample the dataset.")] = 0,
 ) -> None:
     """Fine-tune a Llama 3 model with LoRA for novelty rating prediction.
@@ -185,6 +192,12 @@ def train(
     gpu_mem = GPUMemoryTracker()
 
     config = read_config(config_path)
+
+    # Override number of items with `--num-examples` shortcut.
+    if num_examples is not None:
+        num_train = num_examples
+        num_dev = num_examples
+        num_test = num_examples
 
     train_dataset = load_dataset(
         train_file, num_train, config.model.label_mode, config.model.input_mode
