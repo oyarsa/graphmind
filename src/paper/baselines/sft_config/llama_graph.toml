@@ -1,0 +1,21 @@
+[model]
+name = "meta-llama/Llama-3.1-8B-Instruct"
+num_labels = 2
+quantisation_enabled = true
+label_mode = "binary"
+input_mode = "graph"
+
+[lora]
+r = 8
+alpha = 16
+dropout = 0.1
+target_modules = ["q_proj", "k_proj", "v_proj"]
+
+[training]
+batch_size = 16
+learning_rate = 1e-4
+num_epochs = 1
+warmup_steps = 50
+weight_decay = 0.01
+max_length = 512
+logging_steps = 10
