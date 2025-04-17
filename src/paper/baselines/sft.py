@@ -9,6 +9,7 @@ Can use two types of input:
 from __future__ import annotations
 
 import json
+import os
 import platform
 import random
 import warnings
@@ -27,6 +28,8 @@ from peft.tuners.lora import LoraConfig as PeftLoraConfig
 from peft.utils.other import prepare_model_for_kbit_training
 from peft.utils.peft_types import TaskType
 from pydantic import BaseModel, Field
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
