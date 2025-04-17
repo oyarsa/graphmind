@@ -1,0 +1,15 @@
+[model]
+name = "allenai/longformer-base-4096"
+num_labels = 2
+quantisation_enabled = true
+label_mode = "binary"
+input_mode = "graph"
+
+[training]
+batch_size = 16
+learning_rate = 1e-4
+num_epochs = 1
+warmup_steps = 50
+weight_decay = 0.01
+max_length = 512
+logging_steps = 10
