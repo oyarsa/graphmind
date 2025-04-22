@@ -90,7 +90,7 @@ class GPTRationaleEval(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    fluency: Annotated[
+    clarity: Annotated[
         int, Field(description="How well-written the text is. Score from 1 to 5.")
     ]
     faithfulness: Annotated[
@@ -100,11 +100,26 @@ class GPTRationaleEval(BaseModel):
             " to 5."
         ),
     ]
-    logical: Annotated[
+    factuality: Annotated[
         int,
         Field(
-            description="How well are the claims supported by the evidence? Score from"
-            " 1 to 5."
+            description="Is the rationale grounded correctly scientific facts from"
+            " the main and related papers? Score from 1 to 5."
+        ),
+    ]
+    specificity: Annotated[
+        int,
+        Field(
+            description="Does the rationale cover information specific to the paper,"
+            " or does it make overly generic statements? the main and related papers?"
+            " Score from 1 to 5."
+        ),
+    ]
+    contributions: Annotated[
+        int,
+        Field(
+            description="Does the rationale effectively compare the main paper with the"
+            " prior work? Score from 1 to 5."
         ),
     ]
     explanation: Annotated[str, Field(description="Explanation for your scores.")]
@@ -113,9 +128,11 @@ class GPTRationaleEval(BaseModel):
         """Get rationale metrics as a dictionary of values and an explanation."""
         return RationaleMetrics(
             metrics={
-                "fluency": self.fluency,
+                "clarity": self.clarity,
                 "faithfulness": self.faithfulness,
-                "logical": self.logical,
+                "factuality": self.factuality,
+                "specificity": self.specificity,
+                "contributions": self.contributions,
             },
             explanation=self.explanation,
         )
@@ -123,7 +140,14 @@ class GPTRationaleEval(BaseModel):
     @classmethod
     def empty(cls) -> Self:
         """Empty instance of the output in case of errors."""
-        return cls(fluency=1, faithfulness=1, logical=1, explanation="<error>")
+        return cls(
+            clarity=1,
+            faithfulness=1,
+            factuality=1,
+            specificity=1,
+            contributions=1,
+            explanation="<error>",
+        )
 
     def is_valid(self) -> bool:
         """Check if this instance is invalid (created from `empty()`)."""
