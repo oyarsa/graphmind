@@ -111,6 +111,20 @@ class Graph(BaseModel):
         )
         return QueryResult(positive=positive, negative=negative)
 
+    def query_threshold(self, paper_id: str, threshold: float) -> QueryResult:
+        """Get top `k` cited papers by title similarity from a PeerRead paper `id`.
+
+        Returns `k` papers from each polarity.
+        """
+        positive, negative = (
+            self.id_polarity_to_cited[paper_id][polarity]
+            for polarity in (ContextPolarity.POSITIVE, ContextPolarity.NEGATIVE)
+        )
+        return QueryResult(
+            positive=[p for p in positive if p.score >= threshold],
+            negative=[n for n in negative if n.score >= threshold],
+        )
+
 
 def _clean_title(title: str) -> str:
     """Clean-up title with a series of transformations.

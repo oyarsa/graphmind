@@ -249,7 +249,7 @@ def peerread(
         typer.Option(help="Number of positive and negative semantic papers to query."),
     ] = 2,
 ) -> None:
-    """Query the graph with PeerRead papers and save the results in a file.
+    """Query the graph with PeerRead papers with an exact number of related papers.
 
     The output file contains both the original PeerRead paper and the graph query results.
     """
@@ -272,6 +272,69 @@ def peerread(
                 paper.target,
                 semantic_k=num_semantic,
                 citation_k=num_citations,
+            ),
+        )
+        for paper in tqdm(papers, desc="Querying PeerRead papers.")
+    ]
+    save_data(output_file, results)
+
+
+@app.command(no_args_is_help=True)
+def peerread_threshold(
+    ann_file: Annotated[
+        Path,
+        typer.Option(
+            "--peerread-ann",
+            help="File with PeerRead papers with extracted backgrounds and targets.",
+        ),
+    ],
+    output_file: Annotated[
+        Path, typer.Option("--output", help="Output file to save the result data.")
+    ],
+    graph_dir: Annotated[
+        Path,
+        typer.Option("--graph-dir", help="Directory containing separate graph files."),
+    ],
+    num_papers: Annotated[
+        int | None,
+        typer.Option(
+            "--num-papers",
+            "-n",
+            help="Number of papers to query. Defaults to all papers.",
+        ),
+    ] = None,
+    threshold_citation: Annotated[
+        float,
+        typer.Option(help="Minimum similarity threshold for cited papers."),
+    ] = 0.8,
+    threshold_semantic: Annotated[
+        float,
+        typer.Option(help="Minimum similarity threshold for semantic papers."),
+    ] = 0.8,
+) -> None:
+    """Query the graph with PeerRead papers based on a minimum threshold.
+
+    The output file contains both the original PeerRead paper and the graph query results.
+    """
+    logger.info(display_params())
+
+    logger.debug("Loading papers.")
+    papers = gpt.PromptResult.unwrap(
+        load_data(ann_file, gpt.PromptResult[gpt.PeerReadAnnotated])
+    )[:num_papers]
+
+    logger.debug("Loading graph.")
+    main_graph = graph.Graph.load(graph_dir)
+
+    results = [
+        rp.PaperResult(
+            paper=paper,
+            results=main_graph.query_threshold(
+                paper.id,
+                paper.background,
+                paper.target,
+                semantic_threshold=threshold_semantic,
+                citation_threshold=threshold_citation,
             ),
         )
         for paper in tqdm(papers, desc="Querying PeerRead papers.")

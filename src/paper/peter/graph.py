@@ -57,6 +57,22 @@ class Graph:
             encoder_model=self._encoder_model,
         )
 
+    def query_threshold(
+        self,
+        paper_id: str,
+        background: str,
+        target: str,
+        semantic_threshold: float,
+        citation_threshold: float,
+    ) -> QueryResult:
+        """Find papers related to `paper` through citations and semantic similarity."""
+        papers_semantic = self._semantic.query_threshold(
+            background, target, semantic_threshold
+        )
+        papers_citation = self._citation.query_threshold(paper_id, citation_threshold)
+
+        return _result_from_related(papers_semantic, papers_citation)
+
     def query_all(
         self,
         paper_id: str,
@@ -69,33 +85,7 @@ class Graph:
         """Find papers related to `paper` through citations and semantic similarity."""
         papers_semantic = self._semantic.query(background, target, k=semantic_k)
         papers_citation = self._citation.query(paper_id, k=citation_k)
-
-        return QueryResult(
-            semantic_positive=[
-                PaperRelated.from_(
-                    p, source=PaperSource.SEMANTIC, polarity=ContextPolarity.POSITIVE
-                )
-                for p in papers_semantic.targets
-            ],
-            semantic_negative=[
-                PaperRelated.from_(
-                    p, source=PaperSource.SEMANTIC, polarity=ContextPolarity.NEGATIVE
-                )
-                for p in papers_semantic.backgrounds
-            ],
-            citations_positive=[
-                PaperRelated.from_(
-                    p, source=PaperSource.CITATIONS, polarity=ContextPolarity.POSITIVE
-                )
-                for p in papers_citation.positive
-            ],
-            citations_negative=[
-                PaperRelated.from_(
-                    p, source=PaperSource.CITATIONS, polarity=ContextPolarity.NEGATIVE
-                )
-                for p in papers_citation.negative
-            ],
-        )
+        return _result_from_related(papers_semantic, papers_citation)
 
     @classmethod
     def build(
@@ -174,6 +164,37 @@ class Graph:
             semantic=semantic_graph,
             encoder_model=encoder_model,
         )
+
+
+def _result_from_related(
+    papers_semantic: semantic.QueryResult, papers_citation: citations.QueryResult
+) -> QueryResult:
+    return QueryResult(
+        semantic_positive=[
+            PaperRelated.from_(
+                p, source=PaperSource.SEMANTIC, polarity=ContextPolarity.POSITIVE
+            )
+            for p in papers_semantic.targets
+        ],
+        semantic_negative=[
+            PaperRelated.from_(
+                p, source=PaperSource.SEMANTIC, polarity=ContextPolarity.NEGATIVE
+            )
+            for p in papers_semantic.backgrounds
+        ],
+        citations_positive=[
+            PaperRelated.from_(
+                p, source=PaperSource.CITATIONS, polarity=ContextPolarity.POSITIVE
+            )
+            for p in papers_citation.positive
+        ],
+        citations_negative=[
+            PaperRelated.from_(
+                p, source=PaperSource.CITATIONS, polarity=ContextPolarity.NEGATIVE
+            )
+            for p in papers_citation.negative
+        ],
+    )
 
 
 class GraphData(BaseModel):
