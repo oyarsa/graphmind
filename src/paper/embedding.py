@@ -6,7 +6,7 @@ import logging
 import math
 import os
 from collections.abc import Sequence
-from typing import Self, cast, overload
+from typing import Self, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -46,19 +46,13 @@ class Encoder:
         """Dimensions of the embeddings of the model."""
         return self._model.get_sentence_embedding_dimension()
 
-    @overload
-    def encode(self, text: str) -> Vector: ...
+    def encode(self, text: str) -> Vector | Matrix:
+        """Encode text string as a vector."""
+        return cast(Vector, self._model.encode(text))  # type: ignore
 
-    @overload
-    def encode(self, text: Sequence[str]) -> Matrix: ...
-
-    def encode(self, text: str | Sequence[str]) -> Vector | Matrix:
-        """Encode text string as a vector, or sequence of texts as a matrix."""
-        match text:
-            case str():
-                return cast(Vector, self._model.encode(text))  # type: ignore
-            case Sequence():
-                return cast(Matrix, self._model.encode(text))  # type: ignore
+    def encode_multi(self, texts: Sequence[str]) -> Matrix:
+        """Encode a sequence of texts as a matrix."""
+        return cast(Matrix, self._model.encode(texts))  # type: ignore
 
     def batch_encode(
         self, texts: Sequence[str], batch_size: int = 128, *, progress: bool = False
@@ -79,7 +73,7 @@ class Encoder:
             batch_num = math.ceil(len(texts) / batch_size)
             batches = tqdm(batches, total=batch_num, desc="Batch text encoding")
 
-        return np.vstack([self.encode(batch) for batch in batches])
+        return np.vstack([self.encode_multi(batch) for batch in batches])
 
 
 def similarities(vector: Vector, matrix: Matrix) -> npt.NDArray[np.float32]:
