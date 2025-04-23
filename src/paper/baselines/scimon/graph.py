@@ -15,7 +15,7 @@ from paper import embedding as emb
 from paper import gpt
 from paper.baselines.scimon import citations, kg, semantic
 from paper.baselines.scimon.model import PaperAnnotated
-from paper.util.serde import Record, load_data, save_data
+from paper.util.serde import Record, load_data_single, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -166,21 +166,21 @@ class Graph:
         if not metadata_path.exists():
             raise FileNotFoundError(f"Metadata file not found at {metadata_path}")
 
-        metadata = load_data(metadata_path, MetadataModel, single=True)
+        metadata = load_data_single(metadata_path, MetadataModel)
 
         encoder = emb.Encoder(metadata.encoder_model)
 
         kg_path = graph_dir / cls.KG_FILENAME
         if not kg_path.exists():
             raise FileNotFoundError(f"KG graph file not found at {kg_path}")
-        kg_data = load_data(kg_path, kg.GraphData, single=True)
+        kg_data = load_data_single(kg_path, kg.GraphData)
         kg_graph = kg_data.to_graph(encoder)
         del kg_data
 
         semantic_path = graph_dir / cls.SEMANTIC_FILENAME
         if not semantic_path.exists():
             raise FileNotFoundError(f"Semantic graph file not found at {semantic_path}")
-        semantic_data = load_data(semantic_path, semantic.GraphData, single=True)
+        semantic_data = load_data_single(semantic_path, semantic.GraphData)
         semantic_graph = semantic_data.to_graph(encoder)
         del semantic_data
 
@@ -189,7 +189,7 @@ class Graph:
             raise FileNotFoundError(
                 f"Citations graph file not found at {citations_path}"
             )
-        citation_graph = load_data(citations_path, citations.Graph, single=True)
+        citation_graph = load_data_single(citations_path, citations.Graph)
 
         gc.collect()
         gc.collect()

@@ -16,7 +16,7 @@ from paper.peter import citations, semantic
 from paper.peter.citations import ContextPolarity
 from paper.related_papers import PaperRelated, PaperSource, QueryResult
 from paper.util import Timer
-from paper.util.serde import load_data, save_data
+from paper.util.serde import load_data_single, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -154,9 +154,9 @@ class Graph:
         metadata: dict[str, str] = json.loads(metadata_file.read_bytes())
         encoder_model = metadata["encoder_model"]
 
-        citation_graph = load_data(citation_file, citations.Graph, single=True)
+        citation_graph = load_data_single(citation_file, citations.Graph)
 
-        semantic_data = load_data(semantic_file, semantic.GraphData, single=True)
+        semantic_data = load_data_single(semantic_file, semantic.GraphData)
         semantic_graph = semantic_data.to_graph(emb.Encoder(encoder_model))
 
         return cls(

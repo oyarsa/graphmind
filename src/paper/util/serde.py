@@ -13,7 +13,6 @@ from typing import (
     TypeGuard,
     cast,
     get_origin,
-    overload,
     runtime_checkable,
 )
 
@@ -66,7 +65,7 @@ def load_data_jsonl[T: BaseModel](file: Path, type_: type[T]) -> list[T]:
         type_: Type of the objects to parse.
 
     Returns:
-        List of data with the `type_` format, or a single object if `single=True`.
+        List of data with the `type_` format.
 
     Raises:
         `ValidationError` if the data is incompatible with `type_`.
@@ -107,36 +106,17 @@ def load_data_jsonl[T: BaseModel](file: Path, type_: type[T]) -> list[T]:
         return result
 
 
-@overload
-def load_data[T: BaseModel](
-    file: Path | bytes, type_: type[T], use_alias: bool = True, *, single: Literal[True]
-) -> T: ...
-
-
-@overload
-def load_data[T: BaseModel](
-    file: Path | bytes,
-    type_: type[T],
-    use_alias: bool = True,
-    single: Literal[False] = False,
-) -> list[T]: ...
-
-
 # TODO: Improve validation error reporting. It currently prints the errors for _every_
 # item in the list, which is not helpful.
 def load_data[T: BaseModel](
-    file: Path | bytes,
-    type_: type[T],
-    use_alias: bool = True,
-    single: bool = False,
-) -> list[T] | T:
-    """Load data from the JSON `file`: a list of objects or a single one if `single=True`.
+    file: Path | bytes, type_: type[T], use_alias: bool = True
+) -> list[T]:
+    """Load list of objects from the JSON `file`.
 
     Args:
         file: File to read the data from, or the actual data in bytes form.
         type_: Type of the objects in the list.
         use_alias: If True, read object keys by using the real field names, not aliases.
-        single: If True, return a single object. If False, return a list of objects.
 
     Returns:
         List of data with the `type_` format.
@@ -152,12 +132,38 @@ def load_data[T: BaseModel](
         content = file
 
     try:
-        if single:
-            return type_.model_validate_json(content)
-
         return TypeAdapter(
             list[type_], config=ConfigDict(populate_by_name=not use_alias)
         ).validate_json(content)
+    except ValidationError as e:
+        source = file if isinstance(file, Path) else "bytes"
+        raise ValidationError(
+            f"Data from {source} is not valid for {get_full_type_name(type_)}"
+        ) from e
+
+
+def load_data_single[T: BaseModel](file: Path | bytes, type_: type[T]) -> T:
+    """Load a single object from the JSON `file`.
+
+    Args:
+        file: File to read the data from, or the actual data in bytes form.
+        type_: Type of the object.
+
+    Returns:
+        Object with the `type_` format.
+
+    Raises:
+        `ValidationError` if file already exists and its data is incompatible with
+        `type_`.
+        `OSError` if the file operations fail.
+    """
+    if isinstance(file, Path):
+        content = file.read_bytes()
+    else:
+        content = file
+
+    try:
+        return type_.model_validate_json(content)
     except ValidationError as e:
         source = file if isinstance(file, Path) else "bytes"
         raise ValidationError(
