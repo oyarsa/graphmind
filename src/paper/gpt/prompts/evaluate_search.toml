@@ -56,9 +56,12 @@ it a label of 1. If it isn't, give it a label of 0. This should reflect how much
 paper brings and develops new ideas previously unseen in the literature. First, generate \
 the rationale for your novelty rating, then give the final novelty rating.
 
-If the paper approval decision is "True", the novelty label should be 1 (novel). The \
-generated rationale must include references to papers retrieved by search. These should \
-be added as a Markdown footnotes with the paper name.
+If the paper approval decision is "True", the novelty label should be 1 (novel).
+
+The rationale must include the documents retrieved by web search. It must be pure plain \
+text without any formatting. Instead of writing the titles and links to the documents \
+inside the rationale, assign each a number and list them (number, title and link) at the \
+bottom of the text.
 
 The output should have the following format:
 

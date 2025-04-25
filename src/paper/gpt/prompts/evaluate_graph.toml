@@ -359,8 +359,10 @@ First, generate the rationale for your novelty label, then give the final novelt
 It should be 1 for a novel paper, or 0 otherwise. If you're uncertain, assign the 0 \
 (not novel) label.
 
-The generated rationale must include references to the related papers. These should \
-be added as a Markdown footnotes with the paper name.
+The rationale must include the documents retrieved by web search. It must be pure plain \
+text without any formatting. Instead of writing the titles and links to the documents \
+inside the rationale, assign each a number and list them (number, title and link) at the \
+bottom of the text.
 
 If the paper approval decision is "True", the novelty label should be 1 (novel).
 
