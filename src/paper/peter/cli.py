@@ -303,11 +303,11 @@ def peerread_threshold(
             help="Number of papers to query. Defaults to all papers.",
         ),
     ] = None,
-    threshold_citation: Annotated[
+    citation: Annotated[
         float,
         typer.Option(help="Minimum similarity threshold for cited papers."),
     ] = 0.8,
-    threshold_semantic: Annotated[
+    semantic: Annotated[
         float,
         typer.Option(help="Minimum similarity threshold for semantic papers."),
     ] = 0.8,
@@ -333,8 +333,8 @@ def peerread_threshold(
                 paper.id,
                 paper.background,
                 paper.target,
-                semantic_threshold=threshold_semantic,
-                citation_threshold=threshold_citation,
+                semantic_threshold=semantic,
+                citation_threshold=citation,
             ),
         )
         for paper in tqdm(papers, desc="Querying PeerRead papers.")
