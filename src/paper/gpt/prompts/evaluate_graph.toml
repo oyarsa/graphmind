@@ -350,20 +350,6 @@ ideas, methods, approach, etc.) and "contrasting" papers (those that go against 
 paper's ideas). Use these related papers to understand the context around the main paper, \
 so you know what other works exist in comparison with the main paper.
 
-Based on this, decide whether the paper is novel. It is novel if brings new ideas or \
-develops new ideas previously unseen. Make sure that the ideas are truly unique. The \
-paper is not novel if anything similar to it has been done before. Be very thorough. \
-When in doubt, tend towards the not novel label.
-
-First, generate the rationale for your novelty label, then give the final novelty label. \
-It should be 1 for a novel paper, or 0 otherwise. If you're uncertain, assign the 0 \
-(not novel) label.
-
-When discussing the influence of the related papers, mention them by name. Add a references \
-section at the end with all the related papers.
-
-If the paper approval decision is "True", the novelty label should be 1 (novel).
-
 #####
 {demonstrations}
 
@@ -380,7 +366,22 @@ Supporting papers:
 
 Contrasting papers:
 {negative}
-
 #####
-Output:
+
+Based on this, decide whether the paper is novel. It is novel if brings new ideas or \
+develops new ideas previously unseen. Make sure that the ideas are truly unique. The \
+paper is not novel if anything similar to it has been done before. Be very thorough. \
+When in doubt, tend towards the not novel label.
+
+First, generate the rationale for your novelty label, then give the final novelty label. \
+It should be 1 for a novel paper, or 0 otherwise. If you're uncertain, assign the 0 \
+(not novel) label.
+
+For each related paper, assign a code to them. When discussing related papers in the \
+rationale, be specific and use the paper's code. After the rationale, add a refereces \
+section with the code and name for each paper. For brevity, don't use the paper names \
+in the rationale, only the code. Make sure that all referenced papers appear in the \
+references section.
+
+If the paper approval decision is "True", the novelty label should be 1 (novel).
 """
