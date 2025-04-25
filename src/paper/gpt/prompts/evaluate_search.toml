@@ -36,3 +36,44 @@ Approval decision: {approval}
 #####
 Output:
 """
+
+[[prompts]]
+name = "attribution"
+system = """\
+Given the following target paper, search the internet for relevant publications, and based \
+on them, give a novelty label.
+"""
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+paper's title and abstract.
+
+First, search the web for publications related to the paper. Your goal is to find relevant \
+papers to compare the main paper with. This would be important to determine if the paper's \
+contributions are novel.
+
+Based on this content, decide whether the paper is novel enough or not. If it is, give \
+it a label of 1. If it isn't, give it a label of 0. This should reflect how much the \
+paper brings and develops new ideas previously unseen in the literature. First, generate \
+the rationale for your novelty rating, then give the final novelty rating.
+
+If the paper approval decision is "True", the novelty label should be 1 (novel). The \
+generated rationale must include references to papers retrieved by search. These should \
+be added as a Markdown footnotes with the paper name.
+
+The output should have the following format:
+
+```
+Rationale: <text>
+
+Label: <0 or 1>
+```
+
+#####
+-Data-
+Title: {title}
+Abstract: {abstract}
+Approval decision: {approval}
+
+#####
+Output:
+"""
