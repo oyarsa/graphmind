@@ -1,6 +1,7 @@
 """Prompt-based tools for paper evaluation, annotation and tasks using the OpenAI API."""
 
 import logging
+from collections import defaultdict
 from collections.abc import Iterable
 from types import ModuleType
 
@@ -19,6 +20,7 @@ from paper.gpt import (
     evaluate_reviews,
     extract_acu,
     extract_paper_graph,
+    run_gpt,
     summarise_related_peter,
     tokens,
 )
@@ -110,3 +112,26 @@ def demos() -> None:
     """Print the available demonstration file names."""
     for name in evaluate_paper.EVALUATE_DEMONSTRATIONS:
         print(f"- {name}")
+
+
+@app.command(help="List available models.")
+def models() -> None:
+    """Print the available models."""
+    reverse_mapping: dict[str, list[str]] = defaultdict(list)
+    for shortcut, full_name in run_gpt.MODEL_SYNONYMS.items():
+        reverse_mapping[full_name].append(shortcut)
+
+    for model in sorted(set(run_gpt.MODEL_SYNONYMS.values())):
+        shortcuts = reverse_mapping[model]
+        shortcuts_str = ", ".join(s for s in shortcuts if s != model)
+
+        print(f"- {model}")
+        if shortcuts_str:
+            print(f"  Alias: {shortcuts_str}")
+
+        # Add pricing information if available
+        if model in run_gpt.MODEL_COSTS:
+            input_cost, output_cost = run_gpt.MODEL_COSTS[model]
+            print(f"  Price (in/out): ${input_cost:.2f}/1M, ${output_cost:.2f}/1M")
+
+        print()
