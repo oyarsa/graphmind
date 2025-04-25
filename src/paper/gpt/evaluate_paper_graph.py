@@ -120,7 +120,7 @@ def run(
             help="The user prompt to use for paper evaluation.",
             click_type=cli.Choice(GRAPH_EVAL_USER_PROMPTS),
         ),
-    ] = "simple",
+    ] = "sans",
     graph_prompt: Annotated[
         str,
         typer.Option(
