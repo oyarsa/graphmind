@@ -7,7 +7,7 @@ Can also classify a paper into approved/not-approved using the generated graph.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import override
 
@@ -15,7 +15,13 @@ from pydantic import BaseModel, ConfigDict
 
 from paper import hierarchical_graph
 from paper.gpt.evaluate_paper import PaperResult
-from paper.gpt.model import Graph, PaperWithRelatedSummary, Prompt, PromptResult
+from paper.gpt.model import (
+    Graph,
+    PaperRelatedSummarised,
+    PaperWithRelatedSummary,
+    Prompt,
+    PromptResult,
+)
 from paper.util.serde import Record, save_data
 
 logger = logging.getLogger(__name__)
@@ -26,6 +32,9 @@ class GraphResult(Record):
 
     graph: Graph
     paper: PaperResult
+    # TODO: Make this required once enough time has passed that we don't have old files
+    # anymore.
+    related: Sequence[PaperRelatedSummarised] | None = None
 
     @property
     @override

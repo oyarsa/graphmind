@@ -429,6 +429,7 @@ async def _evaluate_paper(
                     eval_paper, evaluated.label, evaluated.rationale
                 ),
                 graph=graph,
+                related=paper.related,
             ),
             prompt=Prompt(system=eval_system_prompt, user=eval_prompt_text),
         ),
