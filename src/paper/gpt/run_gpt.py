@@ -391,9 +391,9 @@ class OpenAIClient(LLMClient):
         The standard client requires the `OPENAI_API_KEY` environment variable.
         Optionally, `OPENAI_BASE_URL` can also be set.
 
-        The Azure client requires both `AZURE_BASE_URL` and `AZURE_API_KEY`. It's possble
-        that the base URL differs between models, so we replace `{{model}}` with the
-        parameter.
+        The Azure client requires both `AZURE_BASE_URL` and `AZURE_API_KEY`. It's
+        possible that the base URL differs between models, so we replace `{{model}}` with
+        the parameter.
         """
         use_azure = os.getenv("USE_AZURE", "0") == "1"
 
