@@ -13,9 +13,9 @@ from pathlib import Path
 from typing import Annotated
 
 import numpy as np
+import rich
 import typer
 from rich.table import Table
-import rich
 
 from paper import gpt
 from paper import peerread as pr
@@ -108,9 +108,18 @@ def main(
     Each step's output is used as input for the next step.
     If --clean is not specified, steps will be skipped if their output already exists.
     """
-    if force:
-        shutil.rmtree(output_dir, ignore_errors=True)
+    # Create a subdirectory name based on parameters
+    output_dir = output_dir / (
+        f"cit{citation}_sem{semantic}_lim{limit}_mod{model}"
+        f"_eval{eval_prompt}_graph{graph_prompt}"
+    )
+
+    if force and output_dir.exists():
+        typer.echo(f"Removing existing directory: {output_dir}")
+        shutil.rmtree(output_dir)
+
     output_dir.mkdir(parents=True, exist_ok=True)
+    typer.echo(f"Using output directory: {output_dir}")
 
     # Step 1: Run Peter PeerRead threshold
     title("Running Peter PeerRead threshold")
@@ -189,24 +198,23 @@ def main(
     typer.echo(f"Accuracy: {metrics['accuracy']}")
 
     typer.echo("Statistics:")
-    rich.print(_get_statistics(eval_output))
-
-
-def _get_statistics(eval_output: Path) -> Table:
-    """Calculate statistics and return them as a Rich table."""
     data = gpt.PromptResult.unwrap(
         load_data(eval_output, gpt.PromptResult[gpt.GraphResult])
     )
-    counts = [_count_related(item) for item in data]
-    stats = _calculate_stats(counts)
+    rich.print(_get_statistics(data))
+
+
+def _get_statistics(data: Iterable[gpt.GraphResult]) -> Table:
+    """Calculate statistics and return them as a Rich table."""
+    stats = _calculate_stats(_count_related(item) for item in data)
 
     table = Table(title="Statistics")
     table.add_column("Field", style="cyan", no_wrap=True)
-    table.add_column("Correlation", style="magenta", justify="right")
+    table.add_column("Corr", style="magenta", justify="right")
     table.add_column("Min", style="green", justify="right")
-    table.add_column("Q1", style="yellow", justify="right")
+    table.add_column("25", style="yellow", justify="right")
     table.add_column("Median", style="blue", justify="right")
-    table.add_column("Q3", style="yellow", justify="right")
+    table.add_column("75", style="yellow", justify="right")
     table.add_column("Max", style="green", justify="right")
 
     for field, values in stats.items():
