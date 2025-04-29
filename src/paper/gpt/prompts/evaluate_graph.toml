@@ -378,7 +378,7 @@ It should be 1 for a novel paper, or 0 otherwise. If you're uncertain, assign th
 (not novel) label.
 
 For each related paper, assign a code to them. When discussing related papers in the \
-rationale, be specific and use the paper's code. After the rationale, add a refereces \
+rationale, be specific and use the paper's code. After the rationale, add a references \
 section with the code and name for each paper. For brevity, don't use the paper names \
 in the rationale, only the code. Make sure that all referenced papers appear in the \
 references section.
