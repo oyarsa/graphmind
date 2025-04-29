@@ -17,7 +17,6 @@ from __future__ import annotations
 import asyncio
 import itertools
 import logging
-import os
 import random
 import tomllib
 from collections.abc import Iterable, Sequence
@@ -60,7 +59,6 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    ensure_envvar,
     get_params,
     progress,
     read_resource,
@@ -254,9 +252,7 @@ async def evaluate_papers(
     if limit_papers == 0:
         limit_papers = None
 
-    api_key = ensure_envvar("OPENAI_API_KEY")
-    base_url = os.getenv("OPENAI_BASE_URL")
-    client = OpenAIClient(api_key=api_key, model=model, seed=seed, base_url=base_url)
+    client = OpenAIClient.from_env(model=model, seed=seed)
 
     papers = shuffled(
         PromptResult.unwrap(

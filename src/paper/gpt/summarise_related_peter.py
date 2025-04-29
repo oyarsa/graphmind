@@ -44,7 +44,6 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
-    ensure_envvar,
     get_params,
     progress,
     render_params,
@@ -190,9 +189,7 @@ async def summarise_related(
     if limit_papers == 0:
         limit_papers = None
 
-    client = OpenAIClient(
-        api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
-    )
+    client = OpenAIClient.from_env(model=model, seed=seed)
 
     papers = shuffled(load_data(ann_graph_file, rp.PaperResult))[:limit_papers]
 

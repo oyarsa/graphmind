@@ -16,12 +16,12 @@ import openai
 import tiktoken
 from google import genai  # type: ignore
 from google.genai import errors, types  # type: ignore
-from openai import NOT_GIVEN, AsyncOpenAI
+from openai import NOT_GIVEN, AsyncAzureOpenAI, AsyncOpenAI
 from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
 
 from paper.gpt.model import PromptResult
-from paper.util import ensure_envvar, log_memory_usage
+from paper.util import ensure_envvar, log_memory_usage, mustenv
 from paper.util.rate_limiter import ChatRateLimiter
 from paper.util.serde import Record, load_data_jsonl, save_data_jsonl
 
@@ -55,6 +55,11 @@ MODEL_COSTS: Mapping[str, tuple[float, float]] = {
 
 From https://openai.com/api/pricing/
 """
+
+MODELS_ALLOWED_AZURE = {"gpt-4o", "gpt-4o-mini"}
+"""All allowed model names from the Azure API."""
+AZURE_TIER = 10
+"""Separate tier for Azure API."""
 
 
 def _calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
@@ -134,6 +139,11 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
             }
         elif tier == 5:
             raise ValueError(message.format(tier=5))
+        elif tier == AZURE_TIER:
+            limits = {
+                "gpt-4o-mini": (2_500, 250_000),
+                "gpt-4o": (1_800, 300_000),
+            }
         else:
             raise ValueError(f"Invalid tier: {tier}. Must be between 1 and 5.")
 
@@ -280,6 +290,7 @@ class OpenAIClient(LLMClient):
 
     API_KEY_VAR: ClassVar[str] = "OPENAI_API_KEY"
 
+    # TODO: This desperately needs a better way to handle the Azure API.
     def __init__(
         self,
         *,
@@ -312,15 +323,33 @@ class OpenAIClient(LLMClient):
                 log the exception description as a warning. If None, get value from
                 the `LOG_EXCEPTION` environment variable (1 or 0), defaulting to 0.
         """
-        is_openai = base_url is None or "openai" in base_url
-        model = MODEL_SYNONYMS.get(model, model)
+        is_openai = base_url is None
+        is_azure = base_url is not None and "azure" in base_url
+        if not is_azure:
+            model = MODEL_SYNONYMS.get(model, model)
 
         if is_openai and model not in MODELS_ALLOWED:
             raise ValueError(
-                f"Invalid model: {model!r}. Should be one of: {MODELS_ALLOWED}."
+                f"Invalid OpenAI model: '{model}'. Should be one of: {MODELS_ALLOWED}."
             )
 
-        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        if is_azure:
+            assert base_url is not None
+
+            if model not in MODELS_ALLOWED_AZURE:
+                raise ValueError(
+                    f"Invalid Azure model: '{model}'. Should be one of:"
+                    f" {MODELS_ALLOWED_AZURE}."
+                )
+
+            self.client = AsyncAzureOpenAI(
+                azure_endpoint=base_url,
+                api_version="2024-12-01-preview",
+                api_key=api_key,
+            )
+        else:
+            self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+
         self.model = model
         self.seed = seed
         self.temperature = temperature
@@ -332,7 +361,9 @@ class OpenAIClient(LLMClient):
         else:
             self.should_log_exception = os.getenv("LOG_EXCEPTION", "0") == "1"
 
-        if not is_openai:
+        if is_azure:
+            api_tier = AZURE_TIER
+        elif not is_openai:
             api_tier = -1
         elif api_tier_s := os.getenv("OPENAI_API_TIER"):
             api_tier = int(api_tier_s)
@@ -341,6 +372,57 @@ class OpenAIClient(LLMClient):
             api_tier = 1
 
         self.rate_limiter = get_rate_limiter(api_tier, model)
+
+    @classmethod
+    def from_env(
+        cls,
+        model: str,
+        seed: int,
+        temperature: float = 0,
+        timeout: float = 60,
+        max_input_tokens: int | None = 90_000,
+        log_exception: bool | None = None,
+    ) -> OpenAIClient:
+        """Create new OpenAIClient based on environment variables.
+
+        This has two modes: Azure or standard OpenAI. If the environment variable
+        `USE_AZURE` is 1, we use it, otherwise we use the standard client.
+
+        The standard client requires the `OPENAI_API_KEY` environment variable.
+        Optionally, `OPENAI_BASE_URL` can also be set.
+
+        The Azure client requires both `AZURE_BASE_URL` and `AZURE_API_KEY`. It's possble
+        that the base URL differs between models, so we replace `{{model}}` with the
+        parameter.
+        """
+        use_azure = os.getenv("USE_AZURE", "0") == "1"
+
+        if use_azure:
+            # Remove model suffixes (e.g. date version) since Azure doesn't use those.
+            if model.startswith("gpt-4o-mini"):
+                model = "gpt-4o-mini"
+            elif model.startswith("gpt-4o"):
+                model = "gpt-4o"
+            else:
+                raise ValueError(f"Invalid Azure model: {model}")
+
+            env = mustenv("AZURE_BASE_URL", "AZURE_API_KEY")
+            base_url = env["AZURE_BASE_URL"].replace("{{model}}", model)
+            api_key = env["AZURE_API_KEY"]
+        else:
+            base_url = os.getenv("OPENAI_BASE_URL")
+            api_key = ensure_envvar("OPENAI_API_KEY")
+
+        return OpenAIClient(
+            api_key=api_key,
+            model=model,
+            seed=seed,
+            temperature=temperature,
+            base_url=base_url,
+            timeout=timeout,
+            max_input_tokens=max_input_tokens,
+            log_exception=log_exception,
+        )
 
     @override
     async def run[T: BaseModel](
