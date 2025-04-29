@@ -7,17 +7,20 @@ papers and the label accuracy.
 
 import json
 import shutil
+from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from paper import gpt
+from paper import peerread as pr
 from paper.gpt.evaluate_paper_graph import (
     GRAPH_EVAL_USER_PROMPTS,
     GRAPH_EXTRACT_USER_PROMPTS,
 )
-from paper.util import cli
+from paper.util import cli, metrics
 from paper.util.cmd import run, title
 from paper.util.serde import load_data
 
@@ -181,12 +184,101 @@ def main(
     metrics_file = eval_dir / "metrics.json"
     metrics = json.loads(metrics_file.read_bytes())
     typer.echo(f"Accuracy: {metrics['accuracy']}")
-    typer.echo(f"Statistics: {_get_statistics(eval_output)}")
+    typer.echo(f"Statistics:\n{_get_statistics(eval_output)}")
 
 
 def _get_statistics(eval_output: Path) -> str:
-    data = load_data(eval_output, gpt.PromptResult[gpt.GraphResult])
-    return str(len(data))
+    data = gpt.PromptResult.unwrap(
+        load_data(eval_output, gpt.PromptResult[gpt.GraphResult])
+    )
+    counts = [_count_related(item) for item in data]
+    correlations = _calculate_correlations(counts)
+
+    output = ["Correlations:\n"]
+
+    longest_key = max(len(key) for key in correlations)
+    for key, corr in correlations.items():
+        output.append(f"{key:{longest_key}} {corr}")
+
+    return "\n".join(output)
+
+
+@dataclass(frozen=True, kw_only=True)
+class Counts:
+    """Various counts and derived counts from related papers."""
+
+    label: int
+
+    related: int
+    semantic: int
+    citation: int
+    semantic_positive: int
+    citation_positive: int
+    semantic_negative: int
+    citation_negative: int
+    positive: int
+    negative: int
+
+
+def _count_related(item: gpt.GraphResult) -> Counts:
+    related = item.related
+    if related is None:
+        raise ValueError("Invalid graph result. Does not contain related papers.")
+
+    ctx = pr.ContextPolarity
+    src = gpt.RelatedPaperSource
+
+    semantic_positive = _filter_related(related, ctx.POSITIVE, src.SEMANTIC)
+    semantic_negative = _filter_related(related, ctx.NEGATIVE, src.SEMANTIC)
+    citation_positive = _filter_related(related, ctx.POSITIVE, src.CITATIONS)
+    citation_negative = _filter_related(related, ctx.NEGATIVE, src.CITATIONS)
+
+    return Counts(
+        label=item.paper.label,
+        related=len(related),
+        semantic=semantic_positive + semantic_negative,
+        citation=citation_positive + citation_negative,
+        semantic_positive=semantic_positive,
+        citation_positive=citation_positive,
+        semantic_negative=semantic_negative,
+        citation_negative=citation_negative,
+        positive=semantic_positive + citation_positive,
+        negative=semantic_negative + citation_negative,
+    )
+
+
+def _filter_related(
+    related: Iterable[gpt.PaperRelatedSummarised],
+    polarity: pr.ContextPolarity,
+    source: gpt.RelatedPaperSource,
+) -> int:
+    return sum(1 for r in related if r.polarity is polarity and r.source is source)
+
+
+def _calculate_correlations(counts: Iterable[Counts]) -> dict[str, float]:
+    """Calculate Pearson correlation between each count field and the label field."""
+    labels = [count.label for count in counts]
+
+    field_names = [
+        "related",
+        "semantic",
+        "citation",
+        "semantic_positive",
+        "citation_positive",
+        "semantic_negative",
+        "citation_negative",
+        "positive",
+        "negative",
+    ]
+
+    correlations: dict[str, float] = {}
+
+    for field in field_names:
+        values = [getattr(count, field) for count in counts]
+        correlation = metrics.pearson_correlation(labels, values)
+        correlations[field] = correlation or float("nan")
+
+    return correlations
 
 
 if __name__ == "__main__":

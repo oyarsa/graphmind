@@ -16,5 +16,6 @@ from paper.gpt.model import PaperWithACUs as PaperWithACUs
 from paper.gpt.model import PaperWithRelatedSummary as PaperWithRelatedSummary
 from paper.gpt.model import PeerPaperWithACUs as PeerPaperWithACUs
 from paper.gpt.model import PeerReadAnnotated as PeerReadAnnotated
+from paper.gpt.model import RelatedPaperSource as RelatedPaperSource
 from paper.gpt.run_gpt import PromptResult as PromptResult
 from paper.gpt.run_gpt import count_tokens as count_tokens
