@@ -12,7 +12,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
+import numpy as np
 import typer
+from rich.table import Table
+import rich
 
 from paper import gpt
 from paper import peerread as pr
@@ -184,23 +187,39 @@ def main(
     metrics_file = eval_dir / "metrics.json"
     metrics = json.loads(metrics_file.read_bytes())
     typer.echo(f"Accuracy: {metrics['accuracy']}")
-    typer.echo(f"Statistics:\n{_get_statistics(eval_output)}")
+
+    typer.echo("Statistics:")
+    rich.print(_get_statistics(eval_output))
 
 
-def _get_statistics(eval_output: Path) -> str:
+def _get_statistics(eval_output: Path) -> Table:
+    """Calculate statistics and return them as a Rich table."""
     data = gpt.PromptResult.unwrap(
         load_data(eval_output, gpt.PromptResult[gpt.GraphResult])
     )
     counts = [_count_related(item) for item in data]
-    correlations = _calculate_correlations(counts)
+    stats = _calculate_stats(counts)
 
-    output = ["Correlations:\n"]
+    table = Table(title="Statistics")
+    table.add_column("Field", style="cyan", no_wrap=True)
+    table.add_column("Correlation", style="magenta", justify="right")
+    table.add_column("Min", style="green", justify="right")
+    table.add_column("Q1", style="yellow", justify="right")
+    table.add_column("Median", style="blue", justify="right")
+    table.add_column("Q3", style="yellow", justify="right")
+    table.add_column("Max", style="green", justify="right")
 
-    longest_key = max(len(key) for key in correlations)
-    for key, corr in correlations.items():
-        output.append(f"{key:{longest_key}} {corr}")
+    for field, values in stats.items():
+        corr = f"{values.correlation:.3f}" if values.correlation is not None else "NaN"
+        min_val = str(values.min)
+        q1_val = f"{values.q1:.1f}"
+        median_val = f"{values.median:.1f}"
+        q3_val = f"{values.q3:.1f}"
+        max_val = str(values.max)
 
-    return "\n".join(output)
+        table.add_row(field, corr, min_val, q1_val, median_val, q3_val, max_val)
+
+    return table
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -255,9 +274,22 @@ def _filter_related(
     return sum(1 for r in related if r.polarity is polarity and r.source is source)
 
 
-def _calculate_correlations(counts: Iterable[Counts]) -> dict[str, float]:
-    """Calculate Pearson correlation between each count field and the label field."""
-    labels = [count.label for count in counts]
+@dataclass(frozen=True, kw_only=True)
+class FieldStats:
+    """Descriptive statistics and correlation for a field."""
+
+    correlation: float | None
+    min: int
+    q1: float
+    median: float
+    q3: float
+    max: int
+
+
+def _calculate_stats(counts: Iterable[Counts]) -> dict[str, FieldStats]:
+    """Calculate statistics for each count field against the label field."""
+    count_list = list(counts)  # Avoid iterating multiple times
+    labels = [count.label for count in count_list]
 
     field_names = [
         "related",
@@ -271,14 +303,30 @@ def _calculate_correlations(counts: Iterable[Counts]) -> dict[str, float]:
         "negative",
     ]
 
-    correlations: dict[str, float] = {}
+    all_stats: dict[str, FieldStats] = {}
 
     for field in field_names:
-        values = [getattr(count, field) for count in counts]
+        values = [getattr(count, field) for count in count_list]
         correlation = metrics.pearson_correlation(labels, values)
-        correlations[field] = correlation or float("nan")
 
-    return correlations
+        # Calculate descriptive statistics using numpy
+        np_values = np.array(values)
+        min_val = int(np.min(np_values))
+        q1_val = float(np.percentile(np_values, 25))
+        median_val = float(np.median(np_values))
+        q3_val = float(np.percentile(np_values, 75))
+        max_val = int(np.max(np_values))
+
+        all_stats[field] = FieldStats(
+            correlation=correlation,
+            min=min_val,
+            q1=q1_val,
+            median=median_val,
+            q3=q3_val,
+            max=max_val,
+        )
+
+    return all_stats
 
 
 if __name__ == "__main__":
