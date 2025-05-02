@@ -54,6 +54,115 @@ def _run(path: Path, *cmd: object) -> None:
     run(*cmd)
 
 
+def run_peter_threshold(
+    peter_output: Path,
+    graph_dir: Path,
+    peerread_ann: Path,
+    limit: int,
+    citation: float,
+    semantic: float,
+) -> None:
+    """Run PETER threshold calculation on PeerRead data.
+
+    Args:
+        peter_output: Path where the output will be saved.
+        graph_dir: Directory containing the PETER graph.
+        peerread_ann: Path to PeerRead annotations.
+        limit: Number of papers to process.
+        citation: Citation threshold.
+        semantic: Semantic threshold.
+    """
+    _run(
+        peter_output,
+        "paper",
+        "peter",
+        "peerread-threshold",
+        "--graph-dir",
+        graph_dir,
+        "--peerread-ann",
+        peerread_ann,
+        "--output",
+        peter_output,
+        "--num-papers",
+        limit,
+        "--citation",
+        citation,
+        "--semantic",
+        semantic,
+    )
+
+
+def run_petersum(
+    summary_output: Path,
+    summary_dir: Path,
+    peter_output: Path,
+    model: str,
+) -> None:
+    """Run GPT PeterSum on PETER results.
+
+    Args:
+        summary_output: Path where the GPT PeterSum results will be saved.
+        summary_dir: Directory where all summary outputs will be saved.
+        peter_output: Path to the PETER threshold results.
+        model: GPT model to use.
+    """
+    _run(
+        summary_output,
+        "paper",
+        "gpt",
+        "petersum",
+        "run",
+        "--ann-graph",
+        peter_output,
+        "--output",
+        summary_dir,
+        "--limit",
+        "0",
+        "--model",
+        model,
+    )
+
+
+def run_eval_graph(
+    eval_output: Path,
+    eval_dir: Path,
+    summary_output: Path,
+    eval_prompt: str,
+    graph_prompt: str,
+    model: str,
+) -> None:
+    """Run GPT Eval Graph on summarized papers.
+
+    Args:
+        eval_output: Path where the GPT Eval Graph results will be saved.
+        eval_dir: Directory where all evaluation outputs will be saved.
+        summary_output: Path to the GPT PeterSum results.
+        eval_prompt: The user prompt to use for paper evaluation.
+        graph_prompt: The user prompt to use for graph extraction.
+        model: GPT model to use.
+    """
+    _run(
+        eval_output,
+        "paper",
+        "gpt",
+        "eval",
+        "graph",
+        "run",
+        "--papers",
+        summary_output,
+        "--output",
+        eval_dir,
+        "--limit",
+        "0",
+        "--eval-prompt",
+        eval_prompt,
+        "--graph-prompt",
+        graph_prompt,
+        "--model",
+        model,
+    )
+
+
 @app.command(name="full", no_args_is_help=True)
 def full_pipeline(
     output_dir: Annotated[
@@ -125,72 +234,23 @@ def full_pipeline(
 
     # Step 1: Run Peter PeerRead threshold
     title("Running Peter PeerRead threshold")
-
     peter_output = output_dir / "peerread_with_peter.json"
-    _run(
-        peter_output,
-        "paper",
-        "peter",
-        "peerread-threshold",
-        "--graph-dir",
-        graph_dir,
-        "--peerread-ann",
-        peerread_ann,
-        "--output",
-        peter_output,
-        "--num-papers",
-        limit,
-        "--citation",
-        citation,
-        "--semantic",
-        semantic,
+    run_peter_threshold(
+        peter_output, graph_dir, peerread_ann, limit, citation, semantic
     )
 
     # Step 2: Run GPT PeterSum
     title("Running GPT PeterSum")
-
     summary_dir = output_dir / "summary"
     summary_output = summary_dir / "result.json"
-    _run(
-        summary_output,
-        "paper",
-        "gpt",
-        "petersum",
-        "run",
-        "--ann-graph",
-        peter_output,
-        "--output",
-        summary_dir,
-        "--limit",
-        "0",
-        "--model",
-        model,
-    )
+    run_petersum(summary_output, summary_dir, peter_output, model)
 
     # Step 3: Run GPT Eval Graph
     eval_dir = output_dir / "eval"
     eval_output = eval_dir / "result.json"
     title("Running GPT Eval Graph")
-
-    _run(
-        eval_output,
-        "paper",
-        "gpt",
-        "eval",
-        "graph",
-        "run",
-        "--papers",
-        summary_output,
-        "--output",
-        eval_dir,
-        "--limit",
-        "0",
-        "--eval-prompt",
-        eval_prompt,
-        "--graph-prompt",
-        graph_prompt,
-        "--model",
-        model,
+    run_eval_graph(
+        eval_output, eval_dir, summary_output, eval_prompt, graph_prompt, model
     )
 
     title("Result")
@@ -253,27 +313,10 @@ def graph_only(
     output_dir.mkdir(parents=True, exist_ok=True)
     typer.echo(f"Using output directory: {output_dir}")
 
-    # Run Peter PeerRead threshold only
     title("Running Peter PeerRead threshold")
-
     peter_output = output_dir / "peerread_with_peter.json"
-    _run(
-        peter_output,
-        "paper",
-        "peter",
-        "peerread-threshold",
-        "--graph-dir",
-        graph_dir,
-        "--peerread-ann",
-        peerread_ann,
-        "--output",
-        peter_output,
-        "--num-papers",
-        limit,
-        "--citation",
-        citation,
-        "--semantic",
-        semantic,
+    run_peter_threshold(
+        peter_output, graph_dir, peerread_ann, limit, citation, semantic
     )
 
     title("Processing Graph Results")
