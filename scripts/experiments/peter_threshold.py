@@ -5,12 +5,13 @@ threshold, then we check the accuracy and some statistics on the number of retri
 papers and the label accuracy.
 """
 
+import enum
 import json
 import shutil
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import numpy as np
 import rich
@@ -19,6 +20,7 @@ from rich.table import Table
 
 from paper import gpt
 from paper import peerread as pr
+from paper import related_papers as rp
 from paper.gpt.evaluate_paper_graph import (
     GRAPH_EVAL_USER_PROMPTS,
     GRAPH_EXTRACT_USER_PROMPTS,
@@ -34,8 +36,6 @@ app = typer.Typer(
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,
 )
-
-type What = Literal["true", "pred"]
 
 
 def _run(path: Path, *cmd: object) -> None:
@@ -54,8 +54,8 @@ def _run(path: Path, *cmd: object) -> None:
     run(*cmd)
 
 
-@app.command()
-def main(
+@app.command(name="full", no_args_is_help=True)
+def full_pipeline(
     output_dir: Annotated[
         Path,
         typer.Option(
@@ -203,34 +203,84 @@ def main(
     data = gpt.PromptResult.unwrap(
         load_data(eval_output, gpt.PromptResult[gpt.GraphResult])
     )
-    for what in ("true", "pred"):
-        rich.print(_get_statistics(data, what))
+    for what in WhatLabel:
+        rich.print(_get_statistics(data, what, _count_related_summarised))
 
 
-def _get_statistics(data: Iterable[gpt.GraphResult], what: What) -> Table:
-    """Calculate statistics and return them as a Rich table."""
-    stats = _calculate_stats((_count_related(item) for item in data), what)
+@app.command(name="graph-only", no_args_is_help=True)
+def graph_only(
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            help="Base directory for outputs",
+            writable=True,
+            file_okay=False,
+        ),
+    ],
+    graph_dir: Annotated[
+        Path,
+        typer.Option(
+            "--graph",
+            help="Directory containing the Peter graph",
+            exists=True,
+            file_okay=False,
+        ),
+    ],
+    peerread_ann: Annotated[
+        Path,
+        typer.Option(
+            "--ann", help="Path to PeerRead annotations", exists=True, dir_okay=False
+        ),
+    ],
+    citation: Annotated[float, typer.Option(help="Citation threshold")] = 0.8,
+    semantic: Annotated[float, typer.Option(help="Semantic threshold")] = 0.8,
+    limit: Annotated[int, typer.Option(help="Number of papers")] = 10,
+    force: Annotated[bool, typer.Option(help="Ignore previous results if set")] = False,
+) -> None:
+    """Run only the PETER graph build and generate correlations for true labels.
 
-    table = Table(title=f"Statistics - {what}")
-    table.add_column("Field", style="cyan", no_wrap=True)
-    table.add_column("Corr", style="magenta", justify="right")
-    table.add_column("Min", style="green", justify="right")
-    table.add_column("25", style="yellow", justify="right")
-    table.add_column("Median", style="blue", justify="right")
-    table.add_column("75", style="yellow", justify="right")
-    table.add_column("Max", style="green", justify="right")
+    This script runs only the initial PETER graph build to generate correlation statistics
+    for true labels, without involving GPT processing.
+    """
+    # Create a subdirectory name based on parameters
+    output_dir = output_dir / f"graph_only_cit{citation}_sem{semantic}_lim{limit}"
 
-    for field, values in stats.items():
-        corr = f"{values.correlation:.3f}" if values.correlation is not None else "NaN"
-        min_val = str(values.min)
-        q1_val = f"{values.q1:.1f}"
-        median_val = f"{values.median:.1f}"
-        q3_val = f"{values.q3:.1f}"
-        max_val = str(values.max)
+    if force and output_dir.exists():
+        typer.echo(f"Removing existing directory: {output_dir}")
+        shutil.rmtree(output_dir)
 
-        table.add_row(field, corr, min_val, q1_val, median_val, q3_val, max_val)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    typer.echo(f"Using output directory: {output_dir}")
 
-    return table
+    # Run Peter PeerRead threshold only
+    title("Running Peter PeerRead threshold")
+
+    peter_output = output_dir / "peerread_with_peter.json"
+    _run(
+        peter_output,
+        "paper",
+        "peter",
+        "peerread-threshold",
+        "--graph-dir",
+        graph_dir,
+        "--peerread-ann",
+        peerread_ann,
+        "--output",
+        peter_output,
+        "--num-papers",
+        limit,
+        "--citation",
+        citation,
+        "--semantic",
+        semantic,
+    )
+
+    title("Processing Graph Results")
+    results = load_data(peter_output, rp.PaperResult)
+
+    title("Result")
+    rich.print(_get_statistics(results, WhatLabel.TRUE, _count_related_peter))
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -251,10 +301,23 @@ class Counts:
     negative: int
 
 
-def _count_related(item: gpt.GraphResult) -> Counts:
+class WhatLabel(enum.Enum):
+    """What label from `Counts` to use for statistics."""
+
+    TRUE = enum.auto()
+    PRED = enum.auto()
+
+
+def _count_related_summarised(item: gpt.GraphResult) -> Counts:
+    """Count semantic/citation positive/negative from GPT PETER summarisation results.
+
+    Raises:
+        ValueError: if `item` has a None `related` field. This can happen for legacy
+            data files from before the field was added.
+    """
     related = item.related
     if related is None:
-        raise ValueError("Invalid graph result. Does not contain related papers.")
+        raise ValueError("Invalid graph result. Must have related papers.")
 
     ctx = pr.ContextPolarity
     src = gpt.RelatedPaperSource
@@ -287,6 +350,31 @@ def _filter_related(
     return sum(1 for r in related if r.polarity is polarity and r.source is source)
 
 
+def _count_related_peter(item: rp.PaperResult) -> Counts:
+    """Count semantic/citation positive/negative from direct PETER query results."""
+    semantic_positive = len(item.results.semantic_positive)
+    semantic_negative = len(item.results.semantic_negative)
+    citation_positive = len(item.results.citations_positive)
+    citation_negative = len(item.results.citations_negative)
+
+    return Counts(
+        y_pred=-1,
+        y_true=item.paper.paper.label,
+        related=semantic_positive
+        + semantic_negative
+        + citation_negative
+        + citation_positive,
+        semantic=semantic_positive + semantic_negative,
+        citation=citation_positive + citation_negative,
+        semantic_positive=semantic_positive,
+        citation_positive=citation_positive,
+        semantic_negative=semantic_negative,
+        citation_negative=citation_negative,
+        positive=semantic_positive + citation_positive,
+        negative=semantic_negative + citation_negative,
+    )
+
+
 @dataclass(frozen=True, kw_only=True)
 class FieldStats:
     """Descriptive statistics and correlation for a field."""
@@ -299,10 +387,40 @@ class FieldStats:
     max: int
 
 
-def _calculate_stats(counts: Iterable[Counts], what: What) -> dict[str, FieldStats]:
+def _get_statistics[T](
+    data: Iterable[T], what: WhatLabel, count_fn: Callable[[T], Counts]
+) -> Table:
+    """Calculate statistics and return them as a Rich table."""
+    stats = _calculate_stats(map(count_fn, data), what)
+
+    table = Table(title=f"Statistics - {what}")
+    table.add_column("Field", style="cyan", no_wrap=True)
+    table.add_column("Corr", style="magenta", justify="right")
+    table.add_column("Min", style="green", justify="right")
+    table.add_column("25", style="yellow", justify="right")
+    table.add_column("Median", style="blue", justify="right")
+    table.add_column("75", style="yellow", justify="right")
+    table.add_column("Max", style="green", justify="right")
+
+    for field, values in stats.items():
+        corr = f"{values.correlation:.3f}" if values.correlation is not None else "NaN"
+        min_val = str(values.min)
+        q1_val = f"{values.q1:.1f}"
+        median_val = f"{values.median:.1f}"
+        q3_val = f"{values.q3:.1f}"
+        max_val = str(values.max)
+
+        table.add_row(field, corr, min_val, q1_val, median_val, q3_val, max_val)
+
+    return table
+
+
+def _calculate_stats(
+    counts: Iterable[Counts], what: WhatLabel
+) -> dict[str, FieldStats]:
     """Calculate statistics for each count field against the label field."""
     count_list = list(counts)  # Avoid iterating multiple times
-    labels = [c.y_true if what == "true" else c.y_pred for c in count_list]
+    labels = [c.y_true if what is WhatLabel.TRUE else c.y_pred for c in count_list]
 
     field_names = [
         "related",
