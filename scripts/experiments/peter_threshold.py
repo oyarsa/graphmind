@@ -10,7 +10,7 @@ import shutil
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import numpy as np
 import rich
@@ -34,6 +34,8 @@ app = typer.Typer(
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,
 )
+
+type What = Literal["true", "pred"]
 
 
 def _run(path: Path, *cmd: object) -> None:
@@ -201,14 +203,15 @@ def main(
     data = gpt.PromptResult.unwrap(
         load_data(eval_output, gpt.PromptResult[gpt.GraphResult])
     )
-    rich.print(_get_statistics(data))
+    for what in ("true", "pred"):
+        rich.print(_get_statistics(data, what))
 
 
-def _get_statistics(data: Iterable[gpt.GraphResult]) -> Table:
+def _get_statistics(data: Iterable[gpt.GraphResult], what: What) -> Table:
     """Calculate statistics and return them as a Rich table."""
-    stats = _calculate_stats(_count_related(item) for item in data)
+    stats = _calculate_stats((_count_related(item) for item in data), what)
 
-    table = Table(title="Statistics")
+    table = Table(title=f"Statistics - {what}")
     table.add_column("Field", style="cyan", no_wrap=True)
     table.add_column("Corr", style="magenta", justify="right")
     table.add_column("Min", style="green", justify="right")
@@ -234,7 +237,8 @@ def _get_statistics(data: Iterable[gpt.GraphResult]) -> Table:
 class Counts:
     """Various counts and derived counts from related papers."""
 
-    label: int
+    y_pred: int
+    y_true: int
 
     related: int
     semantic: int
@@ -261,7 +265,8 @@ def _count_related(item: gpt.GraphResult) -> Counts:
     citation_negative = _filter_related(related, ctx.NEGATIVE, src.CITATIONS)
 
     return Counts(
-        label=item.paper.label,
+        y_pred=item.paper.y_pred,
+        y_true=item.paper.y_true,
         related=len(related),
         semantic=semantic_positive + semantic_negative,
         citation=citation_positive + citation_negative,
@@ -294,10 +299,10 @@ class FieldStats:
     max: int
 
 
-def _calculate_stats(counts: Iterable[Counts]) -> dict[str, FieldStats]:
+def _calculate_stats(counts: Iterable[Counts], what: What) -> dict[str, FieldStats]:
     """Calculate statistics for each count field against the label field."""
     count_list = list(counts)  # Avoid iterating multiple times
-    labels = [count.label for count in count_list]
+    labels = [c.y_true if what == "true" else c.y_pred for c in count_list]
 
     field_names = [
         "related",
