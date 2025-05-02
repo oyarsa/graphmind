@@ -13,7 +13,7 @@ def pearson_correlation(x: Sequence[float], y: Sequence[float]) -> float | None:
 
     Returns None if correlation is undefined (e.g., if one sequence has zero variance).
     """
-    if len(set(y)) == 1:  # All predictions are the same
+    if len(set(y)) == 1 or len(set(x)) == 1:  # Either sequence has zero variance
         return None
 
     return float(stats.pearsonr(x, y).correlation)
