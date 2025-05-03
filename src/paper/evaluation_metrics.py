@@ -207,6 +207,22 @@ class PaperMetrics(Metrics):
         )
 
 
+def _guess_target_mode(y_pred: Sequence[int], y_true: Sequence[int]) -> TargetMode:
+    """Guess target mode from the possible values.
+
+    If only 0 and 1 are possible in `y_pred` and `y_true`, the mode is BIN. Otherwise,
+    it's INT.
+
+    This isn't always accurate. For example, if the data is binary but it's always 0 or
+    1, this will incorrectly assume it's INT and not BIN since there's no way to tell.
+    """
+    values = set(y_true) | set(y_pred)
+    if values == {0, 1}:
+        return TargetMode.BIN
+    else:
+        return TargetMode.INT
+
+
 def calculate_metrics(
     y_true: Sequence[int], y_pred: Sequence[int], mode: TargetMode | None = None
 ) -> Metrics:
@@ -235,15 +251,8 @@ def calculate_metrics(
     if len(y_true) != len(y_pred):
         raise ValueError("Input sequences must have the same length")
 
-    # Guess target mode from the possible values. This isn't always accurate. For example,
-    # if the data is binary but it's always 0 or 1, this will incorrectly assume it's
-    # INT and not BIN since there's no way to tell.
     if mode is None:
-        values = set(y_true) | set(y_pred)
-        if values == {0, 1}:
-            mode = TargetMode.BIN
-        else:
-            mode = TargetMode.INT
+        mode = _guess_target_mode(y_pred, y_true)
 
     return Metrics(
         precision=metrics.precision(y_true, y_pred),
