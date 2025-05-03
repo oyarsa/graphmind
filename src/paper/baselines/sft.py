@@ -47,7 +47,7 @@ from transformers import (
 from paper import gpt
 from paper import peerread as pr
 from paper import semantic_scholar as s2
-from paper.evaluation_metrics import Metrics, calculate_metrics
+from paper.evaluation_metrics import Metrics, TargetMode, calculate_metrics
 from paper.util import describe, metrics, sample, setup_logging
 from paper.util.cli import Choice
 from paper.util.serde import load_data, save_data
@@ -780,12 +780,16 @@ def evaluate_model_predictions(
     if label_mode == "original":
         true_labels_adjusted = [int(label) + 1 for label in true_labels]
         pred_labels_adjusted = [int(label) + 1 for label in pred_labels]
+        target_mode = TargetMode.INT
     else:
         true_labels_adjusted = [int(label) for label in true_labels]
         pred_labels_adjusted = [int(label) for label in pred_labels]
+        target_mode = TargetMode.BIN
 
     logits_list = [[float(x) for x in logit] for logit in logits]
-    metrics_result = calculate_metrics(true_labels_adjusted, pred_labels_adjusted)
+    metrics_result = calculate_metrics(
+        true_labels_adjusted, pred_labels_adjusted, target_mode
+    )
 
     metrics_path = output_dir / "evaluation_metrics.txt"
     with open(metrics_path, "w") as f:

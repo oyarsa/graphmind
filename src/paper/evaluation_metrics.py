@@ -207,7 +207,9 @@ class PaperMetrics(Metrics):
         )
 
 
-def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
+def calculate_metrics(
+    y_true: Sequence[int], y_pred: Sequence[int], mode: TargetMode | None = None
+) -> Metrics:
     """Calculate classification metrics for multi-class classification.
 
     The labels can be either in 1-5 or binary (0/1). This is determined by the range of
@@ -216,6 +218,8 @@ def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
     Args:
         y_true: Ground truth labels (values 1-5 or 0/1)
         y_pred: Predicted labels (values 1-5 or 0/1)
+        mode: What mode are the labels, either BIN (0/1) or INT (1-5). If absent, we will
+            attempt to find the mode by checking the possible values.
 
     Returns:
         Metrics object containing macro-averaged precision, recall, F1 score, accuracy,
@@ -231,13 +235,15 @@ def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
     if len(y_true) != len(y_pred):
         raise ValueError("Input sequences must have the same length")
 
-    values = set(y_true) | set(y_pred)
-    if values == {0, 1}:
-        mode = TargetMode.BIN
-        labels = [0, 1]
-    else:
-        mode = TargetMode.INT
-        labels = range(1, 6)
+    # Guess target mode from the possible values. This isn't always accurate. For example,
+    # if the data is binary but it's always 0 or 1, this will incorrectly assuem it's
+    # INT and not BIN since there's no way to tell.
+    if mode is None:
+        values = set(y_true) | set(y_pred)
+        if values == {0, 1}:
+            mode = TargetMode.BIN
+        else:
+            mode = TargetMode.INT
 
     return Metrics(
         precision=metrics.precision(y_true, y_pred),
@@ -247,6 +253,6 @@ def calculate_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> Metrics:
         mae=metrics.mean_absolute_error(y_true, y_pred),
         mse=metrics.mean_squared_error(y_true, y_pred),
         correlation=metrics.pearson_correlation(y_true, y_pred),
-        confusion=metrics.confusion_matrix(y_true, y_pred, labels=labels),
+        confusion=metrics.confusion_matrix(y_true, y_pred, labels=mode.labels()),
         mode=mode,
     )
