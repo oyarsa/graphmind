@@ -236,7 +236,7 @@ def calculate_metrics(
         raise ValueError("Input sequences must have the same length")
 
     # Guess target mode from the possible values. This isn't always accurate. For example,
-    # if the data is binary but it's always 0 or 1, this will incorrectly assuem it's
+    # if the data is binary but it's always 0 or 1, this will incorrectly assume it's
     # INT and not BIN since there's no way to tell.
     if mode is None:
         values = set(y_true) | set(y_pred)
