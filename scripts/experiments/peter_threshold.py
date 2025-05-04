@@ -167,8 +167,8 @@ def run_eval_graph(
     )
 
 
-@app.command(name="full", no_args_is_help=True)
-def full_pipeline(
+@app.command(no_args_is_help=True)
+def full(
     output_dir: Annotated[
         Path,
         typer.Option(
@@ -277,8 +277,8 @@ def full_pipeline(
         rich.print(_get_statistics(data, what, _count_related_summarised))
 
 
-@app.command(name="graph-only", no_args_is_help=True)
-def graph_only(
+@app.command(no_args_is_help=True)
+def graph(
     output_dir: Annotated[
         Path,
         typer.Option(
