@@ -14,7 +14,7 @@ import os
 import platform
 import random
 import warnings
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Annotated, Literal, cast
 
@@ -365,24 +365,21 @@ def suppress_hf_warnings() -> None:
 def load_dataset(
     file: Path, n: int | None, label_mode: LabelMode, model_input: InputMode
 ) -> Dataset:
-    """Load JSON file and prepare input dataset.
+    """Load JSON file and prepare input dataset given an input mode.
 
-    See `preprocess_dataset` for how the data is prepared.
+    See `preprocess_dataset_*` functions for how the data is prepared.
     """
-    if model_input == "basic":
-        data = sample(
-            gpt.PromptResult.unwrap(
-                load_data(file, gpt.PromptResult[gpt.PaperWithRelatedSummary])
-            ),
-            n,
-        )
-        return preprocess_dataset_basic(data, label_mode)
 
-    data = sample(
-        gpt.PromptResult.unwrap(load_data(file, gpt.PromptResult[gpt.ExtractedGraph])),
-        n,
-    )
-    return preprocess_dataset_graph(data, label_mode)
+    def load[T: BaseModel](
+        type_: type[T], preprocess: Callable[[list[T], LabelMode], Dataset]
+    ) -> Dataset:
+        data = gpt.PromptResult.unwrap(load_data(file, gpt.PromptResult[type_]))
+        return preprocess(sample(data, n), label_mode)
+
+    if model_input == "basic":
+        return load(gpt.PaperWithRelatedSummary, preprocess_dataset_basic)
+    else:
+        return load(gpt.ExtractedGraph, preprocess_dataset_graph)
 
 
 def _fix_rating(rating: int, label_mode: LabelMode) -> int:
