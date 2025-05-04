@@ -64,10 +64,11 @@ class Graph:
         target: str,
         semantic_threshold: float,
         citation_threshold: float,
+        retrieved_k: int,
     ) -> QueryResult:
         """Find papers related to `paper` through citations and semantic similarity."""
         papers_semantic = self._semantic.query_threshold(
-            background, target, semantic_threshold
+            background, target, semantic_threshold, retrieved_k
         )
         papers_citation = self._citation.query_threshold(paper_id, citation_threshold)
 

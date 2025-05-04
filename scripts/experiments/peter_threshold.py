@@ -61,6 +61,7 @@ def run_peter_threshold(
     limit: int,
     citation: float,
     semantic: float,
+    retrieved_k: int,
 ) -> None:
     """Run PETER threshold calculation on PeerRead data.
 
@@ -71,6 +72,7 @@ def run_peter_threshold(
         limit: Number of papers to process.
         citation: Citation threshold.
         semantic: Semantic threshold.
+        retrieved_k: Number of semantic neighbours to retrieve before applying threshold.
     """
     _run(
         peter_output,
@@ -89,6 +91,8 @@ def run_peter_threshold(
         citation,
         "--semantic",
         semantic,
+        "--retrieved-k",
+        retrieved_k,
     )
 
 
@@ -206,6 +210,12 @@ def full_pipeline(
     citation: Annotated[float, typer.Option(help="Citation threshold")] = 0.8,
     semantic: Annotated[float, typer.Option(help="Semantic threshold")] = 0.8,
     limit: Annotated[int, typer.Option(help="Number of papers")] = 10,
+    retrieved_k: Annotated[
+        int,
+        typer.Option(
+            help="Number of semantic neighbours to retrieve before applying threshold."
+        ),
+    ] = 100,
     force: Annotated[bool, typer.Option(help="Ignore previous results if set")] = False,
     model: Annotated[str, typer.Option(help="GPT model to use.")] = "gpt-4o-mini",
 ) -> None:
@@ -236,7 +246,7 @@ def full_pipeline(
     title("Running Peter PeerRead threshold")
     peter_output = output_dir / "peerread_with_peter.json"
     run_peter_threshold(
-        peter_output, graph_dir, peerread_ann, limit, citation, semantic
+        peter_output, graph_dir, peerread_ann, limit, citation, semantic, retrieved_k
     )
 
     # Step 2: Run GPT PeterSum
@@ -295,6 +305,12 @@ def graph_only(
     ],
     citation: Annotated[float, typer.Option(help="Citation threshold")] = 0.8,
     semantic: Annotated[float, typer.Option(help="Semantic threshold")] = 0.8,
+    retrieved_k: Annotated[
+        int,
+        typer.Option(
+            help="Number of semantic neighbours to retrieve before applying threshold."
+        ),
+    ] = 100,
     limit: Annotated[int, typer.Option(help="Number of papers")] = 10,
     force: Annotated[bool, typer.Option(help="Ignore previous results if set")] = False,
 ) -> None:
@@ -316,7 +332,7 @@ def graph_only(
     title("Running Peter PeerRead threshold")
     peter_output = output_dir / "peerread_with_peter.json"
     run_peter_threshold(
-        peter_output, graph_dir, peerread_ann, limit, citation, semantic
+        peter_output, graph_dir, peerread_ann, limit, citation, semantic, retrieved_k
     )
 
     title("Processing Graph Results")

@@ -164,14 +164,14 @@ class Graph:
         )
 
     def query_threshold(
-        self, background: str, target: str, threshold: float, minimum_k: int = 100
+        self, background: str, target: str, threshold: float, retrieved_k: int = 100
     ) -> QueryResult:
         """Get semantic-related with score above `threshold`.
 
-        First, we fetch `minimum_k` items, then gets only the results above the
+        First, we fetch `retrieved_k` items, then gets only the results above the
         threshold.
         """
-        results = self.query(background, target, minimum_k)
+        results = self.query(background, target, retrieved_k)
         return QueryResult(
             backgrounds=[b for b in results.backgrounds if b.score >= threshold],
             targets=[t for t in results.backgrounds if t.score >= threshold],

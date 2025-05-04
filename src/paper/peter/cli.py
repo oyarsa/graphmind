@@ -311,6 +311,12 @@ def peerread_threshold(
         float,
         typer.Option(help="Minimum similarity threshold for semantic papers."),
     ] = 0.8,
+    retrieved_k: Annotated[
+        int,
+        typer.Option(
+            help="Number of semantic neighbours to retrieve before applying threshold."
+        ),
+    ] = 100,
 ) -> None:
     """Query the graph with PeerRead papers based on a minimum threshold.
 
@@ -335,6 +341,7 @@ def peerread_threshold(
                 paper.target,
                 semantic_threshold=semantic,
                 citation_threshold=citation,
+                retrieved_k=retrieved_k,
             ),
         )
         for paper in tqdm(papers, desc="Querying PeerRead papers.")
