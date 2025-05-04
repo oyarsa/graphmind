@@ -274,7 +274,17 @@ def full(
         load_data(eval_output, gpt.PromptResult[gpt.GraphResult])
     )
     for what in WhatLabel:
-        rich.print(_get_statistics(data, what, _count_related_summarised))
+        rich.print(
+            _get_statistics(
+                data,
+                what,
+                _count_related_summarised,
+                citation=citation,
+                semantic=semantic,
+                retrieved_k=retrieved_k,
+                limit=limit,
+            )
+        )
 
 
 @app.command(no_args_is_help=True)
@@ -339,7 +349,17 @@ def graph(
     results = load_data(peter_output, rp.PaperResult)
 
     title("Result")
-    rich.print(_get_statistics(results, WhatLabel.TRUE, _count_related_peter))
+    rich.print(
+        _get_statistics(
+            results,
+            WhatLabel.TRUE,
+            _count_related_peter,
+            citation=citation,
+            semantic=semantic,
+            retrieved_k=retrieved_k,
+            limit=limit,
+        )
+    )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -360,7 +380,7 @@ class Counts:
     negative: int
 
 
-class WhatLabel(enum.Enum):
+class WhatLabel(enum.StrEnum):
     """What label from `Counts` to use for statistics."""
 
     TRUE = enum.auto()
@@ -447,12 +467,18 @@ class FieldStats:
 
 
 def _get_statistics[T](
-    data: Iterable[T], what: WhatLabel, count_fn: Callable[[T], Counts]
+    data: Iterable[T],
+    what: WhatLabel,
+    count_fn: Callable[[T], Counts],
+    citation: float,
+    semantic: float,
+    limit: int | None,
+    retrieved_k: int,
 ) -> Table:
     """Calculate statistics and return them as a Rich table."""
     stats = _calculate_stats(map(count_fn, data), what)
 
-    table = Table(title=f"Statistics - {what}")
+    table = Table(title=f"L={what} C={citation} S={semantic} N={limit} K={retrieved_k}")
     table.add_column("Field", style="cyan", no_wrap=True)
     table.add_column("Corr", style="magenta", justify="right")
     table.add_column("Min", style="green", justify="right")
