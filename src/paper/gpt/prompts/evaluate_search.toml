@@ -22,9 +22,9 @@ If the paper approval decision is "True", the novelty label should be 1 (novel).
 The output should have the following format:
 
 ```
-Rationale: <text>
-
 Label: <0 or 1>
+
+Rationale: <text>
 ```
 
 #####
@@ -66,9 +66,9 @@ bottom of the text.
 The output should have the following format:
 
 ```
-Rationale: <text>
-
 Label: <0 or 1>
+
+Rationale: <text>
 ```
 
 #####
