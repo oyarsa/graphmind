@@ -14,6 +14,7 @@ import asyncio
 import itertools
 import logging
 import random
+import textwrap
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
@@ -343,10 +344,23 @@ def _parse_result(text: str | None) -> GPTFull:
             rationale.append(line)
 
     if label is None:
-        logger.warning(f"Result parsing: label could not be found:\n\n{text}")
+        _log_invalid_output(text)
         return GPTFull.error()
 
     return GPTFull(label=label, rationale="\n".join(rationale))
+
+
+def _log_invalid_output(text: str) -> None:
+    logger.warning(
+        "Result parsing: label could not be found:\n\n%s\n",
+        textwrap.dedent(f"""\
+        # START OF TEXT
+
+        {text}
+
+        # END OF TEXT
+        """),
+    )
 
 
 @app.command(help="List available prompts.")
