@@ -716,7 +716,21 @@ def get_in(data: dict[str, Any], path: str, default: Any = None) -> Any | None:
     return current
 
 
+def prettify_polars() -> None:
+    """Make Polars output tables nicer.
+
+    - Hide data types.
+    - Hide dataframe shape.
+    - Show all columns.
+
+    This is stateful. Once called, all Polars DataFrames will use this.
+    """
+    pl.Config.set_tbl_hide_column_data_types(True).set_tbl_hide_dataframe_shape(
+        True
+    ).set_tbl_cols(-1)
+
+
 def describe(values: Iterable[int]) -> str:
     """Print descriptive statistics of `values`."""
-    pl.Config.set_tbl_hide_column_data_types(True).set_tbl_hide_dataframe_shape(True)
+    prettify_polars()
     return str(pl.Series(values).describe())
