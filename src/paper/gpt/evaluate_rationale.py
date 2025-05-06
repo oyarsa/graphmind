@@ -382,8 +382,7 @@ async def evaluate_rationales(
     logger.info("%s", _display_label_dist(results_items))
 
     metrics = calculate_aggregate_metrics(results_items)
-    for metric_name, stats in metrics.metrics.items():
-        logger.info("%s: mean=%.4f, stdev=%.4f", metric_name, stats.mean, stats.stdev)
+    logger.info(">>> Results\n%s", _display_aggregate_metrics(metrics.metrics))
 
     save_data(output_dir / "result.json", results_all)
     save_data(output_dir / "params.json", params)
@@ -408,6 +407,14 @@ def calculate_aggregate_metrics(
         metrics_stats[metric] = MetricStats(mean=mean_value, stdev=stdev_value)
 
     return AggregateMetrics(metrics=metrics_stats)
+
+
+def _display_aggregate_metrics(metrics: dict[str, MetricStats]) -> str:
+    longest_metric = max(map(len, metrics))
+    return "\n".join(
+        f"{name:>{longest_metric}}: mean={stats.mean:.4f} stdev={stats.stdev:.4f}"
+        for name, stats in metrics.items()
+    )
 
 
 def _display_label_dist(item_evals: Iterable[EvaluatedResult]) -> str:
