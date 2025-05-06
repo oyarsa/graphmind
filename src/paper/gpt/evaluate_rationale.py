@@ -5,6 +5,7 @@ The input --type is one of:
 - `raw`: original dataset type, `peerread.Paper`
 - `graph`: output of `gpt.evaluate_paper_graph`, `PromptResult[GraphResult]`
 - `paper`: output of `gpt.evaluate_paper_scimon`, `PromptResult[PaperResult]`
+- `summ`: output of `gpt.summarise_related_peter.py`, `PromptResult[PaperWithRelatedSummary]`
 
 The `many` subcommand allows evaluating multiple input files and collecting metrics.
 """
@@ -33,7 +34,7 @@ from tqdm import tqdm
 from paper import peerread as pr
 from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.extract_graph import GraphResult
-from paper.gpt.model import Prompt, PromptResult
+from paper.gpt.model import PaperWithRelatedSummary, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     GPTResult,
@@ -161,7 +162,7 @@ class GPTRationaleEval(BaseModel):
 
 
 # Type alias for input items
-type InputType = GraphResult | PaperResult | pr.Paper
+type InputType = GraphResult | PaperResult | pr.Paper | PaperWithRelatedSummary
 
 
 class GraphWithEval(GraphResult):
@@ -197,8 +198,21 @@ class PaperRawWithEval(pr.Paper):
         return cls.model_validate({**paper.model_dump(), "eval_metrics": eval})
 
 
+class PaperSummarisedWithEval(PaperWithRelatedSummary):
+    """`Paper` with LLM-as-judge evaluation of generated rationale."""
+
+    eval_metrics: RationaleMetrics
+
+    @classmethod
+    def from_(cls, paper: PaperWithRelatedSummary, eval: RationaleMetrics) -> Self:
+        """Create `SummarisedPaperRawWithEval` from existing `paper` and evaluation."""
+        return cls.model_validate({**paper.model_dump(), "eval_metrics": eval})
+
+
 # Type for results with evaluation metrics added
-type EvaluatedResult = GraphWithEval | PaperWithEval | PaperRawWithEval
+type EvaluatedResult = (
+    GraphWithEval | PaperWithEval | PaperRawWithEval | PaperSummarisedWithEval
+)
 
 
 app = typer.Typer(
@@ -339,6 +353,7 @@ async def evaluate_rationales(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
+    # TODO: Clean this up. See the other TODO in this file. (2025-05-06)
     match input_type.lower():
         case "graph":
             papers = sample(
@@ -355,9 +370,18 @@ async def evaluate_rationales(
         case "raw":
             papers = sample(load_data(input_path, pr.Paper), limit_papers)
             result_class = PaperRawWithEval
+        case "summ":
+            papers = sample(
+                PromptResult.unwrap(
+                    load_data(input_path, PromptResult[PaperWithRelatedSummary])
+                ),
+                limit_papers,
+            )
+            result_class = PaperSummarisedWithEval
         case _:
             raise ValueError(
-                f"Invalid input_type: {input_type}. Must be 'graph', 'paper', or 'raw'."
+                f"Invalid input_type: {input_type}. Must be 'graph', 'paper', 'summ',"
+                " or 'raw'."
             )
 
     prompt = RATIONALE_EVAL_PROMPTS[prompt_key]
@@ -505,6 +529,7 @@ async def _evaluate_rationale(
     Returns:
         Paper with evaluated rationale wrapped in a GPTResult.
     """
+    # TODO: Clean this up. See below. (2025-05-06)
     if isinstance(item, GraphResult):
         paper = item.paper
         title = item.paper.title
@@ -513,6 +538,10 @@ async def _evaluate_rationale(
         paper = item
         title = item.title
         rationale_pred = item.rationale_pred
+    elif isinstance(item, PaperWithRelatedSummary):
+        paper = item
+        title = item.paper.title
+        rationale_pred = item.paper.paper.rationale
     else:
         # Must be Paper since we're using InputType
         paper = item
@@ -535,6 +564,11 @@ async def _evaluate_rationale(
         eval_result = PaperWithEval.from_(item, metrics)
     elif isinstance(item, pr.Paper) and result_class == PaperRawWithEval:
         eval_result = PaperRawWithEval.from_(item, metrics)
+    elif (
+        isinstance(item, PaperWithRelatedSummary)
+        and result_class == PaperSummarisedWithEval
+    ):
+        eval_result = PaperSummarisedWithEval.from_(item, metrics)
     else:
         raise TypeError(
             f"Mismatched item type {type(item)} and result class {result_class}"
@@ -610,8 +644,10 @@ async def _evaluate_single_input(
 @app.command(help="Run evaluation on multiple input files", no_args_is_help=True)
 def many(
     inputs: Annotated[
-        list[Path],
-        typer.Argument(help="Input files to process"),
+        list[str],
+        typer.Argument(
+            help="Input files to process. Each file is in the format path:type."
+        ),
     ],
     model: Annotated[
         str,
@@ -621,14 +657,6 @@ def many(
         int,
         typer.Option("--limit", "-n", help="Number of papers to process"),
     ] = 5,
-    input_type: Annotated[
-        str,
-        typer.Option(
-            "--type",
-            help="Type of input file",
-            click_type=cli.Choice(["graph", "paper", "raw"]),
-        ),
-    ] = "graph",
     prompt: Annotated[
         str,
         typer.Option(help="Prompt to use for evaluation"),
@@ -647,7 +675,6 @@ def many(
             inputs=inputs,
             model=model,
             limit=limit,
-            input_type=input_type,
             prompt=prompt,
             seed=seed,
             batch_size=batch_size,
@@ -656,26 +683,30 @@ def many(
 
 
 async def _evaluate_many_inputs(
-    inputs: list[Path],
+    inputs: list[str],
     model: str,
     limit: int,
-    input_type: str,
     prompt: str,
     seed: int,
     batch_size: int,
 ) -> None:
     results: list[dict[str, Any]] = []
 
-    for input_path in inputs:
-        logger.warning(f"Processing {input_path}...")
+    for input_ in inputs:
+        logger.warning(f"Processing: {input_}")
         try:
+            if ":" in input_:
+                input_path, input_type = input_.split(":", maxsplit=1)
+            else:
+                input_path, input_type = input_, "graph"
+
             results.append(
                 await _evaluate_single_input(
-                    batch_size, input_path, input_type, limit, model, prompt, seed
+                    batch_size, Path(input_path), input_type, limit, model, prompt, seed
                 )
             )
         except Exception:
-            logger.exception(f"Error processing {input_path}")
+            logger.exception(f"Error processing {input_}")
 
     if not results:
         logger.warning("No results collected.")
@@ -701,7 +732,7 @@ def _display_results(results: list[dict[str, Any]]) -> None:
     for metric in metric_names:
         table.add_column(metric.capitalize(), style="green")
 
-    for result in results:
+    for result in sorted(results, key=lambda x: x["specificity"], reverse=True):
         table.add_row(*[
             result["name"],
             *(f"{result.get(metric, 0):.2f}" for metric in metric_names),
