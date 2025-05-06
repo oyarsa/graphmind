@@ -5,13 +5,14 @@ from collections.abc import Sequence
 from enum import StrEnum
 from importlib import resources
 from pathlib import Path
-from typing import Annotated, Self, cast
+from typing import Annotated, Protocol, Self, cast
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from paper import semantic_scholar as s2
+from paper.evaluation_metrics import TargetMode
 from paper.gpt.prompts import PromptTemplate, load_prompts
-from paper.util.serde import load_data, replace_fields
+from paper.util.serde import load_data
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,29 @@ class GPTFull(BaseModel):
         return self.rationale != "<error>"
 
 
+class GPTUncertain(BaseModel):
+    """Evaluation of whether the paper is novel. Supports uncertain (2) label."""
+
+    model_config = ConfigDict(frozen=True)
+
+    label: Annotated[
+        int,
+        Field(
+            description="1 if the paper is novel, 0 if it's not novel, 2 if you're uncertain."
+        ),
+    ]
+    rationale: Annotated[str, Field(description="How you reached your novelty label.")]
+
+    @classmethod
+    def error(cls) -> Self:
+        """Output value for when there's an error."""
+        return cls(rationale="<error>", label=0)
+
+    def is_valid(self) -> bool:
+        """Check if instance is valid."""
+        return self.rationale != "<error>"
+
+
 def _load_demonstrations() -> dict[str, list[Demonstration]]:
     """Load demonstration files from the gpt.demonstrations package."""
     return {
@@ -148,21 +172,41 @@ EVALUATE_DEMONSTRATIONS = _load_demonstrations()
 """Available demonstrations from `paper.gpt.demonstrations`."""
 
 
-def fix_evaluated_rating(evaluated: GPTFull) -> GPTFull:
-    """Fix evaluated label if out of range by converting to 0/1.
+class EvaluationResult(Protocol):
+    """Result of evaluating a paper with novelty label and rationale."""
 
-    Any label that isn't 1 will be treated as 0.
+    @property
+    def rationale(self) -> str:
+        """Rationale for novelty label."""
+        ...
+
+    @property
+    def label(self) -> int:
+        """Novelty label."""
+        ...
+
+
+def fix_evaluated_rating(
+    evaluated: EvaluationResult, target_mode: TargetMode = TargetMode.BIN
+) -> GPTFull:
+    """Fix evaluated label if out of range by converting to the specified mode.
+
+    If the rating is not valid for the mode, treat it as 0.
 
     Args:
         evaluated: Evaluation result to be checked.
+        target_mode: Mode for label validation and conversion.
 
     Returns:
         Same input if valid label, or new object with fixed label.
     """
-    if evaluated.label not in [0, 1]:
-        logger.warning("Invalid label: %d. Converting to 0/1", evaluated.label)
+    if evaluated.label in target_mode.labels():
+        return GPTFull(label=evaluated.label, rationale=evaluated.rationale)
 
-    return replace_fields(evaluated, label=evaluated.label == 1)
+    logger.warning(
+        "Invalid label: %d. Converting to %s", evaluated.label, target_mode.labels()
+    )
+    return GPTFull(label=0, rationale=evaluated.rationale)
 
 
 class RatingMode(StrEnum):

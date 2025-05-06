@@ -28,11 +28,16 @@ import typer
 from tqdm import tqdm
 
 from paper import peerread as pr
-from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
+from paper.evaluation_metrics import (
+    TargetMode,
+    calculate_paper_metrics,
+    display_metrics,
+)
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
     GPTFull,
+    GPTUncertain,
     PaperResult,
     fix_evaluated_rating,
     get_demonstrations,
@@ -383,6 +388,11 @@ async def _evaluate_paper(
     linearisation_method: LinearisationMethod,
     sources: set[RelatedPaperSource],
 ) -> GPTResult[PromptResult[GraphResult]]:
+    if "uncertain" in eval_prompt.name:
+        target_mode = TargetMode.UNCERTAIN
+    else:
+        target_mode = TargetMode.BIN
+
     if "graph" in eval_prompt.name:
         graph_prompt_text = format_graph_template(graph_prompt, paper.paper)
         graph_system_prompt = graph_prompt.system
@@ -410,13 +420,15 @@ async def _evaluate_paper(
         eval_prompt, paper, graph, demonstrations, linearisation_method, sources
     )
     eval_system_prompt = eval_prompt.system
-    eval_result = await client.run(GPTFull, eval_system_prompt, eval_prompt_text)
+
+    eval_type = GPTUncertain if target_mode is TargetMode.UNCERTAIN else GPTFull
+    eval_result = await client.run(eval_type, eval_system_prompt, eval_prompt_text)
 
     if not eval_result.result or not eval_result.result.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid GPTFull (evaluation result)")
 
     eval_paper = paper.paper.paper
-    evaluated = fix_evaluated_rating(eval_result.result or GPTFull.error())
+    evaluated = fix_evaluated_rating(eval_result.result or GPTFull.error(), target_mode)
 
     return GPTResult(
         result=PromptResult(

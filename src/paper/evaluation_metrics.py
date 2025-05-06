@@ -14,6 +14,7 @@ class TargetMode(Enum):
 
     INT = "int"
     BIN = "bin"
+    UNCERTAIN = "uncertain"
 
     def labels(self) -> list[int]:
         """Labels represented by this mode."""
@@ -22,6 +23,8 @@ class TargetMode(Enum):
                 return list(range(1, 6))
             case TargetMode.BIN:
                 return [0, 1]
+            case TargetMode.UNCERTAIN:
+                return [0, 1, 2]
 
 
 class Metrics(BaseModel):
@@ -210,8 +213,8 @@ class PaperMetrics(Metrics):
 def _guess_target_mode(y_pred: Sequence[int], y_true: Sequence[int]) -> TargetMode:
     """Guess target mode from the possible values.
 
-    If only 0 and 1 are possible in `y_pred` and `y_true`, the mode is BIN. Otherwise,
-    it's INT.
+    If only 0 and 1 are possible in `y_pred` and `y_true`, the mode is BIN. If 0, 1 and
+    2 are possible, it's UNCERTAIN (2 is uncertain). Otherwise, it's INT.
 
     This isn't always accurate. For example, if the data is binary but it's always 0 or
     1, this will incorrectly assume it's INT and not BIN since there's no way to tell.
@@ -219,6 +222,8 @@ def _guess_target_mode(y_pred: Sequence[int], y_true: Sequence[int]) -> TargetMo
     values = set(y_true) | set(y_pred)
     if values == {0, 1}:
         return TargetMode.BIN
+    if values == {0, 1, 2}:
+        return TargetMode.UNCERTAIN
     else:
         return TargetMode.INT
 

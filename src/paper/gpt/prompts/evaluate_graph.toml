@@ -385,3 +385,77 @@ references section.
 
 If the paper approval decision is "True", the novelty label should be 1 (novel).
 """
+
+[[prompts]]
+name = "full-graph-uncertain"
+system = """\
+Given the following target paper, a summary and a selection of related papers separated \
+by whether they're supporting or contrasting the main paper, give it a novelty rating.
+"""
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+main paper's title, a summary of its key points and some related papers.
+
+The paper summary describes the most important information about the paper and its \
+contents. It summarises key aspects, which you can use to build a more comprehensive \
+understanding of the paper.
+
+The related papers are split into "supporting" papers (those that corroborate the paper's \
+ideas, methods, approach, etc.) and "contrasting" papers (those that go against the \
+paper's ideas). Use these related papers to understand the context around the main paper, \
+so you know what other works exist in comparison with the main paper.
+
+Based on this, decide whether the paper is novel. It is novel if brings new ideas or \
+develops new ideas previously unseen. Make sure that the ideas are truly unique. The \
+paper is not novel if anything similar to it has been done before. Be very thorough. \
+When in doubt, tend towards the not novel label.
+
+First, generate the rationale for your novelty label, then give the final novelty label. \
+It should be 1 for a novel paper, or 0 otherwise. If you're uncertain, assign the 2 \
+(uncertain) label.
+
+If the paper approval decision is "True", the novelty label should be 1 (novel).
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+Approval decision: {approval}
+
+Paper summary:
+{graph}
+
+Supporting papers:
+{positive}
+
+Contrasting papers:
+{negative}
+
+#####
+Output:
+"""
+
+[[prompts]]
+# Used to ensure that the main code is capable of processing the label 2.
+name = "debug-uncertain"
+system = """\
+Give a novelty rating for the following paper, and explain your decision.
+"""
+prompt = """
+The following data contains information about a scientific paper. It includes the \
+paper's title and abstract.
+
+Assign a random label between 0, 1 and 2. Your rationale should be "debug".
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+Abstract: {abstract}
+
+#####
+Output:
+"""
