@@ -136,23 +136,44 @@ class GPTFull(BaseModel):
         return self.rationale != "<error>"
 
 
+class NoveltyLabel(StrEnum):
+    """Novelty label in text form with 'uncertain' label."""
+
+    NOT_NOVEL = "not novel"
+    NOVEL = "novel"
+    UNCERTAIN = "uncertain"
+
+    def as_label(self) -> int:
+        """Novelty label as integer, as expected by everything else."""
+        match self:
+            case self.NOT_NOVEL:
+                return 0
+            case self.NOVEL:
+                return 1
+            case self.UNCERTAIN:
+                return 2
+
+
 class GPTUncertain(BaseModel):
     """Evaluation of whether the paper is novel. Supports uncertain (2) label."""
 
     model_config = ConfigDict(frozen=True)
 
-    label: Annotated[
-        int,
-        Field(
-            description="1 if the paper is novel, 0 if it's not novel, 2 if you're uncertain."
-        ),
+    novelty: Annotated[
+        NoveltyLabel,
+        Field(description="'novel', 'not novel', or if you're not sure, 'uncertain'."),
     ]
     rationale: Annotated[str, Field(description="How you reached your novelty label.")]
+
+    @property
+    def label(self) -> int:
+        """Novelty as integer label."""
+        return self.novelty.as_label()
 
     @classmethod
     def error(cls) -> Self:
         """Output value for when there's an error."""
-        return cls(rationale="<error>", label=0)
+        return cls(rationale="<error>", novelty=NoveltyLabel.NOT_NOVEL)
 
     def is_valid(self) -> bool:
         """Check if instance is valid."""

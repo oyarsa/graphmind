@@ -410,11 +410,10 @@ develops new ideas previously unseen. Make sure that the ideas are truly unique.
 paper is not novel if anything similar to it has been done before. Be very thorough. \
 When in doubt, tend towards the not novel label.
 
-First, generate the rationale for your novelty label, then give the final novelty label. \
-It should be 1 for a novel paper, or 0 otherwise. If you're uncertain, assign the 2 \
-(uncertain) label.
+First, generate the rationale for your novelty label, then give the final novelty label: \
+'not novel', 'novel', or if you're not sure, 'uncertain'.
 
-If the paper approval decision is "True", the novelty label should be 1 (novel).
+If the paper approval decision is "True", the novelty label should be 'novel'.
 
 #####
 {demonstrations}
