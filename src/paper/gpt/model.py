@@ -806,6 +806,11 @@ class PaperWithRelatedSummary(Record):
         """Novelty rating of the underlying paper."""
         return self.paper.paper.rating
 
+    @property
+    def label(self) -> int:
+        """Novelty label of the underlying paper."""
+        return self.paper.paper.label
+
 
 class RelatedPaperSource(StrEnum):
     """Denote where the related paper came from."""
