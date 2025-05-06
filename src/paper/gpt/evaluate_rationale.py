@@ -5,23 +5,29 @@ The input --type is one of:
 - `raw`: original dataset type, `peerread.Paper`
 - `graph`: output of `gpt.evaluate_paper_graph`, `PromptResult[GraphResult]`
 - `paper`: output of `gpt.evaluate_paper_scimon`, `PromptResult[PaperResult]`
+
+The `many` subcommand allows evaluating multiple input files and collecting metrics.
 """
 
 from __future__ import annotations
 
 import asyncio
 import itertools
+import json
 import logging
 import random
 import statistics
+import tempfile
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Annotated, Self
+from typing import Annotated, Any, Self
 
 import dotenv
+import rich
 import typer
 from pydantic import BaseModel, ConfigDict, Field
+from rich.table import Table
 from tqdm import tqdm
 
 from paper import peerread as pr
@@ -204,7 +210,7 @@ app = typer.Typer(
 )
 
 
-@app.command(help=__doc__, no_args_is_help=True)
+@app.command(help="Evaluate rationales for a single input file", no_args_is_help=True)
 def run(
     input_path: Annotated[
         Path,
@@ -567,6 +573,141 @@ def prompts(
 ) -> None:
     """Print the available prompt names, and optionally, the full prompt text."""
     print_prompts("RATIONALE EVALUATION", RATIONALE_EVAL_PROMPTS, detail=detail)
+
+
+async def _evaluate_single_input(
+    batch_size: int,
+    input_path: Path,
+    input_type: str,
+    limit: int,
+    model: str,
+    prompt: str,
+    seed: int,
+) -> dict[str, Any]:
+    """Evaluate an input file in an temporary directory and return the results."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_dir = Path(temp_dir)
+
+        await evaluate_rationales(
+            model=model,
+            input_path=input_path,
+            input_type=input_type,
+            limit_papers=limit,
+            prompt_key=prompt,
+            output_dir=output_dir,
+            continue_papers_file=None,
+            continue_=False,
+            keep_intermediate=False,
+            seed=seed,
+            batch_size=batch_size,
+        )
+
+        metrics = json.loads((output_dir / "metrics.json").read_bytes())
+        means = {metric: data["mean"] for metric, data in metrics["metrics"].items()}
+        return {**means, "name": input_path.parent.name}
+
+
+@app.command(help="Run evaluation on multiple input files", no_args_is_help=True)
+def many(
+    inputs: Annotated[
+        list[Path],
+        typer.Argument(help="Input files to process"),
+    ],
+    model: Annotated[
+        str,
+        typer.Option("--model", "-m", help="Model to use for evaluation"),
+    ] = "gpt-4o-mini",
+    limit: Annotated[
+        int,
+        typer.Option("--limit", "-n", help="Number of papers to process"),
+    ] = 5,
+    input_type: Annotated[
+        str,
+        typer.Option(
+            "--type",
+            help="Type of input file",
+            click_type=cli.Choice(["graph", "paper", "raw"]),
+        ),
+    ] = "graph",
+    prompt: Annotated[
+        str,
+        typer.Option(help="Prompt to use for evaluation"),
+    ] = "simple",
+    seed: Annotated[
+        int,
+        typer.Option(help="Random seed used for the GPT API and to shuffle the data."),
+    ] = 0,
+    batch_size: Annotated[
+        int, typer.Option(help="Size of the batches being evaluated.")
+    ] = 100,
+) -> None:
+    """Run evaluation on multiple input files and display metrics in a table."""
+    asyncio.run(
+        _evaluate_many_inputs(
+            inputs=inputs,
+            model=model,
+            limit=limit,
+            input_type=input_type,
+            prompt=prompt,
+            seed=seed,
+            batch_size=batch_size,
+        )
+    )
+
+
+async def _evaluate_many_inputs(
+    inputs: list[Path],
+    model: str,
+    limit: int,
+    input_type: str,
+    prompt: str,
+    seed: int,
+    batch_size: int,
+) -> None:
+    results: list[dict[str, Any]] = []
+
+    for input_path in inputs:
+        logger.warning(f"Processing {input_path}...")
+        try:
+            results.append(
+                await _evaluate_single_input(
+                    batch_size, input_path, input_type, limit, model, prompt, seed
+                )
+            )
+        except Exception:
+            logger.exception(f"Error processing {input_path}")
+
+    if not results:
+        logger.warning("No results collected.")
+        return
+
+    _display_results(results)
+
+
+def _display_results(results: list[dict[str, Any]]) -> None:
+    """Display the results of evaluating multiple inputs.
+
+    Args:
+        results: List of dictionaries containing the results.
+    """
+    table = Table(title="Rationale Evaluation Metrics")
+    table.add_column("Name", style="cyan")
+
+    # Get all metric names (excluding 'name')
+    metric_names = sorted({
+        key for result in results for key in result if key != "name"
+    })
+
+    for metric in metric_names:
+        table.add_column(metric.capitalize(), style="green")
+
+    for result in results:
+        table.add_row(*[
+            result["name"],
+            *(f"{result.get(metric, 0):.2f}" for metric in metric_names),
+        ])
+
+    rich.print(table)
 
 
 if __name__ == "__main__":
