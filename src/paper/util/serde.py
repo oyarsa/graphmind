@@ -106,8 +106,6 @@ def load_data_jsonl[T: BaseModel](file: Path, type_: type[T]) -> list[T]:
         return result
 
 
-# TODO: Improve validation error reporting. It currently prints the errors for _every_
-# item in the list, which is not helpful.
 def load_data[T: BaseModel](
     file: Path | bytes, type_: type[T], use_alias: bool = True
 ) -> list[T]:
@@ -135,11 +133,12 @@ def load_data[T: BaseModel](
         return TypeAdapter(
             list[type_], config=ConfigDict(populate_by_name=not use_alias)
         ).validate_json(content)
-    except ValidationError as e:
+    except ValidationError:
         source = file if isinstance(file, Path) else "bytes"
-        raise ValidationError(
+        # TODO: Improve error reporting. Maybe show the first error?
+        raise TypeError(
             f"Data from {source} is not valid for {get_full_type_name(type_)}"
-        ) from e
+        ) from None
 
 
 def load_data_single[T: BaseModel](file: Path | bytes, type_: type[T]) -> T:
