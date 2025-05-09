@@ -9,8 +9,11 @@ from typing import Annotated, Protocol, Self, cast
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
+from paper import peerread as pr
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import TargetMode
+from paper.gpt.extract_graph import GraphResult
+from paper.gpt.model import PaperWithRelatedSummary
 from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.util.serde import load_data
 
@@ -265,3 +268,7 @@ def apply_rating_mode(rating: int, mode: RatingMode) -> int:
             return 3
         case RatingMode.BINARY:
             return int(rating >= 4)
+
+
+type EvaluationInput = GraphResult | PaperResult | pr.Paper | PaperWithRelatedSummary
+"""Type alias for rationale evaluation."""
