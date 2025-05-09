@@ -406,8 +406,6 @@ def _find_common_papers(
 
 def format_evaluation_prompt(
     metric: str,
-    model_a: str,
-    model_b: str,
     paper_metadata: PaperMetadata,
     rationale_a: str,
     rationale_b: str,
@@ -417,8 +415,6 @@ def format_evaluation_prompt(
 
     Args:
         metric: The metric to focus on in the comparison.
-        model_a: Name of the first model.
-        model_b: Name of the second model.
         paper_metadata: Paper metadata (title, abstract, etc.).
         rationale_a: First rationale to compare.
         rationale_b: Second rationale to compare.
@@ -430,11 +426,8 @@ def format_evaluation_prompt(
     return prompt.template.format(
         title=paper_metadata.title,
         abstract=paper_metadata.abstract,
-        label=paper_metadata.label,
         rationale_a=rationale_a,
         rationale_b=rationale_b,
-        model_a=model_a,
-        model_b=model_b,
         metric=metric,
     )
 

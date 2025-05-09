@@ -12,10 +12,10 @@ Abstract: {abstract}
 Novelty label: {label}
 
 # Rationales to Compare
-## Rationale A (from {model_a})
+## Rationale A
 {rationale_a}
 
-## Rationale B (from {model_b})
+## Rationale B
 {rationale_b}
 
 # Evaluation Instructions
