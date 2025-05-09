@@ -37,13 +37,27 @@ from paper.util.serde import load_data, save_data
 logger = logging.getLogger(__name__)
 
 PAIRWISE_COMPARISON_PROMPTS = load_prompts("pairwise_comparison")
-TOURNAMENT_ALL_METRICS = [
-    "clarity",
-    "faithfulness",
-    "factuality",
-    "specificity",
-    "contributions",
-]
+TOURNAMENT_METRICS = {
+    "clarity": (
+        "How well-written the text is. How easy it is to understand and to follow its"
+        " ideas."
+    ),
+    "faithfulness": (
+        "Whether the rationale justifies the novelty label. For example, if the text is"
+        " mostly positive, so should the label."
+    ),
+    "factuality": (
+        "Is the rationale grounded correctly in scientific facts from the main and"
+        " related papers?"
+    ),
+    "specificity": (
+        "Does the rationale cover information specific to the paper, or does it make"
+        " overly generic statements?"
+    ),
+    "contributions": (
+        "Does the rationale effectively compare the main paper with the prior work?"
+    ),
+}
 
 
 # Elo rating constants
@@ -60,15 +74,15 @@ class MatchWinner(StrEnum):
     TIE = "tie"
 
 
-class PairwiseComparisonResult(BaseModel):
+class GPTPairwiseComparison(BaseModel):
     """Result from pairwise comparison of two rationales by LLM."""
 
     model_config = ConfigDict(frozen=True)
 
     winner: MatchWinner
-    score: float
-    """1.0 for clear winner, 0.5 for tie."""
+    """Who wins the match. The model can only reply A or B, but we use TIE for errors."""
     explanation: str
+    """Explanation for the winner evaluation."""
     metric: str
     """Which metric this comparison is for."""
 
@@ -92,8 +106,6 @@ class EloPlayer:
     wins: int = 0
     losses: int = 0
     ties: int = 0
-
-    # Track all match results for detailed analysis
     match_history: list[PlayerMatch] = field(default_factory=list)
 
     def add_match_result(self, opponent: str, score: float, explanation: str) -> None:
@@ -140,7 +152,7 @@ class TournamentMatch:
 
     player_a: str
     player_b: str
-    result: PairwiseComparisonResult
+    result: GPTPairwiseComparison
 
 
 class TournamentSystem:
@@ -176,7 +188,10 @@ class TournamentSystem:
         )
 
     def record_match(
-        self, player_a_name: str, player_b_name: str, result: PairwiseComparisonResult
+        self,
+        player_a_name: str,
+        player_b_name: str,
+        result: GPTPairwiseComparison,
     ) -> None:
         """Record the outcome of a match and update player ratings.
 
@@ -273,7 +288,7 @@ class TournamentManager:
         self.metrics = metrics
 
     def record_match(
-        self, player_a: str, player_b: str, result: PairwiseComparisonResult
+        self, player_a: str, player_b: str, result: GPTPairwiseComparison
     ) -> None:
         """Record a match result in the appropriate tournament.
 
@@ -429,6 +444,7 @@ def format_evaluation_prompt(
         rationale_a=rationale_a,
         rationale_b=rationale_b,
         metric=metric,
+        definition=TOURNAMENT_METRICS[metric],
     )
 
 
@@ -437,11 +453,9 @@ async def _compare_rationales(
     paper_metadata: PaperMetadata,
     rationale_a: str,
     rationale_b: str,
-    model_a: str,
-    model_b: str,
     metric: str,
     prompt: PromptTemplate,
-) -> GPTResult[PairwiseComparisonResult]:
+) -> GPTResult[GPTPairwiseComparison]:
     """Compare two rationales for the same paper using LLM.
 
     Args:
@@ -449,8 +463,6 @@ async def _compare_rationales(
         paper_metadata: Paper metadata (title, abstract, etc.).
         rationale_a: First rationale to compare.
         rationale_b: Second rationale to compare.
-        model_a: Name of the first model.
-        model_b: Name of the second model.
         metric: The metric to focus on in the comparison.
         prompt: Prompt template for the comparison.
 
@@ -458,18 +470,17 @@ async def _compare_rationales(
         Comparison result wrapped in a GPTResult.
     """
     user_prompt_text = format_evaluation_prompt(
-        metric, model_a, model_b, paper_metadata, rationale_a, rationale_b, prompt
+        metric, paper_metadata, rationale_a, rationale_b, prompt
     )
 
-    result = await client.run(PairwiseComparisonResult, prompt.system, user_prompt_text)
+    result = await client.run(GPTPairwiseComparison, prompt.system, user_prompt_text)
     return result.map(
         lambda r: r
         if r is not None
         # Default to TIE when LLM returns an error.
-        else PairwiseComparisonResult(
+        else GPTPairwiseComparison(
             winner=MatchWinner.TIE,
-            score=0.5,
-            explanation=f"Comparison error between '{model_a}' and '{model_b}'.",
+            explanation="Comparison error. Defaulting to tie.",
             metric=metric,
         )
     )
@@ -502,14 +513,7 @@ async def _run_tournaments(
                     rationale_b = extract_metadata(papers[j]).rationale
 
                     comparison_result = await _compare_rationales(
-                        client,
-                        paper_metadata,
-                        rationale_a,
-                        rationale_b,
-                        model_a,
-                        model_b,
-                        metric,
-                        prompt,
+                        client, paper_metadata, rationale_a, rationale_b, metric, prompt
                     )
 
                     manager.record_match(model_a, model_b, comparison_result.result)
@@ -724,7 +728,7 @@ def tournament(
         typer.Option(
             "--metric",
             help="Metrics to evaluate in tournament",
-            click_type=cli.Choice(TOURNAMENT_ALL_METRICS),
+            click_type=cli.Choice(TOURNAMENT_METRICS),
         ),
     ] = None,
     limit: Annotated[
@@ -737,7 +741,7 @@ def tournament(
     ] = 0,
 ) -> None:
     """Run a pairwise Elo tournament between multiple models."""
-    tournament_metrics = metrics or TOURNAMENT_ALL_METRICS
+    tournament_metrics = metrics or list(TOURNAMENT_METRICS)
 
     dotenv.load_dotenv()
     output_dir.mkdir(parents=True, exist_ok=True)

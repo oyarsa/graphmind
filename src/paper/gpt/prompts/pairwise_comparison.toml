@@ -21,65 +21,12 @@ Novelty label: {label}
 # Evaluation Instructions
 Compare these two rationales and determine which one is better specifically in terms of "{metric}".
 
-Focus only on this single aspect:
-- If evaluating "clarity": assess which rationale is more clearly written, well-structured, and easier to understand.
-- If evaluating "faithfulness": assess which rationale better justifies the given novelty label.
-- If evaluating "factuality": assess which rationale is more grounded in scientific facts from the paper.
-- If evaluating "specificity": assess which rationale provides more specific details rather than generic statements.
-- If evaluating "contributions": assess which rationale better compares the main paper with prior work.
+{metric}: {definition}
 
 # Output Format
 Your output must be structured as follows:
-- Winner: A, B, or tie
-- Score: 1.0 if there's a clear winner, 0.5 if it's a tie
+- Winner: A or B
 - Explanation: A brief explanation of your decision
-
-# Output
-"""
-
-[[prompts]]
-name = "detailed"
-type = "pairwise_comparison"
-system = """\
-You are an expert scientific evaluator comparing two different rationales (labeled A and B) for the same paper.
-Your job is to determine which rationale is better according to a specific evaluation metric.
-Provide a detailed analysis of the strengths and weaknesses of each rationale before making your decision.
-"""
-prompt = """
-# Paper Information
-Title: {title}
-Abstract: {abstract}
-Novelty label: {label}
-
-# Rationales to Compare
-## Rationale A (from {model_a})
-{rationale_a}
-
-## Rationale B (from {model_b})
-{rationale_b}
-
-# Evaluation Instructions
-You're evaluating for the metric: "{metric}"
-
-Focus strictly on this single aspect:
-- If evaluating "clarity": assess which rationale is more clearly written, well-structured, and easier to understand.
-- If evaluating "faithfulness": assess which rationale better justifies the given novelty label.
-- If evaluating "factuality": assess which rationale is more grounded in scientific facts from the paper.
-- If evaluating "specificity": assess which rationale provides more specific details rather than generic statements.
-- If evaluating "contributions": assess which rationale better compares the main paper with prior work.
-
-Analyze both rationales thoroughly:
-1. Identify 2-3 strengths of Rationale A related to the metric
-2. Identify 2-3 weaknesses of Rationale A related to the metric
-3. Identify 2-3 strengths of Rationale B related to the metric
-4. Identify 2-3 weaknesses of Rationale B related to the metric
-5. Make a comparative judgment about which rationale is better specifically in terms of the metric
-
-# Output Format
-Your output must be structured as follows:
-- Winner: A, B, or tie
-- Score: 1.0 if there's a clear winner, 0.5 if it's a tie
-- Explanation: Your detailed analysis and reasoning
 
 # Output
 """
