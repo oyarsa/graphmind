@@ -605,6 +605,104 @@ def _calculate_elo_rankings(
     )
 
 
+def _calculate_melo_rankings(
+    comparison_results: list[ComparisonResult],
+    model_names: list[str],
+    metrics: list[str],
+    num_trials: int = 10,
+    seed: int = 42,
+) -> TournamentResult:
+    """Calculate Multi-Elo rankings from comparison results.
+
+    Runs multiple Elo tournaments with different random orderings and averages
+    the final ratings.
+
+    Args:
+        comparison_results: Results of all pairwise comparisons.
+        model_names: Names of the models being compared.
+        metrics: Metrics that were evaluated.
+        num_trials: Number of tournaments to run with different orderings.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        Tournament results with Multi-Elo rankings.
+    """
+    # Group comparisons by metric to simplify the multi-tournament process
+    comparisons_by_metric: dict[str, list[ComparisonResult]] = defaultdict(list)
+    for comp in comparison_results:
+        comparisons_by_metric[comp.metric].append(comp)
+
+    total_cost = sum(result.cost for result in comparison_results)
+
+    # Initialize structures to average results across trials
+    all_ratings: dict[str, dict[str, list[float]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    all_ranks: dict[str, dict[str, list[int]]] = defaultdict(lambda: defaultdict(list))
+    all_wins: dict[str, dict[str, list[int]]] = defaultdict(lambda: defaultdict(list))
+    all_losses: dict[str, dict[str, list[int]]] = defaultdict(lambda: defaultdict(list))
+    all_ties: dict[str, dict[str, list[int]]] = defaultdict(lambda: defaultdict(list))
+
+    random_gen = random.Random(seed)
+
+    # Run multiple tournaments with different random orderings
+    logger.info(f"Running {num_trials} tournaments with different orderings")
+    for _ in range(num_trials):
+        trial_seed = random_gen.randint(0, 10000)
+        trial_random = random.Random(trial_seed)
+
+        # Create a new manager for this trial
+        manager = TournamentManager(model_names, metrics)
+
+        # For each metric, shuffle the comparisons differently
+        for metric in metrics:
+            metric_comparisons: list[ComparisonResult] = comparisons_by_metric[
+                metric
+            ].copy()
+            trial_random.shuffle(metric_comparisons)
+
+            # Process the shuffled comparisons
+            for comparison in metric_comparisons:
+                manager.record_match(
+                    comparison.model_a, comparison.model_b, comparison.result
+                )
+
+            # Record each player's result for this metric in this trial
+            for player in manager.tournaments[metric].get_rankings():
+                all_ratings[metric][player.name].append(player.rating)
+                all_ranks[metric][player.name].append(player.rank)
+                all_wins[metric][player.name].append(player.wins)
+                all_losses[metric][player.name].append(player.losses)
+                all_ties[metric][player.name].append(player.ties)
+
+    # Create a final manager with averaged results
+    final_manager = TournamentManager(model_names, metrics)
+
+    # Replace the players in each tournament with the averaged results
+    for metric in metrics:
+        for name in model_names:
+            player = final_manager.tournaments[metric].players[name]
+
+            # Average the ratings and statistics
+            avg_rating = statistics.mean(all_ratings[metric][name])
+            avg_wins = int(statistics.mean(all_wins[metric][name]))
+            avg_losses = int(statistics.mean(all_losses[metric][name]))
+            avg_ties = int(statistics.mean(all_ties[metric][name]))
+
+            # Update the player with averaged values
+            player.rating = avg_rating
+            player.wins = avg_wins
+            player.losses = avg_losses
+            player.ties = avg_ties
+
+    return TournamentResult(
+        overall_ranks=final_manager.get_overall_ranks(),
+        total_comparisons=len(comparison_results),
+        total_cost=total_cost,
+        tournaments=final_manager.tournaments,
+    )
+
+
 class OverallRankingEntry(BaseModel):
     """Overall ranking entry for a model."""
 
@@ -741,6 +839,13 @@ app = typer.Typer(
 )
 
 
+class RankingAlgorithm(StrEnum):
+    """Available ranking algorithms."""
+
+    ELO = "elo"
+    MELO = "melo"
+
+
 @app.command(no_args_is_help=True)
 def tournament(
     inputs: Annotated[
@@ -783,8 +888,20 @@ def tournament(
         int,
         typer.Option(help="Random seed for the tournament to ensure reproducibility"),
     ] = 0,
+    algorithm: Annotated[
+        RankingAlgorithm,
+        typer.Option(
+            "--algo",
+            help="Ranking algorithm to use: 'elo' (single tournament) or 'melo' (10 tournaments with different order)",
+        ),
+    ] = RankingAlgorithm.ELO,
 ) -> None:
-    """Run a pairwise Elo tournament between multiple models."""
+    """Run a pairwise tournament between multiple models.
+
+    The tournament can use different ranking algorithms:
+    - elo: Standard Elo rating system with a single ordering
+    - melo: Multiple Elo tournaments (10) with different random orderings
+    """
     tournament_metrics = metrics or list(TOURNAMENT_METRICS)
 
     dotenv.load_dotenv()
@@ -825,6 +942,7 @@ def tournament(
             tournament_metrics,
             limit,
             seed,
+            algorithm,
         )
     )
 
@@ -879,6 +997,7 @@ async def run_tournaments(
     metrics: list[str],
     limit: int,
     seed: int,
+    algorithm: RankingAlgorithm = RankingAlgorithm.ELO,
 ) -> None:
     """Run the tournament on the given inputs.
 
@@ -891,6 +1010,7 @@ async def run_tournaments(
         metrics: Metrics to evaluate.
         limit: Maximum number of papers to use.
         seed: Random seed.
+        algorithm: Ranking algorithm to use (elo or melo).
     """
     random.seed(seed)
 
@@ -914,6 +1034,7 @@ async def run_tournaments(
         f"Found {len(common_papers)} papers common to all {len(model_names)} models"
     )
 
+    # Step 1: Run all pairwise comparisons
     prompt = PAIRWISE_COMPARISON_PROMPTS[tournament_prompt_key]
     paper_ids = list(common_papers.keys())
     random.shuffle(paper_ids)
@@ -932,6 +1053,7 @@ async def run_tournaments(
 
     logger.info(f"Comparisons time: {comparison_timer.human}")
 
+    # Save raw comparisons for potential reuse
     raw_output = RawComparisonOutput(
         model_names=model_names,
         metrics=metrics,
@@ -942,12 +1064,22 @@ async def run_tournaments(
             "prompt": tournament_prompt_key,
             "total_cost": total_cost,
             "paper_count": len(paper_ids),
+            "algorithm": algorithm,
         },
     )
     save_data(output_dir / "raw_comparisons.json", raw_output.model_dump())
 
+    # Step 2: Calculate rankings based on the selected algorithm
     with Timer() as ranking_timer:
-        tournament_result = _calculate_elo_rankings(comparisons, model_names, metrics)
+        if algorithm is RankingAlgorithm.ELO:
+            tournament_result = _calculate_elo_rankings(
+                comparisons, model_names, metrics
+            )
+        elif algorithm is RankingAlgorithm.MELO:
+            tournament_result = _calculate_melo_rankings(
+                comparisons, model_names, metrics, num_trials=10, seed=seed
+            )
+
         summary = _tournament_summary(
             tournament_result, model_names, metrics, len(paper_ids)
         )
@@ -955,8 +1087,9 @@ async def run_tournaments(
     logger.info(f"Rankings calculation time: {ranking_timer.human}")
     logger.info(f"Total cost: ${total_cost:.10f}")
 
+    # Display and save results
     logger.info("\n%s", _display_tournament_results(summary))
-    save_data(output_dir / "tournament_results.json", summary.model_dump())
+    save_data(output_dir / f"tournament_results_{algorithm}.json", summary.model_dump())
 
 
 @app.callback()
