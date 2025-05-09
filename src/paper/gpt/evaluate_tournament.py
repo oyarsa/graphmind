@@ -22,12 +22,13 @@ from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from functools import partial
 from pathlib import Path
 from typing import Annotated, Any
 
 import dotenv
 import typer
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 from rich.table import Table
 from tqdm import tqdm
 
@@ -38,8 +39,16 @@ from paper.gpt.extract_graph import GraphResult
 from paper.gpt.model import PaperWithRelatedSummary, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import GPTResult, LLMClient, OpenAIClient
-from paper.util import Timer, cli, ensure_envvar, render_rich, sample, setup_logging
-from paper.util.serde import load_data, save_data
+from paper.util import (
+    Timer,
+    cli,
+    ensure_envvar,
+    render_rich,
+    sample,
+    setup_logging,
+    shuffled,
+)
+from paper.util.serde import load_data, load_data_single, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +81,7 @@ INPUT_TYPES_ALLOWED = ("raw", "paper", "graph", "summ")
 DEFAULT_ELO = 1200  # Starting rating for all players
 K_FACTOR = 32  # How much ratings can change in a single match
 EXPECTED_SCORE_DIVISOR = 400  # For expected score calculation
+MELO_DEFAULT_TRIALS = 10  # How many different Elo trials to run
 
 
 class MatchWinner(StrEnum):
@@ -521,7 +531,7 @@ async def _run_all_comparisons(
     model_indices_pairs: list[tuple[int, int]],
     paper_ids: list[str],
     prompt: PromptTemplate,
-) -> tuple[list[ComparisonResult], float]:
+) -> list[ComparisonResult]:
     """Run all pairwise comparisons between models without updating Elo ratings.
 
     Args:
@@ -534,10 +544,9 @@ async def _run_all_comparisons(
         prompt: Prompt template for the comparison.
 
     Returns:
-        Tuple of (list of comparison results, total cost).
+        List of comparison results.
     """
     all_comparisons: list[ComparisonResult] = []
-    total_cost = 0.0
     total_comparisons = len(paper_ids) * len(model_indices_pairs) * len(metrics)
 
     with tqdm(total=total_comparisons, desc="Running pairwise comparisons") as pbar:
@@ -568,10 +577,9 @@ async def _run_all_comparisons(
                         )
                     )
 
-                    total_cost += comparison_result.cost
                     pbar.update(1)
 
-    return all_comparisons, total_cost
+    return all_comparisons
 
 
 def _calculate_elo_rankings(
@@ -723,7 +731,6 @@ class TournamentSummary(BaseModel):
 
     model_names: list[str]
     metrics: list[str]
-    paper_count: int
     total_comparisons: int
     total_cost: float
     metric_rankings: dict[str, list[PlayerRank]]
@@ -746,10 +753,7 @@ class TournamentResult(BaseModel):
 
 
 def _tournament_summary(
-    result: TournamentResult,
-    model_names: list[str],
-    metrics: list[str],
-    paper_count: int,
+    result: TournamentResult, model_names: list[str], metrics: list[str]
 ) -> TournamentSummary:
     """Convert internal result to a serializable summary.
 
@@ -757,7 +761,6 @@ def _tournament_summary(
         result: Tournament result.
         model_names: Names of all models in the tournament.
         metrics: Names of metrics evaluated.
-        paper_count: Number of papers compared.
 
     Returns:
         Serializable tournament summary.
@@ -765,7 +768,6 @@ def _tournament_summary(
     return TournamentSummary(
         model_names=model_names,
         metrics=metrics,
-        paper_count=paper_count,
         total_comparisons=result.total_comparisons,
         total_cost=result.total_cost,
         metric_rankings={
@@ -892,15 +894,32 @@ def tournament(
         RankingAlgorithm,
         typer.Option(
             "--algo",
-            help="Ranking algorithm to use: 'elo' (single tournament) or 'melo' (10 tournaments with different order)",
+            help="Ranking algorithm to use: 'elo' (single tournament) or 'melo' (10"
+            " tournaments with different order)",
         ),
     ] = RankingAlgorithm.ELO,
+    reuse_comparisons: Annotated[
+        Path | None,
+        typer.Option(
+            "--reuse",
+            help="Path to raw_comparisons.json file from a previous run to reuse. If"
+            " provided, ignores input data and parameters.",
+        ),
+    ] = None,
+    melo_trials: Annotated[
+        int, typer.Option(help="If the algorithm is 'melo', how many trials to run.")
+    ] = MELO_DEFAULT_TRIALS,
 ) -> None:
     """Run a pairwise tournament between multiple models.
 
     The tournament can use different ranking algorithms:
     - elo: Standard Elo rating system with a single ordering
-    - melo: Multiple Elo tournaments (10) with different random orderings
+    - melo: Multiple Elo tournaments with different random orderings. Set the number of
+      trials with '--melo-trials'.
+
+    If you provide --reuse with a path to a raw_comparisons.json file, the system will
+    skip the LLM comparison phase and just calculate rankings using the existing
+    comparison data.
     """
     tournament_metrics = metrics or list(TOURNAMENT_METRICS)
 
@@ -943,6 +962,8 @@ def tournament(
             limit,
             seed,
             algorithm,
+            reuse_comparisons,
+            melo_trials,
         )
     )
 
@@ -987,6 +1008,100 @@ class RawComparisonOutput(BaseModel):
     comparisons: list[ComparisonResult]
     metadata: dict[str, Any]
 
+    @computed_field
+    @property
+    def cost(self) -> float:
+        """Total cost of all comparisons."""
+        return sum(cmp.cost for cmp in self.comparisons)
+
+
+async def _load_reused_comparisons(path: Path) -> RawComparisonOutput:
+    """Load comparison data from a previous run."""
+    logger.info(f"Reusing comparison data from {path}")
+    data = load_data_single(path, RawComparisonOutput)
+
+    logger.info(
+        f"Loaded {len(data.comparisons)} comparisons for {len(data.model_names)} models"
+    )
+    return data
+
+
+async def _generate_new_comparisons(
+    client: LLMClient,
+    inputs: list[tuple[Path, str]],
+    model_names: list[str],
+    metrics: list[str],
+    limit: int,
+    model: str,
+    tournament_prompt_key: str,
+    seed: int,
+    algorithm: RankingAlgorithm,
+) -> RawComparisonOutput:
+    """Generate new comparisons by running the LLM.
+
+    Args:
+        client: LLM client used to perform comparisons.
+        inputs: List of (file_path, file_type) tuples.
+        model_names: Names of the models.
+        metrics: Metrics to evaluate.
+        limit: Maximum number of papers to use.
+        model: GPT model to use.
+        tournament_prompt_key: Key for the comparison prompt.
+        seed: Random seed.
+        algorithm: Ranking algorithm to use.
+
+    Returns:
+        The full result from the comparisons.
+
+    Raises:
+        ValueError if there are no common papers to compare.
+    """
+    paper_collections = [
+        _load_evaluation_input(file_path, file_type, limit)
+        for file_path, file_type in inputs
+    ]
+    common_papers = _find_common_papers(paper_collections)
+
+    if not common_papers:
+        raise ValueError(
+            "No common papers found across all models. Tournament cannot proceed."
+        )
+
+    logger.info(
+        f"Found {len(common_papers)} papers common to all {len(model_names)} models"
+    )
+
+    # Step 1: Run all pairwise comparisons
+    prompt = PAIRWISE_COMPARISON_PROMPTS[tournament_prompt_key]
+    paper_ids = shuffled(common_papers)
+    model_indices_pairs = _all_pairings(range(len(model_names)))
+
+    with Timer() as comparison_timer:
+        comparisons = await _run_all_comparisons(
+            client,
+            common_papers,
+            metrics,
+            model_names,
+            model_indices_pairs,
+            paper_ids,
+            prompt,
+        )
+
+    logger.info(f"Comparisons time: {comparison_timer.human}")
+
+    return RawComparisonOutput(
+        model_names=model_names,
+        metrics=metrics,
+        seed=seed,
+        comparisons=comparisons,
+        metadata={
+            "model": model,
+            "prompt": tournament_prompt_key,
+            "paper_count": len(paper_ids),
+            "algorithm": algorithm,
+        },
+    )
+
 
 async def run_tournaments(
     inputs: list[tuple[Path, str]],
@@ -997,7 +1112,9 @@ async def run_tournaments(
     metrics: list[str],
     limit: int,
     seed: int,
-    algorithm: RankingAlgorithm = RankingAlgorithm.ELO,
+    algorithm: RankingAlgorithm,
+    reuse_comparisons_path: Path | None,
+    melo_trials: int,
 ) -> None:
     """Run the tournament on the given inputs.
 
@@ -1011,85 +1128,51 @@ async def run_tournaments(
         limit: Maximum number of papers to use.
         seed: Random seed.
         algorithm: Ranking algorithm to use (elo or melo).
+        reuse_comparisons_path: Optional path to comparisons JSON file to reuse. If
+            provided, other information (e.g. input data, model names, GPT model) is
+            ignored.
+        melo_trials: How many MElo trials to run.
     """
     random.seed(seed)
-
     client = OpenAIClient(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
-    paper_collections = [
-        _load_evaluation_input(file_path, file_type, limit)
-        for file_path, file_type in inputs
-    ]
-    common_papers = _find_common_papers(paper_collections)
-
-    if not common_papers:
-        logger.error(
-            "No common papers found across all models. Tournament cannot proceed."
-        )
-        return
-
-    logger.info(
-        f"Found {len(common_papers)} papers common to all {len(model_names)} models"
-    )
-
-    # Step 1: Run all pairwise comparisons
-    prompt = PAIRWISE_COMPARISON_PROMPTS[tournament_prompt_key]
-    paper_ids = list(common_papers.keys())
-    random.shuffle(paper_ids)
-    model_indices_pairs = _all_pairings(range(len(model_names)))
-
-    with Timer() as comparison_timer:
-        comparisons, total_cost = await _run_all_comparisons(
+    # Step 1: Either load existing comparisons or generate new ones
+    if reuse_comparisons_path is not None:
+        raw_comparisons = await _load_reused_comparisons(reuse_comparisons_path)
+    else:
+        raw_comparisons = await _generate_new_comparisons(
             client,
-            common_papers,
-            metrics,
+            inputs,
             model_names,
-            model_indices_pairs,
-            paper_ids,
-            prompt,
+            metrics,
+            limit,
+            model,
+            tournament_prompt_key,
+            seed,
+            algorithm,
         )
 
-    logger.info(f"Comparisons time: {comparison_timer.human}")
-
-    # Save raw comparisons for potential reuse
-    raw_output = RawComparisonOutput(
-        model_names=model_names,
-        metrics=metrics,
-        seed=seed,
-        comparisons=comparisons,
-        metadata={
-            "model": model,
-            "prompt": tournament_prompt_key,
-            "total_cost": total_cost,
-            "paper_count": len(paper_ids),
-            "algorithm": algorithm,
-        },
-    )
-    save_data(output_dir / "raw_comparisons.json", raw_output.model_dump())
-
-    # Step 2: Calculate rankings based on the selected algorithm
+    # Step 2: Calculate rankings using the select algorithm, report and save results
     with Timer() as ranking_timer:
-        if algorithm is RankingAlgorithm.ELO:
-            tournament_result = _calculate_elo_rankings(
-                comparisons, model_names, metrics
-            )
-        elif algorithm is RankingAlgorithm.MELO:
-            tournament_result = _calculate_melo_rankings(
-                comparisons, model_names, metrics, num_trials=10, seed=seed
-            )
+        match algorithm:
+            case RankingAlgorithm.ELO:
+                ranker = _calculate_elo_rankings
+            case RankingAlgorithm.MELO:
+                ranker = partial(
+                    _calculate_melo_rankings, seed=seed, num_trials=melo_trials
+                )
 
-        summary = _tournament_summary(
-            tournament_result, model_names, metrics, len(paper_ids)
-        )
+        tournament_result = ranker(raw_comparisons.comparisons, model_names, metrics)
+        summary = _tournament_summary(tournament_result, model_names, metrics)
 
     logger.info(f"Rankings calculation time: {ranking_timer.human}")
-    logger.info(f"Total cost: ${total_cost:.10f}")
+    logger.info(f"Total cost: ${raw_comparisons.cost:.10f}")
 
-    # Display and save results
     logger.info("\n%s", _display_tournament_results(summary))
-    save_data(output_dir / f"tournament_results_{algorithm}.json", summary.model_dump())
+    save_data(output_dir / "raw_comparisons.json", raw_comparisons)
+    save_data(output_dir / f"tournament_results_{algorithm}.json", summary)
 
 
 @app.callback()
