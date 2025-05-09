@@ -11,11 +11,12 @@ import itertools
 import logging
 import random
 import statistics
+from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 import dotenv
 import typer
@@ -36,6 +37,14 @@ from paper.util.serde import load_data, save_data
 logger = logging.getLogger(__name__)
 
 PAIRWISE_COMPARISON_PROMPTS = load_prompts("pairwise_comparison")
+TOURNAMENT_ALL_METRICS = [
+    "clarity",
+    "faithfulness",
+    "factuality",
+    "specificity",
+    "contributions",
+]
+
 
 # Elo rating constants
 DEFAULT_ELO = 1200  # Starting rating for all players
@@ -83,13 +92,14 @@ class EloPlayer:
     wins: int = 0
     losses: int = 0
     ties: int = 0
-    matches_played: int = 0
 
     # Track all match results for detailed analysis
     match_history: list[PlayerMatch] = field(default_factory=list)
 
     def add_match_result(self, opponent: str, score: float, explanation: str) -> None:
         """Add a match result to the player's history.
+
+        Mutates the object.
 
         Args:
             opponent: Name of the opponent.
@@ -104,7 +114,6 @@ class EloPlayer:
                 explanation=explanation,
             )
         )
-        self.matches_played += 1
 
         if score == 1.0:
             self.wins += 1
@@ -116,18 +125,13 @@ class EloPlayer:
     def update_rating(self, expected_score: float, actual_score: float) -> None:
         """Update the Elo rating based on match outcome.
 
+        Mutates the object.
+
         Args:
             expected_score: Expected probability of winning (0.0-1.0).
             actual_score: Actual outcome (1.0=win, 0.5=tie, 0.0=loss).
         """
         self.rating += K_FACTOR * (actual_score - expected_score)
-
-    @property
-    def win_percentage(self) -> float:
-        """Calculate win percentage of the player."""
-        if self.matches_played == 0:
-            return 0.0
-        return (self.wins + 0.5 * self.ties) / self.matches_played
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -176,6 +180,8 @@ class TournamentSystem:
     ) -> None:
         """Record the outcome of a match and update player ratings.
 
+        Mutates the object.
+
         Args:
             player_a_name: Name of the first player.
             player_b_name: Name of the second player.
@@ -213,12 +219,8 @@ class TournamentSystem:
             )
         )
 
-    def get_rankings_with_rank(self) -> list[PlayerRank]:
-        """Get rankings with rank position.
-
-        Returns:
-            List of PlayerRank with rank data for all players.
-        """
+    def get_rankings(self) -> list[PlayerRank]:
+        """Get rankings for all players."""
         rankings = sorted(
             (
                 (p.name, p.rating, p.wins, p.losses, p.ties)
@@ -241,9 +243,10 @@ class TournamentSystem:
         ]
 
 
-@dataclass(frozen=True, kw_only=True)
-class PlayerRank:
-    """Player entry in ranking."""
+class PlayerRank(BaseModel):
+    """Player entry in ranking for a given tournament."""
+
+    model_config = ConfigDict(frozen=True)
 
     rank: int
     name: str
@@ -254,7 +257,7 @@ class PlayerRank:
 
 
 class TournamentManager:
-    """Manages multiple tournaments for different metrics."""
+    """Manage multiple tournaments for different metrics."""
 
     def __init__(self, model_names: Sequence[str], metrics: Sequence[str]) -> None:
         """Initialize tournament manager.
@@ -274,6 +277,8 @@ class TournamentManager:
     ) -> None:
         """Record a match result in the appropriate tournament.
 
+        Mutates object.
+
         Args:
             player_a: Name of the first player.
             player_b: Name of the second player.
@@ -281,40 +286,49 @@ class TournamentManager:
         """
         self.tournaments[result.metric].record_match(player_a, player_b, result)
 
-    def get_overall_ranks(self) -> dict[str, dict[str, Any]]:
+    def get_overall_ranks(self) -> dict[str, ModelRankStats]:
         """Calculate overall rankings based on average ranks across metrics.
 
         Returns:
             Dictionary with model names as keys and rank statistics as values.
         """
         # For each model, collect its rank in each tournament
-        model_ranks: dict[str, list[int]] = {name: [] for name in self.model_names}
-
+        model_ranks: dict[str, list[int]] = defaultdict(list)
         for metric in self.metrics:
-            tournament = self.tournaments[metric]
-            rankings = tournament.get_rankings_with_rank()
-            for player in rankings:
+            for player in self.tournaments[metric].get_rankings():
                 model_ranks[player.name].append(player.rank)
 
-        # Calculate mean and median ranks
         return {
-            model: {
-                "ranks": ranks,
-                "mean_rank": statistics.mean(ranks),
-                "median_rank": statistics.median(ranks),
-                "best_rank": min(ranks),
-                "worst_rank": max(ranks),
-                "metric_ranks": {
+            model: ModelRankStats(
+                ranks=ranks,
+                mean_rank=statistics.mean(ranks),
+                median_rank=statistics.median(ranks),
+                best_rank=min(ranks),
+                worst_rank=max(ranks),
+                metric_ranks={
                     metric: next(
                         player.rank
-                        for player in self.tournaments[metric].get_rankings_with_rank()
+                        for player in self.tournaments[metric].get_rankings()
                         if player.name == model
                     )
                     for metric in self.metrics
                 },
-            }
+            )
             for model, ranks in model_ranks.items()
         }
+
+
+class ModelRankStats(BaseModel):
+    """Statistics for model ranks across metrics."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ranks: list[int]
+    mean_rank: float
+    median_rank: float
+    best_rank: int
+    worst_rank: int
+    metric_ranks: dict[str, int]
 
 
 class PaperMetadata(BaseModel):
@@ -330,15 +344,16 @@ class PaperMetadata(BaseModel):
 
 
 def extract_metadata(paper: EvaluationInput) -> PaperMetadata:
-    """Extract title and abstract and other metadata needed for prompts.
-
-    Args:
-        paper: Paper object
-
-    Returns:
-        PaperMetadata object with title, abstract, etc.
-    """
+    """Extract title and abstract and other metadata needed for prompts."""
     match paper:
+        case pr.Paper() | PaperResult():
+            return PaperMetadata(
+                id=paper.id,
+                title=paper.title,
+                abstract=paper.abstract,
+                label=paper.label,
+                rationale=paper.rationale,
+            )
         case GraphResult():
             return PaperMetadata(
                 id=paper.id,
@@ -346,14 +361,6 @@ def extract_metadata(paper: EvaluationInput) -> PaperMetadata:
                 abstract=paper.paper.abstract,
                 label=paper.paper.label,
                 rationale=paper.paper.rationale,
-            )
-        case PaperResult():
-            return PaperMetadata(
-                id=paper.id,
-                title=paper.title,
-                abstract=paper.abstract,
-                label=paper.label,
-                rationale=paper.rationale,
             )
         case PaperWithRelatedSummary():
             return PaperMetadata(
@@ -363,18 +370,9 @@ def extract_metadata(paper: EvaluationInput) -> PaperMetadata:
                 label=paper.label,
                 rationale=paper.paper.paper.rationale,
             )
-        case pr.Paper():
-            # Must be pr.Paper
-            return PaperMetadata(
-                id=paper.id,
-                title=paper.title,
-                abstract=paper.abstract,
-                label=paper.label,
-                rationale=paper.rationale,
-            )
 
 
-def find_common_papers(
+def _find_common_papers(
     paper_collections: Sequence[Sequence[EvaluationInput]],
 ) -> dict[str, list[EvaluationInput]]:
     """Find papers that exist in all collections based on ID.
@@ -383,12 +381,12 @@ def find_common_papers(
         paper_collections: List of lists of paper objects.
 
     Returns:
-        Dictionary mapping paper IDs to list of paper objects from each collection.
+        Mapping of paper IDs to list of paper objects from each collection.
     """
     # Extract IDs from each collection
     id_sets = [{extract_metadata(p).id for p in papers} for papers in paper_collections]
     # Find IDs common to all collections
-    common_ids = set[str].intersection(*id_sets) if id_sets else set[str]()
+    common_ids = set[str].intersection(*id_sets)
 
     # Group papers by ID
     result: dict[str, list[EvaluationInput]] = {}
@@ -406,7 +404,42 @@ def find_common_papers(
     return result
 
 
-async def compare_rationales(
+def format_evaluation_prompt(
+    metric: str,
+    model_a: str,
+    model_b: str,
+    paper_metadata: PaperMetadata,
+    rationale_a: str,
+    rationale_b: str,
+    prompt: PromptTemplate,
+) -> str:
+    """Format user prompt from model data.
+
+    Args:
+        metric: The metric to focus on in the comparison.
+        model_a: Name of the first model.
+        model_b: Name of the second model.
+        paper_metadata: Paper metadata (title, abstract, etc.).
+        rationale_a: First rationale to compare.
+        rationale_b: Second rationale to compare.
+        prompt: Prompt template for the comparison.
+
+    Returns:
+        Comparison result wrapped in a GPTResult.
+    """
+    return prompt.template.format(
+        title=paper_metadata.title,
+        abstract=paper_metadata.abstract,
+        label=paper_metadata.label,
+        rationale_a=rationale_a,
+        rationale_b=rationale_b,
+        model_a=model_a,
+        model_b=model_b,
+        metric=metric,
+    )
+
+
+async def _compare_rationales(
     client: LLMClient,
     paper_metadata: PaperMetadata,
     rationale_a: str,
@@ -431,15 +464,8 @@ async def compare_rationales(
     Returns:
         Comparison result wrapped in a GPTResult.
     """
-    user_prompt_text = prompt.template.format(
-        title=paper_metadata.title,
-        abstract=paper_metadata.abstract,
-        label=paper_metadata.label,
-        rationale_a=rationale_a,
-        rationale_b=rationale_b,
-        model_a=model_a,
-        model_b=model_b,
-        metric=metric,
+    user_prompt_text = format_evaluation_prompt(
+        metric, model_a, model_b, paper_metadata, rationale_a, rationale_b, prompt
     )
 
     result = await client.run(PairwiseComparisonResult, prompt.system, user_prompt_text)
@@ -450,50 +476,25 @@ async def compare_rationales(
         else PairwiseComparisonResult(
             winner=MatchWinner.TIE,
             score=0.5,
-            explanation="Evaluation error. Setting to tie.",
+            explanation=f"Comparison error between '{model_a}' and '{model_b}'.",
             metric=metric,
         )
     )
 
 
-async def run_tournament(
+async def _run_tournaments(
     client: LLMClient,
     common_papers: dict[str, list[EvaluationInput]],
-    model_names: list[str],
-    output_dir: Path,
-    tournament_prompt_key: str,
     metrics: list[str],
-    seed: int,
-) -> dict[str, Any]:
-    """Run a pairwise Elo tournament between multiple models.
-
-    Args:
-        client: LLM client.
-        common_papers: Dictionary mapping paper IDs to papers from each model.
-        model_names: Names of the models being compared.
-        output_dir: Directory to save results.
-        model: GPT model to use.
-        tournament_prompt_key: Key for the comparison prompt to use.
-        metrics: Metrics to evaluate.
-        seed: Random seed for reproducibility.
-
-    Returns:
-        Tournament results.
-    """
-    random.seed(seed)
-
-    prompt = PAIRWISE_COMPARISON_PROMPTS[tournament_prompt_key]
-
-    # Create possible pairings of models (A vs B, A vs C, B vs C, etc.), order-sensitive
-    model_pairs = list(itertools.permutations(range(len(model_names)), 2))
-
-    paper_ids = list(common_papers.keys())
-    random.shuffle(paper_ids)
-
+    model_names: list[str],
+    model_pairs: list[tuple[int, int]],
+    paper_ids: list[str],
+    prompt: PromptTemplate,
+) -> TournamentResult:
     total_cost = 0.0
     total_comparisons = len(paper_ids) * len(model_pairs) * len(metrics)
-
     manager = TournamentManager(model_names, metrics)
+
     with tqdm(total=total_comparisons, desc="Running Elo tournament") as pbar:
         for paper_id in paper_ids:
             papers = common_papers[paper_id]
@@ -507,7 +508,7 @@ async def run_tournament(
                     rationale_a = extract_metadata(papers[i]).rationale
                     rationale_b = extract_metadata(papers[j]).rationale
 
-                    comparison_result = await compare_rationales(
+                    comparison_result = await _compare_rationales(
                         client,
                         paper_metadata,
                         rationale_a,
@@ -523,58 +524,148 @@ async def run_tournament(
                     total_cost += comparison_result.cost
                     pbar.update(1)
 
-    overall_ranks = manager.get_overall_ranks()
-
-    # Save tournament results
-    tournament_results = {
-        "model_names": model_names,
-        "metrics": metrics,
-        "paper_count": len(paper_ids),
-        "total_comparisons": total_comparisons,
-        "total_cost": total_cost,
-        "metric_rankings": {
-            metric: [
-                {
-                    "rank": player.rank,
-                    "name": player.name,
-                    "rating": player.rating,
-                    "wins": player.wins,
-                    "losses": player.losses,
-                    "ties": player.ties,
-                }
-                for player in tournament.get_rankings_with_rank()
-            ]
-            for metric, tournament in manager.tournaments.items()
-        },
-        "overall_rankings": [
-            {
-                "name": name,
-                "mean_rank": stats["mean_rank"],
-                "median_rank": stats["median_rank"],
-                "best_rank": stats["best_rank"],
-                "worst_rank": stats["worst_rank"],
-                "metric_ranks": stats["metric_ranks"],
-            }
-            for name, stats in sorted(
-                overall_ranks.items(), key=lambda x: x[1]["mean_rank"]
-            )
-        ],
-    }
-
-    save_data(output_dir / "tournament_results.json", tournament_results)
-
-    return tournament_results
+    return TournamentResult(
+        overall_ranks=manager.get_overall_ranks(),
+        total_comparisons=total_comparisons,
+        total_cost=total_cost,
+        tournaments=manager.tournaments,
+    )
 
 
-def _display_tournament_results(results: dict[str, Any]) -> str:
-    """Format tournament results for display.
+class OverallRankingEntry(BaseModel):
+    """Overall ranking entry for a model."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    mean_rank: float
+    median_rank: float
+    best_rank: int
+    worst_rank: int
+    metric_ranks: dict[str, int]
+
+
+class TournamentSummary(BaseModel):
+    """Summary of tournament results."""
+
+    model_config = ConfigDict(frozen=True)
+
+    model_names: list[str]
+    metrics: list[str]
+    paper_count: int
+    total_comparisons: int
+    total_cost: float
+    metric_rankings: dict[str, list[PlayerRank]]
+    overall_rankings: list[OverallRankingEntry]
+
+
+class TournamentResult(BaseModel):
+    """Full result of all tournaments run."""
+
+    model_config = ConfigDict(frozen=True)
+
+    overall_ranks: dict[str, ModelRankStats]
+    """Model ranks across all tournaments."""
+    total_comparisons: int
+    """Number of comparisons across models."""
+    total_cost: float
+    """Total LLM cost for all comparisons."""
+    tournaments: dict[str, TournamentSystem]
+    """Tournament data for each metric."""
+
+
+def _tournament_summary(
+    result: TournamentResult,
+    model_names: list[str],
+    metrics: list[str],
+    paper_count: int,
+) -> TournamentSummary:
+    """Convert internal result to a serializable summary.
 
     Args:
-        results: Tournament results dictionary.
+        result: Tournament result.
+        model_names: Names of all models in the tournament.
+        metrics: Names of metrics evaluated.
+        paper_count: Number of papers compared.
 
     Returns:
-        Formatted string for display.
+        Serializable tournament summary.
     """
+    return TournamentSummary(
+        model_names=model_names,
+        metrics=metrics,
+        paper_count=paper_count,
+        total_comparisons=result.total_comparisons,
+        total_cost=result.total_cost,
+        metric_rankings={
+            metric: [
+                PlayerRank(
+                    rank=player.rank,
+                    name=player.name,
+                    rating=player.rating,
+                    wins=player.wins,
+                    losses=player.losses,
+                    ties=player.ties,
+                )
+                for player in tournament.get_rankings()
+            ]
+            for metric, tournament in result.tournaments.items()
+        },
+        overall_rankings=[
+            OverallRankingEntry(
+                name=name,
+                mean_rank=stats.mean_rank,
+                median_rank=stats.median_rank,
+                best_rank=stats.best_rank,
+                worst_rank=stats.worst_rank,
+                metric_ranks=stats.metric_ranks,
+            )
+            for name, stats in sorted(
+                result.overall_ranks.items(), key=lambda x: x[1].mean_rank
+            )
+        ],
+    )
+
+
+async def _run_tournament(
+    client: LLMClient,
+    common_papers: dict[str, list[EvaluationInput]],
+    model_names: list[str],
+    tournament_prompt_key: str,
+    metrics: list[str],
+    seed: int,
+) -> TournamentSummary:
+    """Run a pairwise Elo tournament between multiple models.
+
+    Args:
+        client: LLM client.
+        common_papers: Dictionary mapping paper IDs to papers from each model.
+        model_names: Names of the models being compared.
+        tournament_prompt_key: Key for the comparison prompt to use.
+        metrics: Metrics to evaluate.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        Tournament results summary.
+    """
+    random.seed(seed)
+
+    prompt = PAIRWISE_COMPARISON_PROMPTS[tournament_prompt_key]
+
+    # Create possible pairings of models (A vs B, A vs C, B vs C, etc.). Order-sensitive.
+    model_pairs = list(itertools.permutations(range(len(model_names)), 2))
+
+    paper_ids = list(common_papers.keys())
+    random.shuffle(paper_ids)
+
+    result = await _run_tournaments(
+        client, common_papers, metrics, model_names, model_pairs, paper_ids, prompt
+    )
+    return _tournament_summary(result, model_names, metrics, len(paper_ids))
+
+
+def _display_tournament_results(results: TournamentSummary) -> str:
+    """Format tournament results for display."""
     table = Table(title="Elo Tournament Rankings")
 
     table.add_column("Rank", style="cyan", justify="right")
@@ -582,33 +673,24 @@ def _display_tournament_results(results: dict[str, Any]) -> str:
     table.add_column("Mean Rank", justify="right")
     table.add_column("Median Rank", justify="right")
 
-    metrics = list(results["metric_rankings"].keys())
+    metrics = list(results.metric_rankings.keys())
     for metric in metrics:
         table.add_column(metric.capitalize(), justify="right")
 
     # Add rows for each model's overall ranking
-    for i, model in enumerate(results["overall_rankings"], 1):
-        name = model["name"]
-        mean_rank = f"{model['mean_rank']:.2f}"
-        median_rank = f"{model['median_rank']:.1f}"
+    for i, model in enumerate(results.overall_rankings, 1):
+        name = model.name
+        mean_rank = f"{model.mean_rank:.2f}"
+        median_rank = f"{model.median_rank:.1f}"
 
         # Get metric-specific ranks
-        metric_ranks = [str(model["metric_ranks"][m]) for m in metrics]
+        metric_ranks = [str(model.metric_ranks[m]) for m in metrics]
 
         table.add_row(str(i), name, mean_rank, median_rank, *metric_ranks)
 
     return render_rich(table)
 
 
-TOURNAMENT_ALL_METRICS = [
-    "clarity",
-    "faithfulness",
-    "factuality",
-    "specificity",
-    "contributions",
-]
-
-# Set up Typer CLI
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     add_completion=False,
@@ -687,7 +769,7 @@ def tournament(
         model_names.append(model_name)
 
     asyncio.run(
-        _run_tournament(
+        run_tournament(
             parsed_inputs,
             model_names,
             output_dir,
@@ -700,7 +782,7 @@ def tournament(
     )
 
 
-async def _run_tournament(
+async def run_tournament(
     inputs: list[tuple[Path, str]],
     model_names: list[str],
     output_dir: Path,
@@ -764,8 +846,7 @@ async def _run_tournament(
 
         paper_collections.append(papers)
 
-    # Find common papers across all models
-    common_papers = find_common_papers(paper_collections)
+    common_papers = _find_common_papers(paper_collections)
     logger.info(
         f"Found {len(common_papers)} papers common to all {len(model_names)} models"
     )
@@ -777,21 +858,16 @@ async def _run_tournament(
         return
 
     with Timer() as timer:
-        results = await run_tournament(
-            client,
-            common_papers,
-            model_names,
-            output_dir,
-            tournament_prompt_key,
-            metrics,
-            seed,
+        results = await _run_tournament(
+            client, common_papers, model_names, tournament_prompt_key, metrics, seed
         )
 
     logger.info(f"Time elapsed: {timer.human}")
-    logger.info(f"Total cost: ${results['total_cost']:.10f}")
+    logger.info(f"Total cost: ${results.total_cost:.10f}")
 
-    # Display results
     logger.info("\n%s", _display_tournament_results(results))
+
+    save_data(output_dir / "tournament_results.json", results.model_dump())
 
 
 @app.callback()
