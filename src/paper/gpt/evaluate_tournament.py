@@ -23,7 +23,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import dotenv
 import typer
@@ -494,7 +494,26 @@ async def _compare_rationales(
     )
 
 
-async def _run_tournaments(
+class ComparisonResult(BaseModel):
+    """Result of comparing two model outputs by LLM."""
+
+    model_config = ConfigDict(frozen=True)
+
+    model_a: str
+    """First model name."""
+    model_b: str
+    """Second model name."""
+    paper_id: str
+    """ID of the paper being compared."""
+    metric: str
+    """Metric being evaluated."""
+    result: GPTPairwiseComparison
+    """LLM's comparison result."""
+    cost: float
+    """API cost for this comparison."""
+
+
+async def _run_all_comparisons(
     client: LLMClient,
     common_papers: dict[str, list[EvaluationInput]],
     metrics: list[str],
@@ -502,12 +521,26 @@ async def _run_tournaments(
     model_indices_pairs: list[tuple[int, int]],
     paper_ids: list[str],
     prompt: PromptTemplate,
-) -> TournamentResult:
+) -> tuple[list[ComparisonResult], float]:
+    """Run all pairwise comparisons between models without updating Elo ratings.
+
+    Args:
+        client: LLM client.
+        common_papers: Papers from each model, grouped by paper ID.
+        metrics: Metrics to evaluate.
+        model_names: Names of the models being compared.
+        model_indices_pairs: Pairs of model indices to compare.
+        paper_ids: IDs of papers to use in comparisons.
+        prompt: Prompt template for the comparison.
+
+    Returns:
+        Tuple of (list of comparison results, total cost).
+    """
+    all_comparisons: list[ComparisonResult] = []
     total_cost = 0.0
     total_comparisons = len(paper_ids) * len(model_indices_pairs) * len(metrics)
-    manager = TournamentManager(model_names, metrics)
 
-    with tqdm(total=total_comparisons, desc="Running Elo tournament") as pbar:
+    with tqdm(total=total_comparisons, desc="Running pairwise comparisons") as pbar:
         for paper_id in paper_ids:
             papers = common_papers[paper_id]
             paper_metadata = extract_metadata(papers[0])
@@ -524,14 +557,49 @@ async def _run_tournaments(
                         client, paper_metadata, rationale_a, rationale_b, metric, prompt
                     )
 
-                    manager.record_match(model_a, model_b, comparison_result.result)
+                    all_comparisons.append(
+                        ComparisonResult(
+                            model_a=model_a,
+                            model_b=model_b,
+                            paper_id=paper_id,
+                            metric=metric,
+                            result=comparison_result.result,
+                            cost=comparison_result.cost,
+                        )
+                    )
 
                     total_cost += comparison_result.cost
                     pbar.update(1)
 
+    return all_comparisons, total_cost
+
+
+def _calculate_elo_rankings(
+    comparison_results: list[ComparisonResult],
+    model_names: list[str],
+    metrics: list[str],
+) -> TournamentResult:
+    """Calculate Elo rankings from comparison results.
+
+    Args:
+        comparison_results: Results of all pairwise comparisons.
+        model_names: Names of the models being compared.
+        metrics: Metrics that were evaluated.
+
+    Returns:
+        Tournament results with Elo rankings.
+    """
+    manager = TournamentManager(model_names, metrics)
+    total_cost = sum(result.cost for result in comparison_results)
+
+    # Process all comparisons and update Elo ratings
+    logger.info("Calculating Elo rankings from %d comparisons", len(comparison_results))
+    for comparison in comparison_results:
+        manager.record_match(comparison.model_a, comparison.model_b, comparison.result)
+
     return TournamentResult(
         overall_ranks=manager.get_overall_ranks(),
-        total_comparisons=total_comparisons,
+        total_comparisons=len(comparison_results),
         total_cost=total_cost,
         tournaments=manager.tournaments,
     )
@@ -630,47 +698,6 @@ def _tournament_summary(
             )
         ],
     )
-
-
-async def _run_tournament(
-    client: LLMClient,
-    common_papers: dict[str, list[EvaluationInput]],
-    model_names: list[str],
-    tournament_prompt_key: str,
-    metrics: list[str],
-    seed: int,
-) -> TournamentSummary:
-    """Run a pairwise Elo tournament between multiple models.
-
-    Args:
-        client: LLM client.
-        common_papers: Dictionary mapping paper IDs to papers from each model.
-        model_names: Names of the models being compared.
-        tournament_prompt_key: Key for the comparison prompt to use.
-        metrics: Metrics to evaluate.
-        seed: Random seed for reproducibility.
-
-    Returns:
-        Tournament results summary.
-    """
-    random.seed(seed)
-
-    prompt = PAIRWISE_COMPARISON_PROMPTS[tournament_prompt_key]
-
-    paper_ids = list(common_papers.keys())
-    random.shuffle(paper_ids)
-
-    model_indices_pairs = _all_pairings(range(len(model_names)))
-    result = await _run_tournaments(
-        client,
-        common_papers,
-        metrics,
-        model_names,
-        model_indices_pairs,
-        paper_ids,
-        prompt,
-    )
-    return _tournament_summary(result, model_names, metrics, len(paper_ids))
 
 
 def _all_pairings[T](xs: Iterable[T]) -> list[tuple[T, T]]:
@@ -831,6 +858,18 @@ def _load_evaluation_input(
             )
 
 
+class RawComparisonOutput(BaseModel):
+    """Raw comparisons output for serialization."""
+
+    model_config = ConfigDict(frozen=True)
+
+    model_names: list[str]
+    metrics: list[str]
+    seed: int
+    comparisons: list[ComparisonResult]
+    metadata: dict[str, Any]
+
+
 async def run_tournaments(
     inputs: list[tuple[Path, str]],
     model_names: list[str],
@@ -865,27 +904,59 @@ async def run_tournaments(
     ]
     common_papers = _find_common_papers(paper_collections)
 
-    if common_papers:
-        logger.info(
-            f"Found {len(common_papers)} papers common to all {len(model_names)} models"
-        )
-    else:
+    if not common_papers:
         logger.error(
             "No common papers found across all models. Tournament cannot proceed."
         )
         return
 
-    with Timer() as timer:
-        results = await _run_tournament(
-            client, common_papers, model_names, tournament_prompt_key, metrics, seed
+    logger.info(
+        f"Found {len(common_papers)} papers common to all {len(model_names)} models"
+    )
+
+    prompt = PAIRWISE_COMPARISON_PROMPTS[tournament_prompt_key]
+    paper_ids = list(common_papers.keys())
+    random.shuffle(paper_ids)
+    model_indices_pairs = _all_pairings(range(len(model_names)))
+
+    with Timer() as comparison_timer:
+        comparisons, total_cost = await _run_all_comparisons(
+            client,
+            common_papers,
+            metrics,
+            model_names,
+            model_indices_pairs,
+            paper_ids,
+            prompt,
         )
 
-    logger.info(f"Time elapsed: {timer.human}")
-    logger.info(f"Total cost: ${results.total_cost:.10f}")
+    logger.info(f"Comparisons time: {comparison_timer.human}")
 
-    logger.info("\n%s", _display_tournament_results(results))
+    raw_output = RawComparisonOutput(
+        model_names=model_names,
+        metrics=metrics,
+        seed=seed,
+        comparisons=comparisons,
+        metadata={
+            "model": model,
+            "prompt": tournament_prompt_key,
+            "total_cost": total_cost,
+            "paper_count": len(paper_ids),
+        },
+    )
+    save_data(output_dir / "raw_comparisons.json", raw_output.model_dump())
 
-    save_data(output_dir / "tournament_results.json", results.model_dump())
+    with Timer() as ranking_timer:
+        tournament_result = _calculate_elo_rankings(comparisons, model_names, metrics)
+        summary = _tournament_summary(
+            tournament_result, model_names, metrics, len(paper_ids)
+        )
+
+    logger.info(f"Rankings calculation time: {ranking_timer.human}")
+    logger.info(f"Total cost: ${total_cost:.10f}")
+
+    logger.info("\n%s", _display_tournament_results(summary))
+    save_data(output_dir / "tournament_results.json", summary.model_dump())
 
 
 @app.callback()
