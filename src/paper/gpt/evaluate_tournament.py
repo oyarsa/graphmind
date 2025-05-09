@@ -14,14 +14,12 @@ import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
-from io import StringIO
 from pathlib import Path
 from typing import Annotated, Any
 
 import dotenv
 import typer
 from pydantic import BaseModel, ConfigDict
-from rich.console import Console
 from rich.table import Table
 from tqdm import tqdm
 
@@ -32,7 +30,7 @@ from paper.gpt.extract_graph import GraphResult
 from paper.gpt.model import PaperWithRelatedSummary, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import GPTResult, LLMClient, OpenAIClient
-from paper.util import Timer, cli, ensure_envvar, sample, setup_logging
+from paper.util import Timer, cli, ensure_envvar, render_rich, sample, setup_logging
 from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
@@ -568,13 +566,6 @@ async def run_tournament(
     return tournament_results
 
 
-def _console_to_str(*objects: Any) -> str:
-    buf = StringIO()
-    console = Console(file=buf, force_jupyter=False)
-    console.print(*objects)
-    return buf.getvalue()
-
-
 def _display_tournament_results(results: dict[str, Any]) -> str:
     """Format tournament results for display.
 
@@ -606,7 +597,7 @@ def _display_tournament_results(results: dict[str, Any]) -> str:
 
         table.add_row(str(i), name, mean_rank, median_rank, *metric_ranks)
 
-    return _console_to_str(table)
+    return render_rich(table)
 
 
 TOURNAMENT_ALL_METRICS = [

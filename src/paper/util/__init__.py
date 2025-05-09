@@ -16,12 +16,14 @@ import sys
 import time
 from collections.abc import Callable, Coroutine, Iterable, Mapping, Sequence
 from importlib import resources
+from io import StringIO
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Self, cast, overload
 
 import polars as pl
 import psutil
+from rich.console import Console
 from thefuzz import fuzz  # type: ignore
 
 from paper.util import cli
@@ -734,3 +736,14 @@ def describe(values: Iterable[int]) -> str:
     """Print descriptive statistics of `values`."""
     prettify_polars()
     return str(pl.Series(values).describe())
+
+
+def render_rich(*objects: Any) -> str:
+    """Render Rich objects as a string.
+
+    Prints objects through a rich Console and returns the rendered string.
+    """
+    buf = StringIO()
+    console = Console(file=buf, force_jupyter=False)
+    console.print(*objects)
+    return buf.getvalue()
