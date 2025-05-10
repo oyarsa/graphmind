@@ -570,10 +570,16 @@ class ComparisonResult(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
+    paper: PaperCore
+    """Full paper data used for the comparison."""
     item_a: str
     """First item name."""
     item_b: str
     """Second item name."""
+    rationale_a: str
+    """Rationale from item A."""
+    rationale_b: str
+    """Rationale from item B."""
     paper_id: str
     """ID of the paper being compared."""
     metric: str
@@ -642,6 +648,9 @@ async def _run_all_comparisons(
                             metric=metric,
                             result=comparison_result.result,
                             cost=comparison_result.cost,
+                            paper=paper,
+                            rationale_a=rationale_a,
+                            rationale_b=rationale_b,
                         )
                     )
 
