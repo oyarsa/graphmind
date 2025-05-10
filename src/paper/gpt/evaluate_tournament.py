@@ -28,14 +28,14 @@ from typing import Annotated, Any, Self
 
 import dotenv
 import typer
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict
 from rich.table import Table
 from tqdm import tqdm
 
 from paper import peerread as pr
 from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.extract_graph import GraphResult
-from paper.gpt.model import PaperWithRelatedSummary, PromptResult
+from paper.gpt.model import PaperWithRelatedSummary, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import GPTResult, LLMClient, OpenAIClient
 from paper.util import (
@@ -548,7 +548,7 @@ async def _compare_rationales(
     rationale_b: str,
     metric: str,
     prompt: PromptTemplate,
-) -> GPTResult[GPTPairwiseComparison]:
+) -> GPTResult[PromptResult[GPTPairwiseComparison]]:
     """Compare two rationales for the same paper using LLM.
 
     Args:
@@ -560,7 +560,7 @@ async def _compare_rationales(
         prompt: Prompt template for the comparison.
 
     Returns:
-        Comparison result wrapped in a GPTResult.
+        Comparison result and prompt wrapped in a GPTResult.
     """
     user_prompt_text = format_evaluation_prompt(
         metric, paper, rationale_a, rationale_b, prompt
@@ -568,11 +568,15 @@ async def _compare_rationales(
 
     result = await client.run(GPTPairwiseComparison, prompt.system, user_prompt_text)
     return result.map(
-        lambda r: r
-        if r is not None
-        # Default to TIE when LLM returns an error.
-        else GPTPairwiseComparison(
-            winner=MatchWinner.TIE, explanation="Comparison error. Defaulting to tie."
+        lambda r: PromptResult(
+            item=r
+            if r is not None
+            # Default to TIE when LLM returns an error.
+            else GPTPairwiseComparison(
+                winner=MatchWinner.TIE,
+                explanation="Comparison error. Defaulting to tie.",
+            ),
+            prompt=Prompt(system=prompt.system, user=user_prompt_text),
         )
     )
 
@@ -596,8 +600,6 @@ class ComparisonResult(BaseModel):
     """Metric being evaluated."""
     result: GPTPairwiseComparison
     """LLM's comparison result."""
-    cost: float
-    """API cost for this comparison."""
 
 
 async def _run_all_comparisons(
@@ -608,7 +610,7 @@ async def _run_all_comparisons(
     item_indices_pairs: Collection[tuple[int, int]],
     paper_ids: Collection[str],
     prompt: PromptTemplate,
-) -> list[ComparisonResult]:
+) -> GPTResult[list[PromptResult[ComparisonResult]]]:
     """Run all pairwise comparisons between items.
 
     Args:
@@ -666,7 +668,7 @@ async def _run_all_comparisons(
                     )
                 )
 
-    comparison_results: list[GPTResult[GPTPairwiseComparison]] = []
+    comparison_results: list[GPTResult[PromptResult[GPTPairwiseComparison]]] = []
 
     with tqdm(
         total=len(comparison_specs),
@@ -696,19 +698,25 @@ async def _run_all_comparisons(
             )
             pbar_cmp.update(len(batch))
 
-    return [
-        ComparisonResult(
-            item_a=spec.item_a,
-            item_b=spec.item_b,
-            metric=spec.metric,
-            paper=spec.paper,
-            rationale_a=spec.rationale_a,
-            rationale_b=spec.rationale_b,
-            result=result.result,
-            cost=result.cost,
+    results: list[PromptResult[ComparisonResult]] = []
+    total_cost = 0
+    for spec, result in zip(comparison_specs, comparison_results):
+        total_cost += result.cost
+        results.append(
+            result.result.map(
+                lambda cmp_result, spec=spec: ComparisonResult(
+                    item_a=spec.item_a,
+                    item_b=spec.item_b,
+                    metric=spec.metric,
+                    paper=spec.paper,
+                    rationale_a=spec.rationale_a,
+                    rationale_b=spec.rationale_b,
+                    result=cmp_result,
+                )
+            )
         )
-        for spec, result in zip(comparison_specs, comparison_results)
-    ]
+
+    return GPTResult(result=results, cost=total_cost)
 
 
 def _calculate_elo_rankings(
@@ -741,7 +749,6 @@ def _calculate_elo_rankings(
         overall_ranks=manager.get_overall_ranks(),
         tournaments=manager.tournaments,
         total_comparisons=len(comparison_results),
-        total_cost=sum(result.cost for result in comparison_results),
     )
 
 
@@ -771,8 +778,6 @@ def _calculate_melo_rankings(
     comparisons_by_metric: dict[str, list[ComparisonResult]] = defaultdict(list)
     for comp in comparison_results:
         comparisons_by_metric[comp.metric].append(comp)
-
-    total_cost = sum(result.cost for result in comparison_results)
 
     # Initialize structures to average results across trials
     all_ratings: dict[str, dict[str, list[float]]] = defaultdict(
@@ -843,7 +848,6 @@ def _calculate_melo_rankings(
     return TournamentResult(
         overall_ranks=final_manager.get_overall_ranks(),
         total_comparisons=len(comparison_results) * num_trials,
-        total_cost=total_cost,
         tournaments=final_manager.tournaments,
     )
 
@@ -869,7 +873,6 @@ class TournamentSummary(BaseModel):
     item_names: Sequence[str]
     metrics: Sequence[str]
     total_comparisons: int
-    total_cost: float
     metric_rankings: Mapping[str, Sequence[PlayerRank]]
     overall_rankings: Sequence[OverallRankingEntry]
 
@@ -883,8 +886,6 @@ class TournamentResult(BaseModel):
     """Item ranks across all tournaments."""
     total_comparisons: int
     """Number of comparisons across items."""
-    total_cost: float
-    """Total LLM cost for all comparisons."""
     tournaments: Mapping[str, TournamentSystem]
     """Tournament data for each metric."""
 
@@ -906,7 +907,6 @@ def _tournament_summary(
         item_names=item_names,
         metrics=metrics,
         total_comparisons=result.total_comparisons,
-        total_cost=result.total_cost,
         metric_rankings={
             metric: [
                 PlayerRank(
@@ -1156,17 +1156,23 @@ class RawComparisonOutput(BaseModel):
     item_names: Sequence[str]
     metrics: Sequence[str]
     seed: int
-    comparisons: Sequence[ComparisonResult]
+    comparisons: Sequence[PromptResult[ComparisonResult]]
     metadata: Mapping[str, Any]
 
-    @computed_field
+
+@dataclass(frozen=True, kw_only=True)
+class CachedResult[T]:
+    """Result of a GPT request and its full API cost."""
+
+    result: T
+
     @property
     def cost(self) -> float:
-        """Total cost of all comparisons."""
-        return sum(cmp.cost for cmp in self.comparisons)
+        """The cost of a cached result is always -1 to signal it didn't cost anything."""
+        return -1
 
 
-async def _load_reused_comparisons(path: Path) -> RawComparisonOutput:
+async def _load_reused_comparisons(path: Path) -> CachedResult[RawComparisonOutput]:
     """Load comparison data from a previous run."""
     logger.info(f"Reusing comparison data from {path}")
     data = load_data_single(path, RawComparisonOutput)
@@ -1174,7 +1180,7 @@ async def _load_reused_comparisons(path: Path) -> RawComparisonOutput:
     logger.info(
         f"Loaded {len(data.comparisons)} comparisons for {len(data.item_names)} models"
     )
-    return data
+    return CachedResult(result=data)
 
 
 async def _generate_new_comparisons(
@@ -1187,7 +1193,7 @@ async def _generate_new_comparisons(
     tournament_prompt_key: str,
     seed: int,
     algorithm: RankingAlgorithm,
-) -> RawComparisonOutput:
+) -> GPTResult[RawComparisonOutput]:
     """Generate new comparisons by running the LLM.
 
     Args:
@@ -1227,7 +1233,7 @@ async def _generate_new_comparisons(
     model_indices_pairs = _all_pairings(range(len(model_names)))
 
     with Timer() as comparison_timer:
-        comparisons = await _run_all_comparisons(
+        comparisons_result = await _run_all_comparisons(
             client,
             common_papers,
             metrics,
@@ -1239,17 +1245,19 @@ async def _generate_new_comparisons(
 
     logger.info(f"Comparisons time: {comparison_timer.human}")
 
-    return RawComparisonOutput(
-        item_names=model_names,
-        metrics=metrics,
-        seed=seed,
-        comparisons=comparisons,
-        metadata={
-            "model": model,
-            "prompt": tournament_prompt_key,
-            "paper_count": len(paper_ids),
-            "algorithm": algorithm,
-        },
+    return comparisons_result.map(
+        lambda cmp: RawComparisonOutput(
+            comparisons=cmp,
+            item_names=model_names,
+            metrics=metrics,
+            seed=seed,
+            metadata={
+                "model": model,
+                "prompt": tournament_prompt_key,
+                "paper_count": len(paper_ids),
+                "algorithm": algorithm,
+            },
+        )
     )
 
 
@@ -1314,14 +1322,16 @@ async def run_tournaments(
                     _calculate_melo_rankings, seed=seed, num_trials=melo_trials
                 )
 
-        tournament_result = ranker(raw_comparisons.comparisons, model_names, metrics)
+        comparisons = PromptResult.unwrap(raw_comparisons.result.comparisons)
+        tournament_result = ranker(comparisons, model_names, metrics)
         summary = _tournament_summary(tournament_result, model_names, metrics)
 
     logger.info(f"Rankings calculation time: {ranking_timer.human}")
-    logger.info(f"Total cost: ${raw_comparisons.cost:.10f}")
+    logger.info(f"Total comparison cost: ${raw_comparisons.cost:.10f}")
 
     logger.info("\n%s", _display_tournament_results(summary))
-    save_data(output_dir / "raw_comparisons.json", raw_comparisons)
+    if isinstance(raw_comparisons, GPTResult):
+        save_data(output_dir / "raw_comparisons.json", raw_comparisons)
     save_data(output_dir / f"tournament_results_{algorithm}.json", summary)
 
 
