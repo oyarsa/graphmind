@@ -364,8 +364,8 @@ class ModelRankStats(BaseModel):
     metric_ranks: dict[str, int]
 
 
-class PaperMetadata(BaseModel):
-    """Metadata for paper being compared."""
+class PaperCore(BaseModel):
+    """Core information from the paper being compared."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -376,11 +376,11 @@ class PaperMetadata(BaseModel):
     rationale: str
 
 
-def extract_metadata(paper: EvaluationInput) -> PaperMetadata:
+def extract_metadata(paper: EvaluationInput) -> PaperCore:
     """Extract title and abstract and other metadata needed for prompts."""
     match paper:
         case pr.Paper() | PaperResult():
-            return PaperMetadata(
+            return PaperCore(
                 id=paper.id,
                 title=paper.title,
                 abstract=paper.abstract,
@@ -388,7 +388,7 @@ def extract_metadata(paper: EvaluationInput) -> PaperMetadata:
                 rationale=paper.rationale,
             )
         case GraphResult():
-            return PaperMetadata(
+            return PaperCore(
                 id=paper.id,
                 title=paper.paper.title,
                 abstract=paper.paper.abstract,
@@ -396,7 +396,7 @@ def extract_metadata(paper: EvaluationInput) -> PaperMetadata:
                 rationale=paper.paper.rationale,
             )
         case PaperWithRelatedSummary():
-            return PaperMetadata(
+            return PaperCore(
                 id=paper.id,
                 title=paper.paper.title,
                 abstract=paper.paper.abstract,
@@ -439,7 +439,7 @@ def _find_common_papers(
 
 def format_evaluation_prompt(
     metric: str,
-    paper_metadata: PaperMetadata,
+    paper_metadata: PaperCore,
     rationale_a: str,
     rationale_b: str,
     prompt: PromptTemplate,
@@ -468,7 +468,7 @@ def format_evaluation_prompt(
 
 async def _compare_rationales(
     client: LLMClient,
-    paper_metadata: PaperMetadata,
+    paper_metadata: PaperCore,
     rationale_a: str,
     rationale_b: str,
     metric: str,
