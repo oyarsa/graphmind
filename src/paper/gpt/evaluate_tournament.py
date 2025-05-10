@@ -1337,7 +1337,7 @@ async def run_tournaments(
 
     logger.info("\n%s", _display_tournament_results(summary))
     if isinstance(raw_comparisons, GPTResult):
-        save_data(output_dir / "raw_comparisons.json", raw_comparisons)
+        save_data(output_dir / "raw_comparisons.json", raw_comparisons.result)
     save_data(output_dir / f"tournament_results_{algorithm}.json", summary)
 
 
