@@ -20,6 +20,7 @@ import random
 import statistics
 from collections import defaultdict
 from collections.abc import Collection, Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from enum import StrEnum
 from functools import partial
 from pathlib import Path
@@ -42,6 +43,7 @@ from paper.util import (
     cli,
     ensure_envvar,
     get_params,
+    progress,
     render_params,
     render_rich,
     sample,
@@ -73,7 +75,7 @@ TOURNAMENT_METRICS: Mapping[str, str] = {
         "Does the rationale effectively compare the main paper with the prior work?"
     ),
 }
-INPUT_TYPES_ALLOWED = ("raw", "paper", "graph", "summ")
+REQUEST_BATCH_SIZE = 10
 
 
 # Elo rating constants
@@ -623,7 +625,6 @@ async def _run_all_comparisons(
     Returns:
         List of comparison results.
     """
-    all_comparisons: list[ComparisonResult] = []
     total_comparisons = len(paper_ids) * len(item_indices_pairs) * len(metrics)
     logger.info(
         "Comparisons: Papers=%d * ItemPairs=%d * Metrics=%d = %d",
@@ -633,40 +634,84 @@ async def _run_all_comparisons(
         total_comparisons,
     )
 
-    with tqdm(total=total_comparisons, desc="Running pairwise comparisons") as pbar:
-        for paper_id in paper_ids:
-            papers = common_papers[paper_id]
-            paper = extract_core_data(papers[0])
+    @dataclass(frozen=True, kw_only=True)
+    class ComparisonSpec:
+        """Specification for comparison task."""
 
-            for metric in metrics:
-                for i, j in item_indices_pairs:
-                    item_a = item_names[i]
-                    item_b = item_names[j]
+        item_a: str
+        item_b: str
+        paper_id: str
+        metric: str
+        paper: PaperCore
+        rationale_a: str
+        rationale_b: str
+        prompt: PromptTemplate
 
-                    rationale_a = extract_core_data(papers[i]).rationale
-                    rationale_b = extract_core_data(papers[j]).rationale
+    comparison_specs: list[ComparisonSpec] = []
 
-                    comparison_result = await _compare_rationales(
-                        client, paper, rationale_a, rationale_b, metric, prompt
+    for paper_id in paper_ids:
+        papers = common_papers[paper_id]
+        paper = extract_core_data(papers[0])
+
+        for metric in metrics:
+            for i, j in item_indices_pairs:
+                comparison_specs.append(
+                    ComparisonSpec(
+                        item_a=item_names[i],
+                        item_b=item_names[j],
+                        paper_id=paper_id,
+                        metric=metric,
+                        paper=paper,
+                        rationale_a=extract_core_data(papers[i]).rationale,
+                        rationale_b=extract_core_data(papers[j]).rationale,
+                        prompt=prompt,
                     )
+                )
 
-                    all_comparisons.append(
-                        ComparisonResult(
-                            item_a=item_a,
-                            item_b=item_b,
-                            paper_id=paper_id,
-                            metric=metric,
-                            result=comparison_result.result,
-                            cost=comparison_result.cost,
-                            paper=paper,
-                            rationale_a=rationale_a,
-                            rationale_b=rationale_b,
-                        )
-                    )
+    comparison_results: list[GPTResult[GPTPairwiseComparison]] = []
 
-                    pbar.update(1)
+    with tqdm(
+        total=len(comparison_specs),
+        desc="Running pairwise comparisons",
+        position=0,
+        leave=True,
+    ) as pbar_cmp:
+        for batch in itertools.batched(comparison_specs, REQUEST_BATCH_SIZE):
+            tasks = [
+                _compare_rationales(
+                    client,
+                    spec.paper,
+                    spec.rationale_a,
+                    spec.rationale_b,
+                    spec.metric,
+                    spec.prompt,
+                )
+                for spec in batch
+            ]
+            comparison_results.extend(
+                await progress.gather(
+                    tasks,
+                    desc="Running pairwise comparisons batch",
+                    position=1,
+                    leave=False,
+                )
+            )
+            pbar_cmp.update(len(batch))
 
-    return all_comparisons
+    return [
+        ComparisonResult(
+            item_a=spec.item_a,
+            item_b=spec.item_b,
+            paper_id=spec.paper_id,
+            metric=spec.metric,
+            paper=spec.paper,
+            rationale_a=spec.rationale_a,
+            rationale_b=spec.rationale_b,
+            result=result.result,
+            cost=result.cost,
+        )
+        for spec, result in zip(comparison_specs, comparison_results)
+    ]
 
 
 def _calculate_elo_rankings(
