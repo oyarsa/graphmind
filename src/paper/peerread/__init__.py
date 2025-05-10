@@ -6,3 +6,4 @@ from paper.peerread.model import Paper as Paper
 from paper.peerread.model import PaperReference as PaperReference
 from paper.peerread.model import PaperReview as PaperReview
 from paper.peerread.model import PaperSection as PaperSection
+from paper.peerread.model import clean_maintext as clean_maintext
