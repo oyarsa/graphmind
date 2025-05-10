@@ -423,6 +423,9 @@ class PaperCore(BaseModel):
     abstract: str
     label: int
     rationale: str
+    approval: bool | None
+    conference: str
+    year: int | None
 
 
 def extract_core_data(paper: EvaluationInput) -> PaperCore:
@@ -435,6 +438,9 @@ def extract_core_data(paper: EvaluationInput) -> PaperCore:
                 abstract=paper.abstract,
                 label=paper.label,
                 rationale=paper.rationale,
+                approval=paper.approval,
+                conference=paper.conference,
+                year=paper.year,
             )
         case GraphResult():
             return PaperCore(
@@ -443,6 +449,9 @@ def extract_core_data(paper: EvaluationInput) -> PaperCore:
                 abstract=paper.paper.abstract,
                 label=paper.paper.label,
                 rationale=paper.paper.rationale,
+                approval=paper.paper.approval,
+                conference=paper.paper.conference,
+                year=paper.paper.year,
             )
         case PaperWithRelatedSummary():
             return PaperCore(
@@ -451,6 +460,9 @@ def extract_core_data(paper: EvaluationInput) -> PaperCore:
                 abstract=paper.paper.abstract,
                 label=paper.label,
                 rationale=paper.paper.paper.rationale,
+                approval=paper.paper.paper.approval,
+                conference=paper.paper.paper.conference,
+                year=paper.paper.paper.year,
             )
 
 
