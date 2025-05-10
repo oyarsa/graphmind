@@ -19,7 +19,7 @@ import logging
 import random
 import statistics
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import partial
@@ -122,7 +122,7 @@ class EloPlayer:
     wins: int
     losses: int
     ties: int
-    match_history: Sequence[PlayerMatch]
+    match_history: Collection[PlayerMatch]
 
     @classmethod
     def fresh(cls, name: str) -> EloPlayer:
@@ -206,10 +206,10 @@ class TournamentSystem:
 
     metric: str
     players: Mapping[str, EloPlayer]
-    matches: Sequence[TournamentMatch]
+    matches: Collection[TournamentMatch]
 
     @classmethod
-    def create(cls, model_names: Sequence[str], metric: str) -> TournamentSystem:
+    def create(cls, model_names: Collection[str], metric: str) -> TournamentSystem:
         """Create a new tournament system from the players (models) and metrics.
 
         Args:
@@ -311,12 +311,12 @@ class TournamentManager:
     """Manage multiple tournaments for different metrics."""
 
     tournaments: Mapping[str, TournamentSystem]
-    model_names: Sequence[str]
-    metrics: Sequence[str]
+    model_names: Collection[str]
+    metrics: Collection[str]
 
     @classmethod
     def create(
-        cls, model_names: Sequence[str], metrics: Sequence[str]
+        cls, model_names: Collection[str], metrics: Collection[str]
     ) -> TournamentManager:
         """Create a new tournament manager with different tournaments be metric.
 
@@ -400,7 +400,7 @@ class ModelRankStats(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    ranks: Sequence[int]
+    ranks: Collection[int]
     mean_rank: float
     median_rank: float
     best_rank: int
@@ -450,7 +450,7 @@ def extract_metadata(paper: EvaluationInput) -> PaperCore:
 
 
 def _find_common_papers(
-    paper_collections: Sequence[Sequence[EvaluationInput]],
+    paper_collections: Collection[Collection[EvaluationInput]],
 ) -> dict[str, list[EvaluationInput]]:
     """Find papers that exist in all collections based on ID.
 
@@ -625,9 +625,9 @@ async def _run_all_comparisons(
 
 
 def _calculate_elo_rankings(
-    comparison_results: list[ComparisonResult],
-    model_names: list[str],
-    metrics: list[str],
+    comparison_results: Collection[ComparisonResult],
+    model_names: Collection[str],
+    metrics: Collection[str],
 ) -> TournamentResult:
     """Calculate Elo rankings from comparison results.
 
@@ -656,7 +656,7 @@ def _calculate_elo_rankings(
 
 
 def _calculate_melo_rankings(
-    comparison_results: list[ComparisonResult],
+    comparison_results: Collection[ComparisonResult],
     model_names: list[str],
     metrics: list[str],
     num_trials: int,
@@ -776,12 +776,12 @@ class TournamentSummary(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    model_names: Sequence[str]
-    metrics: Sequence[str]
+    model_names: Collection[str]
+    metrics: Collection[str]
     total_comparisons: int
     total_cost: float
-    metric_rankings: Mapping[str, Sequence[PlayerRank]]
-    overall_rankings: Sequence[OverallRankingEntry]
+    metric_rankings: Mapping[str, Collection[PlayerRank]]
+    overall_rankings: Collection[OverallRankingEntry]
 
 
 class TournamentResult(BaseModel):
@@ -1056,11 +1056,11 @@ class RawComparisonOutput(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    model_names: list[str]
-    metrics: list[str]
+    model_names: Collection[str]
+    metrics: Collection[str]
     seed: int
-    comparisons: list[ComparisonResult]
-    metadata: dict[str, Any]
+    comparisons: Collection[ComparisonResult]
+    metadata: Mapping[str, Any]
 
     @computed_field
     @property
