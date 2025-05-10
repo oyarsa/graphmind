@@ -81,7 +81,7 @@ TOURNAMENT_METRICS: Mapping[str, str] = {
         "Does the rationale effectively compare the main paper with the prior work?"
     ),
 }
-REQUEST_BATCH_SIZE = 10
+REQUEST_BATCH_SIZE = 100
 
 
 # Elo rating constants
