@@ -899,9 +899,13 @@ class InputFileType(StrEnum):
     """Types of input data formats."""
 
     RAW = "raw"
+    """Original dataset paper: `peerread.Paper`"""
     GRAPH = "graph"
+    """Output of `gpt.evaluate_paper_graph`: `PromptResult[GraphResult]`"""
     PAPER = "paper"
+    """Output of `gpt.evaluate_paper_scimon`: `PromptResult[PaperResult]`"""
     SUMM = "summ"
+    """Output of `gpt.summarise_related_peter`: `PromptResult[PaperWithRelatedSummary]`"""
 
     @classmethod
     def from_dirty(cls, type_: str) -> Self:
