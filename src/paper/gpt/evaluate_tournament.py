@@ -428,6 +428,12 @@ class PaperCore(BaseModel):
     approval: bool | None
     conference: str
     year: int | None
+    sections: Sequence[pr.PaperSection]
+
+    @property
+    def main_text(self) -> str:
+        """Join all paper sections to form the main text."""
+        return pr.clean_maintext("\n".join(s.text for s in self.sections))
 
 
 def extract_core_data(paper: EvaluationInput) -> PaperCore:
@@ -443,6 +449,7 @@ def extract_core_data(paper: EvaluationInput) -> PaperCore:
                 approval=paper.approval,
                 conference=paper.conference,
                 year=paper.year,
+                sections=paper.sections,
             )
         case GraphResult():
             return PaperCore(
@@ -454,6 +461,7 @@ def extract_core_data(paper: EvaluationInput) -> PaperCore:
                 approval=paper.paper.approval,
                 conference=paper.paper.conference,
                 year=paper.paper.year,
+                sections=paper.paper.sections,
             )
         case PaperWithRelatedSummary():
             return PaperCore(
@@ -465,6 +473,7 @@ def extract_core_data(paper: EvaluationInput) -> PaperCore:
                 approval=paper.paper.paper.approval,
                 conference=paper.paper.paper.conference,
                 year=paper.paper.paper.year,
+                sections=paper.paper.paper.sections,
             )
 
 
