@@ -53,7 +53,7 @@ from paper.util.serde import load_data, load_data_single, save_data
 logger = logging.getLogger(__name__)
 
 PAIRWISE_COMPARISON_PROMPTS = load_prompts("pairwise_comparison")
-TOURNAMENT_METRICS = {
+TOURNAMENT_METRICS: Mapping[str, str] = {
     "clarity": (
         "How well-written the text is. How easy it is to understand and to follow its"
         " ideas."
@@ -567,11 +567,11 @@ class ComparisonResult(BaseModel):
 
 async def _run_all_comparisons(
     client: LLMClient,
-    common_papers: dict[str, list[EvaluationInput]],
-    metrics: list[str],
-    model_names: list[str],
-    model_indices_pairs: list[tuple[int, int]],
-    paper_ids: list[str],
+    common_papers: Mapping[str, list[EvaluationInput]],
+    metrics: Collection[str],
+    model_names: Sequence[str],
+    model_indices_pairs: Collection[tuple[int, int]],
+    paper_ids: Collection[str],
     prompt: PromptTemplate,
 ) -> list[ComparisonResult]:
     """Run all pairwise comparisons between models without updating Elo ratings.
@@ -657,8 +657,8 @@ def _calculate_elo_rankings(
 
 def _calculate_melo_rankings(
     comparison_results: Collection[ComparisonResult],
-    model_names: list[str],
-    metrics: list[str],
+    model_names: Collection[str],
+    metrics: Collection[str],
     num_trials: int,
     seed: int,
 ) -> TournamentResult:
@@ -800,7 +800,7 @@ class TournamentResult(BaseModel):
 
 
 def _tournament_summary(
-    result: TournamentResult, model_names: list[str], metrics: list[str]
+    result: TournamentResult, model_names: Collection[str], metrics: Collection[str]
 ) -> TournamentSummary:
     """Convert internal result to a serializable summary.
 
@@ -918,7 +918,7 @@ class InputFileType(StrEnum):
 @app.command(no_args_is_help=True)
 def tournament(
     inputs: Annotated[
-        list[str],
+        Collection[str],
         typer.Argument(
             help="Input files to process. Each file is in the format path:type:name."
         ),
@@ -942,7 +942,7 @@ def tournament(
         ),
     ] = "standard",
     metrics: Annotated[
-        list[str] | None,
+        Collection[str] | None,
         typer.Option(
             "--metric",
             help="Metrics to evaluate in tournament",
@@ -1082,9 +1082,9 @@ async def _load_reused_comparisons(path: Path) -> RawComparisonOutput:
 
 async def _generate_new_comparisons(
     client: LLMClient,
-    inputs: list[tuple[Path, InputFileType]],
-    model_names: list[str],
-    metrics: list[str],
+    inputs: Collection[tuple[Path, InputFileType]],
+    model_names: Sequence[str],
+    metrics: Collection[str],
     limit: int,
     model: str,
     tournament_prompt_key: str,
@@ -1158,12 +1158,12 @@ async def _generate_new_comparisons(
 
 
 async def run_tournaments(
-    inputs: list[tuple[Path, InputFileType]],
-    model_names: list[str],
+    inputs: Collection[tuple[Path, InputFileType]],
+    model_names: Sequence[str],
     output_dir: Path,
     model: str,
     tournament_prompt_key: str,
-    metrics: list[str],
+    metrics: Collection[str],
     limit: int,
     seed: int,
     algorithm: RankingAlgorithm,
