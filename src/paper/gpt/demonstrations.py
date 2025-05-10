@@ -64,7 +64,7 @@ def new_eval_sans_demonstration(paper: pr.Paper) -> eval.Demonstration:
     return eval.Demonstration(
         title=paper.title,
         abstract=paper.abstract,
-        text=paper.main_text,
+        text=paper.main_text(),
         rationale=paper.rationale,
         rating=paper.rating,
     )
@@ -216,7 +216,7 @@ def new_review_evaluation(
     return eval.Demonstration(
         title=paper.title,
         abstract=paper.abstract,
-        text=paper.main_text,
+        text=paper.main_text(),
         rationale=review.rationale,
         rating=review.rating,
     )

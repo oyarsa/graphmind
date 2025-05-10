@@ -169,14 +169,13 @@ class Paper(Record):
         """Rationale from main review."""
         return self.review.rationale
 
-    @property
     def main_text(self) -> str:
         """Join all paper sections to form the main text."""
         return clean_maintext("\n".join(s.text for s in self.sections))
 
     def __str__(self) -> str:
         """Display title, abstract, rating scores and count of words in main text."""
-        main_text_words_num = len(self.main_text.split())
+        main_text_words_num = len(self.main_text().split())
         return (
             f"Title: {self.title}\n"
             f"Abstract: {self.abstract}\n"

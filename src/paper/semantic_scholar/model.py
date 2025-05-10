@@ -199,7 +199,6 @@ class PaperWithS2Refs(Record):
         """
         return hashstr(self.title + self.abstract)
 
-    @property
     def main_text(self) -> str:
         """Join all paper sections to form the main text."""
         return clean_maintext("\n".join(s.text for s in self.sections))

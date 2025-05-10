@@ -430,7 +430,6 @@ class PaperCore(BaseModel):
     year: int | None
     sections: Sequence[pr.PaperSection]
 
-    @property
     def main_text(self) -> str:
         """Join all paper sections to form the main text."""
         return pr.clean_maintext("\n".join(s.text for s in self.sections))
