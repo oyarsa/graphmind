@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from functools import partial
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Self
 
 import dotenv
 import typer
@@ -844,6 +844,26 @@ class RankingAlgorithm(StrEnum):
     MELO = "melo"
 
 
+class InputFileType(StrEnum):
+    """Types of input data formats."""
+
+    RAW = "raw"
+    GRAPH = "graph"
+    PAPER = "paper"
+    SUMM = "summ"
+
+    @classmethod
+    def from_dirty(cls, type_: str) -> Self:
+        """Create instance by cleaning up `type_` by stripping and lowercasing.
+
+        Use when `type_` comes from a potentially dirty source, such as a CLI argument.
+
+        Raises:
+            ValueError if the type is invalid.
+        """
+        return cls(type_.strip().lower())
+
+
 @app.command(no_args_is_help=True)
 def tournament(
     inputs: Annotated[
@@ -923,28 +943,26 @@ def tournament(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Parse input files, types, and model names
-    parsed_inputs: list[tuple[Path, str]] = []
+    parsed_inputs: list[tuple[Path, InputFileType]] = []
     model_names: list[str] = []
 
     for input_str in inputs:
-        parts = input_str.split(":", maxsplit=2)
-        if len(parts) == 3:
-            file_path, file_type, model_name = parts
-        elif len(parts) == 2:
-            file_path, file_type = parts
-            model_name = Path(file_path).parent.name
-        else:
-            file_path = parts[0]
-            file_type = "graph"
-            model_name = Path(file_path).parent.name
+        match input_str.split(":", maxsplit=2):
+            case [file_path_, file_type_, model_name]:
+                file_path = Path(file_path_)
+                file_type = InputFileType.from_dirty(file_type_)
+            case [file_path_, file_type_]:
+                file_path = Path(file_path_)
+                file_type = InputFileType.from_dirty(file_type_)
+                model_name = file_path.parent.name
+            case [file_path_]:
+                file_path = Path(file_path_)
+                file_type = InputFileType.GRAPH
+                model_name = file_path.parent.name
+            case _:
+                raise ValueError("Invalid input string format.")
 
-        file_type = file_type.strip()
-        if file_type not in INPUT_TYPES_ALLOWED:
-            raise ValueError(
-                f"File type for {file_path} not allowed: '{file_type}'. Must be one"
-                f" of {INPUT_TYPES_ALLOWED}."
-            )
-        parsed_inputs.append((Path(file_path), file_type))
+        parsed_inputs.append((file_path, file_type))
         model_names.append(model_name)
 
     asyncio.run(
@@ -965,31 +983,27 @@ def tournament(
 
 
 def _load_evaluation_input(
-    file_path: Path, file_type: str, limit: int
+    file_path: Path, file_type: InputFileType, limit: int
 ) -> Sequence[EvaluationInput]:
-    match file_type.lower():
-        case "graph":
+    match file_type:
+        case InputFileType.GRAPH:
             return sample(
                 PromptResult.unwrap(load_data(file_path, PromptResult[GraphResult])),
                 limit,
             )
-        case "paper":
+        case InputFileType.PAPER:
             return sample(
                 PromptResult.unwrap(load_data(file_path, PromptResult[PaperResult])),
                 limit,
             )
-        case "raw":
+        case InputFileType.RAW:
             return sample(load_data(file_path, pr.Paper), limit)
-        case "summ":
+        case InputFileType.SUMM:
             return sample(
                 PromptResult.unwrap(
                     load_data(file_path, PromptResult[PaperWithRelatedSummary])
                 ),
                 limit,
-            )
-        case _:
-            raise ValueError(
-                f"Invalid file_type: {file_type}. Must be one of {INPUT_TYPES_ALLOWED}."
             )
 
 
@@ -1024,7 +1038,7 @@ async def _load_reused_comparisons(path: Path) -> RawComparisonOutput:
 
 async def _generate_new_comparisons(
     client: LLMClient,
-    inputs: list[tuple[Path, str]],
+    inputs: list[tuple[Path, InputFileType]],
     model_names: list[str],
     metrics: list[str],
     limit: int,
@@ -1100,7 +1114,7 @@ async def _generate_new_comparisons(
 
 
 async def run_tournaments(
-    inputs: list[tuple[Path, str]],
+    inputs: list[tuple[Path, InputFileType]],
     model_names: list[str],
     output_dir: Path,
     model: str,
