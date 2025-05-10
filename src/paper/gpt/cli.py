@@ -141,3 +141,7 @@ def models() -> None:
             print(f"  Price (in/out): ${input_cost:.2f}/1M, ${output_cost:.2f}/1M")
 
         print()
+
+
+if __name__ == "__main__":
+    app()
