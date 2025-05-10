@@ -595,6 +595,13 @@ async def _run_all_comparisons(
     """
     all_comparisons: list[ComparisonResult] = []
     total_comparisons = len(paper_ids) * len(item_indices_pairs) * len(metrics)
+    logger.info(
+        "Comparisons: Papers=%d * ItemPairs=%d * Metrics=%d = %d",
+        len(paper_ids),
+        len(item_indices_pairs),
+        len(metrics),
+        total_comparisons,
+    )
 
     with tqdm(total=total_comparisons, desc="Running pairwise comparisons") as pbar:
         for paper_id in paper_ids:
