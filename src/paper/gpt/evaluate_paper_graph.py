@@ -376,7 +376,7 @@ async def _evaluate_papers(
 
             pbar_papers.update(len(batch))
 
-    return GPTResult(results, total_cost)
+    return GPTResult(result=results, cost=total_cost)
 
 
 async def _evaluate_paper(

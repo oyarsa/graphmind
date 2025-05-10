@@ -396,7 +396,7 @@ async def _classify_paper(
             year=paper.year,
         ),
     )
-    return GPTResult(result, total_cost)
+    return GPTResult(result=result, cost=total_cost)
 
 
 async def _classify_contexts(
@@ -438,7 +438,7 @@ async def _classify_contexts(
             paper_outputs.append(result.result)
             append_intermediate_result(output_intermediate_path, result.result)
 
-    return GPTResult(paper_outputs, total_cost)
+    return GPTResult(result=paper_outputs, cost=total_cost)
 
 
 def show_classified_stats(

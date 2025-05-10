@@ -280,7 +280,7 @@ async def _classify_papers(
         results.append(result.result)
         append_intermediate_result(output_intermediate_file, result.result)
 
-    return GPTResult(results, total_cost)
+    return GPTResult(result=results, cost=total_cost)
 
 
 _SCIMON_CLASSIFY_SYSTEM_PROMPT = """\

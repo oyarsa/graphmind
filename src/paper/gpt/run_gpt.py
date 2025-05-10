@@ -83,7 +83,7 @@ def _calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     return prompt_tokens / 1e6 * input_cost + completion_tokens / 1e6 * output_cost
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class GPTResult[T]:
     """Result of a GPT request and its full API cost."""
 

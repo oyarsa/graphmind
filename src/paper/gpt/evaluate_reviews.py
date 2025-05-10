@@ -436,7 +436,7 @@ async def _evaluate_reviews(
         if keep_intermediate:
             append_intermediate_result(output_intermediate_file, result.result)
 
-    return GPTResult(results, total_cost)
+    return GPTResult(result=results, cost=total_cost)
 
 
 class _GPTRationale(BaseModel):
@@ -524,7 +524,7 @@ async def _evaluate_paper_reviews(
     user_prompt_full = f"\n\n{'-' * 80}\n\n".join(user_prompts)
 
     return GPTResult(
-        PromptResult(
+        result=PromptResult(
             item=PaperWithReviewEval(
                 title=paper.title,
                 abstract=paper.abstract,
@@ -541,7 +541,7 @@ async def _evaluate_paper_reviews(
             ),
             prompt=Prompt(system=_REVIEW_SYSTEM_PROMPT, user=user_prompt_full),
         ),
-        total_cost,
+        cost=total_cost,
     )
 
 

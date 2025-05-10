@@ -276,7 +276,7 @@ async def _summarise_papers(
             results.append(result.result)
             append_intermediate_result(output_intermediate_file, result.result)
 
-    return GPTResult(results, total_cost)
+    return GPTResult(result=results, cost=total_cost)
 
 
 _PETER_SUMMARISE_SYSTEM_PROMPT = """\
@@ -307,7 +307,7 @@ async def _summarise_paper(
         output.append(result.result)
 
     return GPTResult(
-        PromptResult(
+        result=PromptResult(
             prompt=Prompt(
                 system=_PETER_SUMMARISE_SYSTEM_PROMPT,
                 user=f"\n\n{'-' * 80}\n\n".join(x.prompt.user for x in output),

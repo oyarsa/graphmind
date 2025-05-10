@@ -292,7 +292,7 @@ async def _extract_acus[T: PaperACUInput](
 
             pbar_papers.update(len(batch))
 
-    return GPTResult(results, total_cost)
+    return GPTResult(result=results, cost=total_cost)
 
 
 class GPTACU(BaseModel):
