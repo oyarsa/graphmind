@@ -41,6 +41,8 @@ from paper.util import (
     Timer,
     cli,
     ensure_envvar,
+    get_params,
+    render_params,
     render_rich,
     sample,
     setup_logging,
@@ -1030,6 +1032,9 @@ def run(
     skip the LLM comparison phase and just calculate rankings using the existing
     comparison data.
     """
+    params = get_params()
+    logger.info(render_params(params))
+
     tournament_metrics = metrics or list(TOURNAMENT_METRICS)
 
     dotenv.load_dotenv()
