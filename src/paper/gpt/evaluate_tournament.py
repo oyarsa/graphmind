@@ -37,7 +37,13 @@ from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.extract_graph import GraphResult
 from paper.gpt.model import PaperWithRelatedSummary, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
-from paper.gpt.run_gpt import GPTResult, LLMClient, OpenAIClient
+from paper.gpt.run_gpt import (
+    GPTResult,
+    LLMClient,
+    OpenAIClient,
+    gpr_map,
+    gpr_traverse,
+)
 from paper.util import (
     Timer,
     cli,
@@ -610,7 +616,7 @@ async def _run_all_comparisons(
     item_indices_pairs: Collection[tuple[int, int]],
     paper_ids: Collection[str],
     prompt: PromptTemplate,
-) -> GPTResult[list[PromptResult[ComparisonResult]]]:
+) -> GPTResult[Sequence[PromptResult[ComparisonResult]]]:
     """Run all pairwise comparisons between items.
 
     Args:
@@ -668,7 +674,9 @@ async def _run_all_comparisons(
                     )
                 )
 
-    comparison_results: list[GPTResult[PromptResult[GPTPairwiseComparison]]] = []
+    comparison_results: list[
+        GPTResult[PromptResult[tuple[ComparisonSpec, GPTPairwiseComparison]]]
+    ] = []
 
     with tqdm(
         total=len(comparison_specs),
@@ -676,7 +684,7 @@ async def _run_all_comparisons(
         position=0,
         leave=True,
     ) as pbar_cmp:
-        for batch in itertools.batched(comparison_specs, REQUEST_BATCH_SIZE):
+        for batch_specs in itertools.batched(comparison_specs, REQUEST_BATCH_SIZE):
             tasks = [
                 _compare_rationales(
                     client,
@@ -686,37 +694,35 @@ async def _run_all_comparisons(
                     spec.metric,
                     spec.prompt,
                 )
-                for spec in batch
+                for spec in batch_specs
             ]
+            batch_results = await progress.gather(
+                tasks,
+                desc="Running pairwise comparisons batch",
+                position=1,
+                leave=False,
+            )
             comparison_results.extend(
-                await progress.gather(
-                    tasks,
-                    desc="Running pairwise comparisons batch",
-                    position=1,
-                    leave=False,
-                )
+                gpr_map(result, lambda r, spec=spec: (spec, r))
+                for spec, result in zip(batch_specs, batch_results)
             )
-            pbar_cmp.update(len(batch))
+            pbar_cmp.update(len(batch_specs))
 
-    results: list[PromptResult[ComparisonResult]] = []
-    total_cost = 0
-    for spec, result in zip(comparison_specs, comparison_results):
-        total_cost += result.cost
-        results.append(
-            result.result.map(
-                lambda cmp_result, spec=spec: ComparisonResult(
-                    item_a=spec.item_a,
-                    item_b=spec.item_b,
-                    metric=spec.metric,
-                    paper=spec.paper,
-                    rationale_a=spec.rationale_a,
-                    rationale_b=spec.rationale_b,
-                    result=cmp_result,
-                )
-            )
+    def transform(
+        item: tuple[ComparisonSpec, GPTPairwiseComparison],
+    ) -> ComparisonResult:
+        spec, cmp = item
+        return ComparisonResult(
+            item_a=spec.item_a,
+            item_b=spec.item_b,
+            metric=spec.metric,
+            paper=spec.paper,
+            rationale_a=spec.rationale_a,
+            rationale_b=spec.rationale_b,
+            result=cmp,
         )
 
-    return GPTResult(result=results, cost=total_cost)
+    return gpr_traverse(comparison_results, transform)
 
 
 def _calculate_elo_rankings(

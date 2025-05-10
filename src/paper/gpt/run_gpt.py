@@ -6,7 +6,7 @@ import asyncio
 import logging
 import os
 from abc import ABC, abstractmethod
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar, Literal, cast, override
@@ -93,6 +93,32 @@ class GPTResult[T]:
     def map[U](self, func: Callable[[T], U]) -> GPTResult[U]:
         """Apply `func` to inner value and return new result."""
         return GPTResult(result=func(self.result), cost=self.cost)
+
+
+def gpt_sequence[T](results: Iterable[GPTResult[T]]) -> GPTResult[Sequence[T]]:
+    """Convert sequence of results to result of sequence, aggregating costs."""
+    items: list[T] = []
+    total_cost = 0.0
+
+    for result in results:
+        items.append(result.result)
+        total_cost += result.cost
+
+    return GPTResult(result=tuple(items), cost=total_cost)
+
+
+def gpr_traverse[T, U](
+    results: Iterable[GPTResult[PromptResult[T]]], f: Callable[[T], U]
+) -> GPTResult[Sequence[PromptResult[U]]]:
+    """Sequence results and map function over values in GPTResult+PromptResult stack."""
+    return gpt_sequence(results).map(lambda items: tuple(item.map(f) for item in items))
+
+
+def gpr_map[T, U](
+    result: GPTResult[PromptResult[T]], f: Callable[[T], U]
+) -> GPTResult[PromptResult[U]]:
+    """Map functions through GPTResult+PromptResult stack."""
+    return result.map(lambda r: r.map(f))
 
 
 def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
