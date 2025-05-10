@@ -617,8 +617,8 @@ def _calculate_melo_rankings(
     comparison_results: list[ComparisonResult],
     model_names: list[str],
     metrics: list[str],
-    num_trials: int = 10,
-    seed: int = 42,
+    num_trials: int,
+    seed: int,
 ) -> TournamentResult:
     """Calculate Multi-Elo rankings from comparison results.
 
@@ -653,20 +653,16 @@ def _calculate_melo_rankings(
 
     random_gen = random.Random(seed)
 
-    # Run multiple tournaments with different random orderings
     logger.info(f"Running {num_trials} tournaments with different orderings")
     for _ in range(num_trials):
         trial_seed = random_gen.randint(0, 10000)
         trial_random = random.Random(trial_seed)
 
-        # Create a new manager for this trial
         manager = TournamentManager(model_names, metrics)
 
         # For each metric, shuffle the comparisons differently
         for metric in metrics:
-            metric_comparisons: list[ComparisonResult] = comparisons_by_metric[
-                metric
-            ].copy()
+            metric_comparisons = comparisons_by_metric[metric].copy()
             trial_random.shuffle(metric_comparisons)
 
             # Process the shuffled comparisons
