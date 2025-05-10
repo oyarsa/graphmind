@@ -976,24 +976,17 @@ def _load_evaluation_input(
 ) -> Sequence[EvaluationInput]:
     match file_type:
         case InputFileType.GRAPH:
-            return sample(
-                PromptResult.unwrap(load_data(file_path, PromptResult[GraphResult])),
-                limit,
-            )
+            data = PromptResult.unwrap(load_data(file_path, PromptResult[GraphResult]))
         case InputFileType.PAPER:
-            return sample(
-                PromptResult.unwrap(load_data(file_path, PromptResult[PaperResult])),
-                limit,
+            data = PromptResult.unwrap(load_data(file_path, PromptResult[PaperResult]))
+        case InputFileType.SUMM:
+            data = PromptResult.unwrap(
+                load_data(file_path, PromptResult[PaperWithRelatedSummary])
             )
         case InputFileType.RAW:
-            return sample(load_data(file_path, pr.Paper), limit)
-        case InputFileType.SUMM:
-            return sample(
-                PromptResult.unwrap(
-                    load_data(file_path, PromptResult[PaperWithRelatedSummary])
-                ),
-                limit,
-            )
+            data = load_data(file_path, pr.Paper)
+
+    return sample(data, limit)
 
 
 class RawComparisonOutput(BaseModel):
