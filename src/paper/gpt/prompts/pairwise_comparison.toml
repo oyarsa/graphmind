@@ -9,7 +9,6 @@ prompt = """
 # Paper Information
 Title: {title}
 Abstract: {abstract}
-Novelty label: {label}
 
 # Rationales to Compare
 ## Rationale A

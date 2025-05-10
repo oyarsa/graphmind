@@ -44,7 +44,6 @@ from paper.util import (
     render_rich,
     sample,
     setup_logging,
-    shuffled,
 )
 from paper.util.serde import load_data, load_data_single, save_data
 
@@ -1047,7 +1046,7 @@ def run(
 
 
 def _load_evaluation_input(
-    file_path: Path, file_type: InputFileType, limit: int
+    file_path: Path, file_type: InputFileType
 ) -> Sequence[EvaluationInput]:
     match file_type:
         case InputFileType.GRAPH:
@@ -1061,7 +1060,7 @@ def _load_evaluation_input(
         case InputFileType.RAW:
             data = load_data(file_path, pr.Paper)
 
-    return sample(data, limit)
+    return data
 
 
 class RawComparisonOutput(BaseModel):
@@ -1124,8 +1123,7 @@ async def _generate_new_comparisons(
         ValueError if there are no common papers to compare.
     """
     paper_collections = [
-        _load_evaluation_input(file_path, file_type, limit)
-        for file_path, file_type in inputs
+        _load_evaluation_input(file_path, file_type) for file_path, file_type in inputs
     ]
     common_papers = _find_common_papers(paper_collections)
 
@@ -1140,7 +1138,7 @@ async def _generate_new_comparisons(
 
     # Step 1: Run all pairwise comparisons
     prompt = PAIRWISE_COMPARISON_PROMPTS[tournament_prompt_key]
-    paper_ids = shuffled(common_papers)
+    paper_ids = sample(list(common_papers), limit)
     model_indices_pairs = _all_pairings(range(len(model_names)))
 
     with Timer() as comparison_timer:
