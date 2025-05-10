@@ -425,8 +425,8 @@ class PaperCore(BaseModel):
     rationale: str
 
 
-def extract_metadata(paper: EvaluationInput) -> PaperCore:
-    """Extract title and abstract and other metadata needed for prompts."""
+def extract_core_data(paper: EvaluationInput) -> PaperCore:
+    """Extract title and abstract and other data needed for prompts."""
     match paper:
         case pr.Paper() | PaperResult():
             return PaperCore(
@@ -466,7 +466,9 @@ def _find_common_papers(
         Mapping of paper IDs to list of paper objects from each collection.
     """
     # Extract IDs from each collection
-    id_sets = [{extract_metadata(p).id for p in papers} for papers in paper_collections]
+    id_sets = [
+        {extract_core_data(p).id for p in papers} for papers in paper_collections
+    ]
     # Find IDs common to all collections
     common_ids = set[str].intersection(*id_sets)
 
@@ -477,7 +479,7 @@ def _find_common_papers(
 
         for papers in paper_collections:
             for paper in papers:
-                if extract_metadata(paper).id == paper_id:
+                if extract_core_data(paper).id == paper_id:
                     paper_group.append(paper)
                     break
 
@@ -488,7 +490,7 @@ def _find_common_papers(
 
 def format_evaluation_prompt(
     metric: str,
-    paper_metadata: PaperCore,
+    paper: PaperCore,
     rationale_a: str,
     rationale_b: str,
     prompt: PromptTemplate,
@@ -497,7 +499,7 @@ def format_evaluation_prompt(
 
     Args:
         metric: The metric to focus on in the comparison.
-        paper_metadata: Paper metadata (title, abstract, etc.).
+        paper: Paper data (title, abstract, etc.).
         rationale_a: First rationale to compare.
         rationale_b: Second rationale to compare.
         prompt: Prompt template for the comparison.
@@ -506,8 +508,8 @@ def format_evaluation_prompt(
         Comparison result wrapped in a GPTResult.
     """
     return prompt.template.format(
-        title=paper_metadata.title,
-        abstract=paper_metadata.abstract,
+        title=paper.title,
+        abstract=paper.abstract,
         rationale_a=rationale_a,
         rationale_b=rationale_b,
         metric=metric,
@@ -517,7 +519,7 @@ def format_evaluation_prompt(
 
 async def _compare_rationales(
     client: LLMClient,
-    paper_metadata: PaperCore,
+    paper: PaperCore,
     rationale_a: str,
     rationale_b: str,
     metric: str,
@@ -527,7 +529,7 @@ async def _compare_rationales(
 
     Args:
         client: LLM client.
-        paper_metadata: Paper metadata (title, abstract, etc.).
+        paper: Paper data (title, abstract, etc.).
         rationale_a: First rationale to compare.
         rationale_b: Second rationale to compare.
         metric: The metric to focus on in the comparison.
@@ -537,7 +539,7 @@ async def _compare_rationales(
         Comparison result wrapped in a GPTResult.
     """
     user_prompt_text = format_evaluation_prompt(
-        metric, paper_metadata, rationale_a, rationale_b, prompt
+        metric, paper, rationale_a, rationale_b, prompt
     )
 
     result = await client.run(GPTPairwiseComparison, prompt.system, user_prompt_text)
@@ -606,18 +608,18 @@ async def _run_all_comparisons(
     with tqdm(total=total_comparisons, desc="Running pairwise comparisons") as pbar:
         for paper_id in paper_ids:
             papers = common_papers[paper_id]
-            paper_metadata = extract_metadata(papers[0])
+            paper = extract_core_data(papers[0])
 
             for metric in metrics:
                 for i, j in item_indices_pairs:
                     item_a = item_names[i]
                     item_b = item_names[j]
 
-                    rationale_a = extract_metadata(papers[i]).rationale
-                    rationale_b = extract_metadata(papers[j]).rationale
+                    rationale_a = extract_core_data(papers[i]).rationale
+                    rationale_b = extract_core_data(papers[j]).rationale
 
                     comparison_result = await _compare_rationales(
-                        client, paper_metadata, rationale_a, rationale_b, metric, prompt
+                        client, paper, rationale_a, rationale_b, metric, prompt
                     )
 
                     all_comparisons.append(
