@@ -19,8 +19,8 @@ import logging
 import random
 import statistics
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from enum import StrEnum
 from functools import partial
 from pathlib import Path
@@ -101,8 +101,6 @@ class GPTPairwiseComparison(BaseModel):
     """Who wins the match. The model can only reply A or B, but we use TIE for errors."""
     explanation: str
     """Explanation for the winner evaluation."""
-    metric: str
-    """Which metric this comparison is for."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -115,53 +113,63 @@ class PlayerMatch:
     explanation: str
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class EloPlayer:
     """Represents a player in the Elo rating system."""
 
     name: str
-    rating: float = DEFAULT_ELO
-    wins: int = 0
-    losses: int = 0
-    ties: int = 0
-    match_history: list[PlayerMatch] = field(default_factory=list)
+    rating: float
+    wins: int
+    losses: int
+    ties: int
+    match_history: Sequence[PlayerMatch]
 
-    def add_match_result(self, opponent: str, score: float, explanation: str) -> None:
-        """Add a match result to the player's history.
-
-        Mutates the object.
-
-        Args:
-            opponent: Name of the opponent.
-            score: 1.0 for win, 0.5 for tie, 0.0 for loss.
-            explanation: Explanation for the match result.
-        """
-        self.match_history.append(
-            PlayerMatch(
-                player=self.name,
-                opponent=opponent,
-                score=score,
-                explanation=explanation,
-            )
+    @classmethod
+    def fresh(cls, name: str) -> EloPlayer:
+        """Create fresh player without rating or matches."""
+        return EloPlayer(
+            name=name, rating=DEFAULT_ELO, wins=0, losses=0, ties=0, match_history=()
         )
 
-        if score == 1.0:
-            self.wins += 1
-        elif score == 0.5:
-            self.ties += 1
-        else:
-            self.losses += 1
+    def play_match(
+        self,
+        opponent: str,
+        expected_score: float,
+        actual_score: float,
+        explanation: str,
+    ) -> EloPlayer:
+        """Play match against `opponent`, updating the match record and rating."""
+        new_match = PlayerMatch(
+            player=self.name,
+            opponent=opponent,
+            score=actual_score,
+            explanation=explanation,
+        )
 
-    def update_rating(self, expected_score: float, actual_score: float) -> None:
-        """Update the Elo rating based on match outcome.
+        return EloPlayer(
+            wins=self.wins + (1 if actual_score == 1.0 else 0),
+            ties=self.ties + (1 if actual_score == 0.5 else 0),
+            losses=self.losses + (1 if actual_score == 0.0 else 0),
+            match_history=(*self.match_history, new_match),
+            rating=_update_elo_rating(self.rating, actual_score, expected_score),
+            name=self.name,
+        )
 
-        Mutates the object.
 
-        Args:
-            expected_score: Expected probability of winning (0.0-1.0).
-            actual_score: Actual outcome (1.0=win, 0.5=tie, 0.0=loss).
-        """
-        self.rating += K_FACTOR * (actual_score - expected_score)
+def _update_elo_rating(
+    current_rating: float, actual_score: float, expected_score: float
+) -> float:
+    """Update Elo rating based on match result.
+
+    Args:
+        current_rating: Current rating of the player.
+        actual_score: Actual score of the player (0.0-1.0).
+        expected_score: Expected score of the player (0.0-1.0).
+
+    Returns:
+        Updated Elo rating.
+    """
+    return current_rating + K_FACTOR * (actual_score - expected_score)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -173,36 +181,48 @@ class TournamentMatch:
     result: GPTPairwiseComparison
 
 
+def _elo_expected_probabilities(
+    player_a: EloPlayer, player_b: EloPlayer
+) -> tuple[float, float]:
+    """Calculate expected score for player A against player B.
+
+    Args:
+        player_a: First player.
+        player_b: Second player.
+
+    Returns:
+        Tuple with expected probabilities of (player A, player B) winning in [0, 1].
+    """
+    expected_a = 1.0 / (
+        1.0 + 10.0 ** ((player_b.rating - player_a.rating) / EXPECTED_SCORE_DIVISOR)
+    )
+    expected_b = 1 - expected_a
+    return expected_a, expected_b
+
+
+@dataclass(frozen=True, kw_only=True)
 class TournamentSystem:
     """Manages an Elo tournament for rationale comparisons."""
 
-    def __init__(self, model_names: Sequence[str], metric: str) -> None:
-        """Initialize the tournament system.
+    metric: str
+    players: Mapping[str, EloPlayer]
+    matches: Sequence[TournamentMatch]
+
+    @classmethod
+    def create(cls, model_names: Sequence[str], metric: str) -> TournamentSystem:
+        """Create a new tournament system from the players (models) and metrics.
 
         Args:
             model_names: Names of the different models being compared.
             metric: The metric this tournament is evaluating.
-        """
-        self.metric = metric
-        self.players: dict[str, EloPlayer] = {
-            name: EloPlayer(name=name) for name in model_names
-        }
-        self.matches: list[TournamentMatch] = []
-
-    def calculate_expected_score(
-        self, player_a: EloPlayer, player_b: EloPlayer
-    ) -> float:
-        """Calculate expected score for player A against player B.
-
-        Args:
-            player_a: First player.
-            player_b: Second player.
 
         Returns:
-            Expected probability of player A winning (0.0-1.0).
+            A new TournamentSystem instance.
         """
-        return 1.0 / (
-            1.0 + 10.0 ** ((player_b.rating - player_a.rating) / EXPECTED_SCORE_DIVISOR)
+        return cls(
+            metric=metric,
+            players={name: EloPlayer.fresh(name=name) for name in model_names},
+            matches=(),
         )
 
     def record_match(
@@ -210,23 +230,21 @@ class TournamentSystem:
         player_a_name: str,
         player_b_name: str,
         result: GPTPairwiseComparison,
-    ) -> None:
+    ) -> TournamentSystem:
         """Record the outcome of a match and update player ratings.
-
-        Mutates the object.
 
         Args:
             player_a_name: Name of the first player.
             player_b_name: Name of the second player.
             result: The result of the comparison.
+
+        Returns:
+            A new TournamentSystem with updated state.
         """
-        # Ensure both players exist
         player_a = self.players[player_a_name]
         player_b = self.players[player_b_name]
 
-        # Calculate expected scores
-        expected_a = self.calculate_expected_score(player_a, player_b)
-        expected_b = 1.0 - expected_a
+        expected_a, expected_b = _elo_expected_probabilities(player_a, player_b)
 
         # Determine actual scores from the result
         match result.winner:
@@ -237,19 +255,23 @@ class TournamentSystem:
             case MatchWinner.TIE:
                 actual_a, actual_b = 0.5, 0.5
 
-        # Update ratings
-        player_a.update_rating(expected_a, actual_a)
-        player_b.update_rating(expected_b, actual_b)
+        updated_players = {
+            **self.players,
+            player_a_name: player_a.play_match(
+                player_b_name, expected_a, actual_a, result.explanation
+            ),
+            player_b_name: player_b.play_match(
+                player_a_name, expected_b, actual_b, result.explanation
+            ),
+        }
 
-        # Record match results for each player
-        player_a.add_match_result(player_b_name, actual_a, result.explanation)
-        player_b.add_match_result(player_a_name, actual_b, result.explanation)
-
-        # Save match in tournament history
-        self.matches.append(
-            TournamentMatch(
-                player_a=player_a_name, player_b=player_b_name, result=result
-            )
+        new_match = TournamentMatch(
+            player_a=player_a_name, player_b=player_b_name, result=result
+        )
+        return TournamentSystem(
+            metric=self.metric,
+            players=updated_players,
+            matches=(*self.matches, new_match),
         )
 
     def get_rankings(self) -> list[PlayerRank]:
@@ -284,35 +306,62 @@ class PlayerRank(BaseModel):
     ties: int
 
 
+@dataclass(frozen=True, kw_only=True)
 class TournamentManager:
     """Manage multiple tournaments for different metrics."""
 
-    def __init__(self, model_names: Sequence[str], metrics: Sequence[str]) -> None:
-        """Initialize tournament manager.
+    tournaments: Mapping[str, TournamentSystem]
+    model_names: Sequence[str]
+    metrics: Sequence[str]
+
+    @classmethod
+    def create(
+        cls, model_names: Sequence[str], metrics: Sequence[str]
+    ) -> TournamentManager:
+        """Create a new tournament manager with different tournaments be metric.
 
         Args:
             model_names: Names of the different models being compared.
             metrics: Metrics to run tournaments for.
+
+        Returns:
+            A new TournamentManager instance.
         """
-        self.tournaments = {
-            metric: TournamentSystem(model_names, metric) for metric in metrics
-        }
-        self.model_names = model_names
-        self.metrics = metrics
+        return cls(
+            tournaments={
+                metric: TournamentSystem.create(model_names, metric)
+                for metric in metrics
+            },
+            model_names=model_names,
+            metrics=metrics,
+        )
 
     def record_match(
-        self, player_a: str, player_b: str, result: GPTPairwiseComparison
-    ) -> None:
-        """Record a match result in the appropriate tournament.
-
-        Mutates object.
+        self, player_a: str, player_b: str, result: GPTPairwiseComparison, metric: str
+    ) -> TournamentManager:
+        """Record a match result in the appropriate tournament for the metric.
 
         Args:
             player_a: Name of the first player.
             player_b: Name of the second player.
             result: Comparison result from the LLM.
+            metric: Metric used for the comparison.
+
+        Returns:
+            A new TournamentManager with updated state.
         """
-        self.tournaments[result.metric].record_match(player_a, player_b, result)
+        tournament = self.tournaments[metric]
+        updated_tournaments = {
+            **self.tournaments,
+            metric: tournament.record_match(player_a, player_b, result),
+        }
+
+        return TournamentManager(
+            tournaments=updated_tournaments,
+            # Unchanged
+            model_names=self.model_names,
+            metrics=self.metrics,
+        )
 
     def get_overall_ranks(self) -> dict[str, ModelRankStats]:
         """Calculate overall rankings based on average ranks across metrics.
@@ -351,12 +400,12 @@ class ModelRankStats(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    ranks: list[int]
+    ranks: Sequence[int]
     mean_rank: float
     median_rank: float
     best_rank: int
     worst_rank: int
-    metric_ranks: dict[str, int]
+    metric_ranks: Mapping[str, int]
 
 
 class PaperCore(BaseModel):
@@ -492,9 +541,7 @@ async def _compare_rationales(
         if r is not None
         # Default to TIE when LLM returns an error.
         else GPTPairwiseComparison(
-            winner=MatchWinner.TIE,
-            explanation="Comparison error. Defaulting to tie.",
-            metric=metric,
+            winner=MatchWinner.TIE, explanation="Comparison error. Defaulting to tie."
         )
     )
 
@@ -592,19 +639,19 @@ def _calculate_elo_rankings(
     Returns:
         Tournament results with Elo rankings.
     """
-    manager = TournamentManager(model_names, metrics)
-    total_cost = sum(result.cost for result in comparison_results)
+    manager = TournamentManager.create(model_names, metrics)
 
-    # Process all comparisons and update Elo ratings
     logger.info("Calculating Elo rankings from %d comparisons", len(comparison_results))
     for comparison in comparison_results:
-        manager.record_match(comparison.model_a, comparison.model_b, comparison.result)
+        manager = manager.record_match(
+            comparison.model_a, comparison.model_b, comparison.result, comparison.metric
+        )
 
     return TournamentResult(
         overall_ranks=manager.get_overall_ranks(),
-        total_comparisons=len(comparison_results),
-        total_cost=total_cost,
         tournaments=manager.tournaments,
+        total_comparisons=len(comparison_results),
+        total_cost=sum(result.cost for result in comparison_results),
     )
 
 
@@ -653,7 +700,7 @@ def _calculate_melo_rankings(
         trial_seed = random_gen.randint(0, 10000)
         trial_random = random.Random(trial_seed)
 
-        manager = TournamentManager(model_names, metrics)
+        manager = TournamentManager.create(model_names, metrics)
 
         # For each metric, shuffle the comparisons differently
         for metric in metrics:
@@ -661,9 +708,9 @@ def _calculate_melo_rankings(
             trial_random.shuffle(metric_comparisons)
 
             # Process the shuffled comparisons
-            for comparison in metric_comparisons:
-                manager.record_match(
-                    comparison.model_a, comparison.model_b, comparison.result
+            for cmp in metric_comparisons:
+                manager = manager.record_match(
+                    cmp.model_a, cmp.model_b, cmp.result, cmp.metric
                 )
 
             # Record each player's result for this metric in this trial
@@ -675,18 +722,33 @@ def _calculate_melo_rankings(
                 all_ties[metric][player.name].append(player.ties)
 
     # Create a final manager with averaged results
-    final_manager = TournamentManager(model_names, metrics)
-
-    # Replace the players in each tournament with the averaged results
+    tournaments: dict[str, TournamentSystem] = {}
     for metric in metrics:
+        # For each model, create a new player with averaged statistics
+        updated_players: dict[str, EloPlayer] = {}
         for name in model_names:
-            player = final_manager.tournaments[metric].players[name]
+            # Create a new player with averaged values
+            updated_players[name] = EloPlayer(
+                name=name,
+                rating=statistics.mean(all_ratings[metric][name]),
+                wins=int(statistics.mean(all_wins[metric][name])),
+                losses=int(statistics.mean(all_losses[metric][name])),
+                ties=int(statistics.mean(all_ties[metric][name])),
+                match_history=(),  # Not a real player.
+            )
 
-            # Update the player with averaged values
-            player.rating = statistics.mean(all_ratings[metric][name])
-            player.wins = int(statistics.mean(all_wins[metric][name]))
-            player.losses = int(statistics.mean(all_losses[metric][name]))
-            player.ties = int(statistics.mean(all_ties[metric][name]))
+        # Create a tournament with averaged values
+        tournaments[metric] = TournamentSystem(
+            metric=metric,
+            players=updated_players,
+            matches=(),  # Not a real tournament.
+        )
+
+    final_manager = TournamentManager(
+        tournaments=tournaments,
+        model_names=model_names,
+        metrics=metrics,
+    )
 
     return TournamentResult(
         overall_ranks=final_manager.get_overall_ranks(),
@@ -706,7 +768,7 @@ class OverallRankingEntry(BaseModel):
     median_rank: float
     best_rank: int
     worst_rank: int
-    metric_ranks: dict[str, int]
+    metric_ranks: Mapping[str, int]
 
 
 class TournamentSummary(BaseModel):
@@ -714,12 +776,12 @@ class TournamentSummary(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    model_names: list[str]
-    metrics: list[str]
+    model_names: Sequence[str]
+    metrics: Sequence[str]
     total_comparisons: int
     total_cost: float
-    metric_rankings: dict[str, list[PlayerRank]]
-    overall_rankings: list[OverallRankingEntry]
+    metric_rankings: Mapping[str, Sequence[PlayerRank]]
+    overall_rankings: Sequence[OverallRankingEntry]
 
 
 class TournamentResult(BaseModel):
@@ -727,13 +789,13 @@ class TournamentResult(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    overall_ranks: dict[str, ModelRankStats]
+    overall_ranks: Mapping[str, ModelRankStats]
     """Model ranks across all tournaments."""
     total_comparisons: int
     """Number of comparisons across models."""
     total_cost: float
     """Total LLM cost for all comparisons."""
-    tournaments: dict[str, TournamentSystem]
+    tournaments: Mapping[str, TournamentSystem]
     """Tournament data for each metric."""
 
 
