@@ -30,7 +30,7 @@ from rich.table import Table
 from tqdm import tqdm
 
 from paper import peerread as pr
-from paper.gpt.evaluate_paper import EvaluationInput, PaperResult
+from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.extract_graph import GraphResult
 from paper.gpt.model import PaperWithRelatedSummary, Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
@@ -57,6 +57,9 @@ logger = logging.getLogger(__name__)
 
 
 RATIONALE_EVAL_PROMPTS = load_prompts("evaluate_rationale")
+
+type EvaluationInput = GraphResult | PaperResult | pr.Paper | PaperWithRelatedSummary
+"""Type alias for rationale evaluation."""
 
 
 class MetricStats(BaseModel):

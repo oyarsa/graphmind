@@ -18,6 +18,7 @@ from paper.gpt import (
     evaluate_paper_search,
     evaluate_rationale,
     evaluate_reviews,
+    evaluate_tournament,
     extract_acu,
     extract_paper_graph,
     run_gpt,
@@ -97,6 +98,11 @@ evals_subcommands = [
         "rationale",
         "Evaluate generated rationales from graph evaluation.",
         evaluate_rationale,
+    ),
+    (
+        "rationale-tournament",
+        "Evaluate generated rationales from graph evaluation using pairwise tournament.",
+        evaluate_tournament,
     ),
 ]
 

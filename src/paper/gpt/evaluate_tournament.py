@@ -33,7 +33,6 @@ from rich.table import Table
 from tqdm import tqdm
 
 from paper import peerread as pr
-from paper.gpt.evaluate_paper import EvaluationInput as EvaluationInput
 from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.extract_graph import GraphResult
 from paper.gpt.model import PaperWithRelatedSummary, PromptResult
@@ -82,6 +81,9 @@ DEFAULT_ELO = 1200  # Starting rating for all players
 K_FACTOR = 32  # How much ratings can change in a single match
 EXPECTED_SCORE_DIVISOR = 400  # For expected score calculation
 MELO_DEFAULT_TRIALS = 10  # How many different Elo trials to run
+
+type EvaluationInput = GraphResult | PaperResult | pr.Paper | PaperWithRelatedSummary
+"""Type alias for rationale evaluation."""
 
 
 class MatchWinner(StrEnum):
@@ -920,7 +922,7 @@ class InputFileType(StrEnum):
 
 
 @app.command(no_args_is_help=True)
-def tournament(
+def run(
     inputs: Annotated[
         Collection[str],
         typer.Argument(
@@ -1237,6 +1239,16 @@ async def run_tournaments(
 def main() -> None:
     """Set up logging."""
     setup_logging()
+
+
+@app.command(help="List available prompts.")
+def prompts(
+    detail: Annotated[
+        bool, typer.Option(help="Show full description of the prompts.")
+    ] = False,
+) -> None:
+    """Print the available prompt names, and optionally, the full prompt text."""
+    print_prompts("RATIONALE TOURNAMENT", PAIRWISE_COMPARISON_PROMPTS, detail=detail)
 
 
 if __name__ == "__main__":
