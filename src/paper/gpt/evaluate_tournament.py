@@ -592,8 +592,6 @@ class ComparisonResult(BaseModel):
     """Rationale from item A."""
     rationale_b: str
     """Rationale from item B."""
-    paper_id: str
-    """ID of the paper being compared."""
     metric: str
     """Metric being evaluated."""
     result: GPTPairwiseComparison
@@ -702,7 +700,6 @@ async def _run_all_comparisons(
         ComparisonResult(
             item_a=spec.item_a,
             item_b=spec.item_b,
-            paper_id=spec.paper_id,
             metric=spec.metric,
             paper=spec.paper,
             rationale_a=spec.rationale_a,
