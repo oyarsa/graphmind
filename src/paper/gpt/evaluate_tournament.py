@@ -254,25 +254,20 @@ class TournamentSystem:
 
     def get_rankings(self) -> list[PlayerRank]:
         """Get rankings for all players."""
-        rankings = sorted(
-            (
-                (p.name, p.rating, p.wins, p.losses, p.ties)
-                for p in self.players.values()
-            ),
-            key=lambda x: x[1],
-            reverse=True,
+        players_sorted_by_rating = sorted(
+            self.players.values(), key=lambda p: p.rating, reverse=True
         )
 
         return [
             PlayerRank(
                 rank=i,
-                name=name,
-                rating=rating,
-                wins=wins,
-                losses=losses,
-                ties=ties,
+                name=player.name,
+                rating=player.rating,
+                wins=player.wins,
+                losses=player.losses,
+                ties=player.ties,
             )
-            for i, (name, rating, wins, losses, ties) in enumerate(rankings, 1)
+            for i, player in enumerate(players_sorted_by_rating, 1)
         ]
 
 
@@ -687,21 +682,15 @@ def _calculate_melo_rankings(
         for name in model_names:
             player = final_manager.tournaments[metric].players[name]
 
-            # Average the ratings and statistics
-            avg_rating = statistics.mean(all_ratings[metric][name])
-            avg_wins = int(statistics.mean(all_wins[metric][name]))
-            avg_losses = int(statistics.mean(all_losses[metric][name]))
-            avg_ties = int(statistics.mean(all_ties[metric][name]))
-
             # Update the player with averaged values
-            player.rating = avg_rating
-            player.wins = avg_wins
-            player.losses = avg_losses
-            player.ties = avg_ties
+            player.rating = statistics.mean(all_ratings[metric][name])
+            player.wins = int(statistics.mean(all_wins[metric][name]))
+            player.losses = int(statistics.mean(all_losses[metric][name]))
+            player.ties = int(statistics.mean(all_ties[metric][name]))
 
     return TournamentResult(
         overall_ranks=final_manager.get_overall_ranks(),
-        total_comparisons=len(comparison_results),
+        total_comparisons=len(comparison_results) * num_trials,
         total_cost=total_cost,
         tournaments=final_manager.tournaments,
     )
@@ -797,7 +786,7 @@ def _tournament_summary(
 
 
 def _all_pairings[T](xs: Iterable[T]) -> list[tuple[T, T]]:
-    """Create possible pairings of elements (AxB, AxC, BxC, BxA etc.). Order-sensitive."""
+    """Create possible pairings of elements (A-B, A-C, B-C, B-A etc.). Order-sensitive."""
     return list(itertools.permutations(xs, 2))
 
 
