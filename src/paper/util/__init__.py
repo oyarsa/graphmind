@@ -14,7 +14,7 @@ import re
 import subprocess
 import sys
 import time
-from collections.abc import Callable, Coroutine, Iterable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Coroutine, Iterable, Mapping, Sequence
 from importlib import resources
 from io import StringIO
 from pathlib import Path
@@ -747,3 +747,37 @@ def render_rich(*objects: Any) -> str:
     console = Console(file=buf, force_jupyter=False)
     console.print(*objects)
     return buf.getvalue()
+
+
+async def await_and_call[T](awaitable: Awaitable[T], callback: Callable[[T], Any]) -> T:
+    """Apply `callback` to the result of `awaitable` and return the original result.
+
+    Args:
+        awaitable: An awaitable object that produces a value of type T.
+        callback: A sync function that takes a value of type T. The return value is
+            ignored.
+
+    Returns:
+        The result from awaiting the awaitable.
+    """
+    result = await awaitable
+    callback(result)
+    return result
+
+
+async def await_and_call_async[T](
+    awaitable: Awaitable[T], callback: Callable[[T], Awaitable[None]]
+) -> T:
+    """Apply `callback` to the result of `awaitable` and return the original result.
+
+    Args:
+        awaitable: An awaitable object that produces a value of type T.
+        callback: An async function that takes a value of type T. The return value is
+            ignored.
+
+    Returns:
+        The result from awaiting the awaitable.
+    """
+    result = await awaitable
+    await callback(result)
+    return result
