@@ -840,19 +840,13 @@ def _find_common_papers(
     common_ids = set[str].intersection(*id_sets)
 
     # Group papers by ID
-    result: dict[str, list[EvaluationInput]] = {}
-    for paper_id in common_ids:
-        paper_group: list[EvaluationInput] = []
-
-        for papers in paper_collections:
-            for paper in papers:
-                if extract_core_data(paper).id == paper_id:
-                    paper_group.append(paper)
-                    break
-
-        result[paper_id] = paper_group
-
-    return result
+    return {
+        paper_id: [
+            next(p for p in papers_col if extract_core_data(p).id == paper_id)
+            for papers_col in paper_collections
+        ]
+        for paper_id in common_ids
+    }
 
 
 def format_evaluation_prompt(
@@ -1144,12 +1138,9 @@ def _calculate_bradley_terry_rankings(
     # Convert Bradley-Terry results to standard Tournament objects for the TournamentManager
     tournaments: dict[str, TournamentSystem] = {}
     for metric, bt_tournament in bt_tournaments.items():
-        # Convert Bradley-Terry players to Elo players
-
         # Create equivalent EloPlayer objects for each BradleyTerryPlayer
-        elo_players: dict[str, EloPlayer] = {}
-        for name, bt_player in bt_tournament.players.items():
-            elo_players[name] = EloPlayer(
+        elo_players = {
+            name: EloPlayer(
                 name=name,
                 # Map strength to rating by keeping the same relative scale
                 rating=bt_player.strength * 400,  # Scale to be similar to Elo ratings
@@ -1158,6 +1149,8 @@ def _calculate_bradley_terry_rankings(
                 ties=bt_player.ties,
                 match_history=bt_player.match_history,
             )
+            for name, bt_player in bt_tournament.players.items()
+        }
 
         # Create standard tournament with equivalent Elo players
         tournaments[metric] = TournamentSystem(
