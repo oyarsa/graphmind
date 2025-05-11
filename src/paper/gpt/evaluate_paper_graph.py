@@ -58,11 +58,13 @@ from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     GPTResult,
     OpenAIClient,
-    append_intermediate_result,
+    append_intermediate_result_async,
+    gpt_sequence,
     init_remaining_items,
 )
 from paper.util import (
     Timer,
+    await_and_call_async,
     cli,
     get_params,
     progress,
@@ -299,7 +301,7 @@ async def evaluate_papers(
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${results.cost:.10f}")
 
-    results_all = papers_remaining.done + results.result
+    results_all = (*papers_remaining.done, *results.result)
 
     results_items = [r.paper for r in PromptResult.unwrap(results_all)]
     metrics = calculate_paper_metrics(results_items, results.cost)
@@ -327,7 +329,7 @@ async def _evaluate_papers(
     linearisation_method: LinearisationMethod,
     batch_size: int,
     sources: set[RelatedPaperSource],
-) -> GPTResult[list[PromptResult[GraphResult]]]:
+) -> GPTResult[Sequence[PromptResult[GraphResult]]]:
     """Evaluate paper novelty using a paper graph and PETER-related papers.
 
     Args:
@@ -345,38 +347,40 @@ async def _evaluate_papers(
     Returns:
         List of evaluated papers and their prompts wrapped in a GPTResult.
     """
-    results: list[PromptResult[GraphResult]] = []
-    total_cost = 0
-
+    graph_results: list[GPTResult[PromptResult[GraphResult]]] = []
     with tqdm(
         total=len(papers), desc="Evaluating papers", position=0, leave=True
     ) as pbar_papers:
         for batch in itertools.batched(papers, batch_size):
             tasks = [
-                _evaluate_paper(
-                    client,
-                    paper,
-                    eval_prompt,
-                    graph_prompt,
-                    demonstrations,
-                    linearisation_method,
-                    sources,
+                await_and_call_async(
+                    _evaluate_paper(
+                        client,
+                        paper,
+                        eval_prompt,
+                        graph_prompt,
+                        demonstrations,
+                        linearisation_method,
+                        sources,
+                    ),
+                    lambda result: append_intermediate_result_async(
+                        output_intermediate_file, result.result
+                    ),
                 )
                 for paper in batch
             ]
-
-            for task in progress.as_completed(
-                tasks, desc="Evaluating batch", position=1, leave=False
-            ):
-                result = await task
-                total_cost += result.cost
-
-                results.append(result.result)
-                append_intermediate_result(output_intermediate_file, result.result)
+            graph_results.extend(
+                await progress.gather(
+                    tasks,
+                    desc="Evaluating batch",
+                    position=1,
+                    leave=False,
+                )
+            )
 
             pbar_papers.update(len(batch))
 
-    return GPTResult(result=results, cost=total_cost)
+    return gpt_sequence(graph_results)
 
 
 async def _evaluate_paper(
