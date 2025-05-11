@@ -745,7 +745,7 @@ def render_rich(*objects: Any) -> str:
     Prints objects through a rich Console and returns the rendered string.
     """
     buf = StringIO()
-    console = Console(file=buf, force_jupyter=False)
+    console = Console(file=buf, force_terminal=sys.stdout.isatty())
     console.print(*objects)
     return buf.getvalue()
 
