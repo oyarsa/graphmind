@@ -102,7 +102,7 @@ class MatchWinner(StrEnum):
     TIE = "tie"
 
 
-class GPTPairwiseComparison(BaseModel):
+class MatchResult(BaseModel):
     """Result from pairwise comparison of two rationales by LLM."""
 
     model_config = ConfigDict(frozen=True)
@@ -191,7 +191,7 @@ class TournamentMatch(BaseModel):
 
     player_a: str
     player_b: str
-    result: GPTPairwiseComparison
+    result: MatchResult
 
 
 def _elo_expected_probabilities(
@@ -243,7 +243,7 @@ class TournamentSystem(BaseModel):
         self,
         player_a_name: str,
         player_b_name: str,
-        result: GPTPairwiseComparison,
+        result: MatchResult,
     ) -> TournamentSystem:
         """Record the outcome of a match and update player ratings.
 
@@ -352,7 +352,7 @@ class TournamentManager(BaseModel):
         )
 
     def record_match(
-        self, player_a: str, player_b: str, result: GPTPairwiseComparison, metric: str
+        self, player_a: str, player_b: str, result: MatchResult, metric: str
     ) -> TournamentManager:
         """Record a match result in the appropriate tournament for the metric.
 
@@ -554,7 +554,7 @@ async def _compare_rationales(
     rationale_b: str,
     metric: str,
     prompt: PromptTemplate,
-) -> GPTResult[PromptResult[GPTPairwiseComparison]]:
+) -> GPTResult[PromptResult[MatchResult]]:
     """Compare two rationales for the same paper using LLM.
 
     Args:
@@ -572,13 +572,13 @@ async def _compare_rationales(
         metric, paper, rationale_a, rationale_b, prompt
     )
 
-    result = await client.run(GPTPairwiseComparison, prompt.system, user_prompt_text)
+    result = await client.run(MatchResult, prompt.system, user_prompt_text)
     return result.map(
         lambda r: PromptResult(
             item=r
             if r is not None
             # Default to TIE when LLM returns an error.
-            else GPTPairwiseComparison(
+            else MatchResult(
                 winner=MatchWinner.TIE,
                 explanation="Comparison error. Defaulting to tie.",
             ),
@@ -604,7 +604,7 @@ class ComparisonResult(BaseModel):
     """Rationale from item B."""
     metric: str
     """Metric being evaluated."""
-    result: GPTPairwiseComparison
+    result: MatchResult
     """LLM's comparison result."""
 
 
@@ -675,7 +675,7 @@ async def _run_all_comparisons(
                 )
 
     comparison_results: list[
-        GPTResult[PromptResult[tuple[ComparisonSpec, GPTPairwiseComparison]]]
+        GPTResult[PromptResult[tuple[ComparisonSpec, MatchResult]]]
     ] = []
 
     with tqdm(
@@ -709,7 +709,7 @@ async def _run_all_comparisons(
             pbar_cmp.update(len(batch_specs))
 
     def transform(
-        item: tuple[ComparisonSpec, GPTPairwiseComparison],
+        item: tuple[ComparisonSpec, MatchResult],
     ) -> ComparisonResult:
         spec, cmp = item
         return ComparisonResult(
