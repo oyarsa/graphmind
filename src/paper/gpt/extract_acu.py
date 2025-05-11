@@ -45,6 +45,7 @@ from paper.util import (
     progress,
     render_params,
     sample,
+    seqcat,
     setup_logging,
 )
 from paper.util.serde import load_data, save_data
@@ -221,7 +222,7 @@ async def extract_acu(
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${results.cost:.10f}")
 
-    results_all = papers_remaining.done + results.result
+    results_all = seqcat(papers_remaining.done, results.result)
     results_items = PromptResult.unwrap(results_all)
 
     acus_total = sum(len(i.acus) for i in results_items)

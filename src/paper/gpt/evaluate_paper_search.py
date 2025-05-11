@@ -44,6 +44,7 @@ from paper.util import (
     progress,
     removeprefix_icase,
     render_params,
+    seqcat,
     setup_logging,
     shuffled,
 )
@@ -213,7 +214,7 @@ async def evaluate_papers(
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${results.cost:.10f}")
 
-    results_all = papers_remaining.done + results.result
+    results_all = seqcat(papers_remaining.done, results.result)
 
     results_items = list(PromptResult.unwrap(results_all))
     metrics = calculate_paper_metrics(results_items, results.cost)

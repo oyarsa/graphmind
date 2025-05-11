@@ -6,6 +6,7 @@ import asyncio
 import functools
 import hashlib
 import inspect
+import itertools
 import logging
 import os
 import platform
@@ -781,3 +782,8 @@ async def await_and_call_async[T](
     result = await awaitable
     await callback(result)
     return result
+
+
+def seqcat[T](*iters: Iterable[T]) -> Sequence[T]:
+    """Concatenate iterators in a sequence."""
+    return tuple(itertools.chain(*iters))

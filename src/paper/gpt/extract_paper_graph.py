@@ -45,6 +45,7 @@ from paper.util import (
     read_resource,
     render_params,
     sample,
+    seqcat,
     setup_logging,
 )
 from paper.util.cli import Choice, die
@@ -212,7 +213,7 @@ async def extract_graphs(
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${results.cost:.10f}")
 
-    results_all = papers_remaining.done + results.result
+    results_all = seqcat(papers_remaining.done, results.result)
 
     save_data(output_dir / "result.json", results_all)
     save_data(output_dir / "params.json", params)
