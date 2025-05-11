@@ -909,8 +909,8 @@ def append_intermediate_result[T: BaseModel](
 class RemainingItems[T, U]:
     """Contains `done` items loaded from intermediate files and those `remaining`."""
 
-    remaining: list[U]
-    done: list[T]
+    remaining: Sequence[U]
+    done: Sequence[T]
 
 
 def init_remaining_items[T: Record, U: Record](
