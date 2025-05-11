@@ -1370,9 +1370,85 @@ def _all_pairings[T](xs: Iterable[T]) -> list[tuple[T, T]]:
     return list(itertools.permutations(xs, 2))
 
 
+def _display_head_to_head(
+    comparison_results: Collection[ComparisonResult],
+    item_names: Sequence[str],
+    metrics: Sequence[str],
+) -> str:
+    """Display head-to-head comparison results as a table.
+
+    Args:
+        comparison_results: All comparison results.
+        item_names: Names of all items being compared.
+        metrics: Metrics used for evaluation.
+
+    Returns:
+        String representation of the head-to-head table.
+    """
+    match_results_by_metric = {
+        comp.metric: {(comp.paper.id, comp.item_a, comp.item_b): comp.result}
+        for comp in comparison_results
+    }
+
+    # Format {metric: {(player_a, player_b): (wins, ties, losses)}}
+    h2h_by_metric = {
+        metric: {(a, b): (0, 0, 0) for a in item_names for b in item_names if a != b}
+        for metric in metrics
+    }
+
+    # Count wins/losses/ties from direct matchups properly
+    for metric, results in match_results_by_metric.items():
+        for (_, player_a, player_b), result in results.items():
+            # Handle for player A perspective (row player)
+            wins_a, ties_a, losses_a = h2h_by_metric[metric][player_a, player_b]
+
+            # Handle for player B perspective (row player in different row)
+            wins_b, ties_b, losses_b = h2h_by_metric[metric][player_b, player_a]
+
+            match result.winner:
+                case MatchWinner.A:
+                    wins_a += 1
+                    losses_b += 1
+                case MatchWinner.B:
+                    losses_a += 1
+                    wins_b += 1
+                case MatchWinner.TIE:
+                    ties_a += 1
+                    ties_b += 1
+
+            # Update both perspectives
+            h2h_by_metric[metric][player_a, player_b] = (wins_a, ties_a, losses_a)
+            h2h_by_metric[metric][player_b, player_a] = (wins_b, ties_b, losses_b)
+
+    # Create tables for each metric
+    tables: list[str] = []
+
+    for metric in metrics:
+        table = Table(title=f"Head-to-Head Results: {metric.capitalize()}")
+
+        table.add_column("Player", style="cyan")
+        for name in item_names:
+            table.add_column(name, justify="center")
+
+        for player_a in item_names:
+            row = [player_a]
+            for player_b in item_names:
+                if player_a == player_b:
+                    row.append("—")  # Diagonal cells
+                else:
+                    wins, ties, losses = h2h_by_metric[metric][player_a, player_b]
+                    row.append(f"W:{wins} T:{ties} L:{losses}")
+
+            table.add_row(*row)
+
+        tables.append(render_rich(table))
+
+    return "\n\n".join(tables)
+
+
 def _display_tournament_results(results: TournamentSummary) -> str:
     """Format tournament results for display."""
-    table = Table(title="Elo Tournament Rankings")
+    table = Table(title="Tournament Rankings")
 
     table.add_column("Rank", style="cyan", justify="right")
     table.add_column("Item", style="green")
@@ -1499,6 +1575,12 @@ def run(
     melo_trials: Annotated[
         int, typer.Option(help="If the algorithm is 'melo', how many trials to run.")
     ] = MELO_DEFAULT_TRIALS,
+    show_head_to_head: Annotated[
+        bool,
+        typer.Option(
+            "--head-to-head", help="Show head to head scores for all metrics."
+        ),
+    ] = False,
 ) -> None:
     """Run a pairwise tournament between multiple models.
 
@@ -1558,6 +1640,7 @@ def run(
             algorithm,
             reuse_comparisons,
             melo_trials,
+            show_head_to_head,
         )
     )
 
@@ -1705,6 +1788,7 @@ async def run_tournaments(
     algorithm: RankingAlgorithm,
     reuse_comparisons_path: Path | None,
     melo_trials: int,
+    show_head_to_head: bool,
 ) -> None:
     """Run the tournament on the given inputs.
 
@@ -1722,6 +1806,7 @@ async def run_tournaments(
             provided, other information (e.g. input data, model names, GPT model) is
             ignored.
         melo_trials: How many MElo trials to run.
+        show_head_to_head: Show head to head scores for all metrics.
     """
     random.seed(seed)
     client = OpenAIClient(
@@ -1744,7 +1829,13 @@ async def run_tournaments(
             algorithm,
         )
 
-    # Step 2: Calculate rankings using the select algorithm, report and save results
+    # Step 2: Display head-to-head results, then calculate rankings
+    comparisons = PromptResult.unwrap(raw_comparisons.result.comparisons)
+
+    if show_head_to_head:
+        logger.info("\n%s", _display_head_to_head(comparisons, model_names, metrics))
+
+    # Calculate rankings using the selected algorithm and report results
     with Timer() as ranking_timer:
         match algorithm:
             case RankingAlgorithm.ELO:
@@ -1756,7 +1847,6 @@ async def run_tournaments(
             case RankingAlgorithm.BRADLEY_TERRY:
                 ranker = _calculate_bradley_terry_rankings
 
-        comparisons = PromptResult.unwrap(raw_comparisons.result.comparisons)
         tournament_result = ranker(comparisons, model_names, metrics)
         summary = _tournament_summary(tournament_result, model_names, metrics)
 
