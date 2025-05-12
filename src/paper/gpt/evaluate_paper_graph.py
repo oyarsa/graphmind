@@ -71,9 +71,9 @@ from paper.util import (
     progress,
     read_resource,
     render_params,
+    sample,
     seqcat,
     setup_logging,
-    shuffled,
 )
 from paper.util.serde import load_data, save_data
 
@@ -258,16 +258,14 @@ async def evaluate_papers(
 
     dotenv.load_dotenv()
 
-    if limit_papers == 0:
-        limit_papers = None
-
     client = OpenAIClient.from_env(model=model, seed=seed)
 
-    papers = shuffled(
+    papers = sample(
         PromptResult.unwrap(
             load_data(paper_file, PromptResult[PaperWithRelatedSummary])
-        )
-    )[:limit_papers]
+        ),
+        limit_papers,
+    )
 
     eval_prompt = GRAPH_EVAL_USER_PROMPTS[eval_prompt_key]
     if not eval_prompt.system:
