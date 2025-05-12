@@ -1,5 +1,7 @@
 """Metric calculation (precision, recall, F1 and accuracy) for ratings 1-5."""
 
+from __future__ import annotations
+
 from collections.abc import Iterable, Sequence
 from enum import Enum
 from typing import Any, Protocol
@@ -62,12 +64,13 @@ class Metrics(BaseModel):
                 f"Correlation: {corr}",
             ])
 
-        out.extend([
-            "Confusion Matrix:",
-            format_confusion(self.confusion, self.mode.labels()),
-        ])
-
         return "\n".join(out)
+
+    def display_confusion(self) -> str:
+        """Display confusion matrix between classes."""
+        return (
+            f"Confusion Matrix:\n{format_confusion(self.confusion, self.mode.labels())}"
+        )
 
 
 def format_confusion(
@@ -115,7 +118,7 @@ class Evaluated(Protocol):
         ...
 
 
-def calculate_paper_metrics(papers: Sequence[Evaluated], cost: float) -> "PaperMetrics":
+def calculate_paper_metrics(papers: Sequence[Evaluated], cost: float) -> PaperMetrics:
     """Calculate evaluation metrics, including how much it cost.
 
     See also `paper.evaluation_metrics.calculate_metrics`.
@@ -144,7 +147,11 @@ def display_metrics(metrics: Metrics, results: Sequence[Evaluated]) -> str:
     y_true = [r.y_true for r in results]
     y_pred = [r.y_pred for r in results]
 
-    output = ["Metrics:", str(metrics)]
+    output = [
+        "Metrics:",
+        str(metrics),
+        metrics.display_confusion(),
+    ]
     for values, section in [(y_true, "Gold"), (y_pred, "Predicted")]:
         output.append(f"\n{section} distribution:")
         for label in metrics.mode.labels():
@@ -165,7 +172,7 @@ class RatingStats(BaseModel):
     median: float
 
     @classmethod
-    def calc(cls, values: Sequence[int]) -> "RatingStats":
+    def calc(cls, values: Sequence[int]) -> RatingStats:
         """Calculate stats from sequence of values."""
         import statistics
 
@@ -198,7 +205,7 @@ class PaperMetrics(Metrics):
         cost: float,
         y_true: Sequence[int],
         y_pred: Sequence[int],
-    ) -> "PaperMetrics":
+    ) -> PaperMetrics:
         """Build metrics with cost from standard evaluation metrics."""
         return cls.model_validate(
             eval.model_dump()
