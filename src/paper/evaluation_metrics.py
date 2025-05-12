@@ -131,6 +131,24 @@ def calculate_paper_metrics(papers: Sequence[Evaluated], cost: float) -> PaperMe
     )
 
 
+def calculate_negative_paper_metrics(papers: Sequence[Evaluated]) -> Metrics:
+    """Calculate evaluation metrics for the negative label in binary classification.
+
+    This flips the label (true -> false and vice versa), then calculates the metrics.
+    """
+    y_pred = [p.y_pred for p in papers]
+    y_true = [p.y_true for p in papers]
+
+    values = set(y_pred) | set(y_true)
+    if values != {0, 1}:
+        raise ValueError("Negative paper metrics only make sense for binary results.")
+
+    flipped_y_pred = [1 - y for y in y_pred]
+    flipped_y_true = [1 - y for y in y_true]
+
+    return calculate_metrics(flipped_y_true, flipped_y_pred, mode=TargetMode.BIN)
+
+
 def display_metrics(metrics: Metrics, results: Sequence[Evaluated]) -> str:
     """Display metrics and distribution statistics from the results.
 
