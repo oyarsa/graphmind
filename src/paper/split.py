@@ -165,6 +165,7 @@ def _print_frequencies(frequencies: Counter[int]) -> None:
 
 def _get_paper(item: dict[str, Any]) -> dict[str, Any]:
     paths = [
+        "item.paper.paper.paper",  # gpt.PromptResult<gpt.ExtractedGraph>
         "item.paper.paper",  # gpt.PromptResult<gpt.PaperWithRelatedSummary>
         "ann.paper",  # scimon.AnnotatedGraphResult
     ]
