@@ -18,10 +18,10 @@ from tqdm import tqdm
 
 from paper.gpt.evaluate_tournament.tournament import (
     ComparisonResult,
-    EvaluationInput,
     InputFileType,
     MatchResult,
     MatchWinner,
+    PaperEvaluationInput,
     find_common_papers,
 )
 from paper.gpt.model import Prompt, PromptResult
@@ -38,7 +38,7 @@ REQUEST_BATCH_SIZE = 100
 
 def format_evaluation_prompt(
     metric: str,
-    paper: EvaluationInput,
+    paper: PaperEvaluationInput,
     rationale_a: str,
     rationale_b: str,
     prompt: PromptTemplate,
@@ -69,7 +69,7 @@ def format_evaluation_prompt(
 
 async def _compare_rationales(
     client: LLMClient,
-    paper: EvaluationInput,
+    paper: PaperEvaluationInput,
     rationale_a: str,
     rationale_b: str,
     metric: str,
@@ -111,7 +111,7 @@ async def _compare_rationales(
 
 async def _run_all_comparisons(
     client: LLMClient,
-    common_papers: Mapping[str, list[EvaluationInput]],
+    common_papers: Mapping[str, list[PaperEvaluationInput]],
     metrics: Collection[str],
     item_names: Sequence[str],
     item_indices_pairs: Collection[tuple[int, int]],
@@ -151,7 +151,7 @@ async def _run_all_comparisons(
         item_b: str
         paper_id: str
         metric: str
-        paper: EvaluationInput
+        paper: PaperEvaluationInput
         rationale_a: str
         rationale_b: str
         prompt: PromptTemplate
@@ -278,7 +278,7 @@ def _all_pairings[T](xs: Iterable[T]) -> list[tuple[T, T]]:
 
 def _load_evaluation_input(
     file_path: Path, file_type: InputFileType
-) -> Sequence[EvaluationInput]:
+) -> Sequence[PaperEvaluationInput]:
     """Load evaluation input data from file.
 
     Args:

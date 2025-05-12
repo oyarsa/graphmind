@@ -48,7 +48,9 @@ TOURNAMENT_METRICS: Mapping[str, str] = {
 }
 
 # Type alias for rationale evaluation inputs
-type EvaluationInput = GraphResult | PaperResult | pr.Paper | PaperWithRelatedSummary
+type PaperEvaluationInput = (
+    GraphResult | PaperResult | pr.Paper | PaperWithRelatedSummary
+)
 
 
 class MatchWinner(StrEnum):
@@ -157,8 +159,8 @@ def calculate_overall_ranks(
 
 
 def find_common_papers(
-    paper_collections: Collection[Collection[EvaluationInput]],
-) -> dict[str, list[EvaluationInput]]:
+    paper_collections: Collection[Collection[PaperEvaluationInput]],
+) -> dict[str, list[PaperEvaluationInput]]:
     """Find papers that exist in all collections based on ID.
 
     Args:
@@ -187,7 +189,7 @@ class ComparisonResult(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    paper: EvaluationInput
+    paper: PaperEvaluationInput
     """Full paper data used for the comparison."""
     item_a: str
     """First item name."""

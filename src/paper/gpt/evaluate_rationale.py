@@ -59,7 +59,9 @@ logger = logging.getLogger(__name__)
 
 RATIONALE_EVAL_PROMPTS = load_prompts("evaluate_rationale")
 
-type EvaluationInput = GraphResult | PaperResult | pr.Paper | PaperWithRelatedSummary
+type PaperEvaluationInput = (
+    GraphResult | PaperResult | pr.Paper | PaperWithRelatedSummary
+)
 """Type alias for rationale evaluation."""
 
 
@@ -469,7 +471,7 @@ def _display_label_dist(item_evals: Iterable[EvaluatedResult]) -> str:
 async def _evaluate_rationales(
     client: LLMClient,
     prompt: PromptTemplate,
-    items: Sequence[EvaluationInput],
+    items: Sequence[PaperEvaluationInput],
     output_intermediate_file: Path,
     keep_intermediate: bool,
     batch_size: int,
@@ -513,7 +515,7 @@ async def _evaluate_rationales(
 
 async def _evaluate_rationale(
     client: LLMClient,
-    item: EvaluationInput,
+    item: PaperEvaluationInput,
     prompt: PromptTemplate,
     result_class: type[EvaluatedResult],
 ) -> GPTResult[PromptResult[EvaluatedResult]]:
@@ -586,7 +588,7 @@ async def _evaluate_rationale(
 
 
 def format_template(
-    paper: EvaluationInput, rationale: str, prompt: PromptTemplate
+    paper: PaperEvaluationInput, rationale: str, prompt: PromptTemplate
 ) -> str:
     """Format evaluation user template using the predicted rationale."""
     if isinstance(paper, GraphResult):
