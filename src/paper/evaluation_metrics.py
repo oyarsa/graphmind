@@ -215,9 +215,15 @@ def display_regular_negative_macro_metrics(items: Sequence[Evaluated]) -> str:
 def display_metrics_row(
     regular: Metrics, negative: Metrics | None = None, macro: Metrics | None = None
 ) -> str:
-    """Build a table with all the given metrics.
+    """Build a formatted markdown table displaying classification metrics.
 
-    The purpose is to make it easier to copy-paste the results by stacking the outputs.
+    Parameters:
+        regular: Regular (positive) metrics (always displayed).
+        negative: Negative class metrics (optional).
+        macro: Macro-averaged metrics (optional).
+
+    Returns:
+        A markdown-formatted table string with aligned columns.
     """
     header = ["Acc"]
     values = [regular.accuracy]
