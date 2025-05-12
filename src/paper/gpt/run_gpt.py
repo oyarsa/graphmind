@@ -774,12 +774,13 @@ class GeminiClient(LLMClient):
         max_input_tokens: int | None = 90_000,
         log_exception: bool | None = None,
     ) -> Self:
-        """Create new GeminiClient with a key from environemnt variables.
+        """Create new GeminiClient with a key from environment variables.
 
         - GEMINI_API_KEY: key to the API.
-        - INCLUDE_THOUGHTS: 1 to include thoughts. Defaults to 0.
+        - INCLUDE_THOUGHTS: 1 to include thoughts, 0 to exclude. If unset, use model
+            default.
         - THINKING_BUDGET: number of tokens to use for thinking. Use 0 to disable
-            thinking. If set, must in [0, 24576].
+            thinking. If set, must in [0, 24576]. If unset, use model default.
 
         Args:
             model: Model code to use. See your API documentation for the name.
@@ -800,11 +801,22 @@ class GeminiClient(LLMClient):
         api_key = ensure_envvar(cls.API_KEY_VAR)
         include_thoughts = os.getenv("INCLUDE_THOUGHTS", "0") == "1"
 
+        include_thoughts: bool | None = None
         thinking_budget: int | None = None
 
-        if (thinking_budget_opt := os.getenv("THINKING_BUDGET")) is not None:
+        match os.getenv("INCLUDE_THOUGHTS"):
+            case "1":
+                include_thoughts = True
+            case "0":
+                include_thoughts = False
+            case None | "":  # Unset
+                pass
+            case _:
+                raise ValueError("INCLUDE_THOUGHTS must be unset, 0 or 1")
+
+        if (thinking_budget_env := os.getenv("THINKING_BUDGET")) is not None:
             try:
-                thinking_budget = int(thinking_budget_opt)
+                thinking_budget = int(thinking_budget_env)
             except ValueError as e:
                 raise ValueError("THINKING_BUDGET must be an integer") from e
 
@@ -860,10 +872,7 @@ class GeminiClient(LLMClient):
                     temperature=self.temperature,
                     seed=self.seed,
                     max_output_tokens=max_tokens,
-                    thinking_config=types.ThinkingConfig(
-                        include_thoughts=self.include_thoughts,
-                        thinking_budget=self.thinking_budget,
-                    ),
+                    thinking_config=self._thinking_config(),
                 ),
             )
         except Exception:
@@ -930,10 +939,7 @@ class GeminiClient(LLMClient):
                     tools=[types.Tool(google_search=types.GoogleSearch())]
                     if is_search
                     else None,
-                    thinking_config=types.ThinkingConfig(
-                        include_thoughts=self.include_thoughts,
-                        thinking_budget=self.thinking_budget,
-                    ),
+                    thinking_config=self._thinking_config(),
                 ),
             )
         except Exception:
@@ -962,6 +968,16 @@ class GeminiClient(LLMClient):
     def _log_exception(self, msg: str, exc: Exception) -> None:
         log = logger.exception if self.should_log_exception else logger.warning
         log(msg, exc)
+
+    def _thinking_config(self) -> types.ThinkingConfig | None:
+        """Create config if both `thinking_budget` and `include_thoughts` are set."""
+        if self.thinking_budget is not None or self.include_thoughts is not None:
+            return types.ThinkingConfig(
+                include_thoughts=self.include_thoughts,
+                thinking_budget=self.thinking_budget,
+            )
+        else:
+            return None
 
     @backoff.on_exception(
         backoff.expo,
