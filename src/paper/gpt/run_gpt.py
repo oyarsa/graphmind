@@ -37,6 +37,7 @@ MODEL_SYNONYMS: Mapping[str, str] = {
     "gpt-4o-search": "gpt-4o-search-preview-2025-03-11",
     "gpt-4o-mini-search": "gpt-4o-mini-search-preview-2025-03-11",
     "gemini-2.0-flash": "gemini-2.0-flash-001",
+    "gemini-2.5-flash": "gemini-2.5-flash-preview-04-17",
     "gemini-2.5-pro": "gemini-2.5-pro-preview-03-25",
 }
 """Mapping between short and common model names and their full versioned names."""
@@ -50,6 +51,7 @@ MODEL_COSTS: Mapping[str, tuple[float, float]] = {
     "gpt-4o-search-preview-2025-03-11": (2.5, 10),
     "gemini-2.0-flash-001": (0.10, 0.40),
     "gemini-2.5-pro-preview-03-25": (1.25, 2.5),
+    "gemini-2.5-flash-preview-04-17": (0.15, 0.60),
 }
 """Cost in $ per 1M tokens: (input cost, output cost).
 
@@ -150,6 +152,7 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
             limits = {
                 "gemini-2.5-pro": (150, 2_000_000),
                 "gemini-2.0-flash": (2_000, 4_000_000),
+                "gemini-2.5-flash": (1_000, 1_000_000),
             }
         elif tier == 2:
             raise ValueError(message.format(tier=2))
