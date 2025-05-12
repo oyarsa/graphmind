@@ -306,7 +306,7 @@ async def evaluate_papers(
     results_all = seqcat(papers_remaining.done, results.result)
 
     results_items = [r.paper for r in PromptResult.unwrap(results_all)]
-    metrics = calculate_paper_metrics(results_items, results.cost)
+    metrics = calculate_paper_metrics(results_items)
     logger.info("Positive %s\n", display_metrics(metrics, results_items))
     logger.info(
         "Negative Metrics:\n%s\n", calculate_negative_paper_metrics(results_items)

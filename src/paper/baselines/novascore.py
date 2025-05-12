@@ -474,7 +474,7 @@ def evaluate(
     )
     results = run_evaluation(paper_results, config)
 
-    metrics = calculate_paper_metrics(results, cost=0)
+    metrics = calculate_paper_metrics(results)
     logger.info("%s\n", display_metrics(metrics, results))
 
     logger.info(f"Saving results to {output_dir}")

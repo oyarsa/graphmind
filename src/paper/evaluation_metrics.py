@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from enum import Enum
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
@@ -118,8 +118,17 @@ class Evaluated(Protocol):
         ...
 
 
-def calculate_paper_metrics(papers: Sequence[Evaluated], cost: float) -> PaperMetrics:
-    """Calculate evaluation metrics, including how much it cost.
+def calculate_paper_metrics(
+    papers: Sequence[Evaluated],
+    average: Literal["binary", "macro", "micro"] | None = None,
+) -> Metrics:
+    """Calculate evaluation metrics.
+
+    Args:
+        papers: Papers to evaluate. The only requirement is having `y_pred` and `y_true`
+            integer properties.
+        average: What average mode to use for precision/recall/F1. If None, will use
+            'binary' when mode is binary and 'macro' for everything else.
 
     See also `paper.evaluation_metrics.calculate_metrics`.
     """

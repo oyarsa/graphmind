@@ -260,7 +260,7 @@ async def evaluate_model(
 
     return ModelResult(
         name=model,
-        metrics=calculate_paper_metrics(results, total_cost),
+        metrics=calculate_paper_metrics(results),
         cost=total_cost,
         results=results,
     )
