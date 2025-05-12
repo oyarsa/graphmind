@@ -102,7 +102,7 @@ evals_subcommands = [
     (
         "rationale-tournament",
         "Evaluate generated rationales from graph evaluation using pairwise tournament.",
-        evaluate_tournament,
+        evaluate_tournament.cli,
     ),
 ]
 
