@@ -226,7 +226,10 @@ def _guess_target_mode(y_pred: Sequence[int], y_true: Sequence[int]) -> TargetMo
 
 
 def calculate_metrics(
-    y_true: Sequence[int], y_pred: Sequence[int], mode: TargetMode | None = None
+    y_true: Sequence[int],
+    y_pred: Sequence[int],
+    mode: TargetMode | None = None,
+    average: Literal["binary", "macro", "micro"] | None = None,
 ) -> Metrics:
     """Calculate classification metrics for multi-class classification.
 
@@ -238,6 +241,8 @@ def calculate_metrics(
         y_pred: Predicted labels (values 1-5 or 0/1)
         mode: What mode are the labels, either BIN (0/1) or INT (1-5). If absent, we will
             attempt to find the mode by checking the possible values.
+        average: What average mode to use for precision/recall/F1. If None, will use
+            'binary' when mode is binary and 'macro' for everything else.
 
     Returns:
         Metrics object containing macro-averaged precision, recall, F1 score, accuracy,
@@ -256,10 +261,11 @@ def calculate_metrics(
     if mode is None:
         mode = _guess_target_mode(y_pred, y_true)
 
-    if mode is TargetMode.BIN:
-        average = "binary"
-    else:
-        average = "macro"
+    if average is None:
+        if mode is TargetMode.BIN:
+            average = "binary"
+        else:
+            average = "macro"
 
     return Metrics(
         precision=metrics.precision(y_true, y_pred, average=average),
