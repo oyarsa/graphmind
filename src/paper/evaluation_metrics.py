@@ -126,9 +126,7 @@ def calculate_paper_metrics(papers: Sequence[Evaluated], cost: float) -> PaperMe
     y_pred = [p.y_pred for p in papers]
     y_true = [p.y_true for p in papers]
 
-    return PaperMetrics.from_eval(
-        calculate_metrics(y_true, y_pred), cost, y_true, y_pred
-    )
+    return calculate_metrics(y_true, y_pred, average=average)
 
 
 def calculate_negative_paper_metrics(papers: Sequence[Evaluated]) -> Metrics:
@@ -207,32 +205,6 @@ class RatingStats(BaseModel):
             f"stdev  : {self.stdev:.4f}",
             f"median : {self.median:.4f}",
         ])
-
-
-class PaperMetrics(Metrics):
-    """Evaluation metrics with total API cost."""
-
-    cost: float
-    stats_pred: RatingStats
-    stats_true: RatingStats
-
-    @classmethod
-    def from_eval(
-        cls,
-        eval: Metrics,
-        cost: float,
-        y_true: Sequence[int],
-        y_pred: Sequence[int],
-    ) -> PaperMetrics:
-        """Build metrics with cost from standard evaluation metrics."""
-        return cls.model_validate(
-            eval.model_dump()
-            | {
-                "cost": cost,
-                "stats_pred": RatingStats.calc(y_pred),
-                "stats_true": RatingStats.calc(y_true),
-            }
-        )
 
 
 def _guess_target_mode(y_pred: Sequence[int], y_true: Sequence[int]) -> TargetMode:
