@@ -307,9 +307,13 @@ async def evaluate_papers(
 
     results_items = [r.paper for r in PromptResult.unwrap(results_all)]
     metrics = calculate_paper_metrics(results_items)
-    logger.info("Positive %s\n", display_metrics(metrics, results_items))
+    logger.info("Positive (1) %s\n", display_metrics(metrics, results_items))
     logger.info(
-        "Negative Metrics:\n%s\n", calculate_negative_paper_metrics(results_items)
+        "Negative (0) Metrics:\n%s\n", calculate_negative_paper_metrics(results_items)
+    )
+    logger.info(
+        "Macro-averaged Metrics:\n%s\n",
+        calculate_paper_metrics(results_items, average="macro"),
     )
 
     save_data(output_dir / "result.json", results_all)
