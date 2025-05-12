@@ -266,10 +266,15 @@ def calculate_metrics(
     if mode is None:
         mode = _guess_target_mode(y_pred, y_true)
 
+    if mode is TargetMode.BIN:
+        average = "binary"
+    else:
+        average = "macro"
+
     return Metrics(
-        precision=metrics.precision(y_true, y_pred),
-        recall=metrics.recall(y_true, y_pred),
-        f1=metrics.f1_score(y_true, y_pred),
+        precision=metrics.precision(y_true, y_pred, average=average),
+        recall=metrics.recall(y_true, y_pred, average=average),
+        f1=metrics.f1_score(y_true, y_pred, average=average),
         accuracy=metrics.accuracy(y_true, y_pred),
         mae=metrics.mean_absolute_error(y_true, y_pred),
         mse=metrics.mean_squared_error(y_true, y_pred),
