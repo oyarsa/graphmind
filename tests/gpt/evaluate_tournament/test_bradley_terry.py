@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from paper.gpt.evaluate_tournament.bradley_terry import (
     BradleyTerryPlayer,
@@ -15,12 +14,7 @@ from paper.gpt.evaluate_tournament.tournament import (
     MatchResult,
     MatchWinner,
     ComparisonResult,
-    PaperCore,
 )
-
-
-# Fixtures sample_player_names, sample_metrics, sample_paper, and sample_comparison_results
-# are imported from conftest.py
 
 
 def test_bradley_terry_player_fresh():
@@ -250,4 +244,3 @@ def test_calculate_bradley_terry_rankings(
         # Check that ranks are unique and complete
         ranks = [r.rank for r in rankings]
         assert sorted(ranks) == list(range(1, len(sample_player_names) + 1))
-
