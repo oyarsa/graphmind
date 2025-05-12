@@ -58,7 +58,7 @@ from paper.gpt.model import (
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     GPTResult,
-    OpenAIClient,
+    LLMClient,
     append_intermediate_result_async,
     gpt_sequence,
     init_remaining_items,
@@ -258,7 +258,7 @@ async def evaluate_papers(
 
     dotenv.load_dotenv()
 
-    client = OpenAIClient.from_env(model=model, seed=seed)
+    client = LLMClient.new_env(model=model, seed=seed)
 
     papers = sample(
         PromptResult.unwrap(
@@ -327,7 +327,7 @@ async def evaluate_papers(
 
 
 async def _evaluate_papers(
-    client: OpenAIClient,
+    client: LLMClient,
     eval_prompt: PromptTemplate,
     graph_prompt: PromptTemplate,
     papers: Sequence[PaperWithRelatedSummary],
@@ -340,7 +340,7 @@ async def _evaluate_papers(
     """Evaluate paper novelty using a paper graph and PETER-related papers.
 
     Args:
-        client: OpenAI client to use GPT.
+        client: LLM client to use GPT.
         eval_prompt: Prompt template for novelty evaluation.
         graph_prompt: Prompt template for graph extraction.
         papers: Annotated PeerRead papers with their summarised graph data.
@@ -391,7 +391,7 @@ async def _evaluate_papers(
 
 
 async def _evaluate_paper(
-    client: OpenAIClient,
+    client: LLMClient,
     paper: PaperWithRelatedSummary,
     eval_prompt: PromptTemplate,
     graph_prompt: PromptTemplate,
