@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, Literal, cast, override
+from typing import Any, ClassVar, Literal, Self, cast, override
 
 import backoff
 import openai
@@ -289,6 +289,51 @@ class LLMClient(ABC):
             max_input_tokens=max_input_tokens,
             log_exception=log_exception,
         )
+
+    @classmethod
+    def new_env(
+        cls,
+        model: str,
+        seed: int,
+        temperature: float = 0,
+        timeout: float = 60,
+        max_input_tokens: int | None = 90_000,
+        log_exception: bool | None = None,
+    ) -> LLMClient:
+        """Create new client for Gemini, OpenAI, etc. from environment variables.
+
+        Uses separate implementations for Gemini and OpenAI. If the model contains,
+        'gemini', the Gemini client is used. Everything else goes to the OpenAI-compatible
+        client.
+
+        You can also use this with Ollama, OpenRouter and other OpenAI-compatible APIs.
+        They must be compatible with Structured Outputs.
+
+        See also: `GeminiClient.from_env`, `OpenAIClient.from_env`
+        """
+        impl_class = GeminiClient if "gemini" in model else OpenAIClient
+        return impl_class.from_env(
+            model=model,
+            seed=seed,
+            temperature=temperature,
+            timeout=timeout,
+            max_input_tokens=max_input_tokens,
+            log_exception=log_exception,
+        )
+
+    @classmethod
+    @abstractmethod
+    def from_env(
+        cls,
+        model: str,
+        seed: int,
+        temperature: float = 0,
+        timeout: float = 60,
+        max_input_tokens: int | None = 90_000,
+        log_exception: bool | None = None,
+    ) -> Self:
+        """Create new client from environment variables."""
+        ...
 
     @abstractmethod
     async def run[T: BaseModel](
@@ -697,6 +742,28 @@ class GeminiClient(LLMClient):
             api_tier = 1
 
         self.rate_limiter = get_rate_limiter(api_tier, model)
+
+    @classmethod
+    def from_env(
+        cls,
+        model: str,
+        seed: int,
+        temperature: float = 0,
+        timeout: float = 60,
+        max_input_tokens: int | None = 90_000,
+        log_exception: bool | None = None,
+    ) -> Self:
+        """Create new GeminiClient with a key from the `GEMINI_API_KEY` env variable."""
+        api_key = ensure_envvar(cls.API_KEY_VAR)
+        return cls(
+            api_key=api_key,
+            model=model,
+            seed=seed,
+            temperature=temperature,
+            timeout=timeout,
+            max_input_tokens=max_input_tokens,
+            log_exception=log_exception,
+        )
 
     @override
     async def run[T: BaseModel](
