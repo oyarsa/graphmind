@@ -702,7 +702,7 @@ class GeminiClient(LLMClient):
         max_input_tokens: int | None = 90_000,
         log_exception: bool | None = None,
         thinking_budget: int | None = None,
-        include_thoughts: bool | None = None,
+        include_thoughts: bool | None = False,
     ) -> None:
         """Create client for the Google Gemini API.
 
@@ -720,12 +720,16 @@ class GeminiClient(LLMClient):
                 log the exception description as a warning. If None, get value from
                 the `LOG_EXCEPTION` environment variable (1 or 0), defaulting to 0.
             thinking_budget: Number of tokens a model can use to think. To disable
-                thinking entirely, set to 0. If unset, uses the model default.
-            include_thoughts: Whether to include thoughts in the response. If unset, uses
-                the model default.
+                thinking entirely, set to 0. If unset, uses the model default. If set,
+                must be between 0 and 24576.
+            include_thoughts: Whether to include thoughts in the response. Defaults to
+                False. To use the model default, set to None.
 
         `thinking_budget` and `include_thoughts` are ignored if the model does not
         support thinking.
+
+        Raises:
+            ValueError: if the model is invalid or if `thinking_budget` is out of range.
         """
         model = MODEL_SYNONYMS.get(model, model)
 
@@ -741,8 +745,11 @@ class GeminiClient(LLMClient):
         self.timeout = timeout
         self.max_input_tokens = max_input_tokens
         self.base_url = base_url
-        self.thinking_budget = thinking_budget
         self.include_thoughts = include_thoughts
+
+        if thinking_budget is not None and not (0 <= thinking_budget <= 24576):
+            raise ValueError("thinking_budget must be in [0, 24576]")
+        self.thinking_budget = thinking_budget
 
         if log_exception is not None:
             self.should_log_exception = log_exception
@@ -767,8 +774,40 @@ class GeminiClient(LLMClient):
         max_input_tokens: int | None = 90_000,
         log_exception: bool | None = None,
     ) -> Self:
-        """Create new GeminiClient with a key from the `GEMINI_API_KEY` env variable."""
+        """Create new GeminiClient with a key from environemnt variables.
+
+        - GEMINI_API_KEY: key to the API.
+        - INCLUDE_THOUGHTS: 1 to include thoughts. Defaults to 0.
+        - THINKING_BUDGET: number of tokens to use for thinking. Use 0 to disable
+            thinking. If set, must in [0, 24576].
+
+        Args:
+            model: Model code to use. See your API documentation for the name.
+            seed: Seed to give the model.
+            temperature: How unpredictable the model is. Set this 0 to be as
+                deterministic as possible, but it's still not guaranteed.
+            timeout: Timeout in seconds for the API calls.
+            max_input_tokens: Maximum number of tokens allowed in the input.
+                If set, will truncate the `user_prompt` if it exceeds this limit.
+            log_exception: If True, log full traceback for non-API exceptions. If False,
+                log the exception description as a warning. If None, get value from
+                the `LOG_EXCEPTION` environment variable (1 or 0), defaulting to 0.
+
+        Raises:
+            ValueError: if `model` is invalid; or if THINKING_BUDGET is given but isn't
+                an integer, or if it's out of range.
+        """
         api_key = ensure_envvar(cls.API_KEY_VAR)
+        include_thoughts = os.getenv("INCLUDE_THOUGHTS", "0") == "1"
+
+        thinking_budget: int | None = None
+
+        if (thinking_budget_opt := os.getenv("THINKING_BUDGET")) is not None:
+            try:
+                thinking_budget = int(thinking_budget_opt)
+            except ValueError as e:
+                raise ValueError("THINKING_BUDGET must be an integer") from e
+
         return cls(
             api_key=api_key,
             model=model,
@@ -777,6 +816,8 @@ class GeminiClient(LLMClient):
             timeout=timeout,
             max_input_tokens=max_input_tokens,
             log_exception=log_exception,
+            include_thoughts=include_thoughts,
+            thinking_budget=thinking_budget,
         )
 
     @override
