@@ -701,6 +701,8 @@ class GeminiClient(LLMClient):
         timeout: float = 60,
         max_input_tokens: int | None = 90_000,
         log_exception: bool | None = None,
+        thinking_budget: int | None = None,
+        include_thoughts: bool | None = None,
     ) -> None:
         """Create client for the Google Gemini API.
 
@@ -717,6 +719,13 @@ class GeminiClient(LLMClient):
             log_exception: If True, log full traceback for non-API exceptions. If False,
                 log the exception description as a warning. If None, get value from
                 the `LOG_EXCEPTION` environment variable (1 or 0), defaulting to 0.
+            thinking_budget: Number of tokens a model can use to think. To disable
+                thinking entirely, set to 0. If unset, uses the model default.
+            include_thoughts: Whether to include thoughts in the response. If unset, uses
+                the model default.
+
+        `thinking_budget` and `include_thoughts` are ignored if the model does not
+        support thinking.
         """
         model = MODEL_SYNONYMS.get(model, model)
 
@@ -732,6 +741,8 @@ class GeminiClient(LLMClient):
         self.timeout = timeout
         self.max_input_tokens = max_input_tokens
         self.base_url = base_url
+        self.thinking_budget = thinking_budget
+        self.include_thoughts = include_thoughts
 
         if log_exception is not None:
             self.should_log_exception = log_exception
@@ -808,6 +819,10 @@ class GeminiClient(LLMClient):
                     temperature=self.temperature,
                     seed=self.seed,
                     max_output_tokens=max_tokens,
+                    thinking_config=types.ThinkingConfig(
+                        include_thoughts=self.include_thoughts,
+                        thinking_budget=self.thinking_budget,
+                    ),
                 ),
             )
         except Exception:
@@ -874,6 +889,10 @@ class GeminiClient(LLMClient):
                     tools=[types.Tool(google_search=types.GoogleSearch())]
                     if is_search
                     else None,
+                    thinking_config=types.ThinkingConfig(
+                        include_thoughts=self.include_thoughts,
+                        thinking_budget=self.thinking_budget,
+                    ),
                 ),
             )
         except Exception:
