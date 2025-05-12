@@ -203,10 +203,41 @@ def display_regular_negative_macro_metrics(items: Sequence[Evaluated]) -> str:
         "> Macro-averaged:",
         str(macro),
         "",
-        regular.display_confusion(),
+        f"> {regular.display_confusion()}",
+        "",
+        "> Table:",
+        display_metrics_row(regular, negative, macro),
     ]
 
     return "\n".join(out)
+
+
+def display_metrics_row(
+    regular: Metrics, negative: Metrics | None = None, macro: Metrics | None = None
+) -> str:
+    """Build a table with all the given metrics.
+
+    The purpose is to make it easier to copy-paste the results by stacking the outputs.
+    """
+    header = ["Acc"]
+    values = [regular.accuracy]
+
+    for prefix, entry in [("P", regular), ("N", negative), ("M", macro)]:
+        if entry:
+            header += [f"{prefix}-P", f"{prefix}-R", f"{prefix}-F1"]
+            values += [entry.precision, entry.recall, entry.f1]
+
+    values_txt = [f"{x:.4f}" for x in values]
+
+    padding = [max(len(h), len(v)) + 1 for h, v in zip(header, values_txt)]
+
+    header_padded = [f"{h:{pad}}" for h, pad in zip(header, padding)]
+    sep_row = ["-" * pad for pad in padding]
+    values_padded = [f"{v:{pad}}" for v, pad in zip(values_txt, padding)]
+
+    return "\n".join(
+        f"| {' | '.join(row)}|" for row in (header_padded, sep_row, values_padded)
+    )
 
 
 class RatingStats(BaseModel):
