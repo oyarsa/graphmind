@@ -33,9 +33,7 @@ class GraphResult(Record):
 
     graph: Graph
     paper: PaperResult
-    # TODO: Make this required once enough time has passed that we don't have old files
-    # anymore.
-    related: Sequence[PaperRelatedSummarised] | None = None
+    related: Sequence[PaperRelatedSummarised]
 
     @property
     @override

@@ -174,7 +174,12 @@ class GraphWithEval(GraphResult):
     @classmethod
     def from_(cls, graph: GraphResult, eval: RationaleMetrics) -> Self:
         """Create `GraphWithEval` from existing `GraphResult` and evaluation result."""
-        return cls(graph=graph.graph, paper=graph.paper, eval_metrics=eval)
+        return cls(
+            graph=graph.graph,
+            paper=graph.paper,
+            eval_metrics=eval,
+            related=graph.related,
+        )
 
 
 class PaperWithEval(PaperResult):
