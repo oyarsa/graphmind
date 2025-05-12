@@ -229,11 +229,7 @@ def downsample(
 
     def get_key_value(item: dict[str, Any]) -> Any:
         """Get key from item. Supports both nested paper items and raw ORC output."""
-        paper = _get_paper(item)
-
-        if key not in paper:
-            return None
-        return paper[key]
+        return _get_paper(item).get(key)
 
     grouped_data = groupby(data, key=get_key_value)
     unique_values = sorted(grouped_data.keys())
