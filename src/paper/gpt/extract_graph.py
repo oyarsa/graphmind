@@ -14,6 +14,7 @@ from typing import override
 from pydantic import BaseModel, ConfigDict
 
 from paper import hierarchical_graph
+from paper import peerread as pr
 from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.model import (
     Graph,
@@ -40,6 +41,46 @@ class GraphResult(Record):
     @override
     def id(self) -> str:
         return self.paper.id
+
+    @property
+    def title(self) -> str:
+        """Title of the underlying paper."""
+        return self.paper.title
+
+    @property
+    def abstract(self) -> str:
+        """Abstract of the underlying paper."""
+        return self.paper.abstract
+
+    @property
+    def label(self) -> int:
+        """Label of the underlying paper."""
+        return self.paper.label
+
+    @property
+    def rationale(self) -> str:
+        """Rationale of the underlying paper."""
+        return self.paper.rationale
+
+    @property
+    def approval(self) -> bool | None:
+        """Approval of the underlying paper."""
+        return self.paper.approval
+
+    @property
+    def conference(self) -> str:
+        """Conference of the underlying paper."""
+        return self.paper.conference
+
+    @property
+    def year(self) -> int | None:
+        """Year of the underlying paper."""
+        return self.paper.year
+
+    @property
+    def sections(self) -> Sequence[pr.PaperSection]:
+        """Sections of the underlying paper."""
+        return self.paper.sections
 
 
 class ExtractedGraph(Record):

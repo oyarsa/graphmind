@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Annotated, Self, override
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 import paper.semantic_scholar as s2
-from paper import hierarchical_graph, peerread
-from paper.peerread.model import clean_maintext
+from paper import hierarchical_graph
+from paper import peerread as pr
 from paper.util import (
     fix_spaces_before_punctuation,
     format_numbered_list,
@@ -513,7 +513,7 @@ class Paper(Record):
 
     title: str
     abstract: str
-    reviews: Sequence[peerread.PaperReview]
+    reviews: Sequence[pr.PaperReview]
     authors: Sequence[str]
     sections: Sequence[PaperSection]
     rationale: str
@@ -577,14 +577,14 @@ class PaperWithReviewEval(Record):
     ]
     authors: Annotated[Sequence[str], Field(description="Names of the authors")]
     sections: Annotated[
-        Sequence[peerread.PaperSection], Field(description="Sections in the paper text")
+        Sequence[pr.PaperSection], Field(description="Sections in the paper text")
     ]
     approval: Annotated[
         bool | None,
         Field(description="Approval decision - whether the paper was approved"),
     ]
     references: Annotated[
-        Sequence[peerread.PaperReference],
+        Sequence[pr.PaperReference],
         Field(description="References made in the paper"),
     ]
     conference: Annotated[
@@ -607,7 +607,7 @@ class PaperWithReviewEval(Record):
 
     def main_text(self) -> str:
         """Join all paper sections to form the main text."""
-        return clean_maintext("\n".join(s.text for s in self.sections))
+        return pr.clean_maintext("\n".join(s.text for s in self.sections))
 
     def __str__(self) -> str:
         """Display title, abstract, rating scores and count of words in main text."""
@@ -779,6 +779,42 @@ class PeerReadAnnotated(Record):
         """Abstract of the underlying paper."""
         return self.paper.abstract
 
+    @property
+    def rating(self) -> int:
+        """Novelty rating of the underlying paper."""
+        return self.paper.rating
+
+    @property
+    def label(self) -> int:
+        """Novelty label of the underlying paper."""
+        return self.paper.label
+
+    # Add properties for: rationale, approval, conference, year and sections.
+    @property
+    def rationale(self) -> str:
+        """Rationale of the underlying paper."""
+        return self.paper.rationale
+
+    @property
+    def approval(self) -> bool | None:
+        """Approval of the underlying paper."""
+        return self.paper.approval
+
+    @property
+    def conference(self) -> str:
+        """Conference of the underlying paper."""
+        return self.paper.conference
+
+    @property
+    def year(self) -> int | None:
+        """Year of the underlying paper."""
+        return self.paper.year
+
+    @property
+    def sections(self) -> Sequence[pr.PaperSection]:
+        """Sections of the underlying paper."""
+        return self.paper.sections
+
 
 class PaperWithRelatedSummary(Record):
     """PeerRead paper with its related papers formatted as prompt input."""
@@ -804,12 +840,38 @@ class PaperWithRelatedSummary(Record):
     @property
     def rating(self) -> int:
         """Novelty rating of the underlying paper."""
-        return self.paper.paper.rating
+        return self.paper.rating
 
     @property
     def label(self) -> int:
         """Novelty label of the underlying paper."""
-        return self.paper.paper.label
+        return self.paper.label
+
+    # Add properties for: rationale, approval, conference, year and sections.
+    @property
+    def rationale(self) -> str:
+        """Rationale of the underlying paper."""
+        return self.paper.rationale
+
+    @property
+    def approval(self) -> bool | None:
+        """Approval of the underlying paper."""
+        return self.paper.approval
+
+    @property
+    def conference(self) -> str:
+        """Conference of the underlying paper."""
+        return self.paper.conference
+
+    @property
+    def year(self) -> int | None:
+        """Year of the underlying paper."""
+        return self.paper.year
+
+    @property
+    def sections(self) -> Sequence[pr.PaperSection]:
+        """Sections of the underlying paper."""
+        return self.paper.sections
 
 
 class RelatedPaperSource(StrEnum):
@@ -828,7 +890,7 @@ class PaperRelatedSummarised(Record):
     title: str
     abstract: str
     score: float
-    polarity: peerread.ContextPolarity
+    polarity: pr.ContextPolarity
     source: RelatedPaperSource
 
     @property
@@ -845,7 +907,7 @@ class PaperRelatedSummarised(Record):
             title=related.title,
             abstract=related.abstract,
             score=related.score,
-            polarity=peerread.ContextPolarity(related.polarity),
+            polarity=pr.ContextPolarity(related.polarity),
             source=RelatedPaperSource(related.source),
         )
 
@@ -897,7 +959,7 @@ class PaperACUType(StrEnum):
 class PeerPaperWithACUs(Record):
     """PeerRead Paper with extract atomic content units (ACUs)."""
 
-    paper: peerread.Paper
+    paper: pr.Paper
     acus: Sequence[str]
     salient_acus: Sequence[str]
     summary: str
@@ -905,7 +967,7 @@ class PeerPaperWithACUs(Record):
     @classmethod
     def from_(
         cls,
-        paper: peerread.Paper,
+        paper: pr.Paper,
         acus: Sequence[str],
         salient: Sequence[str],
         summary: str,

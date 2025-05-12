@@ -22,8 +22,6 @@ from paper.gpt.evaluate_tournament.tournament import (
     InputFileType,
     MatchResult,
     MatchWinner,
-    PaperCore,
-    extract_core_data,
     find_common_papers,
 )
 from paper.gpt.model import Prompt, PromptResult
@@ -40,7 +38,7 @@ REQUEST_BATCH_SIZE = 100
 
 def format_evaluation_prompt(
     metric: str,
-    paper: PaperCore,
+    paper: EvaluationInput,
     rationale_a: str,
     rationale_b: str,
     prompt: PromptTemplate,
@@ -71,7 +69,7 @@ def format_evaluation_prompt(
 
 async def _compare_rationales(
     client: LLMClient,
-    paper: PaperCore,
+    paper: EvaluationInput,
     rationale_a: str,
     rationale_b: str,
     metric: str,
@@ -153,7 +151,7 @@ async def _run_all_comparisons(
         item_b: str
         paper_id: str
         metric: str
-        paper: PaperCore
+        paper: EvaluationInput
         rationale_a: str
         rationale_b: str
         prompt: PromptTemplate
@@ -162,7 +160,7 @@ async def _run_all_comparisons(
 
     for paper_id in paper_ids:
         papers = common_papers[paper_id]
-        paper = extract_core_data(papers[0])
+        paper = papers[0]
 
         for metric in metrics:
             for i, j in item_indices_pairs:
@@ -173,8 +171,8 @@ async def _run_all_comparisons(
                         paper_id=paper_id,
                         metric=metric,
                         paper=paper,
-                        rationale_a=extract_core_data(papers[i]).rationale,
-                        rationale_b=extract_core_data(papers[j]).rationale,
+                        rationale_a=papers[i].rationale,
+                        rationale_b=papers[j].rationale,
                         prompt=prompt,
                     )
                 )

@@ -156,67 +156,6 @@ def calculate_overall_ranks(
     }
 
 
-class PaperCore(BaseModel):
-    """Core information from the paper being compared."""
-
-    model_config = ConfigDict(frozen=True)
-
-    id: str
-    title: str
-    abstract: str
-    label: int
-    rationale: str
-    approval: bool | None
-    conference: str
-    year: int | None
-    sections: Sequence[pr.PaperSection]
-
-    def main_text(self) -> str:
-        """Join all paper sections to form the main text."""
-        return pr.clean_maintext("\n".join(s.text for s in self.sections))
-
-
-def extract_core_data(paper: EvaluationInput) -> PaperCore:
-    """Extract title and abstract and other data needed for prompts."""
-    match paper:
-        case pr.Paper() | PaperResult():
-            return PaperCore(
-                id=paper.id,
-                title=paper.title,
-                abstract=paper.abstract,
-                label=paper.label,
-                rationale=paper.rationale,
-                approval=paper.approval,
-                conference=paper.conference,
-                year=paper.year,
-                sections=paper.sections,
-            )
-        case GraphResult():
-            return PaperCore(
-                id=paper.id,
-                title=paper.paper.title,
-                abstract=paper.paper.abstract,
-                label=paper.paper.label,
-                rationale=paper.paper.rationale,
-                approval=paper.paper.approval,
-                conference=paper.paper.conference,
-                year=paper.paper.year,
-                sections=paper.paper.sections,
-            )
-        case PaperWithRelatedSummary():
-            return PaperCore(
-                id=paper.id,
-                title=paper.paper.title,
-                abstract=paper.paper.abstract,
-                label=paper.label,
-                rationale=paper.paper.paper.rationale,
-                approval=paper.paper.paper.approval,
-                conference=paper.paper.paper.conference,
-                year=paper.paper.paper.year,
-                sections=paper.paper.paper.sections,
-            )
-
-
 def find_common_papers(
     paper_collections: Collection[Collection[EvaluationInput]],
 ) -> dict[str, list[EvaluationInput]]:
@@ -229,16 +168,14 @@ def find_common_papers(
         Mapping of paper IDs to list of paper objects from each collection.
     """
     # Extract IDs from each collection
-    id_sets = [
-        {extract_core_data(p).id for p in papers} for papers in paper_collections
-    ]
+    id_sets = [{p.id for p in papers} for papers in paper_collections]
     # Find IDs common to all collections
     common_ids = set[str].intersection(*id_sets)
 
     # Group papers by ID
     return {
         paper_id: [
-            next(p for p in papers_col if extract_core_data(p).id == paper_id)
+            next(p for p in papers_col if p.id == paper_id)
             for papers_col in paper_collections
         ]
         for paper_id in common_ids
@@ -250,7 +187,7 @@ class ComparisonResult(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    paper: PaperCore
+    paper: EvaluationInput
     """Full paper data used for the comparison."""
     item_a: str
     """First item name."""

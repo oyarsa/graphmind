@@ -8,8 +8,8 @@ from paper.gpt.evaluate_tournament.tournament import (
     MatchResult,
     MatchWinner,
     ComparisonResult,
-    PaperCore,
 )
+from paper import peerread as pr
 
 
 @pytest.fixture
@@ -25,24 +25,30 @@ def sample_metrics() -> list[str]:
 
 
 @pytest.fixture
-def sample_paper() -> PaperCore:
+def sample_paper() -> pr.Paper:
     """Create a sample paper core for testing."""
-    return PaperCore(
-        id="paper1",
+    return pr.Paper(
         title="Sample Paper",
+        authors=["Jane Doe"],
         abstract="Abstract text",
-        label=1,
-        rationale="This is a rationale",
         approval=None,
         conference="Sample Conference",
         year=2023,
         sections=[],
+        references=[],
+        reviews=[
+            pr.PaperReview(
+                rating=5,
+                confidence=None,
+                rationale="",
+            )
+        ],
     )
 
 
 @pytest.fixture
 def sample_comparison_results(
-    sample_paper: PaperCore, sample_player_names: list[str], sample_metrics: list[str]
+    sample_paper: pr.Paper, sample_player_names: list[str], sample_metrics: list[str]
 ) -> list[ComparisonResult]:
     """Create sample comparison results for testing."""
     results: list[ComparisonResult] = []
