@@ -187,6 +187,28 @@ def display_metrics(metrics: Metrics, results: Sequence[Evaluated]) -> str:
     return "\n".join(output)
 
 
+def display_regular_negative_macro_metrics(items: Sequence[Evaluated]) -> str:
+    """Display regular metrics in addition to negative and macro-averaged."""
+    regular = calculate_paper_metrics(items)
+    negative = calculate_negative_paper_metrics(items)
+    macro = calculate_paper_metrics(items, average="macro")
+
+    out = [
+        "> Positive:",
+        str(regular),
+        "",
+        "> Negative:",
+        str(negative),
+        "",
+        "> Macro-averaged:",
+        str(macro),
+        "",
+        regular.display_confusion(),
+    ]
+
+    return "\n".join(out)
+
+
 class RatingStats(BaseModel):
     """Mean/stdev/median stats on novelty ratings."""
 

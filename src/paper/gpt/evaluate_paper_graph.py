@@ -30,9 +30,8 @@ from tqdm import tqdm
 from paper import peerread as pr
 from paper.evaluation_metrics import (
     TargetMode,
-    calculate_negative_paper_metrics,
     calculate_paper_metrics,
-    display_metrics,
+    display_regular_negative_macro_metrics,
 )
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
@@ -302,21 +301,13 @@ async def evaluate_papers(
     logger.info(f"Total cost: ${results.cost:.10f}")
 
     results_all = seqcat(papers_remaining.done, results.result)
-
     results_items = [r.paper for r in PromptResult.unwrap(results_all)]
-    metrics = calculate_paper_metrics(results_items)
-    logger.info("Positive (1) %s\n", display_metrics(metrics, results_items))
-    logger.info(
-        "Negative (0) Metrics:\n%s\n", calculate_negative_paper_metrics(results_items)
-    )
-    logger.info(
-        "Macro-averaged Metrics:\n%s\n",
-        calculate_paper_metrics(results_items, average="macro"),
-    )
+
+    logger.info("Metrics\n%s", display_regular_negative_macro_metrics(results_items))
 
     save_data(output_dir / "result.json", results_all)
-    save_data(output_dir / "metrics.json", metrics)
     save_data(output_dir / "params.json", params)
+    save_data(output_dir / "metrics.json", calculate_paper_metrics(results_items))
 
     if len(results_all) != len(papers):
         logger.warning(
