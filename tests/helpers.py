@@ -1,5 +1,4 @@
 from pathlib import Path
-from paper.util import git_root
 import pytest
 
 
