@@ -10,13 +10,13 @@ from pathlib import Path
 from typing import Annotated, Any, overload
 
 import typer
+from beartype.door import is_bearable
 from tqdm import tqdm
 
 from paper import peerread as pr
 from paper.orc.download import RATING_KEYS, get_reviews, get_value
 from paper.util import groupby
 from paper.util.serde import save_data
-from paper.util.typing import isdict
 
 logger = logging.getLogger("paper.openreview")
 
@@ -295,7 +295,7 @@ def _nested_value(
     value: Any | dict[str, Any], default: Any | None = None
 ) -> Any | None:
     """If `value` is a dict, gets its nested `value` field. Otherwise, returns as-is."""
-    if isdict(value):
+    if is_bearable(value, dict[str, Any]):
         return value.get("value", default)
     return value
 
