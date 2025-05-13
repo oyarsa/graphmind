@@ -14,13 +14,13 @@ from collections.abc import Collection, Mapping, Sequence
 from enum import StrEnum
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict
 from rich.table import Table
 
 from paper import peerread as pr
 from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.extract_graph import GraphResult
 from paper.gpt.model import PaperWithRelatedSummary
+from paper.types import Immutable
 from paper.util import render_rich
 
 logger = logging.getLogger(__name__)
@@ -61,10 +61,8 @@ class MatchWinner(StrEnum):
     TIE = "tie"
 
 
-class MatchResult(BaseModel):
+class MatchResult(Immutable):
     """Result from pairwise comparison of two rationales by LLM."""
-
-    model_config = ConfigDict(frozen=True)
 
     winner: MatchWinner
     """Who wins the match. The model can only reply A or B, but we use TIE for errors."""
@@ -72,10 +70,8 @@ class MatchResult(BaseModel):
     """Explanation for the winner evaluation."""
 
 
-class PlayerMatch(BaseModel):
+class PlayerMatch(Immutable):
     """Match in player match history."""
-
-    model_config = ConfigDict(frozen=True)
 
     player: str
     opponent: str
@@ -83,20 +79,16 @@ class PlayerMatch(BaseModel):
     explanation: str
 
 
-class TournamentMatch(BaseModel):
+class TournamentMatch(Immutable):
     """Entry in tournament match history."""
-
-    model_config = ConfigDict(frozen=True)
 
     player_a: str
     player_b: str
     result: MatchResult
 
 
-class PlayerRank(BaseModel):
+class PlayerRank(Immutable):
     """Player entry in ranking for a given tournament."""
-
-    model_config = ConfigDict(frozen=True)
 
     rank: int
     name: str
@@ -106,10 +98,8 @@ class PlayerRank(BaseModel):
     ties: int
 
 
-class ItemRankStats(BaseModel):
+class ItemRankStats(Immutable):
     """Statistics for model ranks across metrics."""
-
-    model_config = ConfigDict(frozen=True)
 
     ranks: Sequence[int]
     mean_rank: float
@@ -184,10 +174,8 @@ def find_common_papers(
     }
 
 
-class ComparisonResult(BaseModel):
+class ComparisonResult(Immutable):
     """Result of comparing two model outputs by LLM."""
-
-    model_config = ConfigDict(frozen=True)
 
     paper: PaperEvaluationInput
     """Full paper data used for the comparison."""
@@ -205,10 +193,8 @@ class ComparisonResult(BaseModel):
     """LLM's comparison result."""
 
 
-class OverallRankingEntry(BaseModel):
+class OverallRankingEntry(Immutable):
     """Overall ranking entry for a model."""
-
-    model_config = ConfigDict(frozen=True)
 
     name: str
     mean_rank: float
@@ -218,10 +204,8 @@ class OverallRankingEntry(BaseModel):
     metric_ranks: Mapping[str, int]
 
 
-class TournamentSummary(BaseModel):
+class TournamentSummary(Immutable):
     """Summary of tournament results."""
-
-    model_config = ConfigDict(frozen=True)
 
     item_names: Sequence[str]
     metrics: Sequence[str]
@@ -230,10 +214,8 @@ class TournamentSummary(BaseModel):
     overall_rankings: Sequence[OverallRankingEntry]
 
 
-class TournamentResult(BaseModel):
+class TournamentResult(Immutable):
     """Full result of all tournaments run."""
-
-    model_config = ConfigDict(frozen=True)
 
     overall_ranks: Mapping[str, ItemRankStats]
     """Item ranks across all tournaments."""
@@ -417,13 +399,11 @@ def display_head_to_head(
 
 
 # Abstract base class for tournament systems
-class TournamentSystem(BaseModel, ABC):
+class TournamentSystem(Immutable, ABC):
     """Abstract base class for tournament systems.
 
     This class defines the interface that all tournament systems must implement.
     """
-
-    model_config = ConfigDict(frozen=True)
 
     metric: str
 

@@ -3,8 +3,7 @@
 from collections.abc import Sequence
 from typing import Protocol
 
-from openai import BaseModel
-from pydantic import ConfigDict
+from pydantic import BaseModel, ConfigDict
 
 from paper import peerread as pr
 

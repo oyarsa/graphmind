@@ -9,12 +9,12 @@ from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Self, override
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import Field, computed_field
 
 import paper.semantic_scholar as s2
 from paper import hierarchical_graph
 from paper import peerread as pr
-from paper.types import PaperProxy
+from paper.types import Immutable, PaperProxy
 from paper.util import (
     fix_spaces_before_punctuation,
     format_numbered_list,
@@ -42,19 +42,15 @@ class EntityType(StrEnum):
     EXPERIMENT = "experiment"
 
 
-class Relationship(BaseModel):
+class Relationship(Immutable):
     """Relationship between nodes in the hierarchical graph."""
-
-    model_config = ConfigDict(frozen=True)
 
     source: str
     target: str
 
 
-class Entity(BaseModel):
+class Entity(Immutable):
     """Entity in the hierarchical graph."""
-
-    model_config = ConfigDict(frozen=True)
 
     label: str
     type: EntityType
@@ -500,10 +496,8 @@ def _get_nodes_of_type(entities: Iterable[Entity], type_: EntityType) -> list[En
     return [e for e in entities if e.type is type_]
 
 
-class PaperSection(BaseModel):
+class PaperSection(Immutable):
     """Section of a full paper with its heading and content text."""
-
-    model_config = ConfigDict(frozen=True)
 
     heading: str
     text: str
@@ -527,10 +521,8 @@ class Paper(Record):
         return int(self.rating >= 3)
 
 
-class ReviewEvaluation(BaseModel):
+class ReviewEvaluation(Immutable):
     """Peer review with its original rating and predicted rating from GPT."""
-
-    model_config = ConfigDict(frozen=True)
 
     # Original review data
     rating: Annotated[
@@ -621,19 +613,15 @@ class PaperWithReviewEval(Record):
         )
 
 
-class Prompt(BaseModel):
+class Prompt(Immutable):
     """Prompt used in a GPT API request."""
-
-    model_config = ConfigDict(frozen=True)
 
     system: str
     user: str
 
 
-class PromptResult[T](BaseModel):
+class PromptResult[T](Immutable):
     """Wrapper around a GPT API response with the full prompt that generated it."""
-
-    model_config = ConfigDict(frozen=True)
 
     item: T
     prompt: Prompt
@@ -648,22 +636,18 @@ class PromptResult[T](BaseModel):
         return PromptResult(item=fn(self.item), prompt=self.prompt)
 
 
-class PaperTermRelation(BaseModel):
+class PaperTermRelation(Immutable):
     """Represents a directed 'used for' relation between two scientific terms.
 
     Relations are always (head, used-for, tail).
     """
 
-    model_config = ConfigDict(frozen=True)
-
     head: Annotated[str, Field(description="Head term of the relation.")]
     tail: Annotated[str, Field(description="Tail term of the relation.")]
 
 
-class PaperTerms(BaseModel):
+class PaperTerms(Immutable):
     """Structured output for scientific term extraction."""
-
-    model_config = ConfigDict(frozen=True)
 
     tasks: Annotated[
         Sequence[str],
