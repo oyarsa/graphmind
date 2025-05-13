@@ -258,6 +258,8 @@ async def run_tournaments(
             prompt,
         )
 
+    logger.info("Loaded %d comparisons", len(raw_comparisons.result.comparisons))
+
     # Step 2: Display head-to-head results, then calculate rankings
     comparisons = PromptResult.unwrap(raw_comparisons.result.comparisons)
 
