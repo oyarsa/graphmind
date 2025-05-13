@@ -702,7 +702,7 @@ class GeminiClient(LLMClient):
         max_input_tokens: int | None = 90_000,
         log_exception: bool | None = None,
         thinking_budget: int | None = None,
-        include_thoughts: bool | None = False,
+        include_thoughts: bool | None = None,
     ) -> None:
         """Create client for the Google Gemini API.
 
@@ -722,11 +722,12 @@ class GeminiClient(LLMClient):
             thinking_budget: Number of tokens a model can use to think. To disable
                 thinking entirely, set to 0. If unset, uses the model default. If set,
                 must be between 0 and 24576.
-            include_thoughts: Whether to include thoughts in the response. Defaults to
-                False. To use the model default, set to None.
+            include_thoughts: Whether to include thoughts in the response. If unset,
+                uses the model default.
 
-        `thinking_budget` and `include_thoughts` are ignored if the model does not
-        support thinking.
+        `thinking_budget` and `include_thoughts` are NOT ignored if the model does not
+        support thinking. Attempting to set them with non-thinking model will result in
+        an API error.
 
         Raises:
             ValueError: if the model is invalid or if `thinking_budget` is out of range.
@@ -799,7 +800,6 @@ class GeminiClient(LLMClient):
                 an integer, or if it's out of range.
         """
         api_key = ensure_envvar(cls.API_KEY_VAR)
-        include_thoughts = os.getenv("INCLUDE_THOUGHTS", "0") == "1"
 
         include_thoughts: bool | None = None
         thinking_budget: int | None = None
