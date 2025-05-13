@@ -135,7 +135,6 @@ def load_data[T: BaseModel](
         ).validate_json(content)
     except ValidationError:
         source = file if isinstance(file, Path) else "bytes"
-        # TODO: Improve error reporting. Maybe show the first error?
         raise TypeError(
             f"Data from {source} is not valid for {get_full_type_name(type_)}"
         ) from None
@@ -163,11 +162,11 @@ def load_data_single[T: BaseModel](file: Path | bytes, type_: type[T]) -> T:
 
     try:
         return type_.model_validate_json(content)
-    except ValidationError as e:
+    except ValidationError:
         source = file if isinstance(file, Path) else "bytes"
-        raise ValidationError(
+        raise TypeError(
             f"Data from {source} is not valid for {get_full_type_name(type_)}"
-        ) from e
+        ) from None
 
 
 def save_data[T: BaseModel](
