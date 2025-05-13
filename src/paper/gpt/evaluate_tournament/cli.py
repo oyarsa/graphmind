@@ -136,6 +136,10 @@ def run(
             "--head-to-head", help="Show head to head scores for all metrics."
         ),
     ] = False,
+    markdown_table: Annotated[
+        bool,
+        typer.Option("--markdown", help="Show tournament results table as Markdown."),
+    ] = False,
 ) -> None:
     """Run a pairwise tournament between multiple models.
 
@@ -196,6 +200,7 @@ def run(
             reuse_comparisons,
             melo_trials,
             show_head_to_head,
+            markdown_table,
         )
     )
 
@@ -213,6 +218,7 @@ async def run_tournaments(
     reuse_comparisons_path: Path | None,
     melo_trials: int,
     show_head_to_head: bool,
+    markdown_table: bool,
 ) -> None:
     """Run the tournament on the given inputs.
 
@@ -231,6 +237,7 @@ async def run_tournaments(
             ignored.
         melo_trials: How many MElo trials to run.
         show_head_to_head: Show head to head scores for all metrics.
+        markdown_table: Display results table as Markdown.
     """
     import random
 
@@ -284,7 +291,7 @@ async def run_tournaments(
     logger.info(f"Rankings calculation time: {ranking_timer.human}")
     logger.info(f"Total comparison cost: ${raw_comparisons.cost:.10f}")
 
-    logger.info("\n%s", display_tournament_results(summary))
+    logger.info("\n%s", display_tournament_results(summary, markdown=markdown_table))
     if hasattr(raw_comparisons, "result"):
         save_data(output_dir / "raw_comparisons.json", raw_comparisons.result)
     save_data(output_dir / f"tournament_results_{algorithm}.json", summary)

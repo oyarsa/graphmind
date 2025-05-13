@@ -14,6 +14,8 @@ from collections.abc import Collection, Mapping, Sequence
 from enum import StrEnum
 from typing import Self
 
+from rich import box
+from rich.box import Box
 from rich.table import Table
 
 from paper import peerread as pr
@@ -272,9 +274,11 @@ def tournament_summary(
     )
 
 
-def display_tournament_results(results: TournamentSummary) -> str:
+def display_tournament_results(
+    results: TournamentSummary, markdown: bool = False
+) -> str:
     """Format tournament results for display."""
-    table = Table(title="Tournament Rankings")
+    table = Table(title="Tournament Rankings", box=box.MARKDOWN if markdown else None)
 
     table.add_column("Rank", style="cyan", justify="right")
     table.add_column("Item", style="green")
