@@ -9,12 +9,11 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import ClassVar, Self
 
-from pydantic import BaseModel, ConfigDict
-
 from paper import embedding as emb
 from paper.peter import citations, semantic
 from paper.peter.citations import ContextPolarity
 from paper.related_papers import PaperRelated, PaperSource, QueryResult
+from paper.types import Immutable
 from paper.util import Timer
 from paper.util.serde import load_data_single, save_data
 
@@ -198,10 +197,8 @@ def _result_from_related(
     )
 
 
-class GraphData(BaseModel):
+class GraphData(Immutable):
     """Serialisation format for `Graph`."""
-
-    model_config = ConfigDict(frozen=True)
 
     citation: citations.Graph
     semantic: semantic.GraphData

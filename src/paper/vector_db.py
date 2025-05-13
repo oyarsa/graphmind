@@ -12,10 +12,10 @@ from typing import Self
 
 import faiss  # type: ignore
 import typer
-from pydantic import BaseModel, ConfigDict
 
 from paper import embedding as emb
 from paper.embedding import DEFAULT_SENTENCE_MODEL
+from paper.types import Immutable
 
 DEFAULT_BATCH_SIZE = 1000
 DEFAULT_TOP_K = 5
@@ -32,10 +32,8 @@ app = typer.Typer(
 )
 
 
-class SearchMatch(BaseModel):
+class SearchMatch(Immutable):
     """Match from searching a query in the database."""
-
-    model_config = ConfigDict(frozen=True)
 
     sentence: str
     """Sentence retrieved from the database."""
@@ -43,10 +41,8 @@ class SearchMatch(BaseModel):
     """Similarity score with the query."""
 
 
-class SearchResult(BaseModel):
+class SearchResult(Immutable):
     """Search result with all matches for a query."""
-
-    model_config = ConfigDict(frozen=True)
 
     query: str
     """Sentence used to query the database."""

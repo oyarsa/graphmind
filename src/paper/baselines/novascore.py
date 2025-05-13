@@ -13,12 +13,13 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import computed_field
 from tqdm import tqdm
 
 from paper import gpt
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
+from paper.types import Immutable
 from paper.util import get_params, render_params, sample, setup_logging
 from paper.util.cli import die
 from paper.util.serde import load_data, load_data_jsonl, save_data, save_data_jsonl
@@ -128,14 +129,12 @@ def build(
     )
 
 
-class PaperResult(BaseModel):
+class PaperResult(Immutable):
     """Result of querying paper ACUs in vector database.
 
     Stores the results of searching a paper's ACUs in the vector database, including the
     original paper and all search results for each ACU.
     """
-
-    model_config = ConfigDict(frozen=True)
 
     paper: gpt.PaperWithACUs[s2.PaperWithS2Refs]
     """The original paper with its ACUs."""
@@ -323,14 +322,12 @@ def _find_best_match(result: SearchResult, threshold: float) -> SearchMatch | No
     return None
 
 
-class PaperEvaluated(BaseModel):
+class PaperEvaluated(Immutable):
     """Result of evaluating a paper's novelty using the NovaSCORE method.
 
     This class stores the original paper, its calculated novelty score, and the binary
     novelty label derived from thresholding the score.
     """
-
-    model_config = ConfigDict(frozen=True)
 
     paper: gpt.PaperWithACUs[s2.PaperWithS2Refs]
     """Original PeerRead input paper with extracted ACUs."""
@@ -352,7 +349,7 @@ class PaperEvaluated(BaseModel):
         return self.novalabel
 
 
-class EvaluationConfig(BaseModel):
+class EvaluationConfig(Immutable):
     """Configuration for paper evaluation with NovaSCORE."""
 
     sim_threshold: float = DEFAULT_SIMILARITY_THRESHOLD

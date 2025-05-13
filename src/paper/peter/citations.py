@@ -11,20 +11,18 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Protocol, Self
 
-from pydantic import BaseModel, ConfigDict
 from tqdm import tqdm
 
 from paper import embedding as emb
 from paper.related_papers import ContextPolarity
+from paper.types import Immutable
 from paper.util.serde import Record
 
 logger = logging.getLogger(__name__)
 
 
-class Graph(BaseModel):
+class Graph(Immutable):
     """Citation graph where paper citations are organised by title similarity."""
-
-    model_config = ConfigDict(frozen=True)
 
     title_to_id: Mapping[str, str]
     """PeerRead paper titles to IDs."""
@@ -154,10 +152,8 @@ class Citation(Record):
         return self.paper_id
 
 
-class QueryResult(BaseModel):
+class QueryResult(Immutable):
     """Result of the citation query: the top K cited papers."""
-
-    model_config = ConfigDict(frozen=True)
 
     positive: Sequence[Citation]
     negative: Sequence[Citation]

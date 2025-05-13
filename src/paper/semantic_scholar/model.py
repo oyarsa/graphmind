@@ -5,10 +5,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Annotated, Self, override
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import ConfigDict, Field, computed_field
 
 from paper import peerread as pr
 from paper.peerread.model import clean_maintext
+from paper.types import Immutable
 from paper.util import fuzzy_partial_ratio, hashstr
 from paper.util.serde import Record
 
@@ -53,10 +54,8 @@ class Paper(Record):
         return self.paper_id
 
 
-class Tldr(BaseModel):
+class Tldr(Immutable):
     """AI-generated one-sentence paper summary."""
-
-    model_config = ConfigDict(frozen=True)
 
     # The tldr model version number: https://github.com/allenai/scitldr
     model: str | None
@@ -64,7 +63,7 @@ class Tldr(BaseModel):
     text: str | None
 
 
-class Author(BaseModel):
+class Author(Immutable):
     """Author information from the S2 API."""
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
@@ -245,10 +244,8 @@ class PeerReadPaperWithS2(pr.Paper):
         )
 
 
-class PaperWithRecommendations(BaseModel):
+class PaperWithRecommendations(Immutable):
     """PeerRead paper with a list of recommendations from the S2 API."""
-
-    model_config = ConfigDict(frozen=True)
 
     main_paper: PeerReadPaperWithS2
     recommendations: Sequence[Paper]
@@ -318,8 +315,6 @@ class PeerReadWithFullS2(Record):
 class PaperArea(Paper):
     """S2 paper with the areas that led to it."""
 
-    model_config = ConfigDict(frozen=True)
-
     areas: Sequence[str]
 
 
@@ -345,10 +340,8 @@ class ReferenceEnriched(pr.PaperReference):
     tldr: Tldr | None
 
 
-class PaperWithReferenceEnriched(BaseModel):
+class PaperWithReferenceEnriched(Immutable):
     """Paper from PeerRead where the references contain extra data from the S2 API."""
-
-    model_config = ConfigDict(frozen=True)
 
     title: Annotated[str, Field(description="Paper title")]
     abstract: Annotated[str, Field(description="Abstract text")]

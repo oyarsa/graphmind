@@ -21,7 +21,8 @@ from typing import Annotated, Self
 
 import dotenv
 import typer
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from openai import BaseModel
+from pydantic import ConfigDict, Field, computed_field
 from tqdm import tqdm
 
 from paper import evaluation_metrics, peerread
@@ -36,6 +37,7 @@ from paper.gpt.run_gpt import (
     append_intermediate_result,
     init_remaining_items,
 )
+from paper.types import Immutable
 from paper.util import (
     Timer,
     cli,
@@ -213,10 +215,8 @@ async def classify_contexts(
         )
 
 
-class ContextClassified(BaseModel):
+class ContextClassified(Immutable):
     """Context from a paper reference with its classified polarity."""
-
-    model_config = ConfigDict(frozen=True)
 
     text: Annotated[str, Field(description="Full text of the context mention")]
     gold: Annotated[

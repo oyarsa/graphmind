@@ -9,30 +9,25 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar, Self
 
-from pydantic import BaseModel, ConfigDict
-
 from paper import embedding as emb
 from paper import gpt
 from paper.baselines.scimon import citations, kg, semantic
 from paper.baselines.scimon.model import PaperAnnotated
+from paper.types import Immutable
 from paper.util.serde import Record, load_data_single, save_data
 
 logger = logging.getLogger(__name__)
 
 
-class MetadataModel(BaseModel):
+class MetadataModel(Immutable):
     """Metadata for the graph."""
-
-    model_config = ConfigDict(frozen=True)
 
     encoder_model: str
     metadata: dict[str, Any] | None = None
 
 
-class GraphData(BaseModel):
+class GraphData(Immutable):
     """Serialisation format for `Graph`. Uses each subgraph's data format."""
-
-    model_config = ConfigDict(frozen=True)
 
     kg: kg.GraphData
     semantic: semantic.GraphData
@@ -242,10 +237,8 @@ class Graph:
         )
 
 
-class QueryResult(BaseModel):
+class QueryResult(Immutable):
     """Query results across graphs, delimited by where they came from."""
-
-    model_config = ConfigDict(frozen=True)
 
     citations: Sequence[str]
     kg: Sequence[str]

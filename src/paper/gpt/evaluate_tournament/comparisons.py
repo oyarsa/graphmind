@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
 from tqdm import tqdm
 
 from paper.gpt.evaluate_tournament.tournament import (
@@ -27,6 +26,7 @@ from paper.gpt.evaluate_tournament.tournament import (
 from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate
 from paper.gpt.run_gpt import GPTResult, LLMClient, gpr_map, gpr_traverse
+from paper.types import Immutable
 from paper.util import progress, sample
 from paper.util.serde import load_data, load_data_single
 
@@ -229,10 +229,8 @@ async def _run_all_comparisons(
     return gpr_traverse(comparison_results, transform)
 
 
-class RawComparisonOutput(BaseModel):
+class RawComparisonOutput(Immutable):
     """Raw comparisons output for serialization."""
-
-    model_config = ConfigDict(frozen=True)
 
     item_names: Sequence[str]
     metrics: Sequence[str]

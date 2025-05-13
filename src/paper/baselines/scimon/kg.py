@@ -18,11 +18,11 @@ from pathlib import Path
 from typing import Annotated, Self
 
 import typer
-from pydantic import BaseModel, ConfigDict
 
 from paper import embedding as emb
 from paper import gpt
 from paper.baselines.scimon.model import PaperTerms
+from paper.types import Immutable
 from paper.util import setup_logging
 from paper.util.serde import load_data, save_data
 
@@ -146,23 +146,19 @@ class Graph:
         )
 
 
-class QueryResult(BaseModel):
+class QueryResult(Immutable):
     """Result of querying the graph. Source depends on how the answer was obtained."""
-
-    model_config = ConfigDict(frozen=True)
 
     match: str
     nodes: Sequence[str]
 
 
-class GraphData(BaseModel):
+class GraphData(Immutable):
     """Serialisation format for the KG graph.
 
     The KG graph includes an encoder and embedding matrices. We convert the latter to a
     text-based representation. We don't store the encoder, only its model name.
     """
-
-    model_config = ConfigDict(frozen=True)
 
     embeddings: emb.MatrixData
     head_to_tails: Mapping[str, Sequence[str]]

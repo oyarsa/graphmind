@@ -10,11 +10,11 @@ from typing import Annotated
 
 import aiohttp
 import typer
-from pydantic import BaseModel, ConfigDict
 
 from paper import peerread as pr
 from paper.gpt import annotate_paper as ann
 from paper.gpt import evaluate_paper as eval
+from paper.types import Immutable
 from paper.util import groupby, sample, shuffled
 from paper.util.serde import load_data, save_data
 
@@ -70,10 +70,8 @@ def new_eval_sans_demonstration(paper: pr.Paper) -> eval.Demonstration:
     )
 
 
-class CSAbstructEntry(BaseModel):
+class CSAbstructEntry(Immutable):
     """Entry from the CSAbstruct dataset used for abstract sentence classification."""
-
-    model_config = ConfigDict(frozen=True)
 
     sentences: list[str]
     labels: list[str]

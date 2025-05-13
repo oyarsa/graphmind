@@ -6,8 +6,7 @@ from collections.abc import Iterable, Sequence
 from enum import Enum
 from typing import Any, Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict
-
+from paper.types import Immutable
 from paper.util import metrics, safediv
 
 
@@ -29,10 +28,8 @@ class TargetMode(Enum):
                 return [0, 1, 2]
 
 
-class Metrics(BaseModel):
+class Metrics(Immutable):
     """Classification and regression metrics."""
-
-    model_config = ConfigDict(frozen=True)
 
     precision: float
     recall: float
@@ -246,10 +243,8 @@ def display_metrics_row(
     )
 
 
-class RatingStats(BaseModel):
+class RatingStats(Immutable):
     """Mean/stdev/median stats on novelty ratings."""
-
-    model_config = ConfigDict(frozen=True)
 
     mean: float
     stdev: float

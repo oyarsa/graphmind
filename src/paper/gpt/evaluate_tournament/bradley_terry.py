@@ -10,8 +10,6 @@ import logging
 from collections import defaultdict
 from collections.abc import Collection, Mapping, Sequence
 
-from pydantic import BaseModel, ConfigDict
-
 from paper.gpt.evaluate_tournament.tournament import (
     ComparisonResult,
     MatchResult,
@@ -23,6 +21,7 @@ from paper.gpt.evaluate_tournament.tournament import (
     TournamentSystem,
     create_tournament_result,
 )
+from paper.types import Immutable
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +31,8 @@ BT_CONVERGENCE_THRESHOLD = 1e-6  # Threshold for convergence in MLE
 BT_MAX_ITERATIONS = 100  # Maximum iterations for MLE algorithm
 
 
-class BradleyTerryPlayer(BaseModel):
+class BradleyTerryPlayer(Immutable):
     """Represents a player in the Bradley-Terry rating system."""
-
-    model_config = ConfigDict(frozen=True)
 
     name: str
     strength: float  # Strength parameter θᵢ
@@ -210,8 +207,6 @@ def _bt_update_strengths(
 
 class BradleyTerryTournamentSystem(TournamentSystem):
     """Manages a tournament for rationale comparisons using the Bradley-Terry model."""
-
-    model_config = ConfigDict(frozen=True)
 
     metric: str
     players: Mapping[str, BradleyTerryPlayer]

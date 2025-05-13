@@ -30,6 +30,8 @@ from peft.utils.other import prepare_model_for_kbit_training
 from peft.utils.peft_types import TaskType
 from pydantic import BaseModel, Field
 
+from paper.types import Immutable
+
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from transformers import (
     AutoModelForSequenceClassification,
@@ -55,7 +57,7 @@ from paper.util.serde import load_data, save_data
 logger = logging.getLogger(__name__)
 
 
-class LoraConfig(BaseModel):
+class LoraConfig(Immutable):
     """Configuration for LoRA fine-tuning."""
 
     r: Annotated[int, Field(description="LoRA attention dimension")]
@@ -70,7 +72,7 @@ type LabelMode = Literal["original", "binary"]
 type InputMode = Literal["basic", "graph"]
 
 
-class ModelConfig(BaseModel):
+class ModelConfig(Immutable):
     """Configuration for model settings."""
 
     name: Annotated[str, Field(description="Pretrained model name")]
@@ -87,7 +89,7 @@ class ModelConfig(BaseModel):
     ] = "basic"
 
 
-class TrainingConfig(BaseModel):
+class TrainingConfig(Immutable):
     """Configuration for training settings."""
 
     batch_size: int
@@ -113,7 +115,7 @@ class TrainingConfig(BaseModel):
         return "steps" if self.eval_steps else "epoch"
 
 
-class AppConfig(BaseModel):
+class AppConfig(Immutable):
     """Main application configuration."""
 
     model: ModelConfig
@@ -808,7 +810,7 @@ def evaluate_model_predictions(
     return metrics_result
 
 
-class FormattedData(BaseModel):
+class FormattedData(Immutable):
     """Container for original data and its formatted representation for the model."""
 
     paper: gpt.PaperWithRelatedSummary | gpt.ExtractedGraph

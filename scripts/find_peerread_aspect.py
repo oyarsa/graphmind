@@ -7,25 +7,24 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import Field, computed_field
 from tqdm import tqdm
 
 from paper import peerread as pr
 from paper.evaluation_metrics import RatingStats
+from paper.types import Immutable
 from paper.util.serde import load_data, save_data
 
 AspectLabel = tuple[int, int, str]
 
 
-class Aspect(BaseModel):
+class Aspect(Immutable):
     """Represents aspect information of a given paper review.
 
     Unfortunately, there's no direct connection to what review the aspect information
     corresponds to. Maybe try string matching between `Aspect.text` and
     `PaperReview.rationale`?
     """
-
-    model_config = ConfigDict(frozen=True)
 
     id: Annotated[str, Field(description="ID of the reference paper.")]
     text: Annotated[str, Field(description="Review rationale text.")]
@@ -38,26 +37,20 @@ class Aspect(BaseModel):
     ]
 
 
-class PaperMetadata(BaseModel):
+class PaperMetadata(Immutable):
     """`.metadata` field of paper contents (relevant fields only)."""
-
-    model_config = ConfigDict(frozen=True)
 
     title: Annotated[str | None, Field(description="Paper title.")]
 
 
-class PaperContent(BaseModel):
+class PaperContent(Immutable):
     """ASAP paper content files (relevant fields only)."""
-
-    model_config = ConfigDict(frozen=True)
 
     metadata: PaperMetadata
 
 
 class PaperReviewWithAspect(pr.PaperReview):
     """PeerRead review with ASAP aspect information."""
-
-    model_config = ConfigDict(frozen=True)
 
     aspect_labels: Annotated[
         list[AspectLabel],

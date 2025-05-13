@@ -8,7 +8,6 @@ from typing import Annotated
 
 import matplotlib.pyplot as plt
 import typer
-from pydantic import BaseModel, ConfigDict
 from rich.console import Console
 from rich.table import Table
 
@@ -20,6 +19,7 @@ from paper.gpt.evaluate_paper import (
     get_demonstrations,
 )
 from paper.gpt.run_gpt import GPTResult, OpenAIClient
+from paper.types import Immutable
 from paper.util import cli, ensure_envvar, progress, sample
 from paper.util.serde import load_data, save_data
 
@@ -58,10 +58,8 @@ Output:
 """
 
 
-class Result(BaseModel):
+class Result(Immutable):
     """Result of paper evaluation."""
-
-    model_config = ConfigDict(frozen=True)
 
     y_true: int
     y_pred: int
@@ -69,10 +67,8 @@ class Result(BaseModel):
     output: str | None
 
 
-class ModelResult(BaseModel):
+class ModelResult(Immutable):
     """Results for a specific model."""
-
-    model_config = ConfigDict(frozen=True)
 
     name: str
     metrics: Metrics

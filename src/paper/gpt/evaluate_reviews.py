@@ -13,7 +13,7 @@ from typing import Annotated
 
 import dotenv
 import typer
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from paper import peerread as pr
 from paper.evaluation_metrics import Metrics, calculate_metrics
@@ -41,6 +41,7 @@ from paper.gpt.run_gpt import (
     append_intermediate_result,
     get_remaining_items,
 )
+from paper.types import Immutable
 from paper.util import (
     Timer,
     cli,
@@ -440,9 +441,7 @@ async def _evaluate_reviews(
     return GPTResult(result=results, cost=total_cost)
 
 
-class _GPTRationale(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
+class _GPTRationale(Immutable):
     novelty_rationale: Annotated[
         str, Field(description="Rationale for the novelty rating of a paper.")
     ]

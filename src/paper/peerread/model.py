@@ -8,25 +8,22 @@ from enum import StrEnum
 from functools import cached_property, reduce
 from typing import Annotated, Self, override
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, Field, computed_field, model_validator
 
+from paper.types import Immutable
 from paper.util import fix_spaces_before_punctuation, hashstr
 from paper.util.serde import Record
 
 
-class PaperSection(BaseModel):
+class PaperSection(Immutable):
     """Section of a PeerRead full paper with its heading and context text."""
-
-    model_config = ConfigDict(frozen=True)
 
     heading: Annotated[str, Field(description="Section heading")]
     text: Annotated[str, Field(description="Section full text")]
 
 
-class PaperReview(BaseModel):
+class PaperReview(Immutable):
     """Peer review of a PeerRead paper with a novelty rating and rationale."""
-
-    model_config = ConfigDict(frozen=True)
 
     rating: Annotated[
         int,
@@ -36,7 +33,7 @@ class PaperReview(BaseModel):
     rationale: Annotated[str, Field(description="Explanation given for the rating")]
     other_ratings: Annotated[
         dict[str, int], Field(description="Other available ratings")
-    ] = {}
+    ] = {}  # noqa: RUF012
 
     @computed_field
     @property
@@ -68,15 +65,12 @@ class CitationContext(BaseModel):
     @model_validator(mode="after")
     def truncate_sentence(self) -> Self:
         """Truncate the context sentence to 256 characters."""
-        if self.sentence:
-            self.sentence = self.sentence[:256]
+        self.sentence = self.sentence[:256]
         return self
 
 
-class PaperReference(BaseModel):
+class PaperReference(Immutable):
     """Paper metadata with its contexts."""
-
-    model_config = ConfigDict(frozen=True)
 
     title: Annotated[
         str, Field(description="Title of the citation in the paper references")

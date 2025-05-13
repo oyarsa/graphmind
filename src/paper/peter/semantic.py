@@ -11,9 +11,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol, Self
 
-from pydantic import BaseModel, ConfigDict
-
 from paper import embedding as emb
+from paper.types import Immutable
 from paper.util.serde import Record
 
 logger = logging.getLogger(__name__)
@@ -52,13 +51,11 @@ class _Components:
         )
 
 
-class _ComponentsData(BaseModel):
+class _ComponentsData(Immutable):
     """Serialisation format for `_Components`.
 
     This is needed to convert the embedding matrix to JSON.
     """
-
-    model_config = ConfigDict(frozen=True)
 
     embeddings: emb.MatrixData
     node_to_paper: Mapping[str, _PaperRelated]
@@ -232,10 +229,8 @@ class PaperAnnotated(Protocol):
         ...
 
 
-class QueryResult(BaseModel):
+class QueryResult(Immutable):
     """Result from querying the semantic graph."""
-
-    model_config = ConfigDict(frozen=True)
 
     targets: Sequence[PaperResult]
     """Top K similar papers by target sentence similarity."""
@@ -275,13 +270,11 @@ class PaperResult(_PaperRelated):
         return cls.model_validate(related.model_dump() | {"score": score})
 
 
-class GraphData(BaseModel):
+class GraphData(Immutable):
     """Serialisation format for the semantic graph.
 
     It needs a separate object so it can properly serialise the embeddings.
     """
-
-    model_config = ConfigDict(frozen=True)
 
     targets: _ComponentsData
     """Target nodes."""

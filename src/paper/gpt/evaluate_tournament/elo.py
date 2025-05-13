@@ -12,8 +12,6 @@ import statistics
 from collections import defaultdict
 from collections.abc import Collection, Mapping, Sequence
 
-from pydantic import BaseModel, ConfigDict
-
 from paper.gpt.evaluate_tournament.tournament import (
     ComparisonResult,
     MatchResult,
@@ -25,6 +23,7 @@ from paper.gpt.evaluate_tournament.tournament import (
     TournamentSystem,
     create_tournament_result,
 )
+from paper.types import Immutable
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +34,8 @@ EXPECTED_SCORE_DIVISOR = 400  # For expected score calculation
 MELO_DEFAULT_TRIALS = 10  # How many different Elo trials to run
 
 
-class EloPlayer(BaseModel):
+class EloPlayer(Immutable):
     """Represents a player in the Elo rating system."""
-
-    model_config = ConfigDict(frozen=True)
 
     name: str
     rating: float
@@ -116,8 +113,6 @@ def _elo_expected_probabilities(
 
 class EloTournamentSystem(TournamentSystem):
     """Manages a tournament for rationale comparisons using Elo ratings."""
-
-    model_config = ConfigDict(frozen=True)
 
     metric: str
     players: Mapping[str, EloPlayer]
@@ -208,7 +203,7 @@ class EloTournamentSystem(TournamentSystem):
         ]
 
 
-class TournamentManager(BaseModel):
+class TournamentManager(Immutable):
     """Manage multiple tournaments, one per metric."""
 
     tournaments: Mapping[str, TournamentSystem]

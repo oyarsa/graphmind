@@ -17,7 +17,8 @@ from typing import Annotated, Self
 
 import dotenv
 import typer
-from pydantic import BaseModel, ConfigDict, Field
+from openai import BaseModel
+from pydantic import ConfigDict, Field
 from tqdm import tqdm
 
 from paper.gpt.model import (

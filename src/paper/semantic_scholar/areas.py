@@ -21,13 +21,13 @@ import backoff
 import dotenv
 import typer
 from aiolimiter import AsyncLimiter
-from pydantic import BaseModel, ConfigDict
 from rich.console import Console
 from rich.table import Table
 from tqdm import tqdm
 
 from paper.semantic_scholar.info import S2_SEARCH_BASE_URL
 from paper.semantic_scholar.model import Paper, PaperArea
+from paper.types import Immutable
 from paper.util import arun_safe, display_params, ensure_envvar, read_resource
 from paper.util.cli import die
 from paper.util.serde import save_data
@@ -406,10 +406,8 @@ def _merge_areas(areas: Sequence[AreaResult]) -> list[PaperArea]:
     ]
 
 
-class AreaResult(BaseModel):
+class AreaResult(Immutable):
     """Result of area query with the query itself and returned S2 Papers."""
-
-    model_config = ConfigDict(frozen=True)
 
     area: str
     papers: Sequence[Paper]

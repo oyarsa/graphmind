@@ -17,7 +17,8 @@ from typing import Annotated, Any, Self
 
 import dotenv
 import typer
-from pydantic import BaseModel, ConfigDict, Field
+from openai import BaseModel
+from pydantic import ConfigDict, Field
 from rich.console import Console
 from rich.table import Table
 from tqdm import tqdm
@@ -39,6 +40,7 @@ from paper.gpt.run_gpt import (
     append_intermediate_result,
     get_remaining_items,
 )
+from paper.types import Immutable
 from paper.util import (
     Timer,
     cli,
@@ -502,10 +504,8 @@ def _format_col(col: Sequence[Any], detail: DetailOptions) -> str:
     return str(len(col))
 
 
-class AbstractDemonstration(BaseModel):
+class AbstractDemonstration(Immutable):
     """Prompt demonstration from an existing abstract extraction from CSAbstruct."""
-
-    model_config = ConfigDict(frozen=True)
 
     abstract: str
     background: str

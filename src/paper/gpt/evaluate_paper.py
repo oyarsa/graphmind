@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import TargetMode
 from paper.gpt.prompts import PromptTemplate, load_prompts
+from paper.types import Immutable
 from paper.util.serde import load_data
 
 logger = logging.getLogger(__name__)
@@ -46,10 +47,8 @@ class PaperResult(s2.PaperWithS2Refs):
 EVALUATE_DEMONSTRATION_PROMPTS = load_prompts("eval_demonstrations")
 
 
-class Demonstration(BaseModel):
+class Demonstration(Immutable):
     """Paper for evaluation demos with full information and demonstration type."""
-
-    model_config = ConfigDict(frozen=True)
 
     title: Annotated[str, Field(description="Paper title")]
     abstract: Annotated[str, Field(description="Paper abstract")]

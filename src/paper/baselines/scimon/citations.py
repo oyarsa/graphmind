@@ -17,11 +17,11 @@ from pathlib import Path
 from typing import Annotated, Protocol, Self
 
 import typer
-from pydantic import BaseModel, ConfigDict
 from tqdm import tqdm
 
 import paper.semantic_scholar as s2
 from paper import embedding as emb
+from paper.types import Immutable
 from paper.util import display_params
 from paper.util.serde import Record, load_data, save_data
 
@@ -103,14 +103,12 @@ class S2Reference(Protocol):
         ...
 
 
-class Graph(BaseModel):
+class Graph(Immutable):
     """Citation graph that connects main paper titles/ids with cited paper titles.
 
     We retrieve the top K titles by main and reference titles. We embed all of them, and
     the K is determined at query time.
     """
-
-    model_config = ConfigDict(frozen=True)
 
     title_to_id: Mapping[str, str]
     """Mapping from paper `title` to its `id`.
@@ -192,10 +190,8 @@ class Citation(Record):
         return self.paper_id
 
 
-class QueryResult(BaseModel):
+class QueryResult(Immutable):
     """Result of the citation query: the top K cited papers."""
-
-    model_config = ConfigDict(frozen=True)
 
     citations: Sequence[Citation]
 

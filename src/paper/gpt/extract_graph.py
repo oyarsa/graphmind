@@ -10,8 +10,6 @@ import logging
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict
-
 from paper import hierarchical_graph
 from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.model import (
@@ -53,9 +51,7 @@ def save_graphs(
             GraphML and the image as PNG.
     """
 
-    class Output(BaseModel):
-        model_config = ConfigDict(frozen=True)
-
+    class Output(Immutable):
         paper: str
         graphml: str
         graph: Graph

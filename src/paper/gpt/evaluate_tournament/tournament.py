@@ -14,6 +14,8 @@ from collections.abc import Collection, Mapping, Sequence
 from enum import StrEnum
 from typing import Self
 
+from openai import BaseModel
+from pydantic import ConfigDict
 from rich.table import Table
 
 from paper import peerread as pr
@@ -61,8 +63,10 @@ class MatchWinner(StrEnum):
     TIE = "tie"
 
 
-class MatchResult(Immutable):
+class MatchResult(BaseModel):
     """Result from pairwise comparison of two rationales by LLM."""
+
+    model_config = ConfigDict(frozen=True)
 
     winner: MatchWinner
     """Who wins the match. The model can only reply A or B, but we use TIE for errors."""

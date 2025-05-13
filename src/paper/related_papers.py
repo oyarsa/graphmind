@@ -10,8 +10,6 @@ from collections.abc import Iterable, Sequence
 from enum import StrEnum
 from typing import Protocol, Self
 
-from pydantic import BaseModel, ConfigDict
-
 from paper import gpt
 from paper.types import Immutable, PaperProxy
 from paper.util.serde import Record
@@ -24,10 +22,8 @@ class PaperResult(Immutable, PaperProxy[gpt.PeerReadAnnotated]):
     results: QueryResult
 
 
-class QueryResult(BaseModel):
+class QueryResult(Immutable):
     """Combined query results from PETER graphs."""
-
-    model_config = ConfigDict(frozen=True)
 
     semantic_positive: Sequence[PaperRelated]
     semantic_negative: Sequence[PaperRelated]

@@ -11,8 +11,9 @@ from typing import Self, cast
 import numpy as np
 import numpy.typing as npt
 import torch
-from pydantic import BaseModel, ConfigDict
 from tqdm import tqdm
+
+from paper.types import Immutable
 
 type Vector = npt.NDArray[np.float32]
 type Matrix = npt.NDArray[np.float32]
@@ -119,10 +120,8 @@ def top_k_indices(vector: Vector, k: int) -> list[int]:
     return [int(x) for x in np.argsort(vector)[::-1][:k]]
 
 
-class MatrixData(BaseModel):
+class MatrixData(Immutable):
     """Data object used to serialise a numpy matrix as JSON."""
-
-    model_config = ConfigDict(frozen=True)
 
     shape: list[int]
     """Shape of the matrix as expected by numpy."""

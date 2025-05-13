@@ -21,7 +21,8 @@ from typing import Annotated
 
 import dotenv
 import typer
-from pydantic import BaseModel, ConfigDict, Field
+from openai import BaseModel
+from pydantic import ConfigDict, Field
 from tqdm import tqdm
 
 from paper import related_papers as rp

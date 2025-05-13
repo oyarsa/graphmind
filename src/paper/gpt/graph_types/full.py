@@ -5,10 +5,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Annotated, override
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from paper.gpt.graph_types.base import GPTGraphBase
 from paper.gpt.model import Entity, EntityType, Graph, Relationship
+from paper.types import Immutable
 from paper.util import at
 
 
@@ -128,7 +129,7 @@ class GPTGraph(GPTGraphBase):
         )
 
 
-class ClaimEntity(BaseModel):
+class ClaimEntity(Immutable):
     """Entity representing a claim made in the paper."""
 
     label: Annotated[
@@ -144,7 +145,7 @@ class ClaimEntity(BaseModel):
     ]
 
 
-class MethodEntity(BaseModel):
+class MethodEntity(Immutable):
     """Entity representing a method described in the paper to support the claims."""
 
     label: Annotated[
@@ -167,7 +168,7 @@ class MethodEntity(BaseModel):
     ]
 
 
-class ExperimentEntity(BaseModel):
+class ExperimentEntity(Immutable):
     """Entity representing an experiment used to validate a method from the paper."""
 
     label: Annotated[

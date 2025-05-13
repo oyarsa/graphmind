@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Annotated, Any, NamedTuple
 
 import typer
-from pydantic import BaseModel, ConfigDict
 from tqdm import tqdm
 
 from paper.peerread.model import (
@@ -26,31 +25,26 @@ from paper.peerread.model import (
     PaperReview,
     PaperSection,
 )
+from paper.types import Immutable
 from paper.util import get_icase, groupby
 from paper.util.serde import safe_load_json, save_data
 
 
-class _Review(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
+class _Review(Immutable):
     rationale: str
     rating: int
     confidence: int | None
     other_ratings: dict[str, int]
 
 
-class _PaperReviews(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
+class _PaperReviews(Immutable):
     id: int
     reviews: Sequence[_Review]
     conference: str
     accepted: bool | None
 
 
-class _PaperMetadata(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
+class _PaperMetadata(Immutable):
     id: int
     title: str
     abstract: str

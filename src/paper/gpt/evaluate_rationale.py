@@ -25,7 +25,8 @@ from typing import Annotated, Any, Self
 import dotenv
 import rich
 import typer
-from pydantic import BaseModel, ConfigDict, Field
+from openai import BaseModel
+from pydantic import ConfigDict, Field
 from rich.table import Table
 from tqdm import tqdm
 
@@ -41,6 +42,7 @@ from paper.gpt.run_gpt import (
     append_intermediate_result,
     init_remaining_items,
 )
+from paper.types import Immutable
 from paper.util import (
     Timer,
     cli,
@@ -65,24 +67,20 @@ type PaperEvaluationInput = (
 """Type alias for rationale evaluation."""
 
 
-class MetricStats(BaseModel):
+class MetricStats(Immutable):
     """Statistics for a single metric."""
-
-    model_config = ConfigDict(frozen=True)
 
     mean: float
     stdev: float
 
 
-class AggregateMetrics(BaseModel):
+class AggregateMetrics(Immutable):
     """Aggregate statistics for rationale metrics."""
-
-    model_config = ConfigDict(frozen=True)
 
     metrics: dict[str, MetricStats]
 
 
-class RationaleMetrics(BaseModel):
+class RationaleMetrics(Immutable):
     """Metrics from rationale evaluation."""
 
     metrics: Mapping[str, int]
