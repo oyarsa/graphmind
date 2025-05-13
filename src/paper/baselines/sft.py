@@ -49,7 +49,11 @@ from transformers import (
 from paper import gpt
 from paper import peerread as pr
 from paper import semantic_scholar as s2
-from paper.evaluation_metrics import Metrics, TargetMode, calculate_metrics
+from paper.evaluation_metrics import (
+    TargetMode,
+    calculate_metrics,
+    display_regular_negative_macro_metrics,
+)
 from paper.util import describe, metrics, sample, setup_logging
 from paper.util.cli import Choice
 from paper.util.serde import load_data, save_data
@@ -252,12 +256,10 @@ def train(
     logger.debug("Saving model: end")
 
     logger.debug("Evaluating: start")
-    logger.info(
-        "\n%s",
-        evaluate_model(
-            trainer, test_dataset_tokenised, output_dir, config.model.label_mode
-        ),
+    evaluated = evaluate_model(
+        trainer, test_dataset_tokenised, output_dir, config.model.label_mode
     )
+    logger.info("\n%s", display_regular_negative_macro_metrics(evaluated))
     logger.info(gpu_mem)
     logger.debug("Evaluating: end")
 
@@ -350,10 +352,10 @@ def infer(
     )
 
     logger.info(f"\nRunning inference on {len(dataset)} examples...")
-    logger.info(
-        "\n%s",
-        evaluate_model(trainer, dataset_tokenised, output_dir, config.model.label_mode),
+    evaluated = evaluate_model(
+        trainer, dataset_tokenised, output_dir, config.model.label_mode
     )
+    logger.info("\n%s", display_regular_negative_macro_metrics(evaluated))
     logger.info(gpu_mem)
 
 
@@ -718,12 +720,19 @@ def save_model(
     logger.info(f"Model, tokeniser, and configuration saved to {final_dir}")
 
 
+class PaperEvaluated(Immutable):
+    """Paper evalulated using an SFT model."""
+
+    y_true: int
+    y_pred: int
+
+
 def evaluate_model(
     trainer: Trainer,
     test_dataset_tokenised: Dataset,
     output_dir: Path,
     label_mode: LabelMode,
-) -> Metrics:
+) -> list[PaperEvaluated]:
     """Run comprehensive evaluation on the test dataset.
 
     Computes classification and regression metrics using the trained model. The output
@@ -758,7 +767,7 @@ def evaluate_model_predictions(
     logits: Sequence[Sequence[float] | npt.NDArray[np.float64]],
     output_dir: Path,
     label_mode: LabelMode,
-) -> Metrics:
+) -> list[PaperEvaluated]:
     """Evaluate model predictions and save results to `output_dir`.
 
     Saved files:
@@ -807,7 +816,10 @@ def evaluate_model_predictions(
     logger.info(f"Evaluation metrics saved to {metrics_path}")
     logger.info(f"Raw predictions saved to {prediction_path}")
 
-    return metrics_result
+    return [
+        PaperEvaluated(y_true=y_true, y_pred=y_pred)
+        for y_true, y_pred in zip(true_labels_adjusted, pred_labels_adjusted)
+    ]
 
 
 class FormattedData(Immutable):
