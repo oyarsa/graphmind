@@ -8,5 +8,4 @@ def assertpath(path: Path) -> None:
     if path.exists():
         return
 
-    relative = path.relative_to(git_root())
-    pytest.fail(f"Path doesn't exist: '{relative}'")
+    pytest.fail(f"Path doesn't exist: '{path}'")
