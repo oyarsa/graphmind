@@ -25,8 +25,7 @@ from typing import Annotated, Any, Self
 import dotenv
 import rich
 import typer
-from openai import BaseModel
-from pydantic import ConfigDict, Field
+from pydantic import Field
 from rich.table import Table
 from tqdm import tqdm
 
@@ -95,10 +94,8 @@ class RationaleMetrics(Immutable):
         return [name for name, val in self.metrics.items() if val not in range(1, 6)]
 
 
-class GPTRationaleEval(BaseModel):
+class GPTRationaleEval(Immutable):
     """Evaluation metrics from LLM judging of generated rationale."""
-
-    model_config = ConfigDict(frozen=True)
 
     clarity: Annotated[
         int, Field(description="How well-written the text is. Score from 1 to 5.")

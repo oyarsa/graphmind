@@ -21,8 +21,7 @@ from typing import Annotated
 
 import dotenv
 import typer
-from openai import BaseModel
-from pydantic import ConfigDict, Field
+from pydantic import Field
 from tqdm import tqdm
 
 from paper import related_papers as rp
@@ -42,6 +41,7 @@ from paper.gpt.run_gpt import (
     append_intermediate_result,
     get_remaining_items,
 )
+from paper.types import Immutable
 from paper.util import (
     Timer,
     cli,
@@ -322,10 +322,8 @@ async def _summarise_paper(
     )
 
 
-class GPTRelatedSummary(BaseModel):
+class GPTRelatedSummary(Immutable):
     """Result of summarising key aspects of related papers."""
-
-    model_config = ConfigDict(frozen=True)
 
     summary: Annotated[
         str,

@@ -17,8 +17,7 @@ from typing import Annotated, Any, Self
 
 import dotenv
 import typer
-from openai import BaseModel
-from pydantic import ConfigDict, Field
+from pydantic import Field
 from rich.console import Console
 from rich.table import Table
 from tqdm import tqdm
@@ -318,10 +317,8 @@ async def annotate_papers(
         _log_table_stats(output_valid, detail=show_log)
 
 
-class GPTAbstractClassify(BaseModel):
+class GPTAbstractClassify(Immutable):
     """Describes the division of the paper abstract in two groups of sentences."""
-
-    model_config = ConfigDict(frozen=True)
 
     background: Annotated[
         str,

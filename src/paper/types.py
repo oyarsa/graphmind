@@ -135,4 +135,4 @@ class Identifiable(Protocol):
 class Immutable(BaseModel):
     """Immutable BaseModel."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, populate_by_name=True)

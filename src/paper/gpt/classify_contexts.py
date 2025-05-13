@@ -21,8 +21,7 @@ from typing import Annotated, Self
 
 import dotenv
 import typer
-from openai import BaseModel
-from pydantic import ConfigDict, Field, computed_field
+from pydantic import Field, computed_field
 from tqdm import tqdm
 
 from paper import evaluation_metrics, peerread
@@ -300,14 +299,12 @@ class PaperWithContextClassfied(Record):
         return int(self.rating >= 3)
 
 
-class GPTContext(BaseModel):
+class GPTContext(Immutable):
     """Context from a paper reference with GPT-classified polarity.
 
     NB: This is currently identical to the main type (PaperContextClassified). They're
     separate on purpose.
     """
-
-    model_config = ConfigDict(frozen=True)
 
     polarity: Annotated[
         peerread.ContextPolarity,

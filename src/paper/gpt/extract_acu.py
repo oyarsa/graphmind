@@ -17,8 +17,7 @@ from typing import Annotated, Self
 
 import dotenv
 import typer
-from openai import BaseModel
-from pydantic import ConfigDict, Field
+from pydantic import Field
 from tqdm import tqdm
 
 from paper.gpt.model import (
@@ -37,6 +36,7 @@ from paper.gpt.run_gpt import (
     append_intermediate_result,
     init_remaining_items,
 )
+from paper.types import Immutable
 from paper.util import (
     Timer,
     cli,
@@ -297,10 +297,8 @@ async def _extract_acus[T: PaperACUInput](
     return GPTResult(result=results, cost=total_cost)
 
 
-class GPTACU(BaseModel):
+class GPTACU(Immutable):
     """Structured output for ACU extraction from paper abstract."""
-
-    model_config = ConfigDict(frozen=True)
 
     summary: Annotated[str, Field(description="Document summary.")]
     all_acus: Annotated[list[str], Field(description="Array of ACU strings.")]

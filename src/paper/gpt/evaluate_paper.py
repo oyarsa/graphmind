@@ -7,7 +7,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Annotated, Protocol, Self, cast
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import Field, computed_field
 
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import TargetMode
@@ -114,10 +114,8 @@ def format_demonstrations(
     return f"\n{'-' * 50}\n".join(output_all)
 
 
-class GPTFull(BaseModel):
+class GPTFull(Immutable):
     """Evaluation of whether the paper is novel."""
-
-    model_config = ConfigDict(frozen=True)
 
     label: Annotated[
         int,
@@ -153,10 +151,8 @@ class NoveltyLabel(StrEnum):
                 return 2
 
 
-class GPTUncertain(BaseModel):
+class GPTUncertain(Immutable):
     """Evaluation of whether the paper is novel. Supports uncertain (2) label."""
-
-    model_config = ConfigDict(frozen=True)
 
     novelty: Annotated[
         NoveltyLabel,

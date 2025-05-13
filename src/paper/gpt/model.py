@@ -9,8 +9,7 @@ from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Self, override
 
-from openai import BaseModel
-from pydantic import ConfigDict, Field, computed_field
+from pydantic import Field, computed_field
 
 import paper.semantic_scholar as s2
 from paper import hierarchical_graph
@@ -637,22 +636,18 @@ class PromptResult[T](Immutable):
         return PromptResult(item=fn(self.item), prompt=self.prompt)
 
 
-class PaperTermRelation(BaseModel):
+class PaperTermRelation(Immutable):
     """Represents a directed 'used for' relation between two scientific terms.
 
     Relations are always (head, used-for, tail).
     """
 
-    model_config = ConfigDict(frozen=True)
-
     head: Annotated[str, Field(description="Head term of the relation.")]
     tail: Annotated[str, Field(description="Tail term of the relation.")]
 
 
-class PaperTerms(BaseModel):
+class PaperTerms(Immutable):
     """Structured output for scientific term extraction."""
-
-    model_config = ConfigDict(frozen=True)
 
     tasks: Annotated[
         Sequence[str],

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Annotated, Self, override
 
-from pydantic import ConfigDict, Field, computed_field
+from pydantic import Field, computed_field
 
 from paper import peerread as pr
 from paper.peerread.model import clean_maintext
@@ -65,8 +65,6 @@ class Tldr(Immutable):
 
 class Author(Immutable):
     """Author information from the S2 API."""
-
-    model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     # Author's name.
     name: str | None

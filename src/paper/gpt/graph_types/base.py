@@ -2,15 +2,12 @@
 
 from abc import ABC, abstractmethod
 
-from pydantic import BaseModel, ConfigDict
-
 from paper.gpt.model import Graph
+from paper.types import Immutable
 
 
-class GPTGraphBase(BaseModel, ABC):
+class GPTGraphBase(Immutable, ABC):
     """Base class for all graph GPT output types."""
-
-    model_config = ConfigDict(frozen=True)
 
     @abstractmethod
     def to_graph(self, title: str, abstract: str) -> Graph:
