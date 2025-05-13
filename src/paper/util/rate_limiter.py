@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import uuid
 from collections.abc import AsyncGenerator, Callable, Coroutine, Iterable
 from contextlib import asynccontextmanager
 from typing import Any, TypedDict
@@ -11,7 +12,6 @@ from typing import Any, TypedDict
 import tiktoken
 from google.genai.types import GenerateContentResponse  # type: ignore
 from openai.types.chat import ChatCompletion
-import uuid
 
 _TOKENIZER = tiktoken.get_encoding("cl100k_base")
 
