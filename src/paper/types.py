@@ -5,7 +5,12 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from paper import peerread as pr
+
+class PaperSectionProtocol(Protocol):
+    """Section of a paper with its heading and context text."""
+
+    heading: str
+    text: str
 
 
 class PaperProtocol(Protocol):
@@ -57,7 +62,7 @@ class PaperProtocol(Protocol):
         ...
 
     @property
-    def sections(self) -> Sequence[pr.PaperSection]:
+    def sections(self) -> Sequence[PaperSectionProtocol]:
         """Paper sections."""
         ...
 
@@ -113,7 +118,7 @@ class PaperProxy[P: PaperProtocol]:
         return self.paper.year
 
     @property
-    def sections(self) -> Sequence[pr.PaperSection]:
+    def sections(self) -> Sequence[PaperSectionProtocol]:
         """Sections of the underlying paper."""
         return self.paper.sections
 
