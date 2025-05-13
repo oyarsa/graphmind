@@ -394,18 +394,22 @@ def _count_related_summarised(item: gpt.GraphResult) -> Counts:
         ValueError: if `item` has a None `related` field. This can happen for legacy
             data files from before the field was added.
     """
+    related = item.related
+    if related is None:
+        raise ValueError("Invalid graph result. Must have related papers.")
+
     ctx = pr.ContextPolarity
     src = gpt.RelatedPaperSource
 
-    semantic_positive = _filter_related(item.related, ctx.POSITIVE, src.SEMANTIC)
-    semantic_negative = _filter_related(item.related, ctx.NEGATIVE, src.SEMANTIC)
-    citation_positive = _filter_related(item.related, ctx.POSITIVE, src.CITATIONS)
-    citation_negative = _filter_related(item.related, ctx.NEGATIVE, src.CITATIONS)
+    semantic_positive = _filter_related(related, ctx.POSITIVE, src.SEMANTIC)
+    semantic_negative = _filter_related(related, ctx.NEGATIVE, src.SEMANTIC)
+    citation_positive = _filter_related(related, ctx.POSITIVE, src.CITATIONS)
+    citation_negative = _filter_related(related, ctx.NEGATIVE, src.CITATIONS)
 
     return Counts(
         y_pred=item.paper.y_pred,
         y_true=item.paper.y_true,
-        related=len(item.related),
+        related=len(related),
         semantic=semantic_positive + semantic_negative,
         citation=citation_positive + citation_negative,
         semantic_positive=semantic_positive,

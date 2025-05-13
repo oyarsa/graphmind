@@ -30,7 +30,9 @@ class GraphResult(Immutable, PaperProxy[PaperResult]):
 
     graph: Graph
     paper: PaperResult
-    related: Sequence[PaperRelatedSummarised]
+    # TODO: Make this required once enough time has passed that we don't have old files
+    # anymore.
+    related: Sequence[PaperRelatedSummarised] | None = None
 
 
 class ExtractedGraph(Immutable, PaperProxy[PaperWithRelatedSummary]):
