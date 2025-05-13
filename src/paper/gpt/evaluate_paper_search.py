@@ -23,7 +23,10 @@ import dotenv
 import typer
 from tqdm import tqdm
 
-from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
+from paper.evaluation_metrics import (
+    calculate_paper_metrics,
+    display_regular_negative_macro_metrics,
+)
 from paper.gpt.evaluate_paper import GPTFull, PaperResult, fix_evaluated_rating
 from paper.gpt.model import (
     PaperWithRelatedSummary,
@@ -217,11 +220,11 @@ async def evaluate_papers(
     results_all = seqcat(papers_remaining.done, results.result)
 
     results_items = list(PromptResult.unwrap(results_all))
-    metrics = calculate_paper_metrics(results_items)
-    logger.info("%s\n", display_metrics(metrics, results_items))
+
+    logger.info("Metrics\n%s", display_regular_negative_macro_metrics(results_items))
 
     save_data(output_dir / "result.json", results_all)
-    save_data(output_dir / "metrics.json", metrics)
+    save_data(output_dir / "metrics.json", calculate_paper_metrics(results_items))
     save_data(output_dir / "params.json", params)
 
     if len(results_all) != len(papers):
