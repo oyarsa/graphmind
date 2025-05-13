@@ -35,7 +35,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         processed,
         info_main_dir,
         "--limit",
-        "1",
+        "10",
     )
     info_main = info_main_dir / "final.json"
     assertpath(info_main)
