@@ -227,7 +227,8 @@ def get_full_type_name[T](type_: type[T]) -> str:
         type_ = origin
 
     # Try to find the original module
-    for module_name, module in sys.modules.items():
+    modules = sys.modules.copy()
+    for module_name, module in modules.items():
         if hasattr(module, type_.__name__):
             obj = getattr(module, type_.__name__)
             if obj is type_:
