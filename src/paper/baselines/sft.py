@@ -721,7 +721,7 @@ def save_model(
 
 
 class PaperEvaluated(Immutable):
-    """Paper evalulated using an SFT model."""
+    """Paper evaluated using an SFT model."""
 
     y_true: int
     y_pred: int
