@@ -35,6 +35,10 @@ class Record(BaseModel, ABC):
         """Unique identification for the object."""
 
 
+class SerdeError(Exception):
+    """Exceptions raised when loading/saving objects."""
+
+
 def save_data_jsonl(
     file: Path, data: BaseModel | Sequence[BaseModel], mode: Literal["w", "a"] = "a"
 ) -> None:
@@ -90,18 +94,18 @@ def load_data_jsonl[T: BaseModel](file: Path, type_: type[T]) -> list[T]:
 
         if errors and not result:
             # If all lines failed validation, raise an error
-            raise ValidationError(  # noqa: TRY301
+            raise SerdeError(
                 f"All lines in {file} failed validation for {get_full_type_name(type_)}. "
                 f"First few errors: {'; '.join(errors[:3])}"
             )
 
     except ValidationError as e:
-        raise ValidationError(
+        raise SerdeError(
             f"Data from {file} is not valid for {get_full_type_name(type_)}"
         ) from e
     except json.JSONDecodeError as e:
         line_num = e.lineno if hasattr(e, "lineno") else "unknown"
-        raise ValueError(f"Invalid JSON at line {line_num} in {file}: {e}") from e
+        raise SerdeError(f"Invalid JSON at line {line_num} in {file}: {e}") from e
     else:
         return result
 
@@ -135,7 +139,7 @@ def load_data[T: BaseModel](
         ).validate_json(content)
     except ValidationError:
         source = file if isinstance(file, Path) else "bytes"
-        raise TypeError(
+        raise SerdeError(
             f"Data from {source} is not valid for {get_full_type_name(type_)}"
         ) from None
 
@@ -164,7 +168,7 @@ def load_data_single[T: BaseModel](file: Path | bytes, type_: type[T]) -> T:
         return type_.model_validate_json(content)
     except ValidationError:
         source = file if isinstance(file, Path) else "bytes"
-        raise TypeError(
+        raise SerdeError(
             f"Data from {source} is not valid for {get_full_type_name(type_)}"
         ) from None
 
@@ -183,9 +187,12 @@ def save_data[T: BaseModel](
         data: The data to be saved. If it's a sequence, it must be non-empty.
         use_alias: If True, the output object keys will use the field alias, not the
             actual field name.
+
+    Raises:
+        SerdeError: if `data` is empty.
     """
     if not data:
-        raise ValueError("Cannot save empty data")
+        raise SerdeError("Cannot save empty data")
 
     file.parent.mkdir(parents=True, exist_ok=True)
     file.write_text(_dump_data_to_json(data, use_alias=use_alias))
