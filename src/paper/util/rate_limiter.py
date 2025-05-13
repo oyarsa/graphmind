@@ -11,6 +11,7 @@ from typing import Any, TypedDict
 import tiktoken
 from google.genai.types import GenerateContentResponse  # type: ignore
 from openai.types.chat import ChatCompletion
+import uuid
 
 _TOKENIZER = tiktoken.get_encoding("cl100k_base")
 
@@ -149,7 +150,7 @@ class ChatRateLimiter:
             raise ValueError("Either messages or contents need to be passed to limiter")
 
         estimated_tokens = _count_tokens(messages, **kwargs)
-        request_id = id(object())  # Generate a unique ID
+        request_id = uuid.uuid4().int
 
         # Wait until there's capacity
         while True:
