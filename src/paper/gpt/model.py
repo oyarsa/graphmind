@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 import paper.semantic_scholar as s2
 from paper import hierarchical_graph
 from paper import peerread as pr
+from paper.types import PaperProxy
 from paper.util import (
     fix_spaces_before_punctuation,
     format_numbered_list,
@@ -752,7 +753,7 @@ class PaperAnnotated(Record):
         return self.paper.abstract or "<unknown>"
 
 
-class PeerReadAnnotated(Record):
+class PeerReadAnnotated(Record, PaperProxy[s2.PaperWithS2Refs]):
     """PeerRead Paper with its annotated key terms. Includes GPT prompts used."""
 
     terms: PaperTerms
@@ -769,54 +770,8 @@ class PeerReadAnnotated(Record):
         """Get unique target terms (tasks) from the paper."""
         return sorted(set(self.terms.tasks))
 
-    @property
-    def title(self) -> str:
-        """Title of the underlying paper."""
-        return self.paper.title
 
-    @property
-    def abstract(self) -> str:
-        """Abstract of the underlying paper."""
-        return self.paper.abstract
-
-    @property
-    def rating(self) -> int:
-        """Novelty rating of the underlying paper."""
-        return self.paper.rating
-
-    @property
-    def label(self) -> int:
-        """Novelty label of the underlying paper."""
-        return self.paper.label
-
-    # Add properties for: rationale, approval, conference, year and sections.
-    @property
-    def rationale(self) -> str:
-        """Rationale of the underlying paper."""
-        return self.paper.rationale
-
-    @property
-    def approval(self) -> bool | None:
-        """Approval of the underlying paper."""
-        return self.paper.approval
-
-    @property
-    def conference(self) -> str:
-        """Conference of the underlying paper."""
-        return self.paper.conference
-
-    @property
-    def year(self) -> int | None:
-        """Year of the underlying paper."""
-        return self.paper.year
-
-    @property
-    def sections(self) -> Sequence[pr.PaperSection]:
-        """Sections of the underlying paper."""
-        return self.paper.sections
-
-
-class PaperWithRelatedSummary(Record):
+class PaperWithRelatedSummary(Record, PaperProxy[PeerReadAnnotated]):
     """PeerRead paper with its related papers formatted as prompt input."""
 
     paper: PeerReadAnnotated
@@ -826,52 +781,6 @@ class PaperWithRelatedSummary(Record):
     def id(self) -> str:
         """Identify graph result as the underlying paper's ID."""
         return self.paper.id
-
-    @property
-    def title(self) -> str:
-        """Title of the underlying paper."""
-        return self.paper.title
-
-    @property
-    def abstract(self) -> str:
-        """Abstract of the underlying paper."""
-        return self.paper.abstract
-
-    @property
-    def rating(self) -> int:
-        """Novelty rating of the underlying paper."""
-        return self.paper.rating
-
-    @property
-    def label(self) -> int:
-        """Novelty label of the underlying paper."""
-        return self.paper.label
-
-    # Add properties for: rationale, approval, conference, year and sections.
-    @property
-    def rationale(self) -> str:
-        """Rationale of the underlying paper."""
-        return self.paper.rationale
-
-    @property
-    def approval(self) -> bool | None:
-        """Approval of the underlying paper."""
-        return self.paper.approval
-
-    @property
-    def conference(self) -> str:
-        """Conference of the underlying paper."""
-        return self.paper.conference
-
-    @property
-    def year(self) -> int | None:
-        """Year of the underlying paper."""
-        return self.paper.year
-
-    @property
-    def sections(self) -> Sequence[pr.PaperSection]:
-        """Sections of the underlying paper."""
-        return self.paper.sections
 
 
 class RelatedPaperSource(StrEnum):
