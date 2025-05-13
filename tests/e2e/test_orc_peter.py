@@ -247,7 +247,7 @@ def test_orc_peter_pipeline(tmp_path: Path) -> None:
                 "gpt",
                 "acus",
                 "run",
-                "--related",
+                "--input",
                 orc_related,
                 "--output",
                 acu_s2_dir,
@@ -261,7 +261,7 @@ def test_orc_peter_pipeline(tmp_path: Path) -> None:
                 "gpt",
                 "acus",
                 "run",
-                "--related",
+                "--input",
                 orc_with_ref,
                 "--output",
                 acu_orc_dir,
@@ -272,7 +272,7 @@ def test_orc_peter_pipeline(tmp_path: Path) -> None:
             ),
         ]
     )
-    acu_s2 = acu_s2_dir / "results.json"
-    acu_orc = acu_orc_dir / "results.json"
+    acu_s2 = acu_s2_dir / "result.json"
+    acu_orc = acu_orc_dir / "result.json"
     assertpath(acu_s2)
     assertpath(acu_orc)

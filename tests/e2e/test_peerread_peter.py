@@ -239,7 +239,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
                 "gpt",
                 "acus",
                 "run",
-                "--related",
+                "--input",
                 peer_related,
                 "--output",
                 acu_s2_dir,
@@ -253,7 +253,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
                 "gpt",
                 "acus",
                 "run",
-                "--related",
+                "--input",
                 peer_with_ref,
                 "--output",
                 acu_peerread_dir,
@@ -264,7 +264,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
             ),
         ]
     )
-    acu_s2 = acu_s2_dir / "results.json"
-    acu_peerread = acu_peerread_dir / "results.json"
+    acu_s2 = acu_s2_dir / "result.json"
+    acu_peerread = acu_peerread_dir / "result.json"
     assertpath(acu_s2)
     assertpath(acu_peerread)
