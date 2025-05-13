@@ -28,8 +28,9 @@ import typer
 
 from paper import peerread as pr
 from paper import semantic_scholar as s2
+from paper.types import Identifiable
 from paper.util import get_params, render_params, sample
-from paper.util.serde import Record, load_data, save_data
+from paper.util.serde import load_data, save_data
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -193,7 +194,7 @@ def _unique_peerread_refs(
     return ref_papers
 
 
-def _dedup_related[T: Record](papers: Sequence[T]) -> Sequence[T]:
+def _dedup_related[T: Identifiable](papers: Sequence[T]) -> Sequence[T]:
     """Deduplicate related papers by their respective IDs.
 
     It doesn't really care about the concrete type of the paper as long as it has an `id`

@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import override
 
 from pydantic import BaseModel, ConfigDict
 
@@ -22,35 +21,25 @@ from paper.gpt.model import (
     Prompt,
     PromptResult,
 )
-from paper.types import PaperProxy
-from paper.util.serde import Record, save_data
+from paper.types import Immutable, PaperProxy
+from paper.util.serde import save_data
 
 logger = logging.getLogger(__name__)
 
 
-class GraphResult(Record, PaperProxy[PaperResult]):
+class GraphResult(Immutable, PaperProxy[PaperResult]):
     """Extracted graph and paper evaluation results."""
 
     graph: Graph
     paper: PaperResult
     related: Sequence[PaperRelatedSummarised]
 
-    @property
-    @override
-    def id(self) -> str:
-        return self.paper.id
 
-
-class ExtractedGraph(Record):
+class ExtractedGraph(Immutable, PaperProxy[PaperWithRelatedSummary]):
     """Extracted graph with the original paper."""
 
     graph: Graph
     paper: PaperWithRelatedSummary
-
-    @property
-    @override
-    def id(self) -> str:
-        return self.paper.id
 
 
 def save_graphs(

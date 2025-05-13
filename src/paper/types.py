@@ -3,11 +3,19 @@
 from collections.abc import Sequence
 from typing import Protocol
 
+from openai import BaseModel
+from pydantic import ConfigDict
+
 from paper import peerread as pr
 
 
 class PaperProtocol(Protocol):
     """Protocol defining the required interface for paper objects."""
+
+    @property
+    def id(self) -> str:
+        """Paper ID."""
+        ...
 
     @property
     def title(self) -> str:
@@ -61,6 +69,11 @@ class PaperProxy[P: PaperProtocol]:
     paper: P
 
     @property
+    def id(self) -> str:
+        """ID of the underlying paper."""
+        return self.paper.id
+
+    @property
     def title(self) -> str:
         """Title of the underlying paper."""
         return self.paper.title
@@ -104,3 +117,18 @@ class PaperProxy[P: PaperProtocol]:
     def sections(self) -> Sequence[pr.PaperSection]:
         """Sections of the underlying paper."""
         return self.paper.sections
+
+
+class Identifiable(Protocol):
+    """Type with a unique ID."""
+
+    @property
+    def id(self) -> str:
+        """Unique identification for the object."""
+        ...
+
+
+class Immutable(BaseModel):
+    """Immutable BaseModel."""
+
+    model_config = ConfigDict(frozen=True)

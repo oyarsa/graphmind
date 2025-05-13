@@ -13,19 +13,15 @@ from typing import Protocol, Self
 from pydantic import BaseModel, ConfigDict
 
 from paper import gpt
+from paper.types import Immutable, PaperProxy
 from paper.util.serde import Record
 
 
-class PaperResult(Record):
+class PaperResult(Immutable, PaperProxy[gpt.PeerReadAnnotated]):
     """PeerRead paper with its related papers queried from the PETER graph."""
 
     paper: gpt.PeerReadAnnotated
     results: QueryResult
-
-    @property
-    def id(self) -> str:
-        """Identify graph result as the underlying paper's ID."""
-        return self.paper.id
 
 
 class QueryResult(BaseModel):

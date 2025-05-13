@@ -21,9 +21,10 @@ from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
 
 from paper.gpt.model import PromptResult
+from paper.types import Identifiable
 from paper.util import ensure_envvar, log_memory_usage, mustenv
 from paper.util.rate_limiter import ChatRateLimiter
-from paper.util.serde import Record, load_data_jsonl, save_data_jsonl
+from paper.util.serde import load_data_jsonl, save_data_jsonl
 
 logger = logging.getLogger(__name__)
 
@@ -1079,7 +1080,7 @@ class RemainingItems[T, U]:
     done: Sequence[T]
 
 
-def init_remaining_items[T: Record, U: Record](
+def init_remaining_items[T: Identifiable, U: Identifiable](
     continue_type_: type[T],
     output_dir: Path,
     continue_papers_file: Path | None,
@@ -1131,7 +1132,7 @@ def init_remaining_items[T: Record, U: Record](
     return output_intermediate_file, papers_remaining
 
 
-def get_remaining_items[T: Record, U: Record](
+def get_remaining_items[T: Identifiable, U: Identifiable](
     continue_type_: type[T],
     output_intermediate_file: Path,
     continue_papers_file: Path | None,
