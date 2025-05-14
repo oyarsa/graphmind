@@ -169,20 +169,13 @@ def run(
     model_names: list[str] = []
 
     for input_str in inputs:
-        match input_str.split(":", maxsplit=2):
-            case [file_path_, file_type_, model_name]:
-                file_path = Path(file_path_)
-                file_type = InputFileType.from_dirty(file_type_)
-            case [file_path_, file_type_]:
-                file_path = Path(file_path_)
-                file_type = InputFileType.from_dirty(file_type_)
-                model_name = file_path.parent.name
-            case [file_path_]:
-                file_path = Path(file_path_)
-                file_type = InputFileType.GRAPH
-                model_name = file_path.parent.name
-            case _:
-                raise ValueError("Invalid input string format.")
+        parts = input_str.split(":", maxsplit=2)
+        if len(parts) != 3:
+            raise ValueError("Invalid input string format. Must be path:type:name.")
+
+        file_path = Path(parts[0])
+        file_type = InputFileType.from_dirty(parts[1])
+        model_name = parts[2]
 
         parsed_inputs.append((file_path, file_type))
         model_names.append(model_name)
