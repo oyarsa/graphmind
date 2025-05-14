@@ -374,22 +374,20 @@ def count_head_to_head(
 
 
 def display_head_to_head(
-    comparison_results: Collection[ComparisonResult],
     item_names: Sequence[str],
     metrics: Sequence[str],
+    h2h_by_metric: dict[str, dict[tuple[str, str], tuple[int, int, int]]],
 ) -> str:
     """Display head-to-head comparison results as a table.
 
     Args:
-        comparison_results: All comparison results.
         item_names: Names of all items being compared.
         metrics: Metrics used for evaluation.
+        h2h_by_metric: Mapping of metric to players head-to-head records.
 
     Returns:
         String representation of the head-to-head table.
     """
-    h2h_by_metric = count_head_to_head(comparison_results, item_names, metrics)
-
     # Create tables for each metric
     tables: list[str] = []
 

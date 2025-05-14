@@ -28,6 +28,7 @@ from paper.gpt.evaluate_tournament.elo import (
 from paper.gpt.evaluate_tournament.tournament import (
     TOURNAMENT_METRICS,
     InputFileType,
+    count_head_to_head,
     display_head_to_head,
     display_tournament_results,
     tournament_summary,
@@ -271,7 +272,8 @@ async def run_tournaments(
     comparisons = PromptResult.unwrap(raw_comparisons.result.comparisons)
 
     if show_head_to_head:
-        logger.info("\n%s", display_head_to_head(comparisons, model_names, metrics))
+        head_to_head = count_head_to_head(comparisons, model_names, metrics)
+        logger.info("\n%s", display_head_to_head(model_names, metrics, head_to_head))
 
     # Calculate rankings using the selected algorithm and report results
     with Timer() as ranking_timer:

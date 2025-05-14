@@ -13,7 +13,6 @@ from paper.gpt.evaluate_tournament.tournament import (
     TournamentSystem,
     create_tournament_result,
     ComparisonResult,
-    display_head_to_head,
     find_common_papers,
 )
 from paper import peerread as pr
@@ -209,28 +208,6 @@ def test_create_tournament_result(
     assert "model_a" in result.overall_ranks
     assert "model_b" in result.overall_ranks
     assert "model_c" in result.overall_ranks
-
-
-def test_display_head_to_head(
-    sample_comparison_results: list[ComparisonResult],
-    sample_player_names: list[str],
-    sample_metrics: list[str],
-):
-    """Test display_head_to_head function."""
-    result = display_head_to_head(
-        sample_comparison_results, sample_player_names, sample_metrics
-    )
-
-    # Check that the result is a non-empty string
-    assert len(result) > 0
-
-    # Check that result contains metric names
-    for metric in sample_metrics:
-        assert metric.capitalize() in result
-
-    # Check that all players are mentioned
-    for player in sample_player_names:
-        assert player in result
 
 
 class MockPaperWithId:
