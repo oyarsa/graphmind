@@ -64,7 +64,6 @@ from paper.gpt.run_gpt import (
 )
 from paper.util import (
     Timer,
-    await_and_call_async,
     cli,
     get_params,
     progress,
@@ -345,28 +344,28 @@ async def _evaluate_papers(
     Returns:
         List of evaluated papers and their prompts wrapped in a GPTResult.
     """
+
+    async def evaluate(
+        paper: PaperWithRelatedSummary,
+    ) -> GPTResult[PromptResult[GraphResult]]:
+        result = await _evaluate_paper(
+            client,
+            paper,
+            eval_prompt,
+            graph_prompt,
+            demonstrations,
+            linearisation_method,
+            sources,
+        )
+        await append_intermediate_result_async(output_intermediate_file, result.result)
+        return result
+
     graph_results: list[GPTResult[PromptResult[GraphResult]]] = []
     with tqdm(
         total=len(papers), desc="Evaluating papers", position=0, leave=True
     ) as pbar_papers:
         for batch in itertools.batched(papers, batch_size):
-            tasks = [
-                await_and_call_async(
-                    _evaluate_paper(
-                        client,
-                        paper,
-                        eval_prompt,
-                        graph_prompt,
-                        demonstrations,
-                        linearisation_method,
-                        sources,
-                    ),
-                    lambda result: append_intermediate_result_async(
-                        output_intermediate_file, result.result
-                    ),
-                )
-                for paper in batch
-            ]
+            tasks = [evaluate(paper) for paper in batch]
             graph_results.extend(
                 await progress.gather(
                     tasks,
