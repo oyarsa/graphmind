@@ -15,7 +15,6 @@ from enum import StrEnum
 from typing import Self
 
 from rich import box
-from rich.box import Box
 from rich.table import Table
 
 from paper import peerread as pr
@@ -343,10 +342,6 @@ def display_head_to_head(
     Returns:
         String representation of the head-to-head table.
     """
-    match_results_by_metric = {
-        comp.metric: {(comp.paper.id, comp.item_a, comp.item_b): comp.result}
-        for comp in comparison_results
-    }
 
     # Format {metric: {(player_a, player_b): (wins, ties, losses)}}
     h2h_by_metric = {
@@ -354,29 +349,32 @@ def display_head_to_head(
         for metric in metrics
     }
 
-    # Count wins/losses/ties from direct matchups properly
-    for metric, results in match_results_by_metric.items():
-        for (_, player_a, player_b), result in results.items():
-            # Handle for player A perspective (row player)
-            wins_a, ties_a, losses_a = h2h_by_metric[metric][player_a, player_b]
+    for comp in comparison_results:
+        wins_a, ties_a, losses_a = h2h_by_metric[comp.metric][comp.item_a, comp.item_b]
+        wins_b, ties_b, losses_b = h2h_by_metric[comp.metric][comp.item_b, comp.item_a]
 
-            # Handle for player B perspective (row player in different row)
-            wins_b, ties_b, losses_b = h2h_by_metric[metric][player_b, player_a]
+        match comp.result.winner:
+            case MatchWinner.A:
+                wins_a += 1
+                losses_b += 1
+            case MatchWinner.B:
+                wins_b += 1
+                losses_a += 1
+                pass
+            case MatchWinner.TIE:
+                ties_a += 1
+                ties_b += 1
 
-            match result.winner:
-                case MatchWinner.A:
-                    wins_a += 1
-                    losses_b += 1
-                case MatchWinner.B:
-                    losses_a += 1
-                    wins_b += 1
-                case MatchWinner.TIE:
-                    ties_a += 1
-                    ties_b += 1
-
-            # Update both perspectives
-            h2h_by_metric[metric][player_a, player_b] = (wins_a, ties_a, losses_a)
-            h2h_by_metric[metric][player_b, player_a] = (wins_b, ties_b, losses_b)
+        h2h_by_metric[comp.metric][comp.item_a, comp.item_b] = (
+            wins_a,
+            ties_a,
+            losses_a,
+        )
+        h2h_by_metric[comp.metric][comp.item_b, comp.item_a] = (
+            wins_b,
+            ties_b,
+            losses_b,
+        )
 
     # Create tables for each metric
     tables: list[str] = []
