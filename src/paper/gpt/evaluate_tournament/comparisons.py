@@ -275,6 +275,16 @@ def _all_pairings[T](xs: Iterable[T]) -> list[tuple[T, T]]:
     return list(itertools.permutations(xs, 2))
 
 
+def _remove_empty_rationales(
+    papers: Iterable[PaperEvaluationInput],
+) -> list[PaperEvaluationInput]:
+    """Remove papers whose evaluation rationale is empty.
+
+    See also `get_rationale_eval` for how the rationale is obtained.
+    """
+    return [paper for paper in papers if get_rationale_eval(paper)]
+
+
 def _load_evaluation_input(
     file_path: Path, file_type: InputFileType
 ) -> Sequence[PaperEvaluationInput]:
@@ -345,7 +355,8 @@ async def generate_new_comparisons(
         ValueError if there are no common papers to compare.
     """
     paper_collections = [
-        _load_evaluation_input(file_path, file_type) for file_path, file_type in inputs
+        _remove_empty_rationales(_load_evaluation_input(file_path, file_type))
+        for file_path, file_type in inputs
     ]
     common_papers = find_common_papers(paper_collections)
 
