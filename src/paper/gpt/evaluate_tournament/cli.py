@@ -292,7 +292,12 @@ async def run_tournaments(
 
     if show_head_to_head:
         head_to_head = count_head_to_head(comparisons, model_names, metrics)
-        logger.info("\n%s", display_head_to_head(model_names, metrics, head_to_head))
+        logger.info(
+            "\n%s",
+            display_head_to_head(
+                model_names, metrics, head_to_head, markdown=markdown_table
+            ),
+        )
 
     # Calculate rankings using the selected algorithm and report results
     with Timer() as ranking_timer:

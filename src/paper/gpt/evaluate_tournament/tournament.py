@@ -377,6 +377,7 @@ def display_head_to_head(
     item_names: Sequence[str],
     metrics: Sequence[str],
     h2h_by_metric: dict[str, dict[tuple[str, str], tuple[int, int, int]]],
+    markdown: bool = False,
 ) -> str:
     """Display head-to-head comparison results as a table.
 
@@ -384,6 +385,8 @@ def display_head_to_head(
         item_names: Names of all items being compared.
         metrics: Metrics used for evaluation.
         h2h_by_metric: Mapping of metric to players head-to-head records.
+        markdown: If True, format tables as Markdown. Otherwise, use a nice output
+            format.
 
     Returns:
         String representation of the head-to-head table.
@@ -392,7 +395,10 @@ def display_head_to_head(
     tables: list[str] = []
 
     for metric in metrics:
-        table = Table(title=f"Head-to-Head Results: {metric.capitalize()}")
+        table = Table(
+            title=f"Head-to-Head Results: {metric.capitalize()}",
+            box=box.MARKDOWN if markdown else box.HEAVY_HEAD,
+        )
 
         table.add_column("Player", style="cyan")
         for name in item_names:
