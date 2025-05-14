@@ -170,3 +170,5 @@ tmp
 *.sqlite*
 archive/
 docs/
+
+**/.claude/settings.local.json
