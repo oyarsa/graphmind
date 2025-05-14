@@ -278,7 +278,9 @@ def display_tournament_results(
     results: TournamentSummary, markdown: bool = False
 ) -> str:
     """Format tournament results for display."""
-    table = Table(title="Tournament Rankings", box=box.MARKDOWN if markdown else None)
+    table = Table(
+        title="Tournament Rankings", box=box.MARKDOWN if markdown else box.HEAVY_HEAD
+    )
 
     table.add_column("Rank", style="cyan", justify="right")
     table.add_column("Item", style="green")
