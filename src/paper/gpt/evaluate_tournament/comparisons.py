@@ -110,9 +110,53 @@ async def _compare_rationales(
     )
 
 
+@dataclass(frozen=True, kw_only=True)
+class ComparisonSpec:
+    """Specification for comparison task."""
+
+    item_a: str
+    item_b: str
+    paper_id: str
+    metric: str
+    paper: PaperEvaluationInput
+    rationale_a: str
+    rationale_b: str
+
+
+def get_comparisons_specs(
+    paper_ids: Collection[str],
+    common_papers: Mapping[str, Sequence[PaperEvaluationInput]],
+    item_names: Sequence[str],
+    metrics: Collection[str],
+    item_indices_pairs: Collection[tuple[int, int]],
+) -> list[ComparisonSpec]:
+    """Create the specifications for all comparisons to be made."""
+    comparison_specs: list[ComparisonSpec] = []
+
+    for paper_id in paper_ids:
+        papers = common_papers[paper_id]
+        paper = papers[0]
+
+        for metric in metrics:
+            for i, j in item_indices_pairs:
+                comparison_specs.append(
+                    ComparisonSpec(
+                        item_a=item_names[i],
+                        item_b=item_names[j],
+                        paper_id=paper_id,
+                        metric=metric,
+                        paper=paper,
+                        rationale_a=get_rationale_eval(papers[i]),
+                        rationale_b=get_rationale_eval(papers[j]),
+                    )
+                )
+
+    return comparison_specs
+
+
 async def _run_all_comparisons(
     client: LLMClient,
-    common_papers: Mapping[str, list[PaperEvaluationInput]],
+    common_papers: Mapping[str, Sequence[PaperEvaluationInput]],
     metrics: Collection[str],
     item_names: Sequence[str],
     item_indices_pairs: Collection[tuple[int, int]],
@@ -144,39 +188,9 @@ async def _run_all_comparisons(
         total_comparisons,
     )
 
-    @dataclass(frozen=True, kw_only=True)
-    class ComparisonSpec:
-        """Specification for comparison task."""
-
-        item_a: str
-        item_b: str
-        paper_id: str
-        metric: str
-        paper: PaperEvaluationInput
-        rationale_a: str
-        rationale_b: str
-        prompt: PromptTemplate
-
-    comparison_specs: list[ComparisonSpec] = []
-
-    for paper_id in paper_ids:
-        papers = common_papers[paper_id]
-        paper = papers[0]
-
-        for metric in metrics:
-            for i, j in item_indices_pairs:
-                comparison_specs.append(
-                    ComparisonSpec(
-                        item_a=item_names[i],
-                        item_b=item_names[j],
-                        paper_id=paper_id,
-                        metric=metric,
-                        paper=paper,
-                        rationale_a=get_rationale_eval(papers[i]),
-                        rationale_b=get_rationale_eval(papers[j]),
-                        prompt=prompt,
-                    )
-                )
+    comparison_specs = get_comparisons_specs(
+        paper_ids, common_papers, item_names, metrics, item_indices_pairs
+    )
 
     comparison_results: list[
         GPTResult[PromptResult[tuple[ComparisonSpec, MatchResult]]]
@@ -196,7 +210,7 @@ async def _run_all_comparisons(
                     spec.rationale_a,
                     spec.rationale_b,
                     spec.metric,
-                    spec.prompt,
+                    prompt,
                     metric_definitions,
                 )
                 for spec in batch_specs
