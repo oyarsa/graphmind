@@ -148,10 +148,23 @@ def run(
 ) -> None:
     """Run a pairwise tournament between multiple models.
 
+    The inputs are given in the `path:type:name` format. The valid types are:
+        - raw: `peerread.Paper` from the original dataset
+        - graph: `PromptResult[GraphResult]` from `gpt.evaluate_paper_graph`
+        - paper: `PromptResult[PaperResult]` from `gpt.evaluate_paper_scimon`
+        - summ: `PromptResult[PaperWithRelatedSummary]` from `gpt.summarise_related_peter.py`
+
+    Examples:
+        - full-graph/result.json:graph:GraphMind
+        - sans/result.json:graph:Basic
+        - scimon/scimon-simple/result.json:paper:Scimon
+        - orc_merged.json:raw:Human-ORC
+        - split/test.json:summ:Human-Test
+
     The tournament can use different ranking algorithms:
     - elo: Standard Elo rating system with a single ordering
     - melo: Multiple Elo tournaments with different random orderings. Set the number of
-      trials with '--melo-trials'.
+      trials with --melo-trials.
     - bradley_terry: Bradley-Terry model using maximum likelihood estimation to compute
       player strengths based on all match outcomes. Unlike Elo, this is not order-dependent
       and uses a global optimization approach.
