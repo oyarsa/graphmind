@@ -8,6 +8,7 @@ SciMON graph created by `scimon.build`.
 from __future__ import annotations
 
 import asyncio
+import itertools
 import logging
 import random
 from collections.abc import Iterable, Sequence
@@ -16,6 +17,7 @@ from typing import Annotated
 
 import dotenv
 import typer
+from tqdm import tqdm
 
 from paper.baselines import scimon
 from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
@@ -32,20 +34,20 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    OpenAIClient,
-    append_intermediate_result,
+    LLMClient,
+    append_intermediate_result_async,
     get_remaining_items,
+    gpt_sequence,
 )
 from paper.util import (
     Timer,
     cli,
-    ensure_envvar,
     get_params,
     progress,
     render_params,
+    sample,
     seqcat,
     setup_logging,
-    shuffled,
 )
 from paper.util.serde import load_data, save_data
 
@@ -64,10 +66,10 @@ app = typer.Typer(
 
 @app.command(help=__doc__, no_args_is_help=True)
 def run(
-    ann_graph_file: Annotated[
+    papers_file: Annotated[
         Path,
         typer.Option(
-            "--ann-graph",
+            "--papers",
             help="JSON file containing the annotated PeerRead papers with graph results.",
         ),
     ],
@@ -112,12 +114,15 @@ def run(
             click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "abstract",
+    batch_size: Annotated[
+        int, typer.Option(help="Number of requests per batch.")
+    ] = 100,
 ) -> None:
     """Evaluate a paper's novelty based on SciMON graph-extracted terms."""
     asyncio.run(
         evaluate_papers(
             model,
-            ann_graph_file,
+            papers_file,
             limit_papers,
             user_prompt,
             output_dir,
@@ -126,6 +131,7 @@ def run(
             seed,
             demos,
             demo_prompt,
+            batch_size,
         )
     )
 
@@ -138,7 +144,7 @@ def main() -> None:
 
 async def evaluate_papers(
     model: str,
-    ann_graph_file: Path,
+    papers_file: Path,
     limit_papers: int | None,
     user_prompt_key: str,
     output_dir: Path,
@@ -147,6 +153,7 @@ async def evaluate_papers(
     seed: int,
     demonstrations_key: str | None,
     demo_prompt_key: str,
+    batch_size: int,
 ) -> None:
     """Evaluate a paper's novelty based on SciMON graph-extracted terms.
 
@@ -154,7 +161,7 @@ async def evaluate_papers(
 
     Args:
         model: GPT model code. Must support Structured Outputs.
-        ann_graph_file: Path to the JSON file containing the annotated papers with their
+        papers_file: Path to the JSON file containing the annotated papers with their
             graph data.
         limit_papers: Number of papers to process. Defaults to 1 example. If None,
             process all.
@@ -176,6 +183,7 @@ async def evaluate_papers(
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
             available options or `list_prompts` for more.
+        batch_size: Size of the batch to use for classification.
 
     Returns:
         None. The output is saved to `output_dir`.
@@ -194,13 +202,9 @@ async def evaluate_papers(
     if limit_papers == 0:
         limit_papers = None
 
-    client = OpenAIClient(
-        api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
-    )
+    client = LLMClient.new_env(model=model, seed=seed)
 
-    papers = shuffled(load_data(ann_graph_file, scimon.AnnotatedGraphResult))[
-        :limit_papers
-    ]
+    papers = sample(load_data(papers_file, scimon.AnnotatedGraphResult), limit_papers)
 
     user_prompt = SCIMON_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
@@ -229,6 +233,7 @@ async def evaluate_papers(
             papers_remaining.remaining,
             output_intermediate_file,
             demonstrations,
+            batch_size,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -248,40 +253,52 @@ async def evaluate_papers(
 
 
 async def _classify_papers(
-    client: OpenAIClient,
+    client: LLMClient,
     user_prompt: PromptTemplate,
-    ann_graphs: Sequence[scimon.AnnotatedGraphResult],
+    papers: Sequence[scimon.AnnotatedGraphResult],
     output_intermediate_file: Path,
     demonstrations: str,
-) -> GPTResult[list[PromptResult[PaperResult]]]:
+    batch_size: int,
+) -> GPTResult[Sequence[PromptResult[PaperResult]]]:
     """Classify Papers into approved/not approved using the paper main text.
 
     Args:
         client: OpenAI client to use GPT.
         user_prompt: User prompt template to use for classification to be filled.
-        ann_graphs: Annotated PeerRead papers with their graph data.
+        papers: Annotated PeerRead papers with their graph data.
         output_intermediate_file: File to write new results after each task is completed.
         demonstrations: Text of demonstrations for few-shot prompting.
+        batch_size: Size of request batches.
 
     Returns:
         List of classified papers and their prompts wrapped in a GPTResult.
     """
-    results: list[PromptResult[PaperResult]] = []
-    total_cost = 0
 
-    tasks = [
-        _classify_paper(client, ann_graph, user_prompt, demonstrations)
-        for ann_graph in ann_graphs
-    ]
+    async def evaluate(
+        paper: scimon.AnnotatedGraphResult,
+    ) -> GPTResult[PromptResult[PaperResult]]:
+        result = await _classify_paper(client, paper, user_prompt, demonstrations)
+        await append_intermediate_result_async(output_intermediate_file, result.result)
+        return result
 
-    for task in progress.as_completed(tasks, desc="Classifying papers"):
-        result = await task
-        total_cost += result.cost
+    results: list[GPTResult[PromptResult[PaperResult]]] = []
+    with tqdm(
+        total=len(papers), desc="Evaluating papers", position=0, leave=True
+    ) as pbar_papers:
+        for batch in itertools.batched(papers, batch_size):
+            tasks = [evaluate(paper) for paper in batch]
+            results.extend(
+                await progress.gather(
+                    tasks,
+                    desc="Evaluating batch",
+                    position=1,
+                    leave=False,
+                )
+            )
 
-        results.append(result.result)
-        append_intermediate_result(output_intermediate_file, result.result)
+            pbar_papers.update(len(batch))
 
-    return GPTResult(result=results, cost=total_cost)
+    return gpt_sequence(results)
 
 
 _SCIMON_CLASSIFY_SYSTEM_PROMPT = """\
@@ -291,21 +308,21 @@ submitted to a high-quality scientific conference.
 
 
 async def _classify_paper(
-    client: OpenAIClient,
-    ann_result: scimon.AnnotatedGraphResult,
+    client: LLMClient,
+    paper: scimon.AnnotatedGraphResult,
     user_prompt: PromptTemplate,
     demonstrations: str,
 ) -> GPTResult[PromptResult[PaperResult]]:
-    user_prompt_text = format_template(user_prompt, ann_result, demonstrations)
+    user_prompt_text = format_template(user_prompt, paper, demonstrations)
 
     result = await client.run(GPTFull, _SCIMON_CLASSIFY_SYSTEM_PROMPT, user_prompt_text)
-
-    paper = ann_result.ann.paper
     classified = fix_evaluated_rating(result.result or GPTFull.error())
 
     return GPTResult(
         result=PromptResult(
-            item=PaperResult.from_s2peer(paper, classified.label, classified.rationale),
+            item=PaperResult.from_s2peer(
+                paper.ann.paper, classified.label, classified.rationale
+            ),
             prompt=Prompt(system=_SCIMON_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
         ),
         cost=result.cost,
