@@ -22,6 +22,7 @@ from paper.gpt.evaluate_tournament.tournament import (
     MatchWinner,
     PaperEvaluationInput,
     find_common_papers,
+    get_rationale_eval,
 )
 from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate
@@ -171,8 +172,8 @@ async def _run_all_comparisons(
                         paper_id=paper_id,
                         metric=metric,
                         paper=paper,
-                        rationale_a=papers[i].rationale,
-                        rationale_b=papers[j].rationale,
+                        rationale_a=get_rationale_eval(papers[i]),
+                        rationale_b=get_rationale_eval(papers[j]),
                         prompt=prompt,
                     )
                 )
