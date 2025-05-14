@@ -1,6 +1,7 @@
 """Tests for tournament functionality in paper.gpt.evaluate_tournament.tournament."""
 
 from __future__ import annotations
+from itertools import product
 from math import isclose
 
 import pytest
@@ -14,6 +15,7 @@ from paper.gpt.evaluate_tournament.tournament import (
     create_tournament_result,
     ComparisonResult,
     find_common_papers,
+    count_head_to_head,
 )
 from paper import peerread as pr
 
@@ -318,3 +320,86 @@ class TestFindCommonPapers:
         assert len(result) == 1
         assert paper_id in result
         assert len(result[paper_id]) == 2
+
+
+def test_count_head_to_head(
+    sample_player_names: list[str],
+    sample_metrics: list[str],
+    sample_comparison_results: list[ComparisonResult],
+):
+    """Test count_head_to_head function."""
+    h2h = count_head_to_head(
+        sample_comparison_results, sample_player_names, sample_metrics
+    )
+
+    # Check structure
+    assert set(h2h.keys()) == set(sample_metrics)
+
+    for metric in sample_metrics:
+        # Each metric should have h2h data for each player pair
+        expected_pairs = {
+            (a, b) for a in sample_player_names for b in sample_player_names if a != b
+        }
+        assert set(h2h[metric].keys()) == expected_pairs
+
+        for pair in h2h[metric]:
+            player_a, player_b = pair
+            wins_a, ties_a, losses_a = h2h[metric][player_a, player_b]
+            wins_b, ties_b, losses_b = h2h[metric][player_b, player_a]
+
+            # Wins for A should equal losses for B
+            assert wins_a == losses_b
+
+            # Ties should be the same in both directions
+            assert ties_a == ties_b
+
+            # Losses for A should equal wins for B
+            assert losses_a == wins_b
+
+            # The total of wins, ties, and losses should be at most
+            # the number of comparison results for this pair
+            assert wins_a + ties_a + losses_a <= len(sample_comparison_results)
+
+
+def test_count_head_to_head_empty_results():
+    """Test count_head_to_head with empty comparison results."""
+    player_names = ["model_a", "model_b"]
+    metrics = ["clarity"]
+    empty_results: list[ComparisonResult] = []
+
+    h2h = count_head_to_head(empty_results, player_names, metrics)
+
+    # Check structure is created even with empty results
+    assert set(h2h.keys()) == set(metrics)
+
+    # All head-to-head records should be (0, 0, 0)
+    for metric, player_a, player_b in product(metrics, player_names, player_names):
+        if player_a != player_b:
+            assert h2h[metric][player_a, player_b] == (0, 0, 0)
+
+
+def test_count_head_to_head_with_ties(
+    sample_paper: pr.Paper, sample_player_names: list[str]
+):
+    """Test count_head_to_head handling of ties."""
+    # Create comparison results with ties
+    metric = "clarity"
+    player_a = sample_player_names[0]
+    player_b = sample_player_names[1]
+
+    # Create a ComparisonResult with a tie
+    tie_result = ComparisonResult(
+        paper=sample_paper,
+        item_a=player_a,
+        item_b=player_b,
+        rationale_a="Rationale for A",
+        rationale_b="Rationale for B",
+        metric=metric,
+        result=MatchResult(winner=MatchWinner.TIE, explanation="It's a tie"),
+    )
+
+    h2h = count_head_to_head([tie_result], sample_player_names, [metric])
+
+    # Check that ties are counted correctly
+    assert h2h[metric][(player_a, player_b)] == (0, 1, 0)  # wins, ties, losses
+    assert h2h[metric][(player_b, player_a)] == (0, 1, 0)  # wins, ties, losses
