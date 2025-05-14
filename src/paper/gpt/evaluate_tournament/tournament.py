@@ -22,7 +22,7 @@ from paper import peerread as pr
 from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.extract_graph import GraphResult
 from paper.gpt.model import PaperWithRelatedSummary
-from paper.types import Immutable
+from paper.types import Identifiable, Immutable
 from paper.util import render_rich
 
 logger = logging.getLogger(__name__)
@@ -150,9 +150,9 @@ def calculate_overall_ranks(
     }
 
 
-def find_common_papers(
-    paper_collections: Collection[Collection[PaperEvaluationInput]],
-) -> dict[str, list[PaperEvaluationInput]]:
+def find_common_papers[ID: Identifiable](
+    paper_collections: Collection[Collection[ID]],
+) -> dict[str, list[ID]]:
     """Find papers that exist in all collections based on ID.
 
     Args:
