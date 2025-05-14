@@ -141,6 +141,10 @@ def run(
         bool,
         typer.Option("--markdown", help="Show tournament results table as Markdown."),
     ] = False,
+    save_comparisons: Annotated[
+        bool,
+        typer.Option("--save/--no-save", help="Save comparison results."),
+    ] = True,
 ) -> None:
     """Run a pairwise tournament between multiple models.
 
@@ -155,6 +159,10 @@ def run(
     If you provide --reuse with a path to a raw_comparisons.json file, the system will
     skip the LLM comparison phase and just calculate rankings using the existing
     comparison data.
+
+    If using --reuse, use --save/--no-save to determine whether the reused file is
+    copied to the output alongside the tournament results. The default is to save. New
+    comparison results are always saved.
     """
     params = get_params()
     logger.info(render_params(params))
@@ -195,6 +203,7 @@ def run(
             melo_trials,
             show_head_to_head,
             markdown_table,
+            save_comparisons,
         )
     )
 
@@ -213,6 +222,7 @@ async def run_tournaments(
     melo_trials: int,
     show_head_to_head: bool,
     markdown_table: bool,
+    save_comparisons: bool,
 ) -> None:
     """Run the tournament on the given inputs.
 
@@ -232,6 +242,9 @@ async def run_tournaments(
         melo_trials: How many MElo trials to run.
         show_head_to_head: Show head to head scores for all metrics.
         markdown_table: Display results table as Markdown.
+        save_comparisons: If comparisons should be saved with the tournament results.
+            Only considered if we're reusing a previous file. New comparisons are always
+            saved.
     """
     import random
 
@@ -287,7 +300,7 @@ async def run_tournaments(
     logger.info(f"Total comparison cost: ${raw_comparisons.cost:.10f}")
 
     logger.info("\n%s", display_tournament_results(summary, markdown=markdown_table))
-    if hasattr(raw_comparisons, "result"):
+    if isinstance(raw_comparisons, PromptResult) or save_comparisons:
         save_data(output_dir / "raw_comparisons.json", raw_comparisons.result)
     save_data(output_dir / f"tournament_results_{algorithm}.json", summary)
 
