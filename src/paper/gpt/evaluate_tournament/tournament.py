@@ -482,3 +482,17 @@ class InputFileType(StrEnum):
             ValueError if the type is invalid.
         """
         return cls(type_.strip().lower())
+
+
+def get_rationale_eval(paper: PaperEvaluationInput) -> str:
+    """Get paper rationale to be evaluated.
+
+    For result types (GraphResult/PaperResult), gets the model predicted rationale. For
+    original types (pr.Paper/PaperWithRelatedSummary), gets the gold rationale.
+    """
+
+    match paper:
+        case GraphResult() | PaperResult():
+            return paper.rationale_pred
+        case pr.Paper() | PaperWithRelatedSummary():
+            return paper.rationale

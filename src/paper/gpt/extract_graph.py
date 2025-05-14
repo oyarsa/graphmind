@@ -34,6 +34,11 @@ class GraphResult(Immutable, PaperProxy[PaperResult]):
     # anymore.
     related: Sequence[PaperRelatedSummarised] | None = None
 
+    @property
+    def rationale_pred(self) -> str:
+        """Predicted rationale from the underlying paper result."""
+        return self.paper.rationale_pred
+
 
 class ExtractedGraph(Immutable, PaperProxy[PaperWithRelatedSummary]):
     """Extracted graph with the original paper."""
