@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from rich.console import Console
 from tqdm import tqdm
 
+import paper.baselines.scimon.graph
 import paper.gpt.annotate_paper
 import paper.gpt.classify_contexts
 import paper.gpt.evaluate_paper
@@ -22,6 +23,7 @@ import paper.semantic_scholar.model
 from paper.util.serde import get_full_type_name
 
 TYPES = [
+    paper.baselines.scimon.graph.AnnotatedGraphResult,
     paper.gpt.annotate_paper.AbstractDemonstration,
     paper.gpt.classify_contexts.PaperWithContextClassfied,
     paper.gpt.evaluate_paper.Demonstration,
