@@ -7,6 +7,8 @@ from typing import Annotated, Any
 import typer
 from beartype.door import is_bearable
 from pydantic import ValidationError
+from rich.console import Console
+from tqdm import tqdm
 
 import paper.gpt.annotate_paper
 import paper.gpt.classify_contexts
@@ -55,22 +57,27 @@ def main(
     input_file: Annotated[Path, typer.Argument(help="File to try to read.")],
 ) -> None:
     """Try to read `input_file` with all possible types and print what works."""
-    data = json.loads(input_file.read_bytes())
-    if is_bearable(data, list[Any]):
-        item = data[0]
-    else:
-        item = data
+    console = Console(stderr=True)
+
+    with console.status(f"Loading [bold cyan]{input_file.name}[/]...", spinner="dots"):
+        data = json.loads(input_file.read_bytes())
+        if is_bearable(data, list[Any]):
+            item = data[0]
+        else:
+            item = data
 
     valid_types: list[str] = []
 
-    for type_ in TYPES:
-        for version in [type_, paper.gpt.model.PromptResult[type_]]:
+    for main_type in tqdm(TYPES):
+        for type_variant in [main_type, paper.gpt.model.PromptResult[main_type]]:
             try:
-                version.model_validate(item)
+                type_variant.model_validate(item)
             except ValidationError:
                 pass
+            except Exception as e:
+                typer.secho(f"Non-validation error: {e}", fg=typer.colors.YELLOW)
             else:
-                valid_types.append(get_full_type_name(version))
+                valid_types.append(get_full_type_name(type_variant))
 
     if not valid_types:
         typer.secho("Could not find any valid types.", err=True, fg=typer.colors.RED)
@@ -79,8 +86,8 @@ def main(
         suffix = "s" if n != 1 else ""
         typer.secho(f"Found {n} type{suffix}:", err=True, fg=typer.colors.GREEN)
 
-    for type_ in valid_types:
-        typer.echo(f"- {type_}")
+    for main_type in valid_types:
+        typer.echo(f"- {main_type}")
 
 
 if __name__ == "__main__":
