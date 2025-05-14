@@ -20,7 +20,10 @@ import typer
 from tqdm import tqdm
 
 from paper.baselines import scimon
-from paper.evaluation_metrics import calculate_paper_metrics, display_metrics
+from paper.evaluation_metrics import (
+    calculate_paper_metrics,
+    display_regular_negative_macro_metrics,
+)
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     GPTFull,
@@ -242,14 +245,18 @@ async def evaluate_papers(
     results_all = seqcat(papers_remaining.done, results.result)
     results_items = PromptResult.unwrap(results_all)
 
-    metrics = calculate_paper_metrics(results_items)
-    logger.info("%s\n", display_metrics(metrics, results_items))
+    logger.info("Metrics\n%s", display_regular_negative_macro_metrics(results_items))
 
-    assert len(results_all) == len(papers)
     save_data(output_dir / "result.json", results_all)
-    save_data(output_dir / "result_items.json", results_items)
-    save_data(output_dir / "metrics.json", metrics)
     save_data(output_dir / "params.json", params)
+    save_data(output_dir / "metrics.json", calculate_paper_metrics(results_items))
+
+    if len(results_all) != len(papers):
+        logger.warning(
+            "Some papers are missing from the output. Input: %d. Output: %d.",
+            len(papers),
+            len(results_all),
+        )
 
 
 async def _classify_papers(
