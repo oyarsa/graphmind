@@ -156,11 +156,7 @@ def get_comparisons_specs(
 
 async def _run_all_comparisons(
     client: LLMClient,
-    common_papers: Mapping[str, Sequence[PaperEvaluationInput]],
-    metrics: Collection[str],
-    item_names: Sequence[str],
-    item_indices_pairs: Collection[tuple[int, int]],
-    paper_ids: Collection[str],
+    comparison_specs: Sequence[ComparisonSpec],
     prompt: PromptTemplate,
     metric_definitions: Mapping[str, str],
 ) -> GPTResult[Sequence[PromptResult[ComparisonResult]]]:
@@ -168,30 +164,13 @@ async def _run_all_comparisons(
 
     Args:
         client: LLM client.
-        common_papers: Papers from each item, grouped by paper ID.
-        metrics: Metrics to evaluate.
-        item_names: Names of the items being compared.
-        item_indices_pairs: Pairs of item indices to compare.
-        paper_ids: IDs of papers to use in comparisons.
+        comparison_specs: Comparisons to run.
         prompt: Prompt template for the comparison.
         metric_definitions: Definitions for each metric.
 
     Returns:
         List of comparison results.
     """
-    total_comparisons = len(paper_ids) * len(item_indices_pairs) * len(metrics)
-    logger.info(
-        "Comparisons: Papers=%d * ItemPairs=%d * Metrics=%d = %d",
-        len(paper_ids),
-        len(item_indices_pairs),
-        len(metrics),
-        total_comparisons,
-    )
-
-    comparison_specs = get_comparisons_specs(
-        paper_ids, common_papers, item_names, metrics, item_indices_pairs
-    )
-
     comparison_results: list[
         GPTResult[PromptResult[tuple[ComparisonSpec, MatchResult]]]
     ] = []
@@ -387,15 +366,20 @@ async def generate_new_comparisons(
     paper_ids = sample(list(common_papers), limit)
     model_indices_pairs = _all_pairings(range(len(model_names)))
 
+    total_comparisons = len(paper_ids) * len(model_indices_pairs) * len(metrics)
+    logger.info(
+        "Comparisons: Papers=%d * ItemPairs=%d * Metrics=%d = %d",
+        len(paper_ids),
+        len(model_indices_pairs),
+        len(metrics),
+        total_comparisons,
+    )
+
+    comparison_specs = get_comparisons_specs(
+        paper_ids, common_papers, model_names, metrics, model_indices_pairs
+    )
     comparisons_result = await _run_all_comparisons(
-        client,
-        common_papers,
-        metrics,
-        model_names,
-        model_indices_pairs,
-        paper_ids,
-        prompt,
-        metric_definitions,
+        client, comparison_specs, prompt, metric_definitions
     )
 
     return comparisons_result.map(
