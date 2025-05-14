@@ -14,7 +14,9 @@ from paper.gpt.evaluate_tournament.tournament import (
     create_tournament_result,
     ComparisonResult,
     display_head_to_head,
+    find_common_papers,
 )
+from paper import peerread as pr
 
 
 class MockTournamentSystem(TournamentSystem):
@@ -229,3 +231,113 @@ def test_display_head_to_head(
     # Check that all players are mentioned
     for player in sample_player_names:
         assert player in result
+
+
+class MockPaperWithId:
+    """Mock paper class with an id property."""
+
+    def __init__(self, paper_id: str, rationale: str) -> None:
+        self.id = paper_id
+        self.rationale = rationale
+
+
+class TestFindCommonPapers:
+    """Tests for the find_common_papers function."""
+
+    def test_find_common_papers_with_empty_collections(self):
+        """Test with empty collections."""
+        empty: list[MockPaperWithId] = []
+        result = find_common_papers([empty, empty])
+        assert result == {}
+
+    def test_find_common_papers_with_no_overlap(self):
+        """Test with collections that have no papers in common."""
+        collection1 = [
+            MockPaperWithId("paper1", "paper 1 rationale 1"),
+            MockPaperWithId("paper2", "paper 2 rationale 1"),
+        ]
+        collection2 = [
+            MockPaperWithId("paper3", "paper 3 rationale 2"),
+            MockPaperWithId("paper4", "paper 4 rationale 2"),
+        ]
+
+        result = find_common_papers([collection1, collection2])
+        assert result == {}
+
+    def test_find_common_papers_with_partial_overlap(self):
+        """Test with collections that have some papers in common."""
+        collection1 = [
+            MockPaperWithId("paper1", "paper1 rationale 1"),
+            MockPaperWithId("paper2", "paper2 rationale 1"),
+        ]
+        collection2 = [
+            MockPaperWithId("paper2", "paper2 rationale 2"),
+            MockPaperWithId("paper3", "paper3 rationale 2"),
+        ]
+
+        result = find_common_papers([collection1, collection2])
+        assert len(result) == 1
+        assert "paper2" in result
+        assert len(result["paper2"]) == 2
+
+        p1, p2 = result["paper2"]
+        assert p1.id == "paper2"
+        assert p2.id == "paper2"
+        assert p1.rationale != p2.rationale
+
+    def test_find_common_papers_with_multiple_collections(self):
+        """Test with multiple collections."""
+        collection1 = [
+            MockPaperWithId("paper1", "paper1 rationale 1"),
+            MockPaperWithId("paper2", "paper2 rationale 1"),
+            MockPaperWithId("paper3", "paper3 rationale 1"),
+        ]
+        collection2 = [
+            MockPaperWithId("paper2", "paper2 rationale 2"),
+            MockPaperWithId("paper3", "paper3 rationale 2"),
+            MockPaperWithId("paper4", "paper4 rationale 2"),
+        ]
+        collection3 = [
+            MockPaperWithId("paper3", "paper3 rationale 3"),
+            MockPaperWithId("paper4", "paper4 rationale 3"),
+            MockPaperWithId("paper5", "paper5 rationale 3"),
+        ]
+
+        result = find_common_papers([collection1, collection2, collection3])
+        assert len(result) == 1
+        assert "paper3" in result
+        assert len(result["paper3"]) == 3
+        assert all(paper.id == "paper3" for paper in result["paper3"])
+        assert len(set(p.rationale for p in result["paper3"])) > 1
+
+    def test_find_common_papers_with_all_common(self):
+        """Test with collections where all papers are common."""
+        collection1 = [
+            MockPaperWithId("paper1", "paper1 rationale 1"),
+            MockPaperWithId("paper2", "paper2 rationale 1"),
+        ]
+        collection2 = [
+            MockPaperWithId("paper1", "paper1 rationale 2"),
+            MockPaperWithId("paper2", "paper2 rationale 2"),
+        ]
+
+        result = find_common_papers([collection1, collection2])
+        assert len(result) == 2
+        assert "paper1" in result and "paper2" in result
+        assert all(len(papers) == 2 for papers in result.values())
+
+    def test_with_actual_paper_type(self, sample_paper: pr.Paper):
+        """Test with a real PeerRead paper object."""
+        # Create 2 collections, each with our test paper
+        paper_id = sample_paper.id
+        collections = [
+            [sample_paper],  # pr.Paper
+            [sample_paper],  # pr.Paper
+        ]
+
+        result = find_common_papers(collections)
+
+        # Verify results
+        assert len(result) == 1
+        assert paper_id in result
+        assert len(result[paper_id]) == 2
