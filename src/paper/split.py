@@ -198,8 +198,11 @@ def downsample(
         int | None, typer.Option(help="Total number of items in output dataset")
     ] = None,
     seed: Annotated[int, typer.Option(help="Seed for random sample")] = 0,
+    filter: Annotated[
+        str | None, typer.Option(help="JSON path to property that must be valid.")
+    ] = None,
 ) -> None:
-    """Balance data according to specified ratios for a given key field.
+    r"""Balance data according to specified ratios for a given key field.
 
     The number of components in the ratio must match the number of unique values for the
     key. All ratio components must sum to 100. Each ratio corresponds to the labels in
@@ -209,8 +212,12 @@ def downsample(
     while maintaining the specified ratios. Otherwise, the output will contain the maximum
     number of items possible while maintaining the ratios.
 
+    If `filter` is given, items with where this property is empty or None are excluded
+    from the sampling.
+
     Example:
-        ratio_balance -i input.json -o balanced.json --key approval --ratios "60/40"
+        paper split downsample -i input.json -o balanced.json --key approval \
+            --ratios "60/40" --filter item.paper.rationale
     """
     random.seed(seed)
     setup_logging()
@@ -307,7 +314,11 @@ def downsample(
     output_data: list[dict[str, Any]] = []
     for value, items in grouped_data.items():
         target = target_counts[value]
-        output_data.extend(sample(items, target))
+        if filter:
+            valid_items = [item for item in items if get_in(item, filter)]
+        else:
+            valid_items = items
+        output_data.extend(sample(valid_items, target))
 
     random.shuffle(output_data)
 
