@@ -47,9 +47,9 @@ from paper.util import (
     progress,
     removeprefix_icase,
     render_params,
+    sample,
     seqcat,
     setup_logging,
-    shuffled,
 )
 from paper.util.cli import Choice, die
 from paper.util.serde import load_data, save_data
@@ -191,11 +191,12 @@ async def evaluate_papers(
 
     client = LLMClient.new(model=model, seed=seed)
 
-    papers = shuffled(
+    papers = sample(
         PromptResult.unwrap(
             load_data(paper_file, PromptResult[PaperWithRelatedSummary])
-        )
-    )[:limit_papers]
+        ),
+        limit_papers,
+    )
 
     eval_prompt = SEARCH_EVAL_USER_PROMPTS[eval_prompt_key]
     if not eval_prompt.system:
