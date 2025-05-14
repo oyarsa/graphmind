@@ -327,23 +327,17 @@ def create_tournament_result(
     )
 
 
-def display_head_to_head(
+def count_head_to_head(
     comparison_results: Collection[ComparisonResult],
     item_names: Sequence[str],
     metrics: Sequence[str],
-) -> str:
-    """Display head-to-head comparison results as a table.
-
-    Args:
-        comparison_results: All comparison results.
-        item_names: Names of all items being compared.
-        metrics: Metrics used for evaluation.
+) -> dict[str, dict[tuple[str, str], tuple[int, int, int]]]:
+    """Count wins/ties/losses from comparison results.
 
     Returns:
-        String representation of the head-to-head table.
+        Mapping from metric to player head to head.
+        Format {metric: {(player_a, player_b): (wins, ties, losses)}}
     """
-
-    # Format {metric: {(player_a, player_b): (wins, ties, losses)}}
     h2h_by_metric = {
         metric: {(a, b): (0, 0, 0) for a in item_names for b in item_names if a != b}
         for metric in metrics
@@ -375,6 +369,26 @@ def display_head_to_head(
             ties_b,
             losses_b,
         )
+
+    return h2h_by_metric
+
+
+def display_head_to_head(
+    comparison_results: Collection[ComparisonResult],
+    item_names: Sequence[str],
+    metrics: Sequence[str],
+) -> str:
+    """Display head-to-head comparison results as a table.
+
+    Args:
+        comparison_results: All comparison results.
+        item_names: Names of all items being compared.
+        metrics: Metrics used for evaluation.
+
+    Returns:
+        String representation of the head-to-head table.
+    """
+    h2h_by_metric = count_head_to_head(comparison_results, item_names, metrics)
 
     # Create tables for each metric
     tables: list[str] = []
