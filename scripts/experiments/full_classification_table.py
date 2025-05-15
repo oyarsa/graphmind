@@ -212,12 +212,12 @@ def metrics(
     data: dict[str, Any] = json.loads(metrics_file.read_bytes())
     confusion = data["confusion"]
 
-    matrix = BinaryConfusionMatrix(
-        tn=confusion[0][0],
-        fn=confusion[0][1],
-        fp=confusion[1][0],
-        tp=confusion[1][1],
-    )
+    tn = confusion[0][0]
+    fp = confusion[0][1]
+    fn = confusion[1][0]
+    tp = confusion[1][1]
+
+    matrix = BinaryConfusionMatrix(tn=tn, fn=fn, fp=fp, tp=tp)
     print(display_binary_confusion_matrix(matrix))
 
 
