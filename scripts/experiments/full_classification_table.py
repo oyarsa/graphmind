@@ -1,4 +1,4 @@
-"""Transform binary confusion matrix to full classification metrics."""
+"""Display full classification metrics from existing results."""
 
 from __future__ import annotations
 
@@ -189,26 +189,31 @@ app = typer.Typer(
     rich_markup_mode="rich",
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,
+    help=__doc__,
 )
 
 
-@app.command(help=__doc__, no_args_is_help=True)
+@app.command(no_args_is_help=True)
 def confusion(
     tn: Annotated[int, typer.Argument(help="True negatives")],
     fn: Annotated[int, typer.Argument(help="False negatives")],
     fp: Annotated[int, typer.Argument(help="False positives")],
     tp: Annotated[int, typer.Argument(help="True positives")],
 ) -> None:
-    """Display full classification metrics from the confusion matrix."""
+    """From a confusion matrix: TN/FN/FP/TP counts."""
     matrix = BinaryConfusionMatrix(tn=tn, fn=fn, fp=fp, tp=tp)
     print(display_binary_confusion_matrix(matrix))
 
 
-@app.command(help=__doc__, no_args_is_help=True)
+@app.command(no_args_is_help=True)
 def metrics(
     metrics_file: Annotated[Path, typer.Argument(help="Path to metrics file")],
 ) -> None:
-    """Display full classification metrics from a metrics.json file."""
+    """From a metrics.json file.
+
+    The file must be a JSON object with a `confusion` field, which must be a 2D array,
+    the confusion matrix.
+    """
     data: dict[str, Any] = json.loads(metrics_file.read_bytes())
     confusion = data["confusion"]
 
