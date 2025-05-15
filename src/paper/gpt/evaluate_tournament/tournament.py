@@ -21,6 +21,7 @@ from paper import peerread as pr
 from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.extract_graph import GraphResult
 from paper.gpt.model import PaperWithRelatedSummary
+from paper.gpt.run_gpt import count_tokens
 from paper.types import Identifiable, Immutable
 from paper.util import render_rich
 
@@ -205,6 +206,21 @@ class OverallRankingEntry(Immutable):
     metric_ranks: Mapping[str, int]
 
 
+class TokenStats(Immutable):
+    """Token statistics for a model's rationales."""
+
+    mean: float
+    """Mean number of tokens across all rationales."""
+    median: float
+    """Median number of tokens across all rationales."""
+    std_dev: float
+    """Standard deviation of token counts."""
+    min: int
+    """Minimum token count in any rationale."""
+    max: int
+    """Maximum token count in any rationale."""
+
+
 class TournamentSummary(Immutable):
     """Summary of tournament results."""
 
@@ -213,6 +229,7 @@ class TournamentSummary(Immutable):
     total_comparisons: int
     metric_rankings: Mapping[str, Sequence[PlayerRank]]
     overall_rankings: Sequence[OverallRankingEntry]
+    token_stats: Mapping[str, TokenStats]
 
 
 class TournamentResult(Immutable):
@@ -227,7 +244,10 @@ class TournamentResult(Immutable):
 
 
 def tournament_summary(
-    result: TournamentResult, item_names: Sequence[str], metrics: Sequence[str]
+    result: TournamentResult,
+    item_names: Sequence[str],
+    metrics: Sequence[str],
+    token_stats: Mapping[str, TokenStats],
 ) -> TournamentSummary:
     """Convert internal result to a serializable summary.
 
@@ -235,6 +255,7 @@ def tournament_summary(
         result: Tournament result.
         item_names: Names of all items in the tournament.
         metrics: Names of metrics evaluated.
+        token_stats: Statistics about token counts for each item's rationales.
 
     Returns:
         Serializable tournament summary.
@@ -270,13 +291,25 @@ def tournament_summary(
                 result.overall_ranks.items(), key=lambda x: x[1].mean_rank
             )
         ],
+        token_stats=token_stats,
     )
 
 
 def display_tournament_results(
-    results: TournamentSummary, markdown: bool = False
+    results: TournamentSummary, markdown: bool = False, show_tokens: bool = True
 ) -> str:
-    """Format tournament results for display."""
+    """Format tournament results for display.
+
+    Args:
+        results: Tournament results summary.
+        markdown: If True, use Markdown formatting for the table.
+        show_tokens: If True and token statistics are available, include them in the
+            output.
+
+    Returns:
+        Formatted string with tournament rankings table and token statistics.
+    """
+    # Main rankings table
     table = Table(
         title="Tournament Rankings", box=box.MARKDOWN if markdown else box.HEAVY_HEAD
     )
@@ -290,6 +323,13 @@ def display_tournament_results(
     for metric in metrics:
         table.add_column(metric.capitalize(), justify="right")
 
+    # Add token columns if token statistics are available
+    has_token_stats = bool(results.token_stats) and show_tokens
+    if has_token_stats:
+        table.add_column("Tokens (mean)", justify="right")
+        table.add_column("Tokens (median)", justify="right")
+        table.add_column("Tokens (stdev)", justify="right")
+
     # Add rows for each item's overall ranking
     for i, item in enumerate(results.overall_rankings, 1):
         name = item.name
@@ -299,9 +339,61 @@ def display_tournament_results(
         # Get metric-specific ranks
         metric_ranks = [str(item.metric_ranks[m]) for m in metrics]
 
-        table.add_row(str(i), name, mean_rank, median_rank, *metric_ranks)
+        row = [str(i), name, mean_rank, median_rank, *metric_ranks]
+
+        # Add token statistics if available
+        if has_token_stats and name in results.token_stats:
+            stats = results.token_stats[name]
+            row.extend([
+                f"{stats.mean:.1f}",
+                f"{stats.median:.0f}",
+                f"{stats.std_dev:.1f}",
+            ])
+        elif has_token_stats:
+            row.extend(["—", "—", "—"])  # Placeholder for missing token stats
+
+        table.add_row(*row)
 
     return render_rich(table)
+
+
+def calculate_token_statistics(
+    comparison_results: Collection[ComparisonResult],
+) -> dict[str, TokenStats]:
+    """Calculate token statistics for each model's rationales.
+
+    Args:
+        comparison_results: Results of all pairwise comparisons.
+
+    Returns:
+        Mapping from item name to its token statistics.
+    """
+    rationales_by_item: dict[str, list[str]] = defaultdict(list)
+
+    for comp in comparison_results:
+        rationales_by_item[comp.item_a].append(comp.rationale_a)
+        rationales_by_item[comp.item_b].append(comp.rationale_b)
+
+    result: dict[str, TokenStats] = {}
+    for item, rationales in rationales_by_item.items():
+        if not rationales:
+            continue
+
+        token_counts = [count_tokens(r) for r in rationales]
+
+        if not token_counts:
+            continue
+
+        # Calculate statistics
+        result[item] = TokenStats(
+            mean=statistics.mean(token_counts),
+            median=statistics.median(token_counts),
+            std_dev=statistics.stdev(token_counts) if len(token_counts) > 1 else 0.0,
+            min=min(token_counts),
+            max=max(token_counts),
+        )
+
+    return result
 
 
 def create_tournament_result(
@@ -313,7 +405,6 @@ def create_tournament_result(
 
     Args:
         comparison_results: Results of all pairwise comparisons.
-        item_names: Names of the items being compared.
         metrics: Metrics that were evaluated.
         tournaments: The existing tournament data for each metric.
 

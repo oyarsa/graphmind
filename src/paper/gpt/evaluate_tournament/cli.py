@@ -28,6 +28,7 @@ from paper.gpt.evaluate_tournament.elo import (
 from paper.gpt.evaluate_tournament.tournament import (
     TOURNAMENT_METRICS,
     InputFileType,
+    calculate_token_statistics,
     count_head_to_head,
     display_head_to_head,
     display_tournament_results,
@@ -312,7 +313,11 @@ async def run_tournaments(
                 ranker = calculate_bradley_terry_rankings
 
         tournament_result = ranker(comparisons, model_names, metrics)
-        summary = tournament_summary(tournament_result, model_names, metrics)
+
+        token_stats = calculate_token_statistics(comparisons)
+        summary = tournament_summary(
+            tournament_result, model_names, metrics, token_stats
+        )
 
     logger.info(f"Rankings calculation time: {ranking_timer.human}")
     logger.info(f"Total comparison cost: ${raw_comparisons.cost:.10f}")
