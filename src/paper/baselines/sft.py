@@ -52,6 +52,7 @@ from paper import semantic_scholar as s2
 from paper.evaluation_metrics import (
     TargetMode,
     calculate_metrics,
+    display_metrics,
     display_regular_negative_macro_metrics,
 )
 from paper.util import describe, metrics, sample, setup_logging
@@ -798,11 +799,15 @@ def evaluate_model_predictions(
     metrics_result = calculate_metrics(
         true_labels_adjusted, pred_labels_adjusted, target_mode
     )
+    evaluated_results = [
+        PaperEvaluated(y_true=y_true, y_pred=y_pred)
+        for y_true, y_pred in zip(true_labels_adjusted, pred_labels_adjusted)
+    ]
 
     metrics_path = output_dir / "evaluation_metrics.txt"
     with open(metrics_path, "w") as f:
         f.write(f"Evaluation Results\n{'-' * 20}\n")
-        f.write(str(metrics_result))
+        f.write(display_metrics(metrics_result, evaluated_results))
 
     prediction_path = output_dir / "predictions.json"
     prediction_data = {
@@ -816,10 +821,7 @@ def evaluate_model_predictions(
     logger.info(f"Evaluation metrics saved to {metrics_path}")
     logger.info(f"Raw predictions saved to {prediction_path}")
 
-    return [
-        PaperEvaluated(y_true=y_true, y_pred=y_pred)
-        for y_true, y_pred in zip(true_labels_adjusted, pred_labels_adjusted)
-    ]
+    return evaluated_results
 
 
 class FormattedData(Immutable):
