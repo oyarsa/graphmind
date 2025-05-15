@@ -152,6 +152,8 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
     # <request_limit, token_limit> per minute
     limits: dict[str, tuple[int, int]]
 
+    # TODO: Refactor how we deal with tiers from different provides (Gemini, OpenAI, Azure).
+    # We really need to revamp this overall. It works but it's kind of hacky. (2025-05-15)
     if tier == -1:
         rate_limits = (1_000, 1_000_000)
     else:
