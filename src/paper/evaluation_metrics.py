@@ -166,17 +166,28 @@ def display_metrics(metrics: Metrics, results: Sequence[Evaluated]) -> str:
     Returns:
         Formatted string showing both metrics and distribution statistics.
     """
-    y_true = [r.y_true for r in results]
-    y_pred = [r.y_pred for r in results]
-
     output = [
         "Metrics:",
         str(metrics),
         metrics.display_confusion(),
+        "",
+        display_metrics_distribution(results, metrics.mode.labels()),
     ]
+    return "\n".join(output)
+
+
+def display_metrics_distribution(
+    results: Sequence[Evaluated], labels: Sequence[int]
+) -> str:
+    """Show distribution of true and predicted labels."""
+    y_true = [r.y_true for r in results]
+    y_pred = [r.y_pred for r in results]
+
+    output: list[str] = []
+
     for values, section in [(y_true, "Gold"), (y_pred, "Predicted")]:
         output.append(f"\n{section} distribution:")
-        for label in metrics.mode.labels():
+        for label in labels:
             count = sum(y == label for y in values)
             output.append(
                 f"  {label}: {count}/{len(values)} ({safediv(count, len(values)):.2%})"
@@ -204,6 +215,8 @@ def display_regular_negative_macro_metrics(items: Sequence[Evaluated]) -> str:
         "",
         "> Table:",
         display_metrics_row(regular, negative, macro),
+        "",
+        display_metrics_distribution(items, [0, 1]),
     ]
 
     return "\n".join(out)
