@@ -40,6 +40,9 @@ MODEL_SYNONYMS: Mapping[str, str] = {
     "gemini-2.0-flash": "gemini-2.0-flash-001",
     "gemini-2.5-flash": "gemini-2.5-flash-preview-04-17",
     "gemini-2.5-pro": "gemini-2.5-pro-preview-03-25",
+    "gpt-4.1-nano": "gpt-4.1-nano-2025-04-14",
+    "gpt-4.1-mini": "gpt-4.1-mini-2025-04-14",
+    "gpt-4.1": "gpt-4.1-2025-04-14",
 }
 """Mapping between short and common model names and their full versioned names."""
 MODELS_ALLOWED: Sequence[str] = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.values())
@@ -53,6 +56,9 @@ MODEL_COSTS: Mapping[str, tuple[float, float]] = {
     "gemini-2.0-flash-001": (0.10, 0.40),
     "gemini-2.5-pro-preview-03-25": (1.25, 2.5),
     "gemini-2.5-flash-preview-04-17": (0.15, 0.60),
+    "gpt-4.1-nano-2025-04-14": (0.10, 0.40),
+    "gpt-4.1-mini-2025-04-14": (0.40, 1.60),
+    "gpt-4.1-2025-04-14": (2, 8),
 }
 """Cost in $ per 1M tokens: (input cost, output cost).
 
@@ -128,8 +134,8 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
     """Get the rate limiter for a specific model based on the API tier.
 
     Args:
-        tier: Tier the organisation is in. Currently supports tier 3 and 4.
-        model: API model name. Currently supports 'gpt-4o-mini' and 'gpt-4o'.
+        tier: Tier the organisation is in.
+        model: API model name.
 
     Returns:
         Rate limiter for the model with the correct rate limits for the tier.
@@ -166,6 +172,9 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
             limits = {
                 "gpt-4o-mini": (10_000, 10_000_000),
                 "gpt-4o": (10_000, 2_000_000),
+                "gpt-4.1-nano": (10_000, 10_000_000),
+                "gpt-4.1-mini": (10_000, 10_000_000),
+                "gpt-4.1": (10_000, 2_000_000),
             }
         elif tier == 5:
             raise ValueError(message.format(tier=5))
