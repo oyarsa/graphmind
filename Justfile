@@ -43,6 +43,10 @@ e2e:
 test:
     uv run pytest --quiet tests/
 
+# Run unit tests coverage
+cov:
+    uv run pytest --cov=paper --cov-report=html --quiet tests/
+
 # Run experiments (see experiments/Justfile)
 exp *args:
     @just -f experiments/Justfile {{args}}
