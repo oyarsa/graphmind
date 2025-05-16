@@ -26,6 +26,10 @@ from paper.util import ensure_envvar, log_memory_usage, mustenv
 from paper.util.rate_limiter import ChatRateLimiter
 from paper.util.serde import load_data_jsonl, save_data_jsonl
 
+# TODO: Move this to something more LLM-generic. It's not just about GPT anymore.
+# Actually, this might apply to the whole module. E.g. paper.gpt -> paper.llm or
+# paper.prompting.
+
 logger = logging.getLogger(__name__)
 
 MODEL_SYNONYMS: Mapping[str, str] = {
