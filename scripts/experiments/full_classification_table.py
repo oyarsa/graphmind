@@ -9,9 +9,11 @@ from typing import Annotated, Any
 
 import typer
 
+from paper import gpt
 from paper.evaluation_metrics import Metrics, calculate_metrics, display_metrics_row
 from paper.types import Immutable
 from paper.util import safediv, seqcat
+from paper.util.serde import load_data
 
 
 class BinaryConfusionMatrix(Immutable):
@@ -221,6 +223,34 @@ def metrics(
     fp = confusion[0][1]
     fn = confusion[1][0]
     tp = confusion[1][1]
+
+    matrix = BinaryConfusionMatrix(tn=tn, fn=fn, fp=fp, tp=tp)
+    print(display_binary_confusion_matrix(matrix))
+
+
+@app.command(no_args_is_help=True)
+def results(
+    results_file: Annotated[Path, typer.Argument(help="Path to results file")],
+) -> None:
+    """From a result.json file with format `gpt.PromptResult[gpt.GraphResult]`.
+
+    I.e. the output of `gpt.evaluate_paper_graph`.
+    """
+    data = load_data(results_file, gpt.PromptResult[gpt.GraphResult])
+
+    tn, fp, fn, tp = 0, 0, 0, 0
+
+    for p in data:
+        true_val = p.item.paper.y_true
+        pred_val = p.item.paper.y_pred
+        if true_val == 0 and pred_val == 0:
+            tn += 1  # True Negative
+        elif true_val == 0 and pred_val == 1:
+            fp += 1  # False Positive
+        elif true_val == 1 and pred_val == 0:
+            fn += 1  # False Negative
+        elif true_val == 1 and pred_val == 1:
+            tp += 1  # True Positive
 
     matrix = BinaryConfusionMatrix(tn=tn, fn=fn, fp=fp, tp=tp)
     print(display_binary_confusion_matrix(matrix))
