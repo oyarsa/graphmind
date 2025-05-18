@@ -130,18 +130,20 @@ def load_data[T: BaseModel](
     """
     if isinstance(file, Path):
         content = file.read_bytes()
+        source = file
     else:
         content = file
+        source = "bytes"
 
+    data_raw = json.loads(content)
     try:
-        return TypeAdapter(
-            list[type_], config=ConfigDict(populate_by_name=not use_alias)
-        ).validate_json(content)
-    except ValidationError:
-        source = file if isinstance(file, Path) else "bytes"
+        return [type_.model_validate(item) for item in data_raw]
+    except json.JSONDecodeError as e:
+        raise SerdeError(f"Data from {source} is not valid JSON.") from e
+    except ValidationError as e:
         raise SerdeError(
             f"Data from {source} is not valid for {get_full_type_name(type_)}"
-        ) from None
+        ) from e
 
 
 def load_data_single[T: BaseModel](file: Path | bytes, type_: type[T]) -> T:
