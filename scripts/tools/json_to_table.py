@@ -1,10 +1,11 @@
 """Convert JSON to Markdown table."""
 
 import argparse
-import json
 import os
 import sys
 from typing import Any
+
+import orjson
 
 
 def generate_table(headers: list[str], values: list[list[Any]]) -> str:
@@ -66,7 +67,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    data = json.load(args.file)
+    data = orjson.loads(args.file.read())
 
     headers = list(data[0].keys())
 

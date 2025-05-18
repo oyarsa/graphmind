@@ -98,20 +98,18 @@ def _test_load(path: Path) -> None:
     graph = Graph.load(path)
 
     kg_result = graph.kg.query("machine learning")
-    logger.info("KG: %s", kg_result.model_dump_json(indent=2))
+    logger.info("KG: %s", kg_result.model_dump_json())
 
     semantic_result = graph.semantic.query(
         background="We present a family of subgradient methods",
         source="stochastic optimization",
         target="gradient-based learning",
     )
-    logger.info("Semantic: %s", semantic_result.model_dump_json(indent=2))
+    logger.info("Semantic: %s", semantic_result.model_dump_json())
 
     ctitle = next(iter(graph.citations.title_to_id))
     citation_result = graph.citations.query_title(ctitle, 3)
-    logger.info(
-        "Citations: %s -> %s", ctitle, citation_result.model_dump_json(indent=2)
-    )
+    logger.info("Citations: %s -> %s", ctitle, citation_result.model_dump_json())
 
 
 if __name__ == "__main__":

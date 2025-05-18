@@ -5,10 +5,10 @@ Also calculates the number of words in the contexts and estimated number of GPT 
 Uses the output of `paper.peerread.merge` as input.
 """
 
-import json
 from pathlib import Path
 from typing import Annotated
 
+import orjson
 import typer
 
 app = typer.Typer(
@@ -33,7 +33,7 @@ def main(
     counts_unique: list[int] = []
     all_unique: set[str] = set()
 
-    data = json.loads(input_file.read_text())
+    data = orjson.loads(input_file.read_text())
     for entry in data:
         unique_contexts: set[str] = {
             r["context"].strip() for r in entry["paper"]["referenceMentions"]

@@ -2,13 +2,13 @@
 
 import contextlib
 import datetime as dt
-import json
 import logging
 import re
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Annotated, Any, overload
 
+import orjson
 import typer
 from beartype.door import is_bearable
 from tqdm import tqdm
@@ -95,7 +95,7 @@ def _process_conferences(base_dir: Path) -> list[dict[str, Any]]:
             logger.info(f"Skipping {conference} - missing required files")
             continue
 
-        papers: list[dict[str, Any]] = json.loads(arxiv_file.read_bytes())
+        papers: list[dict[str, Any]] = orjson.loads(arxiv_file.read_bytes())
         # Mapping of paper titles (arXiv) to parsed JSON files
         title_to_path = {f.stem: f for f in parsed_dir.glob("*.json")}
 
@@ -109,7 +109,7 @@ def _process_conferences(base_dir: Path) -> list[dict[str, Any]]:
             if matched_file := title_to_path.get(arxiv_title):
                 paper_content = None
                 with contextlib.suppress(Exception):
-                    paper_content = json.loads(matched_file.read_bytes())
+                    paper_content = orjson.loads(matched_file.read_bytes())
                     matched += 1
 
                 if paper_content is not None:

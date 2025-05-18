@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import asyncio
 import itertools
-import json
 import logging
 import random
 import statistics
@@ -23,6 +22,7 @@ from pathlib import Path
 from typing import Annotated, Any, Self
 
 import dotenv
+import orjson
 import rich
 import typer
 from pydantic import Field
@@ -639,7 +639,7 @@ async def _evaluate_single_input(
             batch_size=batch_size,
         )
 
-        metrics = json.loads((output_dir / "metrics.json").read_bytes())
+        metrics = orjson.loads((output_dir / "metrics.json").read_bytes())
         means = {metric: data["mean"] for metric, data in metrics["metrics"].items()}
         return {**means, "name": input_path.parent.name}
 

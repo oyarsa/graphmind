@@ -2,10 +2,10 @@
 # pyright: strict
 
 import contextlib
-import json
 from pathlib import Path
 from typing import Annotated
 
+import orjson
 import typer
 
 from paper.util.serde import JSONValue
@@ -62,7 +62,7 @@ def main(
     for path in paths or [Path()]:
         for file_path in path.rglob("*.json"):
             with contextlib.suppress(Exception):
-                data = json.loads(file_path.read_text())
+                data = orjson.loads(file_path.read_text())
                 matches = search_object(data, keyword)
                 if not matches:
                     continue

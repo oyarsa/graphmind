@@ -6,7 +6,6 @@ papers and the label accuracy.
 """
 
 import enum
-import json
 import shutil
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -14,6 +13,7 @@ from pathlib import Path
 from typing import Annotated
 
 import numpy as np
+import orjson
 import rich
 import typer
 from rich.table import Table
@@ -266,7 +266,7 @@ def full(
     title("Result")
     typer.echo(f"Results saved to {eval_dir}")
     metrics_file = eval_dir / "metrics.json"
-    metrics = json.loads(metrics_file.read_bytes())
+    metrics = orjson.loads(metrics_file.read_bytes())
     typer.echo(f"Accuracy: {metrics['accuracy']}")
 
     typer.echo("Statistics:")

@@ -1,9 +1,9 @@
 """Try all possible data types and see what works."""
 
-import json
 from pathlib import Path
 from typing import Annotated, Any
 
+import orjson
 import typer
 from beartype.door import is_bearable
 from pydantic import ValidationError
@@ -62,7 +62,7 @@ def main(
     console = Console(stderr=True)
 
     with console.status(f"Loading [bold cyan]{input_file.name}[/]...", spinner="dots"):
-        data = json.loads(input_file.read_bytes())
+        data = orjson.loads(input_file.read_bytes())
         if is_bearable(data, list[Any]):
             item = data[0]
         else:

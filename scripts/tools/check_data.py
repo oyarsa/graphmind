@@ -4,11 +4,11 @@ We only check the first item for errors so we don't get thousands of complaints 
 Pydantic. If that goes well, we load the whole thing just to be sure.
 """
 
-import json
 from importlib import import_module
 from pathlib import Path
 from typing import Annotated
 
+import orjson
 import typer
 from pydantic import BaseModel
 from rich.console import Console
@@ -38,7 +38,7 @@ def main(
     module = import_module(module_path)
     type_: type[BaseModel] = getattr(module, type_name)
 
-    raw = json.loads(input_file.read_bytes())
+    raw = orjson.loads(input_file.read_bytes())
     first = type_.model_validate(raw[0])
 
     table = Table("Key", "Type")

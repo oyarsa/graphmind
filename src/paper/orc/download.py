@@ -3,12 +3,12 @@
 
 import dataclasses as dc
 import itertools
-import json
 import logging
 from pathlib import Path
 from typing import Annotated, Any
 
 import openreview as openreview_v1  # type: ignore
+import orjson
 import typer
 from openreview import api as openreview_v2  # type: ignore
 from tqdm import tqdm
@@ -85,11 +85,11 @@ def reviews(
 
     submissions_all = [_note_to_dict(s) for s in submissions_raw]
     logger.info("Submissions - all: %d", len(submissions_all))
-    (output_dir / "openreview_all.json").write_text(json.dumps(submissions_all))
+    (output_dir / "openreview_all.json").write_bytes(orjson.dumps(submissions_all))
 
     submissions_valid = [s for s in submissions_all if is_valid(s, RATING_KEYS)]
     logger.info("Submissions - valid: %d", len(submissions_valid))
-    (output_dir / "openreview_valid.json").write_text(json.dumps(submissions_valid))
+    (output_dir / "openreview_valid.json").write_bytes(orjson.dumps(submissions_valid))
 
     if not submissions_valid:
         logger.warning("No valid submissions for %s", venue_id)
@@ -108,8 +108,8 @@ def reviews(
     logger.info("Querying arXiv for %d paper titles", len(openreview_titles))
     openreview_to_arxiv = get_arxiv(openreview_titles, batch_size)
     logger.info("Found %d papers on arXiv", len(openreview_to_arxiv))
-    (output_dir / "openreview_arxiv_raw.json").write_text(
-        json.dumps([dc.asdict(v) for v in openreview_to_arxiv.values()])
+    (output_dir / "openreview_arxiv_raw.json").write_bytes(
+        orjson.dumps([dc.asdict(v) for v in openreview_to_arxiv.values()])
     )
 
     submissions_with_arxiv: list[dict[str, Any]] = []
@@ -126,8 +126,8 @@ def reviews(
     logger.info("Submissions with arXiv IDs: %d", len(submissions_with_arxiv))
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "openreview_arxiv.json").write_text(
-        json.dumps(submissions_with_arxiv)
+    (output_dir / "openreview_arxiv.json").write_bytes(
+        orjson.dumps(submissions_with_arxiv)
     )
 
 

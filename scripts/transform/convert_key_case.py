@@ -8,12 +8,12 @@ My current thinking is that files that save external inupt should use the same k
 that's not the case for everything, so we might have to convert.
 """
 
-import json
 from collections.abc import Callable
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
+import orjson
 import typer
 
 from paper.util.cli import die
@@ -66,14 +66,14 @@ def main(
         mode: Key transformation mode. See `VALID_MODES`.
     """
     try:
-        data: JSONArray = json.loads(input_path.read_text())
+        data: JSONArray = orjson.loads(input_path.read_bytes())
         transformed_data = transform_array(data, mode.convert)
-        output_path.write_text(json.dumps(transformed_data, indent=2))
+        output_path.write_bytes(orjson.dumps(transformed_data))
 
         print(f"Successfully converted '{input_path}' to '{output_path}'.")
     except FileNotFoundError:
         die(f"File '{input_path}' was not found.")
-    except json.JSONDecodeError as e:
+    except orjson.JSONDecodeError as e:
         die(f"File '{input_path}' contains invalid JSON: {e}")
     except Exception as e:
         die(f"An unexpected error occurred: {e}")

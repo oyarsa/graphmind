@@ -8,7 +8,6 @@ Can use two types of input:
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import platform
@@ -20,6 +19,7 @@ from typing import Annotated, Literal, cast
 
 import numpy as np
 import numpy.typing as npt
+import orjson
 import toml
 import torch
 import typer
@@ -816,7 +816,7 @@ def evaluate_model_predictions(
         "logits": logits_list,
     }
 
-    prediction_path.write_text(json.dumps(prediction_data, indent=2))
+    prediction_path.write_bytes(orjson.dumps(prediction_data))
 
     logger.info(f"Evaluation metrics saved to {metrics_path}")
     logger.info(f"Raw predictions saved to {prediction_path}")

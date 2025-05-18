@@ -1,6 +1,5 @@
 """Split dataset into train, dev and test."""
 
-import json
 import logging
 import random
 import re
@@ -9,6 +8,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Annotated, Any
 
+import orjson
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -63,7 +63,7 @@ def split(
     params = get_params()
     logger.info(render_params(params))
 
-    data: list[dict[str, Any]] = json.loads(input_file.read_bytes())
+    data: list[dict[str, Any]] = orjson.loads(input_file.read_bytes())
 
     n = len(data)
 
@@ -101,10 +101,10 @@ def split(
     logger.info("Test: %d", len(test_split))
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "train.json").write_text(json.dumps(train_split))
-    (output_dir / "dev.json").write_text(json.dumps(dev_split))
-    (output_dir / "test.json").write_text(json.dumps(test_split))
-    (output_dir / "params.json").write_text(json.dumps(params))
+    (output_dir / "train.json").write_bytes(orjson.dumps(train_split))
+    (output_dir / "dev.json").write_bytes(orjson.dumps(dev_split))
+    (output_dir / "test.json").write_bytes(orjson.dumps(test_split))
+    (output_dir / "params.json").write_bytes(orjson.dumps(params))
 
 
 @app.command(no_args_is_help=True)
@@ -131,7 +131,7 @@ def balanced(
     params = get_params()
     logger.info(render_params(params))
 
-    data: list[dict[str, Any]] = json.loads(input_file.read_bytes())
+    data: list[dict[str, Any]] = orjson.loads(input_file.read_bytes())
 
     frequencies = _get_frequencies(data, key)
     print("Input frequencies")
@@ -232,7 +232,7 @@ def downsample(
     if sum(ratio_values) != 100:
         die(f"Ratios must sum to 100, got {sum(ratio_values)}")
 
-    data: list[dict[str, Any]] = json.loads(input_file.read_bytes())
+    data: list[dict[str, Any]] = orjson.loads(input_file.read_bytes())
 
     def get_key_value(item: dict[str, Any]) -> Any:
         """Get key from item. Supports both nested paper items and raw ORC output."""

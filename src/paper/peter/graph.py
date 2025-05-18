@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import gc
-import json
 import logging
 from collections.abc import Iterable
 from pathlib import Path
 from typing import ClassVar, Self
+
+import orjson
 
 from paper import embedding as emb
 from paper.peter import citations, semantic
@@ -134,7 +135,7 @@ class Graph:
         logger.debug(timer_citations)
 
         logger.debug("Saving graph metadata")
-        metadata_file.write_text(json.dumps({"encoder_model": encoder.model_name}))
+        metadata_file.write_bytes(orjson.dumps({"encoder_model": encoder.model_name}))
 
     @classmethod
     def load(cls, graph_dir: Path) -> Self:
@@ -151,7 +152,7 @@ class Graph:
         if not all(f.exists() for f in [citation_file, semantic_file, metadata_file]):
             raise FileNotFoundError(f"Missing one or more graph files in {graph_dir}")
 
-        metadata: dict[str, str] = json.loads(metadata_file.read_bytes())
+        metadata: dict[str, str] = orjson.loads(metadata_file.read_bytes())
         encoder_model = metadata["encoder_model"]
 
         citation_graph = load_data_single(citation_file, citations.Graph)

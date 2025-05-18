@@ -4,11 +4,11 @@ Every object in both files should either have a `paper_id` or `paperId` key.
 """
 
 import copy
-import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, cast
 
+import orjson
 import typer
 
 from paper.util.cli import die
@@ -97,11 +97,11 @@ def main(
     """
     # Read first file
     with open(file1_path) as f:
-        papers1 = json.load(f)
+        papers1 = orjson.loads(f.read())
 
     # Read second file
     with open(file2_path) as f:
-        papers2 = json.load(f)
+        papers2 = orjson.loads(f.read())
 
     # Validate input format
     if not isinstance(papers1, list) or not isinstance(papers2, list):
@@ -122,8 +122,8 @@ def main(
         f"{len(merged_papers)=} ({len(merged_papers) / (len(papers1) + len(papers2)):.2%})"
     )
 
-    with open(output_path, "w") as f:
-        json.dump(merged_papers, f, indent=2)
+    with open(output_path, "wb") as f:
+        f.write(orjson.dumps(merged_papers))
 
 
 def _check_paper_id(file: Path, papers: list[JSONObject]) -> None:

@@ -2,13 +2,13 @@
 # ruff: noqa: RUF001 (allow 'ambiguous' characters, like alpha)
 
 import itertools
-import json
 import subprocess
 import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Annotated
 
+import orjson
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -93,7 +93,7 @@ def run_evaluation(
         return None
 
     try:
-        metrics = json.loads((output_dir / "metrics.json").read_text())
+        metrics = orjson.loads((output_dir / "metrics.json").read_text())
         return metrics.get("accuracy")
     except Exception as e:
         print(f"Error reading metrics file: {e}")
@@ -216,7 +216,7 @@ def main(
 
     # Print table of all results and best parameters
     print_results_table(results)
-    output_file.write_text(json.dumps([asdict(r) for r in results], indent=2))
+    output_file.write_bytes(orjson.dumps([asdict(r) for r in results]))
 
 
 if __name__ == "__main__":

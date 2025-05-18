@@ -3,7 +3,6 @@
 import dataclasses as dc
 import io
 import itertools
-import json
 import logging
 import tarfile
 from pathlib import Path
@@ -11,6 +10,7 @@ from typing import Annotated
 
 import arxiv  # type: ignore
 import backoff
+import orjson
 import requests
 import typer
 from tqdm import tqdm
@@ -62,7 +62,7 @@ def latex(
     By default, skips re-downloading files that already exist in the output directory.
     You can override this with `--clean`.
     """
-    papers: list[dict[str, str]] = json.loads(reviews_file.read_text())[:max_papers]
+    papers: list[dict[str, str]] = orjson.loads(reviews_file.read_text())[:max_papers]
     arxiv_results = [
         ArxivResult(
             openreview_title=p["openreview_title"],

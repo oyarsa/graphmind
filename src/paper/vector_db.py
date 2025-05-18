@@ -4,13 +4,13 @@ Uses SentenceTransformers to build sentence embeddings and faiss to create the i
 """
 # pyright: basic
 
-import json
 import logging
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Self
 
 import faiss  # type: ignore
+import orjson
 import typer
 
 from paper import embedding as emb
@@ -118,7 +118,7 @@ class VectorDatabase:
         metadata_path = db_dir / cls.METADATA_FILE
 
         index = faiss.read_index(str(index_path))
-        metadata = json.loads(metadata_path.read_bytes())
+        metadata = orjson.loads(metadata_path.read_bytes())
 
         return cls(
             index=index,
@@ -211,8 +211,8 @@ class VectorDatabase:
 
         faiss.write_index(self.index, str(index_path))
 
-        metadata_path.write_text(
-            json.dumps({
+        metadata_path.write_bytes(
+            orjson.dumps({
                 "batch_size": self.batch_size,
                 "model_name": self.encoder.model_name,
                 "sentences": self.sentences,

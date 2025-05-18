@@ -4,11 +4,11 @@ Prints the data on both sides of the mismatch. If `--ref` is provided, also prin
 that reference values.
 """
 
-import json
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Annotated, Any, TypeGuard
 
+import orjson
 import typer
 
 from paper.util.cli import die
@@ -89,7 +89,7 @@ def main(
     print()
 
     if output_file:
-        output_file.write_text(json.dumps(diffs, indent=2))
+        output_file.write_bytes(orjson.dumps(diffs))
 
     for diff in diffs:
         keys = compare_dicts(diff["first"], diff["second"])
@@ -116,7 +116,7 @@ def main(
 
 
 def _process_input(file: Path, key_path: str, sort_key: str) -> list[dict[str, Any]]:
-    data = json.loads(file.read_text())
+    data = orjson.loads(file.read_bytes())
     items = (_get_path(x, key_path) for x in data)
     return sorted(items, key=lambda x: x[sort_key])
 

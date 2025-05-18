@@ -1,6 +1,5 @@
 """Tools for serialisation and deserialisation of Pydantic objects."""
 
-import json
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
@@ -16,6 +15,7 @@ from typing import (
     runtime_checkable,
 )
 
+import orjson
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 type JSONPrimitive = str | bool | int | float
@@ -103,16 +103,14 @@ def load_data_jsonl[T: BaseModel](file: Path, type_: type[T]) -> list[T]:
         raise SerdeError(
             f"Data from {file} is not valid for {get_full_type_name(type_)}"
         ) from e
-    except json.JSONDecodeError as e:
+    except orjson.JSONDecodeError as e:
         line_num = e.lineno if hasattr(e, "lineno") else "unknown"
         raise SerdeError(f"Invalid JSON at line {line_num} in {file}: {e}") from e
     else:
         return result
 
 
-def load_data[T: BaseModel](
-    file: Path | bytes, type_: type[T], use_alias: bool = True
-) -> list[T]:
+def load_data[T: BaseModel](file: Path | bytes, type_: type[T]) -> list[T]:
     """Load list of objects from the JSON `file`.
 
     Args:
@@ -135,10 +133,10 @@ def load_data[T: BaseModel](
         content = file
         source = "bytes"
 
-    data_raw = json.loads(content)
+    data_raw = orjson.loads(content)
     try:
         return [type_.model_validate(item) for item in data_raw]
-    except json.JSONDecodeError as e:
+    except orjson.JSONDecodeError as e:
         raise SerdeError(f"Data from {source} is not valid JSON.") from e
     except ValidationError as e:
         raise SerdeError(
@@ -197,12 +195,12 @@ def save_data[T: BaseModel](
         raise SerdeError("Cannot save empty data")
 
     file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_text(_dump_data_to_json(data, use_alias=use_alias))
+    file.write_bytes(_dump_data_to_json(data, use_alias=use_alias))
 
 
 def _dump_data_to_json[T: BaseModel](
     data: Sequence[T] | T | Any, use_alias: bool
-) -> str:
+) -> bytes:
     """Return a JSON string representation of `data`.
 
     - If `data` is a single BaseModel, use its `.model_dump_json()`.
@@ -211,15 +209,15 @@ def _dump_data_to_json[T: BaseModel](
     """
 
     if isinstance(data, BaseModel):
-        return data.model_dump_json(indent=2, by_alias=use_alias)
+        return data.model_dump_json(by_alias=use_alias).encode()
 
     if isinstance(data, Sequence):
         data = cast(Sequence[Any], data)
         if _is_model_list(data):
             type_ = type(data[0])
-            return TypeAdapter(Sequence[type_]).dump_json(data).decode()
+            return TypeAdapter(Sequence[type_]).dump_json(data)
 
-    return json.dumps(data, indent=2)
+    return orjson.dumps(data)
 
 
 def _is_model_list(val: Sequence[object]) -> TypeGuard[Sequence[BaseModel]]:
@@ -248,7 +246,7 @@ def get_full_type_name[T](type_: type[T]) -> str:
 
 def safe_load_json(file_path: Path) -> Any:
     """Load a JSON file, removing invalid UTF-8 characters."""
-    return json.loads(file_path.read_text(encoding="utf-8", errors="replace"))
+    return orjson.loads(file_path.read_text(encoding="utf-8", errors="replace"))
 
 
 @runtime_checkable

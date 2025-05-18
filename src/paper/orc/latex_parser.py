@@ -1,7 +1,6 @@
 """Parse arXiv LaTeX files into structured data."""
 
 import dataclasses as dc
-import json
 import logging
 import multiprocessing as mp
 import re
@@ -14,6 +13,7 @@ from pathlib import Path
 from typing import Annotated
 
 import nltk  # type: ignore
+import orjson
 import typer
 from tqdm import tqdm
 
@@ -287,8 +287,8 @@ def _process_tex_file(
     title = _title_from_filename(input_file, ".tar.gz")
 
     if paper := _process_latex(splitter, title, input_file):
-        (output_dir / f"{title}.json").write_text(
-            json.dumps(json.loads(json.dumps(paper, default=vars)), indent=2)
+        (output_dir / f"{title}.json").write_bytes(
+            orjson.dumps(orjson.loads(orjson.dumps(paper, default=vars)))
         )
         return True
 
@@ -597,14 +597,14 @@ def _extract_bibliography_from_bibfiles(
                 text=True,
                 timeout=PANDOC_CMD_TIMEOUT,
             )
-            bib_data = json.loads(result.stdout)
+            bib_data = orjson.loads(result.stdout)
         except subprocess.TimeoutExpired:
             logger.warning("Command timeout during bibliography file processing.")
             continue
         except subprocess.CalledProcessError as e:
             logger.debug(f"Error processing bibliography file {bib_path}: {e.stderr}")
             continue
-        except json.JSONDecodeError as e:
+        except orjson.JSONDecodeError as e:
             logger.debug(f"Error parsing bibliography data from {bib_path}: {e}")
             continue
 

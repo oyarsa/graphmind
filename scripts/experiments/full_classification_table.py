@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated, Any
 
+import orjson
 import typer
 
 from paper import gpt
@@ -216,7 +216,7 @@ def metrics(
     The file must be a JSON object with a `confusion` field, which must be a 2D array,
     the confusion matrix.
     """
-    data: dict[str, Any] = json.loads(metrics_file.read_bytes())
+    data: dict[str, Any] = orjson.loads(metrics_file.read_bytes())
     confusion = data["confusion"]
 
     tn = confusion[0][0]

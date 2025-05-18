@@ -1,10 +1,10 @@
 """Create table with the results of the citation context classification experiments."""
 
-import json
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated, Any
 
+import orjson
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -18,8 +18,8 @@ def parse_metrics(base_path: Path) -> list[dict[str, Any]]:
         if not dir.is_dir():
             continue
 
-        metrics: dict[str, Any] = json.loads((dir / "metrics.json").read_bytes())
-        results: list[dict[str, Any]] = json.loads((dir / "result.json").read_bytes())
+        metrics: dict[str, Any] = orjson.loads((dir / "metrics.json").read_bytes())
+        results: list[dict[str, Any]] = orjson.loads((dir / "result.json").read_bytes())
 
         run_name = str(dir.relative_to(base_path))
         prompt, context_flag, model = run_name.split("_", maxsplit=2)

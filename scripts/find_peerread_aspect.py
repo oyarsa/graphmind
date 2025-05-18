@@ -1,11 +1,11 @@
 """Find the overlap between PeerRead clean papers and ASAP aspect papers."""
 
-import json
 from collections.abc import Sequence
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Annotated
 
+import orjson
 import typer
 from pydantic import Field, computed_field
 from tqdm import tqdm
@@ -251,7 +251,7 @@ def _build_id_title_map(dir: Path) -> dict[str, str]:
 
     files = list(dir.rglob("*content*.json"))
     for file in tqdm(files, "ASAP ID to title mapping"):
-        data = PaperContent.model_validate(json.loads(file.read_bytes()))
+        data = PaperContent.model_validate(orjson.loads(file.read_bytes()))
         id_ = file.stem.removesuffix("_content")
         if title := data.metadata.title:
             id_to_title[id_] = title
