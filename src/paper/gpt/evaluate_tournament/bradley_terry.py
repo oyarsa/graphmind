@@ -177,16 +177,49 @@ def _bt_update_strengths(
                 continue
 
             # Update strength
-            new_strength = current_strengths[name] * total_wins / expected_wins
+            if total_wins > 0:
+                # Normal update when player has some wins
+                new_strength = current_strengths[name] * total_wins / expected_wins
+            else:
+                # When player has no wins, adjust strength downward but not to zero
+                # This ensures players who lose all matches still have a meaningful rating
+                new_strength = current_strengths[name] * 0.2  # Reduce strength by 80%
+
             new_strengths[name] = new_strength
 
             # Track largest change
             diff = abs(new_strength - current_strengths[name])
             max_diff = max(max_diff, diff)
 
-        # Normalize to avoid numerical issues
+        # Normalize to avoid numerical issues and extreme values
         strength_values = list(new_strengths.values())
         sum_strengths = sum(strength_values)
+
+        # Adjust extreme values to prevent binary ratings (all 0 or all max)
+        min_strength = min(strength_values)
+        max_strength = max(strength_values)
+
+        # Apply smoothing to compress the range and avoid extreme values
+        # This compression makes it harder for a player to have 0 strength
+        # or completely dominate
+        if min_strength < 0.1 * max_strength and max_strength > 0:
+            # Compress the range by raising strengths to a power (power < 1 compresses)
+            compression_factor = 0.5  # Compression strength (0.5 = square root)
+            max_original = max_strength
+
+            # Apply compression and scaling
+            for name_str in list(new_strengths.keys()):
+                # Add a baseline (prevents zeros)
+                baseline = max_original * 0.1  # 10% of max as baseline
+
+                # Apply power-based compression to reduce extremes
+                new_value = baseline + (new_strengths[name_str] ** compression_factor)
+                new_strengths[name_str] = new_value
+
+            # Recalculate sum for normalization
+            sum_strengths = sum(new_strengths.values())
+
+        # Apply normalization
         if sum_strengths > 0:
             scale_factor = n_players / sum_strengths
             for name_str in list(new_strengths.keys()):

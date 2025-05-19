@@ -1,6 +1,7 @@
 """Tests for Bradley-Terry rating system in paper.gpt.evaluate_tournament.bradley_terry."""
 
 from __future__ import annotations
+import itertools
 
 
 from paper.gpt.evaluate_tournament.bradley_terry import (
@@ -244,3 +245,51 @@ def test_calculate_bradley_terry_rankings(
         # Check that ranks are unique and complete
         ranks = [r.rank for r in rankings]
         assert sorted(ranks) == list(range(1, len(sample_player_names) + 1))
+
+
+def test_bradley_terry_rating_distribution() -> None:
+    """Test that Bradley-Terry ratings have a reasonable distribution.
+
+    This is a regression test for the issue where Bradley-Terry produces
+    extreme binary ratings (e.g., 4.00 vs 0.00) when the model fails to
+    converge properly.
+    """
+    # Create a tournament with hierarchy but not extreme dominance
+    items = ["A", "B", "C", "D", "E"]
+    metric = "test_metric"
+
+    tournament = BradleyTerryTournamentSystem.create(items, metric)
+
+    # Create a tournament with a clear hierarchy
+    # Each player beats all players below them in order
+    for winner, loser in itertools.pairwise(items):
+        tournament = tournament.record_match(
+            winner,
+            loser,
+            MatchResult(winner=MatchWinner.A, explanation=f"{winner} beats {loser}"),
+        )
+
+    # Add some variation to avoid complete dominance
+    # D beats B once and C beats A once
+    tournament = tournament.record_match(
+        "D", "B", MatchResult(winner=MatchWinner.A, explanation="Upset: D beats B")
+    )
+    tournament = tournament.record_match(
+        "C", "A", MatchResult(winner=MatchWinner.A, explanation="Upset: C beats A")
+    )
+
+    # Check the ratings are reasonably distributed (not extreme values)
+    ratings = [r.rating for r in tournament.get_rankings()]
+
+    # The ratings should form a smooth gradient, not binary values
+    assert len(set(ratings)) > 2, "Ratings should have more than 2 distinct values"
+
+    # Verify the distribution is reasonable
+    assert 0.1 < min(ratings), "Lowest rating should not be too close to zero"
+
+    # Calculate the ratios between consecutive ratings
+    # They should be similar but not identical
+    ratios = [ratings[i] / ratings[i + 1] for i in range(len(ratings) - 1)]
+    assert min(ratios) < max(ratios), (
+        "Rating distribution should not be completely uniform"
+    )
