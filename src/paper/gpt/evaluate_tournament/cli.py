@@ -31,7 +31,8 @@ from paper.gpt.evaluate_tournament.tournament import (
     calculate_token_statistics,
     count_head_to_head,
     display_head_to_head,
-    display_tournament_results,
+    display_tournament_ranks,
+    display_tournament_ratings,
     tournament_summary,
 )
 from paper.gpt.model import PromptResult
@@ -322,7 +323,9 @@ async def run_tournaments(
     logger.info(f"Rankings calculation time: {ranking_timer.human}")
     logger.info(f"Total comparison cost: ${raw_comparisons.cost:.10f}")
 
-    logger.info("\n%s", display_tournament_results(summary, markdown=markdown_table))
+    logger.info("\n%s", display_tournament_ranks(summary, markdown=markdown_table))
+    logger.info("\n%s", display_tournament_ratings(summary, markdown=markdown_table))
+
     if isinstance(raw_comparisons, PromptResult) or save_comparisons:
         save_data(output_dir / "raw_comparisons.json", raw_comparisons.result)
     save_data(output_dir / f"tournament_results_{algorithm}.json", summary)

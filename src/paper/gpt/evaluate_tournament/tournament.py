@@ -321,7 +321,8 @@ def display_tournament_results(
 
     metrics = list(results.metric_rankings.keys())
     for metric in metrics:
-        table.add_column(metric.capitalize(), justify="right")
+        table.add_column(f"{metric.capitalize()} Rank", justify="right")
+        table.add_column(f"{metric.capitalize()} Rating", justify="right")
 
     # Add token columns if token statistics are available
     has_token_stats = bool(results.token_stats) and show_tokens
@@ -336,10 +337,23 @@ def display_tournament_results(
         mean_rank = f"{item.mean_rank:.2f}"
         median_rank = f"{item.median_rank:.1f}"
 
-        # Get metric-specific ranks
-        metric_ranks = [str(item.metric_ranks[m]) for m in metrics]
+        # Get metric-specific ranks and ratings
+        metric_data: list[str] = []
+        for m in metrics:
+            # Get the rank from the overall rankings
+            rank = str(item.metric_ranks[m])
 
-        row = [str(i), name, mean_rank, median_rank, *metric_ranks]
+            # Find the rating for this item in the specific metric
+            rating = "—"
+            for player_rank in results.metric_rankings[m]:
+                if player_rank.name == name:
+                    rating = f"{player_rank.rating:.2f}"
+                    break
+
+            metric_data.append(rank)
+            metric_data.append(rating)
+
+        row = [str(i), name, mean_rank, median_rank, *metric_data]
 
         # Add token statistics if available
         if has_token_stats and name in results.token_stats:
@@ -355,6 +369,108 @@ def display_tournament_results(
         table.add_row(*row)
 
     return render_rich(table)
+
+
+def display_tournament_ranks(results: TournamentSummary, markdown: bool = False) -> str:
+    """Display table with tournament ranks and token statistics.
+
+    Args:
+        results: Tournament results summary.
+        markdown: If True, use Markdown formatting for the table.
+
+    Returns:
+        String representation of the ranks table.
+    """
+    ranks_table = Table(
+        title="Tournament Rankings", box=box.MARKDOWN if markdown else box.HEAVY_HEAD
+    )
+
+    ranks_table.add_column("Rank", style="cyan", justify="right")
+    ranks_table.add_column("Item", style="green")
+    ranks_table.add_column("Mean Rank", justify="right")
+    ranks_table.add_column("Median Rank", justify="right")
+
+    metrics = list(results.metric_rankings.keys())
+    for metric in metrics:
+        ranks_table.add_column(f"{metric.capitalize()} Rank", justify="right")
+
+    # Add token statistics columns if available
+    if results.token_stats:
+        ranks_table.add_column("Tokens (mean)", justify="right")
+        ranks_table.add_column("Tokens (median)", justify="right")
+        ranks_table.add_column("Tokens (stdev)", justify="right")
+
+    for i, item in enumerate(results.overall_rankings, 1):
+        name = item.name
+        mean_rank = f"{item.mean_rank:.2f}"
+        median_rank = f"{item.median_rank:.1f}"
+
+        # Build row for ranks table
+        row = [str(i), name, mean_rank, median_rank]
+
+        # Add metric-specific ranks
+        for m in metrics:
+            # Get the rank from the overall rankings
+            rank = str(item.metric_ranks[m])
+            row.append(rank)
+
+        # Add token statistics if available
+        if results.token_stats and name in results.token_stats:
+            stats = results.token_stats[name]
+            token_stats = [
+                f"{stats.mean:.1f}",
+                f"{stats.median:.0f}",
+                f"{stats.std_dev:.1f}",
+            ]
+            row.extend(token_stats)
+        elif results.token_stats:
+            row.extend(["—", "—", "—"])  # Placeholder for missing token stats
+
+        ranks_table.add_row(*row)
+
+    return render_rich(ranks_table)
+
+
+def display_tournament_ratings(
+    results: TournamentSummary, markdown: bool = False
+) -> str:
+    """Display table with just the metric ratings (without ranks or token stats).
+
+    Args:
+        results: Tournament results summary.
+        markdown: If True, use Markdown formatting for the table.
+
+    Returns:
+        String representation of the ratings table.
+    """
+    ratings_table = Table(
+        title="Tournament Ratings", box=box.MARKDOWN if markdown else box.HEAVY_HEAD
+    )
+
+    ratings_table.add_column("Rank", style="cyan", justify="right")
+    ratings_table.add_column("Item", style="green")
+
+    metrics = list(results.metric_rankings.keys())
+    for metric in metrics:
+        ratings_table.add_column(f"{metric.capitalize()} Rating", justify="right")
+
+    for i, item in enumerate(results.overall_rankings, 1):
+        name = item.name
+
+        row = [str(i), name]
+
+        for m in metrics:
+            rating = "—"
+            for player_rank in results.metric_rankings[m]:
+                if player_rank.name == name:
+                    rating = f"{player_rank.rating:.2f}"
+                    break
+
+            row.append(rating)
+
+        ratings_table.add_row(*row)
+
+    return render_rich(ratings_table)
 
 
 def calculate_token_statistics(
