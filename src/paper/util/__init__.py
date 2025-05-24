@@ -26,8 +26,9 @@ import polars as pl
 import psutil
 from rich.console import Console
 from thefuzz import fuzz  # type: ignore
+from tqdm import tqdm
 
-from paper.util import cli
+from paper.util import cli, progress
 
 logger = logging.getLogger(__name__)
 
@@ -787,3 +788,42 @@ async def await_and_call_async[T](
 def seqcat[T](*iters: Iterable[T]) -> Sequence[T]:
     """Concatenate iterators in a sequence."""
     return tuple(itertools.chain(*iters))
+
+
+async def batch_map_with_progress[T, U](
+    fn: Callable[[T], Awaitable[U]],
+    items: Sequence[T],
+    batch_size: int,
+    *,
+    name: str = "items",
+) -> list[U]:
+    """Apply `fn` to `items` in batches. Shows batched progress bars with `name`.
+
+    Args:
+        fn: Async function to be applied over each item in `items`.
+        items: Sequence to be applied.
+        batch_size: Number of items per batch.
+        name: If given, name to use in progress bar.
+
+    Returns:
+        Processed items.
+    """
+    results: list[U] = []
+
+    with tqdm(
+        total=len(items), desc=f"Evaluating {name}", position=0, leave=True
+    ) as pbar_papers:
+        for batch in itertools.batched(items, batch_size):
+            tasks = [fn(paper) for paper in batch]
+            results.extend(
+                await progress.gather(
+                    tasks,
+                    desc="Evaluating batch",
+                    position=1,
+                    leave=False,
+                )
+            )
+
+            pbar_papers.update(len(batch))
+
+    return results
