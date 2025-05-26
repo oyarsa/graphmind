@@ -24,7 +24,7 @@ from paper.gpt.evaluate_tournament.tournament import (
 )
 from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate
-from paper.gpt.run_gpt import GPTResult, LLMClient, gpr_map, gpr_traverse
+from paper.gpt.run_gpt import GPTResult, LLMClient, gpr_map, gpt_sequence
 from paper.types import Immutable
 from paper.util import batch_map_with_progress, sample
 from paper.util.serde import load_data, load_data_single
@@ -172,7 +172,7 @@ async def _run_all_comparisons(
 
     async def evaluate(
         spec: ComparisonSpec,
-    ) -> GPTResult[PromptResult[tuple[ComparisonSpec, MatchResult]]]:
+    ) -> GPTResult[PromptResult[ComparisonResult]]:
         result = await _compare_rationales(
             client,
             spec.paper,
@@ -182,26 +182,24 @@ async def _run_all_comparisons(
             prompt,
             metric_definitions,
         )
-        return gpr_map(result, lambda result, spec=spec: (spec, result))
-
-    def transform(
-        item: tuple[ComparisonSpec, MatchResult],
-    ) -> ComparisonResult:
-        spec, cmp = item
-        return ComparisonResult(
-            item_a=spec.item_a,
-            item_b=spec.item_b,
-            metric=spec.metric,
-            paper=spec.paper,
-            rationale_a=spec.rationale_a,
-            rationale_b=spec.rationale_b,
-            result=cmp,
+        return gpr_map(
+            result,
+            lambda cmp: ComparisonResult(
+                item_a=spec.item_a,
+                item_b=spec.item_b,
+                metric=spec.metric,
+                paper=spec.paper,
+                rationale_a=spec.rationale_a,
+                rationale_b=spec.rationale_b,
+                result=cmp,
+            ),
         )
 
-    results = await batch_map_with_progress(
-        evaluate, comparison_specs, REQUEST_BATCH_SIZE, name="pairwise comparisons"
+    return gpt_sequence(
+        await batch_map_with_progress(
+            evaluate, comparison_specs, REQUEST_BATCH_SIZE, name="pairwise comparisons"
+        )
     )
-    return gpr_traverse(results, transform)
 
 
 class RawComparisonOutput(Immutable):
