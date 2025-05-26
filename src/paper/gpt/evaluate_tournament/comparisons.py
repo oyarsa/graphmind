@@ -13,8 +13,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from tqdm import tqdm
-
 from paper.gpt.evaluate_tournament.tournament import (
     ComparisonResult,
     InputFileType,
@@ -28,7 +26,7 @@ from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate
 from paper.gpt.run_gpt import GPTResult, LLMClient, gpr_map, gpr_traverse
 from paper.types import Immutable
-from paper.util import progress, sample
+from paper.util import batch_map_with_progress, sample
 from paper.util.serde import load_data, load_data_single
 
 logger = logging.getLogger(__name__)
@@ -171,40 +169,20 @@ async def _run_all_comparisons(
     Returns:
         List of comparison results.
     """
-    comparison_results: list[
-        GPTResult[PromptResult[tuple[ComparisonSpec, MatchResult]]]
-    ] = []
 
-    with tqdm(
-        total=len(comparison_specs),
-        desc="Running pairwise comparisons",
-        position=0,
-        leave=True,
-    ) as pbar_cmp:
-        for batch_specs in itertools.batched(comparison_specs, REQUEST_BATCH_SIZE):
-            tasks = [
-                _compare_rationales(
-                    client,
-                    spec.paper,
-                    spec.rationale_a,
-                    spec.rationale_b,
-                    spec.metric,
-                    prompt,
-                    metric_definitions,
-                )
-                for spec in batch_specs
-            ]
-            batch_results = await progress.gather(
-                tasks,
-                desc="Running pairwise comparisons batch",
-                position=1,
-                leave=False,
-            )
-            comparison_results.extend(
-                gpr_map(result, lambda r, spec=spec: (spec, r))
-                for spec, result in zip(batch_specs, batch_results)
-            )
-            pbar_cmp.update(len(batch_specs))
+    async def evaluate(
+        spec: ComparisonSpec,
+    ) -> GPTResult[PromptResult[tuple[ComparisonSpec, MatchResult]]]:
+        result = await _compare_rationales(
+            client,
+            spec.paper,
+            spec.rationale_a,
+            spec.rationale_b,
+            spec.metric,
+            prompt,
+            metric_definitions,
+        )
+        return gpr_map(result, lambda result, spec=spec: (spec, result))
 
     def transform(
         item: tuple[ComparisonSpec, MatchResult],
@@ -220,7 +198,10 @@ async def _run_all_comparisons(
             result=cmp,
         )
 
-    return gpr_traverse(comparison_results, transform)
+    results = await batch_map_with_progress(
+        evaluate, comparison_specs, REQUEST_BATCH_SIZE, name="pairwise comparisons"
+    )
+    return gpr_traverse(results, transform)
 
 
 class RawComparisonOutput(Immutable):

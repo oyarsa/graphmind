@@ -15,7 +15,6 @@ The output is the input annotated papers with a predicted novelty rating.
 from __future__ import annotations
 
 import asyncio
-import itertools
 import logging
 import random
 import tomllib
@@ -25,7 +24,6 @@ from typing import Annotated
 
 import dotenv
 import typer
-from tqdm import tqdm
 
 from paper import peerread as pr
 from paper.evaluation_metrics import (
@@ -64,9 +62,9 @@ from paper.gpt.run_gpt import (
 )
 from paper.util import (
     Timer,
+    batch_map_with_progress,
     cli,
     get_params,
-    progress,
     read_resource,
     render_params,
     sample,
@@ -360,24 +358,9 @@ async def _evaluate_papers(
         await append_intermediate_result_async(output_intermediate_file, result.result)
         return result
 
-    graph_results: list[GPTResult[PromptResult[GraphResult]]] = []
-    with tqdm(
-        total=len(papers), desc="Evaluating papers", position=0, leave=True
-    ) as pbar_papers:
-        for batch in itertools.batched(papers, batch_size):
-            tasks = [evaluate(paper) for paper in batch]
-            graph_results.extend(
-                await progress.gather(
-                    tasks,
-                    desc="Evaluating batch",
-                    position=1,
-                    leave=False,
-                )
-            )
-
-            pbar_papers.update(len(batch))
-
-    return gpt_sequence(graph_results)
+    return gpt_sequence(
+        await batch_map_with_progress(evaluate, papers, batch_size, name="papers")
+    )
 
 
 async def _evaluate_paper(

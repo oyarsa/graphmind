@@ -8,7 +8,6 @@ SciMON graph created by `scimon.build`.
 from __future__ import annotations
 
 import asyncio
-import itertools
 import logging
 import random
 from collections.abc import Iterable, Sequence
@@ -17,7 +16,6 @@ from typing import Annotated
 
 import dotenv
 import typer
-from tqdm import tqdm
 
 from paper.baselines import scimon
 from paper.evaluation_metrics import (
@@ -44,9 +42,9 @@ from paper.gpt.run_gpt import (
 )
 from paper.util import (
     Timer,
+    batch_map_with_progress,
     cli,
     get_params,
-    progress,
     render_params,
     sample,
     seqcat,
@@ -288,23 +286,7 @@ async def _classify_papers(
         await append_intermediate_result_async(output_intermediate_file, result.result)
         return result
 
-    results: list[GPTResult[PromptResult[PaperResult]]] = []
-    with tqdm(
-        total=len(papers), desc="Evaluating papers", position=0, leave=True
-    ) as pbar_papers:
-        for batch in itertools.batched(papers, batch_size):
-            tasks = [evaluate(paper) for paper in batch]
-            results.extend(
-                await progress.gather(
-                    tasks,
-                    desc="Evaluating batch",
-                    position=1,
-                    leave=False,
-                )
-            )
-
-            pbar_papers.update(len(batch))
-
+    results = await batch_map_with_progress(evaluate, papers, batch_size, name="papers")
     return gpt_sequence(results)
 
 
