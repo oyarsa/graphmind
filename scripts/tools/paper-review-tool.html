@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paper Review Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto max-w-[1600px] p-5">
+      <!-- Header -->
+      <div class="bg-white p-5 rounded-lg shadow-sm mb-5">
+        <h1 class="text-3xl font-bold text-gray-800 mb-4">Paper Review Tool</h1>
+        <div class="flex flex-wrap gap-3 items-center">
+          <!-- File Upload -->
+          <div class="relative">
+            <input type="file" id="fileInput" class="hidden" accept=".json" />
+            <label
+              for="fileInput"
+              class="inline-block px-4 py-2 bg-blue-500 text-white rounded cursor-pointer hover:bg-blue-600 transition-colors"
+            >
+              Upload JSON File
+            </label>
+          </div>
+
+          <!-- Navigation -->
+          <div class="flex gap-2 items-center">
+            <button
+              id="prevBtn"
+              class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled
+            >
+              Previous
+            </button>
+            <span id="counter" class="font-bold text-gray-600 px-2"
+              >No data loaded</span
+            >
+            <button
+              id="nextBtn"
+              class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled
+            >
+              Next
+            </button>
+          </div>
+
+          <!-- Save Button -->
+          <button
+            id="saveBtn"
+            class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled
+          >
+            Save All Notes
+          </button>
+        </div>
+
+        <!-- Status Message -->
+        <div
+          id="statusMessage"
+          class="hidden mt-3 p-3 rounded"
+        ></div>
+      </div>
+
+      <!-- Content Area -->
+      <div id="contentArea" class="hidden">
+        <!-- Paper Information -->
+        <div class="bg-white p-5 rounded-lg shadow-sm mb-5">
+          <h2
+            id="paperTitle"
+            class="text-2xl font-bold text-gray-800 mb-3"
+          ></h2>
+          <div
+            id="paperMetadata"
+            class="flex flex-wrap gap-5 mb-4 text-sm text-gray-600"
+          ></div>
+          <div
+            id="paperAbstract"
+            class="text-gray-600 p-4 bg-gray-50 border-l-4 border-blue-500 rounded"
+          ></div>
+        </div>
+
+        <!-- Two Column Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+          <!-- Ground Truth Column -->
+          <div class="bg-white p-5 rounded-lg shadow-sm">
+            <h3
+              class="text-xl font-bold text-green-600 mb-4 pb-3 border-b-2 border-gray-200"
+            >
+              Ground Truth
+            </h3>
+            <div class="space-y-4">
+              <div>
+                <div class="font-bold text-gray-600 mb-1">Rating (y_true):</div>
+                <div id="yTrue" class="p-3 bg-gray-50 rounded"></div>
+              </div>
+              <div>
+                <div class="font-bold text-gray-600 mb-1">Rationale:</div>
+                <div id="rationaleTrue" class="p-3 bg-gray-50 rounded"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Model Prediction Column -->
+          <div class="bg-white p-5 rounded-lg shadow-sm">
+            <h3
+              class="text-xl font-bold text-red-600 mb-4 pb-3 border-b-2 border-gray-200"
+            >
+              Model Prediction
+            </h3>
+            <div class="space-y-4">
+              <div>
+                <div class="font-bold text-gray-600 mb-1">Rating (y_pred):</div>
+                <div id="yPred" class="p-3 bg-gray-50 rounded"></div>
+              </div>
+              <div>
+                <div class="font-bold text-gray-600 mb-1">Rationale:</div>
+                <div id="rationalePred" class="p-3 bg-gray-50 rounded"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes Section -->
+        <div class="bg-white p-5 rounded-lg shadow-sm">
+          <h3 class="text-xl font-bold text-gray-800 mb-3">Review Notes</h3>
+          <textarea
+            id="notesTextarea"
+            class="w-full min-h-[150px] p-3 border-2 border-gray-200 rounded focus:outline-none focus:border-blue-500 resize-y"
+            placeholder="Enter your review notes here..."
+          ></textarea>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let data = [];
+      let currentIndex = 0;
+      let notes = {};
+
+      const fileInput = document.getElementById("fileInput");
+      const prevBtn = document.getElementById("prevBtn");
+      const nextBtn = document.getElementById("nextBtn");
+      const saveBtn = document.getElementById("saveBtn");
+      const counter = document.getElementById("counter");
+      const contentArea = document.getElementById("contentArea");
+      const notesTextarea = document.getElementById("notesTextarea");
+      const statusMessage = document.getElementById("statusMessage");
+
+      fileInput.addEventListener("change", handleFileUpload);
+      prevBtn.addEventListener("click", () => navigate(-1));
+      nextBtn.addEventListener("click", () => navigate(1));
+      saveBtn.addEventListener("click", saveNotes);
+      notesTextarea.addEventListener("input", () => {
+        if (data.length > 0) {
+          notes[currentIndex] = notesTextarea.value;
+        }
+      });
+
+      function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            data = JSON.parse(e.target.result);
+            if (!Array.isArray(data)) {
+              throw new Error("JSON must be an array");
+            }
+
+            // Reset notes
+            notes = {};
+            currentIndex = 0;
+
+            // Enable navigation
+            updateNavigation();
+            displayItem();
+            contentArea.classList.remove("hidden");
+            saveBtn.disabled = false;
+
+            showStatus("File loaded successfully!", "success");
+          } catch (error) {
+            showStatus("Error loading file: " + error.message, "error");
+            console.error("Error parsing JSON:", error);
+          }
+        };
+
+        reader.readAsText(file);
+      }
+
+      function navigate(direction) {
+        // Save current notes before navigating
+        if (notesTextarea.value) {
+          notes[currentIndex] = notesTextarea.value;
+        }
+
+        currentIndex += direction;
+        updateNavigation();
+        displayItem();
+      }
+
+      function updateNavigation() {
+        prevBtn.disabled = currentIndex === 0;
+        nextBtn.disabled = currentIndex === data.length - 1;
+        counter.textContent = `${currentIndex + 1} / ${data.length}`;
+      }
+
+      function displayItem() {
+        if (data.length === 0 || currentIndex >= data.length) return;
+
+        const item = data[currentIndex];
+        let paper;
+
+        // Handle both PromptResult[GraphResult] and PromptResult[PaperResult]
+        if (item.item && item.item.paper) {
+          // PromptResult[GraphResult] structure
+          paper = item.item.paper;
+        } else if (item.item) {
+          // PromptResult[PaperResult] structure
+          paper = item.item;
+        } else {
+          console.error("Unknown data structure");
+          return;
+        }
+
+        // Update paper info
+        document.getElementById("paperTitle").textContent =
+          paper.title || "No title";
+        document.getElementById("paperAbstract").textContent =
+          paper.abstract || "No abstract";
+
+        // Update metadata
+        updateMetadata(paper);
+
+        // Update ground truth
+        document.getElementById("yTrue").textContent =
+          paper.y_true !== undefined ? paper.y_true : "N/A";
+        document.getElementById("rationaleTrue").textContent =
+          cleanText(paper.rationale_true) || "No rationale provided";
+
+        // Update predictions
+        document.getElementById("yPred").textContent =
+          paper.y_pred !== undefined ? paper.y_pred : "N/A";
+        document.getElementById("rationalePred").textContent =
+          cleanText(paper.rationale_pred) || "No rationale provided";
+
+        // Update notes
+        notesTextarea.value = notes[currentIndex] || "";
+      }
+
+      function updateMetadata(paper) {
+        const metadataContainer = document.getElementById("paperMetadata");
+        metadataContainer.innerHTML = "";
+
+        // Authors
+        if (paper.authors && paper.authors.length > 0) {
+          const authorsText = Array.isArray(paper.authors)
+            ? paper.authors.join(", ")
+            : paper.authors;
+          metadataContainer.appendChild(
+            createMetadataItem("Authors:", authorsText),
+          );
+        }
+
+        // Conference
+        if (paper.conference) {
+          metadataContainer.appendChild(
+            createMetadataItem("Conference:", paper.conference),
+          );
+        }
+
+        // Year
+        if (paper.year) {
+          metadataContainer.appendChild(
+            createMetadataItem("Year:", paper.year),
+          );
+        }
+
+        // Approval status
+        if (paper.approval !== undefined && paper.approval !== null) {
+          const approvalElement = createMetadataItem(
+            "Status:",
+            paper.approval ? "Accepted" : "Rejected",
+          );
+          const valueSpan = approvalElement.querySelector(".metadata-value");
+          valueSpan.className = paper.approval
+            ? "text-green-600 font-semibold"
+            : "text-red-600 font-semibold";
+          metadataContainer.appendChild(approvalElement);
+        }
+      }
+
+      function createMetadataItem(label, value) {
+        const item = document.createElement("div");
+        item.className = "flex items-center gap-1";
+
+        const labelSpan = document.createElement("span");
+        labelSpan.className = "font-semibold text-gray-500";
+        labelSpan.textContent = label;
+
+        const valueSpan = document.createElement("span");
+        valueSpan.className = "metadata-value text-gray-700";
+        valueSpan.textContent = value;
+
+        item.appendChild(labelSpan);
+        item.appendChild(valueSpan);
+
+        return item;
+      }
+
+      function cleanText(text) {
+        if (!text) return text;
+
+        // Remove leading/trailing backticks (single or triple)
+        let cleaned = text.trim();
+
+        // Remove triple backticks with optional language identifier
+        cleaned = cleaned.replace(/^```[\w]*\n?/, "").replace(/\n?```$/, "");
+
+        // Remove single backticks at start and end
+        if (cleaned.startsWith("`") && cleaned.endsWith("`")) {
+          cleaned = cleaned.slice(1, -1);
+        }
+
+        return cleaned.trim();
+      }
+
+      function saveNotes() {
+        // Save current note
+        if (notesTextarea.value) {
+          notes[currentIndex] = notesTextarea.value;
+        }
+
+        // Create output data
+        const output = data.map((item, index) => {
+          return {
+            ...item,
+            review_notes: notes[index] || "",
+          };
+        });
+
+        // Download as JSON
+        const blob = new Blob([JSON.stringify(output, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "reviewed_papers.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showStatus("Notes saved successfully!", "success");
+      }
+
+      function showStatus(message, type) {
+        statusMessage.textContent = message;
+        statusMessage.className =
+          type === "success"
+            ? "mt-3 p-3 rounded bg-green-100 text-green-800 border border-green-300"
+            : "mt-3 p-3 rounded bg-red-100 text-red-800 border border-red-300";
+        statusMessage.classList.remove("hidden");
+
+        setTimeout(() => {
+          statusMessage.classList.add("hidden");
+        }, 3000);
+      }
+    </script>
+  </body>
+</html>
