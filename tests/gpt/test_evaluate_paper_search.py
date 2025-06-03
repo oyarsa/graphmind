@@ -155,3 +155,34 @@ class TestParseResult:
         assert "ELEGANT" in result.rationale
         assert "Given the approval decision" in result.rationale
         assert "**References:**" in result.rationale
+
+    def test_parse_result_no_label_format(self):
+        """Test parsing when text doesn't follow the expected format at all.
+
+        This test documents a known failure case where the LLM output doesn't include
+        a properly formatted "Label: <0 or 1>" line, instead embedding the label value
+        in the narrative text.
+        """
+        text = """The paper titled "LanguageMPC: Large Language Models as Decision Makers for Autonomous Driving" explores the integration of Large Language Models (LLMs) into autonomous driving systems to enhance decision-making capabilities, particularly in complex scenarios requiring human-like commonsense reasoning. The authors propose cognitive pathways for comprehensive reasoning with LLMs and develop algorithms to translate LLM decisions into actionable driving commands, aiming to improve safety, efficiency, generalizability, and interpretability in autonomous driving.
+
+        Upon reviewing recent literature, several studies have investigated similar applications of LLMs in autonomous driving:
+
+        1. "Large Language Model guided Deep Reinforcement Learning for Decision Making in Autonomous Driving" (December 2024) integrates an LLM-based driving expert into deep reinforcement learning to enhance decision-making efficiency and performance in autonomous vehicles.
+
+        2. "Hybrid Reasoning Based on Large Language Models for Autonomous Car Driving" (February 2024) examines the adaptation of LLMs for arithmetic and commonsense reasoning in dynamic driving situations, focusing on analyzing sensor data and understanding driving regulations.
+
+        These studies collectively demonstrate a growing interest in employing LLMs to enhance decision-making in autonomous driving, focusing on integrating human-like reasoning, improving interpretability, and handling complex driving scenarios. The "LanguageMPC" paper contributes to this evolving field by proposing specific cognitive pathways and algorithms for translating LLM decisions into driving commands. However, given the substantial overlap with existing research, particularly in integrating LLMs for decision-making and enhancing interpretability in autonomous driving, the novelty of the "LanguageMPC" paper is limited.
+
+        Therefore, the novelty label for this paper is 0.
+
+        **References:**
+
+        1. "Large Language Model guided Deep Reinforcement Learning for Decision Making in Autonomous Driving" (https://arxiv.org/abs/2412.18511)
+
+        2. "Hybrid Reasoning Based on Large Language Models for Autonomous Car Driving" (https://arxiv.org/abs/2402.13602)"""
+
+        result = parse_result(text)
+        # This should fail because there's no "Label: 0" or "Label: 1" line
+        assert result.label == 0  # GPTFull.error() returns label=0
+        assert result.rationale == "<error>"
+        assert not result.is_valid()
