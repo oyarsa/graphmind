@@ -14,6 +14,7 @@ import asyncio
 import itertools
 import logging
 import random
+import re
 import textwrap
 from collections.abc import Sequence
 from pathlib import Path
@@ -284,7 +285,7 @@ async def _evaluate_paper(
     prompt_text = format_template(eval_prompt, paper.paper)
     system_prompt = eval_prompt.system
     result_str = await client.plain(system_prompt, prompt_text, search_level="low")
-    result = result_str.map(_parse_result)
+    result = result_str.map(parse_result)
 
     if not result.result or not result.result.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid GPTFull (evaluation result)")
@@ -311,7 +312,7 @@ def format_template(prompt: PromptTemplate, paper: PeerReadAnnotated) -> str:
     )
 
 
-def _parse_result(text: str | None) -> GPTFull:
+def parse_result(text: str | None) -> GPTFull:
     """Parse the output text to get the label.
 
     The output should have the following format:
@@ -329,30 +330,45 @@ def _parse_result(text: str | None) -> GPTFull:
         logger.warning("Result parsing: empty text")
         return GPTFull.error()
 
-    label = None
-    rationale: list[str] = []
+    # Pattern to match various label formats we've seen:
+    # - **Label: 1**
+    # - **Label**: 0
+    # - **Label:** 0
+    # - Label: 1
+    # - etc.
+    # The pattern is case-insensitive and handles optional markdown formatting
+    # We need to escape the asterisks and handle various combinations
+    label_pattern = r"\*{0,2}label\*{0,2}\s*:\*{0,2}\s*([01])"
 
-    for line in text.splitlines():
-        line_fold = line.strip().casefold()
+    # Search for the label anywhere in the text
+    match = re.search(label_pattern, text, re.IGNORECASE)
 
-        if line_fold.startswith("rationale:"):
-            rationale.append(removeprefix_icase(line, "rationale:").strip())
-
-        if not line_fold.startswith("label:"):
-            rationale.append(line)
-            continue
-
-        rest = line_fold.removeprefix("label:").strip()
-        try:
-            label = int(rest[0])
-        except Exception:
-            rationale.append(line)
-
-    if label is None:
+    if not match:
+        # If no label found, log and return error
         _log_invalid_output(text)
         return GPTFull.error()
 
-    return GPTFull(label=label, rationale="\n".join(rationale))
+    label = int(match.group(1))
+
+    # Extract rationale: everything except the label line
+    rationale_lines: list[str] = []
+
+    for line in text.splitlines():
+        # Check if this line contains the label pattern
+        if re.search(label_pattern, line, re.IGNORECASE):
+            continue
+
+        # Skip empty lines at the beginning
+        if not rationale_lines and not line.strip():
+            continue
+
+        # Handle "Rationale:" prefix if present
+        if line.strip().lower().startswith("rationale:"):
+            rationale_lines.append(removeprefix_icase(line, "rationale:").strip())
+        else:
+            rationale_lines.append(line)
+
+    return GPTFull(label=label, rationale="\n".join(rationale_lines).strip())
 
 
 def _log_invalid_output(text: str) -> None:
