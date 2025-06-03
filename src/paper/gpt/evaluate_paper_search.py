@@ -46,7 +46,6 @@ from paper.util import (
     Timer,
     get_params,
     progress,
-    removeprefix_icase,
     render_params,
     sample,
     seqcat,
@@ -321,8 +320,7 @@ def parse_result(text: str | None) -> GPTFull:
 
         Label: <0 or 1>
 
-    To make this extra-lenient, we take everything that isn't the Label line as part of
-    the rationale (excluding the Rationale bit).
+    To make this extra-lenient, we take everything except the label line as the rationale.
 
     If the text is invalid, returns `GPTFull.error()`.
     """
@@ -350,25 +348,16 @@ def parse_result(text: str | None) -> GPTFull:
 
     label = int(match.group(1))
 
-    # Extract rationale: everything except the label line
+    # Remove the label line from the text and use everything else as rationale
     rationale_lines: list[str] = []
-
     for line in text.splitlines():
-        # Check if this line contains the label pattern
-        if re.search(label_pattern, line, re.IGNORECASE):
+        # Check if this line contains the label pattern or only whitespace
+        if re.search(label_pattern, line, re.IGNORECASE) or not line.strip():
             continue
+        rationale_lines.append(line)
 
-        # Skip empty lines at the beginning
-        if not rationale_lines and not line.strip():
-            continue
-
-        # Handle "Rationale:" prefix if present
-        if line.strip().lower().startswith("rationale:"):
-            rationale_lines.append(removeprefix_icase(line, "rationale:").strip())
-        else:
-            rationale_lines.append(line)
-
-    return GPTFull(label=label, rationale="\n".join(rationale_lines).strip())
+    rationale = "\n".join(rationale_lines).strip()
+    return GPTFull(label=label, rationale=rationale)
 
 
 def _log_invalid_output(text: str) -> None:

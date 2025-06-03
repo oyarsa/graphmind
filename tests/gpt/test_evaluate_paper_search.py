@@ -55,7 +55,7 @@ class TestParseResult:
 
         result = parse_result(text)
         assert result.label == 1
-        assert result.rationale == "The paper introduces novel concepts."
+        assert result.rationale == "Rationale: The paper introduces novel concepts."
 
     def test_parse_result_complex_example(self):
         """Test parsing with a complex real-world example."""
