@@ -1,5 +1,6 @@
 """Tests for the evaluate_paper_search module."""
 
+from textwrap import dedent
 from paper.gpt.evaluate_paper_search import parse_result
 
 
@@ -15,7 +16,7 @@ class TestParseResult:
         **References:**
         1. Some paper"""
 
-        result = parse_result(text)
+        result = parse_result(dedent(text))
         assert result.label == 1
         assert "The paper is novel." in result.rationale
         assert "**References:**" in result.rationale
@@ -30,7 +31,7 @@ class TestParseResult:
         References:
         1. Some paper"""
 
-        result = parse_result(text)
+        result = parse_result(dedent(text))
         assert result.label == 0
         assert "The paper is not novel." in result.rationale
 
@@ -43,7 +44,7 @@ class TestParseResult:
         References:
         1. Some paper"""
 
-        result = parse_result(text)
+        result = parse_result(dedent(text))
         assert result.label == 1
         assert "The paper is novel." in result.rationale
 
@@ -53,7 +54,7 @@ class TestParseResult:
 
         Label: 1"""
 
-        result = parse_result(text)
+        result = parse_result(dedent(text))
         assert result.label == 1
         assert result.rationale == "Rationale: The paper introduces novel concepts."
 
@@ -74,7 +75,7 @@ class TestParseResult:
 
         3. "Towards Interpretable Semantic Segmentation via Gradient-weighted Class Activation Mapping"""
 
-        result = parse_result(text)
+        result = parse_result(dedent(text))
         assert result.label == 1
         assert "Model Guidance via Explanations" in result.rationale
         assert "contributions are considered novel" in result.rationale
@@ -88,7 +89,7 @@ class TestParseResult:
 
         Additional comments after the label."""
 
-        result = parse_result(text)
+        result = parse_result(dedent(text))
         assert result.label == 0
         assert "Some initial thoughts" in result.rationale
         assert "Additional comments" in result.rationale
@@ -99,14 +100,14 @@ class TestParseResult:
 
         LABEL: 1"""
 
-        result = parse_result(text)
+        result = parse_result(dedent(text))
         assert result.label == 1
 
     def test_parse_result_no_label(self):
         """Test parsing when no label is found."""
         text = """The paper is interesting but there's no label here."""
 
-        result = parse_result(text)
+        result = parse_result(dedent(text))
         assert result.label == 0  # GPTFull.error() returns label=0
         assert result.rationale == "<error>"
         assert not result.is_valid()
@@ -131,7 +132,7 @@ class TestParseResult:
 
         Label: 2"""  # Invalid - should be 0 or 1
 
-        result = parse_result(text)
+        result = parse_result(dedent(text))
         assert result.label == 0
         assert result.rationale == "<error>"
         assert not result.is_valid()
@@ -150,7 +151,7 @@ class TestParseResult:
 
         **Label:** 0"""
 
-        result = parse_result(text)
+        result = parse_result(dedent(text))
         assert result.label == 0
         assert "ELEGANT" in result.rationale
         assert "Given the approval decision" in result.rationale
@@ -181,7 +182,7 @@ class TestParseResult:
 
         2. "Hybrid Reasoning Based on Large Language Models for Autonomous Car Driving" (https://arxiv.org/abs/2402.13602)"""
 
-        result = parse_result(text)
+        result = parse_result(dedent(text))
         # This should fail because there's no "Label: 0" or "Label: 1" line
         assert result.label == 0  # GPTFull.error() returns label=0
         assert result.rationale == "<error>"
