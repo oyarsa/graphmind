@@ -16,6 +16,7 @@ from typing import (
 )
 
 import orjson
+import zstandard as zstd
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 type JSONPrimitive = str | bool | int | float
@@ -37,6 +38,49 @@ class Record(BaseModel, ABC):
 
 class SerdeError(Exception):
     """Exceptions raised when loading/saving objects."""
+
+
+def _read_file_bytes(file: Path) -> bytes:
+    """Read file contents, automatically detecting and decompressing if needed.
+
+    Args:
+        file: Path to file to read
+
+    Returns:
+        Decompressed file contents as bytes
+    """
+    if file.suffix == ".zst":
+        dctx = zstd.ZstdDecompressor()
+        with file.open("rb") as f:
+            return dctx.decompress(f.read())
+    else:
+        return file.read_bytes()
+
+
+def _write_file_bytes(file: Path, content: bytes, compress: bool = True) -> None:
+    """Write bytes to file, optionally compressing with zstandard.
+
+    Args:
+        file: Path to write to. If compress is True and file doesn't end with .zst,
+            .zst will be appended to the filename.
+        content: Bytes to write
+        compress: Whether to compress the output
+    """
+    file.parent.mkdir(parents=True, exist_ok=True)
+
+    # Determine the actual file path based on compression settings
+    if compress and not str(file).endswith(".zst"):
+        # Add .zst extension if compression is requested but not present
+        actual_file = file.with_suffix(file.suffix + ".zst")
+    else:
+        actual_file = file
+
+    if str(actual_file).endswith(".zst"):
+        cctx = zstd.ZstdCompressor()
+        compressed = cctx.compress(content)
+        actual_file.write_bytes(compressed)
+    else:
+        actual_file.write_bytes(content)
 
 
 def save_data_jsonl(
@@ -127,7 +171,7 @@ def load_data[T: BaseModel](file: Path | bytes, type_: type[T]) -> list[T]:
         `OSError` if the file operations fail.
     """
     if isinstance(file, Path):
-        content = file.read_bytes()
+        content = _read_file_bytes(file)
         source = file
     else:
         content = file
@@ -160,7 +204,7 @@ def load_data_single[T: BaseModel](file: Path | bytes, type_: type[T]) -> T:
         `OSError` if the file operations fail.
     """
     if isinstance(file, Path):
-        content = file.read_bytes()
+        content = _read_file_bytes(file)
     else:
         content = file
 
@@ -174,7 +218,10 @@ def load_data_single[T: BaseModel](file: Path | bytes, type_: type[T]) -> T:
 
 
 def save_data[T: BaseModel](
-    file: Path, data: Sequence[T] | T | Any, use_alias: bool = True
+    file: Path,
+    data: Sequence[T] | T | Any,
+    use_alias: bool = True,
+    compress: bool = True,
 ) -> None:
     """Save data in JSON `file`. Can be a single Pydantic object or a Sequence, or Any.
 
@@ -183,10 +230,12 @@ def save_data[T: BaseModel](
 
     Args:
         file: File where data will be saved. Creates its parent directory if it doesn't
-            exist.
+            exist. If compress is True and file doesn't end with .zst, .zst will be
+            added.
         data: The data to be saved. If it's a sequence, it must be non-empty.
         use_alias: If True, the output object keys will use the field alias, not the
             actual field name.
+        compress: If True, compress the output with zstandard.
 
     Raises:
         SerdeError: if `data` is empty.
@@ -194,8 +243,8 @@ def save_data[T: BaseModel](
     if not data:
         raise SerdeError("Cannot save empty data")
 
-    file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_bytes(_dump_data_to_json(data, use_alias=use_alias))
+    json_bytes = _dump_data_to_json(data, use_alias=use_alias)
+    _write_file_bytes(file, json_bytes, compress=compress)
 
 
 def _dump_data_to_json[T: BaseModel](
@@ -246,7 +295,9 @@ def get_full_type_name[T](type_: type[T]) -> str:
 
 def safe_load_json(file_path: Path) -> Any:
     """Load a JSON file, removing invalid UTF-8 characters."""
-    return orjson.loads(file_path.read_text(encoding="utf-8", errors="replace"))
+    # Decode with error replacement to handle invalid UTF-8
+    text = _read_file_bytes(file_path).decode("utf-8", errors="replace")
+    return orjson.loads(text)
 
 
 @runtime_checkable

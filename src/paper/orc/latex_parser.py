@@ -19,6 +19,7 @@ from tqdm import tqdm
 
 from paper.util import Timer, setup_logging
 from paper.util.cli import die
+from paper.util.serde import save_data
 
 logger = logging.getLogger(__name__)
 
@@ -109,8 +110,15 @@ def parse(
     if clean:
         done_titles: set[str] = set()
     else:
+        # Check for both .json and .json.zst files
+        json_files = list(output_dir.glob("*.json")) + list(
+            output_dir.glob("*.json.zst")
+        )
         done_titles = {
-            _title_from_filename(file, ".json") for file in output_dir.glob("*.json")
+            _title_from_filename(
+                file, ".json.zst" if file.suffix == ".zst" else ".json"
+            )
+            for file in json_files
         }
 
     skip_files = {
@@ -287,9 +295,9 @@ def _process_tex_file(
     title = _title_from_filename(input_file, ".tar.gz")
 
     if paper := _process_latex(splitter, title, input_file):
-        (output_dir / f"{title}.json").write_bytes(
-            orjson.dumps(orjson.loads(orjson.dumps(paper, default=vars)))
-        )
+        # Convert dataclass to dict for serialization
+        paper_dict = orjson.loads(orjson.dumps(paper, default=vars))
+        save_data(output_dir / f"{title}.json", paper_dict)
         return True
 
     return False

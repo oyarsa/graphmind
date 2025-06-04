@@ -16,7 +16,7 @@ from tqdm import tqdm
 from paper import peerread as pr
 from paper.orc.download import RATING_KEYS, get_reviews, get_value
 from paper.util import groupby
-from paper.util.serde import save_data
+from paper.util.serde import safe_load_json, save_data
 
 logger = logging.getLogger("paper.openreview")
 
@@ -97,7 +97,11 @@ def _process_conferences(base_dir: Path) -> list[dict[str, Any]]:
 
         papers: list[dict[str, Any]] = orjson.loads(arxiv_file.read_bytes())
         # Mapping of paper titles (arXiv) to parsed JSON files
-        title_to_path = {f.stem: f for f in parsed_dir.glob("*.json")}
+        # Look for both .json and .json.zst files
+        json_files = list(parsed_dir.glob("*.json")) + list(
+            parsed_dir.glob("*.json.zst")
+        )
+        title_to_path = {f.stem.removesuffix(".json"): f for f in json_files}
 
         matched = 0
 
@@ -109,7 +113,7 @@ def _process_conferences(base_dir: Path) -> list[dict[str, Any]]:
             if matched_file := title_to_path.get(arxiv_title):
                 paper_content = None
                 with contextlib.suppress(Exception):
-                    paper_content = orjson.loads(matched_file.read_bytes())
+                    paper_content = safe_load_json(matched_file)
                     matched += 1
 
                 if paper_content is not None:

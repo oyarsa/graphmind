@@ -37,6 +37,7 @@ dependencies = [
     "typing-extensions>=4.12.2",
     "beartype>=0.20.2",
     "orjson>=3.10.18",
+    "zstandard>=0.23.0",
 ]
 
 [dependency-groups]
