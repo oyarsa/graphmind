@@ -1,8 +1,10 @@
 """Tools for serialisation and deserialisation of Pydantic objects."""
 
+import gzip
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from enum import Enum
 from pathlib import Path
 from typing import (
     Any,
@@ -23,6 +25,14 @@ type JSONPrimitive = str | bool | int | float
 type JSONArray = Sequence[JSONValue]
 type JSONObject = dict[str, JSONValue]
 type JSONValue = JSONObject | JSONArray | JSONPrimitive
+
+
+class Compress(Enum):
+    """Supported compression types."""
+
+    GZIP = "gzip"
+    ZSTD = "zstd"
+    NONE = "none"
 
 
 class Record(BaseModel, ABC):
@@ -49,38 +59,49 @@ def _read_file_bytes(file: Path) -> bytes:
     Returns:
         Decompressed file contents as bytes
     """
-    if file.suffix == ".zst":
-        dctx = zstd.ZstdDecompressor()
-        with file.open("rb") as f:
-            return dctx.decompress(f.read())
-    else:
-        return file.read_bytes()
+    match file.suffix:
+        case ".zst":
+            dctx = zstd.ZstdDecompressor()
+            with file.open("rb") as f:
+                return dctx.decompress(f.read())
+        case ".gz":
+            with gzip.open(file, "rb") as f:
+                return f.read()
+        case _:
+            return file.read_bytes()
 
 
-def _write_file_bytes(file: Path, content: bytes, compress: bool = True) -> None:
-    """Write bytes to file, optionally compressing with zstandard.
+def _write_file_bytes(file: Path, content: bytes, compress: Compress) -> None:
+    """Write bytes to file, optionally compressing with zstandard or gzip.
 
     Args:
-        file: Path to write to. If compress is True and file doesn't end with .zst,
-            .zst will be appended to the filename.
+        file: Path to write to. Extension will be added based on compression type.
         content: Bytes to write
-        compress: Whether to compress the output
+        compress: Compression type to use
     """
     file.parent.mkdir(parents=True, exist_ok=True)
 
     # Determine the actual file path based on compression settings
-    if compress and not str(file).endswith(".zst"):
-        # Add .zst extension if compression is requested but not present
-        actual_file = file.with_suffix(file.suffix + ".zst")
-    else:
-        actual_file = file
-
-    if str(actual_file).endswith(".zst"):
-        cctx = zstd.ZstdCompressor()
-        compressed = cctx.compress(content)
-        actual_file.write_bytes(compressed)
-    else:
-        actual_file.write_bytes(content)
+    match compress:
+        case Compress.GZIP:
+            actual_file = (
+                file
+                if str(file).endswith(".gz")
+                else file.with_suffix(file.suffix + ".gz")
+            )
+            with gzip.open(actual_file, "wb") as f:
+                f.write(content)
+        case Compress.ZSTD:
+            actual_file = (
+                file
+                if str(file).endswith(".zst")
+                else file.with_suffix(file.suffix + ".zst")
+            )
+            cctx = zstd.ZstdCompressor()
+            compressed = cctx.compress(content)
+            actual_file.write_bytes(compressed)
+        case Compress.NONE:
+            file.write_bytes(content)
 
 
 def save_data_jsonl(
@@ -221,7 +242,7 @@ def save_data[T: BaseModel](
     file: Path,
     data: Sequence[T] | T | Any,
     use_alias: bool = True,
-    compress: bool = True,
+    compress: Compress = Compress.ZSTD,
 ) -> None:
     """Save data in JSON `file`. Can be a single Pydantic object or a Sequence, or Any.
 
@@ -230,12 +251,11 @@ def save_data[T: BaseModel](
 
     Args:
         file: File where data will be saved. Creates its parent directory if it doesn't
-            exist. If compress is True and file doesn't end with .zst, .zst will be
-            added.
+            exist. Extension will be added based on compression type.
         data: The data to be saved. If it's a sequence, it must be non-empty.
         use_alias: If True, the output object keys will use the field alias, not the
             actual field name.
-        compress: If True, compress the output with zstandard.
+        compress: Compression type to use.
 
     Raises:
         SerdeError: if `data` is empty.
