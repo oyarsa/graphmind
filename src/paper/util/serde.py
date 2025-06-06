@@ -50,7 +50,7 @@ class SerdeError(Exception):
     """Exceptions raised when loading/saving objects."""
 
 
-def _read_file_bytes(file: Path) -> bytes:
+def read_file_bytes(file: Path) -> bytes:
     """Read file contents, automatically detecting and decompressing if needed.
 
     Args:
@@ -71,7 +71,7 @@ def _read_file_bytes(file: Path) -> bytes:
             return file.read_bytes()
 
 
-def _write_file_bytes(file: Path, content: bytes, compress: Compress) -> None:
+def write_file_bytes(file: Path, content: bytes, compress: Compress) -> None:
     """Write bytes to file, optionally compressing with zstandard or gzip.
 
     Args:
@@ -192,7 +192,7 @@ def load_data[T: BaseModel](file: Path | bytes, type_: type[T]) -> list[T]:
         `OSError` if the file operations fail.
     """
     if isinstance(file, Path):
-        content = _read_file_bytes(file)
+        content = read_file_bytes(file)
         source = file
     else:
         content = file
@@ -225,7 +225,7 @@ def load_data_single[T: BaseModel](file: Path | bytes, type_: type[T]) -> T:
         `OSError` if the file operations fail.
     """
     if isinstance(file, Path):
-        content = _read_file_bytes(file)
+        content = read_file_bytes(file)
     else:
         content = file
 
@@ -264,7 +264,7 @@ def save_data[T: BaseModel](
         raise SerdeError("Cannot save empty data")
 
     json_bytes = _dump_data_to_json(data, use_alias=use_alias)
-    _write_file_bytes(file, json_bytes, compress=compress)
+    write_file_bytes(file, json_bytes, compress=compress)
 
 
 def _dump_data_to_json[T: BaseModel](
@@ -316,7 +316,7 @@ def get_full_type_name[T](type_: type[T]) -> str:
 def safe_load_json(file_path: Path) -> Any:
     """Load a JSON file, removing invalid UTF-8 characters."""
     # Decode with error replacement to handle invalid UTF-8
-    text = _read_file_bytes(file_path).decode("utf-8", errors="replace")
+    text = read_file_bytes(file_path).decode("utf-8", errors="replace")
     return orjson.loads(text)
 
 
