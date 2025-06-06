@@ -20,7 +20,7 @@ import paper.gpt.extract_graph
 import paper.gpt.model
 import paper.peerread.model
 import paper.semantic_scholar.model
-from paper.util.serde import get_full_type_name
+from paper.util.serde import get_full_type_name, read_file_bytes
 
 TYPES = [
     paper.baselines.scimon.graph.AnnotatedGraphResult,
@@ -62,7 +62,7 @@ def main(
     console = Console(stderr=True)
 
     with console.status(f"Loading [bold cyan]{input_file.name}[/]...", spinner="dots"):
-        data = orjson.loads(input_file.read_bytes())
+        data = orjson.loads(read_file_bytes(input_file))
         if is_bearable(data, list[Any]):
             item = data[0]
         else:
