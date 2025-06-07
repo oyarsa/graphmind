@@ -398,17 +398,13 @@ def hashstr(s: str) -> str:
     return hashlib.sha256(s.encode()).hexdigest()
 
 
-def shuffled[T](iterable: Iterable[T], rng: random.Random | None = None) -> list[T]:
+def shuffled[T](iterable: Iterable[T], rng: random.Random) -> list[T]:
     """Return a shallow copy of the contents in `iterable` shuffled as a list.
 
-    By default, this uses standard library's `random`. You can use `random.seed` to
-    initialise the seed for this, you can use your own `random.Random` object.
+    Uses `rng` to shuffle the list. Make sure to initialise it with a reproducible seed.
     """
     lst = list(iterable)
-    if rng is not None:
-        rng.shuffle(lst)
-    else:
-        random.shuffle(lst)
+    rng.shuffle(lst)
     return lst
 
 
