@@ -263,7 +263,7 @@ async def run_tournaments(
     """
     import random
 
-    random.seed(seed)
+    rng = random.Random(seed)
     client = OpenAIClient(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
@@ -285,6 +285,7 @@ async def run_tournaments(
             seed,
             algorithm,
             prompt,
+            rng,
         )
 
     logger.info("Loaded %d comparisons", len(raw_comparisons.result.comparisons))

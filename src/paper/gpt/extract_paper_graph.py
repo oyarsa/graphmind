@@ -177,7 +177,7 @@ async def extract_graphs(
     params = get_params()
     logger.info(render_params(params))
 
-    random.seed(seed)
+    rng = random.Random(seed)
 
     dotenv.load_dotenv()
 
@@ -191,6 +191,7 @@ async def extract_graphs(
             load_data(paper_file, PromptResult[PaperWithRelatedSummary])
         ),
         limit_papers,
+        rng,
     )
 
     graph_prompt = GRAPH_EXTRACT_USER_PROMPTS[graph_prompt_key]

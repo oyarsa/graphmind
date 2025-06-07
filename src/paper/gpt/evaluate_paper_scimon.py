@@ -192,7 +192,7 @@ async def evaluate_papers(
     params = get_params()
     logger.info(render_params(params))
 
-    random.seed(seed)
+    rng = random.Random(seed)
 
     dotenv.load_dotenv()
 
@@ -205,7 +205,9 @@ async def evaluate_papers(
 
     client = LLMClient.new_env(model=model, seed=seed)
 
-    papers = sample(load_data(papers_file, scimon.AnnotatedGraphResult), limit_papers)
+    papers = sample(
+        load_data(papers_file, scimon.AnnotatedGraphResult), limit_papers, rng
+    )
 
     user_prompt = SCIMON_CLASSIFY_USER_PROMPTS[user_prompt_key]
 

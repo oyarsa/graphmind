@@ -97,7 +97,7 @@ def main(
     params = get_params()
     print(render_params(params))
 
-    random.seed(seed)
+    rng = random.Random(seed)
 
     peerread_papers = load_data(peerread_file, pr.Paper)
     reference_papers = load_data(references_file, s2.PaperFromPeerRead)
@@ -110,7 +110,7 @@ def main(
     peerread_augmented = _augment_peeread(
         peerread_papers, reference_papers, min_references
     )
-    peerread_sampled = sample(peerread_augmented, num_peerread)
+    peerread_sampled = sample(peerread_augmented, num_peerread, rng)
     s2_references = _unique_peerread_refs(peerread_sampled)
     recommended_filtered = _filter_recommended(peerread_sampled, recommended_papers)
     related_papers = _dedup_related(s2_references + recommended_filtered + area_papers)

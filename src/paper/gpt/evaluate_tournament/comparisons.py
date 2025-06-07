@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import itertools
 import logging
+import random
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -304,6 +305,7 @@ async def generate_new_comparisons(
     seed: int,
     algorithm: str,
     prompt: PromptTemplate,
+    rng: random.Random,
 ) -> GPTResult[RawComparisonOutput]:
     """Generate new comparisons by running the LLM.
 
@@ -319,6 +321,7 @@ async def generate_new_comparisons(
         seed: Random seed.
         algorithm: Ranking algorithm to use.
         prompt: Prompt template to use for comparisons.
+        rng: Random number generator for sampling papers.
 
     Returns:
         The full result from the comparisons.
@@ -342,7 +345,7 @@ async def generate_new_comparisons(
     )
 
     # Step 1: Run all pairwise comparisons
-    paper_ids = sample(list(common_papers), limit)
+    paper_ids = sample(list(common_papers), limit, rng)
     model_indices_pairs = _all_pairings(range(len(model_names)))
 
     total_comparisons = len(paper_ids) * len(model_indices_pairs) * len(metrics)

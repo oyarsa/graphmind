@@ -59,7 +59,7 @@ def main(
     """Build the three SciMON graphs (KG, semantic and citations)."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    random.seed(seed)
+    rng = random.Random(seed)
 
     setup_logging()
     params = get_params()
@@ -70,7 +70,7 @@ def main(
     ann = gpt.PromptResult.unwrap(
         load_data(annotated_file, gpt.PromptResult[gpt.PaperAnnotated])
     )
-    ann = sample(ann, num_annotated)
+    ann = sample(ann, num_annotated, rng)
 
     logger.info("Initialising encoder.")
     encoder = emb.Encoder(model_name)

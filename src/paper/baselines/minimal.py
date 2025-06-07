@@ -3,6 +3,7 @@
 # pyright: basic
 
 import asyncio
+import random
 from pathlib import Path
 from typing import Annotated
 
@@ -172,11 +173,19 @@ def main(
             click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "abstract",
+    seed: Annotated[int, typer.Option(help="Random seed for sampling.")] = 0,
 ) -> None:
     """Evaluate papers with OpenRouter models."""
     asyncio.run(
         async_main(
-            input_file, models, output_file, num_papers, chart_file, demos, demo_prompt
+            input_file,
+            models,
+            output_file,
+            num_papers,
+            chart_file,
+            demos,
+            demo_prompt,
+            seed,
         )
     )
 
@@ -189,9 +198,11 @@ async def async_main(
     chart_file: Path | None,
     demonstrations_key: str | None,
     demo_prompt_key: str,
+    seed: int,
 ) -> None:
     """Evaluate papers in `input_file` using each model in `models`."""
-    papers = sample(load_data(input_file, pr.Paper), num_papers)
+    rng = random.Random(seed)
+    papers = sample(load_data(input_file, pr.Paper), num_papers, rng)
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
     model_results: list[ModelResult] = []

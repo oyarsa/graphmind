@@ -180,7 +180,7 @@ async def extract_acu(
         seed: Seed for the OpenAI API call and to shuffle the data.
         batch_size: Number of items per batch.
     """
-    random.seed(seed)
+    rng = random.Random(seed)
     params = get_params()
     logger.info(render_params(params))
 
@@ -198,7 +198,7 @@ async def extract_acu(
     )
 
     paper_type_ = paper_type.get_type()
-    papers = sample(load_data(related_path, paper_type.get_type()), limit_papers)
+    papers = sample(load_data(related_path, paper_type.get_type()), limit_papers, rng)
     user_prompt = ACU_EXTRACTION_USER_PROMPTS[user_prompt_key]
 
     output_intermediate_file, papers_remaining = init_remaining_items(

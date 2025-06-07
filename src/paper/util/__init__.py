@@ -676,23 +676,17 @@ def log_memory_usage(file: Path) -> None:
         log(f"  Used Swap: {swap_used_gb:.2f} GB ({swap.percent}%)")
 
 
-def sample[T](
-    items: Sequence[T], k: int | None, rng: random.Random | None = None
-) -> list[T]:
+def sample[T](items: Sequence[T], k: int | None, rng: random.Random) -> list[T]:
     """Choose `k` unique elements from `items`.
 
     If `k` is None or 0, or if the number of `items` is less than `k`, returns `items`.
 
-    By default, this uses standard library's `random`. You can use `random.seed` to
-    initialise the seed for this, you can use your own `random.Random` object.
+    Uses `rng` to shuffle the list. Make sure to initialise it with a reproducible seed.
     """
     if k is None or k == 0 or len(items) <= k:
         return list(items)
 
-    if rng is not None:
-        return rng.sample(items, k)
-    else:
-        return random.sample(items, k)
+    return rng.sample(items, k)
 
 
 @overload

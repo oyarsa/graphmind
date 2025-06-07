@@ -200,7 +200,7 @@ def train(
 
     The dataset format is the output of `paper gpt petersum`.
     """
-    random.seed(seed)
+    rng = random.Random(seed)
     suppress_hf_warnings()
     gpu_mem = GPUMemoryTracker()
 
@@ -214,13 +214,13 @@ def train(
 
     logger.debug("Loading datasets: start")
     train_dataset = load_dataset(
-        train_file, num_train, config.model.label_mode, config.model.input_mode
+        train_file, num_train, config.model.label_mode, config.model.input_mode, rng
     )
     dev_dataset = load_dataset(
-        dev_file, num_dev, config.model.label_mode, config.model.input_mode
+        dev_file, num_dev, config.model.label_mode, config.model.input_mode, rng
     )
     test_dataset = load_dataset(
-        test_file, num_test, config.model.label_mode, config.model.input_mode
+        test_file, num_test, config.model.label_mode, config.model.input_mode, rng
     )
     logger.debug("Loading datasets: done")
 
@@ -314,7 +314,7 @@ def infer(
 
     The dataset format is the same as used for training: output of `paper gpt petersum`.
     """
-    random.seed(seed)
+    rng = random.Random(seed)
     suppress_hf_warnings()
     gpu_mem = GPUMemoryTracker()
 
@@ -334,7 +334,7 @@ def infer(
     model, tokeniser = setup_model_and_tokeniser(config, model_path)
 
     dataset = load_dataset(
-        input_file, num_examples, config.model.label_mode, config.model.input_mode
+        input_file, num_examples, config.model.label_mode, config.model.input_mode, rng
     )
     dataset_tokenised = tokenise_dataset(dataset, tokeniser, config)
 
@@ -368,7 +368,11 @@ def suppress_hf_warnings() -> None:
 
 
 def load_dataset(
-    file: Path, n: int | None, label_mode: LabelMode, model_input: InputMode
+    file: Path,
+    n: int | None,
+    label_mode: LabelMode,
+    model_input: InputMode,
+    rng: random.Random,
 ) -> Dataset:
     """Load JSON file and prepare input dataset given an input mode.
 
@@ -379,7 +383,7 @@ def load_dataset(
         type_: type[T], preprocess: Callable[[list[T], LabelMode], Dataset]
     ) -> Dataset:
         data = gpt.PromptResult.unwrap(load_data(file, gpt.PromptResult[type_]))
-        return preprocess(sample(data, n), label_mode)
+        return preprocess(sample(data, n, rng), label_mode)
 
     if model_input == "basic":
         return load(gpt.PaperWithRelatedSummary, preprocess_dataset_basic)
@@ -864,7 +868,7 @@ def format(
     input_mode ('basic' or 'graph'), and saves the original data along with the
     formatted text to the output file.
     """
-    random.seed(seed)
+    rng = random.Random(seed)
 
     formatted_items: list[FormattedData] = []
 
@@ -874,6 +878,7 @@ def format(
                 load_data(input_file, gpt.PromptResult[gpt.PaperWithRelatedSummary])
             ),
             num_examples,
+            rng,
         )
         formatted_items = [
             FormattedData(
@@ -888,6 +893,7 @@ def format(
                 load_data(input_file, gpt.PromptResult[gpt.ExtractedGraph])
             ),
             num_examples,
+            rng,
         )
         formatted_items = [
             FormattedData(paper=item, input=_format_graph_template(item))

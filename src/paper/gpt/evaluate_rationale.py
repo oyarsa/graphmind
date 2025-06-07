@@ -341,7 +341,7 @@ async def evaluate_rationales(
         seed: Seed for the OpenAI API call and to shuffle the data.
         batch_size: Number of items per batch.
     """
-    random.seed(seed)
+    rng = random.Random(seed)
     params = get_params()
     logger.info(render_params(params))
 
@@ -360,16 +360,18 @@ async def evaluate_rationales(
             papers = sample(
                 PromptResult.unwrap(load_data(input_path, PromptResult[GraphResult])),
                 limit_papers,
+                rng,
             )
             result_class = GraphWithEval
         case "paper":
             papers = sample(
                 PromptResult.unwrap(load_data(input_path, PromptResult[PaperResult])),
                 limit_papers,
+                rng,
             )
             result_class = PaperWithEval
         case "raw":
-            papers = sample(load_data(input_path, pr.Paper), limit_papers)
+            papers = sample(load_data(input_path, pr.Paper), limit_papers, rng)
             result_class = PaperRawWithEval
         case "summ":
             papers = sample(
@@ -377,6 +379,7 @@ async def evaluate_rationales(
                     load_data(input_path, PromptResult[PaperWithRelatedSummary])
                 ),
                 limit_papers,
+                rng,
             )
             result_class = PaperSummarisedWithEval
         case _:

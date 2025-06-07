@@ -8,6 +8,7 @@ based on their Atomic Content Units (ACUs).
 import gc
 import itertools
 import logging
+import random
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
@@ -87,6 +88,7 @@ def build(
             help="The number of sentences to use to build the index. Use 0 for all.",
         ),
     ] = 500_000,
+    seed: Annotated[int, typer.Option(help="Random seed for sampling.")] = 0,
 ) -> None:
     """Build a vector database from sentences in the `acus` field of input JSON documents.
 
@@ -110,7 +112,8 @@ def build(
     papers = gpt.PromptResult.unwrap(
         load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs[s2.Paper]])
     )
-    papers = sample(papers, limit_papers)
+    rng = random.Random(seed)
+    papers = sample(papers, limit_papers, rng)
 
     if not papers:
         die("Input file is empty.")
@@ -119,7 +122,7 @@ def build(
     for paper in papers:
         sentences.extend(paper.acus)
 
-    sentences = sample(sentences, limit_sentences)
+    sentences = sample(sentences, limit_sentences, rng)
 
     db.add_sentences(sentences)
 
@@ -232,7 +235,8 @@ def query(
     papers = gpt.PromptResult.unwrap(
         load_data(input_file, gpt.PromptResult[gpt.PaperWithACUs[s2.PaperWithS2Refs]])
     )
-    papers = sample(papers, limit_papers)
+    rng = random.Random(0)
+    papers = sample(papers, limit_papers, rng)
 
     if not papers:
         die("Input file is empty.")
@@ -458,7 +462,10 @@ def evaluate(
         limit_papers = None
 
     logger.info(f"Loading query results from {results_file}")
-    paper_results = sample(load_data_jsonl(results_file, PaperResult), limit_papers)
+    rng = random.Random(0)
+    paper_results = sample(
+        load_data_jsonl(results_file, PaperResult), limit_papers, rng
+    )
 
     logger.info(f"Loaded results for {len(paper_results)} papers")
 
