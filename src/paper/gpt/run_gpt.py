@@ -24,7 +24,7 @@ from paper.gpt.model import PromptResult
 from paper.types import Identifiable
 from paper.util import ensure_envvar, log_memory_usage, mustenv
 from paper.util.rate_limiter import ChatRateLimiter
-from paper.util.serde import load_data_jsonl, save_data_jsonl
+from paper.util.serde import Compress, load_data_jsonl, save_data_jsonl
 
 # TODO: Move this to something more LLM-generic. It's not just about GPT anymore.
 # Actually, this might apply to the whole module. E.g. paper.gpt -> paper.llm or
@@ -1087,7 +1087,7 @@ def append_intermediate_result[T: BaseModel](
             Item to be saved.
     """
     try:
-        save_data_jsonl(path, result)
+        save_data_jsonl(path, result, compress=Compress.ZSTD)
         log_memory_usage(path.parent / "memory.txt")
     except Exception:
         logger.exception("Error writing intermediate results to: %s", path)
@@ -1129,7 +1129,7 @@ def init_remaining_items[T: Identifiable, U: Identifiable](
             - RemainingItems containing processed and unprocessed papers.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_intermediate_file = output_dir / "results.tmp.jsonl"
+    output_intermediate_file = output_dir / "results.tmp.jsonl.zst"
 
     papers_remaining = get_remaining_items(
         continue_type_,

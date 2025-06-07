@@ -36,6 +36,17 @@ class Compress(StrEnum):
     ZSTD = "zstd"
     NONE = "none"
 
+    @classmethod
+    def infer(cls, file: Path) -> "Compress":
+        """Infer compression method from file path."""
+        match file.suffix.casefold():
+            case ".zst":
+                return Compress.ZSTD
+            case ".gz":
+                return Compress.GZIP
+            case _:
+                return Compress.NONE
+
 
 @contextmanager
 def open_compressed(
@@ -92,7 +103,7 @@ class SerdeError(Exception):
     """Exceptions raised when loading/saving objects."""
 
 
-def get_compressed_file_path(file: Path, compress: Compress) -> Path:
+def get_compressed_file_path(file: Path, compress: Compress | None) -> Path:
     """Determine the actual file path based on compression settings.
 
     Args:
@@ -102,10 +113,12 @@ def get_compressed_file_path(file: Path, compress: Compress) -> Path:
     Returns:
         File path with appropriate extension for the compression type.
     """
-    if compress is Compress.NONE:
-        return file
+    if compress is None:
+        compress = Compress.infer(file)
 
     match compress:
+        case Compress.NONE:
+            return file
         case Compress.GZIP:
             suffix = ".gz"
         case Compress.ZSTD:
@@ -137,16 +150,19 @@ def read_file_bytes(file: Path) -> bytes:
             return file.read_bytes()
 
 
-def write_file_bytes(file: Path, content: bytes, compress: Compress) -> None:
+def write_file_bytes(file: Path, content: bytes, compress: Compress | None) -> None:
     """Write bytes to file, optionally compressing with zstandard or gzip.
 
     Args:
         file: Path to write to. Extension will be added based on compression type.
         content: Bytes to write.
-        compress: Compression type to use.
+        compress: Compression type to use. If None, will infer from the file path.
     """
     actual_file = get_compressed_file_path(file, compress)
     actual_file.parent.mkdir(parents=True, exist_ok=True)
+
+    if compress is None:
+        compress = Compress.infer(file)
 
     match compress:
         case Compress.GZIP:
@@ -176,12 +192,13 @@ def save_data_jsonl(
             exist.
         data: The data to be saved.
         mode: How to open the file. Defaults to append.
-        compress: Compression type to use. If provided, modifies file extension.
+        compress: Compression type to use. If provided, modifies file extension. If None,
+            infers from the file path.
     """
     if isinstance(data, BaseModel):
         data = [data]
 
-    actual_file = get_compressed_file_path(file, compress or Compress.NONE)
+    actual_file = get_compressed_file_path(file, compress)
     actual_file.parent.mkdir(parents=True, exist_ok=True)
 
     with open_compressed(actual_file, mode) as f:
@@ -305,7 +322,7 @@ def save_data[T: BaseModel](
     file: Path,
     data: Sequence[T] | T | Any,
     use_alias: bool = True,
-    compress: Compress = Compress.ZSTD,
+    compress: Compress | None = Compress.ZSTD,
 ) -> None:
     """Save data in JSON `file`. Can be a single Pydantic object or a Sequence, or Any.
 
@@ -318,7 +335,7 @@ def save_data[T: BaseModel](
         data: The data to be saved. If it's a sequence, it must be non-empty.
         use_alias: If True, the output object keys will use the field alias, not the
             actual field name.
-        compress: Compression type to use.
+        compress: Compression type to use. If None, will infer from the file path.
 
     Raises:
         SerdeError: if `data` is empty.
