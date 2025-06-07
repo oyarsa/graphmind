@@ -398,14 +398,17 @@ def hashstr(s: str) -> str:
     return hashlib.sha256(s.encode()).hexdigest()
 
 
-def shuffled[T](iterable: Iterable[T]) -> list[T]:
+def shuffled[T](iterable: Iterable[T], rng: random.Random | None = None) -> list[T]:
     """Return a shallow copy of the contents in `iterable` shuffled as a list.
 
     This uses standard library's `random`. You can use `random.seed` to initialise the
     seed for this.
     """
     lst = list(iterable)
-    random.shuffle(lst)
+    if rng is not None:
+        rng.shuffle(lst)
+    else:
+        random.shuffle(lst)
     return lst
 
 
@@ -677,14 +680,20 @@ def log_memory_usage(file: Path) -> None:
         log(f"  Used Swap: {swap_used_gb:.2f} GB ({swap.percent}%)")
 
 
-def sample[T](items: Sequence[T], k: int | None) -> list[T]:
+def sample[T](
+    items: Sequence[T], k: int | None, rng: random.Random | None = None
+) -> list[T]:
     """Choose `k` unique elements from `items`.
 
     If `k` is None or 0, or if the number of `items` is less than `k`, returns `items`.
     """
     if k is None or k == 0 or len(items) <= k:
         return list(items)
-    return random.sample(items, k)
+
+    if rng is not None:
+        return rng.sample(items, k)
+    else:
+        return random.sample(items, k)
 
 
 @overload
