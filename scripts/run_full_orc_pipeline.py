@@ -71,7 +71,7 @@ def main(
         shutil.rmtree(output_dir)
 
     title("Preprocess")
-    processed = output_dir / "orc_merged.json"
+    processed = output_dir / "orc_merged.json.zst"
     _checkrun(
         processed,
         "paper",
@@ -88,7 +88,7 @@ def main(
 
     title("Info main")
     info_main_dir = output_dir / "s2_info_main"
-    info_main = info_main_dir / "final.json"
+    info_main = info_main_dir / "final.json.zst"
     _checkrun(
         info_main,
         "paper",
@@ -104,7 +104,7 @@ def main(
 
     title("Info references")
     info_ref_dir = output_dir / "s2_info_references"
-    info_ref = info_ref_dir / "final.json"
+    info_ref = info_ref_dir / "final.json.zst"
     _checkrun(
         info_ref,
         "paper",
@@ -122,7 +122,7 @@ def main(
 
     title("Recommended")
     recommended_dir = output_dir / "s2_recommended"
-    recommended = recommended_dir / "papers_recommended.json"
+    recommended = recommended_dir / "papers_recommended.json.zst"
     _checkrun(
         recommended,
         "paper",
@@ -139,8 +139,8 @@ def main(
 
     title("Construct dataset")
     subset_dir = output_dir / "subset"
-    peer_with_ref = subset_dir / "peerread_with_s2_references.json"
-    peer_related = subset_dir / "peerread_related.json"
+    peer_with_ref = subset_dir / "peerread_with_s2_references.json.zst"
+    peer_related = subset_dir / "peerread_related.json.zst"
     _checkrun(
         peer_with_ref,
         "paper",
@@ -160,7 +160,7 @@ def main(
 
     title("Context")
     context_dir = output_dir / "context"
-    context = context_dir / "results.json"
+    context = context_dir / "results.json.zst"
     _checkrun(
         context,
         "paper",
@@ -178,7 +178,7 @@ def main(
 
     title("PeerRead terms")
     peer_terms_dir = output_dir / "peerread-terms"
-    peer_terms = peer_terms_dir / "results_valid.json"
+    peer_terms = peer_terms_dir / "results_valid.json.zst"
     _checkrun(
         peer_terms,
         "paper",
@@ -196,7 +196,7 @@ def main(
 
     title("S2 terms")
     s2_terms_dir = output_dir / "s2-terms"
-    s2_terms = s2_terms_dir / "results_valid.json"
+    s2_terms = s2_terms_dir / "results_valid.json.zst"
     _checkrun(
         s2_terms,
         "paper",
@@ -215,7 +215,7 @@ def main(
     title("Peter Build")
     peter_graph_dir = output_dir / "peter_graph"
     peter_graph_file = (
-        peter_graph_dir / "citation_graph.json"
+        peter_graph_dir / "citation_graph.json.zst"
     )  # We check for this file to exist
     _checkrun(
         peter_graph_file,
@@ -231,7 +231,7 @@ def main(
     )
     assert peter_graph_file.exists()
 
-    peter_peer = output_dir / "peerread_with_peter.json"
+    peter_peer = output_dir / "peerread_with_peter.json.zst"
     title("Peter PeerRead")
     _checkrun(
         peter_peer,
@@ -253,7 +253,7 @@ def main(
 
     title("GPT PETER summarisation")
     petersum_dir = output_dir / "peter_summarised"
-    petersum = petersum_dir / "result.json"
+    petersum = petersum_dir / "result.json.zst"
     _checkrun(
         petersum,
         "paper",
@@ -271,7 +271,7 @@ def main(
 
     title("SciMON build")
     scimon_graph_dir = output_dir / "scimon_graph"
-    scimon_kg_file = scimon_graph_dir / "kg_graph.json"
+    scimon_kg_file = scimon_graph_dir / "kg_graph.json.zst"
     _checkrun(
         scimon_kg_file,
         "paper",
@@ -290,7 +290,7 @@ def main(
     assert scimon_kg_file.exists()
 
     title("SciMON query")
-    scimon_peer = output_dir / "peerread_with_scimon.json"
+    scimon_peer = output_dir / "peerread_with_scimon.json.zst"
     _checkrun(
         scimon_peer,
         "paper",
@@ -307,7 +307,7 @@ def main(
 
     title("Extract ACUs S2")
     acu_s2_dir = output_dir / "acu-s2"
-    acu_s2 = acu_s2_dir / "result.json"
+    acu_s2 = acu_s2_dir / "result.json.zst"
     _checkrun(
         acu_s2,
         "paper",
@@ -327,7 +327,7 @@ def main(
 
     title("Extract ACUs PeerRead")
     acu_peerread_dir = output_dir / "acu-peerread"
-    acu_peerread = acu_peerread_dir / "result.json"
+    acu_peerread = acu_peerread_dir / "result.json.zst"
     _checkrun(
         acu_peerread,
         "paper",
