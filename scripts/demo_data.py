@@ -20,7 +20,7 @@ from paper import peerread as pr
 from paper.gpt.model import is_rationale_valid
 from paper.types import Immutable, PaperProtocol
 from paper.util import sample
-from paper.util.serde import load_data, save_data
+from paper.util.serde import Compress, load_data, save_data
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -138,7 +138,7 @@ def main(
         )
         for p in papers_valid
     ]
-    save_data(output_file, papers_converted, compress=None)
+    save_data(output_file, papers_converted, compress=Compress.AUTO)
 
 
 if __name__ == "__main__":

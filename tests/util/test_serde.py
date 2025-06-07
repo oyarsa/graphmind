@@ -54,15 +54,15 @@ def test_get_full_type_name() -> None:
         # Already has correct extension
         ("/tmp/test.json.gz", Compress.GZIP, "/tmp/test.json.gz"),
         ("/tmp/test.json.zst", Compress.ZSTD, "/tmp/test.json.zst"),
-        # Inferred compression tests (compress=None)
-        ("/tmp/test.json", None, "/tmp/test.json"),
-        ("/tmp/test.json.gz", None, "/tmp/test.json.gz"),
-        ("/tmp/test.json.zst", None, "/tmp/test.json.zst"),
+        # Inferred compression tests (compress=AUTO)
+        ("/tmp/test.json", Compress.AUTO, "/tmp/test.json"),
+        ("/tmp/test.json.gz", Compress.AUTO, "/tmp/test.json.gz"),
+        ("/tmp/test.json.zst", Compress.AUTO, "/tmp/test.json.zst"),
         # Case insensitive inference
-        ("/tmp/test.json.GZ", None, "/tmp/test.json.GZ"),
-        ("/tmp/test.json.ZST", None, "/tmp/test.json.ZST"),
-        ("/tmp/test.json.Gz", None, "/tmp/test.json.Gz"),
-        ("/tmp/test.json.ZsT", None, "/tmp/test.json.ZsT"),
+        ("/tmp/test.json.GZ", Compress.AUTO, "/tmp/test.json.GZ"),
+        ("/tmp/test.json.ZST", Compress.AUTO, "/tmp/test.json.ZST"),
+        ("/tmp/test.json.Gz", Compress.AUTO, "/tmp/test.json.Gz"),
+        ("/tmp/test.json.ZsT", Compress.AUTO, "/tmp/test.json.ZsT"),
         # Multiple extensions
         ("/tmp/test.tar", Compress.GZIP, "/tmp/test.tar.gz"),
         ("/tmp/test.tar", Compress.ZSTD, "/tmp/test.tar.zst"),
@@ -72,7 +72,7 @@ def test_get_full_type_name() -> None:
     ],
 )
 def test_get_compressed_file_path(
-    input_path: str, compress: Compress | None, expected_path: str
+    input_path: str, compress: Compress, expected_path: str
 ) -> None:
     """Test get_compressed_file_path with various inputs."""
     result = get_compressed_file_path(Path(input_path), compress)
