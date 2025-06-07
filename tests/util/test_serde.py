@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -10,9 +11,12 @@ import pytest
 from paper.util.serde import (
     Compress,
     PydanticProtocol,
+    SerdeError,
     get_full_type_name,
+    load_data_jsonl,
     load_data_single,
     save_data,
+    save_data_jsonl,
 )
 
 
@@ -39,6 +43,14 @@ def test_get_full_type_name() -> None:
     )
 
 
+class SerdeTestModel(BaseModel):
+    """Model for testing serialization functions."""
+
+    id: str
+    name: str
+    value: int
+
+
 @pytest.mark.parametrize(
     ("compress_type", "expected_ext"),
     [
@@ -47,14 +59,9 @@ def test_get_full_type_name() -> None:
         (Compress.NONE, ""),
     ],
 )
-def test_compression_round_trip(compress_type: Compress, expected_ext: str) -> None:
+def test_save_data_round_trip(compress_type: Compress, expected_ext: str) -> None:
     """Test that compression and decompression work correctly for all formats."""
-
-    class TestModel(BaseModel):
-        name: str
-        value: int
-
-    test_data = TestModel(name="test", value=42)
+    test_data = SerdeTestModel(id="test_id", name="test", value=42)
 
     with TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
@@ -70,5 +77,195 @@ def test_compression_round_trip(compress_type: Compress, expected_ext: str) -> N
         assert actual_file.exists(), f"File not created: {actual_file}"
 
         # Test loading
-        loaded_data = load_data_single(actual_file, TestModel)
+        loaded_data = load_data_single(actual_file, SerdeTestModel)
         assert loaded_data == test_data
+
+
+class TestJsonlSerialization:
+    """Test class for JSONL save and load operations."""
+
+    @pytest.mark.parametrize("mode", ["w", "a"])
+    @pytest.mark.parametrize("extension", ["", ".gz", ".zst"])
+    def test_save_single(self, mode: Literal["w", "a"], extension: str) -> None:
+        """Test save_data_jsonl with single data items."""
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            file_path = tmp_path / f"test.json{extension}"
+
+            test_data = SerdeTestModel(id="1", name="test", value=42)
+
+            save_data_jsonl(file_path, test_data, mode=mode)
+
+            assert file_path.exists()
+
+            loaded_data = load_data_jsonl(file_path, SerdeTestModel)
+            assert len(loaded_data) == 1
+            assert loaded_data[0] == test_data
+
+    @pytest.mark.parametrize("mode", ["w", "a"])
+    @pytest.mark.parametrize("extension", ["", ".gz", ".zst"])
+    def test_save_sequence(self, mode: Literal["w", "a"], extension: str) -> None:
+        """Test save_data_jsonl with sequence data."""
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            file_path = tmp_path / f"test.json{extension}"
+
+            test_data = [
+                SerdeTestModel(id="1", name="test1", value=42),
+                SerdeTestModel(id="2", name="test2", value=84),
+            ]
+
+            save_data_jsonl(file_path, test_data, mode=mode)
+
+            assert file_path.exists()
+
+            loaded_data = load_data_jsonl(file_path, SerdeTestModel)
+            assert len(loaded_data) == 2
+            assert loaded_data == test_data
+
+    def test_append_mode(self) -> None:
+        """Test that append mode correctly adds to existing files."""
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            file_path = tmp_path / "test.json"
+
+            # Save initial data
+            initial_data = SerdeTestModel(id="1", name="test1", value=42)
+            save_data_jsonl(file_path, initial_data, mode="w")
+
+            # Append more data
+            additional_data = SerdeTestModel(id="2", name="test2", value=84)
+            save_data_jsonl(file_path, additional_data, mode="a")
+
+            # Load and verify all data is present
+            loaded_data = load_data_jsonl(file_path, SerdeTestModel)
+            assert len(loaded_data) == 2
+            assert loaded_data[0] == initial_data
+            assert loaded_data[1] == additional_data
+
+    def test_write_mode_overwrites(self) -> None:
+        """Test that write mode overwrites existing files."""
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            file_path = tmp_path / "test.json"
+
+            # Save initial data
+            initial_data = SerdeTestModel(id="1", name="test1", value=42)
+            save_data_jsonl(file_path, initial_data, mode="w")
+
+            # Overwrite with new data
+            new_data = SerdeTestModel(id="2", name="test2", value=84)
+            save_data_jsonl(file_path, new_data, mode="w")
+
+            # Load and verify only new data is present
+            loaded_data = load_data_jsonl(file_path, SerdeTestModel)
+            assert len(loaded_data) == 1
+            assert loaded_data[0] == new_data
+
+    @pytest.mark.parametrize("extension", ["", ".gz", ".zst"])
+    def test_load_compression(self, extension: str) -> None:
+        """Test load_data_jsonl with different compression formats."""
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            file_path = tmp_path / f"test.json{extension}"
+
+            # Create test data
+            test_data = [
+                SerdeTestModel(id="1", name="test1", value=42),
+                SerdeTestModel(id="2", name="test2", value=84),
+            ]
+
+            # Save and load data
+            save_data_jsonl(file_path, test_data)
+            loaded_data = load_data_jsonl(file_path, SerdeTestModel)
+
+            assert loaded_data == test_data
+
+    def test_load_empty_lines(self) -> None:
+        """Test that load_data_jsonl skips empty lines."""
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            file_path = tmp_path / "test.json"
+
+            # Create file with empty lines
+            content = (
+                '{"id": "1", "name": "test1", "value": 42}\n'
+                "\n"
+                '{"id": "2", "name": "test2", "value": 84}\n'
+                "   \n"
+                '{"id": "3", "name": "test3", "value": 126}\n'
+            )
+            file_path.write_text(content)
+
+            # Load data
+            loaded_data = load_data_jsonl(file_path, SerdeTestModel)
+
+            # Should only load valid lines
+            assert len(loaded_data) == 3
+            assert loaded_data[0].id == "1"
+            assert loaded_data[1].id == "2"
+            assert loaded_data[2].id == "3"
+
+    def test_load_partial_validation_errors(self) -> None:
+        """Test that load_data_jsonl handles partial validation errors gracefully."""
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            file_path = tmp_path / "test.json"
+
+            # Create file with invalid JSON line
+            content = (
+                '{"id": "1", "name": "test1", "value": 42}\n'
+                '{"id": "2", "name": "test2", "value": "not_a_number"}\n'
+            )
+            file_path.write_text(content)
+
+            # Should not raise an error and should return the valid entry
+            loaded_data = load_data_jsonl(file_path, SerdeTestModel)
+            assert len(loaded_data) == 1
+            assert loaded_data[0].id == "1"
+
+    def test_load_all_invalid_validation_raises_error(self) -> None:
+        """Test that load_data_jsonl raises SerdeError when all lines are invalid."""
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            file_path = tmp_path / "test.json"
+
+            # Create file with all invalid lines
+            content = (
+                '{"id": "1", "name": "test1", "value": "not_a_number"}\n'
+                '{"id": "2", "name": "test2", "value": "also_not_a_number"}\n'
+            )
+            file_path.write_text(content)
+
+            # Should raise SerdeError
+            with pytest.raises(SerdeError, match="All lines in .* failed validation"):
+                load_data_jsonl(file_path, SerdeTestModel)
+
+    def test_load_mixed_valid_invalid_json(self) -> None:
+        """Test that load_data_jsonl handles mixed valid/invalid lines gracefully."""
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            file_path = tmp_path / "test.json"
+
+            # Create file with mix of valid and invalid JSON lines
+            content = '{"id": "1", "name": "test1", "value": 42}\nnot valid json\n'
+            file_path.write_text(content)
+
+            # Should return only the valid entries
+            loaded_data = load_data_jsonl(file_path, SerdeTestModel)
+            assert len(loaded_data) == 1
+            assert loaded_data[0].id == "1"
+
+    def test_load_all_invalid_json_raises_error(self) -> None:
+        """Test that load_data_jsonl raises SerdeError when all lines are invalid JSON."""
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            file_path = tmp_path / "test.json"
+
+            # Create file with all invalid JSON lines
+            content = "not valid json\nalso not valid json\n"
+            file_path.write_text(content)
+
+            # Should raise SerdeError since no valid lines exist
+            with pytest.raises(SerdeError, match="All lines in .* failed validation"):
+                load_data_jsonl(file_path, SerdeTestModel)
