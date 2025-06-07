@@ -15,6 +15,8 @@ import requests
 import typer
 from tqdm import tqdm
 
+from paper.util.serde import read_file_bytes
+
 logger = logging.getLogger(__name__)
 
 
@@ -62,7 +64,9 @@ def latex(
     By default, skips re-downloading files that already exist in the output directory.
     You can override this with `--clean`.
     """
-    papers: list[dict[str, str]] = orjson.loads(reviews_file.read_text())[:max_papers]
+    papers: list[dict[str, str]] = orjson.loads(read_file_bytes(reviews_file))[
+        :max_papers
+    ]
     arxiv_results = [
         ArxivResult(
             openreview_title=p["openreview_title"],

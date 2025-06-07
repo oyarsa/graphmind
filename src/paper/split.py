@@ -13,9 +13,17 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from paper.util import get_in, get_params, groupby, render_params, sample, setup_logging
+from paper.util import (
+    get_in,
+    get_params,
+    groupby,
+    render_params,
+    sample,
+    setup_logging,
+    shuffled,
+)
 from paper.util.cli import die
-from paper.util.serde import save_data
+from paper.util.serde import read_file_bytes, save_data, write_file_bytes
 
 logger = logging.getLogger("paper.split")
 
@@ -63,7 +71,7 @@ def split(
     params = get_params()
     logger.info(render_params(params))
 
-    data: list[dict[str, Any]] = orjson.loads(input_file.read_bytes())
+    data: list[dict[str, Any]] = orjson.loads(read_file_bytes(input_file))
 
     n = len(data)
 
@@ -101,10 +109,10 @@ def split(
     logger.info("Test: %d", len(test_split))
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "train.json").write_bytes(orjson.dumps(train_split))
-    (output_dir / "dev.json").write_bytes(orjson.dumps(dev_split))
-    (output_dir / "test.json").write_bytes(orjson.dumps(test_split))
-    (output_dir / "params.json").write_bytes(orjson.dumps(params))
+    write_file_bytes(output_dir / "train.json.zst", orjson.dumps(train_split))
+    write_file_bytes(output_dir / "dev.json.zst", orjson.dumps(dev_split))
+    write_file_bytes(output_dir / "test.json.zst", orjson.dumps(test_split))
+    write_file_bytes(output_dir / "params.json", orjson.dumps(params))
 
 
 @app.command(no_args_is_help=True)
@@ -131,7 +139,7 @@ def balanced(
     params = get_params()
     logger.info(render_params(params))
 
-    data: list[dict[str, Any]] = orjson.loads(input_file.read_bytes())
+    data: list[dict[str, Any]] = orjson.loads(read_file_bytes(input_file))
 
     frequencies = _get_frequencies(data, key)
     print("Input frequencies")
@@ -232,7 +240,7 @@ def downsample(
     if sum(ratio_values) != 100:
         die(f"Ratios must sum to 100, got {sum(ratio_values)}")
 
-    data: list[dict[str, Any]] = orjson.loads(input_file.read_bytes())
+    data: list[dict[str, Any]] = orjson.loads(read_file_bytes(input_file))
 
     def get_key_value(item: dict[str, Any]) -> Any:
         """Get key from item. Supports both nested paper items and raw ORC output."""
@@ -320,7 +328,7 @@ def downsample(
             valid_items = items
         output_data.extend(sample(valid_items, target))
 
-    random.shuffle(output_data)
+    output_data = shuffled(output_data)
 
     # Print output distribution
     table_output = Table(title="Output distribution")

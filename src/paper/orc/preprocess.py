@@ -16,7 +16,7 @@ from tqdm import tqdm
 from paper import peerread as pr
 from paper.orc.download import RATING_KEYS, get_reviews, get_value
 from paper.util import groupby
-from paper.util.serde import safe_load_json, save_data
+from paper.util.serde import read_file_bytes, safe_load_json, save_data
 
 logger = logging.getLogger("paper.openreview")
 
@@ -95,7 +95,7 @@ def _process_conferences(base_dir: Path) -> list[dict[str, Any]]:
             logger.info(f"Skipping {conference} - missing required files")
             continue
 
-        papers: list[dict[str, Any]] = orjson.loads(arxiv_file.read_bytes())
+        papers: list[dict[str, Any]] = orjson.loads(read_file_bytes(arxiv_file))
         # Mapping of paper titles (arXiv) to parsed JSON files
         # Look for both .json and .json.zst files
         json_files = list(parsed_dir.glob("*.json")) + list(

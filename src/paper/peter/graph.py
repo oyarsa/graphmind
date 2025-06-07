@@ -16,7 +16,12 @@ from paper.peter.citations import ContextPolarity
 from paper.related_papers import PaperRelated, PaperSource, QueryResult
 from paper.types import Immutable
 from paper.util import Timer
-from paper.util.serde import load_data_single, save_data
+from paper.util.serde import (
+    load_data_single,
+    read_file_bytes,
+    save_data,
+    write_file_bytes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +39,8 @@ class Graph:
     CITATION_TOP_K: ClassVar[int] = 5
     SEMANTIC_TOP_K: ClassVar[int] = 5
 
-    CITATION_FILENAME: ClassVar[str] = "citation_graph.json"
-    SEMANTIC_FILENAME: ClassVar[str] = "semantic_graph.json"
+    CITATION_FILENAME: ClassVar[str] = "citation_graph.json.zst"
+    SEMANTIC_FILENAME: ClassVar[str] = "semantic_graph.json.zst"
     METADATA_FILENAME: ClassVar[str] = "metadata.json"
 
     _citation: citations.Graph
@@ -135,7 +140,9 @@ class Graph:
         logger.debug(timer_citations)
 
         logger.debug("Saving graph metadata")
-        metadata_file.write_bytes(orjson.dumps({"encoder_model": encoder.model_name}))
+        write_file_bytes(
+            metadata_file, orjson.dumps({"encoder_model": encoder.model_name})
+        )
 
     @classmethod
     def load(cls, graph_dir: Path) -> Self:
@@ -152,7 +159,7 @@ class Graph:
         if not all(f.exists() for f in [citation_file, semantic_file, metadata_file]):
             raise FileNotFoundError(f"Missing one or more graph files in {graph_dir}")
 
-        metadata: dict[str, str] = orjson.loads(metadata_file.read_bytes())
+        metadata: dict[str, str] = orjson.loads(read_file_bytes(metadata_file))
         encoder_model = metadata["encoder_model"]
 
         citation_graph = load_data_single(citation_file, citations.Graph)

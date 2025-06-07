@@ -16,6 +16,7 @@ import typer
 from paper import embedding as emb
 from paper.embedding import DEFAULT_SENTENCE_MODEL
 from paper.types import Immutable
+from paper.util.serde import read_file_bytes, write_file_bytes
 
 DEFAULT_BATCH_SIZE = 1000
 DEFAULT_TOP_K = 5
@@ -118,7 +119,7 @@ class VectorDatabase:
         metadata_path = db_dir / cls.METADATA_FILE
 
         index = faiss.read_index(str(index_path))
-        metadata = orjson.loads(metadata_path.read_bytes())
+        metadata = orjson.loads(read_file_bytes(metadata_path))
 
         return cls(
             index=index,
@@ -211,10 +212,11 @@ class VectorDatabase:
 
         faiss.write_index(self.index, str(index_path))
 
-        metadata_path.write_bytes(
+        write_file_bytes(
+            metadata_path,
             orjson.dumps({
                 "batch_size": self.batch_size,
                 "model_name": self.encoder.model_name,
                 "sentences": self.sentences,
-            })
+            }),
         )

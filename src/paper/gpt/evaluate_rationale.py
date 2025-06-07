@@ -53,7 +53,7 @@ from paper.util import (
     seqcat,
     setup_logging,
 )
-from paper.util.serde import load_data, save_data
+from paper.util.serde import load_data, read_file_bytes, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -639,7 +639,7 @@ async def _evaluate_single_input(
             batch_size=batch_size,
         )
 
-        metrics = orjson.loads((output_dir / "metrics.json").read_bytes())
+        metrics = orjson.loads(read_file_bytes(output_dir / "metrics.json"))
         means = {metric: data["mean"] for metric, data in metrics["metrics"].items()}
         return {**means, "name": input_path.parent.name}
 

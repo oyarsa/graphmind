@@ -153,7 +153,9 @@ def read_file_bytes(file: Path) -> bytes:
             return file.read_bytes()
 
 
-def write_file_bytes(file: Path, content: bytes, compress: Compress) -> None:
+def write_file_bytes(
+    file: Path, content: bytes, compress: Compress = Compress.AUTO
+) -> None:
     """Write bytes to file, optionally compressing with zstandard or gzip.
 
     Args:

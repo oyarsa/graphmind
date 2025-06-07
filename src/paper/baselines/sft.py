@@ -57,7 +57,7 @@ from paper.evaluation_metrics import (
 )
 from paper.util import describe, metrics, sample, setup_logging
 from paper.util.cli import Choice
-from paper.util.serde import load_data, save_data
+from paper.util.serde import load_data, save_data, write_file_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -809,14 +809,14 @@ def evaluate_model_predictions(
         f.write(f"Evaluation Results\n{'-' * 20}\n")
         f.write(display_metrics(metrics_result, evaluated_results))
 
-    prediction_path = output_dir / "predictions.json"
+    prediction_path = output_dir / "predictions.json.zst"
     prediction_data = {
         "true_labels": true_labels_adjusted,
         "predicted_labels": pred_labels_adjusted,
         "logits": logits_list,
     }
 
-    prediction_path.write_bytes(orjson.dumps(prediction_data))
+    write_file_bytes(prediction_path, orjson.dumps(prediction_data))
 
     logger.info(f"Evaluation metrics saved to {metrics_path}")
     logger.info(f"Raw predictions saved to {prediction_path}")
