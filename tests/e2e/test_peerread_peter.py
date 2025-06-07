@@ -21,7 +21,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         run("paper", "peerread", "download", raw_path)
 
     title("Preprocess")
-    processed = tmp_path / "peerread_merged.json"
+    processed = tmp_path / "peerread_merged.json.zst"
     run("paper", "peerread", "preprocess", raw_path, processed, "-n", 100)
     assertpath(processed)
 
@@ -37,7 +37,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "--limit",
         "10",
     )
-    info_main = info_main_dir / "final.json"
+    info_main = info_main_dir / "final.json.zst"
     assertpath(info_main)
 
     title("Info references")
@@ -52,11 +52,11 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "--limit",
         "1",
     )
-    info_ref = info_ref_dir / "final.json"
+    info_ref = info_ref_dir / "final.json.zst"
     assertpath(info_ref)
 
     title("Info areas")
-    s2_areas = tmp_path / "s2_areas.json"
+    s2_areas = tmp_path / "s2_areas.json.zst"
     run(
         "paper",
         "s2",
@@ -76,7 +76,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     title("Recommended")
     recommended_dir = tmp_path / "s2_recommended"
     run("paper", "s2", "recommended", info_main, recommended_dir)
-    recommended = recommended_dir / "papers_recommended.json"
+    recommended = recommended_dir / "papers_recommended.json.zst"
     assertpath(recommended)
 
     title("Construct dataset")
@@ -93,8 +93,8 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "--output",
         subset_dir,
     )
-    peer_with_ref = subset_dir / "peerread_with_s2_references.json"
-    peer_related = subset_dir / "peerread_related.json"
+    peer_with_ref = subset_dir / "peerread_with_s2_references.json.zst"
+    peer_related = subset_dir / "peerread_related.json.zst"
     assertpath(peer_with_ref)
 
     context_dir = tmp_path / "context"
@@ -140,9 +140,9 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
             ),
         ]
     )
-    context = context_dir / "results.json"
-    s2_terms = s2_terms_dir / "results_valid.json"
-    peer_terms = peer_terms_dir / "results_valid.json"
+    context = context_dir / "results.json.zst"
+    s2_terms = s2_terms_dir / "results_valid.json.zst"
+    peer_terms = peer_terms_dir / "results_valid.json.zst"
 
     assertpath(context)
     assertpath(s2_terms)
@@ -163,7 +163,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     )
     assertpath(peter_graph_dir)
 
-    peter_peer = tmp_path / "peerread_with_peter.json"
+    peter_peer = tmp_path / "peerread_with_peter.json.zst"
     title("Peter PeerRead")
     run(
         "paper",
@@ -190,7 +190,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "--output",
         petersum_dir,
     )
-    petersum = petersum_dir / "result.json"
+    petersum = petersum_dir / "result.json.zst"
     assertpath(petersum)
 
     title("GPT eval sans")
@@ -208,12 +208,12 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
         "--demos",
         "eval_4",
     )
-    eval_sans = eval_sans_dir / "result.json"
+    eval_sans = eval_sans_dir / "result.json.zst"
     assertpath(eval_sans)
 
     title("GPT eval PETER")
     eval_peter_dir = tmp_path / "eval-peter"
-    eval_peter = eval_peter_dir / "result.json"
+    eval_peter = eval_peter_dir / "result.json.zst"
     run(
         "paper",
         "gpt",
@@ -264,7 +264,7 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
             ),
         ]
     )
-    acu_s2 = acu_s2_dir / "result.json"
-    acu_peerread = acu_peerread_dir / "result.json"
+    acu_s2 = acu_s2_dir / "result.json.zst"
+    acu_peerread = acu_peerread_dir / "result.json.zst"
     assertpath(acu_s2)
     assertpath(acu_peerread)
