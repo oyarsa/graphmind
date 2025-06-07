@@ -401,8 +401,8 @@ def hashstr(s: str) -> str:
 def shuffled[T](iterable: Iterable[T], rng: random.Random | None = None) -> list[T]:
     """Return a shallow copy of the contents in `iterable` shuffled as a list.
 
-    This uses standard library's `random`. You can use `random.seed` to initialise the
-    seed for this.
+    By default, this uses standard library's `random`. You can use `random.seed` to
+    initialise the seed for this, you can use your own `random.Random` object.
     """
     lst = list(iterable)
     if rng is not None:
@@ -686,6 +686,9 @@ def sample[T](
     """Choose `k` unique elements from `items`.
 
     If `k` is None or 0, or if the number of `items` is less than `k`, returns `items`.
+
+    By default, this uses standard library's `random`. You can use `random.seed` to
+    initialise the seed for this, you can use your own `random.Random` object.
     """
     if k is None or k == 0 or len(items) <= k:
         return list(items)
