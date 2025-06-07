@@ -3,6 +3,7 @@
 from paper.gpt.classify_contexts import (
     PaperWithContextClassfied as PaperWithContextClassfied,
 )
+from paper.gpt.evaluate_paper import PaperResult as PaperResult
 from paper.gpt.extract_graph import ExtractedGraph as ExtractedGraph
 from paper.gpt.extract_graph import GraphResult as GraphResult
 from paper.gpt.model import EntityType as EntityType
