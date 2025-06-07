@@ -1,6 +1,7 @@
 """Tools for serialisation and deserialisation of Pydantic objects."""
 
 import gzip
+import io
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
@@ -109,6 +110,9 @@ def save_data_jsonl(
 ) -> None:
     """Save Pydantic object as a new line in `file`.
 
+    If the path ends with `.gz` or `.zst`, the data is compressed with gzip or zstd,
+    respectively.
+
     Args:
         file: File where data will be saved. Creates its parent directory if it doesn't
             exist.
@@ -119,47 +123,88 @@ def save_data_jsonl(
         data = [data]
 
     file.parent.mkdir(parents=True, exist_ok=True)
-    with file.open(mode) as f:
-        for entry in data:
-            f.write(entry.model_dump_json() + "\n")
+    suffix = file.suffix.lower()
+
+    lines = (entry.model_dump_json() + "\n" for entry in data)
+
+    if suffix == ".gz":
+        with gzip.open(file, mode + "t", encoding="utf-8") as f:
+            for line in lines:
+                f.write(line + "\n")
+
+    elif suffix == ".zst":
+        cctx = zstd.ZstdCompressor()
+        file_mode = "ab" if mode == "a" else "wb"
+        with open(file, file_mode) as fh, cctx.stream_writer(fh) as compressor:
+            for line in lines:
+                compressor.write(line.encode("utf-8"))
+
+    else:
+        with file.open(mode) as f:
+            for line in lines:
+                f.write(line + "\n")
 
 
 def load_data_jsonl[T: BaseModel](file: Path, type_: type[T]) -> list[T]:
     """Load data from a JSON Lines (JSONL) `file`: a collection of objects, one per line.
 
-    Each line in the file should be a valid JSON object.
+    Each line in the (decompressed) file should be a valid JSON object.
+
+    If the path ends with `.gz` or `.zst`, the data is decompressed with gzip or zstd,
+    respectively.
 
     Args:
-        file: File path to read the data from, bytes content, or string content.
+        file: File path to read the data from.
         type_: Type of the objects to parse.
 
     Returns:
         List of data with the `type_` format.
 
     Raises:
-        `ValidationError` if the data is incompatible with `type_`.
-        `OSError` if the file operations fail.
-        `ValueError` if no valid objects are found in the file.
+        `SerdeError` if the data is incompatible with `type_` or the JSON is invalid.
     """
+    suffix = file.suffix.lower()
+    result: list[T] = []
+    errors: list[str] = []
 
     try:
-        result: list[T] = []
-        errors: list[str] = []
+        if suffix == ".gz":
+            with gzip.open(file, "rt", encoding="utf-8") as f:
+                for i, line in enumerate(f, 1):
+                    if not line.strip():
+                        continue
 
-        with file.open() as f:
-            for i, line in enumerate(f, 1):
-                if not line.strip():
-                    continue
+                    try:
+                        result.append(type_.model_validate_json(line))
+                    except ValidationError as e:
+                        errors.append(f"Line {i}: {e}")
 
-                try:
-                    result.append(type_.model_validate_json(line))
-                except ValidationError as e:
-                    # Collect errors with line numbers for better debugging
-                    errors.append(f"Line {i}: {e}")
+        elif suffix == ".zst":
+            dctx = zstd.ZstdDecompressor()
+            with open(file, "rb") as fh, dctx.stream_reader(fh) as reader:
+                text_reader = io.TextIOWrapper(reader, encoding="utf-8")
+                for i, line in enumerate(text_reader, 1):
+                    if not line.strip():
+                        continue
+
+                    try:
+                        result.append(type_.model_validate_json(line))
+                    except ValidationError as e:
+                        errors.append(f"Line {i}: {e}")
+
+        else:
+            with file.open("r") as f:
+                for i, line in enumerate(f, 1):
+                    if not line.strip():
+                        continue
+
+                    try:
+                        result.append(type_.model_validate_json(line))
+                    except ValidationError as e:
+                        errors.append(f"Line {i}: {e}")
 
         if errors and not result:
-            # If all lines failed validation, raise an error
-            raise SerdeError(
+            raise SerdeError(  # noqa: TRY301
                 f"All lines in {file} failed validation for {get_full_type_name(type_)}. "
                 f"First few errors: {'; '.join(errors[:3])}"
             )
@@ -168,11 +213,11 @@ def load_data_jsonl[T: BaseModel](file: Path, type_: type[T]) -> list[T]:
         raise SerdeError(
             f"Data from {file} is not valid for {get_full_type_name(type_)}"
         ) from e
-    except orjson.JSONDecodeError as e:
-        line_num = e.lineno if hasattr(e, "lineno") else "unknown"
+    except Exception as e:
+        line_num = getattr(e, "lineno", "unknown")
         raise SerdeError(f"Invalid JSON at line {line_num} in {file}: {e}") from e
-    else:
-        return result
+
+    return result
 
 
 def load_data[T: BaseModel](file: Path | bytes, type_: type[T]) -> list[T]:
