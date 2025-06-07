@@ -20,7 +20,7 @@ import typer
 
 from paper.peerread.model import CitationContext, ContextPolarity
 from paper.semantic_scholar.model import PaperWithReferenceEnriched, ReferenceEnriched
-from paper.util import Timer, cli
+from paper.util import Timer, cli, sample
 from paper.util.serde import load_data, save_data
 
 app = typer.Typer(
@@ -32,7 +32,7 @@ app = typer.Typer(
 
 
 @app.command()
-def sample(
+def sample_(
     input_file: Annotated[
         Path, typer.Argument(help="Path to input JSON file (PeerRead with abstracts).")
     ],
@@ -43,12 +43,12 @@ def sample(
     seed: Annotated[int, typer.Option(help="Random seed for sampling")] = 0,
 ) -> None:
     """Sample N citation contexts from file."""
-    random.seed(seed)
+    rng = random.Random(seed)
 
     input_data = load_data(input_file, PaperWithReferenceEnriched)
     total = _count_contexts(input_data)
 
-    indices = random.sample(list(range(total)), k=num_samples)
+    indices = sample(list(range(total)), num_samples, rng)
     cur_idx = 0
 
     output_data: list[PaperWithReferenceEnriched] = []
