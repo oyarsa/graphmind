@@ -215,7 +215,7 @@ class Reference:
     title: str
     year: str | None
     authors: list[str]
-    citation_contexts: list[str] = dc.field(default_factory=list)
+    citation_contexts: list[str] = dc.field(default_factory=list[str])
 
 
 @dc.dataclass(frozen=True, kw_only=True)
