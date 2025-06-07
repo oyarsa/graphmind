@@ -49,9 +49,9 @@ from paper.util import (
     get_params,
     progress,
     render_params,
+    sample,
     seqcat,
     setup_logging,
-    shuffled,
 )
 from paper.util.serde import load_data, save_data
 
@@ -249,9 +249,10 @@ async def evaluate_reviews(
         mode: Which mode to apply to ratings. See `apply_rating_mode`.
         keep_intermediate: Keep intermediate results to be used with `continue`.
     """
-    random.seed(seed)
     params = get_params()
     logger.info(render_params(params))
+
+    rng = random.Random(seed)
 
     dotenv.load_dotenv()
 
@@ -266,7 +267,7 @@ async def evaluate_reviews(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
-    papers = shuffled(load_data(peerread_path, pr.Paper))[:limit_papers]
+    papers = sample(load_data(peerread_path, pr.Paper), limit_papers, rng)
     logger.info("%s", _display_label_dist(papers, mode))
 
     user_prompt = REVIEW_CLASSIFY_USER_PROMPTS[user_prompt_key]

@@ -15,7 +15,7 @@ from paper import peerread as pr
 from paper.gpt import annotate_paper as ann
 from paper.gpt import evaluate_paper as eval
 from paper.types import Immutable
-from paper.util import groupby, sample, shuffled
+from paper.util import groupby, sample
 from paper.util.serde import load_data, save_data
 
 app = typer.Typer(
@@ -50,10 +50,10 @@ def eval_sans(
     The output is a file with the paper title, abstract, main text, novelty rating and
     rationale.
     """
-    random.seed(seed)
+    rng = random.Random(seed)
 
     papers = load_data(input_file, pr.Paper)
-    papers_sample = sample(papers, num_entries)
+    papers_sample = sample(papers, num_entries, rng)
 
     demonstrations = [new_eval_sans_demonstration(paper) for paper in papers_sample]
     save_data(output_file, demonstrations)
@@ -182,7 +182,7 @@ def eval_reviews(
     The output is a file with the paper title, abstract, main text, novelty rating and
     rationale.
     """
-    random.seed(seed)
+    rng = random.Random(seed)
 
     if num_entries % 5 != 0:
         raise ValueError("`num_entries` must be a multiple of 5.")
@@ -194,7 +194,7 @@ def eval_reviews(
     reviews_grouped = groupby(reviews, lambda x: x[1].rating)
 
     reviews_chosen = {
-        rating: shuffled(reviews)[:num_each]
+        rating: sample(reviews, num_each, rng)
         for rating, reviews in reviews_grouped.items()
     }
     reviews_final = [
@@ -242,7 +242,7 @@ def eval_binary(
     The output is a file with the paper title, abstract, main text, novelty rating,
     novelty label (binary) and rationale.
     """
-    random.seed(seed)
+    rng = random.Random(seed)
 
     data = load_data(input_file, pr.Paper)
     n = num_entries // 2
@@ -250,8 +250,8 @@ def eval_binary(
     pos = [x for x in data if x.label]
     neg = [x for x in data if not x.label]
 
-    pos_sampled = sample(pos, n)
-    neg_sampled = sample(neg, n)
+    pos_sampled = sample(pos, n, rng)
+    neg_sampled = sample(neg, n, rng)
 
     save_data(output_file, pos_sampled + neg_sampled)
 

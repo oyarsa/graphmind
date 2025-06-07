@@ -50,9 +50,9 @@ from paper.util import (
     get_params,
     progress,
     render_params,
+    sample,
     seqcat,
     setup_logging,
-    shuffled,
 )
 from paper.util.serde import load_data, save_data
 
@@ -191,7 +191,7 @@ async def evaluate_papers(
     params = get_params()
     logger.info(render_params(params))
 
-    random.seed(seed)
+    rng = random.Random(seed)
 
     dotenv.load_dotenv()
 
@@ -206,11 +206,13 @@ async def evaluate_papers(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
-    papers = shuffled(
+    papers = sample(
         PromptResult.unwrap(
             load_data(paper_file, PromptResult[PaperWithRelatedSummary])
-        )
-    )[:limit_papers]
+        ),
+        limit_papers,
+        rng,
+    )
 
     user_prompt = PETER_CLASSIFY_USER_PROMPTS[user_prompt_key]
     if not user_prompt.system:

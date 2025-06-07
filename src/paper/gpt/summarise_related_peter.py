@@ -48,9 +48,9 @@ from paper.util import (
     get_params,
     progress,
     render_params,
+    sample,
     seqcat,
     setup_logging,
-    shuffled,
 )
 from paper.util.serde import load_data, save_data
 
@@ -180,7 +180,7 @@ async def summarise_related(
     params = get_params()
     logger.info(render_params(params))
 
-    random.seed(seed)
+    rng = random.Random(seed)
 
     dotenv.load_dotenv()
 
@@ -193,7 +193,7 @@ async def summarise_related(
 
     client = OpenAIClient.from_env(model=model, seed=seed)
 
-    papers = shuffled(load_data(ann_graph_file, rp.PaperResult))[:limit_papers]
+    papers = sample(load_data(ann_graph_file, rp.PaperResult), limit_papers, rng)
 
     prompt_pol = {
         rp.ContextPolarity.POSITIVE: PETER_SUMMARISE_USER_PROMPTS[positive_prompt_key],

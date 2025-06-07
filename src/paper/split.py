@@ -133,11 +133,14 @@ def balanced(
         int, typer.Option("--class", help="Which class to base the balance.")
     ],
     key: Annotated[str, typer.Option(help="Key of the class in the object.")],
+    seed: Annotated[int, typer.Option(help="Seed for random sampling.")],
 ) -> None:
     """Sample the input file so that it's balanced with the chosen `class."""
     setup_logging()
     params = get_params()
     logger.info(render_params(params))
+
+    rng = random.Random(seed)
 
     data: list[dict[str, Any]] = orjson.loads(read_file_bytes(input_file))
 
@@ -153,7 +156,7 @@ def balanced(
 
     class_items = groupby(data, key=lambda d: _get_paper(d)[key])
     for items in class_items.values():
-        output_data.extend(sample(items, main_count))
+        output_data.extend(sample(items, main_count, rng))
 
     print("\nOutput frequencies")
     _print_frequencies(_get_frequencies(output_data, key))
@@ -227,10 +230,11 @@ def downsample(
         paper split downsample -i input.json -o balanced.json --key approval \
             --ratios "60/40" --filter item.paper.rationale
     """
-    random.seed(seed)
     setup_logging()
     params = get_params()
     logger.info(render_params(params))
+
+    rng = random.Random(seed)
 
     ratio_pattern = r"^\d+(/\d+)+$"
     if not re.match(ratio_pattern, ratios):
@@ -326,9 +330,9 @@ def downsample(
             valid_items = [item for item in items if get_in(item, filter)]
         else:
             valid_items = items
-        output_data.extend(sample(valid_items, target))
+        output_data.extend(sample(valid_items, target, rng))
 
-    output_data = shuffled(output_data)
+    output_data = shuffled(output_data, rng)
 
     # Print output distribution
     table_output = Table(title="Output distribution")
