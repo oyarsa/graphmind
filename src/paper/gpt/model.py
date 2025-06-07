@@ -29,6 +29,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+RATIONALE_ERROR = "<error>"
+
+
+def is_rationale_valid(rationale: str) -> bool:
+    """Check if rationale is valid. Errors in extraction generate the `RATIONALE_ERROR`."""
+    return rationale != RATIONALE_ERROR
+
 
 class EntityType(StrEnum):
     """Entity type in hierarchical graph."""
@@ -339,7 +346,7 @@ class Graph(Record):
         """Return True if the graph is empty. See also `Graph.empty`."""
         return not self.title
 
-    @on_exception(default="<error>", logger=logger)
+    @on_exception(default=RATIONALE_ERROR, logger=logger)
     def to_text(self, method: LinearisationMethod = LinearisationMethod.TOPO) -> str:
         """Convert graph to LLM-readable text using the linearisation `method`.
 
