@@ -250,7 +250,7 @@ async def evaluate_papers(
     params = get_params()
     logger.info(render_params(params))
 
-    random.seed(seed)
+    rng = random.Random(seed)
 
     dotenv.load_dotenv()
 
@@ -261,6 +261,7 @@ async def evaluate_papers(
             load_data(paper_file, PromptResult[PaperWithRelatedSummary])
         ),
         limit_papers,
+        rng,
     )
 
     eval_prompt = GRAPH_EVAL_USER_PROMPTS[eval_prompt_key]
