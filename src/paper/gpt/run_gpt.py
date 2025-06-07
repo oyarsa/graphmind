@@ -183,7 +183,13 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
                 "gpt-4.1": (10_000, 2_000_000),
             }
         elif tier == 5:
-            raise ValueError(message.format(tier=5))
+            limits = {
+                "gpt-4o-mini": (30_000, 150_000_000),
+                "gpt-4o": (10_000, 30_000_000),
+                "gpt-4.1-nano": (30_000, 150_000_000),
+                "gpt-4.1-mini": (30_000, 150_000_000),
+                "gpt-4.1": (10_000, 30_000_000),
+            }
         elif tier == AZURE_TIER:
             limits = {
                 "gpt-4o-mini": (2_500, 250_000),
