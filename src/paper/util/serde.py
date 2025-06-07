@@ -4,7 +4,7 @@ import gzip
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import (
     Any,
@@ -27,7 +27,7 @@ type JSONObject = dict[str, JSONValue]
 type JSONValue = JSONObject | JSONArray | JSONPrimitive
 
 
-class Compress(Enum):
+class Compress(StrEnum):
     """Supported compression types."""
 
     GZIP = "gzip"
