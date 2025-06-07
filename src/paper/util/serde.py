@@ -4,7 +4,8 @@ import gzip
 import io
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Generator, Sequence
+from contextlib import contextmanager
 from enum import StrEnum
 from pathlib import Path
 from typing import (
@@ -36,6 +37,46 @@ class Compress(StrEnum):
     NONE = "none"
 
 
+@contextmanager
+def open_compressed(
+    file: Path, mode: Literal["r", "w", "a"], encoding: str = "utf-8"
+) -> Generator[io.TextIOBase, None, None]:
+    """Open a file with automatic compression detection based on extension."""
+    match file.suffix.lower():
+        case ".gz":
+            # gzip supports text mode directly
+            text_mode = mode + "t"
+            with gzip.open(file, text_mode, encoding=encoding) as f:
+                yield f
+
+        case ".zst":
+            # zstandard requires different handling for read/write
+            if "r" in mode:
+                dctx = zstd.ZstdDecompressor()
+                with open(file, "rb") as fh, dctx.stream_reader(fh) as reader:
+                    text_wrapper = io.TextIOWrapper(reader, encoding=encoding)
+                    try:
+                        yield text_wrapper
+                    finally:
+                        text_wrapper.detach()  # Prevent closing the underlying stream
+            else:
+                # For write/append modes
+                cctx = zstd.ZstdCompressor()
+                file_mode = "ab" if mode == "a" else "wb"
+                with open(file, file_mode) as fh, cctx.stream_writer(fh) as compressor:
+                    text_wrapper = io.TextIOWrapper(compressor, encoding=encoding)
+                    try:
+                        yield text_wrapper
+                    finally:
+                        text_wrapper.flush()
+                        text_wrapper.detach()  # Prevent closing the underlying stream
+
+        case _:
+            # No compression
+            with file.open(mode, encoding=encoding) as f:
+                yield f
+
+
 class Record(BaseModel, ABC):
     """Immutable model type with a unique ID."""
 
@@ -51,14 +92,38 @@ class SerdeError(Exception):
     """Exceptions raised when loading/saving objects."""
 
 
+def get_compressed_file_path(file: Path, compress: Compress) -> Path:
+    """Determine the actual file path based on compression settings.
+
+    Args:
+        file: Original file path.
+        compress: Compression type to use. Compress.NONE keeps the original path as-is.
+
+    Returns:
+        File path with appropriate extension for the compression type.
+    """
+    if compress is Compress.NONE:
+        return file
+
+    match compress:
+        case Compress.GZIP:
+            suffix = ".gz"
+        case Compress.ZSTD:
+            suffix = ".zst"
+
+    return (
+        file if str(file).endswith(suffix) else file.with_suffix(file.suffix + suffix)
+    )
+
+
 def read_file_bytes(file: Path) -> bytes:
     """Read file contents, automatically detecting and decompressing if needed.
 
     Args:
-        file: Path to file to read
+        file: Path to file to read.
 
     Returns:
-        Decompressed file contents as bytes
+        Decompressed file contents as bytes.
     """
     match file.suffix:
         case ".zst":
@@ -77,72 +142,51 @@ def write_file_bytes(file: Path, content: bytes, compress: Compress) -> None:
 
     Args:
         file: Path to write to. Extension will be added based on compression type.
-        content: Bytes to write
-        compress: Compression type to use
+        content: Bytes to write.
+        compress: Compression type to use.
     """
-    file.parent.mkdir(parents=True, exist_ok=True)
+    actual_file = get_compressed_file_path(file, compress)
+    actual_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # Determine the actual file path based on compression settings
     match compress:
         case Compress.GZIP:
-            actual_file = (
-                file
-                if str(file).endswith(".gz")
-                else file.with_suffix(file.suffix + ".gz")
-            )
             with gzip.open(actual_file, "wb") as f:
                 f.write(content)
         case Compress.ZSTD:
-            actual_file = (
-                file
-                if str(file).endswith(".zst")
-                else file.with_suffix(file.suffix + ".zst")
-            )
             cctx = zstd.ZstdCompressor()
             compressed = cctx.compress(content)
             actual_file.write_bytes(compressed)
         case Compress.NONE:
-            file.write_bytes(content)
+            actual_file.write_bytes(content)
 
 
 def save_data_jsonl(
-    file: Path, data: BaseModel | Sequence[BaseModel], mode: Literal["w", "a"] = "a"
+    file: Path,
+    data: BaseModel | Sequence[BaseModel],
+    mode: Literal["w", "a"] = "a",
+    compress: Compress | None = None,
 ) -> None:
     """Save Pydantic object as a new line in `file`.
 
-    If the path ends with `.gz` or `.zst`, the data is compressed with gzip or zstd,
-    respectively.
+    If compress is provided, the file extension will be modified accordingly and
+    compression applied. If not provided, compression is inferred from the file extension.
 
     Args:
         file: File where data will be saved. Creates its parent directory if it doesn't
             exist.
         data: The data to be saved.
         mode: How to open the file. Defaults to append.
+        compress: Compression type to use. If provided, modifies file extension.
     """
     if isinstance(data, BaseModel):
         data = [data]
 
-    file.parent.mkdir(parents=True, exist_ok=True)
-    suffix = file.suffix.lower()
+    actual_file = get_compressed_file_path(file, compress or Compress.NONE)
+    actual_file.parent.mkdir(parents=True, exist_ok=True)
 
-    lines = (entry.model_dump_json() + "\n" for entry in data)
-
-    if suffix == ".gz":
-        with gzip.open(file, mode + "t", encoding="utf-8") as f:
-            for line in lines:
-                f.write(line + "\n")
-
-    elif suffix == ".zst":
-        cctx = zstd.ZstdCompressor()
-        file_mode = "ab" if mode == "a" else "wb"
-        with open(file, file_mode) as fh, cctx.stream_writer(fh) as compressor:
-            for line in lines:
-                compressor.write(line.encode("utf-8"))
-
-    else:
-        with file.open(mode) as f:
-            for line in lines:
-                f.write(line + "\n")
+    with open_compressed(actual_file, mode) as f:
+        for entry in data:
+            f.write(entry.model_dump_json() + "\n")
 
 
 def load_data_jsonl[T: BaseModel](file: Path, type_: type[T]) -> list[T]:
@@ -163,45 +207,19 @@ def load_data_jsonl[T: BaseModel](file: Path, type_: type[T]) -> list[T]:
     Raises:
         `SerdeError` if the data is incompatible with `type_` or the JSON is invalid.
     """
-    suffix = file.suffix.lower()
     result: list[T] = []
     errors: list[str] = []
 
     try:
-        if suffix == ".gz":
-            with gzip.open(file, "rt", encoding="utf-8") as f:
-                for i, line in enumerate(f, 1):
-                    if not line.strip():
-                        continue
+        with open_compressed(file, "r") as f:
+            for i, line in enumerate(f, 1):
+                if not line.strip():
+                    continue
 
-                    try:
-                        result.append(type_.model_validate_json(line))
-                    except ValidationError as e:
-                        errors.append(f"Line {i}: {e}")
-
-        elif suffix == ".zst":
-            dctx = zstd.ZstdDecompressor()
-            with open(file, "rb") as fh, dctx.stream_reader(fh) as reader:
-                text_reader = io.TextIOWrapper(reader, encoding="utf-8")
-                for i, line in enumerate(text_reader, 1):
-                    if not line.strip():
-                        continue
-
-                    try:
-                        result.append(type_.model_validate_json(line))
-                    except ValidationError as e:
-                        errors.append(f"Line {i}: {e}")
-
-        else:
-            with file.open("r") as f:
-                for i, line in enumerate(f, 1):
-                    if not line.strip():
-                        continue
-
-                    try:
-                        result.append(type_.model_validate_json(line))
-                    except ValidationError as e:
-                        errors.append(f"Line {i}: {e}")
+                try:
+                    result.append(type_.model_validate_json(line))
+                except ValidationError as e:
+                    errors.append(f"Line {i}: {e}")
 
         if errors and not result:
             raise SerdeError(  # noqa: TRY301
