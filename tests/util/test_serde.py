@@ -12,6 +12,7 @@ from paper.util.serde import (
     Compress,
     PydanticProtocol,
     SerdeError,
+    get_compressed_file_path,
     get_full_type_name,
     load_data_jsonl,
     load_data_single,
@@ -41,6 +42,41 @@ def test_get_full_type_name() -> None:
     assert (
         get_full_type_name(pr.CitationContext) == "paper.peerread.model.CitationContext"
     )
+
+
+@pytest.mark.parametrize(
+    ("input_path", "compress", "expected_path"),
+    [
+        # Explicit compression tests
+        ("/tmp/test.json", Compress.NONE, "/tmp/test.json"),
+        ("/tmp/test.json", Compress.GZIP, "/tmp/test.json.gz"),
+        ("/tmp/test.json", Compress.ZSTD, "/tmp/test.json.zst"),
+        # Already has correct extension
+        ("/tmp/test.json.gz", Compress.GZIP, "/tmp/test.json.gz"),
+        ("/tmp/test.json.zst", Compress.ZSTD, "/tmp/test.json.zst"),
+        # Inferred compression tests (compress=None)
+        ("/tmp/test.json", None, "/tmp/test.json"),
+        ("/tmp/test.json.gz", None, "/tmp/test.json.gz"),
+        ("/tmp/test.json.zst", None, "/tmp/test.json.zst"),
+        # Case insensitive inference
+        ("/tmp/test.json.GZ", None, "/tmp/test.json.GZ"),
+        ("/tmp/test.json.ZST", None, "/tmp/test.json.ZST"),
+        ("/tmp/test.json.Gz", None, "/tmp/test.json.Gz"),
+        ("/tmp/test.json.ZsT", None, "/tmp/test.json.ZsT"),
+        # Multiple extensions
+        ("/tmp/test.tar", Compress.GZIP, "/tmp/test.tar.gz"),
+        ("/tmp/test.tar", Compress.ZSTD, "/tmp/test.tar.zst"),
+        # Edge cases with existing compression wanting different compression
+        ("/tmp/test.json.gz", Compress.ZSTD, "/tmp/test.json.gz.zst"),
+        ("/tmp/test.json.zst", Compress.GZIP, "/tmp/test.json.zst.gz"),
+    ],
+)
+def test_get_compressed_file_path(
+    input_path: str, compress: Compress | None, expected_path: str
+) -> None:
+    """Test get_compressed_file_path with various inputs."""
+    result = get_compressed_file_path(Path(input_path), compress)
+    assert result == Path(expected_path)
 
 
 class SerdeTestModel(BaseModel):

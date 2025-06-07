@@ -109,6 +109,7 @@ def get_compressed_file_path(file: Path, compress: Compress | None) -> Path:
     Args:
         file: Original file path.
         compress: Compression type to use. Compress.NONE keeps the original path as-is.
+            None infers the method from the path.
 
     Returns:
         File path with appropriate extension for the compression type.
@@ -124,9 +125,10 @@ def get_compressed_file_path(file: Path, compress: Compress | None) -> Path:
         case Compress.ZSTD:
             suffix = ".zst"
 
-    return (
-        file if str(file).endswith(suffix) else file.with_suffix(file.suffix + suffix)
-    )
+    if file.suffix.lower() == suffix:
+        return file
+    else:
+        return file.with_suffix(file.suffix + suffix)
 
 
 def read_file_bytes(file: Path) -> bytes:
