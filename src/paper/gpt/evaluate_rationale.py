@@ -215,6 +215,14 @@ type EvaluatedResult = (
     GraphWithEval | PaperWithEval | PaperRawWithEval | PaperSummarisedWithEval
 )
 
+InputResultMapping: Mapping[
+    str, tuple[type[PaperEvaluationInput], type[EvaluatedResult]]
+] = {
+    "graph": (GraphResult, GraphWithEval),
+    "paper": (PaperResult, PaperWithEval),
+    "summ": (PaperWithRelatedSummary, PaperSummarisedWithEval),
+    "raw": (pr.Paper, PaperRawWithEval),
+}
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -354,46 +362,27 @@ async def evaluate_rationales(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
     )
 
-    # TODO: Clean this up. See the other TODO in this file. (2025-05-06)
-    match input_type.lower():
-        case "graph":
-            papers = sample(
-                PromptResult.unwrap(load_data(input_path, PromptResult[GraphResult])),
-                limit_papers,
-                rng,
-            )
-            result_class = GraphWithEval
-        case "paper":
-            papers = sample(
-                PromptResult.unwrap(load_data(input_path, PromptResult[PaperResult])),
-                limit_papers,
-                rng,
-            )
-            result_class = PaperWithEval
-        case "raw":
-            papers = sample(load_data(input_path, pr.Paper), limit_papers, rng)
-            result_class = PaperRawWithEval
-        case "summ":
-            papers = sample(
-                PromptResult.unwrap(
-                    load_data(input_path, PromptResult[PaperWithRelatedSummary])
-                ),
-                limit_papers,
-                rng,
-            )
-            result_class = PaperSummarisedWithEval
-        case _:
-            raise ValueError(
-                f"Invalid input_type: {input_type}. Must be 'graph', 'paper', 'summ',"
-                " or 'raw'."
-            )
+    input_type_ = input_type.lower()
+    if input_type_ not in InputResultMapping:
+        raise ValueError(
+            f"Invalid input_type: {input_type}. Must be 'graph', 'paper', 'summ',"
+            " or 'raw'."
+        )
+
+    input_class, result_class = InputResultMapping[input_type_]
+    if input_type_ == "raw":
+        papers = load_data(input_path, input_class)
+    else:
+        papers = PromptResult.unwrap(load_data(input_path, PromptResult[input_class]))
+
+    papers_sampled = sample(papers, limit_papers, rng)
 
     prompt = RATIONALE_EVAL_PROMPTS[prompt_key]
     if not prompt.system:
         raise ValueError("Chosen prompt doesn't contain system prompt.")
 
     output_intermediate_file, papers_remaining = init_remaining_items(
-        result_class, output_dir, continue_papers_file, papers, continue_
+        result_class, output_dir, continue_papers_file, papers_sampled, continue_
     )
 
     with Timer() as timer:
@@ -404,7 +393,6 @@ async def evaluate_rationales(
             output_intermediate_file,
             keep_intermediate,
             batch_size,
-            result_class,
         )
 
     logger.info(f"Time elapsed: {timer.human}")
@@ -422,7 +410,7 @@ async def evaluate_rationales(
     save_data(output_dir / "params.json", params)
     save_data(output_dir / "metrics.json", metrics)
 
-    if len(results_all) != len(papers):
+    if len(results_all) != len(papers_sampled):
         logger.warning("Some papers are missing from the result.")
 
 
@@ -478,7 +466,6 @@ async def _evaluate_rationales(
     output_intermediate_file: Path,
     keep_intermediate: bool,
     batch_size: int,
-    result_class: type[EvaluatedResult],
 ) -> GPTResult[list[PromptResult[EvaluatedResult]]]:
     """Evaluate the predicted paper rationales.
 
@@ -489,7 +476,6 @@ async def _evaluate_rationales(
         output_intermediate_file: File to write new results after each task.
         keep_intermediate: Keep intermediate results to be used in future runs.
         batch_size: Number of items per batch.
-        result_class: Class to use for the result (GraphWithEval or PaperWithEval).
 
     Returns:
         List of papers with evaluated rationales wrapped in a GPTResult.
@@ -499,9 +485,7 @@ async def _evaluate_rationales(
 
     batches = list(itertools.batched(items, batch_size))
     for batch_idx, batch in enumerate(tqdm(batches, desc="Processing batches"), 1):
-        batch_tasks = [
-            _evaluate_rationale(client, item, prompt, result_class) for item in batch
-        ]
+        batch_tasks = [_evaluate_rationale(client, item, prompt) for item in batch]
 
         for task in progress.as_completed(
             batch_tasks, desc=f"Evaluating batch {batch_idx}"
@@ -517,10 +501,7 @@ async def _evaluate_rationales(
 
 
 async def _evaluate_rationale(
-    client: LLMClient,
-    paper: PaperEvaluationInput,
-    prompt: PromptTemplate,
-    result_class: type[EvaluatedResult],
+    client: LLMClient, paper: PaperEvaluationInput, prompt: PromptTemplate
 ) -> GPTResult[PromptResult[EvaluatedResult]]:
     """Evaluate predicted rationale from evaluation.
 
@@ -528,12 +509,10 @@ async def _evaluate_rationale(
         client: LLM client.
         paper: Output from paper evaluation.
         prompt: User and system prompt for rationale evaluation.
-        result_class: Class to use for the result.
 
     Returns:
         Paper with evaluated rationale wrapped in a GPTResult.
     """
-    # TODO: Clean this up. See below. (2025-05-06)
     match paper:
         case GraphResult() | PaperResult():
             rationale_pred = paper.rationale_pred
@@ -549,22 +528,14 @@ async def _evaluate_rationale(
 
     metrics = rationale_eval.metrics()
 
-    # TODO: clean this up (2025-03-27)
-    if isinstance(paper, GraphResult) and result_class == GraphWithEval:
+    if isinstance(paper, GraphResult):
         eval_result = GraphWithEval.from_(paper, metrics)
-    elif isinstance(paper, PaperResult) and result_class == PaperWithEval:
+    elif isinstance(paper, PaperResult):
         eval_result = PaperWithEval.from_(paper, metrics)
-    elif isinstance(paper, pr.Paper) and result_class == PaperRawWithEval:
+    elif isinstance(paper, pr.Paper):
         eval_result = PaperRawWithEval.from_(paper, metrics)
-    elif (
-        isinstance(paper, PaperWithRelatedSummary)
-        and result_class == PaperSummarisedWithEval
-    ):
-        eval_result = PaperSummarisedWithEval.from_(paper, metrics)
     else:
-        raise TypeError(
-            f"Mismatched item type {type(paper)} and result class {result_class}"
-        )
+        eval_result = PaperSummarisedWithEval.from_(paper, metrics)
 
     if invalid := eval_result.eval_metrics.invalid_metrics():
         logger.warning(f"{paper.title}: invalid metric values: {invalid}")
