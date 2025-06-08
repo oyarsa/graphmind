@@ -1,4 +1,3 @@
-# TODO: This prompt doesn't mention the keywords
 [[prompts]]
 name = "full"
 type = "full"
@@ -17,6 +16,7 @@ them. All entities must have different text descriptions.
 - `title`: the title of the paper.
 - `primary_area`: what scientific primary area the paper is from. It must be one from
 the following list: {primary_areas}.
+- `keywords`: words that summarises what are the key aspects of the paper.
 - `tldr`: a sentence that summarises the paper from the abstract.
 - `claim`: summarise what the paper claims to contribute, especially claims made in the
 abstract, introduction, discussion and conclusion. Pay attention to the key phrases
@@ -74,6 +74,7 @@ them. All entities must have different text descriptions.
 - `title`: the title of the paper.
 - `primary_area`: what scientific primary area the paper is from. It must be one from
 the following list: {primary_areas}.
+- `keywords`: words that summarises what are the key aspects of the paper.
 - `tldr`: a sentence that summarises the paper from the abstract.
 - `claim`: summarise what the paper claims to contribute, especially claims made in the
 abstract, introduction, discussion and conclusion. Pay attention to the key phrases
@@ -125,6 +126,7 @@ them. All entities must have different text descriptions.
 - `title`: the title of the paper.
 - `primary_area`: what scientific primary area the paper is from. It must be one from
 the following list: {primary_areas}.
+- `keywords`: words that summarises what are the key aspects of the paper.
 - `tldr`: a sentence that summarises the paper from the abstract.
 - `claim`: summarise what the paper claims to contribute, especially claims made in the
 abstract, introduction, discussion and conclusion. Pay attention to the key phrases
@@ -176,6 +178,7 @@ them. All entities must have different text descriptions.
 - `title`: the title of the paper.
 - `primary_area`: what scientific primary area the paper is from. It must be one from
 the following list: {primary_areas}.
+- `keywords`: words that summarises what are the key aspects of the paper.
 - `tldr`: a sentence that summarises the paper from the abstract.
 - `claim`: summarise what the paper claims to contribute, especially claims made in the
 abstract, introduction, discussion and conclusion. Pay attention to the key phrases
