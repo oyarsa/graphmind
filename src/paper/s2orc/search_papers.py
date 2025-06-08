@@ -88,7 +88,11 @@ def main(
     output_intermediate_file.unlink()
 
     matches_fuzzy = _search_papers_fuzzy(
-        processed_query, processed_s2orc, min_fuzzy, output_intermediate_file
+        processed_query,
+        processed_s2orc,
+        min_fuzzy,
+        output_intermediate_file,
+        parallel=True,
     )
     print()
     print(f"{len(matches_fuzzy)=}")
@@ -104,6 +108,8 @@ def _search_papers_fuzzy(
     papers_s2orc: set[str],
     min_fuzzy: int,
     output_intermediate_file: Path,
+    *,
+    parallel: bool,
 ) -> list[Paper]:
     search_func = partial(
         _search_paper_fuzzy,
@@ -112,10 +118,19 @@ def _search_papers_fuzzy(
         output_intermediate_file=output_intermediate_file,
     )
 
-    with Pool() as pool:
+    if parallel:
+        with Pool() as pool:
+            results = list(
+                tqdm(
+                    pool.imap_unordered(search_func, papers_search),
+                    total=len(papers_search),
+                )
+            )
+    else:
+        # For testing or single-threaded execution
         results = list(
             tqdm(
-                pool.imap_unordered(search_func, papers_search),
+                (search_func(paper) for paper in papers_search),
                 total=len(papers_search),
             )
         )

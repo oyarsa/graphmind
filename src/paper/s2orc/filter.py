@@ -122,15 +122,36 @@ def filter_papers(input_directory: Path, output_file: Path) -> None:
     if not input_files:
         raise ValueError(f"No .json.gz files found in {input_directory}")
 
+    acl_papers = process_acl_papers(input_files)
+
+    save_acl_papers(acl_papers, output_file)
+    print(f"{len(acl_papers)} ACL-related papers extracted and saved to {output_file}")
+
+
+def process_acl_papers(input_files: list[Path]) -> list[dict[str, str]]:
+    """Process files to extract ACL-related papers.
+
+    Args:
+        input_files: List of JSON.GZ files to process.
+
+    Returns:
+        List of ACL-related papers with metadata.
+    """
     all_venues = _get_unique_venues(input_files)
     acl_venues = _get_acl_venues(all_venues)
-    acl_papers = _extract_acl_papers(input_files, acl_venues)
+    return _extract_acl_papers(input_files, acl_venues)
 
+
+def save_acl_papers(papers: list[dict[str, str]], output_file: Path) -> None:
+    """Save ACL papers to a gzipped JSON file.
+
+    Args:
+        papers: List of papers to save.
+        output_file: Path to save the output file.
+    """
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with gzip.open(output_file, "wb") as outfile:
-        outfile.write(orjson.dumps(acl_papers))
-
-    print(f"{len(acl_papers)} ACL-related papers extracted and saved to {output_file}")
+        outfile.write(orjson.dumps(papers))
 
 
 app = typer.Typer(

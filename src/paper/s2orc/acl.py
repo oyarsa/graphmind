@@ -9,7 +9,8 @@ Does not include the full text of the papers.
 from typing import Annotated
 
 import typer
-from semanticscholar import SemanticScholar  # type: ignore
+from semanticscholar import SemanticScholar
+from semanticscholar.PaginatedResults import PaginatedResults
 
 from paper.util.cli import die
 
@@ -97,6 +98,7 @@ def main(
         bulk=True,
         sort="citationCount:desc",
     )
+    assert isinstance(results, PaginatedResults)
 
     print("Top-10 by citationCount:\n")
 
