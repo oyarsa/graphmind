@@ -518,7 +518,7 @@ async def _evaluate_rationales(
 
 async def _evaluate_rationale(
     client: LLMClient,
-    item: PaperEvaluationInput,
+    paper: PaperEvaluationInput,
     prompt: PromptTemplate,
     result_class: type[EvaluatedResult],
 ) -> GPTResult[PromptResult[EvaluatedResult]]:
@@ -526,7 +526,7 @@ async def _evaluate_rationale(
 
     Args:
         client: LLM client.
-        item: Output from evaluation.
+        paper: Output from paper evaluation.
         prompt: User and system prompt for rationale evaluation.
         result_class: Class to use for the result.
 
@@ -534,52 +534,40 @@ async def _evaluate_rationale(
         Paper with evaluated rationale wrapped in a GPTResult.
     """
     # TODO: Clean this up. See below. (2025-05-06)
-    if isinstance(item, GraphResult):
-        paper = item.paper
-        title = item.paper.title
-        rationale_pred = paper.rationale_pred
-    elif isinstance(item, PaperResult):
-        paper = item
-        title = item.title
-        rationale_pred = item.rationale_pred
-    elif isinstance(item, PaperWithRelatedSummary):
-        paper = item
-        title = item.paper.title
-        rationale_pred = item.paper.paper.rationale
-    else:
-        # Must be Paper since we're using InputType
-        paper = item
-        title = item.title
-        rationale_pred = item.rationale
+    match paper:
+        case GraphResult() | PaperResult():
+            rationale_pred = paper.rationale_pred
+        case pr.Paper() | PaperWithRelatedSummary():
+            rationale_pred = paper.rationale
 
     user_prompt_text = format_template(paper, rationale_pred, prompt)
     result = await client.run(GPTRationaleEval, prompt.system, user_prompt_text)
     rationale_eval = result.result or GPTRationaleEval.empty()
 
     if not rationale_eval.is_valid():
-        logger.warning(f"Paper: '{title}': invalid rationale evaluation")
+        logger.warning(f"Paper: '{paper.title}': invalid rationale evaluation")
 
     metrics = rationale_eval.metrics()
 
     # TODO: clean this up (2025-03-27)
-    if isinstance(item, GraphResult) and result_class == GraphWithEval:
-        eval_result = GraphWithEval.from_(item, metrics)
-    elif isinstance(item, PaperResult) and result_class == PaperWithEval:
-        eval_result = PaperWithEval.from_(item, metrics)
-    elif isinstance(item, pr.Paper) and result_class == PaperRawWithEval:
-        eval_result = PaperRawWithEval.from_(item, metrics)
+    if isinstance(paper, GraphResult) and result_class == GraphWithEval:
+        eval_result = GraphWithEval.from_(paper, metrics)
+    elif isinstance(paper, PaperResult) and result_class == PaperWithEval:
+        eval_result = PaperWithEval.from_(paper, metrics)
+    elif isinstance(paper, pr.Paper) and result_class == PaperRawWithEval:
+        eval_result = PaperRawWithEval.from_(paper, metrics)
     elif (
-        isinstance(item, PaperWithRelatedSummary)
+        isinstance(paper, PaperWithRelatedSummary)
         and result_class == PaperSummarisedWithEval
     ):
-        eval_result = PaperSummarisedWithEval.from_(item, metrics)
+        eval_result = PaperSummarisedWithEval.from_(paper, metrics)
     else:
         raise TypeError(
-            f"Mismatched item type {type(item)} and result class {result_class}"
+            f"Mismatched item type {type(paper)} and result class {result_class}"
         )
 
     if invalid := eval_result.eval_metrics.invalid_metrics():
-        logger.warning(f"{title}: invalid metric values: {invalid}")
+        logger.warning(f"{paper.title}: invalid metric values: {invalid}")
 
     return GPTResult(
         result=PromptResult(
