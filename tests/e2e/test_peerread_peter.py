@@ -211,23 +211,25 @@ def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     eval_sans = eval_sans_dir / "result.json.zst"
     assertpath(eval_sans)
 
-    title("GPT eval PETER")
-    eval_peter_dir = tmp_path / "eval-peter"
-    eval_peter = eval_peter_dir / "result.json.zst"
+    title("GPT eval graph")
+    eval_graph_dir = tmp_path / "eval-graph"
+    eval_graph = eval_graph_dir / "result.json.zst"
     run(
         "paper",
         "gpt",
         "eval",
-        "peter",
+        "graph",
         "run",
         "--papers",
         petersum,
         "--output",
-        eval_peter_dir,
+        eval_graph_dir,
+        "--eval-prompt",
+        "related",
         "--demos",
         "eval_4",
     )
-    assertpath(eval_peter)
+    assertpath(eval_graph)
 
     title("Extract ACUs")
     acu_s2_dir = tmp_path / "acu-s2"
