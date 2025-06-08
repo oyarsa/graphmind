@@ -1,4 +1,4 @@
-# TODO: Fix prompts to use binary novelty label instead of 1-5 rating
+# NOTE: Don't use this anymore. Use `evaluate_paper_graph` with `related` prompt.
 [[prompts]]
 name = "simple"
 system = """\

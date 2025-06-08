@@ -4,6 +4,8 @@ The input is the output of `gpt.summarise_related_peter`. This are the PETER-que
 papers with the related papers summarised.
 
 The output is the input annotated papers with a predicted novelty rating.
+
+DEPRECATED: Use `evaluate_paper_graph` with `related` prompt instead.
 """
 
 from __future__ import annotations
@@ -69,7 +71,7 @@ app = typer.Typer(
 )
 
 
-@app.command(help=__doc__, no_args_is_help=True)
+@app.command(help=__doc__, no_args_is_help=True, deprecated=True)
 def run(
     paper_file: Annotated[
         Path,
@@ -353,7 +355,7 @@ def _format_related(related: Iterable[PaperRelatedSummarised]) -> str:
     )
 
 
-@app.command(help="List available prompts.")
+@app.command(help="List available prompts.", deprecated=True)
 def prompts(
     detail: Annotated[
         bool, typer.Option(help="Show full description of the prompts.")

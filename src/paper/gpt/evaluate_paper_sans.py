@@ -4,6 +4,8 @@ Uses the paper title, abstract and, optionally, the main text.
 "sans" means "without", meaning "without other features".
 
 The input is the processed PeerRead dataset (peerread.Paper).
+
+DEPRECATED: Use `evaluate_paper_graph` with `sans` prompt instead.
 """
 
 import asyncio
@@ -61,7 +63,7 @@ app = typer.Typer(
 )
 
 
-@app.command(help=__doc__, no_args_is_help=True)
+@app.command(help=__doc__, no_args_is_help=True, deprecated=True)
 def run(
     papers_path: Annotated[
         Path,
@@ -323,7 +325,7 @@ async def _classify_paper(
     )
 
 
-@app.command(help="List available prompts.")
+@app.command(help="List available prompts.", deprecated=True)
 def prompts(
     detail: Annotated[
         bool, typer.Option(help="Show full description of the prompts.")
