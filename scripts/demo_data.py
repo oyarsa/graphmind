@@ -43,6 +43,14 @@ def _get_year(paper: PaperProtocol) -> int | None:
         return None
 
 
+def _clean_conference(conference: str) -> str:
+    """Get conference name, excluding the year if present."""
+    if len(conference) >= 4 and conference[-4:].isdigit():
+        return conference[:-4]
+    else:
+        return conference
+
+
 class DemoPaper(Immutable):
     """Paper information."""
 
@@ -126,7 +134,7 @@ def main(
                 authors=p.paper.authors,
                 sections=p.paper.sections,
                 approval=p.paper.approval,
-                conference=p.paper.conference,
+                conference=_clean_conference(p.paper.conference),
                 rating=p.paper.rating,
                 year=_get_year(p.paper),
                 id=p.id,
