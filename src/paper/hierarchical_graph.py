@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 class GraphError(Exception):
     """Base class for all graph-related exceptions."""
 
-    pass
 
 
 @dataclass(frozen=True)

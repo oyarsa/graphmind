@@ -561,7 +561,6 @@ def count_head_to_head(
             case MatchWinner.B:
                 wins_b += 1
                 losses_a += 1
-                pass
             case MatchWinner.TIE:
                 ties_a += 1
                 ties_b += 1

@@ -283,7 +283,6 @@ def _wrap(text: str, *, width: int) -> str:
 @app.callback(help=__doc__)
 def doc() -> None:
     """Empty callback just for top-level documentation."""
-    pass
 
 
 if __name__ == "__main__":
