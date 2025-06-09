@@ -54,7 +54,7 @@ dev = [
     "pytest>=8.3.4",
     "pytest-asyncio>=1.0.0",
     "pytest-cov>=6.1.1",
-    "ruff>=0.9.4",
+    "ruff>=0.11.13",
 ]
 
 [tool.uv.sources.cosy]
@@ -116,6 +116,7 @@ ignore = [
     "TC003",    # Allow stdlib imports outside of TYPE_CHECKING. This triggers some
                 # false-positives because of how typer/pydantic interact with type hints,
                 # especially with Path.
+    "TC006",    # I don't want to quote `cast` arguments.
     "TRY003",   # Long messages outside exception class
 ]
 

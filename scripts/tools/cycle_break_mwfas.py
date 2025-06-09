@@ -41,7 +41,7 @@ class Graph:
             VISITING = 1
             VISITED = 2
 
-        node_states = {node: NodeState.UNVISITED for node in self.nodes}
+        node_states = dict.fromkeys(self.nodes, NodeState.UNVISITED)
 
         def dfs(node: int) -> bool:
             node_states[node] = NodeState.VISITING

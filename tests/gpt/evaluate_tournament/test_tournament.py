@@ -37,7 +37,7 @@ class MockTournamentSystem(TournamentSystem):
         return cls(
             metric=metric,
             players={name: {"wins": 0, "losses": 0, "ties": 0} for name in item_names},
-            ratings={name: 1200.0 for name in item_names},
+            ratings=dict.fromkeys(item_names, 1200.0),
         )
 
     def record_match(
