@@ -21,7 +21,7 @@ import os
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import aiohttp
 import backoff
@@ -29,7 +29,6 @@ import dotenv
 import typer
 from aiolimiter import AsyncLimiter
 
-from paper import semantic_scholar as s2
 from paper.semantic_scholar.model import (
     Paper,
     PaperRecommended,
@@ -45,6 +44,9 @@ from paper.util import (
 )
 from paper.util.cli import die
 from paper.util.serde import load_data, save_data
+
+if TYPE_CHECKING:
+    from paper import semantic_scholar as s2
 
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 MAX_RETRIES = 5

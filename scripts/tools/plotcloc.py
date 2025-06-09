@@ -10,13 +10,15 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import matplotlib.pyplot as plt
 import numpy as np
 import typer
 from matplotlib.backend_bases import Event, MouseEvent
-from matplotlib.patches import Wedge
+
+if TYPE_CHECKING:
+    from matplotlib.patches import Wedge
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

@@ -12,7 +12,7 @@ import random
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from paper.gpt.evaluate_tournament.tournament import (
     ComparisonResult,
@@ -24,11 +24,13 @@ from paper.gpt.evaluate_tournament.tournament import (
     get_rationale_eval,
 )
 from paper.gpt.model import Prompt, PromptResult
-from paper.gpt.prompts import PromptTemplate
 from paper.gpt.run_gpt import GPTResult, LLMClient, gpr_map, gpt_sequence
 from paper.types import Immutable
 from paper.util import batch_map_with_progress, sample
 from paper.util.serde import load_data, load_data_single
+
+if TYPE_CHECKING:
+    from paper.gpt.prompts import PromptTemplate
 
 logger = logging.getLogger(__name__)
 

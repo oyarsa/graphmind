@@ -9,16 +9,18 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Annotated, Self
+from typing import TYPE_CHECKING, Annotated, Self
 
 import typer
 
 from paper import embedding as emb
 from paper import gpt
-from paper.baselines.scimon.model import PaperAnnotated
 from paper.types import Immutable
 from paper.util import setup_logging
 from paper.util.serde import load_data, save_data
+
+if TYPE_CHECKING:
+    from paper.baselines.scimon.model import PaperAnnotated
 
 logger = logging.getLogger(__name__)
 

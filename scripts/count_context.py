@@ -6,13 +6,15 @@ format.
 
 from collections import Counter
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 
-from paper.peerread.model import CitationContext
 from paper.semantic_scholar.model import PaperWithReferenceEnriched
 from paper.util.serde import load_data
+
+if TYPE_CHECKING:
+    from paper.peerread.model import CitationContext
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

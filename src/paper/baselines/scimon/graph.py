@@ -7,14 +7,16 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from paper import embedding as emb
 from paper import gpt
 from paper.baselines.scimon import citations, kg, semantic
-from paper.baselines.scimon.model import PaperAnnotated
 from paper.types import Immutable
 from paper.util.serde import Record, load_data_single, save_data
+
+if TYPE_CHECKING:
+    from paper.baselines.scimon.model import PaperAnnotated
 
 logger = logging.getLogger(__name__)
 

@@ -17,7 +17,10 @@ from paper.gpt.evaluate_tournament.tournament import (
     find_common_papers,
     count_head_to_head,
 )
-from paper import peerread as pr
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from paper import peerread as pr
 
 
 class MockTournamentSystem(TournamentSystem):

@@ -6,15 +6,17 @@ Pydantic. If that goes well, we load the whole thing just to be sure.
 
 from importlib import import_module
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import orjson
 import typer
-from pydantic import BaseModel
 from rich.console import Console
 from rich.table import Table
 
 from paper.util.serde import load_data
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
