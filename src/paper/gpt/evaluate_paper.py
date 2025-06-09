@@ -1,11 +1,13 @@
 """Tools for evaluating paper novelty, displaying and calculating metrics."""
 
+from __future__ import annotations
+
 import logging
 from collections.abc import Sequence
 from enum import StrEnum
 from importlib import resources
 from pathlib import Path
-from typing import Annotated, Protocol, Self, cast
+from typing import TYPE_CHECKING, Annotated, Protocol, Self, cast
 
 from pydantic import Field, computed_field
 
@@ -14,6 +16,9 @@ from paper.evaluation_metrics import TargetMode
 from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.types import Immutable
 from paper.util.serde import load_data
+
+if TYPE_CHECKING:
+    from paper import gpt
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +43,25 @@ class PaperResult(s2.PaperWithS2Refs):
             | {
                 "y_true": paper.label,
                 "rationale_true": paper.rationale,
+                "y_pred": y_pred,
+                "rationale_pred": rationale_pred,
+            }
+        )
+
+    @classmethod
+    def from_annotated(
+        cls, paper: gpt.PeerReadAnnotated, y_pred: int, rationale_pred: str
+    ) -> Self:
+        """Construct `PaperResult` from an annotated paper and model predictions.
+
+        This preserves the annotation data (terms, background, target) by using the underlying
+        s2.PaperWithS2Refs from the annotated paper.
+        """
+        return cls.model_validate(
+            paper.paper.model_dump()
+            | {
+                "y_true": paper.paper.label,
+                "rationale_true": paper.paper.rationale,
                 "y_pred": y_pred,
                 "rationale_pred": rationale_pred,
             }

@@ -412,17 +412,21 @@ async def _evaluate_paper(
     if not eval_result.result or not eval_result.result.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid GPTFull (evaluation result)")
 
-    eval_paper = paper.paper.paper
     evaluated = fix_evaluated_rating(eval_result.result or GPTFull.error(), target_mode)
+
+    paper_result = PaperResult.from_s2peer(
+        paper.paper.paper, evaluated.label, evaluated.rationale
+    )
 
     return GPTResult(
         result=PromptResult(
-            item=GraphResult(
-                paper=PaperResult.from_s2peer(
-                    eval_paper, evaluated.label, evaluated.rationale
-                ),
+            item=GraphResult.from_annotated(
+                paper=paper_result,
                 graph=graph,
                 related=paper.related,
+                terms=paper.paper.terms,
+                background=paper.paper.background,
+                target=paper.paper.target,
             ),
             prompt=Prompt(system=eval_system_prompt, user=eval_prompt_text),
         ),

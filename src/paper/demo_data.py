@@ -17,7 +17,7 @@ from pydantic import Field
 
 from paper import gpt
 from paper import peerread as pr
-from paper.gpt.model import is_rationale_valid
+from paper.gpt.model import PaperTerms, is_rationale_valid
 from paper.types import Immutable, PaperProtocol
 from paper.util import sample
 from paper.util.serde import Compress, load_data, save_data
@@ -89,6 +89,10 @@ class DemoData(Immutable):
     related: Sequence[gpt.PaperRelatedSummarised]
     paper: DemoPaper
 
+    terms: PaperTerms | None = None
+    background: str | None = None
+    target: str | None = None
+
 
 @app.command(help=__doc__, no_args_is_help=True)
 def main(
@@ -143,6 +147,10 @@ def main(
                 rationale_true=p.paper.rationale_true,
                 rationale_pred=p.rationale_pred,
             ),
+            # Include annotation data if available
+            terms=p.terms,
+            background=p.background,
+            target=p.target,
         )
         for p in papers_valid
     ]

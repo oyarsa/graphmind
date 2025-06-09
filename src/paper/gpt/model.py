@@ -773,6 +773,21 @@ class PaperWithRelatedSummary(Record, PaperProxy[PeerReadAnnotated]):
         """Identify graph result as the underlying paper's ID."""
         return self.paper.id
 
+    @property
+    def terms(self) -> PaperTerms:
+        """Terms extracted from the main paper."""
+        return self.paper.terms
+
+    @property
+    def background(self) -> str:
+        """Background text from the main paper annotation."""
+        return self.paper.background
+
+    @property
+    def target(self) -> str:
+        """Target text from the main paper annotation."""
+        return self.paper.target
+
 
 class RelatedPaperSource(StrEnum):
     """Denote where the related paper came from."""

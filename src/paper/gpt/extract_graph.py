@@ -9,12 +9,14 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import Self
 
 from paper import hierarchical_graph
 from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.model import (
     Graph,
     PaperRelatedSummarised,
+    PaperTerms,
     PaperWithRelatedSummary,
     Prompt,
     PromptResult,
@@ -34,10 +36,46 @@ class GraphResult(Immutable, PaperProxy[PaperResult]):
     # anymore.
     related: Sequence[PaperRelatedSummarised] | None = None
 
+    # Optional annotation data from the original PeerReadAnnotated paper
+    # These will be None for papers processed with the old pipeline
+    terms: PaperTerms | None = None
+    background: str | None = None
+    target: str | None = None
+
     @property
     def rationale_pred(self) -> str:
         """Predicted rationale from the underlying paper result."""
         return self.paper.rationale_pred
+
+    @classmethod
+    def from_annotated(
+        cls,
+        paper: PaperResult,
+        graph: Graph,
+        related: Sequence[PaperRelatedSummarised] | None,
+        terms: PaperTerms,
+        background: str,
+        target: str,
+    ) -> Self:
+        """Create GraphResult with annotation data."""
+        return cls(
+            graph=graph,
+            paper=paper,
+            related=related,
+            terms=terms,
+            background=background,
+            target=target,
+        )
+
+    @classmethod
+    def from_paper(
+        cls,
+        paper: PaperResult,
+        graph: Graph,
+        related: Sequence[PaperRelatedSummarised] | None = None,
+    ) -> Self:
+        """Create GraphResult without annotation data (for backward compatibility)."""
+        return cls(graph=graph, paper=paper, related=related)
 
 
 class ExtractedGraph(Immutable, PaperProxy[PaperWithRelatedSummary]):
