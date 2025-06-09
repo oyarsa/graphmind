@@ -1,4 +1,10 @@
+[tool.ruff]
+extend = "../pyproject.toml"
+
 [tool.ruff.lint]
 extend-ignore = [
-    "D103"
+    "D103",     # Allow no documentation for functions and classes
+    "D101",
+    "SLF001",   # Allow private member access for tests
+    "ANN201",   # Allow missing return types for tests
 ]

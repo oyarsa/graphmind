@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
+from paper import peerread as pr
 from paper.gpt.evaluate_tournament.tournament import (
+    ComparisonResult,
     MatchResult,
     MatchWinner,
-    ComparisonResult,
 )
-from paper import peerread as pr
 
 
 @pytest.fixture

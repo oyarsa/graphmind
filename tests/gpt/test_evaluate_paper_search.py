@@ -1,6 +1,7 @@
 """Tests for the evaluate_paper_search module."""
 
 from textwrap import dedent
+
 from paper.gpt.evaluate_paper_search import parse_result
 
 

@@ -27,7 +27,6 @@ class GraphError(Exception):
     """Base class for all graph-related exceptions."""
 
 
-
 @dataclass(frozen=True)
 class Node:
     """Graph node with `name` (text), `type` and optional `detail` sentence."""

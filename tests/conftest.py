@@ -1,7 +1,7 @@
 """Set up custom configuration."""
 
 # pyright: basic
-# ruff: noqa: ANN001, ANN201, D103
+# ruff: noqa: ANN001, ANN201
 
 import pytest
 

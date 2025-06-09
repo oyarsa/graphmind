@@ -1,23 +1,24 @@
 """Tests for tournament functionality in paper.gpt.evaluate_tournament.tournament."""
 
 from __future__ import annotations
+
+from collections.abc import Collection
 from itertools import product
 from math import isclose
+from typing import TYPE_CHECKING
 
 import pytest
-from collections.abc import Collection
 
 from paper.gpt.evaluate_tournament.tournament import (
+    ComparisonResult,
     MatchResult,
     MatchWinner,
     PlayerRank,
     TournamentSystem,
-    create_tournament_result,
-    ComparisonResult,
-    find_common_papers,
     count_head_to_head,
+    create_tournament_result,
+    find_common_papers,
 )
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from paper import peerread as pr
@@ -290,7 +291,7 @@ class TestFindCommonPapers:
         assert "paper3" in result
         assert len(result["paper3"]) == 3
         assert all(paper.id == "paper3" for paper in result["paper3"])
-        assert len(set(p.rationale for p in result["paper3"])) > 1
+        assert len({p.rationale for p in result["paper3"]}) > 1
 
     def test_find_common_papers_with_all_common(self):
         """Test with collections where all papers are common."""
@@ -305,7 +306,8 @@ class TestFindCommonPapers:
 
         result = find_common_papers([collection1, collection2])
         assert len(result) == 2
-        assert "paper1" in result and "paper2" in result
+        assert "paper1" in result
+        assert "paper2" in result
         assert all(len(papers) == 2 for papers in result.values())
 
     def test_with_actual_paper_type(self, sample_paper: pr.Paper):

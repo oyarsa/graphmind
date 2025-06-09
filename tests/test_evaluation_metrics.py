@@ -1,8 +1,9 @@
+"""Test classification evaluation metrics."""
+
+from collections.abc import Sequence
 from dataclasses import dataclass
 from math import isclose
-from typing import Sequence
 
-from paper.types import Immutable
 import pytest
 
 from paper.evaluation_metrics import (
@@ -11,10 +12,11 @@ from paper.evaluation_metrics import (
     calculate_metrics,
     calculate_negative_paper_metrics,
 )
+from paper.types import Immutable
 
 
 @pytest.mark.parametrize(
-    "y_true, y_pred, expected",
+    ("y_true", "y_pred", "expected"),
     [
         ([0, 1, 0], [0, 0, 1], TargetMode.BIN),
         ([0], [1], TargetMode.BIN),
@@ -24,7 +26,9 @@ from paper.evaluation_metrics import (
     ],
 )
 def test_guess_target_mode(
-    y_pred: list[int], y_true: list[int], expected: TargetMode
+    y_pred: list[int],
+    y_true: list[int],
+    expected: TargetMode,
 ) -> None:
     assert _guess_target_mode(y_pred, y_true) == expected
 
@@ -40,7 +44,7 @@ class ExpectedMetrics:
 
 
 @pytest.mark.parametrize(
-    "y_true, y_pred, expected",
+    ("y_true", "y_pred", "expected"),
     [
         pytest.param(
             [0, 1, 0, 1],
@@ -81,7 +85,9 @@ class ExpectedMetrics:
     ],
 )
 def test_calculate_metrics_binary(
-    y_true: list[int], y_pred: list[int], expected: ExpectedMetrics
+    y_true: list[int],
+    y_pred: list[int],
+    expected: ExpectedMetrics,
 ):
     """Test calculate_metrics function for binary classification."""
     result = calculate_metrics(y_true, y_pred, mode=TargetMode.BIN)
@@ -93,7 +99,7 @@ def test_calculate_metrics_binary(
 
 
 @pytest.mark.parametrize(
-    "y_true, y_pred, error_msg",
+    ("y_true", "y_pred", "error_msg"),
     [
         # Different lengths
         ([0, 1, 0, 1], [0, 1, 0], "Input sequences must have the same length"),
@@ -113,13 +119,14 @@ class EvaluateResult(Immutable):
 
 
 def y_sequences_to_result(
-    y_true: Sequence[int], y_pred: Sequence[int]
+    y_true: Sequence[int],
+    y_pred: Sequence[int],
 ) -> list[EvaluateResult]:
     return [EvaluateResult(y_pred=p, y_true=t) for p, t in zip(y_pred, y_true)]
 
 
 @pytest.mark.parametrize(
-    "y_true, y_pred, expected",
+    ("y_true", "y_pred", "expected"),
     [
         pytest.param(
             [0, 1, 0, 1],
@@ -160,7 +167,9 @@ def y_sequences_to_result(
     ],
 )
 def test_calculate_metrics_binary_negative(
-    y_true: list[int], y_pred: list[int], expected: ExpectedMetrics
+    y_true: list[int],
+    y_pred: list[int],
+    expected: ExpectedMetrics,
 ):
     """Test calculate_metrics function for binary classification (negative metrics)."""
     result = calculate_negative_paper_metrics(y_sequences_to_result(y_true, y_pred))
@@ -172,7 +181,7 @@ def test_calculate_metrics_binary_negative(
 
 
 @pytest.mark.parametrize(
-    "y_true, y_pred, expected",
+    ("y_true", "y_pred", "expected"),
     [
         pytest.param(
             [0, 1, 0, 1],
@@ -213,7 +222,9 @@ def test_calculate_metrics_binary_negative(
     ],
 )
 def test_calculate_metrics_binary_macro(
-    y_true: list[int], y_pred: list[int], expected: ExpectedMetrics
+    y_true: list[int],
+    y_pred: list[int],
+    expected: ExpectedMetrics,
 ):
     """Test calculate_metrics function for binary classification (macro-averaged)."""
     result = calculate_metrics(y_true, y_pred, mode=TargetMode.BIN, average="macro")

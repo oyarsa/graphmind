@@ -4,9 +4,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Literal
 
-from pydantic import BaseModel
-
 import pytest
+from pydantic import BaseModel
 
 from paper.util.serde import (
     Compress,
@@ -45,38 +44,40 @@ def test_get_full_type_name() -> None:
 
 
 @pytest.mark.parametrize(
-    ("input_path", "compress", "expected_path"),
+    ("filename", "compress", "expected_filename"),
     [
         # Explicit compression tests
-        ("/tmp/test.json", Compress.NONE, "/tmp/test.json"),
-        ("/tmp/test.json", Compress.GZIP, "/tmp/test.json.gz"),
-        ("/tmp/test.json", Compress.ZSTD, "/tmp/test.json.zst"),
+        ("test.json", Compress.NONE, "test.json"),
+        ("test.json", Compress.GZIP, "test.json.gz"),
+        ("test.json", Compress.ZSTD, "test.json.zst"),
         # Already has correct extension
-        ("/tmp/test.json.gz", Compress.GZIP, "/tmp/test.json.gz"),
-        ("/tmp/test.json.zst", Compress.ZSTD, "/tmp/test.json.zst"),
+        ("test.json.gz", Compress.GZIP, "test.json.gz"),
+        ("test.json.zst", Compress.ZSTD, "test.json.zst"),
         # Inferred compression tests (compress=AUTO)
-        ("/tmp/test.json", Compress.AUTO, "/tmp/test.json"),
-        ("/tmp/test.json.gz", Compress.AUTO, "/tmp/test.json.gz"),
-        ("/tmp/test.json.zst", Compress.AUTO, "/tmp/test.json.zst"),
+        ("test.json", Compress.AUTO, "test.json"),
+        ("test.json.gz", Compress.AUTO, "test.json.gz"),
+        ("test.json.zst", Compress.AUTO, "test.json.zst"),
         # Case insensitive inference
-        ("/tmp/test.json.GZ", Compress.AUTO, "/tmp/test.json.GZ"),
-        ("/tmp/test.json.ZST", Compress.AUTO, "/tmp/test.json.ZST"),
-        ("/tmp/test.json.Gz", Compress.AUTO, "/tmp/test.json.Gz"),
-        ("/tmp/test.json.ZsT", Compress.AUTO, "/tmp/test.json.ZsT"),
+        ("test.json.GZ", Compress.AUTO, "test.json.GZ"),
+        ("test.json.ZST", Compress.AUTO, "test.json.ZST"),
+        ("test.json.Gz", Compress.AUTO, "test.json.Gz"),
+        ("test.json.ZsT", Compress.AUTO, "test.json.ZsT"),
         # Multiple extensions
-        ("/tmp/test.tar", Compress.GZIP, "/tmp/test.tar.gz"),
-        ("/tmp/test.tar", Compress.ZSTD, "/tmp/test.tar.zst"),
+        ("test.tar", Compress.GZIP, "test.tar.gz"),
+        ("test.tar", Compress.ZSTD, "test.tar.zst"),
         # Edge cases with existing compression wanting different compression
-        ("/tmp/test.json.gz", Compress.ZSTD, "/tmp/test.json.gz.zst"),
-        ("/tmp/test.json.zst", Compress.GZIP, "/tmp/test.json.zst.gz"),
+        ("test.json.gz", Compress.ZSTD, "test.json.gz.zst"),
+        ("test.json.zst", Compress.GZIP, "test.json.zst.gz"),
     ],
 )
 def test_get_compressed_file_path(
-    input_path: str, compress: Compress, expected_path: str
+    tmp_path: Path, filename: str, compress: Compress, expected_filename: str
 ) -> None:
     """Test get_compressed_file_path with various inputs."""
-    result = get_compressed_file_path(Path(input_path), compress)
-    assert result == Path(expected_path)
+    input_path = tmp_path / filename
+    expected_path = tmp_path / expected_filename
+    result = get_compressed_file_path(input_path, compress)
+    assert result == expected_path
 
 
 class SerdeTestModel(BaseModel):

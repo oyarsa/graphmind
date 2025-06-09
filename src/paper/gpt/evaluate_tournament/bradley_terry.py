@@ -317,9 +317,9 @@ class BradleyTerryTournamentSystem(TournamentSystem):
         )
 
         # After recording all matches, update all player strengths at once
-        return system._update_all_strengths()
+        return system.update_all_strengths()
 
-    def _update_all_strengths(self) -> BradleyTerryTournamentSystem:
+    def update_all_strengths(self) -> BradleyTerryTournamentSystem:
         """Update the strength parameters of all players using the Bradley-Terry model.
 
         This is called after recording matches to globally update all player strengths.

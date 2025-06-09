@@ -1,23 +1,26 @@
+"""Test util module."""
+
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 
 from paper.util import (
+    fix_spaces_before_punctuation,
     format_bullet_list,
     format_numbered_list,
     get_icase,
-    remove_parenthetical,
-    groupby,
-    fix_spaces_before_punctuation,
-    on_exception,
     get_in,
+    groupby,
+    on_exception,
+    remove_parenthetical,
     removeprefix_icase,
 )
 
 
 @pytest.mark.parametrize(
-    "items,prefix,indent,expected",
+    ("items", "prefix", "indent", "expected"),
     [
         pytest.param(
             ["apple", "banana", "cherry"],
@@ -69,7 +72,7 @@ def test_format_bullet_list(items: list[str], prefix: str, indent: int, expected
 
 
 @pytest.mark.parametrize(
-    "data, key, default, expected",
+    ("data", "key", "default", "expected"),
     [
         pytest.param(
             {"Hello": 1},
@@ -116,7 +119,7 @@ def test_get_icase(data: dict[str, Any], key: str, default: Any, expected: Any) 
 
 
 @pytest.mark.parametrize(
-    "input_text,expected",
+    ("input_text", "expected"),
     [
         pytest.param("Example", "Example", id="no_change"),
         pytest.param(
@@ -157,7 +160,7 @@ def test_remove_parenthetical(input_text: str, expected: str):
 
 
 @pytest.mark.parametrize(
-    "items, key_func, expected",
+    ("items", "key_func", "expected"),
     [
         pytest.param(
             ["apple", "banana", "avocado", "blueberry"],
@@ -181,7 +184,7 @@ def test_groupby(
 
 
 @pytest.mark.parametrize(
-    "input_text, expected",
+    ("input_text", "expected"),
     [
         pytest.param("Hello , world !", "Hello, world!", id="comma"),
         pytest.param(
@@ -201,7 +204,7 @@ def test_fix_punctuation_spaces(input_text: str, expected: str):
 
 
 @pytest.mark.parametrize(
-    "items,prefix,suffix,indent,start,sep,expected",
+    ("items", "prefix", "suffix", "indent", "start", "sep", "expected"),
     [
         pytest.param(
             ["apple", "banana", "cherry"],
@@ -307,7 +310,7 @@ def test_format_numbered_list(
 
 
 @pytest.mark.parametrize(
-    "a,b,expected",
+    ("a", "b", "expected"),
     [
         (10, 2, 5),
         (10, 0, 0),  # Tests exception case
@@ -325,7 +328,7 @@ def test_on_exception_divide(a: float, b: float, expected: float):
 def test_on_exception_custom_default():
     @on_exception(default="error")
     def failing_function() -> str:
-        raise ValueError()
+        raise ValueError("Fail.")
 
     assert failing_function() == "error"
 
@@ -358,17 +361,8 @@ def test_on_exception_logger_captures_exception(
     assert "Error suppressed with `on_exception`" in caplog.text
 
 
-def test_on_exception_no_logger_swallows_exception():
-    @on_exception(default="error")
-    def failing_function() -> str:
-        raise ValueError()
-
-    result = failing_function()
-    assert result == "error"
-
-
 @pytest.mark.parametrize(
-    "data, path, expected",
+    ("data", "path", "expected"),
     [
         ({"a": 1}, "a", 1),
         ({"a": {"b": 2}}, "a.b", 2),
@@ -395,7 +389,7 @@ def test_get_by_path_parametrized(
 
 
 @pytest.mark.parametrize(
-    "string, prefix, expected",
+    ("string", "prefix", "expected"),
     [
         ("ABCdef", "abc", "def"),
         ("aBcdef", "abc", "def"),

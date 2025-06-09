@@ -1,23 +1,23 @@
 """Tests for Elo rating system in paper.gpt.evaluate_tournament.elo."""
 
 from __future__ import annotations
+
 from math import isclose
 
-
 from paper.gpt.evaluate_tournament.elo import (
-    EloPlayer,
-    EloTournamentSystem,
-    _update_elo_rating,
-    _elo_expected_probabilities,
-    calculate_elo_rankings,
-    calculate_melo_rankings,
     DEFAULT_ELO,
     K_FACTOR,
+    EloPlayer,
+    EloTournamentSystem,
+    _elo_expected_probabilities,
+    _update_elo_rating,
+    calculate_elo_rankings,
+    calculate_melo_rankings,
 )
 from paper.gpt.evaluate_tournament.tournament import (
+    ComparisonResult,
     MatchResult,
     MatchWinner,
-    ComparisonResult,
 )
 
 

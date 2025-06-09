@@ -1,20 +1,20 @@
 """Tests for Bradley-Terry rating system in paper.gpt.evaluate_tournament.bradley_terry."""
 
 from __future__ import annotations
+
 import itertools
 
-
 from paper.gpt.evaluate_tournament.bradley_terry import (
+    DEFAULT_BT_STRENGTH,
     BradleyTerryPlayer,
     BradleyTerryTournamentSystem,
     _bt_update_strengths,
     calculate_bradley_terry_rankings,
-    DEFAULT_BT_STRENGTH,
 )
 from paper.gpt.evaluate_tournament.tournament import (
+    ComparisonResult,
     MatchResult,
     MatchWinner,
-    ComparisonResult,
 )
 
 
@@ -285,7 +285,7 @@ def test_bradley_terry_rating_distribution() -> None:
     assert len(set(ratings)) > 2, "Ratings should have more than 2 distinct values"
 
     # Verify the distribution is reasonable
-    assert 0.1 < min(ratings), "Lowest rating should not be too close to zero"
+    assert min(ratings) > 0.1, "Lowest rating should not be too close to zero"
 
     # Calculate the ratios between consecutive ratings
     # They should be similar but not identical

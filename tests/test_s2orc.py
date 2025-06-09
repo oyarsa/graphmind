@@ -5,7 +5,6 @@ import tempfile
 from pathlib import Path
 
 import orjson
-from paper.util.serde import read_file_bytes
 import pytest
 
 from paper.s2orc import (
@@ -17,6 +16,7 @@ from paper.s2orc import (
     filter,
     search_papers,
 )
+from paper.util.serde import read_file_bytes
 
 
 class TestExtract:
