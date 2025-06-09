@@ -2,7 +2,7 @@
 
 import typer
 
-from paper import construct_dataset, find_type, split
+from paper import construct_dataset, demo_data, find_type, split
 from paper.baselines import cli as baselines
 from paper.gpt import cli as gpt
 from paper.orc import cli as orc
@@ -27,6 +27,7 @@ app.add_typer(split.app, name="split")
 
 app.command(no_args_is_help=True, name="construct")(construct_dataset.main)
 app.command(no_args_is_help=True, name="findtype")(find_type.main)
+app.command(no_args_is_help=True, name="demo_data")(demo_data.main)
 
 
 if __name__ == "__main__":
