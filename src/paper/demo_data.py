@@ -17,6 +17,7 @@ from pydantic import Field
 
 from paper import gpt
 from paper import peerread as pr
+from paper.gpt.evaluate_paper import GPTStructured
 from paper.gpt.model import PaperTerms, is_rationale_valid
 from paper.types import Immutable, PaperProtocol
 from paper.util import sample
@@ -80,6 +81,10 @@ class DemoPaper(Immutable):
     rationale_pred: Annotated[
         str, Field(description="Model rationale for the prediction")
     ]
+    structured_evaluation: Annotated[
+        GPTStructured | None,
+        Field(description="Structured evaluation breakdown if available"),
+    ] = None
 
 
 class DemoData(Immutable):
@@ -149,6 +154,7 @@ def main(
                 y_pred=p.paper.y_pred,
                 rationale_true=p.paper.rationale_true,
                 rationale_pred=p.rationale_pred,
+                structured_evaluation=p.paper.structured_evaluation,
             ),
             # Include annotation data if available
             terms=p.terms,

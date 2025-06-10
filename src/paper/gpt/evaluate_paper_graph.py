@@ -35,6 +35,7 @@ from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
     GPTFull,
+    GPTStructured,
     GPTUncertain,
     PaperResult,
     fix_evaluated_rating,
@@ -406,17 +407,35 @@ async def _evaluate_paper(
     )
     eval_system_prompt = eval_prompt.system
 
-    eval_type = GPTUncertain if target_mode is TargetMode.UNCERTAIN else GPTFull
+    # Determine evaluation type based on prompt type_name
+    if eval_prompt.type_name == "GPTStructured":
+        eval_type = GPTStructured
+    elif target_mode is TargetMode.UNCERTAIN:
+        eval_type = GPTUncertain
+    else:
+        eval_type = GPTFull
+
     eval_result = await client.run(eval_type, eval_system_prompt, eval_prompt_text)
 
     if not eval_result.result or not eval_result.result.is_valid():
-        logger.warning(f"Paper '{paper.title}': invalid GPTFull (evaluation result)")
+        logger.warning(f"Paper '{paper.title}': invalid evaluation result")
 
-    evaluated = fix_evaluated_rating(eval_result.result or GPTFull.error(), target_mode)
-
-    paper_result = PaperResult.from_s2peer(
-        paper.paper.paper, evaluated.label, evaluated.rationale
-    )
+    if isinstance(eval_result.result, GPTStructured):
+        structured = eval_result.result or GPTStructured.error()
+        fixed_label = fix_evaluated_rating(structured, target_mode).label
+        paper_result = PaperResult.from_s2peer(
+            paper.paper.paper,
+            fixed_label,
+            structured.rationale,
+            structured_evaluation=structured,
+        )
+    else:
+        evaluated = fix_evaluated_rating(
+            eval_result.result or GPTFull.error(), target_mode
+        )
+        paper_result = PaperResult.from_s2peer(
+            paper.paper.paper, evaluated.label, evaluated.rationale
+        )
 
     return GPTResult(
         result=PromptResult(

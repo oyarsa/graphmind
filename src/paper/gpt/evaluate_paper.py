@@ -29,10 +29,15 @@ class PaperResult(s2.PaperWithS2Refs):
     rationale_pred: Annotated[
         str, Field(description="Model rationale for the prediction")
     ]
+    structured_evaluation: GPTStructured | None = None
 
     @classmethod
     def from_s2peer(
-        cls, paper: s2.PaperWithS2Refs, y_pred: int, rationale_pred: str
+        cls,
+        paper: s2.PaperWithS2Refs,
+        y_pred: int,
+        rationale_pred: str,
+        structured_evaluation: GPTStructured | None = None,
     ) -> Self:
         """Construct `PaperResult` from the original paper and model predictions."""
         return cls.model_validate(
@@ -42,6 +47,7 @@ class PaperResult(s2.PaperWithS2Refs):
                 "rationale_true": paper.rationale,
                 "y_pred": y_pred,
                 "rationale_pred": rationale_pred,
+                "structured_evaluation": structured_evaluation,
             }
         )
 
@@ -175,6 +181,71 @@ class GPTUncertain(Immutable):
     def is_valid(self) -> bool:
         """Check if instance is valid."""
         return self.rationale != "<error>"
+
+
+class GPTStructured(Immutable):
+    """Structured evaluation of paper novelty with detailed components."""
+
+    paper_summary: Annotated[
+        str,
+        Field(
+            description="Brief summary of the paper's main contributions and approach"
+        ),
+    ]
+    supporting_evidence: Annotated[
+        Sequence[str],
+        Field(
+            description="List of evidence from related papers that support the paper's novelty"
+        ),
+    ]
+    contradictory_evidence: Annotated[
+        Sequence[str],
+        Field(
+            description="List of evidence from related papers that contradict the paper's novelty"
+        ),
+    ]
+    conclusion: Annotated[
+        str,
+        Field(
+            description="Final assessment of the paper's novelty based on the evidence"
+        ),
+    ]
+    label: Annotated[
+        int,
+        Field(description="1 if the paper is novel, or 0 if it's not novel."),
+    ]
+
+    @computed_field
+    @property
+    def rationale(self) -> str:
+        """Derive textual rationale from structured components."""
+        sections = [
+            f"Paper Summary: {self.paper_summary}",
+            "",
+            "Supporting Evidence:",
+            *[f"- {evidence}" for evidence in self.supporting_evidence],
+            "",
+            "Contradictory Evidence:",
+            *[f"- {evidence}" for evidence in self.contradictory_evidence],
+            "",
+            f"Conclusion: {self.conclusion}",
+        ]
+        return "\n".join(sections)
+
+    @classmethod
+    def error(cls) -> Self:
+        """Output value for when there's an error."""
+        return cls(
+            paper_summary="<error>",
+            supporting_evidence=[],
+            contradictory_evidence=[],
+            conclusion="<error>",
+            label=0,
+        )
+
+    def is_valid(self) -> bool:
+        """Check if instance is valid."""
+        return self.paper_summary != "<error>" and self.conclusion != "<error>"
 
 
 def _load_demonstrations() -> dict[str, list[Demonstration]]:
