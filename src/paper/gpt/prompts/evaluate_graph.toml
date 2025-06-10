@@ -1,5 +1,6 @@
 [[prompts]]
 name = "full-graph"
+type = "GPTFull"
 system = """\
 Given the following target paper, a summary and a selection of related papers separated \
 by whether they're supporting or contrasting the main paper, give it a novelty rating.
@@ -51,6 +52,7 @@ Output:
 
 [[prompts]]
 name = "only-graph"
+type = "GPTFull"
 system = """\
 Given the following target paper, a summary and a selection of related papers separated \
 by whether they're supporting or contrasting the main paper, give it a novelty rating.
@@ -96,6 +98,7 @@ Output:
 
 [[prompts]]
 name = "title-graph"
+type = "GPTFull"
 system = """\
 Given the following target paper, a summary and a selection of related papers separated \
 by whether they're supporting or contrasting the main paper, give it a novelty rating.
@@ -142,6 +145,7 @@ Output:
 
 [[prompts]]
 name = "related"
+type = "GPTFull"
 system = """\
 Given the following target paper and a selection of related papers separated by whether \
 they're supporting or contrasting the main paper, give a novelty rating to a paper \
@@ -180,6 +184,7 @@ Output:
 
 [[prompts]]
 name = "sans"
+type = "GPTFull"
 system = """\
 Give an approval or rejection to a paper submitted to a high-quality scientific \
 conference.\
@@ -209,6 +214,7 @@ Output:
 
 [[prompts]]
 name = "norel-graph"
+type = "GPTFull"
 system = """\
 Given the following target paper and summary, give it a novelty rating.
 """
@@ -245,6 +251,7 @@ Output:
 # Full graph with only positive/supporting papers
 [[prompts]]
 name = "full-graph-positive"
+type = "GPTFull"
 system = """\
 Given the following target paper, a summary and a selection of related papers supporting \
 the main paper, give it a novelty rating.
@@ -289,6 +296,7 @@ Output:
 # Full graph with only negative/contrasting papers
 [[prompts]]
 name = "full-graph-negative"
+type = "GPTFull"
 system = """\
 Given the following target paper, a summary and a selection of related papers \
 contrasting the main paper, give it a novelty rating.
@@ -333,6 +341,7 @@ Output:
 
 [[prompts]]
 name = "attribution-graph"
+type = "GPTFull"
 system = """\
 Given the following target paper, a summary and a selection of related papers separated \
 by whether they're supporting or contrasting the main paper, give it a novelty rating.
@@ -388,6 +397,7 @@ If the paper approval decision is "True", the novelty label should be 1 (novel).
 
 [[prompts]]
 name = "full-graph-uncertain"
+type = "GPTUncertain"
 system = """\
 Given the following target paper, a summary and a selection of related papers separated \
 by whether they're supporting or contrasting the main paper, give it a novelty rating.
@@ -494,6 +504,7 @@ Contrasting papers:
 [[prompts]]
 # Used to ensure that the main code is capable of processing the label 2.
 name = "debug-uncertain"
+type = "GPTUncertain"
 system = """\
 Give a novelty rating for the following paper, and explain your decision.
 """
