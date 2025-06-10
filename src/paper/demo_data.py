@@ -114,13 +114,10 @@ def main(
     """Extract only relevant data from the input file."""
     rng = random.Random(seed)
 
-    papers = sample(
-        gpt.PromptResult.unwrap(
-            load_data(input_file, gpt.PromptResult[gpt.GraphResult])
-        ),
-        limit,
-        rng,
+    papers = gpt.PromptResult.unwrap(
+        load_data(input_file, gpt.PromptResult[gpt.GraphResult])
     )
+
     papers_valid = [
         p
         for p in papers
@@ -128,6 +125,12 @@ def main(
         and is_rationale_valid(p.rationale_pred)
         and p.related
     ]
+    papers_sampled = sample(papers_valid, limit, rng)
+
+    print(f"{len(papers) = }")
+    print(f"{len(papers_valid) = }")
+    print(f"{len(papers_sampled) = }")
+
     papers_converted = [
         DemoData(
             graph=p.graph,
@@ -152,7 +155,7 @@ def main(
             background=p.background,
             target=p.target,
         )
-        for p in papers_valid
+        for p in papers_sampled
     ]
     save_data(output_file, papers_converted, compress=Compress.AUTO)
 
