@@ -141,6 +141,39 @@ async def fetch_paper_info(
         return None
 
 
+async def fetch_arxiv_papers(
+    api_key: str,
+    titles: Sequence[str],
+    fields: Sequence[str],
+    *,
+    desc: str | None = None,
+) -> list[PaperFromPeerRead | None]:
+    """Fetch paper information for multiple titles in parallel.
+
+    Args:
+        api_key: Semantic Scholar API key.
+        titles: Paper titles to search for.
+        fields: Fields to retrieve from S2 API.
+        desc: If provided, used as the description for a progress bar.
+
+    Returns:
+        List of papers found (includes None for failed/not found papers).
+    """
+    async with aiohttp.ClientSession(
+        timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
+        connector=aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS),
+    ) as session:
+        semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+        tasks = [
+            fetch_paper_info(session, api_key, title, fields, semaphore)
+            for title in titles
+        ]
+        if desc:
+            return list(await progress.gather(tasks, desc=desc))
+        else:
+            return await asyncio.gather(*tasks)
+
+
 async def _download_main_info(
     input_file: Path,
     fields_str: str,
@@ -162,16 +195,9 @@ async def _download_main_info(
     papers = load_data(input_file, pr.Paper)[:limit_papers]
     title_to_paper = {paper.title: paper for paper in papers}
 
-    async with aiohttp.ClientSession(
-        timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
-        connector=aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS),
-    ) as session:
-        semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
-        tasks = [
-            fetch_paper_info(session, api_key, title, fields, semaphore)
-            for title in title_to_paper
-        ]
-        results = list(await progress.gather(tasks, desc="Downloading paper info"))
+    results = await fetch_arxiv_papers(
+        api_key, list(title_to_paper.keys()), fields, desc="Downloading paper info"
+    )
 
     results_valid = [
         PeerReadPaperWithS2.from_peer(title_to_paper[title_peer], s2_paper)
@@ -226,16 +252,9 @@ async def _download_reference_info(
     unique_titles = {title for titles in titles for title in titles}
     logger.info(f"{len(unique_titles)} unique titles")
 
-    async with aiohttp.ClientSession(
-        timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
-        connector=aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS),
-    ) as session:
-        semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
-        tasks = [
-            fetch_paper_info(session, api_key, title, fields, semaphore)
-            for title in unique_titles
-        ]
-        results = list(await progress.gather(tasks, desc="Downloading paper info"))
+    results = await fetch_arxiv_papers(
+        api_key, list(unique_titles), fields, desc="Downloading paper info"
+    )
 
     results_valid = [paper for paper in results if paper]
 

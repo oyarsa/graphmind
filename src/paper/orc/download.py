@@ -1,15 +1,13 @@
 """Download paper data from OpenReview."""
 # pyright: basic
 
-import asyncio
 import dataclasses as dc
 import itertools
 import logging
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 
-import aiohttp
 import openreview as openreview_v1  # type: ignore
 import orjson
 import typer
@@ -29,15 +27,10 @@ from paper.orc.latex_parser import (
 )
 from paper.peerread.model import Paper, PaperReference, PaperSection
 from paper.semantic_scholar.info import (
-    MAX_CONCURRENT_REQUESTS,
-    REQUEST_TIMEOUT,
-    fetch_paper_info,
+    fetch_arxiv_papers,
 )
-from paper.util import arun_safe, ensure_envvar, progress
+from paper.util import arun_safe, ensure_envvar
 from paper.util.serde import write_file_bytes
-
-if TYPE_CHECKING:
-    from paper.semantic_scholar.model import PaperFromPeerRead
 
 logger = logging.getLogger(__name__)
 
@@ -338,22 +331,14 @@ async def _download_papers_from_titles(
 
     logger.info("Fetching data from Semantic Scholar for %d titles", len(titles))
 
-    # Fetch from Semantic Scholar API
-    async with aiohttp.ClientSession(
-        timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
-        connector=aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS),
-    ) as session:
-        semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
-        tasks = [
-            fetch_paper_info(session, api_key, title, fields, semaphore)
-            for title in titles
-        ]
-        s2_results = list(await progress.gather(tasks, desc="Downloading paper info"))
-        s2_results = [p for p in s2_results if p]
+    s2_results = await fetch_arxiv_papers(
+        api_key, titles, fields, desc="Downloading from S2"
+    )
+    s2_results_valid = [p for p in s2_results if p]
 
-    logger.info("Found %d papers on Semantic Scholar", len(s2_results))
+    logger.info("Found %d papers on Semantic Scholar", len(s2_results_valid))
 
-    s2_titles = [paper.title for paper in s2_results]
+    s2_titles = [paper.title for paper in s2_results_valid]
     logger.info("Querying arXiv for %d paper titles", len(s2_titles))
 
     openreview_to_arxiv = get_arxiv(s2_titles, batch_size)
@@ -368,7 +353,7 @@ async def _download_papers_from_titles(
     papers: list[Paper] = []
     splitter = SentenceSplitter()
 
-    for s2_paper in s2_results:
+    for s2_paper in s2_results_valid:
         # Only process papers that have arXiv matches
         normalized_title = normalise_title(s2_paper.title)
         arxiv_result = openreview_to_arxiv.get(normalized_title)
