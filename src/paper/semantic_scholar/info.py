@@ -62,7 +62,7 @@ S2_SEARCH_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 logger = logging.getLogger("paper.semantic_scholar.info")
 
 
-async def _fetch_paper_info(
+async def fetch_paper_info(
     session: aiohttp.ClientSession,
     api_key: str,
     paper_title: str,
@@ -168,7 +168,7 @@ async def _download_main_info(
     ) as session:
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
         tasks = [
-            _fetch_paper_info(session, api_key, title, fields, semaphore)
+            fetch_paper_info(session, api_key, title, fields, semaphore)
             for title in title_to_paper
         ]
         results = list(await progress.gather(tasks, desc="Downloading paper info"))
@@ -232,7 +232,7 @@ async def _download_reference_info(
     ) as session:
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
         tasks = [
-            _fetch_paper_info(session, api_key, title, fields, semaphore)
+            fetch_paper_info(session, api_key, title, fields, semaphore)
             for title in unique_titles
         ]
         results = list(await progress.gather(tasks, desc="Downloading paper info"))

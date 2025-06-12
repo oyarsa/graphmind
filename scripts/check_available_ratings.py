@@ -52,13 +52,16 @@ def main(
     names_main = [
         rating
         for paper in peer_data
+        if paper.review
         for rating in paper.review.other_ratings
         if rating not in blacklist
     ]
     print_count(names_main, "Main reviews")
 
     what_many = [
-        {k for k in paper.review.other_ratings if k in blacklist} for paper in peer_data
+        {k for k in paper.review.other_ratings if k in blacklist}
+        for paper in peer_data
+        if paper.review
     ]
     title("Cumulative counts of number of ratings")
     for item, count in count_lengths(what_many).items():

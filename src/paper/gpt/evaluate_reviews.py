@@ -515,7 +515,7 @@ async def _evaluate_paper_reviews(
             predicted_rationale=evaluated.rationale,
         )
 
-        if new_review.rationale == paper.review.rationale:
+        if paper.review and new_review.rationale == paper.review.rationale:
             main_review = new_review
 
         evaluated_reviews.append(new_review)

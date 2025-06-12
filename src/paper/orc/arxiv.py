@@ -5,6 +5,7 @@ import io
 import itertools
 import logging
 import tarfile
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Annotated
 
@@ -94,7 +95,7 @@ def latex(
             continue
 
         try:
-            if data := _download_latex_source(result.id):
+            if data := download_latex_source(result.id):
                 (output_dir / f"{result.arxiv_title}.tar.gz").write_bytes(data)
                 downloaded_n += 1
             else:
@@ -170,6 +171,14 @@ def get_arxiv(openreview_titles: list[str], batch_size: int) -> dict[str, ArxivR
     return {normalise_title(r.openreview_title): r for r in arxiv_results}
 
 
+@backoff.on_exception(backoff.expo, Exception, max_tries=5)
+def _arxiv_search(
+    client: arxiv.Client, query: str, max_results: int
+) -> Iterable[arxiv.Result]:
+    """Query up to `max_results` matches of `query` on arXiv with retries."""
+    return client.results(arxiv.Search(query=query, max_results=max_results))
+
+
 def _batch_search_arxiv(
     client: arxiv.Client, openreview_titles: list[str]
 ) -> list[ArxivResult]:
@@ -182,9 +191,7 @@ def _batch_search_arxiv(
     openreview_titles_norm = [normalise_title(t) for t in openreview_titles]
 
     try:
-        for result in client.results(
-            arxiv.Search(query=query, max_results=len(openreview_titles))
-        ):
+        for result in _arxiv_search(client, query, len(openreview_titles)):
             arxiv_title = result.title
             for i, openreview_title in enumerate(openreview_titles_norm):
                 if _similar_titles(openreview_title, arxiv_title):
@@ -212,7 +219,7 @@ def _similar_titles(title1: str, title2: str) -> bool:
 
 
 @backoff.on_exception(backoff.expo, Exception, max_tries=5)
-def _download_latex_source(arxiv_id: str) -> bytes | None:
+def download_latex_source(arxiv_id: str) -> bytes | None:
     """Download LaTeX source (tar.gz) from arXiv for the given arXiv ID."""
     url = f"https://arxiv.org/src/{arxiv_id}"
     response = requests.get(url)

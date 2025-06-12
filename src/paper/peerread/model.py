@@ -6,13 +6,16 @@ import re
 from collections.abc import Sequence
 from enum import StrEnum
 from functools import cached_property, reduce
-from typing import Annotated, Self, override
+from typing import TYPE_CHECKING, Annotated, Self, override
 
 from pydantic import BaseModel, Field, computed_field, model_validator
 
 from paper.types import Immutable
 from paper.util import fix_spaces_before_punctuation, hashstr
 from paper.util.serde import Record
+
+if TYPE_CHECKING:
+    from paper.semantic_scholar.model import PaperFromPeerRead
 
 
 class PaperSection(Immutable):
@@ -90,7 +93,7 @@ class Paper(Record):
     abstract: Annotated[str, Field(description="Abstract text")]
     reviews: Annotated[
         Sequence[PaperReview], Field(description="Feedback from a reviewer")
-    ]
+    ] = []
     authors: Annotated[Sequence[str], Field(description="Names of the authors")]
     sections: Annotated[
         Sequence[PaperSection], Field(description="Sections in the paper text")
@@ -114,15 +117,16 @@ class Paper(Record):
 
     @computed_field
     @cached_property
-    def review(self) -> PaperReview:
+    def review(self) -> PaperReview | None:
         """Get the review with median rating, breaking ties by confidence and rationale.
 
         Returns:
-            The review with the median rating after applying tiebreakers.
+            The review with the median rating after applying tiebreakers, or None if no
+            reviews.
         """
         reviews = self.reviews
         if not reviews:
-            raise ValueError("Cannot get median from empty list")
+            return None
 
         # Sort all reviews by rating
         sorted_reviews = sorted(reviews, key=lambda x: x.rating)
@@ -148,7 +152,9 @@ class Paper(Record):
     @computed_field
     @property
     def rating(self) -> int:
-        """Rating from main review (1 to 5)."""
+        """Rating from main review (1 to 5), or 0 if no reviews."""
+        if self.review is None:
+            return 0
         return self.review.rating
 
     @computed_field
@@ -160,12 +166,48 @@ class Paper(Record):
     @computed_field
     @property
     def rationale(self) -> str:
-        """Rationale from main review."""
+        """Rationale from main review, or empty string if no reviews."""
+        if self.review is None:
+            return ""
         return self.review.rationale
 
     def main_text(self) -> str:
         """Join all paper sections to form the main text."""
         return clean_maintext("\n".join(s.text for s in self.sections))
+
+    @classmethod
+    def from_s2(
+        cls,
+        s2_paper: PaperFromPeerRead,
+        *,
+        sections: Sequence[PaperSection],
+        references: Sequence[PaperReference],
+        conference: str,
+    ) -> Self:
+        """Create Paper from Semantic Scholar data without reviews.
+
+        Args:
+            s2_paper: Paper data from Semantic Scholar API.
+            sections: Paper sections (from arXiv LaTeX parsing).
+            references: Paper references (from arXiv LaTeX parsing).
+            conference: Conference name (can be inferred from venue).
+
+        Returns:
+            Paper instance with S2 metadata and empty reviews.
+        """
+        author_names = [author.name for author in s2_paper.authors or [] if author.name]
+
+        return cls(
+            title=s2_paper.title,
+            abstract=s2_paper.abstract,
+            reviews=[],  # No reviews from S2
+            authors=author_names,
+            sections=sections,
+            approval=None,  # No approval data from S2
+            references=references,
+            conference=conference,
+            year=s2_paper.year,
+        )
 
     def __str__(self) -> str:
         """Display title, abstract, rating scores and count of words in main text."""

@@ -26,7 +26,7 @@ from typing import Annotated
 import typer
 
 from paper.orc.arxiv import latex, latex_all
-from paper.orc.download import reviews, reviews_all
+from paper.orc.download import reviews, reviews_all, reviews_from_titles
 from paper.orc.latex_parser import parse, parse_all
 from paper.orc.preprocess import preprocess
 from paper.util import setup_logging
@@ -47,6 +47,7 @@ app.command()(latex)
 app.command()(latex_all)
 app.command()(reviews)
 app.command()(reviews_all)
+app.command()(reviews_from_titles)
 app.command()(parse)
 app.command()(parse_all)
 app.command()(preprocess)

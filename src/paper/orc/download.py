@@ -1,20 +1,43 @@
 """Download paper data from OpenReview."""
 # pyright: basic
 
+import asyncio
 import dataclasses as dc
 import itertools
 import logging
+import tempfile
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
+import aiohttp
 import openreview as openreview_v1  # type: ignore
 import orjson
 import typer
 from openreview import api as openreview_v2  # type: ignore
 from tqdm import tqdm
 
-from paper.orc.arxiv import get_arxiv, normalise_title
+from paper.orc.arxiv import (
+    ArxivResult,
+    download_latex_source,
+    get_arxiv,
+    normalise_title,
+)
+from paper.orc.latex_parser import (
+    SentenceSplitter,
+    latex_paper_to_peerread,
+    process_latex,
+)
+from paper.peerread.model import Paper, PaperReference, PaperSection
+from paper.semantic_scholar.info import (
+    MAX_CONCURRENT_REQUESTS,
+    REQUEST_TIMEOUT,
+    fetch_paper_info,
+)
+from paper.util import arun_safe, ensure_envvar, progress
 from paper.util.serde import write_file_bytes
+
+if TYPE_CHECKING:
+    from paper.semantic_scholar.model import PaperFromPeerRead
 
 logger = logging.getLogger(__name__)
 
@@ -261,3 +284,152 @@ def _has_field(paper: dict[str, Any], name: str) -> bool:
     if isinstance(value, str):
         value = value.strip()
     return bool(value)
+
+
+def _parse_arxiv_latex(
+    arxiv_result: ArxivResult, splitter: SentenceSplitter
+) -> tuple[list[PaperSection], list[PaperReference]]:
+    """Download and parse arXiv LaTeX for a paper, returning sections and references."""
+    # Download the LaTeX source as bytes
+    latex_bytes = download_latex_source(arxiv_result.id)
+    if not latex_bytes:
+        logger.warning("Failed to download LaTeX for arXiv ID: %s", arxiv_result.id)
+        return [], []
+
+    # Create temporary file to store the tarball
+    with tempfile.TemporaryDirectory(suffix=".tar.gz") as tmp_dir:
+        tmp_file = Path(tmp_dir) / "latex.tar.gz"
+        tmp_file.write_bytes(latex_bytes)
+
+        # Parse the LaTeX using the existing parser
+        latex_paper = process_latex(splitter, arxiv_result.arxiv_title, tmp_file)
+        if not latex_paper:
+            logger.warning(
+                "Failed to parse LaTeX for paper: %s", arxiv_result.arxiv_title
+            )
+            return [], []
+
+        # Convert to PeerRead format using the helper function
+        return latex_paper_to_peerread(latex_paper)
+
+
+async def _download_papers_from_titles(
+    titles: list[str],
+    output_dir: Path,
+    batch_size: int = 50,
+) -> None:
+    """Download paper metadata from Semantic Scholar and parse arXiv LaTeX for titles."""
+    api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
+
+    # Fields to retrieve from S2 API
+    fields = [
+        "paperId",
+        "corpusId",
+        "url",
+        "title",
+        "authors",
+        "year",
+        "abstract",
+        "referenceCount",
+        "citationCount",
+        "influentialCitationCount",
+        "tldr",
+    ]
+
+    logger.info("Fetching data from Semantic Scholar for %d titles", len(titles))
+
+    # Fetch from Semantic Scholar API
+    async with aiohttp.ClientSession(
+        timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
+        connector=aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS),
+    ) as session:
+        semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+        tasks = [
+            fetch_paper_info(session, api_key, title, fields, semaphore)
+            for title in titles
+        ]
+        s2_results = list(await progress.gather(tasks, desc="Downloading paper info"))
+        s2_results = [p for p in s2_results if p]
+
+    logger.info("Found %d papers on Semantic Scholar", len(s2_results))
+
+    s2_titles = [paper.title for paper in s2_results]
+    logger.info("Querying arXiv for %d paper titles", len(s2_titles))
+
+    openreview_to_arxiv = get_arxiv(s2_titles, batch_size)
+    logger.info("Found %d papers on arXiv", len(openreview_to_arxiv))
+
+    if not openreview_to_arxiv:
+        logger.warning(
+            "No papers found on arXiv. Cannot proceed without LaTeX content."
+        )
+        return
+
+    papers: list[Paper] = []
+    splitter = SentenceSplitter()
+
+    for s2_paper in s2_results:
+        # Only process papers that have arXiv matches
+        normalized_title = normalise_title(s2_paper.title)
+        arxiv_result = openreview_to_arxiv.get(normalized_title)
+
+        if not arxiv_result:
+            logger.debug("No arXiv match for S2 paper: %s", s2_paper.title)
+            continue
+
+        logger.info("Processing paper: %s (arXiv: %s)", s2_paper.title, arxiv_result.id)
+
+        sections, references = _parse_arxiv_latex(arxiv_result, splitter)
+        paper = Paper.from_s2(
+            s2_paper,
+            sections=sections,
+            references=references,
+            conference="",  # TODO: Infer from existing venue/journal data
+        )
+        papers.append(paper)
+
+    write_file_bytes(
+        output_dir / "papers_from_titles.json.zst",
+        orjson.dumps([paper.model_dump() for paper in papers]),
+    )
+    logger.info("Saved %d papers to %s", len(papers), output_dir)
+
+
+def reviews_from_titles(
+    titles_file: Annotated[
+        Path,
+        typer.Option(
+            "--input",
+            "-i",
+            help="File containing paper titles (one per line).",
+            exists=True,
+        ),
+    ],
+    output_dir: Annotated[
+        Path, typer.Option("--output", "-o", help="Output directory for paper data.")
+    ],
+    batch_size: Annotated[
+        int, typer.Option(help="Batch size to query the arXiv API.")
+    ] = 50,
+) -> None:
+    """Download paper metadata from Semantic Scholar and parse arXiv LaTeX given a list of titles.
+
+    Input file should contain one paper title per line.
+    Creates Paper objects with S2 metadata and parsed arXiv sections/references (no reviews).
+    Only processes papers that have matches on both Semantic Scholar and arXiv.
+
+    Requires SEMANTIC_SCHOLAR_API_KEY environment variable.
+    """
+    titles = [
+        title
+        for line in titles_file.read_text(encoding="utf-8").splitlines()
+        if (title := line.strip())
+    ]
+
+    if not titles:
+        logger.warning("No titles found in %s", titles_file)
+        return
+
+    logger.info("Querying %d titles from %s", len(titles), titles_file)
+
+    arun_safe(_download_papers_from_titles, titles, output_dir, batch_size)

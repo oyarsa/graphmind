@@ -17,6 +17,7 @@ import orjson
 import typer
 from tqdm import tqdm
 
+from paper.peerread.model import CitationContext, PaperReference, PaperSection
 from paper.util import Timer, setup_logging
 from paper.util.cli import die
 from paper.util.serde import save_data
@@ -227,6 +228,47 @@ class LatexPaper:
     references: list[Reference]
 
 
+def latex_paper_to_peerread(
+    latex_paper: LatexPaper,
+) -> tuple[list[PaperSection], list[PaperReference]]:
+    """Convert LatexPaper to PeerRead format sections and references.
+
+    Returns:
+        Tuple of (sections, references) compatible with PaperSection and PaperReference.
+    """
+
+    sections = [
+        PaperSection(heading=section.heading, text=section.content)
+        for section in latex_paper.sections
+    ]
+
+    references: list[PaperReference] = []
+    for ref in latex_paper.references:
+        contexts = [
+            CitationContext(sentence=context, polarity=None)
+            for context in ref.citation_contexts
+        ]
+
+        # Parse year from string to int if possible
+        year = 0  # Default year
+        if ref.year:
+            try:
+                year = int(ref.year)
+            except (ValueError, TypeError):
+                year = 0
+
+        references.append(
+            PaperReference(
+                title=ref.title,
+                year=year,
+                authors=ref.authors,
+                contexts=contexts,
+            )
+        )
+
+    return sections, references
+
+
 class SentenceSplitter:
     """A class to handle sentence splitting with NLTK.
 
@@ -294,7 +336,7 @@ def _process_tex_file(
     """Parse LaTeX files into a paper. Returns True if the conversion was successful."""
     title = _title_from_filename(input_file, ".tar.gz")
 
-    if paper := _process_latex(splitter, title, input_file):
+    if paper := process_latex(splitter, title, input_file):
         # Convert dataclass to dict for serialization
         paper_dict = orjson.loads(orjson.dumps(paper, default=vars))
         save_data(output_dir / f"{title}.json", paper_dict)
@@ -311,7 +353,7 @@ def _title_from_filename(input_file: Path, ext: str) -> str:
     return input_file.name.removesuffix(ext)
 
 
-def _process_latex(
+def process_latex(
     splitter: SentenceSplitter, title: str, input_file: Path
 ) -> LatexPaper | None:
     """Read LaTeX repository from `input_file` and parse into `Paper`.
