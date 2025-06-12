@@ -54,18 +54,18 @@ from paper.util.serde import load_data, save_data
 logger = logging.getLogger(__name__)
 
 
-_TERM_SYSTEM_PROMPT = """\
+TERM_SYSTEM_PROMPT = """\
 You are a helpful assistant that can read scientific papers and identify the key terms \
 used to describe the problems tackled by the paper and the terms used for the methods.
 """
-_TERM_USER_PROMPTS = load_prompts("annotate_terms")
+TERM_USER_PROMPTS = load_prompts("annotate_terms")
 
-_ABS_SYSTEM_PROMPT = """\
+ABS_SYSTEM_PROMPT = """\
 You are a helpful assistant that can read a paper abstract and identify which sentences \
 describe the paper background context, and which describe the paper goals and target.
 """
-_ABS_USER_PROMPTS = load_prompts("abstract_classification")
-_ABS_DEMO_PROMPTS = load_prompts("abstract_demonstrations")
+ABS_USER_PROMPTS = load_prompts("abstract_classification")
+ABS_DEMO_PROMPTS = load_prompts("abstract_demonstrations")
 
 
 app = typer.Typer(
@@ -136,14 +136,14 @@ def run(
         str,
         typer.Option(
             help="User prompt to use for term annotation.",
-            click_type=cli.Choice(_TERM_USER_PROMPTS),
+            click_type=cli.Choice(TERM_USER_PROMPTS),
         ),
     ] = "multi",
     prompt_abstract: Annotated[
         str,
         typer.Option(
             help="User prompt to use for abstract classification.",
-            click_type=cli.Choice(_ABS_USER_PROMPTS),
+            click_type=cli.Choice(ABS_USER_PROMPTS),
         ),
     ] = "simple",
     abstract_demonstrations: Annotated[
@@ -158,7 +158,7 @@ def run(
         typer.Option(
             "--abstract-demo-prompt",
             help="Prompt used to create abstract classification demonstrations",
-            click_type=cli.Choice(_ABS_DEMO_PROMPTS),
+            click_type=cli.Choice(ABS_DEMO_PROMPTS),
         ),
     ] = "simple",
     continue_papers: Annotated[
@@ -258,8 +258,8 @@ async def annotate_papers(
 
     env = mustenv("OPENAI_API_KEY")
     client = OpenAIClient(api_key=env["OPENAI_API_KEY"], model=model, seed=seed)
-    user_prompt_terms = _TERM_USER_PROMPTS[user_prompt_term_key]
-    user_prompt_abstract = _ABS_USER_PROMPTS[user_prompt_abstract_key]
+    user_prompt_terms = TERM_USER_PROMPTS[user_prompt_term_key]
+    user_prompt_abstract = ABS_USER_PROMPTS[user_prompt_abstract_key]
 
     papers = load_data(input_file, paper_type.get_type())[:limit_papers]
 
@@ -283,11 +283,11 @@ async def annotate_papers(
             "Skipping %d items from the `continue` file.", len(papers_remaining.done)
         )
 
-    abstract_demonstrations = _format_abstract_demonstrations(
+    abstract_demonstrations = format_abstract_demonstrations(
         load_data(abstract_demonstrations_path, AbstractDemonstration)
         if abstract_demonstrations_path
         else [],
-        _ABS_DEMO_PROMPTS[abstract_demonstrations_prompt],
+        ABS_DEMO_PROMPTS[abstract_demonstrations_prompt],
     )
 
     with Timer() as timer:
@@ -398,9 +398,9 @@ async def _annotate_paper_single(
         demonstrations=abstract_demonstrations, abstract=paper.abstract
     )
 
-    result_term = await client.run(PaperTerms, _TERM_SYSTEM_PROMPT, term_prompt_text)
+    result_term = await client.run(PaperTerms, TERM_SYSTEM_PROMPT, term_prompt_text)
     result_abstract = await client.run(
-        GPTAbstractClassify, _ABS_SYSTEM_PROMPT, abstract_prompt_text
+        GPTAbstractClassify, ABS_SYSTEM_PROMPT, abstract_prompt_text
     )
 
     terms = result_term.result or PaperTerms.empty()
@@ -419,7 +419,7 @@ async def _annotate_paper_single(
                 background=abstract.background,
                 target=abstract.target,
             ),
-            prompt=Prompt(user=abstract_prompt_text, system=_TERM_SYSTEM_PROMPT),
+            prompt=Prompt(user=abstract_prompt_text, system=TERM_SYSTEM_PROMPT),
         ),
         cost=result_term.cost,
     )
@@ -509,7 +509,7 @@ class AbstractDemonstration(Immutable):
     target: str
 
 
-def _format_abstract_demonstrations(
+def format_abstract_demonstrations(
     data: Sequence[AbstractDemonstration], prompt: PromptTemplate
 ) -> str:
     """Format abstract demonstrations for prompt.
@@ -547,9 +547,9 @@ def prompts(
 ) -> None:
     """Print the available prompt names, and optionally, the full prompt text."""
     items = [
-        ("TERM ANNOTATION PROMPTS", _TERM_USER_PROMPTS),
-        ("ABSTRACT CLASSIFICATION PROMPTS", _ABS_USER_PROMPTS),
-        ("ABSTRACT DEMONSTRATION PROMPTS", _ABS_DEMO_PROMPTS),
+        ("TERM ANNOTATION PROMPTS", TERM_USER_PROMPTS),
+        ("ABSTRACT CLASSIFICATION PROMPTS", ABS_USER_PROMPTS),
+        ("ABSTRACT DEMONSTRATION PROMPTS", ABS_DEMO_PROMPTS),
     ]
     for title, prompts in items:
         print_prompts(title, prompts, detail=detail)

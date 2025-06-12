@@ -130,7 +130,8 @@ async def fetch_paper_info(
                 )
                 await asyncio.sleep(delay)
                 delay *= BACKOFF_FACTOR
-            except ValidationError:
+            except ValidationError as e:
+                logger.debug("Validation error: %s.", e)
                 return None
 
             attempt += 1
@@ -141,6 +142,7 @@ async def fetch_paper_info(
         return None
 
 
+# TODO: The fields are not customisable. Remove the parameter and use a hardcoded list.
 async def fetch_arxiv_papers(
     api_key: str,
     titles: Sequence[str],
@@ -245,7 +247,7 @@ async def _download_reference_info(
     else:
         encoder = emb.Encoder()
         titles = [
-            _get_top_k_titles(encoder, paper, top_k)
+            get_top_k_titles(encoder, paper, top_k)
             for paper in tqdm(papers, desc=f"Filtering top {top_k} references")
         ]
 
@@ -276,7 +278,7 @@ async def _download_reference_info(
     save_data(output_path / "final.json", results_filtered)
 
 
-def _get_top_k_titles(encoder: emb.Encoder, paper: pr.Paper, k: int) -> list[str]:
+def get_top_k_titles(encoder: emb.Encoder, paper: pr.Paper, k: int) -> list[str]:
     """Get top `k` reference titles from `paper`.
 
     References are sorted by cosine similarity between the reference and main paper

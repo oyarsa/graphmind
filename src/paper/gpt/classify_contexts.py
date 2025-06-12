@@ -61,7 +61,7 @@ app = typer.Typer(
 )
 
 
-_CONTEXT_USER_PROMPTS = load_prompts("classify_contexts")
+CONTEXT_USER_PROMPTS = load_prompts("classify_contexts")
 
 
 @app.command(help=__doc__, no_args_is_help=True)
@@ -93,7 +93,7 @@ def run(
         str,
         typer.Option(
             help="The user prompt to use for context classification.",
-            click_type=cli.Choice(_CONTEXT_USER_PROMPTS),
+            click_type=cli.Choice(CONTEXT_USER_PROMPTS),
         ),
     ] = "sentence",
     limit_references: Annotated[
@@ -167,7 +167,7 @@ async def classify_contexts(
     data = load_data(data_path, s2.PaperWithS2Refs)
 
     papers = data[:limit_papers]
-    user_prompt = _CONTEXT_USER_PROMPTS[user_prompt_key]
+    user_prompt = CONTEXT_USER_PROMPTS[user_prompt_key]
 
     output_intermediate_file, papers_remaining = init_remaining_items(
         PaperWithContextClassfied, output_dir, continue_papers_file, papers, continue_
@@ -312,7 +312,7 @@ class GPTContext(Immutable):
     ]
 
 
-_CONTEXT_SYSTEM_PROMPT = (
+CONTEXT_SYSTEM_PROMPT = (
     "Classify the context polarity between the main paper and its citation."
 )
 
@@ -353,7 +353,7 @@ async def _classify_paper(
                 user_prompt_save = user_prompt_text
 
             result = await client.run(
-                GPTContext, _CONTEXT_SYSTEM_PROMPT, user_prompt_text
+                GPTContext, CONTEXT_SYSTEM_PROMPT, user_prompt_text
             )
             total_cost += result.cost
 
@@ -381,7 +381,7 @@ async def _classify_paper(
         )
 
     result = PromptResult(
-        prompt=Prompt(system=_CONTEXT_SYSTEM_PROMPT, user=user_prompt_save or ""),
+        prompt=Prompt(system=CONTEXT_SYSTEM_PROMPT, user=user_prompt_save or ""),
         item=PaperWithContextClassfied(
             title=paper.title,
             abstract=paper.abstract,
@@ -510,7 +510,7 @@ def prompts(
     ] = False,
 ) -> None:
     """Print the available prompt names, and optionally, the full prompt text."""
-    print_prompts("CONTEXT PROMPTS", _CONTEXT_USER_PROMPTS, detail=detail)
+    print_prompts("CONTEXT PROMPTS", CONTEXT_USER_PROMPTS, detail=detail)
 
 
 if __name__ == "__main__":

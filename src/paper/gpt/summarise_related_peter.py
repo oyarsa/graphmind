@@ -281,7 +281,7 @@ async def _summarise_papers(
     return GPTResult(result=results, cost=total_cost)
 
 
-_PETER_SUMMARISE_SYSTEM_PROMPT = """\
+PETER_SUMMARISE_SYSTEM_PROMPT = """\
 Given the following target paper and a related paper, determine what are the important \
 points for comparison between the two. Focus on how the papers are similar and how they \
 differ. This information will be used to support a novelty assessment of  the target \
@@ -311,7 +311,7 @@ async def _summarise_paper(
     return GPTResult(
         result=PromptResult(
             prompt=Prompt(
-                system=_PETER_SUMMARISE_SYSTEM_PROMPT,
+                system=PETER_SUMMARISE_SYSTEM_PROMPT,
                 user=f"\n\n{'-' * 80}\n\n".join(x.prompt.user for x in output),
             ),
             item=PaperWithRelatedSummary(
@@ -342,7 +342,7 @@ async def _summarise_paper_related(
     user_prompt_text = format_template(user_prompt, paper, related)
 
     result = await client.run(
-        GPTRelatedSummary, _PETER_SUMMARISE_SYSTEM_PROMPT, user_prompt_text
+        GPTRelatedSummary, PETER_SUMMARISE_SYSTEM_PROMPT, user_prompt_text
     )
 
     summary = result.result
@@ -352,7 +352,7 @@ async def _summarise_paper_related(
             item=PaperRelatedSummarised.from_related(
                 related, summary=summary.summary if summary is not None else "<error>"
             ),
-            prompt=Prompt(system=_PETER_SUMMARISE_SYSTEM_PROMPT, user=user_prompt_text),
+            prompt=Prompt(system=PETER_SUMMARISE_SYSTEM_PROMPT, user=user_prompt_text),
         ),
         cost=result.cost,
     )

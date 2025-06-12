@@ -132,9 +132,9 @@ class PaperFromPeerRead(Record):
     ]
     tldr: Annotated[
         Tldr | None, Field(description="Machine-generated summary of this paper")
-    ]
+    ] = None
     authors: Annotated[Sequence[Author] | None, Field(description="Paper authors")]
-    venue: Annotated[str | None, Field(description="Publication venue name")]
+    venue: Annotated[str | None, Field(description="Publication venue name")] = None
 
     @property
     def id(self) -> str:

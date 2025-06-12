@@ -21,7 +21,7 @@ import os
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 
 import aiohttp
 import backoff
@@ -45,9 +45,6 @@ from paper.util import (
 from paper.util.cli import die
 from paper.util.serde import load_data, save_data
 
-if TYPE_CHECKING:
-    from paper import semantic_scholar as s2
-
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 MAX_RETRIES = 5
 S2_RECOMMENDATIONS_BASE_URL = (
@@ -58,7 +55,7 @@ MAX_CONCURRENT_REQUESTS = 1
 REQUESTS_PER_SECOND = 1
 
 
-def _get_limiter(
+def get_limiter(
     max_concurrent_requests: int = 1,
     requests_per_second: float = 1,
     use_semaphore: bool | None = None,
@@ -84,7 +81,7 @@ def _get_limiter(
     return AsyncLimiter(requests_per_second, 1)
 
 
-LIMITER = _get_limiter(MAX_CONCURRENT_REQUESTS, REQUESTS_PER_SECOND)
+LIMITER = get_limiter(MAX_CONCURRENT_REQUESTS, REQUESTS_PER_SECOND)
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -232,8 +229,13 @@ async def _fetch_recommendations(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT), headers={"x-api-key": api_key}
     ) as session:
         tasks = [
-            _fetch_paper_recommendations(
-                session, paper.s2, fields, limit_recommendations
+            fetch_paper_recommendations(
+                session,
+                paper.s2.title,
+                paper.s2.paper_id,
+                fields,
+                limit_recommendations,
+                LIMITER,
             )
             for paper in papers
         ]
@@ -291,33 +293,39 @@ def _merge_papers(papers: Iterable[PaperWithRecommendations]) -> list[PaperRecom
     ]
 
 
-async def _fetch_paper_recommendations(
+async def fetch_paper_recommendations(
     session: aiohttp.ClientSession,
-    paper: s2.PaperFromPeerRead,
+    paper_title: str,
+    paper_id: str,
     fields: Iterable[str],
     limit_recommendations: int,
+    limiter: asyncio.Semaphore | AsyncLimiter,
+    from_: str = "all-cs",
 ) -> list[Paper]:
     """Fetch paper recommendations from a paper in all VALID_FROM pools.
 
     Args:
         session: Client session. Assumes a the API key has been set in the headers.
-        paper: S2 paper to be queried through its paperId.
+        paper_title: Title of the paper to query.
+        paper_id: ID of the paper to query.
         fields: List of fields to retrieve. Restrict this only to the bare essentials
             to ensure the payloads are lightweight.
         limit_recommendations: Maximum number of recommendations per paper.
             Must be <= 500.
+        limiter: Rate limiter to use for the requests.
+        from_: What pool of papers to recommend from.
 
     Returns:
         List of S2 recommended papers. If there was an error, prints it and returns an
         empty list.
     """
-    results = await _fetch_paper_recommendations_from(
-        session, paper, fields, limit_recommendations
+    results = await fetch_paper_recommendations_from(
+        session, paper_title, paper_id, fields, limit_recommendations, limiter, from_
     )
-    return _deduplicate_papers(results)
+    return deduplicate_papers(results)
 
 
-def _deduplicate_papers(papers: Iterable[Paper]) -> list[Paper]:
+def deduplicate_papers(papers: Iterable[Paper]) -> list[Paper]:
     """Remove duplicate papers by paper_id."""
     seen: set[str] = set()
     output: list[Paper] = []
@@ -330,46 +338,52 @@ def _deduplicate_papers(papers: Iterable[Paper]) -> list[Paper]:
     return output
 
 
-async def _fetch_paper_recommendations_from(
+async def fetch_paper_recommendations_from(
     session: aiohttp.ClientSession,
-    paper: s2.PaperFromPeerRead,
+    paper_title: str,
+    paper_id: str,
     fields: Iterable[str],
     limit_recommendations: int,
+    limiter: asyncio.Semaphore | AsyncLimiter,
+    from_: str,
 ) -> list[Paper]:
     """Fetch paper recommendations for a paper. Only returns data from `fields`.
 
     Args:
         session: Client session. Assumes a the API key has been set in the headers.
-        paper: S2 paper to be queried through its paperId.
+        paper_title: Title of the paper to query.
+        paper_id: ID of the paper to query.
         fields: List of fields to retrieve. Restrict this only to the bare essentials
             to ensure the payloads are lightweight.
         limit_recommendations: Maximum number of recommendations per paper.
             Must be <= 500.
+        limiter: Rate limiter to use for the requests.
+        from_: What pool of papers to recommend from.
 
     Returns:
         List of S2 recommended papers. If there was an error, prints it and returns an
         empty list.
     """
     params = {
-        "from": "all-cs",
+        "from": from_,
         "fields": ",".join(fields),
         "limit": limit_recommendations,
     }
-    url = f"{S2_RECOMMENDATIONS_BASE_URL}/{paper.paper_id}"
+    url = f"{S2_RECOMMENDATIONS_BASE_URL}/{paper_id}"
 
     try:
-        async with LIMITER:
-            result = await _fetch_with_retries(session, params=params, url=url)
+        async with limiter:
+            result = await fetch_with_retries(session, params=params, url=url)
 
         if error := result.get("error"):
-            print(f"Paper '{paper.title}' failed with error: {error}")
+            print(f"Paper '{paper_title}' failed with error: {error}")
             return []
 
         if data := result.get("recommendedPapers"):
             return [Paper.model_validate(paper) for paper in data]
 
     except Exception as e:
-        print(f"Paper '{paper.title}' failed after {MAX_RETRIES} tries:")
+        print(f"Paper '{paper_title}' failed after {MAX_RETRIES} tries:")
         print("Last error:", e)
 
     return []
@@ -378,7 +392,7 @@ async def _fetch_paper_recommendations_from(
 @backoff.on_exception(
     backoff.expo, (aiohttp.ClientError, asyncio.TimeoutError), max_tries=MAX_RETRIES
 )
-async def _fetch_with_retries(
+async def fetch_with_retries(
     session: aiohttp.ClientSession, *, params: dict[str, Any], url: str
 ) -> dict[str, Any]:
     """Execute an API request with automatic retrying on HTTP errors and timeouts.
