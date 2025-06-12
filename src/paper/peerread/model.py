@@ -182,7 +182,6 @@ class Paper(Record):
         *,
         sections: Sequence[PaperSection],
         references: Sequence[PaperReference],
-        conference: str,
     ) -> Self:
         """Create Paper from Semantic Scholar data without reviews.
 
@@ -190,12 +189,14 @@ class Paper(Record):
             s2_paper: Paper data from Semantic Scholar API.
             sections: Paper sections (from arXiv LaTeX parsing).
             references: Paper references (from arXiv LaTeX parsing).
-            conference: Conference name (can be inferred from venue).
 
         Returns:
             Paper instance with S2 metadata and empty reviews.
         """
         author_names = [author.name for author in s2_paper.authors or [] if author.name]
+
+        # Infer conference from venue data if available
+        conference = s2_paper.venue or ""
 
         return cls(
             title=s2_paper.title,

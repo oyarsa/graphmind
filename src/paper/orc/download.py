@@ -327,6 +327,7 @@ async def _download_papers_from_titles(
         "citationCount",
         "influentialCitationCount",
         "tldr",
+        "venue",
     ]
 
     logger.info("Fetching data from Semantic Scholar for %d titles", len(titles))
@@ -369,7 +370,6 @@ async def _download_papers_from_titles(
             s2_paper,
             sections=sections,
             references=references,
-            conference="",  # TODO: Infer from existing venue/journal data
         )
         papers.append(paper)
 

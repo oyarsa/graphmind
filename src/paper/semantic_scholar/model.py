@@ -47,6 +47,8 @@ class Paper(Record):
     tldr: Tldr | None = None
     # Paper authors.
     authors: Sequence[Author] | None
+    # Publication venue name.
+    venue: str | None = None
 
     @property
     def id(self) -> str:
@@ -132,6 +134,7 @@ class PaperFromPeerRead(Record):
         Tldr | None, Field(description="Machine-generated summary of this paper")
     ]
     authors: Annotated[Sequence[Author] | None, Field(description="Paper authors")]
+    venue: Annotated[str | None, Field(description="Publication venue name")]
 
     @property
     def id(self) -> str:
