@@ -8,13 +8,12 @@ from paper.util import git_root
 from paper.util.cmd import run, run_parallel_commands, title
 from tests.helpers import assertpath  # type: ignore[reportMissingImports]
 
-ROOT_DIR = git_root()
-
 
 @pytest.mark.slow
 def test_peerread_peter_pipeline(tmp_path: Path) -> None:
     """Test the full PETER pipeline from PeerRead preprocessing to graph building."""
-    raw_path = ROOT_DIR / "data/PeerRead"
+
+    raw_path = git_root() / "data/PeerRead"
 
     title("Check if PeerRead is available")
     if not raw_path.exists():
