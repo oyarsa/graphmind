@@ -19,7 +19,7 @@ type:
 
 # Run pre-commit hooks manually on all files
 pre-commit:
-    uv run pre-commit run --all-files
+    test -d .git && uv run pre-commit run --all-files
 
 # Run codespell on code file to find typos
 spell:
