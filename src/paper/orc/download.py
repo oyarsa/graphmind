@@ -282,12 +282,22 @@ def _has_field(paper: dict[str, Any], name: str) -> bool:
 def _parse_arxiv_latex(
     arxiv_result: ArxivResult, splitter: SentenceSplitter
 ) -> tuple[list[PaperSection], list[PaperReference]]:
-    """Download and parse arXiv LaTeX for a paper, returning sections and references."""
+    """Download and parse arXiv LaTeX for a paper, returning sections and references.
+
+    Args:
+        arxiv_result: arXiv paper information.
+        splitter: Sentence splitter for parsing.
+
+    Returns:
+        Tuple of (sections, references) from parsed LaTeX.
+
+    Raises:
+        RuntimeError: If LaTeX download or parsing fails.
+    """
     # Download the LaTeX source as bytes
     latex_bytes = download_latex_source(arxiv_result.id)
     if not latex_bytes:
-        logger.warning("Failed to download LaTeX for arXiv ID: %s", arxiv_result.id)
-        return [], []
+        raise RuntimeError(f"Failed to download LaTeX for arXiv ID: {arxiv_result.id}")
 
     # Create temporary file to store the tarball
     with tempfile.TemporaryDirectory(suffix=".tar.gz") as tmp_dir:
@@ -297,10 +307,9 @@ def _parse_arxiv_latex(
         # Parse the LaTeX using the existing parser
         latex_paper = process_latex(splitter, arxiv_result.arxiv_title, tmp_file)
         if not latex_paper:
-            logger.warning(
-                "Failed to parse LaTeX for paper: %s", arxiv_result.arxiv_title
+            raise RuntimeError(
+                f"Failed to parse LaTeX for paper: {arxiv_result.arxiv_title}"
             )
-            return [], []
 
         # Convert to PeerRead format using the helper function
         return latex_paper_to_peerread(latex_paper)
@@ -365,19 +374,89 @@ async def _download_papers_from_titles(
 
         logger.info("Processing paper: %s (arXiv: %s)", s2_paper.title, arxiv_result.id)
 
-        sections, references = _parse_arxiv_latex(arxiv_result, splitter)
-        paper = Paper.from_s2(
-            s2_paper,
-            sections=sections,
-            references=references,
-        )
-        papers.append(paper)
+        try:
+            sections, references = _parse_arxiv_latex(arxiv_result, splitter)
+            papers.append(
+                Paper.from_s2(
+                    s2_paper,
+                    sections=sections,
+                    references=references,
+                )
+            )
+        except RuntimeError as e:
+            logger.warning("Failed to process paper %s: %s", s2_paper.title, e)
+            continue
 
     write_file_bytes(
         output_dir / "papers_from_titles.json.zst",
         orjson.dumps([paper.model_dump() for paper in papers]),
     )
     logger.info("Saved %d papers to %s", len(papers), output_dir)
+
+
+async def get_paper_from_title(title: str) -> Paper:
+    """Get a single processed Paper from a title using Semantic Scholar and arXiv.
+
+    Args:
+        title: Paper title to search for.
+
+    Returns:
+        Paper object with S2 metadata and parsed arXiv sections/references.
+
+    Raises:
+        ValueError: If paper is not found on Semantic Scholar or arXiv.
+        RuntimeError: If LaTeX parsing fails or other processing errors occur.
+
+    Requires:
+        SEMANTIC_SCHOLAR_API_KEY environment variable.
+    """
+    api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
+
+    # Fields to retrieve from S2 API
+    fields = [
+        "paperId",
+        "corpusId",
+        "url",
+        "title",
+        "authors",
+        "year",
+        "abstract",
+        "referenceCount",
+        "citationCount",
+        "influentialCitationCount",
+        "tldr",
+        "venue",
+    ]
+
+    # Fetch from Semantic Scholar API
+    s2_results = await fetch_arxiv_papers(
+        api_key, [title], fields, desc="Fetching paper from S2"
+    )
+
+    if not s2_results or not s2_results[0]:
+        raise ValueError(f"Paper not found on Semantic Scholar: {title}")
+
+    s2_paper = s2_results[0]
+
+    # Query arXiv for LaTeX content
+    openreview_to_arxiv = get_arxiv([s2_paper.title], batch_size=1)
+
+    normalized_title = normalise_title(s2_paper.title)
+    arxiv_result = openreview_to_arxiv.get(normalized_title)
+
+    if not arxiv_result:
+        raise ValueError(f"Paper not found on arXiv: {s2_paper.title}")
+
+    # Parse arXiv LaTeX
+    splitter = SentenceSplitter()
+    sections, references = _parse_arxiv_latex(arxiv_result, splitter)
+
+    # Create and return Paper object
+    return Paper.from_s2(
+        s2_paper,
+        sections=sections,
+        references=references,
+    )
 
 
 def reviews_from_titles(
