@@ -219,9 +219,9 @@ async def process_paper_complete(
     # Phase 4: Get related papers (simplified approach without full PETER graphs)
     logger.debug("Getting related papers using direct approach")
     related_papers = await get_related_papers_direct(
-        paper_annotated,
-        paper_with_classified_contexts,
-        recommended_annotated,
+        paper_annotated.result,
+        paper_with_classified_contexts.result,
+        recommended_annotated.result,
         num_related,
         encoder,
     )
@@ -229,7 +229,7 @@ async def process_paper_complete(
     # Phase 5: Generate summaries for related papers
     logger.debug("Generating summaries for related papers")
     related_papers_summarised = await generate_related_paper_summaries(
-        paper_annotated,
+        paper_annotated.result,
         related_papers,
         client,
         positive_prompt_key,
@@ -239,10 +239,20 @@ async def process_paper_complete(
     # Phase 6: Create final result
     logger.debug("Creating final result")
     result = gpt.PaperWithRelatedSummary(
-        paper=paper_annotated, related=related_papers_summarised
+        paper=paper_annotated.result, related=related_papers_summarised.result
     )
 
     logger.info("Completed processing paper: %s", paper.title)
+    total_cost = sum(
+        x.cost
+        for x in (
+            paper_annotated,
+            recommended_annotated,
+            paper_with_classified_contexts,
+            related_papers_summarised,
+        )
+    )
+    logger.info("Cost: %f", total_cost)
     return result
 
 
@@ -284,13 +294,19 @@ async def enhance_with_s2_references(
     return PaperWithS2Refs.from_peer(paper, s2_references)
 
 
+@dataclass(frozen=True, kw_only=True)
+class _PaperAnnotations:
+    terms: gpt.PaperTerms
+    abstr: GPTAbstractClassify
+
+
 async def extract_annotations(
     title: str,
     abstract: str,
     client: LLMClient,
     term_prompt: PromptTemplate,
     abstract_prompt: PromptTemplate,
-) -> tuple[gpt.PaperTerms, GPTAbstractClassify]:
+) -> GPTResult[_PaperAnnotations]:
     """Extracting annotations from a paper given title and abstract.
 
     Args:
@@ -301,8 +317,8 @@ async def extract_annotations(
         abstract_prompt: Prompt template for abstract classification.
 
     Returns:
-        Tuple of (terms, abstract_classification) with fallbacks to empty values on
-        error.
+        _PaperAnnotations (terms, abstract_classification) with fallbacks to empty
+        values on error.
     """
     # Prepare prompts
     term_prompt_text = term_prompt.template.format(title=title, abstract=abstract)
@@ -326,7 +342,10 @@ async def extract_annotations(
     if not abstract_classification.is_valid():
         logger.warning("Paper '%s': invalid GPTAbstractClassify", title)
 
-    return terms, abstract_classification
+    return GPTResult(
+        result=_PaperAnnotations(terms=terms, abstr=abstract_classification),
+        cost=result_term.cost + result_abstract.cost,
+    )
 
 
 async def extract_paper_annotations(
@@ -334,7 +353,7 @@ async def extract_paper_annotations(
     client: LLMClient,
     term_prompt_key: str,
     abstract_prompt_key: str,
-) -> gpt.PeerReadAnnotated:
+) -> GPTResult[gpt.PeerReadAnnotated]:
     """Extract key terms and background/target information from paper using GPT."""
     # Use specified prompts
     term_prompt = TERM_USER_PROMPTS[term_prompt_key]
@@ -348,13 +367,13 @@ async def extract_paper_annotations(
         term_prompt,
         abstract_prompt,
     )
-
-    # Create PeerReadAnnotated
-    return gpt.PeerReadAnnotated(
-        terms=terms,
-        paper=paper_with_s2_refs,
-        background=abstract_classification.background,
-        target=abstract_classification.target,
+    return result.map(
+        lambda a: gpt.PeerReadAnnotated(
+            terms=a.terms,
+            paper=paper_with_s2_refs,
+            background=a.abstr.background,
+            target=a.abstr.target,
+        )
     )
 
 
@@ -363,7 +382,7 @@ async def extract_recommended_annotations(
     client: LLMClient,
     term_prompt_key: str,
     abstract_prompt_key: str,
-) -> list[gpt.PaperAnnotated]:
+) -> GPTResult[Sequence[gpt.PaperAnnotated]]:
     """Extract annotations from recommended papers using GPT."""
     # Use the same prompts as for the main paper
     term_prompt = TERM_USER_PROMPTS[term_prompt_key]
@@ -376,12 +395,7 @@ async def extract_recommended_annotations(
         for s2_paper in recommended_papers
         if s2_paper.abstract
     ]
-    annotated_papers = list(
-        await progress.gather(tasks, desc="Annotating related papers.")
-    )
-
-    logger.info("Annotated %d recommended papers", len(annotated_papers))
-    return annotated_papers
+    return gpt_sequence(await progress.gather(tasks, desc="Annotating related papers."))
 
 
 async def extract_recommended_annotations_single(
@@ -389,27 +403,27 @@ async def extract_recommended_annotations_single(
     term_prompt: PromptTemplate,
     abstract_prompt: PromptTemplate,
     s2_paper: S2Paper,
-) -> gpt.PaperAnnotated:
+) -> GPTResult[gpt.PaperAnnotated]:
     """Extract terms and split abstract from paper."""
     # We know these are not None because of the filter in extract_recommended_annotations
     assert s2_paper.title is not None
     assert s2_paper.abstract is not None
 
     # Extract annotations using shared helper
-    terms, abstract_classification = await extract_annotations(
+    result = await extract_annotations(
         s2_paper.title,
         s2_paper.abstract,
         client,
         term_prompt,
         abstract_prompt,
     )
-
-    # Create annotated paper
-    return gpt.PaperAnnotated(
-        paper=s2_paper,
-        terms=terms,
-        background=abstract_classification.background,
-        target=abstract_classification.target,
+    return result.map(
+        lambda a: gpt.PaperAnnotated(
+            terms=a.terms,
+            paper=s2_paper,
+            background=a.abstr.background,
+            target=a.abstr.target,
+        )
     )
 
 
@@ -448,10 +462,8 @@ async def fetch_s2_recommendations(
 
 
 async def classify_citation_contexts(
-    paper_with_s2_refs: PaperWithS2Refs,
-    client: LLMClient,
-    context_prompt_key: str,
-) -> gpt.PaperWithContextClassfied:
+    paper: PaperWithS2Refs, client: LLMClient, context_prompt_key: str
+) -> GPTResult[gpt.PaperWithContextClassfied]:
     """Classify citation contexts by polarity (positive/negative) using GPT."""
     # Load prompts for context classification
     context_prompt = CONTEXT_USER_PROMPTS[context_prompt_key]
@@ -521,7 +533,7 @@ async def classify_citation_contexts(
 async def get_related_papers_direct(
     paper_annotated: gpt.PeerReadAnnotated,
     paper_with_contexts: gpt.PaperWithContextClassfied,
-    recommended_papers: list[gpt.PaperAnnotated],
+    recommended_papers: Sequence[gpt.PaperAnnotated],
     num_related: int,
     encoder: emb.Encoder,
 ) -> list[rp.PaperRelated]:
@@ -648,10 +660,10 @@ async def generate_related_paper_summaries(
     client: LLMClient,
     positive_prompt_key: str,
     negative_prompt_key: str,
-) -> Sequence[gpt.PaperRelatedSummarised]:
+) -> GPTResult[Sequence[gpt.PaperRelatedSummarised]]:
     """Generate GPT summaries for related papers."""
     if not related_papers:
-        return []
+        return GPTResult(result=[], cost=0)
 
     prompt_pol = {
         rp.ContextPolarity.POSITIVE: PETER_SUMMARISE_USER_PROMPTS[positive_prompt_key],
@@ -665,10 +677,7 @@ async def generate_related_paper_summaries(
         )
         for related_paper in related_papers
     ]
-    summarised_papers = gpt_sequence(await progress.gather(tasks))
-
-    logger.debug("Summary generation cost: $%.4f", summarised_papers.cost)
-    return summarised_papers.result
+    return gpt_sequence(await progress.gather(tasks))
 
 
 async def generate_summary_single(
