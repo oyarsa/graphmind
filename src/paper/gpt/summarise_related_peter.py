@@ -17,7 +17,7 @@ import logging
 import random
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Self
 
 import dotenv
 import typer
@@ -331,6 +331,11 @@ class GPTRelatedSummary(Immutable):
             description="Related paper summary with its key points about the main paper."
         ),
     ]
+
+    @classmethod
+    def error(cls) -> Self:
+        """Output value for when there's an error."""
+        return cls(summary="<error>")
 
 
 async def _summarise_paper_related(

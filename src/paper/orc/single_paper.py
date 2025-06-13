@@ -7,6 +7,7 @@ related paper discovery, and summarization.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Annotated
@@ -34,7 +35,7 @@ from paper.gpt.classify_contexts import (
     PaperWithContextClassfied,
     S2ReferenceClassified,
 )
-from paper.gpt.run_gpt import LLMClient
+from paper.gpt.run_gpt import GPTResult, LLMClient, gpt_sequence
 from paper.gpt.summarise_related_peter import (
     PETER_SUMMARISE_SYSTEM_PROMPT,
     PETER_SUMMARISE_USER_PROMPTS,
@@ -55,7 +56,6 @@ from paper.semantic_scholar.recommended import (
     get_limiter,
 )
 from paper.util import arun_safe, ensure_envvar, progress
-from paper.util.cli import die
 
 if TYPE_CHECKING:
     from paper.gpt.model import PaperRelatedSummarised
@@ -177,6 +177,9 @@ async def process_paper_complete(
     Returns:
         Complete paper with related papers and their summaries.
 
+    Raises:
+        ValueError if no recommended papers or valid references were found.
+
     Requires:
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
@@ -188,39 +191,32 @@ async def process_paper_complete(
 
     logger.info("Processing paper: %s", paper.title)
 
-    # Step 3: Fetch S2 recommended papers
-    logger.debug("Fetching S2 recommended papers")
-    recommended_papers = await fetch_s2_recommendations(
-        paper, num_recommendations, s2_api_key, limiter
-    )
-    if not recommended_papers:
-        die("no recommended found")
-
-    # Step 1: Enhance with S2 reference data
-    logger.debug("Fetching S2 data for top-k references")
-    paper_with_s2_refs = await enhance_with_s2_references(
-        paper, top_k_refs, encoder, s2_api_key
+    # Phase 1: Fetch S2 recommended papers and reference data in parallel
+    logger.debug("Fetching S2 data for recommendations and references in parallel")
+    paper_with_s2_refs, recommended_papers = await asyncio.gather(
+        enhance_with_s2_references(paper, top_k_refs, encoder, s2_api_key),
+        fetch_s2_recommendations(paper, num_recommendations, s2_api_key, limiter),
     )
 
-    # Step 2: Extract key terms and background/target from main paper via GPT
+    if not paper_with_s2_refs or not recommended_papers:
+        raise ValueError("No recommended found")
+
+    # Phase 2: Extract annotations from main paper
     logger.debug("Extracting key terms and background/target of MAIN PAPER via GPT")
     paper_annotated = await extract_paper_annotations(
         paper_with_s2_refs, client, term_prompt_key, abstract_prompt_key
     )
 
-    # Step 4: Extract background/target from recommended papers via GPT
-    logger.debug("Extracting key terms and background/target of RELATED PAPER via GPT")
-    recommended_annotated = await extract_recommended_annotations(
-        recommended_papers, client, term_prompt_key, abstract_prompt_key
+    # Phase 3: Extract annotations from recommended papers and classify contexts in parallel
+    logger.debug("Processing recommended papers and citation contexts in parallel")
+    recommended_annotated, paper_with_classified_contexts = await asyncio.gather(
+        extract_recommended_annotations(
+            recommended_papers, client, term_prompt_key, abstract_prompt_key
+        ),
+        classify_citation_contexts(paper_with_s2_refs, client, context_prompt_key),
     )
 
-    # Step 5: Classify citation contexts via GPT
-    logger.debug("Classifying citation contexts via GPT")
-    paper_with_classified_contexts = await classify_citation_contexts(
-        paper_with_s2_refs, client, context_prompt_key
-    )
-
-    # Step 6: Get related papers (simplified approach without full PETER graphs)
+    # Phase 4: Get related papers (simplified approach without full PETER graphs)
     logger.debug("Getting related papers using direct approach")
     related_papers = await get_related_papers_direct(
         paper_annotated,
@@ -230,7 +226,7 @@ async def process_paper_complete(
         encoder,
     )
 
-    # Step 7: Generate summaries for related papers
+    # Phase 5: Generate summaries for related papers
     logger.debug("Generating summaries for related papers")
     related_papers_summarised = await generate_related_paper_summaries(
         paper_annotated,
@@ -240,7 +236,7 @@ async def process_paper_complete(
         negative_prompt_key,
     )
 
-    # Step 8: Create final result
+    # Phase 6: Create final result
     logger.debug("Creating final result")
     result = gpt.PaperWithRelatedSummary(
         paper=paper_annotated, related=related_papers_summarised
@@ -652,7 +648,7 @@ async def generate_related_paper_summaries(
     client: LLMClient,
     positive_prompt_key: str,
     negative_prompt_key: str,
-) -> list[gpt.PaperRelatedSummarised]:
+) -> Sequence[gpt.PaperRelatedSummarised]:
     """Generate GPT summaries for related papers."""
     if not related_papers:
         return []
@@ -662,45 +658,41 @@ async def generate_related_paper_summaries(
         rp.ContextPolarity.NEGATIVE: PETER_SUMMARISE_USER_PROMPTS[negative_prompt_key],
     }
 
-    summarised_papers: list[gpt.PaperRelatedSummarised] = []
-    total_cost = 0
-
-    for related_paper in related_papers:
-        # Get the appropriate prompt based on polarity
-        user_prompt = prompt_pol[related_paper.polarity]
-
-        # Format prompt using the same function from summarise_related_peter.py
-        user_prompt_text = format_template(
-            user_prompt,
-            paper_annotated,
-            related_paper,
+    # Create tasks for parallel execution
+    tasks = [
+        generate_summary_single(
+            paper_annotated, client, prompt_pol[related_paper.polarity], related_paper
         )
+        for related_paper in related_papers
+    ]
+    summarised_papers = gpt_sequence(await progress.gather(tasks))
 
-        # Generate summary via GPT
-        try:
-            result = await client.run(
-                GPTRelatedSummary, PETER_SUMMARISE_SYSTEM_PROMPT, user_prompt_text
-            )
-            total_cost += result.cost
+    logger.debug("Summary generation cost: $%.4f", summarised_papers.cost)
+    return summarised_papers.result
 
-            summary = (
-                result.result.summary
-                if result.result
-                else f"Summary not available for: {related_paper.title}"
-            )
 
-        except Exception as e:
-            logger.warning(
-                "Failed to generate summary for '%s': %s", related_paper.title, e
-            )
-            summary = f"Error generating summary for: {related_paper.title}"
+async def generate_summary_single(
+    paper_annotated: gpt.PeerReadAnnotated,
+    client: LLMClient,
+    user_prompt: PromptTemplate,
+    related_paper: rp.PaperRelated,
+) -> GPTResult[gpt.PaperRelatedSummarised]:
+    """Generate a single summary for a related paper."""
+    # Format prompt using the same function from summarise_related_peter.py
+    user_prompt_text = format_template(
+        user_prompt,
+        paper_annotated,
+        related_paper,
+    )
 
-        summarised_papers.append(
-            gpt.PaperRelatedSummarised.from_related(related_paper, summary)
+    result = await client.run(
+        GPTRelatedSummary, PETER_SUMMARISE_SYSTEM_PROMPT, user_prompt_text
+    )
+    return result.map(
+        lambda r: gpt.PaperRelatedSummarised.from_related(
+            related_paper, (r or GPTRelatedSummary.error()).summary
         )
-
-    logger.debug("Summary generation cost: $%.4f", total_cost)
-    return summarised_papers
+    )
 
 
 def process_paper(
