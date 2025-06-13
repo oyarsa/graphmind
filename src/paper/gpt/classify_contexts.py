@@ -298,6 +298,25 @@ class PaperWithContextClassfied(Record):
         """Convert rating to binary label."""
         return int(self.rating >= 3)
 
+    @classmethod
+    def from_(
+        cls,
+        paper: s2.PaperWithS2Refs,
+        classified_references: Sequence[S2ReferenceClassified],
+    ) -> Self:
+        """Create new paper with existing paper plus the classified references."""
+        return cls(
+            title=paper.title,
+            abstract=paper.abstract,
+            reviews=paper.reviews,
+            authors=paper.authors,
+            sections=paper.sections,
+            rating=paper.rating,
+            rationale=paper.rationale,
+            year=paper.year,
+            references=classified_references,
+        )
+
 
 class GPTContext(Immutable):
     """Context from a paper reference with GPT-classified polarity.
@@ -382,17 +401,7 @@ async def _classify_paper(
 
     result = PromptResult(
         prompt=Prompt(system=CONTEXT_SYSTEM_PROMPT, user=user_prompt_save or ""),
-        item=PaperWithContextClassfied(
-            title=paper.title,
-            abstract=paper.abstract,
-            reviews=paper.reviews,
-            authors=paper.authors,
-            sections=paper.sections,
-            rationale=paper.rationale,
-            rating=paper.rating,
-            references=classified_references,
-            year=paper.year,
-        ),
+        item=PaperWithContextClassfied.from_(paper, classified_references),
     )
     return GPTResult(result=result, cost=total_cost)
 
