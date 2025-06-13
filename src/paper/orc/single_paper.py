@@ -50,6 +50,7 @@ from paper.semantic_scholar.model import Paper as S2Paper
 from paper.semantic_scholar.model import PaperWithS2Refs
 from paper.semantic_scholar.recommended import (
     REQUEST_TIMEOUT,
+    Limiter,
     fetch_paper_recommendations,
     get_limiter,
 )
@@ -63,7 +64,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-S2_FIELDS = [
+# Base S2 fields common to all queries
+S2_FIELDS_BASE = [
     "paperId",
     "corpusId",
     "url",
@@ -74,9 +76,10 @@ S2_FIELDS = [
     "referenceCount",
     "citationCount",
     "influentialCitationCount",
-    "tldr",
-    "venue",
 ]
+
+# Full fields including venue and tldr
+S2_FIELDS = [*S2_FIELDS_BASE, "tldr", "venue"]
 
 
 async def get_paper_from_title(title: str) -> Paper:
@@ -181,13 +184,14 @@ async def process_paper_complete(
     s2_api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
     client = LLMClient.new_env(llm_model, seed)
     encoder = emb.Encoder(encoder_model)
+    limiter = get_limiter(1, 1)  # 1 request per second
 
     logger.info("Processing paper: %s", paper.title)
 
     # Step 3: Fetch S2 recommended papers
     logger.debug("Fetching S2 recommended papers")
     recommended_papers = await fetch_s2_recommendations(
-        paper, num_recommendations, s2_api_key
+        paper, num_recommendations, s2_api_key, limiter
     )
     if not recommended_papers:
         die("no recommended found")
@@ -259,22 +263,11 @@ async def enhance_with_s2_references(
         return PaperWithS2Refs.from_peer(paper, [])
 
     # Fetch S2 data for the top references
-    fields = [
-        "paperId",
-        "corpusId",
-        "url",
-        "title",
-        "authors",
-        "year",
-        "abstract",
-        "referenceCount",
-        "citationCount",
-        "influentialCitationCount",
-        "tldr",
-    ]
-
     s2_results = await fetch_arxiv_papers(
-        api_key, top_ref_titles, fields, desc="Fetching S2 data for references"
+        api_key,
+        top_ref_titles,
+        [*S2_FIELDS_BASE, "tldr"],
+        desc="Fetching S2 data for references",
     )
 
     # Create S2Reference objects by matching with original references
@@ -295,24 +288,31 @@ async def enhance_with_s2_references(
     return PaperWithS2Refs.from_peer(paper, s2_references)
 
 
-async def extract_paper_annotations(
-    paper_with_s2_refs: PaperWithS2Refs,
+async def extract_annotations(
+    title: str,
+    abstract: str,
     client: LLMClient,
-    term_prompt_key: str,
-    abstract_prompt_key: str,
-) -> gpt.PeerReadAnnotated:
-    """Extract key terms and background/target information from paper using GPT."""
-    # Use specified prompts
-    term_prompt = TERM_USER_PROMPTS[term_prompt_key]
-    abstract_prompt = ABS_USER_PROMPTS[abstract_prompt_key]
+    term_prompt: PromptTemplate,
+    abstract_prompt: PromptTemplate,
+) -> tuple[gpt.PaperTerms, GPTAbstractClassify]:
+    """Extracting annotations from a paper given title and abstract.
 
+    Args:
+        title: Paper title.
+        abstract: Paper abstract.
+        client: LLM client for GPT calls.
+        term_prompt: Prompt template for term extraction.
+        abstract_prompt: Prompt template for abstract classification.
+
+    Returns:
+        Tuple of (terms, abstract_classification) with fallbacks to empty values on
+        error.
+    """
     # Prepare prompts
-    term_prompt_text = term_prompt.template.format(
-        title=paper_with_s2_refs.title, abstract=paper_with_s2_refs.abstract
-    )
+    term_prompt_text = term_prompt.template.format(title=title, abstract=abstract)
     abstract_prompt_text = abstract_prompt.template.format(
         demonstrations="",  # No demonstrations for now
-        abstract=paper_with_s2_refs.abstract,
+        abstract=abstract,
     )
 
     # Run GPT extractions
@@ -326,11 +326,32 @@ async def extract_paper_annotations(
     abstract_classification = result_abstract.result or GPTAbstractClassify.empty()
 
     if not terms.is_valid():
-        logger.warning("Paper '%s': invalid PaperTerms", paper_with_s2_refs.title)
+        logger.warning("Paper '%s': invalid PaperTerms", title)
     if not abstract_classification.is_valid():
-        logger.warning(
-            "Paper '%s': invalid GPTAbstractClassify", paper_with_s2_refs.title
-        )
+        logger.warning("Paper '%s': invalid GPTAbstractClassify", title)
+
+    return terms, abstract_classification
+
+
+async def extract_paper_annotations(
+    paper_with_s2_refs: PaperWithS2Refs,
+    client: LLMClient,
+    term_prompt_key: str,
+    abstract_prompt_key: str,
+) -> gpt.PeerReadAnnotated:
+    """Extract key terms and background/target information from paper using GPT."""
+    # Use specified prompts
+    term_prompt = TERM_USER_PROMPTS[term_prompt_key]
+    abstract_prompt = ABS_USER_PROMPTS[abstract_prompt_key]
+
+    # Extract annotations using shared helper
+    terms, abstract_classification = await extract_annotations(
+        paper_with_s2_refs.title,
+        paper_with_s2_refs.abstract,
+        client,
+        term_prompt,
+        abstract_prompt,
+    )
 
     # Create PeerReadAnnotated
     return gpt.PeerReadAnnotated(
@@ -374,35 +395,22 @@ async def extract_recommended_annotations_single(
     s2_paper: S2Paper,
 ) -> gpt.PaperAnnotated:
     """Extract terms and split abstract from paper."""
-    # Prepare prompts
-    term_prompt_text = term_prompt.template.format(
-        title=s2_paper.title, abstract=s2_paper.abstract
-    )
-    abstract_prompt_text = abstract_prompt.template.format(
-        demonstrations="",  # No demonstrations for now
-        abstract=s2_paper.abstract,
-    )
+    # We know these are not None because of the filter in extract_recommended_annotations
+    assert s2_paper.title is not None
+    assert s2_paper.abstract is not None
 
-    # Run GPT extractions
-    result_term = await client.run(gpt.PaperTerms, TERM_SYSTEM_PROMPT, term_prompt_text)
-    result_abstract = await client.run(
-        GPTAbstractClassify, ABS_SYSTEM_PROMPT, abstract_prompt_text
+    # Extract annotations using shared helper
+    terms, abstract_classification = await extract_annotations(
+        s2_paper.title,
+        s2_paper.abstract,
+        client,
+        term_prompt,
+        abstract_prompt,
     )
-
-    # Extract results with fallbacks
-    terms = result_term.result or gpt.PaperTerms.empty()
-    abstract_classification = result_abstract.result or GPTAbstractClassify.empty()
-
-    if not terms.is_valid():
-        logger.warning("Recommended paper '%s': invalid PaperTerms", s2_paper.title)
-    if not abstract_classification.is_valid():
-        logger.warning(
-            "Recommended paper '%s': invalid GPTAbstractClassify", s2_paper.title
-        )
 
     # Create annotated paper
     return gpt.PaperAnnotated(
-        paper=s2_paper,  # S2Paper is valid as PaperToAnnotate
+        paper=s2_paper,
         terms=terms,
         background=abstract_classification.background,
         target=abstract_classification.target,
@@ -410,7 +418,7 @@ async def extract_recommended_annotations_single(
 
 
 async def fetch_s2_recommendations(
-    paper: Paper, num_recommendations: int, api_key: str
+    paper: Paper, num_recommendations: int, api_key: str, limiter: Limiter
 ) -> list[S2Paper]:
     """Fetch recommended papers from S2 API for the given paper."""
 
@@ -429,22 +437,6 @@ async def fetch_s2_recommendations(
         return []
     s2_paper = s2_results[0]
 
-    # Fields to retrieve for recommended papers
-    fields = [
-        "paperId",
-        "corpusId",
-        "url",
-        "title",
-        "authors",
-        "year",
-        "abstract",
-        "referenceCount",
-        "citationCount",
-        "influentialCitationCount",
-    ]
-
-    limiter = get_limiter(1, 1)  # 1 request per second
-
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT), headers={"x-api-key": api_key}
     ) as session:
@@ -452,7 +444,7 @@ async def fetch_s2_recommendations(
             session,
             s2_paper.title,
             s2_paper.paper_id,
-            fields,
+            S2_FIELDS_BASE,
             num_recommendations,
             limiter,
             from_="recent",

@@ -54,12 +54,14 @@ S2_RECOMMENDATIONS_BASE_URL = (
 MAX_CONCURRENT_REQUESTS = 1
 REQUESTS_PER_SECOND = 1
 
+type Limiter = asyncio.Semaphore | AsyncLimiter
+
 
 def get_limiter(
     max_concurrent_requests: int = 1,
     requests_per_second: float = 1,
     use_semaphore: bool | None = None,
-) -> asyncio.Semaphore | AsyncLimiter:
+) -> Limiter:
     """Create some form of requests limiter based on the `USE_SEMAPHORE` env var.
 
     Args:
