@@ -82,12 +82,13 @@ S2_FIELDS = [*S2_FIELDS_BASE, "tldr", "venue"]
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 
 
-async def get_paper_from_title(title: str, limiter: Limiter) -> Paper:
+async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> Paper:
     """Get a single processed Paper from a title using Semantic Scholar and arXiv.
 
     Args:
         title: Paper title to search for.
         limiter: Limiter for the requests.
+        api_key: Semantic Scholar API key.
 
     Returns:
         Paper object with S2 metadata and parsed arXiv sections/references.
@@ -99,11 +100,6 @@ async def get_paper_from_title(title: str, limiter: Limiter) -> Paper:
     Requires:
         SEMANTIC_SCHOLAR_API_KEY environment variable.
     """
-    api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
-
-    # Fields to retrieve from S2 API
-
-    # Fetch from Semantic Scholar API
     s2_results = await fetch_arxiv_papers(
         api_key, [title], S2_FIELDS, desc="Fetching paper from S2", limiter=limiter
     )
@@ -137,6 +133,7 @@ async def get_paper_from_title(title: str, limiter: Limiter) -> Paper:
 async def process_paper_complete(
     paper: Paper,
     limiter: Limiter,
+    s2_api_key: str,
     *,
     top_k_refs: int = 20,
     num_recommendations: int = 30,
@@ -178,6 +175,7 @@ async def process_paper_complete(
         encoder_model: Embedding encoder model.
         seed: Random seed for GPT API calls.
         request_timeout: Maximum time (seconds) for S2 requests before timeout.
+        s2_api_key: Semantic Scholar API key.
 
     Returns:
         Complete paper with related papers and their summaries.
@@ -189,7 +187,6 @@ async def process_paper_complete(
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
     # Initialize shared resources
-    s2_api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
     client = LLMClient.new_env(llm_model, seed)
     encoder = emb.Encoder(encoder_model)
 
@@ -208,7 +205,7 @@ async def process_paper_complete(
         raise ValueError("No recommended found")
 
     # Phase 2: Extract annotations from main paper
-    logger.debug("Extracting key terms and background/target of MAIN PAPER via GPT")
+    logger.debug("Extracting key terms and background/target of main paper via GPT")
     paper_annotated = await extract_paper_annotations(
         paper_with_s2_refs, client, term_prompt_key, abstract_prompt_key
     )
@@ -710,7 +707,9 @@ async def generate_related_paper_summaries(
         )
         for related_paper in related_papers
     ]
-    return gpt_sequence(await progress.gather(tasks))
+    return gpt_sequence(
+        await progress.gather(tasks, desc="Generating related paper summaries")
+    )
 
 
 async def generate_summary_single(
@@ -812,10 +811,12 @@ async def process_paper_from_title(
     Requires:
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
-    paper = await get_paper_from_title(title, limiter)
+    api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
+    paper = await get_paper_from_title(title, limiter, api_key)
     return await process_paper_complete(
         paper,
         limiter,
+        api_key,
         top_k_refs=top_k_refs,
         num_recommendations=num_recommendations,
         num_related=num_related,
