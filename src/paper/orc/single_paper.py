@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import defaultdict
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Annotated
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Annotated, NewType
 
 import aiohttp
 import typer
@@ -360,7 +362,7 @@ async def extract_paper_annotations(
     abstract_prompt = ABS_USER_PROMPTS[abstract_prompt_key]
 
     # Extract annotations using shared helper
-    terms, abstract_classification = await extract_annotations(
+    result = await extract_annotations(
         paper_with_s2_refs.title,
         paper_with_s2_refs.abstract,
         client,
@@ -461,6 +463,53 @@ async def fetch_s2_recommendations(
         )
 
 
+@dataclass(frozen=True, kw_only=True)
+class _ClassifyContextSpec:
+    """Task data for classifying a single citation context."""
+
+    reference: s2.S2Reference
+    context: pr.CitationContext
+    main_title: str
+    main_abstract: str
+    prompt: PromptTemplate
+
+
+async def _classify_context_single(
+    client: LLMClient, spec: _ClassifyContextSpec
+) -> GPTResult[ContextClassified]:
+    """Classify a single citation context using GPT."""
+    user_prompt_text = spec.prompt.template.format(
+        main_title=spec.main_title,
+        main_abstract=spec.main_abstract,
+        reference_title=spec.reference.title,
+        reference_abstract=spec.reference.abstract,
+        context=spec.context.sentence,
+    )
+
+    result = await client.run(GPTContext, CONTEXT_SYSTEM_PROMPT, user_prompt_text)
+    # Fallback to positive if GPT fails
+    return result.map(
+        lambda r: ContextClassified(
+            text=spec.context.sentence,
+            gold=spec.context.polarity,
+            prediction=r.polarity if r else pr.ContextPolarity.POSITIVE,
+        )
+    )
+
+
+_ReferenceIdx = NewType("_ReferenceIdx", int)
+"""Index of a reference from a paper. Used to split and group tasks."""
+
+
+async def _classify_contexts_parallel(
+    client: LLMClient, specs: list[tuple[_ReferenceIdx, _ClassifyContextSpec]]
+) -> list[tuple[_ReferenceIdx, GPTResult[ContextClassified]]]:
+    """Classify all contexts in parallel and return results with reference indices."""
+    tasks = [_classify_context_single(client, task) for _, task in specs]
+    results = await progress.gather(tasks, desc="Classifying contexts")
+    return [(ref_idx, result) for (ref_idx, _), result in zip(specs, results)]
+
+
 async def classify_citation_contexts(
     paper: PaperWithS2Refs, client: LLMClient, context_prompt_key: str
 ) -> GPTResult[gpt.PaperWithContextClassfied]:
@@ -468,65 +517,39 @@ async def classify_citation_contexts(
     # Load prompts for context classification
     context_prompt = CONTEXT_USER_PROMPTS[context_prompt_key]
 
-    classified_references: list[S2ReferenceClassified] = []
-    total_cost = 0
+    # Create tasks for all contexts across all references
+    tasks: list[tuple[_ReferenceIdx, _ClassifyContextSpec]] = []
 
-    # Process each reference with S2 data
-    # XXX: See if this duplicated
-    for reference in paper_with_s2_refs.references:
-        classified_contexts: list[ContextClassified] = []
-
-        # Classify each citation context
+    for ref_idx, reference in enumerate(paper.references):
         for context in reference.contexts:
-            user_prompt_text = context_prompt.template.format(
-                main_title=paper_with_s2_refs.title,
-                main_abstract=paper_with_s2_refs.abstract,
-                reference_title=reference.title,
-                reference_abstract=reference.abstract,
-                context=context.sentence,
+            task = _ClassifyContextSpec(
+                reference=reference,
+                context=context,
+                main_title=paper.title,
+                main_abstract=paper.abstract,
+                prompt=context_prompt,
             )
+            tasks.append((_ReferenceIdx(ref_idx), task))
 
-            result = await client.run(
-                GPTContext, CONTEXT_SYSTEM_PROMPT, user_prompt_text
-            )
-            total_cost += result.cost
+    classified_results = await _classify_contexts_parallel(client, tasks)
 
-            if gpt_context := result.result:
-                classified_contexts.append(
-                    ContextClassified(
-                        text=context.sentence,
-                        gold=context.polarity,  # Original polarity if any
-                        prediction=gpt_context.polarity,  # GPT prediction
-                    )
-                )
-            else:
-                # Fallback to positive if GPT fails
-                classified_contexts.append(
-                    ContextClassified(
-                        text=context.sentence,
-                        gold=context.polarity,
-                        prediction=pr.ContextPolarity.POSITIVE,
-                    )
-                )
+    # Group results by reference
+    contexts_by_ref: dict[_ReferenceIdx, list[ContextClassified]] = defaultdict(list)
+    total_cost = 0.0
 
-        # Create classified reference
-        classified_references.append(
-            S2ReferenceClassified.from_(reference, contexts=classified_contexts)
+    for ref_idx, result in classified_results:
+        contexts_by_ref[ref_idx].append(result.result)
+        total_cost += result.cost
+
+    classified_references = [
+        S2ReferenceClassified.from_(
+            reference, contexts=contexts_by_ref[_ReferenceIdx(ref_idx)]
         )
-
-    logger.debug("Citation context classification cost: $%.4f", total_cost)
-
-    # Create paper with classified contexts
-    return PaperWithContextClassfied(
-        title=paper_with_s2_refs.title,
-        abstract=paper_with_s2_refs.abstract,
-        reviews=paper_with_s2_refs.reviews,
-        authors=paper_with_s2_refs.authors,
-        sections=paper_with_s2_refs.sections,
-        references=classified_references,
-        rating=paper_with_s2_refs.rating,
-        rationale=paper_with_s2_refs.rationale,
-        year=paper_with_s2_refs.year,
+        for ref_idx, reference in enumerate(paper.references)
+    ]
+    return GPTResult(
+        result=PaperWithContextClassfied.from_(paper, classified_references),
+        cost=total_cost,
     )
 
 
