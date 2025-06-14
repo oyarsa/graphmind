@@ -82,11 +82,12 @@ S2_FIELDS = [*S2_FIELDS_BASE, "tldr", "venue"]
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 
 
-async def get_paper_from_title(title: str) -> Paper:
+async def get_paper_from_title(title: str, limiter: Limiter) -> Paper:
     """Get a single processed Paper from a title using Semantic Scholar and arXiv.
 
     Args:
         title: Paper title to search for.
+        limiter: Limiter for the requests.
 
     Returns:
         Paper object with S2 metadata and parsed arXiv sections/references.
@@ -104,7 +105,7 @@ async def get_paper_from_title(title: str) -> Paper:
 
     # Fetch from Semantic Scholar API
     s2_results = await fetch_arxiv_papers(
-        api_key, [title], S2_FIELDS, desc="Fetching paper from S2"
+        api_key, [title], S2_FIELDS, desc="Fetching paper from S2", limiter=limiter
     )
 
     if not s2_results or not s2_results[0]:
@@ -135,6 +136,7 @@ async def get_paper_from_title(title: str) -> Paper:
 
 async def process_paper_complete(
     paper: Paper,
+    limiter: Limiter,
     *,
     top_k_refs: int = 20,
     num_recommendations: int = 30,
@@ -147,6 +149,7 @@ async def process_paper_complete(
     llm_model: str = "gpt-4o-mini",
     encoder_model: str = emb.DEFAULT_SENTENCE_MODEL,
     seed: int = 0,
+    request_timeout: float = REQUEST_TIMEOUT,
 ) -> gpt.PaperWithRelatedSummary:
     """Process a single paper through the complete pipeline to get related papers.
 
@@ -161,6 +164,7 @@ async def process_paper_complete(
     Args:
         paper: Base paper from ORC dataset with S2 metadata and arXiv
             sections/references.
+        limiter: Limiter for the requests.
         top_k_refs: Number of top references to process by semantic similarity.
         num_recommendations: Number of recommended papers to fetch from S2 API.
         num_related: Number of related papers to return for each type
@@ -173,6 +177,7 @@ async def process_paper_complete(
         llm_model: GPT/Gemini model to use for all API calls.
         encoder_model: Embedding encoder model.
         seed: Random seed for GPT API calls.
+        request_timeout: Maximum time (seconds) for S2 requests before timeout.
 
     Returns:
         Complete paper with related papers and their summaries.
@@ -187,7 +192,6 @@ async def process_paper_complete(
     s2_api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
     client = LLMClient.new_env(llm_model, seed)
     encoder = emb.Encoder(encoder_model)
-    limiter = get_limiter(1, 1)  # 1 request per second
 
     logger.info("Processing paper: %s", paper.title)
 
@@ -195,7 +199,9 @@ async def process_paper_complete(
     logger.debug("Fetching S2 data for recommendations and references in parallel")
     paper_with_s2_refs, recommended_papers = await asyncio.gather(
         enhance_with_s2_references(paper, top_k_refs, encoder, s2_api_key, limiter),
-        fetch_s2_recommendations(paper, num_recommendations, s2_api_key, limiter),
+        fetch_s2_recommendations(
+            paper, num_recommendations, s2_api_key, limiter, request_timeout
+        ),
     )
 
     if not paper_with_s2_refs or not recommended_papers:
@@ -429,7 +435,11 @@ async def extract_recommended_annotations_single(
 
 
 async def fetch_s2_recommendations(
-    paper: Paper, num_recommendations: int, api_key: str, limiter: Limiter
+    paper: Paper,
+    num_recommendations: int,
+    api_key: str,
+    limiter: Limiter,
+    request_timeout: float,
 ) -> list[S2Paper]:
     """Fetch recommended papers from S2 API for the given paper."""
 
@@ -439,6 +449,7 @@ async def fetch_s2_recommendations(
         [paper.title],
         S2_FIELDS,
         desc="Getting paper ID for recommendations",
+        limiter=limiter,
     )
 
     if not s2_results or not s2_results[0]:
@@ -449,7 +460,7 @@ async def fetch_s2_recommendations(
     s2_paper = s2_results[0]
 
     async with aiohttp.ClientSession(
-        timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT), headers={"x-api-key": api_key}
+        timeout=aiohttp.ClientTimeout(request_timeout), headers={"x-api-key": api_key}
     ) as session:
         return await fetch_paper_recommendations(
             session,
@@ -746,6 +757,7 @@ def process_paper(
     seed: Annotated[int, typer.Option(help="Random seed for GPT API calls")] = 0,
 ) -> None:
     """Process a paper title through the complete PETER pipeline and print results."""
+    limiter = get_limiter(1, 1)  # 1 request per second
     arun_safe(
         _process_paper_async,
         title,
@@ -755,6 +767,7 @@ def process_paper(
         llm_model,
         encoder_model,
         seed,
+        limiter,
     )
 
 
@@ -766,12 +779,13 @@ async def _process_paper_async(
     llm_model: str,
     encoder_model: str,
     seed: int,
+    limiter: Limiter,
 ) -> None:
     """Async implementation of paper processing."""
 
     # Step 1: Get paper from title
     print(f"🔍 Retrieving paper: {title}")
-    paper = await get_paper_from_title(title)
+    paper = await get_paper_from_title(title, limiter)
     print(f"✅ Found paper: {paper.title}")
     print(f"📄 Abstract: {paper.abstract[:200]}...")
     print(f"📚 References: {len(paper.references)}")
@@ -782,6 +796,7 @@ async def _process_paper_async(
     print("🚀 Processing through PETER pipeline...")
     result = await process_paper_complete(
         paper,
+        limiter,
         top_k_refs=top_k_refs,
         num_recommendations=num_recommendations,
         num_related=num_related,
