@@ -202,7 +202,7 @@ def _batch_search_arxiv(
             for i, openreview_title in enumerate(openreview_titles_norm):
                 if similar_titles(openreview_title, arxiv_title):
                     results_map[openreview_title] = ArxivResult(
-                        id=result.entry_id.split("/")[-1],
+                        id=arxiv_id_from_url(result.entry_id),
                         openreview_title=openreview_titles[i],
                         arxiv_title=arxiv_title,
                     )
@@ -215,6 +215,11 @@ def _batch_search_arxiv(
         for openreview_title in openreview_titles_norm
         if (result := results_map.get(openreview_title))
     ]
+
+
+def arxiv_id_from_url(url: str) -> str:
+    """Parse arXiv paper ID from the URL (abstract, PDF, etc.)."""
+    return url.split("/")[-1]
 
 
 def similar_titles(title1: str, title2: str) -> bool:
