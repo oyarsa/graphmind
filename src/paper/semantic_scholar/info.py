@@ -48,6 +48,7 @@ from paper.semantic_scholar.model import (
     PeerReadPaperWithS2,
     title_ratio,
 )
+from paper.semantic_scholar.recommended import Limiter
 from paper.util import arun_safe, ensure_envvar, progress, setup_logging
 from paper.util.serde import load_data, save_data
 
@@ -67,7 +68,7 @@ async def fetch_paper_info(
     api_key: str,
     paper_title: str,
     fields: Sequence[str],
-    semaphore: asyncio.Semaphore,
+    limiter: Limiter,
 ) -> PaperFromPeerRead | None:
     """Fetch paper information for a given title. Takes only the best title match.
 
@@ -80,7 +81,7 @@ async def fetch_paper_info(
     }
     headers = {"x-api-key": api_key}
 
-    async with semaphore:
+    async with limiter:
         attempt = 0
         delay = RETRY_DELAY
         while attempt < MAX_RETRIES:
@@ -149,6 +150,7 @@ async def fetch_arxiv_papers(
     fields: Sequence[str],
     *,
     desc: str | None = None,
+    limiter: Limiter | None = None,
 ) -> list[PaperFromPeerRead | None]:
     """Fetch paper information for multiple titles in parallel.
 
@@ -157,6 +159,8 @@ async def fetch_arxiv_papers(
         titles: Paper titles to search for.
         fields: Fields to retrieve from S2 API.
         desc: If provided, used as the description for a progress bar.
+        limiter: If provided, Semaphore/rate limiter for the requests. If not, creates
+            a semaphore with MAX_CONCURRENT_REQUESTS.
 
     Returns:
         List of papers found (includes None for failed/not found papers).
@@ -165,9 +169,9 @@ async def fetch_arxiv_papers(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
         connector=aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS),
     ) as session:
-        semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+        limiter = limiter or asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
         tasks = [
-            fetch_paper_info(session, api_key, title, fields, semaphore)
+            fetch_paper_info(session, api_key, title, fields, limiter)
             for title in titles
         ]
         if desc:
