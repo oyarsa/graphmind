@@ -313,7 +313,8 @@ async def process_paper_complete(
     # Phase 4: Get related papers (simplified approach without full PETER graphs)
     logger.debug("Getting related papers using direct approach")
     related_papers = await timer(
-        get_related_papers_direct(
+        asyncio.to_thread(
+            get_related_papers,
             paper_annotated.result,
             paper_with_classified_contexts.result,
             recommended_annotated.result,
@@ -663,7 +664,7 @@ async def classify_citation_contexts(
     )
 
 
-async def get_related_papers_direct(
+def get_related_papers(
     paper_annotated: gpt.PeerReadAnnotated,
     paper_with_contexts: gpt.PaperWithContextClassfied,
     recommended_papers: Sequence[gpt.PaperAnnotated],
