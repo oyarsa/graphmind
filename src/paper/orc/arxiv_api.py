@@ -5,7 +5,7 @@ import io
 import itertools
 import logging
 import tarfile
-from collections.abc import Iterable
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Annotated
 
@@ -172,11 +172,17 @@ def get_arxiv(openreview_titles: list[str], batch_size: int) -> dict[str, ArxivR
 
 
 @backoff.on_exception(backoff.expo, Exception, max_tries=5)
-def _arxiv_search(
+def arxiv_search(
     client: arxiv.Client, query: str, max_results: int
-) -> Iterable[arxiv.Result]:
+) -> Iterator[arxiv.Result]:
     """Query up to `max_results` matches of `query` on arXiv with retries."""
     return client.results(arxiv.Search(query=query, max_results=max_results))
+
+
+@backoff.on_exception(backoff.expo, Exception, max_tries=5)
+def arxiv_from_id(client: arxiv.Client, arxiv_id: str) -> Iterator[arxiv.Result]:
+    """Query paper ID on arXiv with retries."""
+    return client.results(arxiv.Search(id_list=[arxiv_id]))
 
 
 def _batch_search_arxiv(
@@ -191,10 +197,10 @@ def _batch_search_arxiv(
     openreview_titles_norm = [normalise_title(t) for t in openreview_titles]
 
     try:
-        for result in _arxiv_search(client, query, len(openreview_titles)):
+        for result in arxiv_search(client, query, len(openreview_titles)):
             arxiv_title = result.title
             for i, openreview_title in enumerate(openreview_titles_norm):
-                if _similar_titles(openreview_title, arxiv_title):
+                if similar_titles(openreview_title, arxiv_title):
                     results_map[openreview_title] = ArxivResult(
                         id=result.entry_id.split("/")[-1],
                         openreview_title=openreview_titles[i],
@@ -211,7 +217,7 @@ def _batch_search_arxiv(
     ]
 
 
-def _similar_titles(title1: str, title2: str) -> bool:
+def similar_titles(title1: str, title2: str) -> bool:
     """Check if two titles are similar (case-insensitive, stripped)."""
     t1 = title1.casefold().strip()
     t2 = title2.casefold().strip()
