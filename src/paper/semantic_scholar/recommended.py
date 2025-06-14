@@ -17,7 +17,6 @@ The output is two files:
 from __future__ import annotations
 
 import asyncio
-import os
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -27,7 +26,6 @@ import aiohttp
 import backoff
 import dotenv
 import typer
-from aiolimiter import AsyncLimiter
 
 from paper.semantic_scholar.model import (
     Paper,
@@ -43,6 +41,7 @@ from paper.util import (
     render_params,
 )
 from paper.util.cli import die
+from paper.util.rate_limiter import Limiter, get_limiter
 from paper.util.serde import load_data, save_data
 
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
@@ -53,34 +52,6 @@ S2_RECOMMENDATIONS_BASE_URL = (
 
 MAX_CONCURRENT_REQUESTS = 1
 REQUESTS_PER_SECOND = 1
-
-type Limiter = asyncio.Semaphore | AsyncLimiter
-
-
-def get_limiter(
-    max_concurrent_requests: int = 1,
-    requests_per_second: float = 1,
-    use_semaphore: bool | None = None,
-) -> Limiter:
-    """Create some form of requests limiter based on the `USE_SEMAPHORE` env var.
-
-    Args:
-        max_concurrent_requests: When using a semaphore, the maximum number of requests
-            (async tasks) that can execute simultaneously. The rest will wait until
-            there's room available.
-        requests_per_second: Number of requests per second that can be made.
-        use_semaphore: Which one to use. If None, will check the USE_SEMAPHORE env var.
-            If USE_SEMAPHORE is 1, use a Semaphore. Otherwise, use a rate limiter.
-
-    Use Semaphore with small batches when you're not too worried about the rate limit,
-    or Rate Limiiter when you want something more reliable.
-    """
-    if use_semaphore is None:
-        use_semaphore = os.environ.get("USE_SEMAPHORE", "1") == "1"
-
-    if use_semaphore:
-        return asyncio.Semaphore(max_concurrent_requests)
-    return AsyncLimiter(requests_per_second, 1)
 
 
 LIMITER = get_limiter(MAX_CONCURRENT_REQUESTS, REQUESTS_PER_SECOND)
@@ -301,7 +272,7 @@ async def fetch_paper_recommendations(
     paper_id: str,
     fields: Iterable[str],
     limit_recommendations: int,
-    limiter: asyncio.Semaphore | AsyncLimiter,
+    limiter: Limiter,
     from_: str = "all-cs",
 ) -> list[Paper]:
     """Fetch paper recommendations from a paper in all VALID_FROM pools.
@@ -346,7 +317,7 @@ async def fetch_paper_recommendations_from(
     paper_id: str,
     fields: Iterable[str],
     limit_recommendations: int,
-    limiter: asyncio.Semaphore | AsyncLimiter,
+    limiter: Limiter,
     from_: str,
 ) -> list[Paper]:
     """Fetch paper recommendations for a paper. Only returns data from `fields`.

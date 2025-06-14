@@ -51,13 +51,9 @@ from paper.peerread.model import Paper
 from paper.semantic_scholar.info import fetch_arxiv_papers, get_top_k_titles
 from paper.semantic_scholar.model import Paper as S2Paper
 from paper.semantic_scholar.model import PaperWithS2Refs
-from paper.semantic_scholar.recommended import (
-    REQUEST_TIMEOUT,
-    Limiter,
-    fetch_paper_recommendations,
-    get_limiter,
-)
+from paper.semantic_scholar.recommended import fetch_paper_recommendations
 from paper.util import arun_safe, ensure_envvar, progress
+from paper.util.rate_limiter import Limiter, get_limiter
 
 if TYPE_CHECKING:
     from paper.gpt.model import PaperRelatedSummarised
@@ -82,6 +78,8 @@ S2_FIELDS_BASE = [
 
 # Full fields including venue and tldr
 S2_FIELDS = [*S2_FIELDS_BASE, "tldr", "venue"]
+
+REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 
 
 async def get_paper_from_title(title: str) -> Paper:
