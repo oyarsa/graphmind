@@ -757,7 +757,6 @@ def single_paper(
     seed: Annotated[int, typer.Option(help="Random seed for GPT API calls")] = 0,
 ) -> None:
     """Process a paper title through the complete PETER pipeline and print results."""
-    limiter = get_limiter(1, 1)  # 1 request per second
     arun_safe(
         process_paper,
         title,
@@ -767,11 +766,10 @@ def single_paper(
         llm_model,
         encoder_model,
         seed,
-        limiter,
     )
 
 
-async def process_paper(
+async def process_paper_from_title(
     title: str,
     top_k_refs: int,
     num_recommendations: int,
@@ -780,8 +778,8 @@ async def process_paper(
     encoder_model: str,
     seed: int,
     limiter: Limiter,
-) -> None:
-    """Process a single paper through the complete PETER pipeline and display results.
+) -> gpt.PaperWithRelatedSummary:
+    """Process a paper by title through the complete PETER pipeline.
 
     This function provides a complete end-to-end paper processing pipeline that:
     1. Retrieves paper from Semantic Scholar and arXiv using the title
@@ -791,7 +789,6 @@ async def process_paper(
        - Citation context classification (positive/negative polarity)
        - Related paper discovery via citations and semantic matching
        - GPT-generated summaries of related papers
-    3. Displays comprehensive results with paper details and related papers
 
     Args:
         title: Paper title to search for and process.
@@ -804,6 +801,9 @@ async def process_paper(
         seed: Random seed for GPT API calls to ensure reproducibility.
         limiter: Rate limiter for Semantic Scholar API requests to prevent 429 errors.
 
+    Returns:
+        Complete paper with related papers and their summaries.
+
     Raises:
         ValueError: If paper is not found on Semantic Scholar or arXiv, or if no
             recommended papers or valid references are found during processing.
@@ -811,24 +811,9 @@ async def process_paper(
 
     Requires:
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
-
-    Note:
-        This function outputs results directly to stdout and does not return processed
-        data. Use `process_paper_complete` if you need the structured result data.
     """
-
-    # Step 1: Get paper from title
-    print(f"🔍 Retrieving paper: {title}")
     paper = await get_paper_from_title(title, limiter)
-    print(f"✅ Found paper: {paper.title}")
-    print(f"📄 Abstract: {paper.abstract[:200]}...")
-    print(f"📚 References: {len(paper.references)}")
-    print(f"📖 Sections: {len(paper.sections)}")
-    print()
-
-    # Step 2: Process paper through complete pipeline
-    print("🚀 Processing through PETER pipeline...")
-    result = await process_paper_complete(
+    return await process_paper_complete(
         paper,
         limiter,
         top_k_refs=top_k_refs,
@@ -839,7 +824,19 @@ async def process_paper(
         seed=seed,
     )
 
-    # Step 3: Print full results
+
+def display_paper_results(result: gpt.PaperWithRelatedSummary) -> None:
+    """Display comprehensive results from processed paper.
+
+    Prints a formatted summary of the paper processing results including:
+    - Main paper details (title, abstract, key terms, background, target)
+    - Citation-based related papers (positive and negative)
+    - Semantic-based related papers (positive and negative)
+    - Summaries and scores for each related paper
+
+    Args:
+        result: Complete processed paper with related papers and summaries.
+    """
     print("\n" + "=" * 80)
     print("📊 COMPLETE PAPER PROCESSING RESULTS")
     print("=" * 80)
@@ -886,6 +883,63 @@ async def process_paper(
         result, rp.ContextPolarity.NEGATIVE, rp.PaperSource.SEMANTIC
     )
     print("\n".join(map(display_related_paper, semantic_negative)))
+
+
+async def process_paper(
+    title: str,
+    top_k_refs: int,
+    num_recommendations: int,
+    num_related: int,
+    llm_model: str,
+    encoder_model: str,
+    seed: int,
+) -> None:
+    """Process a paper by title and display results.
+
+    Convenience function that combines processing and display:
+    1. Retrieves and processes paper through complete PETER pipeline.
+    2. Displays comprehensive results to stdout.
+
+    Args:
+        title: Paper title to search for and process.
+        top_k_refs: Number of top references to process by semantic similarity.
+        num_recommendations: Number of recommended papers to fetch from S2 API.
+        num_related: Number of related papers to return for each type
+            (citations/semantic, positive/negative).
+        llm_model: GPT/Gemini model to use for all LLM API calls.
+        encoder_model: Embedding encoder model for semantic similarity computations.
+        seed: Random seed for GPT API calls to ensure reproducibility.
+
+    Raises:
+        ValueError: If paper is not found on Semantic Scholar or arXiv, or if no
+            recommended papers or valid references are found during processing.
+        RuntimeError: If LaTeX parsing fails or other processing errors occur.
+
+    Requires:
+        SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
+    """
+    limiter = get_limiter(1, 1)  # 1 request per second
+    print(f"🔍 Retrieving paper: {title}")
+
+    result = await process_paper_from_title(
+        title,
+        top_k_refs,
+        num_recommendations,
+        num_related,
+        llm_model,
+        encoder_model,
+        seed,
+        limiter,
+    )
+
+    print(f"✅ Found paper: {result.paper.paper.title}")
+    print(f"📄 Abstract: {result.paper.paper.abstract[:200]}...")
+    print(f"📚 References: {len(result.paper.paper.references)}")
+    print(f"📖 Sections: {len(result.paper.paper.sections)}")
+    print()
+    print("🚀 Processing through PETER pipeline...")
+
+    display_paper_results(result)
 
 
 def filter_related(
