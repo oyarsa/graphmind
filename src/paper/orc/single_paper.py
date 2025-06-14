@@ -48,6 +48,7 @@ from paper.gpt.summarise_related_peter import (
 from paper.orc.arxiv_api import (
     ArxivResult,
     arxiv_from_id,
+    arxiv_id_from_url,
     arxiv_search,
     similar_titles,
 )
@@ -843,7 +844,7 @@ def single_paper(
         str | None, typer.Option(help="Title of the paper to process")
     ] = None,
     id: Annotated[
-        str | None, typer.Option(help="Title of the paper to process")
+        str | None, typer.Option(help="arXiv ID or URL of the paper to process")
     ] = None,
     top_k_refs: Annotated[
         int, typer.Option(help="Number of top references to process by similarity")
@@ -905,7 +906,7 @@ async def process_paper_from_title_or_id(
 
     Args:
         title: Paper title to search for and process.
-        arxiv_id: arXiv ID for the paper to process.
+        arxiv_id: arXiv ID or URL for the paper to process.
         top_k_refs: Number of top references to process by semantic similarity.
         num_recommendations: Number of recommended papers to fetch from S2 API.
         num_related: Number of related papers to return for each type
@@ -932,6 +933,7 @@ async def process_paper_from_title_or_id(
         paper = await get_paper_from_title(title, limiter, api_key)
     else:
         assert arxiv_id, "Title or ID must be given."
+        arxiv_id = arxiv_id_from_url(arxiv_id)
         logger.info("Searching by arXiv ID: %s", arxiv_id)
         paper = await get_paper_from_arxiv_id(arxiv_id, limiter, api_key)
 
@@ -1027,7 +1029,7 @@ async def process_paper(
 
     Args:
         title: Paper title to search for and process.
-        arxiv_id: arXiv ID of the paper to process.
+        arxiv_id: arXiv ID or URL of the paper to process.
         top_k_refs: Number of top references to process by semantic similarity.
         num_recommendations: Number of recommended papers to fetch from S2 API.
         num_related: Number of related papers to return for each type
@@ -1105,7 +1107,7 @@ async def get_arxiv_from_title(openreview_title: str) -> ArxivResult | None:
         result = next(await asyncio.to_thread(arxiv_search, client, query, 1))
         if similar_titles(openreview_title, result.title):
             return ArxivResult(
-                id=result.entry_id.split("/")[-1],
+                id=arxiv_id_from_url(result.entry_id),
                 openreview_title=openreview_title,
                 arxiv_title=result.title,
             )
