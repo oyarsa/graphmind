@@ -754,6 +754,9 @@ def single_paper(
         str, typer.Option(help="Embedding encoder model")
     ] = emb.DEFAULT_SENTENCE_MODEL,
     seed: Annotated[int, typer.Option(help="Random seed for GPT API calls")] = 0,
+    detail: Annotated[
+        bool, typer.Option(help="Show detailed paper information.")
+    ] = False,
 ) -> None:
     """Process a paper title through the complete PETER pipeline and print results."""
     arun_safe(
@@ -765,6 +768,7 @@ def single_paper(
         llm_model,
         encoder_model,
         seed,
+        detail,
     )
 
 
@@ -813,6 +817,7 @@ async def process_paper_from_title(
     """
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
     paper = await get_paper_from_title(title, limiter, api_key)
+
     return await process_paper_complete(
         paper,
         limiter,
@@ -894,6 +899,7 @@ async def process_paper(
     llm_model: str,
     encoder_model: str,
     seed: int,
+    detail: bool,
 ) -> None:
     """Process a paper by title and display results.
 
@@ -910,6 +916,7 @@ async def process_paper(
         llm_model: GPT/Gemini model to use for all LLM API calls.
         encoder_model: Embedding encoder model for semantic similarity computations.
         seed: Random seed for GPT API calls to ensure reproducibility.
+        detail: Show detailed paper information.
 
     Raises:
         ValueError: If paper is not found on Semantic Scholar or arXiv, or if no
@@ -940,7 +947,8 @@ async def process_paper(
     print()
     print("🚀 Processing through PETER pipeline...")
 
-    display_paper_results(result)
+    if detail:
+        display_paper_results(result)
 
 
 def filter_related(
