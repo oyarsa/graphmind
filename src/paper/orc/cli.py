@@ -29,7 +29,7 @@ from paper.orc.arxiv_api import latex, latex_all
 from paper.orc.download import reviews, reviews_all, reviews_from_titles
 from paper.orc.latex_parser import parse, parse_all
 from paper.orc.preprocess import preprocess
-from paper.orc.single_paper import process_paper as single_paper
+from paper.orc.single_paper import single_paper
 from paper.util import setup_logging
 
 logger = logging.getLogger(__name__)

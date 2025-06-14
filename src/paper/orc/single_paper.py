@@ -737,7 +737,7 @@ async def generate_summary_single(
     )
 
 
-def process_paper(
+def single_paper(
     title: Annotated[str, typer.Argument(help="Title of the paper to process")],
     top_k_refs: Annotated[
         int, typer.Option(help="Number of top references to process by similarity")
@@ -759,7 +759,7 @@ def process_paper(
     """Process a paper title through the complete PETER pipeline and print results."""
     limiter = get_limiter(1, 1)  # 1 request per second
     arun_safe(
-        _process_paper_async,
+        process_paper,
         title,
         top_k_refs,
         num_recommendations,
@@ -771,7 +771,7 @@ def process_paper(
     )
 
 
-async def _process_paper_async(
+async def process_paper(
     title: str,
     top_k_refs: int,
     num_recommendations: int,
@@ -781,7 +781,41 @@ async def _process_paper_async(
     seed: int,
     limiter: Limiter,
 ) -> None:
-    """Async implementation of paper processing."""
+    """Process a single paper through the complete PETER pipeline and display results.
+
+    This function provides a complete end-to-end paper processing pipeline that:
+    1. Retrieves paper from Semantic Scholar and arXiv using the title
+    2. Processes the paper through the complete PETER pipeline including:
+       - S2 reference enhancement with top-k semantic similarity filtering
+       - GPT-based annotation extraction (key terms, background, target)
+       - Citation context classification (positive/negative polarity)
+       - Related paper discovery via citations and semantic matching
+       - GPT-generated summaries of related papers
+    3. Displays comprehensive results with paper details and related papers
+
+    Args:
+        title: Paper title to search for and process.
+        top_k_refs: Number of top references to process by semantic similarity.
+        num_recommendations: Number of recommended papers to fetch from S2 API.
+        num_related: Number of related papers to return for each type
+            (citations/semantic, positive/negative).
+        llm_model: GPT/Gemini model to use for all LLM API calls.
+        encoder_model: Embedding encoder model for semantic similarity computations.
+        seed: Random seed for GPT API calls to ensure reproducibility.
+        limiter: Rate limiter for Semantic Scholar API requests to prevent 429 errors.
+
+    Raises:
+        ValueError: If paper is not found on Semantic Scholar or arXiv, or if no
+            recommended papers or valid references are found during processing.
+        RuntimeError: If LaTeX parsing fails or other processing errors occur.
+
+    Requires:
+        SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
+
+    Note:
+        This function outputs results directly to stdout and does not return processed
+        data. Use `process_paper_complete` if you need the structured result data.
+    """
 
     # Step 1: Get paper from title
     print(f"🔍 Retrieving paper: {title}")
