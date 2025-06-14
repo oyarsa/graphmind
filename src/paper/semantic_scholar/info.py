@@ -33,7 +33,7 @@ import asyncio
 import logging
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import aiohttp
 import dotenv
@@ -63,17 +63,14 @@ S2_SEARCH_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 logger = logging.getLogger("paper.semantic_scholar.info")
 
 
-async def fetch_paper_info(
+async def fetch_paper_data(
     session: aiohttp.ClientSession,
     api_key: str,
     paper_title: str,
     fields: Sequence[str],
     limiter: Limiter,
-) -> PaperFromPeerRead | None:
-    """Fetch paper information for a given title. Takes only the best title match.
-
-    The title match is done by the S2 API, not us. It's usually pretty good.
-    """
+) -> dict[str, Any] | None:
+    """Fetch raw paper data from the API with retry logic."""
     params = {
         "query": paper_title,
         "fields": ",".join(fields),
@@ -92,9 +89,7 @@ async def fetch_paper_info(
                     if response.status == 200:
                         data = await response.json()
                         if data.get("data"):
-                            return PaperFromPeerRead.model_validate(
-                                data["data"][0] | {"title_query": paper_title}
-                            )
+                            return data["data"][0] | {"title_query": paper_title}
                         logger.debug(f"No results found for title: {paper_title}")
                         return None
 
@@ -131,9 +126,6 @@ async def fetch_paper_info(
                 )
                 await asyncio.sleep(delay)
                 delay *= BACKOFF_FACTOR
-            except ValidationError as e:
-                logger.debug("Validation error: %s.", e)
-                return None
 
             attempt += 1
 
@@ -143,7 +135,28 @@ async def fetch_paper_info(
         return None
 
 
-# TODO: The fields are not customisable. Remove the parameter and use a hardcoded list.
+async def fetch_paper_info(
+    session: aiohttp.ClientSession,
+    api_key: str,
+    paper_title: str,
+    fields: Sequence[str],
+    limiter: Limiter,
+) -> PaperFromPeerRead | None:
+    """Fetch paper information for a given title. Takes only the best title match.
+
+    The title match is done by the S2 API, not us. It's usually pretty good.
+    """
+    raw_data = await fetch_paper_data(session, api_key, paper_title, fields, limiter)
+    if raw_data is None:
+        return None
+
+    try:
+        return PaperFromPeerRead.model_validate(raw_data)
+    except ValidationError as e:
+        logger.debug("Validation error: %s.", e)
+        return None
+
+
 async def fetch_arxiv_papers(
     api_key: str,
     titles: Sequence[str],
