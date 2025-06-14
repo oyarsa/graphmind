@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, NewType
 
 import aiohttp
+import arxiv  # type: ignore
 import typer
 
 from paper import embedding as emb
@@ -44,7 +45,12 @@ from paper.gpt.summarise_related_peter import (
     GPTRelatedSummary,
     format_template,
 )
-from paper.orc.arxiv_api import get_arxiv, normalise_title
+from paper.orc.arxiv_api import (
+    ArxivResult,
+    arxiv_from_id,
+    arxiv_search,
+    similar_titles,
+)
 from paper.orc.download import parse_arxiv_latex
 from paper.orc.latex_parser import SentenceSplitter
 from paper.peerread.model import Paper
@@ -57,6 +63,7 @@ from paper.semantic_scholar.model import Paper as S2Paper
 from paper.semantic_scholar.model import PaperWithS2Refs
 from paper.semantic_scholar.recommended import fetch_paper_recommendations
 from paper.util import Timer, arun_safe, ensure_envvar, progress
+from paper.util.cli import die
 from paper.util.rate_limiter import Limiter, get_limiter
 
 if TYPE_CHECKING:
@@ -117,16 +124,71 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> Pa
     s2_paper = s2_results[0]
 
     # Query arXiv for LaTeX content
-    openreview_to_arxiv = await timer(
-        asyncio.to_thread(get_arxiv, [s2_paper.title], batch_size=1),
-        "query arxiv for latex",
+    arxiv_result = await timer(
+        get_arxiv_from_title(s2_paper.title), "query arxiv from title"
     )
-
-    normalized_title = normalise_title(s2_paper.title)
-    arxiv_result = openreview_to_arxiv.get(normalized_title)
 
     if not arxiv_result:
         raise ValueError(f"Paper not found on arXiv: {s2_paper.title}")
+    logger.debug("arXiv result: %s", arxiv_result)
+
+    # Parse arXiv LaTeX
+    splitter = SentenceSplitter()
+    sections, references = await timer(
+        asyncio.to_thread(parse_arxiv_latex, arxiv_result, splitter),
+        "parse arXiv LaTeX",
+    )
+
+    # Create and return Paper object
+    return Paper.from_s2(
+        s2_paper,
+        sections=sections,
+        references=references,
+    )
+
+
+async def get_paper_from_arxiv_id(
+    arxiv_id: str, limiter: Limiter, api_key: str
+) -> Paper:
+    """Get a single processed Paper from the arXiv ID using Semantic Scholar and arXiv.
+
+    Args:
+        arxiv_id: ID of the paper on arXiv.
+        limiter: Limiter for the requests.
+        api_key: Semantic Scholar API key.
+
+    Returns:
+        Paper object with S2 metadata and parsed arXiv sections/references.
+
+    Raises:
+        ValueError: If paper is not found on Semantic Scholar or arXiv.
+        RuntimeError: If LaTeX parsing fails or other processing errors occur.
+
+    Requires:
+        SEMANTIC_SCHOLAR_API_KEY environment variable.
+    """
+    arxiv_result = await timer(get_arxiv_from_id(arxiv_id), "get arxiv from id")
+    if not arxiv_result:
+        raise ValueError(f"Paper not found on arXiv: {arxiv_id}")
+    logger.debug("arXiv result: %s", arxiv_result)
+
+    s2_results = await timer(
+        fetch_arxiv_papers(
+            api_key,
+            [arxiv_result.arxiv_title],
+            S2_FIELDS,
+            desc="Fetching paper from S2",
+            limiter=limiter,
+        ),
+        "fetch paper from s2",
+    )
+
+    if not s2_results or not s2_results[0]:
+        raise ValueError(
+            f"Paper not found on Semantic Scholar: {arxiv_result.arxiv_title}"
+        )
+
+    s2_paper = s2_results[0]
 
     # Parse arXiv LaTeX
     splitter = SentenceSplitter()
@@ -777,7 +839,12 @@ async def generate_summary_single(
 
 
 def single_paper(
-    title: Annotated[str, typer.Argument(help="Title of the paper to process")],
+    title: Annotated[
+        str | None, typer.Option(help="Title of the paper to process")
+    ] = None,
+    id: Annotated[
+        str | None, typer.Option(help="Title of the paper to process")
+    ] = None,
     top_k_refs: Annotated[
         int, typer.Option(help="Number of top references to process by similarity")
     ] = 20,
@@ -802,6 +869,7 @@ def single_paper(
     arun_safe(
         process_paper,
         title,
+        id,
         top_k_refs,
         num_recommendations,
         num_related,
@@ -813,8 +881,9 @@ def single_paper(
 
 
 # TODO: Add Process executor parameter so encoding doesn't block the async loop
-async def process_paper_from_title(
-    title: str,
+async def process_paper_from_title_or_id(
+    title: str | None,
+    arxiv_id: str | None,
     top_k_refs: int,
     num_recommendations: int,
     num_related: int,
@@ -836,6 +905,7 @@ async def process_paper_from_title(
 
     Args:
         title: Paper title to search for and process.
+        arxiv_id: arXiv ID for the paper to process.
         top_k_refs: Number of top references to process by semantic similarity.
         num_recommendations: Number of recommended papers to fetch from S2 API.
         num_related: Number of related papers to return for each type
@@ -857,7 +927,13 @@ async def process_paper_from_title(
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
-    paper = await get_paper_from_title(title, limiter, api_key)
+    if title:
+        logger.info("Searching by title: %s", title)
+        paper = await get_paper_from_title(title, limiter, api_key)
+    else:
+        assert arxiv_id, "Title or ID must be given."
+        logger.info("Searching by arXiv ID: %s", arxiv_id)
+        paper = await get_paper_from_arxiv_id(arxiv_id, limiter, api_key)
 
     return await process_paper_complete(
         paper,
@@ -933,7 +1009,8 @@ def display_paper_results(result: gpt.PaperWithRelatedSummary) -> None:
 
 
 async def process_paper(
-    title: str,
+    title: str | None,
+    arxiv_id: str | None,
     top_k_refs: int,
     num_recommendations: int,
     num_related: int,
@@ -950,6 +1027,7 @@ async def process_paper(
 
     Args:
         title: Paper title to search for and process.
+        arxiv_id: arXiv ID of the paper to process.
         top_k_refs: Number of top references to process by semantic similarity.
         num_recommendations: Number of recommended papers to fetch from S2 API.
         num_related: Number of related papers to return for each type
@@ -967,11 +1045,16 @@ async def process_paper(
     Requires:
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
-    limiter = get_limiter(1, 1)  # 1 request per second
-    print(f"🔍 Retrieving paper: {title}")
+    if not title and not arxiv_id:
+        die("Either --title or --id must be given.")
+    if title and arxiv_id:
+        die("Only one of --title or --id must be given.")
 
-    result = await process_paper_from_title(
+    limiter = get_limiter(1, 1)  # 1 request per second
+
+    result = await process_paper_from_title_or_id(
         title,
+        arxiv_id,
         top_k_refs,
         num_recommendations,
         num_related,
@@ -980,7 +1063,6 @@ async def process_paper(
         seed,
         limiter,
     )
-
     print(f"✅ Found paper: {result.paper.paper.title}")
     print(f"📄 Abstract: {result.paper.paper.abstract[:200]}...")
     print(f"📚 References: {len(result.paper.paper.references)}")
@@ -1011,3 +1093,40 @@ def display_related_paper(related: PaperRelatedSummarised) -> str:
         f"      Summary: {related.summary[:100]}...",
     ]
     return "\n".join(out) + "\n"
+
+
+async def get_arxiv_from_title(openreview_title: str) -> ArxivResult | None:
+    """Get ArxivResult for a single OpenReview paper title if it exists on arXiv."""
+    client = arxiv.Client()
+
+    query = f'ti:"{openreview_title}"'
+
+    try:
+        result = next(await asyncio.to_thread(arxiv_search, client, query, 1))
+        if similar_titles(openreview_title, result.title):
+            return ArxivResult(
+                id=result.entry_id.split("/")[-1],
+                openreview_title=openreview_title,
+                arxiv_title=result.title,
+            )
+    except Exception as e:
+        logger.warning(f"Error searching for '{openreview_title}' on arXiv: {e}")
+
+    return None
+
+
+async def get_arxiv_from_id(arxiv_id: str) -> ArxivResult | None:
+    """Get ArxivResult for a single OpenReview paper title if it exists on arXiv."""
+    client = arxiv.Client()
+
+    try:
+        result = next(await asyncio.to_thread(arxiv_from_id, client, arxiv_id))
+        return ArxivResult(
+            id=arxiv_id,
+            openreview_title=result.title,
+            arxiv_title=result.title,
+        )
+    except Exception as e:
+        logger.warning(f"Error searching for '{arxiv_id}' on arXiv: {e}")
+
+    return None
