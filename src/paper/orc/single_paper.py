@@ -196,7 +196,7 @@ async def process_paper_complete(
     # Phase 1: Fetch S2 recommended papers and reference data in parallel
     logger.debug("Fetching S2 data for recommendations and references in parallel")
     paper_with_s2_refs, recommended_papers = await asyncio.gather(
-        enhance_with_s2_references(paper, top_k_refs, encoder, s2_api_key),
+        enhance_with_s2_references(paper, top_k_refs, encoder, s2_api_key, limiter),
         fetch_s2_recommendations(paper, num_recommendations, s2_api_key, limiter),
     )
 
@@ -259,7 +259,7 @@ async def process_paper_complete(
 
 
 async def enhance_with_s2_references(
-    paper: Paper, top_k: int, encoder: emb.Encoder, api_key: str
+    paper: Paper, top_k: int, encoder: emb.Encoder, api_key: str, limiter: Limiter
 ) -> PaperWithS2Refs:
     """Enhance paper with S2 reference information for top-k similar references."""
     # Get top-k reference titles by semantic similarity
@@ -276,6 +276,7 @@ async def enhance_with_s2_references(
         top_ref_titles,
         [*S2_FIELDS_BASE, "tldr"],
         desc="Fetching S2 data for references",
+        limiter=limiter,
     )
 
     # Create S2Reference objects by matching with original references
