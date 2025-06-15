@@ -1055,17 +1055,19 @@ async def process_paper(
 
     limiter = get_limiter(1, 1)  # 1 request per second
 
-    result = await process_paper_from_title_or_id(
-        title,
-        arxiv_id,
-        top_k_refs,
-        num_recommendations,
-        num_related,
-        llm_model,
-        encoder_model,
-        seed,
-        limiter,
-    )
+    with Timer("full single paper") as t:
+        result = await process_paper_from_title_or_id(
+            title,
+            arxiv_id,
+            top_k_refs,
+            num_recommendations,
+            num_related,
+            llm_model,
+            encoder_model,
+            seed,
+            limiter,
+        )
+    print(t)
     print(f"✅ Found paper: {result.paper.paper.title}")
     print(f"📄 Abstract: {result.paper.paper.abstract[:200]}...")
     print(f"📚 References: {len(result.paper.paper.references)}")
