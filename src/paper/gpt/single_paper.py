@@ -142,18 +142,12 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr
     logger.debug("arXiv result: %s", arxiv_result)
 
     # Parse arXiv LaTeX
-    splitter = SentenceSplitter()
     sections, references = await timer(
-        asyncio.to_thread(parse_arxiv_latex, arxiv_result, splitter),
+        asyncio.to_thread(parse_arxiv_latex, arxiv_result, SentenceSplitter()),
         ">>> parse arXiv LaTeX",
     )
 
-    # Create and return Paper object
-    return pr.Paper.from_s2(
-        s2_paper,
-        sections=sections,
-        references=references,
-    )
+    return pr.Paper.from_s2(s2_paper, sections=sections, references=references)
 
 
 async def get_paper_from_arxiv_id(
@@ -177,21 +171,18 @@ async def get_paper_from_arxiv_id(
         SEMANTIC_SCHOLAR_API_KEY environment variable.
     """
     # First get arXiv result to get the title for S2 lookup
-    arxiv_result = await timer(get_arxiv_from_id(arxiv_id), ">>> get arxiv from id")
+    arxiv_result = await timer(
+        get_arxiv_from_id(arxiv_id),
+        ">>> get arxiv from id",
+    )
     if not arxiv_result:
         raise ValueError(f"Paper not found on arXiv: {arxiv_id}")
     logger.debug("arXiv result: %s", arxiv_result)
 
     # Run S2 lookup and LaTeX parsing in parallel
-    s2_results, (sections, references) = await asyncio.gather(
+    s2_paper, (sections, references) = await asyncio.gather(
         timer(
-            fetch_arxiv_papers(
-                api_key,
-                [arxiv_result.arxiv_title],
-                S2_FIELDS,
-                desc="Fetching paper from S2",
-                limiter=limiter,
-            ),
+            fetch_s2_paper_info(api_key, arxiv_result.arxiv_title, limiter=limiter),
             ">>> fetch paper from s2",
         ),
         timer(
@@ -200,19 +191,12 @@ async def get_paper_from_arxiv_id(
         ),
     )
 
-    if not s2_results or not s2_results[0]:
+    if not s2_paper:
         raise ValueError(
             f"Paper not found on Semantic Scholar: {arxiv_result.arxiv_title}"
         )
 
-    s2_paper = s2_results[0]
-
-    # Create and return Paper object
-    return pr.Paper.from_s2(
-        s2_paper,
-        sections=sections,
-        references=references,
-    )
+    return pr.Paper.from_s2(s2_paper, sections=sections, references=references)
 
 
 async def annotate_paper_pipeline(
@@ -389,15 +373,14 @@ async def enhance_with_s2_references(
         if (s2_paper := s2_papers_from_query.get(s2.clean_title(ref.title)))
     ]
 
-    logger.debug(
-        f"{len(paper.references) = } {len(s2_results) = } {len(s2_references) = }"
-    )
-    # Create enhanced paper with S2 references
+    logger.debug(f"{len(paper.references)=}, {len(s2_results)=}, {len(s2_references)=}")
     return s2.PaperWithS2Refs.from_peer(paper, s2_references)
 
 
 @dataclass(frozen=True, kw_only=True)
-class _PaperAnnotations:
+class PaperAnnotations:
+    """GPT-extracted annotated terms and classified abstract."""
+
     terms: gpt.PaperTerms
     abstr: GPTAbstractClassify
 
@@ -408,7 +391,7 @@ async def extract_annotations(
     client: LLMClient,
     term_prompt: gpt.PromptTemplate,
     abstract_prompt: gpt.PromptTemplate,
-) -> GPTResult[_PaperAnnotations]:
+) -> GPTResult[PaperAnnotations]:
     """Extracting annotations from a paper given title and abstract.
 
     Args:
@@ -425,7 +408,7 @@ async def extract_annotations(
     # Prepare prompts
     term_prompt_text = term_prompt.template.format(title=title, abstract=abstract)
     abstract_prompt_text = abstract_prompt.template.format(
-        demonstrations="",  # No demonstrations for now
+        demonstrations="",  # TODO: No demonstrations for now
         abstract=abstract,
     )
 
@@ -445,7 +428,7 @@ async def extract_annotations(
         logger.warning("Paper '%s': invalid GPTAbstractClassify", title)
 
     return GPTResult(
-        result=_PaperAnnotations(terms=terms, abstr=abstract_classification),
+        result=PaperAnnotations(terms=terms, abstr=abstract_classification),
         cost=result_term.cost + result_abstract.cost,
     )
 
@@ -457,11 +440,9 @@ async def extract_paper_annotations(
     abstract_prompt_key: str,
 ) -> GPTResult[gpt.PeerReadAnnotated]:
     """Extract key terms and background/target information from paper using GPT."""
-    # Use specified prompts
     term_prompt = TERM_USER_PROMPTS[term_prompt_key]
     abstract_prompt = ABS_USER_PROMPTS[abstract_prompt_key]
 
-    # Extract annotations using shared helper
     result = await extract_annotations(
         paper_with_s2_refs.title,
         paper_with_s2_refs.abstract,
@@ -470,11 +451,11 @@ async def extract_paper_annotations(
         abstract_prompt,
     )
     return result.map(
-        lambda a: gpt.PeerReadAnnotated(
-            terms=a.terms,
+        lambda ann: gpt.PeerReadAnnotated(
+            terms=ann.terms,
             paper=paper_with_s2_refs,
-            background=a.abstr.background,
-            target=a.abstr.target,
+            background=ann.abstr.background,
+            target=ann.abstr.target,
         )
     )
 
@@ -486,7 +467,6 @@ async def extract_recommended_annotations(
     abstract_prompt_key: str,
 ) -> GPTResult[Sequence[gpt.PaperAnnotated]]:
     """Extract annotations from recommended papers using GPT."""
-    # Use the same prompts as for the main paper
     term_prompt = TERM_USER_PROMPTS[term_prompt_key]
     abstract_prompt = ABS_USER_PROMPTS[abstract_prompt_key]
 
@@ -495,7 +475,7 @@ async def extract_recommended_annotations(
             client, term_prompt, abstract_prompt, s2_paper
         )
         for s2_paper in recommended_papers
-        if s2_paper.abstract
+        if s2_paper.abstract and s2_paper.title
     ]
     return gpt_sequence(await asyncio.gather(*tasks))
 
@@ -546,7 +526,8 @@ async def fetch_s2_recommendations(
             session, api_key, paper.title, ["paperId"], limiter
         )
 
-    if not data or not data.get("paperId"):
+    paper_id = (data or {}).get("paperId")
+    if not paper_id:
         logger.warning(
             "Paper '%s' not found on S2 - cannot fetch recommendations", paper.title
         )
@@ -558,7 +539,7 @@ async def fetch_s2_recommendations(
         return await fetch_paper_recommendations(
             session,
             paper.title,
-            data["paperId"],
+            paper_id,
             S2_FIELDS_BASE,
             num_recommendations,
             limiter,
@@ -567,18 +548,18 @@ async def fetch_s2_recommendations(
 
 
 @dataclass(frozen=True, kw_only=True)
-class _ClassifyContextSpec:
+class ClassifyContextSpece:
     """Task data for classifying a single citation context."""
 
-    reference: s2.S2Reference
-    context: pr.CitationContext
     main_title: str
     main_abstract: str
+    reference: s2.S2Reference
+    context: pr.CitationContext
     prompt: gpt.PromptTemplate
 
 
-async def _classify_context_single(
-    client: LLMClient, spec: _ClassifyContextSpec
+async def classify_context_single(
+    client: LLMClient, spec: ClassifyContextSpece
 ) -> GPTResult[ContextClassified]:
     """Classify a single citation context using GPT."""
     user_prompt_text = spec.prompt.template.format(
@@ -600,15 +581,15 @@ async def _classify_context_single(
     )
 
 
-_ReferenceIdx = NewType("_ReferenceIdx", int)
+ReferenceIdx = NewType("ReferenceIdx", int)
 """Index of a reference from a paper. Used to split and group tasks."""
 
 
-async def _classify_contexts_parallel(
-    client: LLMClient, specs: list[tuple[_ReferenceIdx, _ClassifyContextSpec]]
-) -> list[tuple[_ReferenceIdx, GPTResult[ContextClassified]]]:
-    """Classify all contexts in parallel and return results with reference indices."""
-    tasks = [_classify_context_single(client, task) for _, task in specs]
+async def classify_contexts(
+    client: LLMClient, specs: list[tuple[ReferenceIdx, ClassifyContextSpece]]
+) -> list[tuple[ReferenceIdx, GPTResult[ContextClassified]]]:
+    """Classify all contexts concurrently and return results with reference indices."""
+    tasks = [classify_context_single(client, task) for _, task in specs]
     results = await asyncio.gather(*tasks)
     return [(ref_idx, result) for (ref_idx, _), result in zip(specs, results)]
 
@@ -617,27 +598,25 @@ async def classify_citation_contexts(
     paper: s2.PaperWithS2Refs, client: LLMClient, context_prompt_key: str
 ) -> GPTResult[gpt.PaperWithContextClassfied]:
     """Classify citation contexts by polarity (positive/negative) using GPT."""
-    # Load prompts for context classification
     context_prompt = CONTEXT_USER_PROMPTS[context_prompt_key]
 
-    # Create tasks for all contexts across all references
-    tasks: list[tuple[_ReferenceIdx, _ClassifyContextSpec]] = []
+    tasks: list[tuple[ReferenceIdx, ClassifyContextSpece]] = []
 
     for ref_idx, reference in enumerate(paper.references):
         for context in reference.contexts:
-            task = _ClassifyContextSpec(
+            task = ClassifyContextSpece(
                 reference=reference,
                 context=context,
                 main_title=paper.title,
                 main_abstract=paper.abstract,
                 prompt=context_prompt,
             )
-            tasks.append((_ReferenceIdx(ref_idx), task))
+            tasks.append((ReferenceIdx(ref_idx), task))
 
-    classified_results = await _classify_contexts_parallel(client, tasks)
+    classified_results = await classify_contexts(client, tasks)
 
     # Group results by reference
-    contexts_by_ref: dict[_ReferenceIdx, list[ContextClassified]] = defaultdict(list)
+    contexts_by_ref: dict[ReferenceIdx, list[ContextClassified]] = defaultdict(list)
     total_cost = 0.0
 
     for ref_idx, result in classified_results:
@@ -646,7 +625,7 @@ async def classify_citation_contexts(
 
     classified_references = [
         S2ReferenceClassified.from_(
-            reference, contexts=contexts_by_ref[_ReferenceIdx(ref_idx)]
+            reference, contexts=contexts_by_ref[ReferenceIdx(ref_idx)]
         )
         for ref_idx, reference in enumerate(paper.references)
     ]
@@ -730,9 +709,7 @@ def get_top_k_semantic(
     """Get top K most similar papers by `items`."""
     sem_emb = encoder.encode_multi(items)
     sims = emb.similarities(main_emb, sem_emb)
-
-    top_k_idx = emb.top_k_indices(sims, k)
-    top_k = [(papers[i], float(sims[i])) for i in top_k_idx]
+    top_k = [(papers[i], float(sims[i])) for i in emb.top_k_indices(sims, k)]
 
     return [
         rp.PaperRelated(
@@ -761,9 +738,7 @@ def get_top_k_reference_by_polarity(
 
     titles_emb = encoder.encode_multi([r.title for r in references_pol])
     sims = emb.similarities(title_emb, titles_emb)
-
-    top_k_idx = emb.top_k_indices(sims, k)
-    top_k = [(references_pol[i], float(sims[i])) for i in top_k_idx]
+    top_k = [(references_pol[i], float(sims[i])) for i in emb.top_k_indices(sims, k)]
 
     return [
         rp.PaperRelated(
@@ -794,7 +769,6 @@ async def generate_related_paper_summaries(
         rp.ContextPolarity.NEGATIVE: PETER_SUMMARISE_USER_PROMPTS[negative_prompt_key],
     }
 
-    # Create tasks for parallel execution
     tasks = [
         generate_summary_single(
             paper_annotated, client, prompt_pol[related_paper.polarity], related_paper
@@ -811,19 +785,14 @@ async def generate_summary_single(
     related_paper: rp.PaperRelated,
 ) -> GPTResult[gpt.PaperRelatedSummarised]:
     """Generate a single summary for a related paper."""
-    # Format prompt using the same function from summarise_related_peter.py
-    user_prompt_text = format_template(
-        user_prompt,
-        paper_annotated,
-        related_paper,
-    )
-
     result = await client.run(
-        GPTRelatedSummary, PETER_SUMMARISE_SYSTEM_PROMPT, user_prompt_text
+        GPTRelatedSummary,
+        PETER_SUMMARISE_SYSTEM_PROMPT,
+        format_template(user_prompt, paper_annotated, related_paper),
     )
     return result.map(
         lambda r: gpt.PaperRelatedSummarised.from_related(
-            related_paper, (r or GPTRelatedSummary.error()).summary
+            related_paper, r.summary if r else "<error>"
         )
     )
 
