@@ -689,22 +689,20 @@ def get_related_papers(
         encoder, main_title_emb, references, num_related, rp.ContextPolarity.NEGATIVE
     )
 
-    backgrounds = [r.background for r in recommended_papers]
     background_related = get_top_k_semantic(
         encoder,
         num_related,
         main_background_emb,
         recommended_papers,
-        backgrounds,
-        rp.ContextPolarity.POSITIVE,
+        [r.background for r in recommended_papers],
+        rp.ContextPolarity.NEGATIVE,
     )
-    targets = [r.target for r in recommended_papers]
     target_related = get_top_k_semantic(
         encoder,
         num_related,
         main_target_emb,
         recommended_papers,
-        targets,
+        [r.target for r in recommended_papers],
         rp.ContextPolarity.POSITIVE,
     )
 
