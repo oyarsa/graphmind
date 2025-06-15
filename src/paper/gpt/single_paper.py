@@ -134,9 +134,9 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr
                 desc="Fetching paper from S2",
                 limiter=limiter,
             ),
-            "fetch paper from s2",
+            ">>> fetch paper from s2",
         ),
-        timer(get_arxiv_from_title(title), "query arxiv from title"),
+        timer(get_arxiv_from_title(title), ">>> query arxiv from title"),
     )
 
     if not s2_results or not s2_results[0]:
@@ -152,7 +152,7 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr
     splitter = SentenceSplitter()
     sections, references = await timer(
         asyncio.to_thread(parse_arxiv_latex, arxiv_result, splitter),
-        "parse arXiv LaTeX",
+        ">>> parse arXiv LaTeX",
     )
 
     # Create and return Paper object
@@ -184,7 +184,7 @@ async def get_paper_from_arxiv_id(
         SEMANTIC_SCHOLAR_API_KEY environment variable.
     """
     # First get arXiv result to get the title for S2 lookup
-    arxiv_result = await timer(get_arxiv_from_id(arxiv_id), "get arxiv from id")
+    arxiv_result = await timer(get_arxiv_from_id(arxiv_id), ">>> get arxiv from id")
     if not arxiv_result:
         raise ValueError(f"Paper not found on arXiv: {arxiv_id}")
     logger.debug("arXiv result: %s", arxiv_result)
@@ -199,11 +199,11 @@ async def get_paper_from_arxiv_id(
                 desc="Fetching paper from S2",
                 limiter=limiter,
             ),
-            "fetch paper from s2",
+            ">>> fetch paper from s2",
         ),
         timer(
             asyncio.to_thread(parse_arxiv_latex, arxiv_result, SentenceSplitter()),
-            "parse arXiv LaTeX",
+            ">>> parse arXiv LaTeX",
         ),
     )
 
@@ -285,13 +285,13 @@ async def process_paper_complete(
     paper_with_s2_refs, recommended_papers = await asyncio.gather(
         timer(
             enhance_with_s2_references(paper, top_k_refs, encoder, s2_api_key, limiter),
-            "enhance with s2 references",
+            ">>> enhance with s2 references",
         ),
         timer(
             fetch_s2_recommendations(
                 paper, num_recommendations, s2_api_key, limiter, request_timeout
             ),
-            "fetch s2 recommendations",
+            ">>> fetch s2 recommendations",
         ),
     )
 
@@ -309,17 +309,17 @@ async def process_paper_complete(
             extract_paper_annotations(
                 paper_with_s2_refs, client, term_prompt_key, abstract_prompt_key
             ),
-            "extract paper annotations",
+            ">>> extract paper annotations",
         ),
         timer(
             extract_recommended_annotations(
                 recommended_papers, client, term_prompt_key, abstract_prompt_key
             ),
-            "extract recommended annotations",
+            ">>> extract recommended annotations",
         ),
         timer(
             classify_citation_contexts(paper_with_s2_refs, client, context_prompt_key),
-            "classify citation contexts",
+            ">>> classify citation contexts",
         ),
     )
 
@@ -334,7 +334,7 @@ async def process_paper_complete(
             num_related,
             encoder,
         ),
-        "get related papers direct",
+        ">>> get related papers direct",
     )
 
     # Phase 4: Generate summaries for related papers
@@ -347,7 +347,7 @@ async def process_paper_complete(
             positive_prompt_key,
             negative_prompt_key,
         ),
-        "generate related paper summaries",
+        ">>> generate related paper summaries",
     )
 
     # Phase 5: Create final result
@@ -891,7 +891,7 @@ async def evaluate_paper_with_graph(
             graph_prompt,
             demonstrations,
         ),
-        "evaluate paper graph",
+        ">>> evaluate paper graph",
     )
 
 
@@ -920,7 +920,7 @@ async def evaluate_paper(
             graph_prompt.system,
             format_graph_template(graph_prompt, paper.paper),
         ),
-        "extract graph",
+        ">>>> extract graph",
     )
     graph = (
         graph_result.result.to_graph(title=paper.title, abstract=paper.abstract)
@@ -936,7 +936,7 @@ async def evaluate_paper(
             eval_prompt.system,
             format_eval_template(eval_prompt, paper, graph, demonstrations),
         ),
-        "eval graph",
+        ">>>> eval graph",
     )
     eval = eval_result.result or GPTStructured.error()
     if not eval.is_valid():
@@ -1088,32 +1088,44 @@ async def process_paper_from_query(
     match type_:
         case QueryType.TITLE:
             logger.info("Searching by title: %s", query)
-            paper = await get_paper_from_title(query, limiter, s2_api_key)
+            paper = await timer(
+                get_paper_from_title(query, limiter, s2_api_key),
+                ">> get paper from title",
+            )
         case QueryType.ID:
             arxiv_id = arxiv_id_from_url(query)
             logger.info("Searching by arXiv ID: %s", arxiv_id)
-            paper = await get_paper_from_arxiv_id(arxiv_id, limiter, s2_api_key)
+            paper = await timer(
+                get_paper_from_arxiv_id(arxiv_id, limiter, s2_api_key),
+                ">> get paper from arxiv ID",
+            )
 
     # Process paper through PETER pipeline
-    paper_result = await process_paper_complete(
-        paper,
-        limiter,
-        s2_api_key,
-        client,
-        top_k_refs=top_k_refs,
-        num_recommendations=num_recommendations,
-        num_related=num_related,
-        encoder_model=encoder_model,
+    paper_result = await timer(
+        process_paper_complete(
+            paper,
+            limiter,
+            s2_api_key,
+            client,
+            top_k_refs=top_k_refs,
+            num_recommendations=num_recommendations,
+            num_related=num_related,
+            encoder_model=encoder_model,
+        ),
+        ">> process paper complete",
     )
 
     # Evaluate with graph
-    graph_result = await evaluate_paper_with_graph(
-        paper_result.result,
-        client,
-        eval_prompt_key,
-        graph_prompt_key,
-        demonstrations_key,
-        demo_prompt_key,
+    graph_result = await timer(
+        evaluate_paper_with_graph(
+            paper_result.result,
+            client,
+            eval_prompt_key,
+            graph_prompt_key,
+            demonstrations_key,
+            demo_prompt_key,
+        ),
+        ">> evaluate paper with graph",
     )
 
     return paper_result.then(graph_result)
@@ -1234,8 +1246,8 @@ async def process_paper(
     """
     limiter = get_limiter(1, 1)  # 1 request per second
 
-    with Timer("full single paper") as t:
-        result = await process_paper_from_query(
+    result = await timer(
+        process_paper_from_query(
             query,
             type_,
             top_k_refs,
@@ -1249,8 +1261,10 @@ async def process_paper(
             graph_prompt,
             demonstrations,
             demo_prompt,
-        )
-    print(t)
+        ),
+        "> process paper from query",
+    )
+
     graph_result = result.result
     print(f"✅ Found paper: {graph_result.paper.title}")
     print(f"📄 Abstract: {graph_result.paper.abstract[:200]}...")
