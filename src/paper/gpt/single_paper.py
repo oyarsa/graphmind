@@ -5,10 +5,6 @@ pipeline, including S2 reference enhancement, GPT annotations, context classific
 related paper discovery, and summarization.
 """
 
-# TODO: Review how this file interacts with other modules. I know it sprawls many parts
-# of the codebase, but it might be best to respect module boundaries, at least those
-# ouside of `gpt`.
-
 from __future__ import annotations
 
 import asyncio
@@ -17,7 +13,7 @@ from collections import defaultdict
 from collections.abc import Awaitable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING, Annotated, NewType
+from typing import Annotated, NewType
 
 import aiohttp
 import arxiv  # type: ignore
@@ -29,6 +25,9 @@ from paper import peerread as pr
 from paper import related_papers as rp
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import TargetMode
+
+# GPT: Term extraction, abstract splitting, context polarity classification, paper
+# summarisation and graph evaluation.
 from paper.gpt.annotate_paper import (
     ABS_SYSTEM_PROMPT,
     ABS_USER_PROMPTS,
@@ -60,6 +59,8 @@ from paper.gpt.summarise_related_peter import (
     GPTRelatedSummary,
     format_template,
 )
+
+# ORC: arXiv search, LaTeX download and parsing
 from paper.orc.arxiv_api import (
     ArxivResult,
     arxiv_from_id,
@@ -69,22 +70,18 @@ from paper.orc.arxiv_api import (
 )
 from paper.orc.download import parse_arxiv_latex
 from paper.orc.latex_parser import SentenceSplitter
-from paper.peerread.model import Paper
+
+# Semantic Scholar: paper metadata, citation information, recommended papers
 from paper.semantic_scholar.info import (
     fetch_arxiv_papers,
     fetch_paper_data,
     get_top_k_titles,
 )
-from paper.semantic_scholar.model import Paper as S2Paper
-from paper.semantic_scholar.model import PaperWithS2Refs
 from paper.semantic_scholar.recommended import fetch_paper_recommendations
+
+# Etc.
 from paper.util import Timer, arun_safe, ensure_envvar, progress, seqcat
 from paper.util.rate_limiter import Limiter, get_limiter
-
-if TYPE_CHECKING:
-    from paper.gpt.extract_graph import GraphResult
-    from paper.gpt.model import PaperRelatedSummarised
-    from paper.gpt.prompts import PromptTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +106,7 @@ S2_FIELDS = [*S2_FIELDS_BASE, "tldr", "venue"]
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 
 
-async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> Paper:
+async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr.Paper:
     """Get a single processed Paper from a title using Semantic Scholar and arXiv.
 
     Args:
@@ -159,7 +156,7 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> Pa
     )
 
     # Create and return Paper object
-    return Paper.from_s2(
+    return pr.Paper.from_s2(
         s2_paper,
         sections=sections,
         references=references,
@@ -168,7 +165,7 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> Pa
 
 async def get_paper_from_arxiv_id(
     arxiv_id: str, limiter: Limiter, api_key: str
-) -> Paper:
+) -> pr.Paper:
     """Get a single processed Paper from the arXiv ID using Semantic Scholar and arXiv.
 
     Args:
@@ -218,7 +215,7 @@ async def get_paper_from_arxiv_id(
     s2_paper = s2_results[0]
 
     # Create and return Paper object
-    return Paper.from_s2(
+    return pr.Paper.from_s2(
         s2_paper,
         sections=sections,
         references=references,
@@ -226,7 +223,7 @@ async def get_paper_from_arxiv_id(
 
 
 async def process_paper_complete(
-    paper: Paper,
+    paper: pr.Paper,
     limiter: Limiter,
     s2_api_key: str,
     client: LLMClient,
@@ -382,8 +379,8 @@ async def timer[T](task: Awaitable[T], name: str) -> T:
 
 
 async def enhance_with_s2_references(
-    paper: Paper, top_k: int, encoder: emb.Encoder, api_key: str, limiter: Limiter
-) -> PaperWithS2Refs:
+    paper: pr.Paper, top_k: int, encoder: emb.Encoder, api_key: str, limiter: Limiter
+) -> s2.PaperWithS2Refs:
     """Enhance paper with S2 reference information for top-k similar references."""
     # Get top-k reference titles by semantic similarity
     top_ref_titles = get_top_k_titles(encoder, paper, top_k)
@@ -391,7 +388,7 @@ async def enhance_with_s2_references(
     if not top_ref_titles:
         logger.warning("No references found for paper: %s", paper.title)
         # Return paper with empty S2 references
-        return PaperWithS2Refs.from_peer(paper, [])
+        return s2.PaperWithS2Refs.from_peer(paper, [])
 
     # Fetch S2 data for the top references
     s2_results = await fetch_arxiv_papers(
@@ -417,7 +414,7 @@ async def enhance_with_s2_references(
         f"{len(paper.references) = } {len(s2_results) = } {len(s2_references) = }"
     )
     # Create enhanced paper with S2 references
-    return PaperWithS2Refs.from_peer(paper, s2_references)
+    return s2.PaperWithS2Refs.from_peer(paper, s2_references)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -430,8 +427,8 @@ async def extract_annotations(
     title: str,
     abstract: str,
     client: LLMClient,
-    term_prompt: PromptTemplate,
-    abstract_prompt: PromptTemplate,
+    term_prompt: gpt.PromptTemplate,
+    abstract_prompt: gpt.PromptTemplate,
 ) -> GPTResult[_PaperAnnotations]:
     """Extracting annotations from a paper given title and abstract.
 
@@ -475,7 +472,7 @@ async def extract_annotations(
 
 
 async def extract_paper_annotations(
-    paper_with_s2_refs: PaperWithS2Refs,
+    paper_with_s2_refs: s2.PaperWithS2Refs,
     client: LLMClient,
     term_prompt_key: str,
     abstract_prompt_key: str,
@@ -504,7 +501,7 @@ async def extract_paper_annotations(
 
 
 async def extract_recommended_annotations(
-    recommended_papers: list[S2Paper],
+    recommended_papers: list[s2.Paper],
     client: LLMClient,
     term_prompt_key: str,
     abstract_prompt_key: str,
@@ -526,9 +523,9 @@ async def extract_recommended_annotations(
 
 async def extract_recommended_annotations_single(
     client: LLMClient,
-    term_prompt: PromptTemplate,
-    abstract_prompt: PromptTemplate,
-    s2_paper: S2Paper,
+    term_prompt: gpt.PromptTemplate,
+    abstract_prompt: gpt.PromptTemplate,
+    s2_paper: s2.Paper,
 ) -> GPTResult[gpt.PaperAnnotated]:
     """Extract terms and split abstract from paper."""
     # We know these are not None because of the filter in extract_recommended_annotations
@@ -554,12 +551,12 @@ async def extract_recommended_annotations_single(
 
 
 async def fetch_s2_recommendations(
-    paper: Paper,
+    paper: pr.Paper,
     num_recommendations: int,
     api_key: str,
     limiter: Limiter,
     request_timeout: float,
-) -> list[S2Paper]:
+) -> list[s2.Paper]:
     """Fetch recommended papers from S2 API for the given paper."""
 
     # First, we need to get the S2 paper ID by searching for this paper
@@ -598,7 +595,7 @@ class _ClassifyContextSpec:
     context: pr.CitationContext
     main_title: str
     main_abstract: str
-    prompt: PromptTemplate
+    prompt: gpt.PromptTemplate
 
 
 async def _classify_context_single(
@@ -638,7 +635,7 @@ async def _classify_contexts_parallel(
 
 
 async def classify_citation_contexts(
-    paper: PaperWithS2Refs, client: LLMClient, context_prompt_key: str
+    paper: s2.PaperWithS2Refs, client: LLMClient, context_prompt_key: str
 ) -> GPTResult[gpt.PaperWithContextClassfied]:
     """Classify citation contexts by polarity (positive/negative) using GPT."""
     # Load prompts for context classification
@@ -835,7 +832,7 @@ async def generate_related_paper_summaries(
 async def generate_summary_single(
     paper_annotated: gpt.PeerReadAnnotated,
     client: LLMClient,
-    user_prompt: PromptTemplate,
+    user_prompt: gpt.PromptTemplate,
     related_paper: rp.PaperRelated,
 ) -> GPTResult[gpt.PaperRelatedSummarised]:
     """Generate a single summary for a related paper."""
@@ -863,7 +860,7 @@ async def evaluate_paper_with_graph(
     graph_prompt_key: str,
     demonstrations_key: str,
     demo_prompt_key: str,
-) -> GPTResult[GraphResult]:
+) -> GPTResult[gpt.GraphResult]:
     """Evaluate a paper's novelty using graph extraction and related papers.
 
     Args:
@@ -901,10 +898,10 @@ async def evaluate_paper_with_graph(
 async def evaluate_paper(
     client: LLMClient,
     paper: gpt.PaperWithRelatedSummary,
-    eval_prompt: PromptTemplate,
-    graph_prompt: PromptTemplate,
+    eval_prompt: gpt.PromptTemplate,
+    graph_prompt: gpt.PromptTemplate,
     demonstrations: str,
-) -> GPTResult[GraphResult]:
+) -> GPTResult[gpt.GraphResult]:
     """Evaluate a paper's novelty using graph extraction and related papers.
 
     Args:
@@ -1036,7 +1033,7 @@ async def process_paper_from_query(
     graph_prompt_key: str,
     demonstrations_key: str,
     demo_prompt_key: str,
-) -> GPTResult[GraphResult]:
+) -> GPTResult[gpt.GraphResult]:
     """Process a paper by query (title or arXiv ID/URL) through the complete PETER pipeline.
 
     This function provides a complete end-to-end paper processing pipeline that:
@@ -1113,7 +1110,7 @@ async def process_paper_from_query(
     return paper_result.then(graph_result)
 
 
-def display_graph_results(result: GraphResult) -> None:
+def display_graph_results(result: gpt.GraphResult) -> None:
     """Display comprehensive results from processed paper with graph.
 
     Prints a formatted summary of the paper processing results including:
@@ -1266,8 +1263,8 @@ async def process_paper(
 
 
 def filter_related(
-    result: GraphResult, pol: rp.ContextPolarity, src: rp.PaperSource
-) -> list[PaperRelatedSummarised]:
+    result: gpt.GraphResult, pol: rp.ContextPolarity, src: rp.PaperSource
+) -> list[gpt.PaperRelatedSummarised]:
     """Filter related papers by polarity and source."""
     if not result.related:
         return []
@@ -1279,7 +1276,7 @@ def filter_related(
     ]
 
 
-def display_related_paper(related: PaperRelatedSummarised) -> str:
+def display_related_paper(related: gpt.PaperRelatedSummarised) -> str:
     """Display summary of related paper."""
     out = [
         f"    • {related.title}",
