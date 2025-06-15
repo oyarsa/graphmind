@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from collections import defaultdict
-from collections.abc import Awaitable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Annotated, NewType
@@ -82,7 +81,7 @@ from paper.semantic_scholar.info import (
 from paper.semantic_scholar.recommended import fetch_paper_recommendations
 
 # Etc.
-from paper.util import Timer, arun_safe, ensure_envvar, seqcat, setup_logging
+from paper.util import arun_safe, ensure_envvar, seqcat, setup_logging, timer
 from paper.util.rate_limiter import Limiter, get_limiter
 
 logger = logging.getLogger(__name__)
@@ -360,18 +359,6 @@ async def annotate_paper_pipeline(
         )
     )
     return GPTResult(result=result, cost=total_cost)
-
-
-PRINT_TIMERS = os.getenv("TIMERS", "0") == "1"
-
-
-async def timer[T](task: Awaitable[T], name: str) -> T:
-    """Print time it takes to run task."""
-    with Timer(name) as t:
-        result = await task
-    if PRINT_TIMERS:
-        typer.secho(t, fg="green")
-    return result
 
 
 async def enhance_with_s2_references(

@@ -829,3 +829,18 @@ async def batch_map_with_progress[T, U](
             pbar_papers.update(len(batch))
 
     return results
+
+
+PRINT_TIMERS = os.getenv("TIMERS", "0") == "1"
+
+
+async def timer[T](task: Awaitable[T], name: str) -> T:
+    """Print time it takes to run task.
+
+    Only enabled  if TIMERS env var is 1.
+    """
+    with Timer(name) as t:
+        result = await task
+    if PRINT_TIMERS:
+        print(f"\033[32m{t}\033[0m")  # green text
+    return result
