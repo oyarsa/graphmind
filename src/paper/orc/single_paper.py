@@ -24,6 +24,7 @@ from paper import gpt
 from paper import peerread as pr
 from paper import related_papers as rp
 from paper import semantic_scholar as s2
+from paper.evaluation_metrics import TargetMode
 from paper.gpt.annotate_paper import (
     ABS_SYSTEM_PROMPT,
     ABS_USER_PROMPTS,
@@ -39,12 +40,15 @@ from paper.gpt.classify_contexts import (
     PaperWithContextClassfied,
     S2ReferenceClassified,
 )
+from paper.gpt.evaluate_paper import GPTStructured, fix_evaluated_rating
 from paper.gpt.evaluate_paper_graph import (
     GRAPH_EVAL_USER_PROMPTS,
     GRAPH_EXTRACT_USER_PROMPTS,
-    evaluate_paper,
+    format_eval_template,
+    format_graph_template,
     get_demonstrations,
 )
+from paper.gpt.graph_types.full import GPTGraph
 from paper.gpt.model import (
     LinearisationMethod,
     PaperRelatedSummarised,
@@ -875,31 +879,94 @@ async def evaluate_paper_with_graph(
     """
     # Load prompts
     eval_prompt = GRAPH_EVAL_USER_PROMPTS[eval_prompt_key]
-    if not eval_prompt.system:
-        raise ValueError(
-            f"Eval prompt {eval_prompt.name!r} does not have a system prompt."
-        )
+    if not eval_prompt.system or eval_prompt.type_name != "GPTStructured":
+        raise ValueError(f"Eval prompt {eval_prompt.name!r} is not valid.")
 
     graph_prompt = GRAPH_EXTRACT_USER_PROMPTS[graph_prompt_key]
     if not graph_prompt.system:
-        raise ValueError(
-            f"Graph prompt {graph_prompt.name!r} does not have a system prompt."
-        )
+        raise ValueError(f"Graph prompt {graph_prompt.name!r} is not valid.")
 
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
-    result = await timer(
+    return await timer(
         evaluate_paper(
             client,
             paper_with_related,
             eval_prompt,
             graph_prompt,
             demonstrations,
-            LinearisationMethod.TOPO,
-            {RelatedPaperSource.CITATIONS, RelatedPaperSource.SEMANTIC},
         ),
         "evaluate paper graph",
     )
-    return result.map(lambda r: r.item)
+
+
+async def evaluate_paper(
+    client: LLMClient,
+    paper: gpt.PaperWithRelatedSummary,
+    eval_prompt: PromptTemplate,
+    graph_prompt: PromptTemplate,
+    demonstrations: str,
+) -> GPTResult[GraphResult]:
+    """Evaluate a single paper's novelty using graph extraction and related papers.
+
+    Args:
+        client: LLM client for API calls.
+        paper: Paper with related papers and summaries.
+        eval_prompt: Prompt template for evaluation.
+        graph_prompt: Prompt template for graph extraction.
+        demonstrations: Text of demonstrations for few-shot prompting.
+        linearisation_method: How to convert graph to text.
+        sources: Which related paper sources to include.
+
+    Returns:
+        GraphResult with evaluation wrapped in PromptResult and GPTResult.
+    """
+    graph_result = await client.run(
+        GPTGraph, graph_prompt.system, format_graph_template(graph_prompt, paper.paper)
+    )
+    graph = (
+        graph_result.result.to_graph(title=paper.title, abstract=paper.abstract)
+        if graph_result.result
+        else gpt.Graph.empty()
+    )
+
+    if graph.is_empty():
+        logger.warning(f"Paper '{paper.title}': invalid Graph")
+
+    eval_prompt_text = format_eval_template(
+        eval_prompt,
+        paper,
+        graph,
+        demonstrations,
+        LinearisationMethod.TOPO,
+        {RelatedPaperSource.CITATIONS, RelatedPaperSource.SEMANTIC},
+    )
+    eval_system_prompt = eval_prompt.system
+
+    eval_result = await client.run(GPTStructured, eval_system_prompt, eval_prompt_text)
+
+    if not eval_result.result or not eval_result.result.is_valid():
+        logger.warning(f"Paper '{paper.title}': invalid evaluation result")
+
+    structured = eval_result.result or GPTStructured.error()
+    fixed_label = fix_evaluated_rating(structured, TargetMode.BIN).label
+    paper_result = gpt.PaperResult.from_s2peer(
+        paper.paper.paper,
+        fixed_label,
+        structured.rationale,
+        structured_evaluation=structured,
+    )
+
+    return GPTResult(
+        result=gpt.GraphResult.from_annotated(
+            paper=paper_result,
+            graph=graph,
+            related=paper.related,
+            terms=paper.paper.terms,
+            background=paper.paper.background,
+            target=paper.paper.target,
+        ),
+        cost=graph_result.cost + eval_result.cost,
+    )
 
 
 class QueryType(StrEnum):
@@ -937,7 +1004,7 @@ def single_paper(
     ] = False,
     eval_prompt: Annotated[
         str, typer.Option(help="User prompt for paper evaluation")
-    ] = "full-graph",
+    ] = "full-graph-structured",
     graph_prompt: Annotated[
         str, typer.Option(help="User prompt for graph extraction")
     ] = "full",
