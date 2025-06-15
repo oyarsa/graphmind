@@ -39,6 +39,17 @@ from paper.gpt.classify_contexts import (
     PaperWithContextClassfied,
     S2ReferenceClassified,
 )
+from paper.gpt.evaluate_paper_graph import (
+    GRAPH_EVAL_USER_PROMPTS,
+    GRAPH_EXTRACT_USER_PROMPTS,
+    evaluate_paper,
+    get_demonstrations,
+)
+from paper.gpt.model import (
+    LinearisationMethod,
+    PaperRelatedSummarised,
+    RelatedPaperSource,
+)
 from paper.gpt.run_gpt import GPTResult, LLMClient, gpt_sequence
 from paper.gpt.summarise_related_peter import (
     PETER_SUMMARISE_SYSTEM_PROMPT,
@@ -64,11 +75,11 @@ from paper.semantic_scholar.info import (
 from paper.semantic_scholar.model import Paper as S2Paper
 from paper.semantic_scholar.model import PaperWithS2Refs
 from paper.semantic_scholar.recommended import fetch_paper_recommendations
-from paper.util import Timer, arun_safe, ensure_envvar, progress
+from paper.util import Timer, arun_safe, ensure_envvar, progress, seqcat
 from paper.util.rate_limiter import Limiter, get_limiter
 
 if TYPE_CHECKING:
-    from paper.gpt.model import PaperRelatedSummarised
+    from paper.gpt.extract_graph import GraphResult
     from paper.gpt.prompts import PromptTemplate
 
 logger = logging.getLogger(__name__)
@@ -214,6 +225,7 @@ async def process_paper_complete(
     paper: Paper,
     limiter: Limiter,
     s2_api_key: str,
+    client: LLMClient,
     *,
     top_k_refs: int = 20,
     num_recommendations: int = 30,
@@ -223,11 +235,9 @@ async def process_paper_complete(
     context_prompt_key: str = "sentence",
     positive_prompt_key: str = "positive",
     negative_prompt_key: str = "negative",
-    llm_model: str = "gpt-4o-mini",
     encoder_model: str = emb.DEFAULT_SENTENCE_MODEL,
-    seed: int = 0,
     request_timeout: float = REQUEST_TIMEOUT,
-) -> gpt.PaperWithRelatedSummary:
+) -> GPTResult[gpt.PaperWithRelatedSummary]:
     """Process a single paper through the complete pipeline to get related papers.
 
     Takes an ORC Paper and enhances it with:
@@ -251,14 +261,13 @@ async def process_paper_complete(
         context_prompt_key: Key for context classification prompt template.
         positive_prompt_key: Key for positive paper summarisation prompt template.
         negative_prompt_key: Key for negative paper summarisation prompt template.
-        llm_model: GPT/Gemini model to use for all API calls.
         encoder_model: Embedding encoder model.
-        seed: Random seed for GPT API calls.
         request_timeout: Maximum time (seconds) for S2 requests before timeout.
         s2_api_key: Semantic Scholar API key.
+        client: LLM client for GPT API calls.
 
     Returns:
-        Complete paper with related papers and their summaries.
+        Complete paper with related papers and their summaries wrapped in GPTResult.
 
     Raises:
         ValueError if no recommended papers or valid references were found.
@@ -266,8 +275,6 @@ async def process_paper_complete(
     Requires:
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
-    # Initialize shared resources
-    client = LLMClient.new_env(llm_model, seed)
     encoder = emb.Encoder(encoder_model)
 
     logger.info("Processing paper: %s", paper.title)
@@ -359,7 +366,7 @@ async def process_paper_complete(
         )
     )
     logger.info("Cost: %f", total_cost)
-    return result
+    return GPTResult(result=result, cost=total_cost)
 
 
 async def timer[T](task: Awaitable[T], name: str) -> T:
@@ -845,6 +852,56 @@ async def generate_summary_single(
     )
 
 
+async def evaluate_paper_with_graph(
+    paper_with_related: gpt.PaperWithRelatedSummary,
+    client: LLMClient,
+    eval_prompt_key: str,
+    graph_prompt_key: str,
+    demonstrations_key: str,
+    demo_prompt_key: str,
+) -> GPTResult[GraphResult]:
+    """Evaluate a paper's novelty using graph extraction and related papers.
+
+    Args:
+        paper_with_related: Paper with related papers and summaries from PETER pipeline.
+        client: LLM client for GPT API calls.
+        eval_prompt_key: Key for evaluation prompt template.
+        graph_prompt_key: Key for graph extraction prompt template.
+        demonstrations_key: Key for demonstrations file.
+        demo_prompt_key: Key for demonstration prompt template.
+
+    Returns:
+        GraphResult with novelty evaluation wrapped in GPTResult.
+    """
+    # Load prompts
+    eval_prompt = GRAPH_EVAL_USER_PROMPTS[eval_prompt_key]
+    if not eval_prompt.system:
+        raise ValueError(
+            f"Eval prompt {eval_prompt.name!r} does not have a system prompt."
+        )
+
+    graph_prompt = GRAPH_EXTRACT_USER_PROMPTS[graph_prompt_key]
+    if not graph_prompt.system:
+        raise ValueError(
+            f"Graph prompt {graph_prompt.name!r} does not have a system prompt."
+        )
+
+    demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
+    result = await timer(
+        evaluate_paper(
+            client,
+            paper_with_related,
+            eval_prompt,
+            graph_prompt,
+            demonstrations,
+            LinearisationMethod.TOPO,
+            {RelatedPaperSource.CITATIONS, RelatedPaperSource.SEMANTIC},
+        ),
+        "evaluate paper graph",
+    )
+    return result.map(lambda r: r.item)
+
+
 class QueryType(StrEnum):
     """Whether to query arXiv by title or ID/URL."""
 
@@ -878,6 +935,18 @@ def single_paper(
     detail: Annotated[
         bool, typer.Option(help="Show detailed paper information.")
     ] = False,
+    eval_prompt: Annotated[
+        str, typer.Option(help="User prompt for paper evaluation")
+    ] = "full-graph",
+    graph_prompt: Annotated[
+        str, typer.Option(help="User prompt for graph extraction")
+    ] = "full",
+    demonstrations: Annotated[
+        str, typer.Option(help="Demonstrations file for few-shot prompting")
+    ] = "orc_4",
+    demo_prompt: Annotated[
+        str, typer.Option(help="Demonstration prompt key")
+    ] = "abstract",
 ) -> None:
     """Process a paper title through the complete PETER pipeline and print results."""
     arun_safe(
@@ -891,6 +960,10 @@ def single_paper(
         encoder_model,
         seed,
         detail,
+        eval_prompt,
+        graph_prompt,
+        demonstrations,
+        demo_prompt,
     )
 
 
@@ -904,7 +977,11 @@ async def process_paper_from_query(
     encoder_model: str,
     seed: int,
     limiter: Limiter,
-) -> gpt.PaperWithRelatedSummary:
+    eval_prompt_key: str,
+    graph_prompt_key: str,
+    demonstrations_key: str,
+    demo_prompt_key: str,
+) -> GPTResult[GraphResult]:
     """Process a paper by query (title or arXiv ID/URL) through the complete PETER pipeline.
 
     This function provides a complete end-to-end paper processing pipeline that:
@@ -915,6 +992,7 @@ async def process_paper_from_query(
        - Citation context classification (positive/negative polarity)
        - Related paper discovery via citations and semantic matching
        - GPT-generated summaries of related papers
+    3. Extracts a graph representation and evaluates novelty
 
     Args:
         query: Paper title or arXiv ID/URL to search for and process.
@@ -927,9 +1005,13 @@ async def process_paper_from_query(
         encoder_model: Embedding encoder model for semantic similarity computations.
         seed: Random seed for GPT API calls to ensure reproducibility.
         limiter: Rate limiter for Semantic Scholar API requests to prevent 429 errors.
+        eval_prompt_key: Key for evaluation prompt template.
+        graph_prompt_key: Key for graph extraction prompt template.
+        demonstrations_key: Key for demonstrations file.
+        demo_prompt_key: Key for demonstration prompt template.
 
     Returns:
-        Complete paper with related papers and their summaries.
+        GraphResult with novelty evaluation wrapped in GPTResult.
 
     Raises:
         ValueError: If paper is not found on Semantic Scholar or arXiv, or if no
@@ -939,59 +1021,81 @@ async def process_paper_from_query(
     Requires:
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
-    api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
+    s2_api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
+    client = LLMClient.new_env(llm_model, seed)
+
     match type_:
         case QueryType.TITLE:
             logger.info("Searching by title: %s", query)
-            paper = await get_paper_from_title(query, limiter, api_key)
+            paper = await get_paper_from_title(query, limiter, s2_api_key)
         case QueryType.ID:
             arxiv_id = arxiv_id_from_url(query)
             logger.info("Searching by arXiv ID: %s", arxiv_id)
-            paper = await get_paper_from_arxiv_id(arxiv_id, limiter, api_key)
+            paper = await get_paper_from_arxiv_id(arxiv_id, limiter, s2_api_key)
 
-    return await process_paper_complete(
+    # Process paper through PETER pipeline
+    paper_result = await process_paper_complete(
         paper,
         limiter,
-        api_key,
+        s2_api_key,
+        client,
         top_k_refs=top_k_refs,
         num_recommendations=num_recommendations,
         num_related=num_related,
-        llm_model=llm_model,
         encoder_model=encoder_model,
-        seed=seed,
     )
 
+    # Evaluate with graph
+    graph_result = await evaluate_paper_with_graph(
+        paper_result.result,
+        client,
+        eval_prompt_key,
+        graph_prompt_key,
+        demonstrations_key,
+        demo_prompt_key,
+    )
 
-def display_paper_results(result: gpt.PaperWithRelatedSummary) -> None:
-    """Display comprehensive results from processed paper.
+    return paper_result.then(graph_result)
+
+
+def display_graph_results(result: GraphResult) -> None:
+    """Display comprehensive results from processed paper with graph.
 
     Prints a formatted summary of the paper processing results including:
     - Main paper details (title, abstract, key terms, background, target)
+    - Novelty evaluation results
+    - Graph information
     - Citation-based related papers (positive and negative)
     - Semantic-based related papers (positive and negative)
     - Summaries and scores for each related paper
 
     Args:
-        result: Complete processed paper with related papers and summaries.
+        result: Complete processed paper with graph and evaluation.
     """
     print("\n" + "=" * 80)
     print("📊 COMPLETE PAPER PROCESSING RESULTS")
     print("=" * 80)
 
     # Print main paper information
-    print(f"📑 Title: {result.paper.paper.title}")
-    print(f"📝 Abstract: {result.paper.paper.abstract}")
-    print(
-        f"🏷️  Key Terms: {', '.join(list(result.paper.terms.methods) + list(result.paper.terms.tasks))}"
-    )
-    print(f"🎯 Background: {result.paper.background}")
-    print(f"🚀 Target: {result.paper.target}")
-    print(f"📊 S2 References: {len(result.paper.paper.references)}")
+    print(f"📑 Title: {result.paper.title}")
+    print(f"📝 Abstract: {result.paper.abstract}")
+    if result.terms:
+        key_terms = seqcat(result.terms.methods, result.terms.tasks)
+        print(f"🏷️  Key Terms: {', '.join(key_terms)}")
+    if result.background:
+        print(f"🎯 Background: {result.background}")
+    if result.target:
+        print(f"🚀 Target: {result.target}")
+    print(f"📊 S2 References: {len(result.paper.references)}")
     print()
 
     # Print related papers summary
-    print(f"🔗 RELATED PAPERS ({len(result.related)} total):")
-    print("-" * 50)
+    if result.related:
+        print(f"🔗 RELATED PAPERS ({len(result.related)} total):")
+        print("-" * 50)
+    else:
+        print("🔗 RELATED PAPERS (0 total):")
+        print("-" * 50)
 
     print("\n📖 CITATION-BASED PAPERS:")
 
@@ -1032,6 +1136,10 @@ async def process_paper(
     encoder_model: str,
     seed: int,
     detail: bool,
+    eval_prompt: str,
+    graph_prompt: str,
+    demonstrations: str,
+    demo_prompt: str,
 ) -> None:
     """Process a paper by title and display results.
 
@@ -1050,6 +1158,10 @@ async def process_paper(
         encoder_model: Embedding encoder model for semantic similarity computations.
         seed: Random seed for GPT API calls to ensure reproducibility.
         detail: Show detailed paper information.
+        eval_prompt: User prompt for paper evaluation.
+        graph_prompt: User prompt for graph extraction.
+        demonstrations: Demonstrations file for few-shot prompting.
+        demo_prompt: Demonstration prompt key.
 
     Raises:
         ValueError: If paper is not found on Semantic Scholar or arXiv, or if no
@@ -1072,23 +1184,39 @@ async def process_paper(
             encoder_model,
             seed,
             limiter,
+            eval_prompt,
+            graph_prompt,
+            demonstrations,
+            demo_prompt,
         )
     print(t)
-    print(f"✅ Found paper: {result.paper.paper.title}")
-    print(f"📄 Abstract: {result.paper.paper.abstract[:200]}...")
-    print(f"📚 References: {len(result.paper.paper.references)}")
-    print(f"📖 Sections: {len(result.paper.paper.sections)}")
+    graph_result = result.result
+    print(f"✅ Found paper: {graph_result.paper.title}")
+    print(f"📄 Abstract: {graph_result.paper.abstract[:200]}...")
+    print(f"📚 References: {len(graph_result.paper.references)}")
+    print(f"📖 Sections: {len(graph_result.paper.sections)}")
     print()
-    print("🚀 Processing through PETER pipeline...")
+    print("🚀 Processing through PETER pipeline and graph evaluation...")
+    print(f"💰 Total cost: ${result.cost:.10f}")
+
+    # Display novelty evaluation
+    print(f"\n🎯 Novelty Evaluation: {graph_result.paper.label}")
+    print(f"📝 Rationale: {graph_result.paper.rationale_pred}")
+
+    if graph_result.graph and not graph_result.graph.is_empty():
+        print(f"\n📊 Graph extracted with {len(graph_result.graph.entities)} entities")
 
     if detail:
-        display_paper_results(result)
+        display_graph_results(graph_result)
 
 
 def filter_related(
-    result: gpt.PaperWithRelatedSummary, pol: rp.ContextPolarity, src: rp.PaperSource
+    result: GraphResult, pol: rp.ContextPolarity, src: rp.PaperSource
 ) -> list[PaperRelatedSummarised]:
     """Filter related papers by polarity and source."""
+    if not result.related:
+        return []
+
     return [
         r
         for r in result.related
