@@ -479,10 +479,13 @@ def format_eval_template(
     paper: PaperWithRelatedSummary,
     graph: Graph,
     demonstrations: str,
-    method: LinearisationMethod,
-    sources: set[RelatedPaperSource],
+    method: LinearisationMethod = LinearisationMethod.TOPO,
+    sources: set[RelatedPaperSource] | None = None,
 ) -> str:
     """Format evaluation template using the paper graph and PETER-queried related papers."""
+    if sources is None:
+        sources = set(RelatedPaperSource)
+
     related = [p for p in paper.related if p.source in sources]
     return prompt.template.format(
         title=paper.title,
