@@ -560,11 +560,15 @@ class OpenAIClient(LLMClient):
         """
 
         try:
+            messages = await asyncio.to_thread(
+                _prepare_messages_gpt,
+                system_prompt,
+                user_prompt,
+                self.max_input_tokens,
+            )
             completion = await self._call_gpt(
                 model=self.model,
-                messages=_prepare_messages_gpt(
-                    system_prompt, user_prompt, self.max_input_tokens
-                ),
+                messages=messages,
                 response_format=class_,
                 seed=self.seed,
                 temperature=self.temperature,
