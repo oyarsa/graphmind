@@ -80,7 +80,7 @@ from paper.semantic_scholar.info import (
 from paper.semantic_scholar.recommended import fetch_paper_recommendations
 
 # Etc.
-from paper.util import Timer, arun_safe, ensure_envvar, progress, seqcat
+from paper.util import Timer, arun_safe, ensure_envvar, progress, seqcat, setup_logging
 from paper.util.rate_limiter import Limiter, get_limiter
 
 logger = logging.getLogger(__name__)
@@ -914,8 +914,13 @@ async def evaluate_paper(
     Returns:
         GraphResult with evaluation wrapped in GPTResult.
     """
-    graph_result = await client.run(
-        GPTGraph, graph_prompt.system, format_graph_template(graph_prompt, paper.paper)
+    graph_result = await timer(
+        client.run(
+            GPTGraph,
+            graph_prompt.system,
+            format_graph_template(graph_prompt, paper.paper),
+        ),
+        "extract graph",
     )
     graph = (
         graph_result.result.to_graph(title=paper.title, abstract=paper.abstract)
@@ -925,10 +930,13 @@ async def evaluate_paper(
     if graph.is_empty():
         logger.warning(f"Paper '{paper.title}': invalid Graph")
 
-    eval_result = await client.run(
-        GPTStructured,
-        eval_prompt.system,
-        format_eval_template(eval_prompt, paper, graph, demonstrations),
+    eval_result = await timer(
+        client.run(
+            GPTStructured,
+            eval_prompt.system,
+            format_eval_template(eval_prompt, paper, graph, demonstrations),
+        ),
+        "eval graph",
     )
     eval = eval_result.result or GPTStructured.error()
     if not eval.is_valid():
@@ -1001,6 +1009,7 @@ def single_paper(
     ] = "abstract",
 ) -> None:
     """Process a paper title through the complete PETER pipeline and print results."""
+    setup_logging()
     arun_safe(
         process_paper,
         query,
