@@ -75,6 +75,7 @@ from paper.orc.latex_parser import SentenceSplitter
 from paper.semantic_scholar.info import (
     fetch_arxiv_papers,
     fetch_paper_data,
+    fetch_paper_info,
     get_top_k_titles,
 )
 from paper.semantic_scholar.recommended import fetch_paper_recommendations
@@ -125,24 +126,16 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr
         SEMANTIC_SCHOLAR_API_KEY environment variable.
     """
     # Run S2 and arXiv queries in parallel
-    s2_results, arxiv_result = await asyncio.gather(
+    s2_paper, arxiv_result = await asyncio.gather(
         timer(
-            fetch_arxiv_papers(
-                api_key,
-                [title],
-                S2_FIELDS,
-                desc="Fetching paper from S2",
-                limiter=limiter,
-            ),
+            fetch_s2_paper_info(api_key, title, limiter),
             ">>> fetch paper from s2",
         ),
         timer(get_arxiv_from_title(title), ">>> query arxiv from title"),
     )
 
-    if not s2_results or not s2_results[0]:
+    if not s2_paper:
         raise ValueError(f"Paper not found on Semantic Scholar: {title}")
-
-    s2_paper = s2_results[0]
 
     if not arxiv_result:
         raise ValueError(f"Paper not found on arXiv: {title}")
@@ -1344,3 +1337,22 @@ async def get_arxiv_from_id(arxiv_id: str) -> ArxivResult | None:
         logger.warning(f"Error searching for '{arxiv_id}' on arXiv: {e}")
 
     return None
+
+
+async def fetch_s2_paper_info(
+    api_key: str, title: str, limiter: Limiter
+) -> s2.PaperFromPeerRead | None:
+    """Fetch paper information from the Semantic Scholar API.
+
+    Args:
+        api_key: Semantic Scholar API key.
+        title: Paper title to search for.
+        limiter: Limiter for the API requests.
+
+    Returns:
+        Paper found or None for failed/not found papers.
+    """
+    async with aiohttp.ClientSession(
+        timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT)
+    ) as session:
+        return await fetch_paper_info(session, api_key, title, S2_FIELDS, limiter)
