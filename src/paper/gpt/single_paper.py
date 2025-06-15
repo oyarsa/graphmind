@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from collections import defaultdict
 from collections.abc import Awaitable, Sequence
 from dataclasses import dataclass
@@ -361,11 +362,15 @@ async def process_paper_complete(
     return GPTResult(result=result, cost=total_cost)
 
 
+PRINT_TIMERS = os.getenv("TIMERS", "0") == "1"
+
+
 async def timer[T](task: Awaitable[T], name: str) -> T:
     """Print time it takes to run task."""
     with Timer(name) as t:
         result = await task
-    logger.warning(t)
+    if PRINT_TIMERS:
+        typer.secho(t, fg="green")
     return result
 
 
