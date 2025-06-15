@@ -50,21 +50,18 @@ class GraphResult(Immutable, PaperProxy[PaperResult]):
     @classmethod
     def from_annotated(
         cls,
-        paper: PaperResult,
+        annotated: PaperWithRelatedSummary,
+        result: PaperResult,
         graph: Graph,
-        related: Sequence[PaperRelatedSummarised] | None,
-        terms: PaperTerms,
-        background: str,
-        target: str,
     ) -> Self:
         """Create GraphResult with annotation data."""
         return cls(
             graph=graph,
-            paper=paper,
-            related=related,
-            terms=terms,
-            background=background,
-            target=target,
+            paper=result,
+            related=annotated.related,
+            terms=annotated.terms,
+            background=annotated.background,
+            target=annotated.target,
         )
 
     @classmethod

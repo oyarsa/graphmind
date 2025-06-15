@@ -451,12 +451,7 @@ async def evaluate_paper(
     return GPTResult(
         result=PromptResult(
             item=GraphResult.from_annotated(
-                paper=paper_result,
-                graph=graph,
-                related=paper.related,
-                terms=paper.paper.terms,
-                background=paper.paper.background,
-                target=paper.paper.target,
+                annotated=paper, result=paper_result, graph=graph
             ),
             prompt=Prompt(system=eval_system_prompt, user=eval_prompt_text),
         ),
