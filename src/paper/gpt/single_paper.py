@@ -127,11 +127,8 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr
     """
     # Run S2 and arXiv queries in parallel
     s2_paper, arxiv_result = await asyncio.gather(
-        timer(
-            fetch_s2_paper_info(api_key, title, limiter),
-            ">>> fetch paper from s2",
-        ),
-        timer(get_arxiv_from_title(title), ">>> query arxiv from title"),
+        timer(fetch_s2_paper_info(api_key, title, limiter), 3),
+        timer(get_arxiv_from_title(title), 3),
     )
 
     if not s2_paper:
@@ -143,8 +140,7 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr
 
     # Parse arXiv LaTeX
     sections, references = await timer(
-        asyncio.to_thread(parse_arxiv_latex, arxiv_result, SentenceSplitter()),
-        ">>> parse arXiv LaTeX",
+        asyncio.to_thread(parse_arxiv_latex, arxiv_result, SentenceSplitter()), 3
     )
 
     return pr.Paper.from_s2(s2_paper, sections=sections, references=references)
@@ -171,10 +167,7 @@ async def get_paper_from_arxiv_id(
         SEMANTIC_SCHOLAR_API_KEY environment variable.
     """
     # First get arXiv result to get the title for S2 lookup
-    arxiv_result = await timer(
-        get_arxiv_from_id(arxiv_id),
-        ">>> get arxiv from id",
-    )
+    arxiv_result = await timer(get_arxiv_from_id(arxiv_id), 3)
     if not arxiv_result:
         raise ValueError(f"Paper not found on arXiv: {arxiv_id}")
     logger.debug("arXiv result: %s", arxiv_result)
@@ -182,12 +175,10 @@ async def get_paper_from_arxiv_id(
     # Run S2 lookup and LaTeX parsing in parallel
     s2_paper, (sections, references) = await asyncio.gather(
         timer(
-            fetch_s2_paper_info(api_key, arxiv_result.arxiv_title, limiter=limiter),
-            ">>> fetch paper from s2",
+            fetch_s2_paper_info(api_key, arxiv_result.arxiv_title, limiter=limiter), 3
         ),
         timer(
-            asyncio.to_thread(parse_arxiv_latex, arxiv_result, SentenceSplitter()),
-            ">>> parse arXiv LaTeX",
+            asyncio.to_thread(parse_arxiv_latex, arxiv_result, SentenceSplitter()), 3
         ),
     )
 
@@ -262,13 +253,13 @@ async def annotate_paper_pipeline(
     paper_with_s2_refs, recommended_papers = await asyncio.gather(
         timer(
             enhance_with_s2_references(paper, top_k_refs, encoder, s2_api_key, limiter),
-            ">>> enhance with s2 references",
+            3,
         ),
         timer(
             fetch_s2_recommendations(
                 paper, num_recommendations, s2_api_key, limiter, request_timeout
             ),
-            ">>> fetch s2 recommendations",
+            3,
         ),
     )
 
@@ -286,17 +277,17 @@ async def annotate_paper_pipeline(
             extract_paper_annotations(
                 paper_with_s2_refs, client, term_prompt_key, abstract_prompt_key
             ),
-            ">>> extract paper annotations",
+            3,
         ),
         timer(
             extract_recommended_annotations(
                 recommended_papers, client, term_prompt_key, abstract_prompt_key
             ),
-            ">>> extract recommended annotations",
+            3,
         ),
         timer(
             classify_citation_contexts(paper_with_s2_refs, client, context_prompt_key),
-            ">>> classify citation contexts",
+            3,
         ),
     )
 
@@ -311,7 +302,7 @@ async def annotate_paper_pipeline(
             num_related,
             encoder,
         ),
-        ">>> get related papers direct",
+        3,
     )
 
     # Phase 4: Generate summaries for related papers
@@ -324,7 +315,7 @@ async def annotate_paper_pipeline(
             positive_prompt_key,
             negative_prompt_key,
         ),
-        ">>> generate related paper summaries",
+        3,
     )
 
     # Phase 5: Create final result
@@ -930,15 +921,14 @@ async def evaluate_paper_with_graph(
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
     graph_result = await timer(
-        extract_graph_from_paper(paper.paper, client, graph_prompt),
-        ">>> extract graph",
+        extract_graph_from_paper(paper.paper, client, graph_prompt), 3
     )
 
     eval_result = await timer(
         evaluate_paper_graph_novelty(
             paper, graph_result.result, client, eval_prompt, demonstrations
         ),
-        ">>> evaluate graph",
+        3,
     )
 
     return GPTResult(
@@ -1073,16 +1063,12 @@ async def process_paper_from_query(
     match type_:
         case QueryType.TITLE:
             logger.debug("Searching by title: %s", query)
-            paper = await timer(
-                get_paper_from_title(query, limiter, s2_api_key),
-                ">> get paper from title",
-            )
+            paper = await timer(get_paper_from_title(query, limiter, s2_api_key), 2)
         case QueryType.ID:
             arxiv_id = arxiv_id_from_url(query)
             logger.debug("Searching by arXiv ID: %s", arxiv_id)
             paper = await timer(
-                get_paper_from_arxiv_id(arxiv_id, limiter, s2_api_key),
-                ">> get paper from arxiv ID",
+                get_paper_from_arxiv_id(arxiv_id, limiter, s2_api_key), 2
             )
 
     # Process paper through PETER pipeline
@@ -1097,7 +1083,7 @@ async def process_paper_from_query(
             num_related=num_related,
             encoder_model=encoder_model,
         ),
-        ">> annotate paper pipeline",
+        2,
     )
 
     # Evaluate with graph
@@ -1110,7 +1096,7 @@ async def process_paper_from_query(
             demonstrations_key,
             demo_prompt_key,
         ),
-        ">> evaluate paper with graph",
+        2,
     )
 
     return paper_result.then(graph_result)
@@ -1247,7 +1233,7 @@ async def process_paper(
             demonstrations,
             demo_prompt,
         ),
-        "> process paper from query",
+        1,
     )
 
     graph_result = result.result

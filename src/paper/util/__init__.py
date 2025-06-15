@@ -20,7 +20,7 @@ from importlib import resources
 from io import StringIO
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Self, cast, overload
+from typing import Any, Self, cast, no_type_check, overload
 
 import polars as pl
 import psutil
@@ -834,13 +834,76 @@ async def batch_map_with_progress[T, U](
 PRINT_TIMERS = os.getenv("TIMERS", "0") == "1"
 
 
-async def timer[T](task: Awaitable[T], name: str) -> T:
+@no_type_check
+def _extract_task_name(task: Awaitable[Any]) -> str:
+    """Extract a descriptive name from an awaitable task."""
+    # Handle coroutines
+    if hasattr(task, "cr_code"):
+        return task.cr_code.co_name
+
+    # Handle asyncio.Task
+    if hasattr(task, "_coro") and hasattr(task._coro, "cr_code"):  # noqa: SLF001
+        return task._coro.cr_code.co_name  # noqa: SLF001
+
+    # Handle asyncio.gather - extract from first awaitable
+    if hasattr(task, "_children") and task._children:  # noqa: SLF001
+        first_child = next(iter(task._children))  # noqa: SLF001
+        if hasattr(first_child, "cr_code"):
+            func_name: str = first_child.cr_code.co_name
+            child_count = len(task._children)  # noqa: SLF001
+            return (
+                f"{func_name} (+{child_count - 1} more)"
+                if child_count > 1
+                else func_name
+            )
+
+    # Handle ThreadPoolExecutor futures (asyncio.to_thread)
+    if hasattr(task, "_fn") and hasattr(task._fn, "__name__"):  # noqa: SLF001
+        return f"{task._fn.__name__} (threaded)"  # noqa: SLF001
+
+    # Handle other awaitable types
+    task_type = type(task).__name__
+    if hasattr(task, "__name__"):
+        return task.__name__
+
+    # Fallback to type name
+    return task_type.lower()
+
+
+def _get_depth_color(depth: int) -> str:
+    """Get ANSI color code based on depth level (1-5)."""
+    colors = {
+        1: "\033[32m",  # Green
+        2: "\033[34m",  # Blue
+        3: "\033[35m",  # Magenta
+        4: "\033[33m",  # Yellow
+        5: "\033[36m",  # Cyan
+    }
+    clamped_depth = max(1, min(5, depth))
+    return colors[clamped_depth]
+
+
+async def timer[T](task: Awaitable[T], depth: int = 1) -> T:
     """Print time it takes to run task.
 
-    Only enabled  if TIMERS env var is 1.
+    Only enabled if TIMERS env var is 1.
+
+    Args:
+        task: The awaitable task to time.
+        depth: Number of '>' characters to prepend and determines color (1-5).
+
+    Usage:
+        await timer(some_task())     # > some_task took 1s (green)
+        await timer(some_task(), 2)  # >> some_task took 1s (blue)
+        await timer(some_task(), 3)  # >>> some_task took 1s (magenta)
     """
-    with Timer(name) as t:
+    name = _extract_task_name(task)
+    prefix = ">" * depth
+    display_name = f"{prefix} {name}"
+    color = _get_depth_color(depth)
+
+    with Timer(display_name) as t:
         result = await task
     if PRINT_TIMERS:
-        print(f"\033[32m{t}\033[0m")  # green text
+        print(f"{color}{t}\033[0m")
     return result
