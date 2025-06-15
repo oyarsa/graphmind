@@ -112,11 +112,19 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> Pa
     Requires:
         SEMANTIC_SCHOLAR_API_KEY environment variable.
     """
-    s2_results = await timer(
-        fetch_arxiv_papers(
-            api_key, [title], S2_FIELDS, desc="Fetching paper from S2", limiter=limiter
+    # Run S2 and arXiv queries in parallel
+    s2_results, arxiv_result = await asyncio.gather(
+        timer(
+            fetch_arxiv_papers(
+                api_key,
+                [title],
+                S2_FIELDS,
+                desc="Fetching paper from S2",
+                limiter=limiter,
+            ),
+            "fetch paper from s2",
         ),
-        "fetch paper from s2",
+        timer(get_arxiv_from_title(title), "query arxiv from title"),
     )
 
     if not s2_results or not s2_results[0]:
@@ -124,13 +132,8 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> Pa
 
     s2_paper = s2_results[0]
 
-    # Query arXiv for LaTeX content
-    arxiv_result = await timer(
-        get_arxiv_from_title(s2_paper.title), "query arxiv from title"
-    )
-
     if not arxiv_result:
-        raise ValueError(f"Paper not found on arXiv: {s2_paper.title}")
+        raise ValueError(f"Paper not found on arXiv: {title}")
     logger.debug("arXiv result: %s", arxiv_result)
 
     # Parse arXiv LaTeX
@@ -168,20 +171,28 @@ async def get_paper_from_arxiv_id(
     Requires:
         SEMANTIC_SCHOLAR_API_KEY environment variable.
     """
+    # First get arXiv result to get the title for S2 lookup
     arxiv_result = await timer(get_arxiv_from_id(arxiv_id), "get arxiv from id")
     if not arxiv_result:
         raise ValueError(f"Paper not found on arXiv: {arxiv_id}")
     logger.debug("arXiv result: %s", arxiv_result)
 
-    s2_results = await timer(
-        fetch_arxiv_papers(
-            api_key,
-            [arxiv_result.arxiv_title],
-            S2_FIELDS,
-            desc="Fetching paper from S2",
-            limiter=limiter,
+    # Run S2 lookup and LaTeX parsing in parallel
+    s2_results, (sections, references) = await asyncio.gather(
+        timer(
+            fetch_arxiv_papers(
+                api_key,
+                [arxiv_result.arxiv_title],
+                S2_FIELDS,
+                desc="Fetching paper from S2",
+                limiter=limiter,
+            ),
+            "fetch paper from s2",
         ),
-        "fetch paper from s2",
+        timer(
+            asyncio.to_thread(parse_arxiv_latex, arxiv_result, SentenceSplitter()),
+            "parse arXiv LaTeX",
+        ),
     )
 
     if not s2_results or not s2_results[0]:
@@ -190,13 +201,6 @@ async def get_paper_from_arxiv_id(
         )
 
     s2_paper = s2_results[0]
-
-    # Parse arXiv LaTeX
-    splitter = SentenceSplitter()
-    sections, references = await timer(
-        asyncio.to_thread(parse_arxiv_latex, arxiv_result, splitter),
-        "parse arXiv LaTeX",
-    )
 
     # Create and return Paper object
     return Paper.from_s2(
@@ -286,18 +290,19 @@ async def process_paper_complete(
     if not paper_with_s2_refs or not recommended_papers:
         raise ValueError("No recommended found")
 
-    # Phase 2: Extract annotations from main paper
-    logger.debug("Extracting key terms and background/target of main paper via GPT")
-    paper_annotated = await timer(
-        extract_paper_annotations(
-            paper_with_s2_refs, client, term_prompt_key, abstract_prompt_key
+    # Phase 2: Extract annotations from all papers and classify contexts in parallel
+    logger.debug("Processing all annotations and citation contexts in parallel")
+    (
+        paper_annotated,
+        recommended_annotated,
+        paper_with_classified_contexts,
+    ) = await asyncio.gather(
+        timer(
+            extract_paper_annotations(
+                paper_with_s2_refs, client, term_prompt_key, abstract_prompt_key
+            ),
+            "extract paper annotations",
         ),
-        "extract paper annotations",
-    )
-
-    # Phase 3: Extract annotations from recommended papers and classify contexts in parallel
-    logger.debug("Processing recommended papers and citation contexts in parallel")
-    recommended_annotated, paper_with_classified_contexts = await asyncio.gather(
         timer(
             extract_recommended_annotations(
                 recommended_papers, client, term_prompt_key, abstract_prompt_key
@@ -310,7 +315,7 @@ async def process_paper_complete(
         ),
     )
 
-    # Phase 4: Get related papers (simplified approach without full PETER graphs)
+    # Phase 3: Get related papers (simplified approach without full PETER graphs)
     logger.debug("Getting related papers using direct approach")
     related_papers = await timer(
         asyncio.to_thread(
@@ -324,7 +329,7 @@ async def process_paper_complete(
         "get related papers direct",
     )
 
-    # Phase 5: Generate summaries for related papers
+    # Phase 4: Generate summaries for related papers
     logger.debug("Generating summaries for related papers")
     related_papers_summarised = await timer(
         generate_related_paper_summaries(
@@ -337,7 +342,7 @@ async def process_paper_complete(
         "generate related paper summaries",
     )
 
-    # Phase 6: Create final result
+    # Phase 5: Create final result
     logger.debug("Creating final result")
     result = gpt.PaperWithRelatedSummary(
         paper=paper_annotated.result, related=related_papers_summarised.result
