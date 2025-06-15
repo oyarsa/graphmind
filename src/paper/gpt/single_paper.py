@@ -81,7 +81,7 @@ from paper.semantic_scholar.info import (
 from paper.semantic_scholar.recommended import fetch_paper_recommendations
 
 # Etc.
-from paper.util import Timer, arun_safe, ensure_envvar, progress, seqcat, setup_logging
+from paper.util import Timer, arun_safe, ensure_envvar, seqcat, setup_logging
 from paper.util.rate_limiter import Limiter, get_limiter
 
 logger = logging.getLogger(__name__)
@@ -271,7 +271,7 @@ async def process_paper_complete(
     """
     encoder = emb.Encoder(encoder_model)
 
-    logger.info("Processing paper: %s", paper.title)
+    logger.debug("Processing paper: %s", paper.title)
 
     # Phase 1: Fetch S2 recommended papers and reference data in parallel
     logger.debug("Fetching S2 data for recommendations and references in parallel")
@@ -349,7 +349,6 @@ async def process_paper_complete(
         paper=paper_annotated.result, related=related_papers_summarised.result
     )
 
-    logger.info("Completed processing paper: %s", paper.title)
     total_cost = sum(
         x.cost
         for x in (
@@ -359,7 +358,6 @@ async def process_paper_complete(
             related_papers_summarised,
         )
     )
-    logger.info("Cost: %f", total_cost)
     return GPTResult(result=result, cost=total_cost)
 
 
@@ -385,11 +383,7 @@ async def enhance_with_s2_references(
 
     # Fetch S2 data for the top references
     s2_results = await fetch_arxiv_papers(
-        api_key,
-        top_ref_titles,
-        [*S2_FIELDS_BASE, "tldr"],
-        desc="Fetching S2 data for references",
-        limiter=limiter,
+        api_key, top_ref_titles, [*S2_FIELDS_BASE, "tldr"], limiter=limiter
     )
 
     # Create S2Reference objects by matching with original references
@@ -511,7 +505,7 @@ async def extract_recommended_annotations(
         for s2_paper in recommended_papers
         if s2_paper.abstract
     ]
-    return gpt_sequence(await progress.gather(tasks, desc="Annotating related papers."))
+    return gpt_sequence(await asyncio.gather(*tasks))
 
 
 async def extract_recommended_annotations_single(
@@ -623,7 +617,7 @@ async def _classify_contexts_parallel(
 ) -> list[tuple[_ReferenceIdx, GPTResult[ContextClassified]]]:
     """Classify all contexts in parallel and return results with reference indices."""
     tasks = [_classify_context_single(client, task) for _, task in specs]
-    results = await progress.gather(tasks, desc="Classifying contexts")
+    results = await asyncio.gather(*tasks)
     return [(ref_idx, result) for (ref_idx, _), result in zip(specs, results)]
 
 
@@ -817,9 +811,7 @@ async def generate_related_paper_summaries(
         )
         for related_paper in related_papers
     ]
-    return gpt_sequence(
-        await progress.gather(tasks, desc="Generating related paper summaries")
-    )
+    return gpt_sequence(await asyncio.gather(*tasks))
 
 
 async def generate_summary_single(
@@ -1269,7 +1261,7 @@ async def process_paper(
 
     # Display novelty evaluation
     print(f"\n🎯 Novelty Evaluation: {graph_result.paper.label}")
-    print(f"📝 Rationale: {graph_result.paper.rationale_pred}")
+    print(f"📝 Rationale: {graph_result.paper.rationale_pred[:1000]}")
 
     if graph_result.graph and not graph_result.graph.is_empty():
         print(f"\n📊 Graph extracted with {len(graph_result.graph.entities)} entities")
