@@ -189,25 +189,27 @@ class GPTStructured(Immutable):
     paper_summary: Annotated[
         str,
         Field(
-            description="Brief summary of the paper's main contributions and approach"
+            description="Brief summary of the paper's main contributions and approach."
         ),
     ]
     supporting_evidence: Annotated[
         Sequence[str],
         Field(
-            description="List of evidence from related papers that support the paper's novelty"
+            description="List of evidence from related papers that support the paper's"
+            " novelty."
         ),
     ]
     contradictory_evidence: Annotated[
         Sequence[str],
         Field(
-            description="List of evidence from related papers that contradict the paper's novelty"
+            description="List of evidence from related papers that contradict the"
+            " paper's novelty."
         ),
     ]
     conclusion: Annotated[
         str,
         Field(
-            description="Final assessment of the paper's novelty based on the evidence"
+            description="Final assessment of the paper's novelty based on the evidence."
         ),
     ]
     label: Annotated[
