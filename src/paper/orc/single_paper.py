@@ -5,6 +5,10 @@ pipeline, including S2 reference enhancement, GPT annotations, context classific
 related paper discovery, and summarization.
 """
 
+# TODO: Review how this file interacts with other modules. I know it sprawls many parts
+# of the codebase, but it might be best to respect module boundaries, at least those
+# ouside of `gpt`. In fact, this should probably be moved to `gpt`.
+
 from __future__ import annotations
 
 import asyncio
@@ -49,11 +53,6 @@ from paper.gpt.evaluate_paper_graph import (
     get_demonstrations,
 )
 from paper.gpt.graph_types.full import GPTGraph
-from paper.gpt.model import (
-    LinearisationMethod,
-    PaperRelatedSummarised,
-    RelatedPaperSource,
-)
 from paper.gpt.run_gpt import GPTResult, LLMClient, gpt_sequence
 from paper.gpt.summarise_related_peter import (
     PETER_SUMMARISE_SYSTEM_PROMPT,
@@ -84,6 +83,7 @@ from paper.util.rate_limiter import Limiter, get_limiter
 
 if TYPE_CHECKING:
     from paper.gpt.extract_graph import GraphResult
+    from paper.gpt.model import PaperRelatedSummarised
     from paper.gpt.prompts import PromptTemplate
 
 logger = logging.getLogger(__name__)
@@ -877,7 +877,6 @@ async def evaluate_paper_with_graph(
     Returns:
         GraphResult with novelty evaluation wrapped in GPTResult.
     """
-    # Load prompts
     eval_prompt = GRAPH_EVAL_USER_PROMPTS[eval_prompt_key]
     if not eval_prompt.system or eval_prompt.type_name != "GPTStructured":
         raise ValueError(f"Eval prompt {eval_prompt.name!r} is not valid.")
@@ -906,7 +905,7 @@ async def evaluate_paper(
     graph_prompt: PromptTemplate,
     demonstrations: str,
 ) -> GPTResult[GraphResult]:
-    """Evaluate a single paper's novelty using graph extraction and related papers.
+    """Evaluate a paper's novelty using graph extraction and related papers.
 
     Args:
         client: LLM client for API calls.
@@ -914,11 +913,9 @@ async def evaluate_paper(
         eval_prompt: Prompt template for evaluation.
         graph_prompt: Prompt template for graph extraction.
         demonstrations: Text of demonstrations for few-shot prompting.
-        linearisation_method: How to convert graph to text.
-        sources: Which related paper sources to include.
 
     Returns:
-        GraphResult with evaluation wrapped in PromptResult and GPTResult.
+        GraphResult with evaluation wrapped in GPTResult.
     """
     graph_result = await client.run(
         GPTGraph, graph_prompt.system, format_graph_template(graph_prompt, paper.paper)
@@ -928,32 +925,23 @@ async def evaluate_paper(
         if graph_result.result
         else gpt.Graph.empty()
     )
-
     if graph.is_empty():
         logger.warning(f"Paper '{paper.title}': invalid Graph")
 
-    eval_prompt_text = format_eval_template(
-        eval_prompt,
-        paper,
-        graph,
-        demonstrations,
-        LinearisationMethod.TOPO,
-        {RelatedPaperSource.CITATIONS, RelatedPaperSource.SEMANTIC},
+    eval_result = await client.run(
+        GPTStructured,
+        eval_prompt.system,
+        format_eval_template(eval_prompt, paper, graph, demonstrations),
     )
-    eval_system_prompt = eval_prompt.system
-
-    eval_result = await client.run(GPTStructured, eval_system_prompt, eval_prompt_text)
-
-    if not eval_result.result or not eval_result.result.is_valid():
+    eval = eval_result.result or GPTStructured.error()
+    if not eval.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid evaluation result")
 
-    structured = eval_result.result or GPTStructured.error()
-    fixed_label = fix_evaluated_rating(structured, TargetMode.BIN).label
     paper_result = gpt.PaperResult.from_s2peer(
-        paper.paper.paper,
-        fixed_label,
-        structured.rationale,
-        structured_evaluation=structured,
+        paper=paper.paper.paper,
+        y_pred=fix_evaluated_rating(eval, TargetMode.BIN).label,
+        rationale_pred=eval.rationale,
+        structured_evaluation=eval,
     )
 
     return GPTResult(
