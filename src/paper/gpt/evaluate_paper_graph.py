@@ -348,7 +348,7 @@ async def _evaluate_papers(
     async def evaluate(
         paper: PaperWithRelatedSummary,
     ) -> GPTResult[PromptResult[GraphResult]]:
-        result = await _evaluate_paper(
+        result = await evaluate_paper(
             client,
             paper,
             eval_prompt,
@@ -365,7 +365,7 @@ async def _evaluate_papers(
     )
 
 
-async def _evaluate_paper(
+async def evaluate_paper(
     client: LLMClient,
     paper: PaperWithRelatedSummary,
     eval_prompt: PromptTemplate,
@@ -374,6 +374,20 @@ async def _evaluate_paper(
     linearisation_method: LinearisationMethod,
     sources: set[RelatedPaperSource],
 ) -> GPTResult[PromptResult[GraphResult]]:
+    """Evaluate a single paper's novelty using graph extraction and related papers.
+
+    Args:
+        client: LLM client for API calls.
+        paper: Paper with related papers and summaries.
+        eval_prompt: Prompt template for evaluation.
+        graph_prompt: Prompt template for graph extraction.
+        demonstrations: Text of demonstrations for few-shot prompting.
+        linearisation_method: How to convert graph to text.
+        sources: Which related paper sources to include.
+
+    Returns:
+        GraphResult with evaluation wrapped in PromptResult and GPTResult.
+    """
     if "graph" in eval_prompt.name:
         graph_prompt_text = format_graph_template(graph_prompt, paper.paper)
         graph_system_prompt = graph_prompt.system
