@@ -216,7 +216,7 @@ async def get_paper_from_arxiv_id(
     )
 
 
-async def process_paper_complete(
+async def annotate_paper_pipeline(
     paper: pr.Paper,
     limiter: Limiter,
     s2_api_key: str,
@@ -233,7 +233,7 @@ async def process_paper_complete(
     encoder_model: str = emb.DEFAULT_SENTENCE_MODEL,
     request_timeout: float = REQUEST_TIMEOUT,
 ) -> GPTResult[gpt.PaperWithRelatedSummary]:
-    """Process a single paper through the complete pipeline to get related papers.
+    """Annotate a single paper through the complete pipeline to get related papers.
 
     Takes an ORC Paper and enhances it with:
     - S2 reference information for top-k semantically similar references
@@ -1077,14 +1077,14 @@ async def process_paper_from_query(
 
     match type_:
         case QueryType.TITLE:
-            logger.info("Searching by title: %s", query)
+            logger.debug("Searching by title: %s", query)
             paper = await timer(
                 get_paper_from_title(query, limiter, s2_api_key),
                 ">> get paper from title",
             )
         case QueryType.ID:
             arxiv_id = arxiv_id_from_url(query)
-            logger.info("Searching by arXiv ID: %s", arxiv_id)
+            logger.debug("Searching by arXiv ID: %s", arxiv_id)
             paper = await timer(
                 get_paper_from_arxiv_id(arxiv_id, limiter, s2_api_key),
                 ">> get paper from arxiv ID",
@@ -1092,7 +1092,7 @@ async def process_paper_from_query(
 
     # Process paper through PETER pipeline
     paper_result = await timer(
-        process_paper_complete(
+        annotate_paper_pipeline(
             paper,
             limiter,
             s2_api_key,
@@ -1102,7 +1102,7 @@ async def process_paper_from_query(
             num_related=num_related,
             encoder_model=encoder_model,
         ),
-        ">> process paper complete",
+        ">> annotate paper pipeline",
     )
 
     # Evaluate with graph
