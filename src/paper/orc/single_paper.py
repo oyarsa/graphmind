@@ -12,6 +12,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Awaitable, Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, NewType
 
 import aiohttp
@@ -64,7 +65,6 @@ from paper.semantic_scholar.model import Paper as S2Paper
 from paper.semantic_scholar.model import PaperWithS2Refs
 from paper.semantic_scholar.recommended import fetch_paper_recommendations
 from paper.util import Timer, arun_safe, ensure_envvar, progress
-from paper.util.cli import die
 from paper.util.rate_limiter import Limiter, get_limiter
 
 if TYPE_CHECKING:
@@ -845,13 +845,20 @@ async def generate_summary_single(
     )
 
 
+class QueryType(StrEnum):
+    """Whether to query arXiv by title or ID/URL."""
+
+    TITLE = "title"
+    ID = "id"
+
+
 def single_paper(
-    title: Annotated[
-        str | None, typer.Option(help="Title of the paper to process")
-    ] = None,
-    id: Annotated[
-        str | None, typer.Option(help="arXiv ID or URL of the paper to process")
-    ] = None,
+    query: Annotated[
+        str, typer.Argument(help="Title or arXiv ID/URL of the paper to process")
+    ],
+    type_: Annotated[
+        QueryType, typer.Option("--type", help="Whether to query by title or arXiv.")
+    ],
     top_k_refs: Annotated[
         int, typer.Option(help="Number of top references to process by similarity")
     ] = 20,
@@ -875,8 +882,8 @@ def single_paper(
     """Process a paper title through the complete PETER pipeline and print results."""
     arun_safe(
         process_paper,
-        title,
-        id,
+        query,
+        type_,
         top_k_refs,
         num_recommendations,
         num_related,
@@ -887,10 +894,9 @@ def single_paper(
     )
 
 
-# TODO: Add Process executor parameter so encoding doesn't block the async loop
-async def process_paper_from_title_or_id(
-    title: str | None,
-    arxiv_id: str | None,
+async def process_paper_from_query(
+    query: str,
+    type_: QueryType,
     top_k_refs: int,
     num_recommendations: int,
     num_related: int,
@@ -899,10 +905,10 @@ async def process_paper_from_title_or_id(
     seed: int,
     limiter: Limiter,
 ) -> gpt.PaperWithRelatedSummary:
-    """Process a paper by title through the complete PETER pipeline.
+    """Process a paper by query (title or arXiv ID/URL) through the complete PETER pipeline.
 
     This function provides a complete end-to-end paper processing pipeline that:
-    1. Retrieves paper from Semantic Scholar and arXiv using the title
+    1. Retrieves paper from Semantic Scholar and arXiv using the title or ID/URL
     2. Processes the paper through the complete PETER pipeline including:
        - S2 reference enhancement with top-k semantic similarity filtering
        - GPT-based annotation extraction (key terms, background, target)
@@ -911,8 +917,8 @@ async def process_paper_from_title_or_id(
        - GPT-generated summaries of related papers
 
     Args:
-        title: Paper title to search for and process.
-        arxiv_id: arXiv ID or URL for the paper to process.
+        query: Paper title or arXiv ID/URL to search for and process.
+        type_: Whether to query arXiv by title or ID/URL.
         top_k_refs: Number of top references to process by semantic similarity.
         num_recommendations: Number of recommended papers to fetch from S2 API.
         num_related: Number of related papers to return for each type
@@ -934,14 +940,14 @@ async def process_paper_from_title_or_id(
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
-    if title:
-        logger.info("Searching by title: %s", title)
-        paper = await get_paper_from_title(title, limiter, api_key)
-    else:
-        assert arxiv_id, "Title or ID must be given."
-        arxiv_id = arxiv_id_from_url(arxiv_id)
-        logger.info("Searching by arXiv ID: %s", arxiv_id)
-        paper = await get_paper_from_arxiv_id(arxiv_id, limiter, api_key)
+    match type_:
+        case QueryType.TITLE:
+            logger.info("Searching by title: %s", query)
+            paper = await get_paper_from_title(query, limiter, api_key)
+        case QueryType.ID:
+            arxiv_id = arxiv_id_from_url(query)
+            logger.info("Searching by arXiv ID: %s", arxiv_id)
+            paper = await get_paper_from_arxiv_id(arxiv_id, limiter, api_key)
 
     return await process_paper_complete(
         paper,
@@ -1017,8 +1023,8 @@ def display_paper_results(result: gpt.PaperWithRelatedSummary) -> None:
 
 
 async def process_paper(
-    title: str | None,
-    arxiv_id: str | None,
+    query: str,
+    type_: QueryType,
     top_k_refs: int,
     num_recommendations: int,
     num_related: int,
@@ -1034,8 +1040,8 @@ async def process_paper(
     2. Displays comprehensive results to stdout.
 
     Args:
-        title: Paper title to search for and process.
-        arxiv_id: arXiv ID or URL of the paper to process.
+        query: Paper title or arXiv ID/URL to search for and process.
+        type_: Whether to query arXiv by title or ID/URL.
         top_k_refs: Number of top references to process by semantic similarity.
         num_recommendations: Number of recommended papers to fetch from S2 API.
         num_related: Number of related papers to return for each type
@@ -1053,17 +1059,12 @@ async def process_paper(
     Requires:
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
-    if not title and not arxiv_id:
-        die("Either --title or --id must be given.")
-    if title and arxiv_id:
-        die("Only one of --title or --id must be given.")
-
     limiter = get_limiter(1, 1)  # 1 request per second
 
     with Timer("full single paper") as t:
-        result = await process_paper_from_title_or_id(
-            title,
-            arxiv_id,
+        result = await process_paper_from_query(
+            query,
+            type_,
             top_k_refs,
             num_recommendations,
             num_related,
