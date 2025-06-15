@@ -830,6 +830,114 @@ async def generate_summary_single(
     )
 
 
+def get_prompts(
+    eval_prompt_key: str, graph_prompt_key: str
+) -> tuple[gpt.PromptTemplate, gpt.PromptTemplate]:
+    """Retrieve evaluation and graph extraction prompts.
+
+    Both must have system prompts. The eval prompt must have type GPTStructured.
+
+    Args:
+        eval_prompt_key: Key for evaluation prompt template.
+        graph_prompt_key: Key for graph extraction prompt template.
+
+    Returns:
+        Tuple of (eval_prompt, graph_prompt).
+
+    Raises:
+        ValueError: If prompts are invalid.
+    """
+    eval_prompt = GRAPH_EVAL_USER_PROMPTS[eval_prompt_key]
+    if not eval_prompt.system or eval_prompt.type_name != "GPTStructured":
+        raise ValueError(f"Eval prompt {eval_prompt.name!r} is not valid.")
+
+    graph_prompt = GRAPH_EXTRACT_USER_PROMPTS[graph_prompt_key]
+    if not graph_prompt.system:
+        raise ValueError(f"Graph prompt {graph_prompt.name!r} is not valid.")
+
+    return eval_prompt, graph_prompt
+
+
+async def extract_graph_from_paper(
+    paper: gpt.PeerReadAnnotated, client: LLMClient, graph_prompt: gpt.PromptTemplate
+) -> GPTResult[gpt.Graph]:
+    """Extract graph representation from a paper.
+
+    Args:
+        paper: Annotated paper data.
+        client: LLM client for GPT API calls.
+        graph_prompt: Graph extraction prompt template.
+        title: Paper title.
+        abstract: Paper abstract.
+
+    Returns:
+        Extracted graph wrapped in GPTResult.
+    """
+    result = await client.run(
+        GPTGraph, graph_prompt.system, format_graph_template(graph_prompt, paper)
+    )
+    graph = result.map(
+        lambda r: r.to_graph(paper.title, paper.abstract) if r else gpt.Graph.empty()
+    )
+    if graph.result.is_empty():
+        logger.warning(f"Paper '{paper.title}': invalid Graph")
+
+    return graph
+
+
+async def evaluate_paper_graph_novelty(
+    paper: gpt.PaperWithRelatedSummary,
+    graph: gpt.Graph,
+    client: LLMClient,
+    eval_prompt: gpt.PromptTemplate,
+    demonstrations: str,
+) -> GPTResult[GPTStructured]:
+    """Evaluate a paper's novelty using the extracted graph.
+
+    Args:
+        paper: Paper with related papers and summaries.
+        graph: Extracted graph representation.
+        client: LLM client for GPT API calls.
+        eval_prompt: Evaluation prompt template.
+        demonstrations: Demonstration examples.
+
+    Returns:
+        Evaluation result wrapped in GPTResult.
+    """
+    result = await client.run(
+        GPTStructured,
+        eval_prompt.system,
+        format_eval_template(eval_prompt, paper, graph, demonstrations),
+    )
+    eval = result.map(lambda r: r or GPTStructured.error())
+    if not eval.result.is_valid():
+        logger.warning(f"Paper '{paper.title}': invalid evaluation result")
+
+    return eval
+
+
+def construct_graph_result(
+    paper: gpt.PaperWithRelatedSummary, graph: gpt.Graph, evaluation: GPTStructured
+) -> gpt.GraphResult:
+    """Construct the final graph result from components.
+
+    Args:
+        paper: Paper with related papers and summaries.
+        graph: Extracted graph representation.
+        evaluation: Novelty evaluation result.
+
+    Returns:
+        Complete GraphResult.
+    """
+    result = gpt.PaperResult.from_s2peer(
+        paper=paper.paper.paper,
+        y_pred=fix_evaluated_rating(evaluation, TargetMode.BIN).label,
+        rationale_pred=evaluation.rationale,
+        structured_evaluation=evaluation,
+    )
+    return gpt.GraphResult.from_annotated(annotated=paper, graph=graph, result=result)
+
+
 async def evaluate_paper_with_graph(
     paper: gpt.PaperWithRelatedSummary,
     client: LLMClient,
@@ -851,58 +959,23 @@ async def evaluate_paper_with_graph(
     Returns:
         GraphResult with novelty evaluation wrapped in GPTResult.
     """
-    # Get prompts and demonstrations
-    eval_prompt = GRAPH_EVAL_USER_PROMPTS[eval_prompt_key]
-    if not eval_prompt.system or eval_prompt.type_name != "GPTStructured":
-        raise ValueError(f"Eval prompt {eval_prompt.name!r} is not valid.")
-
-    graph_prompt = GRAPH_EXTRACT_USER_PROMPTS[graph_prompt_key]
-    if not graph_prompt.system:
-        raise ValueError(f"Graph prompt {graph_prompt.name!r} is not valid.")
-
+    eval_prompt, graph_prompt = get_prompts(eval_prompt_key, graph_prompt_key)
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
-    # Extract graph from paper
     graph_result = await timer(
-        client.run(
-            GPTGraph,
-            graph_prompt.system,
-            format_graph_template(graph_prompt, paper.paper),
-        ),
+        extract_graph_from_paper(paper.paper, client, graph_prompt),
         ">>> extract graph",
     )
-    graph = (
-        graph_result.result.to_graph(title=paper.title, abstract=paper.abstract)
-        if graph_result.result
-        else gpt.Graph.empty()
-    )
-    if graph.is_empty():
-        logger.warning(f"Paper '{paper.title}': invalid Graph")
 
-    # Evaluate paper with extracted graph
     eval_result = await timer(
-        client.run(
-            GPTStructured,
-            eval_prompt.system,
-            format_eval_template(eval_prompt, paper, graph, demonstrations),
+        evaluate_paper_graph_novelty(
+            paper, graph_result.result, client, eval_prompt, demonstrations
         ),
-        ">>> eval graph",
+        ">>> evaluate graph",
     )
-    eval = eval_result.result or GPTStructured.error()
-    if not eval.is_valid():
-        logger.warning(f"Paper '{paper.title}': invalid evaluation result")
 
-    # Construct graph result
-    paper_result = gpt.PaperResult.from_s2peer(
-        paper=paper.paper.paper,
-        y_pred=fix_evaluated_rating(eval, TargetMode.BIN).label,
-        rationale_pred=eval.rationale,
-        structured_evaluation=eval,
-    )
     return GPTResult(
-        result=gpt.GraphResult.from_annotated(
-            annotated=paper, graph=graph, result=paper_result
-        ),
+        result=construct_graph_result(paper, graph_result.result, eval_result.result),
         cost=graph_result.cost + eval_result.cost,
     )
 
