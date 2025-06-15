@@ -107,6 +107,10 @@ class GPTResult[T]:
         """Apply `func` to inner value and return new result."""
         return GPTResult(result=func(self.result), cost=self.cost)
 
+    def then[U](self, other: GPTResult[U]) -> GPTResult[U]:
+        """Combine two request costs with the second result."""
+        return GPTResult(result=other.result, cost=self.cost + other.cost)
+
 
 def gpt_sequence[T](results: Iterable[GPTResult[T]]) -> GPTResult[Sequence[T]]:
     """Convert sequence of results to result of sequence, aggregating costs."""
