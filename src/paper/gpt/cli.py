@@ -25,6 +25,7 @@ from paper.gpt import (
     summarise_related_peter,
     tokens,
 )
+from paper.gpt.single_paper import single_paper
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,8 @@ def models() -> None:
 
         print()
 
+
+app.command(name="single", no_args_is_help=True)(single_paper)
 
 if __name__ == "__main__":
     app()

@@ -7,7 +7,7 @@ related paper discovery, and summarization.
 
 # TODO: Review how this file interacts with other modules. I know it sprawls many parts
 # of the codebase, but it might be best to respect module boundaries, at least those
-# ouside of `gpt`. In fact, this should probably be moved to `gpt`.
+# ouside of `gpt`.
 
 from __future__ import annotations
 

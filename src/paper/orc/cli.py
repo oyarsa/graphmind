@@ -29,7 +29,6 @@ from paper.orc.arxiv_api import latex, latex_all
 from paper.orc.download import reviews, reviews_all, reviews_from_titles
 from paper.orc.latex_parser import parse, parse_all
 from paper.orc.preprocess import preprocess
-from paper.orc.single_paper import single_paper
 from paper.util import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -52,7 +51,6 @@ app.command(no_args_is_help=True)(reviews_from_titles)
 app.command(no_args_is_help=True)(parse)
 app.command(no_args_is_help=True)(parse_all)
 app.command(no_args_is_help=True)(preprocess)
-app.command(name="single", no_args_is_help=True)(single_paper)
 
 
 @app.callback(help=__doc__)
