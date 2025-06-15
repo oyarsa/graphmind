@@ -381,6 +381,7 @@ async def _download_papers_from_titles(
                     s2_paper,
                     sections=sections,
                     references=references,
+                    arxiv_id=arxiv_result.id,
                 )
             )
         except RuntimeError as e:

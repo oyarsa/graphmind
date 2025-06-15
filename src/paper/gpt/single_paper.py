@@ -143,7 +143,9 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr
         asyncio.to_thread(parse_arxiv_latex, arxiv_result, SentenceSplitter()), 3
     )
 
-    return pr.Paper.from_s2(s2_paper, sections=sections, references=references)
+    return pr.Paper.from_s2(
+        s2_paper, sections=sections, references=references, arxiv_id=arxiv_result.id
+    )
 
 
 async def get_paper_from_arxiv_id(
@@ -1237,7 +1239,7 @@ async def process_paper(
     )
 
     graph_result = result.result
-    print(f"✅ Found paper: {graph_result.paper.title}")
+    print(f"✅ Found paper: {graph_result.paper.title} ({graph_result.paper.arxiv_id})")
     print(f"📄 Abstract: {graph_result.paper.abstract[:200]}...")
     print(f"📚 References: {len(graph_result.paper.references)}")
     print(f"📖 Sections: {len(graph_result.paper.sections)}")

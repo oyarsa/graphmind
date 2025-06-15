@@ -164,6 +164,7 @@ def _process_paper(paper_raw: dict[str, Any]) -> pr.Paper | None:
         conference=paper_raw["conference"],
         references=references,
         year=year,
+        arxiv_id=paper_raw.get("arxiv_id"),
     )
 
 

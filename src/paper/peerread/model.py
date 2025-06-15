@@ -109,6 +109,9 @@ class Paper(Record):
         str, Field(description="Conference where the paper was published")
     ]
     year: Annotated[int | None, Field(description="Paper publication year")] = None
+    arxiv_id: Annotated[str | None, Field(description="ID of the paper on arXiv")] = (
+        None
+    )
 
     @property
     @override
@@ -182,6 +185,7 @@ class Paper(Record):
         *,
         sections: Sequence[PaperSection],
         references: Sequence[PaperReference],
+        arxiv_id: str | None = None,
     ) -> Self:
         """Create Paper from Semantic Scholar data without reviews.
 
@@ -189,6 +193,7 @@ class Paper(Record):
             s2_paper: Paper data from Semantic Scholar API.
             sections: Paper sections (from arXiv LaTeX parsing).
             references: Paper references (from arXiv LaTeX parsing).
+            arxiv_id: ID of the paper in the arXiv API.
 
         Returns:
             Paper instance with S2 metadata and empty reviews.
@@ -208,6 +213,7 @@ class Paper(Record):
             references=references,
             conference=conference,
             year=s2_paper.year,
+            arxiv_id=arxiv_id,
         )
 
     def __str__(self) -> str:

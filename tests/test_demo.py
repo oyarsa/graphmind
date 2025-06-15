@@ -23,6 +23,7 @@ class MockPaper:
     rationale: str = "Mock rationale"
     approval: bool | None = True
     sections: Sequence[PaperSectionProtocol] = ()
+    arxiv_id: str = "1010.01010v1"
 
 
 @pytest.mark.parametrize(

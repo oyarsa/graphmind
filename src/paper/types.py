@@ -66,6 +66,11 @@ class PaperProtocol(Protocol):
         """Paper sections."""
         ...
 
+    @property
+    def arxiv_id(self) -> str | None:
+        """ID of the paper on arXiv."""
+        ...
+
 
 class PaperProxy[P: PaperProtocol]:
     """Mixin class that provides proxy properties for paper."""
@@ -121,6 +126,11 @@ class PaperProxy[P: PaperProtocol]:
     def sections(self) -> Sequence[PaperSectionProtocol]:
         """Sections of the underlying paper."""
         return self.paper.sections
+
+    @property
+    def arxiv_id(self) -> str | None:
+        """ID of the paper on arXiv."""
+        return self.paper.arxiv_id
 
 
 class Identifiable(Protocol):

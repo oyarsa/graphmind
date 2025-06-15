@@ -183,6 +183,9 @@ class PaperWithS2Refs(Record):
     rating: Annotated[int, Field(description="Novelty rating")]
     rationale: Annotated[str, Field(description="Rationale for the novelty rating")]
     year: Annotated[int | None, Field(description="Paper publication year")] = None
+    arxiv_id: Annotated[str | None, Field(description="ID of the paper on arXiv")] = (
+        None
+    )
 
     @computed_field
     @property
@@ -218,6 +221,7 @@ class PaperWithS2Refs(Record):
             rating=peer.rating,
             rationale=peer.rationale,
             year=peer.year,
+            arxiv_id=peer.arxiv_id,
         )
 
 
