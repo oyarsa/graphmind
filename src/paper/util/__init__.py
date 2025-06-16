@@ -891,27 +891,33 @@ def _get_depth_color(depth: int) -> str:
 PRINT_TIMERS = os.getenv("TIMERS", "0") == "1"
 
 
-async def timer[T](task: Awaitable[T], depth: int = 1) -> T:
+async def timer[T](
+    task: Awaitable[T], depth: int = 1, *, char: str = "┃", max_width: int = 50
+) -> T:
     """Print time it takes to run task.
 
     Only enabled if TIMERS env var is 1.
 
     Args:
-        task: The awaitable task to time.
-        depth: Number of '>' characters to prepend and determines color (1-5).
+        task: The awaitable task/coroutine to time.
+        depth: Number of characters to prepend to prefix. Also determines color (max 5).
+        char: Character used to signal depth.
+        max_width: Maximum width of the function label, including depth prefix.
 
     Usage:
-        await timer(some_task())     # > some_task took 1s (green)
-        await timer(some_task(), 2)  # >> some_task took 1s (blue)
-        await timer(some_task(), 3)  # >>> some_task took 1s (magenta)
+        await timer(some_task())     # ┃ some_task       1.00s (green)
+        await timer(some_task(), 2)  # ┃┃ some_task      0.10s (blue)
+        await timer(some_task(), 3)  # ┃┃┃ some_task    10.00s (magenta)
     """
     name = extract_task_name(task)
-    prefix = ">" * depth
+    prefix = char * depth
     display_name = f"{prefix} {name}"
     color = _get_depth_color(depth)
 
-    with Timer(display_name) as t:
+    with Timer() as t:
         result = await task
     if PRINT_TIMERS:
-        print(f"{color}{t}\033[0m")
+        print(
+            f"{color}{display_name[:max_width]:<{max_width}}{t.seconds:>7.2f}s\033[0m"
+        )
     return result
