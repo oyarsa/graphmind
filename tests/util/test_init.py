@@ -1,5 +1,6 @@
 """Test util module."""
 
+import asyncio
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -7,6 +8,7 @@ from typing import Any
 import pytest
 
 from paper.util import (
+    extract_task_name,  # type: ignore
     fix_spaces_before_punctuation,
     format_bullet_list,
     format_numbered_list,
@@ -400,3 +402,109 @@ def test_get_by_path_parametrized(
 )
 def test_removeprefix_icase(string: str, prefix: str, expected: str) -> None:
     assert removeprefix_icase(string, prefix) == expected
+
+
+class TestExtractTaskName:
+    """Test extract_task_name with various awaitable types."""
+
+    @staticmethod
+    def sync_function() -> str:
+        """Test sync function."""
+        return "result"
+
+    @staticmethod
+    def another_sync_function(x: int, y: int) -> int:
+        """Another test sync function."""
+        return x + y
+
+    @staticmethod
+    async def another_async_function(x: int) -> int:
+        """Another test async function."""
+        return x * 2
+
+    @staticmethod
+    async def async_function() -> str:
+        """Test async function."""
+        return "async_result"
+
+    @pytest.mark.asyncio
+    async def test_coroutine_direct(self) -> None:
+        """Test extraction from direct coroutine."""
+        coro = self.async_function()
+        assert extract_task_name(coro) == "async_function"
+        await coro
+
+    @pytest.mark.asyncio
+    async def test_coroutine_with_args(self) -> None:
+        """Test extraction from coroutine with arguments."""
+        coro = self.another_async_function(5)
+        assert extract_task_name(coro) == "another_async_function"
+        await coro
+
+    @pytest.mark.asyncio
+    async def test_asyncio_task(self) -> None:
+        """Test extraction from asyncio.Task."""
+        task = asyncio.create_task(self.async_function())
+        assert extract_task_name(task) == "async_function"
+        await task
+
+    @pytest.mark.asyncio
+    async def test_asyncio_to_thread(self) -> None:
+        """Test extraction from asyncio.to_thread."""
+        to_thread_coro = asyncio.to_thread(self.sync_function)
+        name = extract_task_name(to_thread_coro)
+        await to_thread_coro
+        assert name == "sync_function"
+
+    @pytest.mark.asyncio
+    async def test_asyncio_to_thread_with_args(self) -> None:
+        """Test extraction from asyncio.to_thread with arguments."""
+        to_thread_coro = asyncio.to_thread(self.another_sync_function, 3, 4)
+        name = extract_task_name(to_thread_coro)
+        await to_thread_coro
+
+        # Should correctly extract the function name from wrapped to_thread
+        assert name == "another_sync_function"
+
+    @pytest.mark.asyncio
+    async def test_asyncio_gather_single(self) -> None:
+        """Test extraction from asyncio.gather with single coroutine."""
+        gather_awaitable = asyncio.gather(self.async_function())
+        name = extract_task_name(gather_awaitable)
+        await gather_awaitable
+        assert name == "async_function"
+
+    @pytest.mark.asyncio
+    async def test_asyncio_gather_multiple(self) -> None:
+        """Test extraction from asyncio.gather with multiple coroutines."""
+        gather_awaitable = asyncio.gather(
+            self.async_function(),
+            self.another_async_function(10),
+            self.async_function(),
+        )
+        name = extract_task_name(gather_awaitable)
+        await gather_awaitable
+        assert name == "async_function"
+
+    @pytest.mark.asyncio
+    async def test_asyncio_task_wrapping_to_thread(self) -> None:
+        """Test extraction from asyncio.Task wrapping asyncio.to_thread."""
+        to_thread_coro = asyncio.to_thread(self.sync_function)
+        task = asyncio.create_task(to_thread_coro)
+        name = extract_task_name(task)
+        await task
+
+        # Should correctly extract the function name from wrapped to_thread
+        assert name == "sync_function"
+
+    @pytest.mark.asyncio
+    async def test_asyncio_gather_with_to_thread(self) -> None:
+        """Test extraction from asyncio.gather containing asyncio.to_thread."""
+        gather_awaitable = asyncio.gather(
+            asyncio.to_thread(self.sync_function), self.async_function()
+        )
+        name = extract_task_name(gather_awaitable)
+        await gather_awaitable
+
+        # Should extract from first awaitable (the to_thread call)
+        assert name == "sync_function"

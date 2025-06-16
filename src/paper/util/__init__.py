@@ -831,43 +831,48 @@ async def batch_map_with_progress[T, U](
     return results
 
 
-PRINT_TIMERS = os.getenv("TIMERS", "0") == "1"
-
-
 @no_type_check
-def _extract_task_name(task: Awaitable[Any]) -> str:
+def extract_task_name(task: Awaitable[Any]) -> str:
     """Extract a descriptive name from an awaitable task."""
-    # Handle coroutines
+
+    def get_name_from_coro(coro: Any) -> str:
+        if (
+            hasattr(coro, "cr_code")
+            and coro.cr_code.co_name == "to_thread"
+            and hasattr(coro, "cr_frame")
+            and coro.cr_frame
+            and "func" in coro.cr_frame.f_locals
+        ):
+            func = coro.cr_frame.f_locals["func"]
+            if hasattr(func, "__name__"):
+                return func.__name__
+
+        if hasattr(coro, "cr_code"):
+            return coro.cr_code.co_name
+
+        return type(coro).__name__.lower()
+
+    # Handle direct coroutines
     if hasattr(task, "cr_code"):
-        return task.cr_code.co_name
+        return get_name_from_coro(task)
 
     # Handle asyncio.Task
-    if hasattr(task, "_coro") and hasattr(task._coro, "cr_code"):  # noqa: SLF001
-        return task._coro.cr_code.co_name  # noqa: SLF001
+    if hasattr(task, "_coro"):
+        return get_name_from_coro(task._coro)  # noqa: SLF001
 
-    # Handle asyncio.gather - extract from first awaitable
+    # Handle asyncio.gather - just get first child name
     if hasattr(task, "_children") and task._children:  # noqa: SLF001
         first_child = next(iter(task._children))  # noqa: SLF001
-        if hasattr(first_child, "cr_code"):
-            func_name: str = first_child.cr_code.co_name
-            child_count = len(task._children)  # noqa: SLF001
-            return (
-                f"{func_name} (+{child_count - 1} more)"
-                if child_count > 1
-                else func_name
-            )
+        if hasattr(first_child, "_coro"):
+            return get_name_from_coro(first_child._coro)  # noqa: SLF001
+        else:
+            return get_name_from_coro(first_child)
 
-    # Handle ThreadPoolExecutor futures (asyncio.to_thread)
-    if hasattr(task, "_fn") and hasattr(task._fn, "__name__"):  # noqa: SLF001
-        return f"{task._fn.__name__} (threaded)"  # noqa: SLF001
-
-    # Handle other awaitable types
-    task_type = type(task).__name__
+    # Fallback
     if hasattr(task, "__name__"):
         return task.__name__
 
-    # Fallback to type name
-    return task_type.lower()
+    return type(task).__name__.lower()
 
 
 def _get_depth_color(depth: int) -> str:
@@ -881,6 +886,9 @@ def _get_depth_color(depth: int) -> str:
     }
     clamped_depth = max(1, min(5, depth))
     return colors[clamped_depth]
+
+
+PRINT_TIMERS = os.getenv("TIMERS", "0") == "1"
 
 
 async def timer[T](task: Awaitable[T], depth: int = 1) -> T:
@@ -897,7 +905,7 @@ async def timer[T](task: Awaitable[T], depth: int = 1) -> T:
         await timer(some_task(), 2)  # >> some_task took 1s (blue)
         await timer(some_task(), 3)  # >>> some_task took 1s (magenta)
     """
-    name = _extract_task_name(task)
+    name = extract_task_name(task)
     prefix = ">" * depth
     display_name = f"{prefix} {name}"
     color = _get_depth_color(depth)
