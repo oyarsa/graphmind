@@ -56,12 +56,25 @@ class Relationship(Immutable):
     target: str
 
 
+class Excerpt(Immutable):
+    """Text from the paper where the entity is mentioned."""
+
+    section: Annotated[
+        str,
+        Field(description="Section (and nested subsections) where the text appears."),
+    ]
+    text: Annotated[
+        str, Field(description="Text that mentions the entity, copied verbatim.")
+    ]
+
+
 class Entity(Immutable):
     """Entity in the hierarchical graph."""
 
     label: str
     type: EntityType
     detail: str | None = None
+    excerpts: Sequence[Excerpt] | None = None
 
     def __hash__(self) -> int:
         """Entity has is the hash of its members."""
