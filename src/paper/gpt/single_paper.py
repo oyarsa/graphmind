@@ -18,6 +18,10 @@ from typing import Annotated, NewType
 import aiohttp
 import arxiv  # type: ignore
 import typer
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
 from paper import embedding as emb
 from paper import gpt
@@ -82,6 +86,7 @@ from paper.semantic_scholar.recommended import fetch_paper_recommendations
 
 # Etc.
 from paper.util import arun_safe, ensure_envvar, seqcat, setup_logging, timer
+from paper.util.cli import die
 from paper.util.rate_limiter import Limiter, get_limiter
 
 logger = logging.getLogger(__name__)
@@ -984,6 +989,12 @@ def single_paper(
     demo_prompt: Annotated[
         str, typer.Option(help="Demonstration prompt key")
     ] = "abstract",
+    interactive: Annotated[
+        bool,
+        typer.Option(
+            help="Interactive mode for paper selection (only for title search)"
+        ),
+    ] = False,
 ) -> None:
     """Process a paper title through the complete PETER pipeline and print results."""
     setup_logging()
@@ -1002,6 +1013,7 @@ def single_paper(
         graph_prompt,
         demonstrations,
         demo_prompt,
+        interactive,
     )
 
 
@@ -1019,6 +1031,7 @@ async def process_paper_from_query(
     graph_prompt_key: str,
     demonstrations_key: str,
     demo_prompt_key: str,
+    interactive: bool = False,
 ) -> GPTResult[gpt.GraphResult]:
     """Process a paper by query (title or arXiv ID/URL) through the complete PETER pipeline.
 
@@ -1047,6 +1060,7 @@ async def process_paper_from_query(
         graph_prompt_key: Key for graph extraction prompt template.
         demonstrations_key: Key for demonstrations file.
         demo_prompt_key: Key for demonstration prompt template.
+        interactive: If True, enables interactive paper selection for title searches.
 
     Returns:
         GraphResult with novelty evaluation wrapped in GPTResult.
@@ -1064,9 +1078,18 @@ async def process_paper_from_query(
 
     match type_:
         case QueryType.TITLE:
-            logger.debug("Searching by title: %s", query)
-            paper = await timer(get_paper_from_title(query, limiter, s2_api_key), 2)
+            if interactive:
+                logger.debug("Interactive search for: %s", query)
+                paper = await timer(
+                    get_paper_from_interactive_search(query, limiter, s2_api_key), 2
+                )
+            else:
+                logger.debug("Searching by title: %s", query)
+                paper = await timer(get_paper_from_title(query, limiter, s2_api_key), 2)
         case QueryType.ID:
+            if interactive:
+                die("Interactive mode is only supported for title search")
+
             arxiv_id = arxiv_id_from_url(query)
             logger.debug("Searching by arXiv ID: %s", arxiv_id)
             paper = await timer(
@@ -1186,6 +1209,7 @@ async def process_paper(
     graph_prompt: str,
     demonstrations: str,
     demo_prompt: str,
+    interactive: bool,
 ) -> None:
     """Process a paper by title and display results.
 
@@ -1208,6 +1232,7 @@ async def process_paper(
         graph_prompt: User prompt for graph extraction.
         demonstrations: Demonstrations file for few-shot prompting.
         demo_prompt: Demonstration prompt key.
+        interactive: If True, enables interactive paper selection for title searches.
 
     Raises:
         ValueError: If paper is not found on Semantic Scholar or arXiv, or if no
@@ -1234,6 +1259,7 @@ async def process_paper(
             graph_prompt,
             demonstrations,
             demo_prompt,
+            interactive,
         ),
         1,
     )
@@ -1336,3 +1362,201 @@ async def fetch_s2_paper_info(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT)
     ) as session:
         return await fetch_paper_info(session, api_key, title, S2_FIELDS, limiter)
+
+
+async def search_arxiv_papers(query: str, max_results: int = 10) -> list[arxiv.Result]:
+    """Search arXiv for papers matching the query.
+
+    Args:
+        query: Search query string.
+        max_results: Maximum number of results to return.
+
+    Returns:
+        List of arxiv.Result objects.
+    """
+    client = arxiv.Client()
+
+    try:
+        return list(await asyncio.to_thread(arxiv_search, client, query, max_results))
+    except Exception as e:
+        logger.warning("Error searching arXiv: %s", e)
+
+    return []
+
+
+def format_authors(authors: Sequence[arxiv.Result.Author], *, max_display: int) -> str:
+    """Format author list for display.
+
+    Args:
+        authors: List of arxiv Author objects.
+        max_display: Maximum number of authors to display before using "et al."
+
+    Returns:
+        Formatted author string.
+    """
+    if not authors:
+        return "Unknown"
+
+    author_names = [author.name for author in authors]
+    if len(author_names) <= max_display:
+        return ", ".join(author_names)
+    else:
+        return f"{', '.join(author_names[:max_display])} et al."
+
+
+def format_abstract(abstract: str, *, max_length: int) -> str:
+    """Format abstract for display by truncating if necessary.
+
+    Args:
+        abstract: Full abstract text.
+        max_length: Maximum length before truncation.
+
+    Returns:
+        Formatted abstract string.
+    """
+    if not abstract:
+        return "No abstract available"
+
+    # Clean up whitespace
+    abstract = " ".join(abstract.split())
+
+    if len(abstract) <= max_length:
+        return abstract
+
+    return abstract[: max_length - 3] + "..."
+
+
+async def select_paper_interactive(
+    results: list[arxiv.Result], console: Console
+) -> ArxivResult | None:
+    """Display search results and let user select a paper interactively.
+
+    Args:
+        results: List of arxiv.Result objects to display.
+        console: Rich console for styled output.
+
+    Returns:
+        Selected ArxivResult or None if cancelled.
+    """
+    if not results:
+        console.print(
+            Panel(
+                "[yellow]No papers found matching your search query.[/yellow]",
+                title="No Results",
+                border_style="yellow",
+            )
+        )
+        return None
+
+    table = Table(
+        title=f"arXiv Search Results ({len(results)} papers found)",
+        show_header=True,
+        header_style="bold magenta",
+        show_lines=True,
+    )
+
+    table.add_column("#", style="cyan", width=3)
+    table.add_column("Title", style="bold", width=50)
+    table.add_column("Authors", style="italic", width=30)
+    table.add_column("Year", style="green", width=6)
+    table.add_column("Abstract", style="dim", width=60)
+
+    for i, result in enumerate(results, 1):
+        year = result.published.year if result.published else "N/A"
+        table.add_row(
+            str(i),
+            result.title,
+            format_authors(result.authors, max_display=3),
+            str(year),
+            format_abstract(result.summary, max_length=200),
+        )
+
+    console.print(table)
+    console.print()
+
+    # Get user selection
+    while True:
+        selection = typer.prompt(
+            f"Enter paper number (1-{len(results)}) or 'q' to quit",
+            type=str,
+        )
+
+        if selection.lower() == "q":
+            console.print("[blue]Selection cancelled.[/blue]")
+            return None
+
+        try:
+            index = int(selection) - 1
+            if 0 <= index < len(results):
+                selected = results[index]
+                console.print(
+                    f"\n[green]✅ Selected paper:[/green] [bold]{selected.title}[/bold]"
+                )
+                return ArxivResult(
+                    id=arxiv_id_from_url(selected.entry_id),
+                    openreview_title=selected.title,
+                    arxiv_title=selected.title,
+                )
+            else:
+                console.print(
+                    f"[red]Please enter a number between 1 and {len(results)}.[/red]"
+                )
+        except ValueError:
+            console.print("[red]Invalid input. Please enter a number or 'q'.[/red]")
+
+
+async def get_paper_from_interactive_search(
+    query: str, limiter: Limiter, api_key: str
+) -> pr.Paper:
+    """Search for papers interactively and process the selected one.
+
+    Args:
+        query: Search query string.
+        limiter: Rate limiter for API requests.
+        api_key: Semantic Scholar API key.
+
+    Returns:
+        Processed Paper object.
+
+    Raises:
+        ValueError: If no paper is selected or processing fails.
+    """
+    console = Console()
+
+    # Search with progress indicator
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task(
+            f"Searching arXiv for papers matching '{query}'...", total=None
+        )
+        results = await timer(search_arxiv_papers(query), 3)
+        progress.remove_task(task)
+
+    # Let user select
+    selected = await timer(select_paper_interactive(results, console), 3)
+    if not selected:
+        raise ValueError("No paper selected")
+
+    console.print(f"[dim]📄 Paper: {selected.arxiv_title}[/dim]")
+    console.print("\n[yellow]🚀 Processing through PETER pipeline...[/yellow]\n")
+
+    # Continue with standard processing
+    # Parse arXiv LaTeX
+    sections, references = await timer(
+        asyncio.to_thread(parse_arxiv_latex, selected, SentenceSplitter()), 3
+    )
+
+    # Fetch S2 data
+    s2_paper = await timer(
+        fetch_s2_paper_info(api_key, selected.arxiv_title, limiter), 3
+    )
+
+    if not s2_paper:
+        raise ValueError(f"Paper not found on Semantic Scholar: {selected.arxiv_title}")
+
+    return pr.Paper.from_s2(
+        s2_paper, sections=sections, references=references, arxiv_id=selected.id
+    )
