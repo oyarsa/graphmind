@@ -69,13 +69,8 @@ from paper.gpt.summarise_related_peter import (
 )
 
 # ORC: arXiv search, LaTeX download and parsing
-from paper.orc.arxiv_api import (
-    ArxivResult,
-    arxiv_from_id,
-    arxiv_id_from_url,
-    arxiv_search,
-    similar_titles,
-)
+from paper.orc.arxiv_api import ArxivResult, arxiv_from_id, arxiv_search, similar_titles
+from paper.orc.arxiv_api import arxiv_id_from_url as arxiv_id_from_url
 from paper.orc.download import parse_arxiv_latex
 from paper.orc.latex_parser import SentenceSplitter
 
@@ -89,7 +84,8 @@ from paper.semantic_scholar.info import (
 from paper.semantic_scholar.recommended import fetch_paper_recommendations
 from paper.util import arun_safe, atimer, ensure_envvar, seqcat, setup_logging
 from paper.util.cli import die
-from paper.util.rate_limiter import Limiter, get_limiter
+from paper.util.rate_limiter import Limiter as Limiter
+from paper.util.rate_limiter import get_limiter as get_limiter
 
 logger = logging.getLogger(__name__)
 
