@@ -17,6 +17,7 @@ from typing import Annotated, NewType
 
 import aiohttp
 import arxiv  # type: ignore
+import dotenv
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -998,6 +999,7 @@ def single_paper(
 ) -> None:
     """Process a paper title through the complete PETER pipeline and print results."""
     setup_logging()
+    dotenv.load_dotenv()
     arun_safe(
         process_paper,
         query,
