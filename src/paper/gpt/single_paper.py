@@ -113,6 +113,8 @@ S2_FIELDS = [*S2_FIELDS_BASE, "tldr", "venue"]
 
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 
+type EvalResult = gpt.GPTResult[gpt.GraphResult]
+
 
 async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr.Paper:
     """Get a single processed Paper from a title using Semantic Scholar and arXiv.
