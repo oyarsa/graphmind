@@ -29,6 +29,9 @@ from paper import gpt
 from paper import peerread as pr
 from paper import related_papers as rp
 from paper import semantic_scholar as s2
+
+# Etc.
+from paper.embedding import DEFAULT_SENTENCE_MODEL as DEFAULT_SENTENCE_MODEL
 from paper.evaluation_metrics import TargetMode
 
 # GPT: Term extraction, abstract splitting, context polarity classification, paper
@@ -84,8 +87,6 @@ from paper.semantic_scholar.info import (
     get_top_k_titles,
 )
 from paper.semantic_scholar.recommended import fetch_paper_recommendations
-
-# Etc.
 from paper.util import arun_safe, atimer, ensure_envvar, seqcat, setup_logging
 from paper.util.cli import die
 from paper.util.rate_limiter import Limiter, get_limiter
@@ -212,7 +213,7 @@ async def annotate_paper_pipeline(
     context_prompt_key: str = "sentence",
     positive_prompt_key: str = "positive",
     negative_prompt_key: str = "negative",
-    encoder_model: str = emb.DEFAULT_SENTENCE_MODEL,
+    encoder_model: str = DEFAULT_SENTENCE_MODEL,
     request_timeout: float = REQUEST_TIMEOUT,
 ) -> GPTResult[gpt.PaperWithRelatedSummary]:
     """Annotate a single paper through the complete pipeline to get related papers.
