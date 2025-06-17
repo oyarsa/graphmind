@@ -13,6 +13,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import Annotated, NewType
 
 import aiohttp
@@ -86,6 +87,7 @@ from paper.util import arun_safe, atimer, ensure_envvar, seqcat, setup_logging
 from paper.util.cli import die
 from paper.util.rate_limiter import Limiter as Limiter
 from paper.util.rate_limiter import get_limiter as get_limiter
+from paper.util.serde import save_data
 
 logger = logging.getLogger(__name__)
 
@@ -957,7 +959,7 @@ def single_paper(
     ],
     type_: Annotated[
         QueryType, typer.Option("--type", help="Whether to query by title or arXiv.")
-    ],
+    ] = QueryType.TITLE,
     top_k_refs: Annotated[
         int, typer.Option(help="Number of top references to process by similarity")
     ] = 20,
@@ -995,6 +997,9 @@ def single_paper(
             help="Interactive mode for paper selection (only for title search)"
         ),
     ] = False,
+    output_file: Annotated[
+        Path | None, typer.Option("--output", "-o", help="JSON file with full output.")
+    ] = None,
 ) -> None:
     """Process a paper title through the complete PETER pipeline and print results."""
     setup_logging()
@@ -1015,6 +1020,7 @@ def single_paper(
         demonstrations,
         demo_prompt,
         interactive,
+        output_file,
     )
 
 
@@ -1213,6 +1219,7 @@ async def process_paper(
     demonstrations: str,
     demo_prompt: str,
     interactive: bool,
+    output_file: Path | None,
 ) -> None:
     """Process a paper by title and display results.
 
@@ -1236,6 +1243,7 @@ async def process_paper(
         demonstrations: Demonstrations file for few-shot prompting.
         demo_prompt: Demonstration prompt key.
         interactive: If True, enables interactive paper selection for title searches.
+        output_file: JSON file to store the full output.
 
     Raises:
         ValueError: If paper is not found on Semantic Scholar or arXiv, or if no
@@ -1285,6 +1293,9 @@ async def process_paper(
 
     if detail:
         display_graph_results(graph_result)
+
+    if output_file:
+        save_data(output_file, result)
 
 
 def filter_related(
