@@ -193,6 +193,7 @@ class PaperWithS2Refs(Record):
         """Convert rating to binary label."""
         return int(self.rating >= 3)
 
+    @computed_field
     @property
     def id(self) -> str:
         """Identify an PeerRead by the combination of its `title` and `abstract`.

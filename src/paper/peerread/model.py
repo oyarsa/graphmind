@@ -113,6 +113,7 @@ class Paper(Record):
         None
     )
 
+    @computed_field
     @property
     @override
     def id(self) -> str:
