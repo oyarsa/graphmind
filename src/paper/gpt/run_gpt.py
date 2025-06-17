@@ -111,6 +111,15 @@ class GPTResult[T]:
         """Combine two request costs with the second result."""
         return GPTResult(result=other.result, cost=self.cost + other.cost)
 
+    def bind[U](self, func: Callable[[T], GPTResult[U]]) -> GPTResult[U]:
+        """Apply monadic function to inner value and sum the costs."""
+        return self.then(func(self.result))
+
+    @staticmethod
+    def pure(value: T) -> GPTResult[T]:
+        """New result with cost 0."""
+        return GPTResult(result=value, cost=0)
+
 
 def gpt_sequence[T](results: Iterable[GPTResult[T]]) -> GPTResult[Sequence[T]]:
     """Convert sequence of results to result of sequence, aggregating costs."""
