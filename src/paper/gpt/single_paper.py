@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, NewType
+from typing import Annotated, NewType, Self
 
 import aiohttp
 import arxiv  # type: ignore
@@ -83,6 +83,7 @@ from paper.semantic_scholar.info import (
     get_top_k_titles,
 )
 from paper.semantic_scholar.recommended import fetch_paper_recommendations
+from paper.types import Immutable
 from paper.util import arun_safe, atimer, ensure_envvar, seqcat, setup_logging
 from paper.util.cli import die
 from paper.util.rate_limiter import Limiter as Limiter
@@ -111,7 +112,17 @@ S2_FIELDS = [*S2_FIELDS_BASE, "tldr", "venue"]
 
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
 
-type EvalResult = gpt.GPTResult[gpt.GraphResult]
+
+class EvaluationResult(Immutable):
+    """Evaluation result with cost."""
+
+    result: gpt.GraphResult
+    cost: float
+
+    @classmethod
+    def from_(cls, result: GPTResult[gpt.GraphResult]) -> Self:
+        """Create EvaluationResult rom GPTResult+GraphResult."""
+        return cls(result=result.result, cost=result.cost)
 
 
 async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr.Paper:
@@ -1039,7 +1050,7 @@ async def process_paper_from_query(
     demonstrations_key: str,
     demo_prompt_key: str,
     interactive: bool = False,
-) -> GPTResult[gpt.GraphResult]:
+) -> EvaluationResult:
     """Process a paper by query (title or arXiv ID/URL) through the complete PETER pipeline.
 
     This function provides a complete end-to-end paper processing pipeline that:
@@ -1070,7 +1081,7 @@ async def process_paper_from_query(
         interactive: If True, enables interactive paper selection for title searches.
 
     Returns:
-        GraphResult with novelty evaluation wrapped in GPTResult.
+        EvaluationResult with novelty evaluation and cost.
 
     Raises:
         ValueError: If paper is not found on Semantic Scholar or arXiv, or if no
@@ -1133,7 +1144,7 @@ async def process_paper_from_query(
         2,
     )
 
-    return paper_result.then(graph_result)
+    return EvaluationResult.from_(paper_result.then(graph_result))
 
 
 def display_graph_results(result: gpt.GraphResult) -> None:
@@ -1412,7 +1423,7 @@ async def process_paper_from_selection(
     graph_prompt_key: str,
     demonstrations_key: str,
     demo_prompt_key: str,
-) -> GPTResult[gpt.GraphResult]:
+) -> EvaluationResult:
     """Process a paper from pre-selected title and arXiv ID through the PETER pipeline.
 
     This function is designed for API usage where the user has already selected a paper
@@ -1448,7 +1459,7 @@ async def process_paper_from_selection(
         demo_prompt_key: Key for demonstration prompt template.
 
     Returns:
-        GraphResult with novelty evaluation wrapped in GPTResult.
+        EvaluationResult with novelty evaluation and cost.
 
     Raises:
         ValueError: If paper is not found on arXiv or Semantic Scholar, or if
@@ -1491,7 +1502,7 @@ async def process_paper_from_selection(
         2,
     )
 
-    return paper_annotated.then(graph_evaluated)
+    return EvaluationResult.from_(paper_annotated.then(graph_evaluated))
 
 
 def format_authors(authors: Sequence[arxiv.Result.Author], *, max_display: int) -> str:
