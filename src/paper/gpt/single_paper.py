@@ -1388,6 +1388,102 @@ async def search_arxiv_papers(query: str, max_results: int = 10) -> list[arxiv.R
     return []
 
 
+async def process_paper_from_selection(
+    title: str,
+    arxiv_id: str,
+    top_k_refs: int,
+    num_recommendations: int,
+    num_related: int,
+    llm_model: str,
+    encoder_model: str,
+    seed: int,
+    limiter: Limiter,
+    eval_prompt_key: str,
+    graph_prompt_key: str,
+    demonstrations_key: str,
+    demo_prompt_key: str,
+) -> GPTResult[gpt.GraphResult]:
+    """Process a paper from pre-selected title and arXiv ID through the PETER pipeline.
+
+    This function is designed for API usage where the user has already selected a paper
+    from search results and has both the title and arXiv ID available. It provides the
+    same complete end-to-end processing as `process_paper_from_query` but skips the
+    search/selection phase.
+
+    The function:
+    1. Retrieves paper from arXiv using the provided ID
+    2. Fetches S2 metadata using the title
+    3. Processes through the complete PETER pipeline including:
+       - S2 reference enhancement with top-k semantic similarity filtering
+       - GPT-based annotation extraction (key terms, background, target)
+       - Citation context classification (positive/negative polarity)
+       - Related paper discovery via citations and semantic matching
+       - GPT-generated summaries of related papers
+    4. Extracts a graph representation and evaluates novelty
+
+    Args:
+        title: Paper title (used for S2 lookups and display).
+        arxiv_id: arXiv ID of the paper (e.g. "2301.00234").
+        top_k_refs: Number of top references to process by semantic similarity.
+        num_recommendations: Number of recommended papers to fetch from S2 API.
+        num_related: Number of related papers to return for each type
+            (citations/semantic, positive/negative).
+        llm_model: GPT/Gemini model to use for all LLM API calls.
+        encoder_model: Embedding encoder model for semantic similarity computations.
+        seed: Random seed for GPT API calls to ensure reproducibility.
+        limiter: Rate limiter for Semantic Scholar API requests.
+        eval_prompt_key: Key for evaluation prompt template.
+        graph_prompt_key: Key for graph extraction prompt template.
+        demonstrations_key: Key for demonstrations file.
+        demo_prompt_key: Key for demonstration prompt template.
+
+    Returns:
+        GraphResult with novelty evaluation wrapped in GPTResult.
+
+    Raises:
+        ValueError: If paper is not found on arXiv or Semantic Scholar, or if
+            processing fails at any stage.
+        RuntimeError: If LaTeX parsing fails or other processing errors occur.
+
+    Requires:
+        SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
+    """
+    s2_api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
+    client = LLMClient.new_env(llm_model, seed)
+
+    logger.debug("Processing paper: %s (arXiv:%s)", title, arxiv_id)
+
+    paper = await atimer(get_paper_from_arxiv_id(arxiv_id, limiter, s2_api_key), 2)
+
+    paper_annotated = await atimer(
+        annotate_paper_pipeline(
+            paper,
+            limiter,
+            s2_api_key,
+            client,
+            top_k_refs=top_k_refs,
+            num_recommendations=num_recommendations,
+            num_related=num_related,
+            encoder_model=encoder_model,
+        ),
+        2,
+    )
+
+    graph_evaluated = await atimer(
+        evaluate_paper_with_graph(
+            paper_annotated.result,
+            client,
+            eval_prompt_key,
+            graph_prompt_key,
+            demonstrations_key,
+            demo_prompt_key,
+        ),
+        2,
+    )
+
+    return paper_annotated.then(graph_evaluated)
+
+
 def format_authors(authors: Sequence[arxiv.Result.Author], *, max_display: int) -> str:
     """Format author list for display.
 
