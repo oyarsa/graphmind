@@ -207,7 +207,9 @@ async def get_paper_from_arxiv_id(
             f"Paper not found on Semantic Scholar: {arxiv_result.arxiv_title}"
         )
 
-    return pr.Paper.from_s2(s2_paper, sections=sections, references=references)
+    return pr.Paper.from_s2(
+        s2_paper, sections=sections, references=references, arxiv_id=arxiv_id
+    )
 
 
 async def annotate_paper_pipeline(
