@@ -39,6 +39,8 @@ dependencies = [
     "orjson>=3.10.18",
     "zstandard>=0.23.0",
     "semanticscholar>=0.10.0",
+    "fastapi[standard]>=0.115.13",
+    "psycopg[binary,pool]>=3.2.9",
 ]
 
 [dependency-groups]

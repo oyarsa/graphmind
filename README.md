@@ -25,6 +25,9 @@ the ORC dataset.
 After this setup, you're reading to process the datasets. See [Datasets](#datasets)
 below.
 
+Docker and Docker Compose are required for the REST API. See [REST
+API](./src/paper/backend/README.md) for more information.
+
 ## Datasets
 
 - **PeerRead**: dataset with full content and ratings for ACL and ICLR papers. See the
@@ -116,6 +119,14 @@ documentation for an item:
 ```console
 $ uv run -m pydoc paper.peter.Graph
 ```
+
+## REST API
+
+We offer a REST API for paper evaluation. While the main program is focused on batched
+paper annotation and evaluation, the REST API allows the user to search a paper on arXiv
+and use the full process to evaluate it.
+
+See [REST API](./src/paper/backend/README.md) for more information.
 
 ## License
 

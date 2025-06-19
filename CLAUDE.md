@@ -37,6 +37,7 @@ The main command to use to check if the code is correct is `just lint`.
 ## External Dependencies
 - **pandoc** - Required for LaTeX parsing in ORC dataset processing (install from https://pandoc.org/installing.html)
 - **PyTorch** - ML framework used by baseline models (installed via uv, CUDA support on non-macOS systems)
+- **fastapi** - Used for the REST API for paper evaluation.
 
 ## Code Style
 - **Python**: 3.12+ features with strict static typing (no exceptions)

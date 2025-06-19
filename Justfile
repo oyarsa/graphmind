@@ -59,6 +59,14 @@ typefiles:
 doc:
     uv run pdoc paper --docformat google
 
+# Start development server
+api-dev:
+    TIMERS=1 uv run fastapi dev src/paper/backend/api.py
+
+# Start production server
+api-serve:
+    uv run fastapi run src/paper/backend/api.py --port 8001
+
 alias l := lint
 alias w := watch
 alias x := exp
