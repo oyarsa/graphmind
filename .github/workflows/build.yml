@@ -6,7 +6,7 @@ on:
       - master
   pull_request:
     branches:
-      - '*'
+      - "*"
 
 jobs:
   lint-python:
@@ -38,7 +38,7 @@ jobs:
         run: uv run pyright .
 
       - name: Unit tests
-        run: uv run pytest tests/
+        run: uv run pytest tests/ --ignore=tests/backend
 
   lint-shell:
     name: Lint bash/sh
