@@ -7,11 +7,15 @@ Input format: `gpt.PromptResult[gpt.GraphResult]`.
 Output format: `DemoPaper` (in this file).
 """
 
+import asyncio
+import io
+import logging
 import random
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
 
+import aiohttp
 import typer
 from pydantic import Field
 
@@ -19,9 +23,17 @@ from paper import gpt
 from paper import peerread as pr
 from paper.gpt.evaluate_paper import GPTStructured
 from paper.gpt.model import PaperTerms, is_rationale_valid
+from paper.semantic_scholar.info import (
+    MAX_CONCURRENT_REQUESTS,
+    REQUEST_TIMEOUT,
+    fetch_paper_data,
+)
+from paper.semantic_scholar.recommended import Limiter
 from paper.types import Immutable, PaperProtocol
-from paper.util import sample
-from paper.util.serde import Compress, load_data, save_data
+from paper.util import ensure_envvar, progress, sample, setup_logging
+from paper.util.serde import Compress, load_data, replace_fields, save_data
+
+logger = logging.getLogger(__name__)
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -85,6 +97,9 @@ class DemoPaper(Immutable):
         GPTStructured | None,
         Field(description="Structured evaluation breakdown if available"),
     ] = None
+    arxiv_id: Annotated[str | None, Field(description="ID of the paper on arXiv")] = (
+        None
+    )
 
 
 class DemoData(Immutable):
@@ -97,6 +112,124 @@ class DemoData(Immutable):
     terms: PaperTerms | None = None
     background: str | None = None
     target: str | None = None
+
+
+async def fetch_arxiv_id_from_s2(
+    session: aiohttp.ClientSession,
+    api_key: str,
+    title: str,
+    limiter: Limiter,
+) -> str | None:
+    """Fetch arXiv ID from Semantic Scholar API by searching for the paper title.
+
+    Returns the arXiv ID if found in the externalIds field, None otherwise.
+    """
+    fields = ["externalIds", "title"]
+    data = await fetch_paper_data(session, api_key, title, fields, limiter)
+
+    if data is None:
+        return None
+
+    external_ids = data.get("externalIds", {})
+    if external_ids and "ArXiv" in external_ids:
+        return external_ids["ArXiv"]
+
+    return None
+
+
+async def fetch_arxiv_ids_from_s2(
+    titles: Sequence[str], *, desc: str = "Fetching arXiv IDs from S2"
+) -> dict[str, str | None]:
+    """Fetch arXiv IDs for multiple titles from Semantic Scholar API.
+
+    Returns a mapping from title to arXiv ID (or None if not found).
+    """
+    api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
+
+    async with aiohttp.ClientSession(
+        timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
+        connector=aiohttp.TCPConnector(limit_per_host=MAX_CONCURRENT_REQUESTS),
+    ) as session:
+        limiter = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+
+        tasks = [
+            fetch_arxiv_id_from_s2(session, api_key, title, limiter) for title in titles
+        ]
+        results = await progress.gather(tasks, desc=desc)
+
+        return dict(zip(titles, results))
+
+
+def fetch_missing_arxiv_ids(
+    papers: Sequence[DemoData],
+) -> tuple[Sequence[DemoData], int]:
+    """Fetch missing arXiv IDs from Semantic Scholar and return updated papers list.
+
+    Returns a tuple of (updated_papers_list, count_of_fetched_ids).
+    """
+    # Find papers without arXiv IDs
+    papers_missing = [p for p in papers if p.paper.arxiv_id is None]
+    if not papers_missing:
+        return papers, 0
+
+    logger.info(f"Found {len(papers_missing)} papers without arXiv IDs")
+
+    titles = [p.paper.title for p in papers_missing]
+    title_to_arxiv_id = asyncio.run(fetch_arxiv_ids_from_s2(titles))
+
+    # Create a new list with updated papers
+    updated_papers: list[DemoData] = []
+    updated_count = 0
+
+    for paper in papers:
+        # Check if this paper needs an arXiv ID update
+        if paper.paper.arxiv_id is None and (
+            arxiv_id := title_to_arxiv_id.get(paper.paper.title)
+        ):
+            # Create updated paper with arXiv ID
+            updated_papers.append(
+                DemoData(
+                    graph=paper.graph,
+                    related=paper.related,
+                    paper=replace_fields(paper.paper, arxiv_id=arxiv_id),
+                    terms=paper.terms,
+                    background=paper.background,
+                    target=paper.target,
+                )
+            )
+            updated_count += 1
+        else:
+            # Keep paper unchanged
+            updated_papers.append(paper)
+
+    logger.info(f"Updated {updated_count} papers with arXiv IDs")
+    return updated_papers, updated_count
+
+
+def display_arxiv_summary(
+    total_papers: int, existing_count: int, updated_count: int, fetch_enabled: bool
+) -> str:
+    """Print summary statistics for arXiv ID fetching."""
+    out = io.StringIO()
+
+    print("=== arXiv ID Summary ===", file=out)
+    print(f"Total papers: {total_papers}", file=out)
+    print(f"Already had arXiv ID: {existing_count}", file=out)
+    print(f"Missing arXiv ID: {total_papers - existing_count}", file=out)
+
+    if not fetch_enabled:
+        return out.getvalue()
+
+    print("Using Semantic Scholar API:", file=out)
+    print(f"Successfully fetched: {updated_count}", file=out)
+    print(f"Still missing: {total_papers - existing_count - updated_count}", file=out)
+
+    missing_count = total_papers - existing_count
+    if missing_count > 0:
+        success_rate = updated_count / missing_count
+        print(f"Success rate: {success_rate:.2%}", file=out)
+
+    return out.getvalue()
 
 
 @app.command(help=__doc__, no_args_is_help=True)
@@ -115,8 +248,13 @@ def main(
         ),
     ] = 10,
     seed: Annotated[int, typer.Option(help="Random seed used for sampling")] = 0,
+    fetch_arxiv: Annotated[
+        bool,
+        typer.Option(help="Fetch missing arXiv IDs from Semantic Scholar."),
+    ] = True,
 ) -> None:
     """Extract only relevant data from the input file."""
+    setup_logging()
     rng = random.Random(seed)
 
     papers = gpt.PromptResult.unwrap(
@@ -132,9 +270,14 @@ def main(
     ]
     papers_sampled = sample(papers_valid, limit, rng)
 
-    print(f"{len(papers) = }")
-    print(f"{len(papers_valid) = }")
-    print(f"{len(papers_sampled) = }")
+    logger.info(f"{len(papers) = }")
+    logger.info(f"{len(papers_valid) = }")
+    logger.info(f"{len(papers_sampled) = }")
+
+    # Count existing arxiv_ids before conversion
+    existing_arxiv_count = sum(
+        1 for p in papers_sampled if p.paper.arxiv_id is not None
+    )
 
     papers_converted = [
         DemoData(
@@ -155,6 +298,7 @@ def main(
                 rationale_true=p.paper.rationale_true,
                 rationale_pred=p.rationale_pred,
                 structured_evaluation=p.paper.structured_evaluation,
+                arxiv_id=p.paper.arxiv_id,
             ),
             # Include annotation data if available
             terms=p.terms,
@@ -163,6 +307,21 @@ def main(
         )
         for p in papers_sampled
     ]
+
+    # Fetch missing arXiv IDs if requested
+    if fetch_arxiv:
+        papers_converted, updated_count = fetch_missing_arxiv_ids(papers_converted)
+    else:
+        updated_count = 0
+
+    # Print summary
+    logger.info(
+        "\n%s",
+        display_arxiv_summary(
+            len(papers_sampled), existing_arxiv_count, updated_count, fetch_arxiv
+        ),
+    )
+
     save_data(output_file, papers_converted, compress=Compress.AUTO)
 
 
