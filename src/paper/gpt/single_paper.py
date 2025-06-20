@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -167,7 +167,11 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr
 
 
 async def get_paper_from_arxiv_id(
-    arxiv_id: str, limiter: Limiter, api_key: str
+    arxiv_id: str,
+    limiter: Limiter,
+    api_key: str,
+    *,
+    callback: Callable[[str], None] | None = None,
 ) -> pr.Paper:
     """Get a single processed Paper from the arXiv ID using Semantic Scholar and arXiv.
 
@@ -175,6 +179,7 @@ async def get_paper_from_arxiv_id(
         arxiv_id: ID of the paper on arXiv.
         limiter: Limiter for the requests.
         api_key: Semantic Scholar API key.
+        callback: Optional callback function to call with phase names after completion.
 
     Returns:
         Paper object with S2 metadata and parsed arXiv sections/references.
@@ -187,12 +192,18 @@ async def get_paper_from_arxiv_id(
         SEMANTIC_SCHOLAR_API_KEY environment variable.
     """
     # First get arXiv result to get the title for S2 lookup
+    if callback:
+        callback("Fetching arXiv data")
+
     arxiv_result = await atimer(get_arxiv_from_id(arxiv_id), 3)
     if not arxiv_result:
         raise ValueError(f"Paper not found on arXiv: {arxiv_id}")
     logger.debug("arXiv result: %s", arxiv_result)
 
     # Run S2 lookup and LaTeX parsing in parallel
+    if callback:
+        callback("Fetching Semantic Scholar data and parsing arXiv paper")
+
     s2_paper, (sections, references) = await asyncio.gather(
         atimer(
             fetch_s2_paper_info(api_key, arxiv_result.arxiv_title, limiter=limiter), 3
@@ -228,6 +239,7 @@ async def annotate_paper_pipeline(
     negative_prompt_key: str = "negative",
     encoder_model: str = DEFAULT_SENTENCE_MODEL,
     request_timeout: float = REQUEST_TIMEOUT,
+    callback: Callable[[str], None] | None = None,
 ) -> GPTResult[gpt.PaperWithRelatedSummary]:
     """Annotate a single paper through the complete pipeline to get related papers.
 
@@ -256,6 +268,7 @@ async def annotate_paper_pipeline(
         request_timeout: Maximum time (seconds) for S2 requests before timeout.
         s2_api_key: Semantic Scholar API key.
         client: LLM client for GPT API calls.
+        callback: Optional callback function to call with phase names after completion.
 
     Returns:
         Complete paper with related papers and their summaries wrapped in GPTResult.
@@ -271,6 +284,9 @@ async def annotate_paper_pipeline(
     logger.debug("Processing paper: %s", paper.title)
 
     # Phase 1: Fetch S2 recommended papers and reference data in parallel
+    if callback:
+        callback("Fetching Semantic Scholar references and recommendations")
+
     logger.debug("Fetching S2 data for recommendations and references in parallel")
     paper_with_s2_refs, recommended_papers = await asyncio.gather(
         atimer(
@@ -289,6 +305,9 @@ async def annotate_paper_pipeline(
         raise ValueError("No recommended found")
 
     # Phase 2: Extract annotations from all papers and classify contexts in parallel
+    if callback:
+        callback("Extracting annotations and classifying contexts")
+
     logger.debug("Processing all annotations and citation contexts in parallel")
     (
         paper_annotated,
@@ -314,6 +333,9 @@ async def annotate_paper_pipeline(
     )
 
     # Phase 3: Get related papers (simplified approach without full PETER graphs)
+    if callback:
+        callback("Discovering related papers")
+
     logger.debug("Getting related papers using direct approach")
     related_papers = await atimer(
         asyncio.to_thread(
@@ -328,6 +350,9 @@ async def annotate_paper_pipeline(
     )
 
     # Phase 4: Generate summaries for related papers
+    if callback:
+        callback("Generating related paper summaries")
+
     logger.debug("Generating summaries for related papers")
     related_papers_summarised = await atimer(
         generate_related_paper_summaries(
@@ -925,6 +950,8 @@ async def evaluate_paper_with_graph(
     graph_prompt_key: str,
     demonstrations_key: str,
     demo_prompt_key: str,
+    *,
+    callback: Callable[[str], None] | None = None,
 ) -> GPTResult[gpt.GraphResult]:
     """Evaluate a paper's novelty using graph extraction and related papers.
 
@@ -935,6 +962,7 @@ async def evaluate_paper_with_graph(
         graph_prompt_key: Key for graph extraction prompt template.
         demonstrations_key: Key for demonstrations file.
         demo_prompt_key: Key for demonstration prompt template.
+        callback: Optional callback function to call with phase names after completion.
 
     Returns:
         GraphResult with novelty evaluation wrapped in GPTResult.
@@ -942,9 +970,15 @@ async def evaluate_paper_with_graph(
     eval_prompt, graph_prompt = get_prompts(eval_prompt_key, graph_prompt_key)
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
+    if callback:
+        callback("Extracting graph representation")
+
     graph_result = await atimer(
         extract_graph_from_paper(paper.paper, client, graph_prompt), 3
     )
+
+    if callback:
+        callback("Evaluating novelty")
 
     eval_result = await atimer(
         evaluate_paper_graph_novelty(
@@ -1425,6 +1459,8 @@ async def process_paper_from_selection(
     graph_prompt_key: str,
     demonstrations_key: str,
     demo_prompt_key: str,
+    *,
+    callback: Callable[[str], None] | None = None,
 ) -> EvaluationResult:
     """Process a paper from pre-selected title and arXiv ID through the PETER pipeline.
 
@@ -1459,6 +1495,7 @@ async def process_paper_from_selection(
         graph_prompt_key: Key for graph extraction prompt template.
         demonstrations_key: Key for demonstrations file.
         demo_prompt_key: Key for demonstration prompt template.
+        callback: Optional callback function to call with phase names during processing.
 
     Returns:
         EvaluationResult with novelty evaluation and cost.
@@ -1476,7 +1513,9 @@ async def process_paper_from_selection(
 
     logger.debug("Processing paper: %s (arXiv:%s)", title, arxiv_id)
 
-    paper = await atimer(get_paper_from_arxiv_id(arxiv_id, limiter, s2_api_key), 2)
+    paper = await atimer(
+        get_paper_from_arxiv_id(arxiv_id, limiter, s2_api_key, callback=callback), 2
+    )
 
     paper_annotated = await atimer(
         annotate_paper_pipeline(
@@ -1488,6 +1527,7 @@ async def process_paper_from_selection(
             num_recommendations=num_recommendations,
             num_related=num_related,
             encoder_model=encoder_model,
+            callback=callback,
         ),
         2,
     )
@@ -1500,6 +1540,7 @@ async def process_paper_from_selection(
             graph_prompt_key,
             demonstrations_key,
             demo_prompt_key,
+            callback=callback,
         ),
         2,
     )
