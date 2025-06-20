@@ -156,8 +156,15 @@ class Graph:
         semantic_file = graph_dir / cls.SEMANTIC_FILENAME
         metadata_file = graph_dir / cls.METADATA_FILENAME
 
-        if not all(f.exists() for f in [citation_file, semantic_file, metadata_file]):
-            raise FileNotFoundError(f"Missing one or more graph files in {graph_dir}")
+        missing_files = [
+            file
+            for file in (citation_file, semantic_file, metadata_file)
+            if not file.exists()
+        ]
+        if missing_files:
+            raise FileNotFoundError(
+                f"Missing graph files in {graph_dir}: {missing_files}"
+            )
 
         metadata: dict[str, str] = orjson.loads(read_file_bytes(metadata_file))
         encoder_model = metadata["encoder_model"]
