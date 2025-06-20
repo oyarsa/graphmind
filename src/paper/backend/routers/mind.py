@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from enum import StrEnum
 from typing import Annotated
 
+import rich
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
@@ -157,6 +158,10 @@ async def evaluate_(
     Returns:
         Comprehensive evaluation result with analysis and recommendations.
     """
+
+    def callback(msg: str) -> None:
+        rich.print(f"[green]{msg}[/green]")
+
     return await evaluate.process_paper_from_selection(
         title=title,
         arxiv_id=id,
@@ -171,4 +176,5 @@ async def evaluate_(
         graph_prompt_key=GRAPH_PROMPT,
         demonstrations_key=DEMOS,
         demo_prompt_key=DEMO_PROMPT,
+        callback=callback,
     )
