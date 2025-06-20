@@ -177,7 +177,7 @@ def arxiv_search(
 ) -> Iterator[arxiv.Result]:
     """Query up to `max_results` matches of `query` on arXiv with retries."""
     logger.info("Querying n=%d query='%s'", max_results, query)
-    return client.results(arxiv.Search(query=query, max_results=max_results))
+    return client.results(arxiv.Search(query=f'ti:"{query}"', max_results=max_results))
 
 
 @backoff.on_exception(backoff.expo, Exception, max_tries=5, logger=logger)

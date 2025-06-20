@@ -78,7 +78,7 @@ async def search(
     q: Annotated[str, Query(description="Query for paper title on arXiv.")],
     limit: Annotated[
         int, Query(description="How many results to retrieve.", ge=1, le=100)
-    ] = 5,
+    ] = 10,
 ) -> PaperSearchResults:
     """Search papers on arXiv by title or abstract.
 
