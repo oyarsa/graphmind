@@ -13,7 +13,7 @@ from enum import StrEnum
 from typing import Annotated, Any
 
 import rich
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -92,6 +92,9 @@ async def search(
         Search results containing matching papers from arXiv.
     """
     search_results = await evaluate.search_arxiv_papers(q, max_results=limit)
+    if search_results is None:
+        raise HTTPException(status_code=503, detail="arXiv API error")
+
     items = [
         PaperSearchItem(
             title=r.title,

@@ -1437,7 +1437,9 @@ async def fetch_s2_paper_info(
         return await fetch_paper_info(session, api_key, title, S2_FIELDS, limiter)
 
 
-async def search_arxiv_papers(query: str, max_results: int = 10) -> list[arxiv.Result]:
+async def search_arxiv_papers(
+    query: str, max_results: int = 10
+) -> list[arxiv.Result] | None:
     """Search arXiv for papers matching the query.
 
     Args:
@@ -1445,7 +1447,9 @@ async def search_arxiv_papers(query: str, max_results: int = 10) -> list[arxiv.R
         max_results: Maximum number of results to return.
 
     Returns:
-        List of arxiv.Result objects.
+        None: API error occurred.
+        Empty list: successful query but no results found.
+        Non-empty list: successful query with results.
     """
     client = arxiv.Client()
 
@@ -1454,7 +1458,7 @@ async def search_arxiv_papers(query: str, max_results: int = 10) -> list[arxiv.R
     except Exception as e:
         logger.warning("Error searching arXiv: %s", e)
 
-    return []
+    return None
 
 
 type ProgressCallback = Callable[[str], Awaitable[None]]
@@ -1713,6 +1717,9 @@ async def get_paper_from_interactive_search(
         )
         results = await atimer(search_arxiv_papers(query), 3)
         progress.remove_task(task)
+
+    if results is None:
+        raise ValueError("Error searching arXiv")
 
     # Let user select
     selected = await atimer(select_paper_interactive(results, console), 3)
