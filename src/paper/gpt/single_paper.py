@@ -713,6 +713,8 @@ def get_related_papers(
         recommended_papers,
         [r.background for r in recommended_papers],
         rp.ContextPolarity.NEGATIVE,
+        paper_annotated.background,
+        paper_annotated.target,
     )
     target_related = get_top_k_semantic(
         encoder,
@@ -721,6 +723,8 @@ def get_related_papers(
         recommended_papers,
         [r.target for r in recommended_papers],
         rp.ContextPolarity.POSITIVE,
+        paper_annotated.background,
+        paper_annotated.target,
     )
 
     logger.debug("Positive references: %d", len(references_positive_related))
@@ -743,6 +747,8 @@ def get_top_k_semantic(
     papers: Sequence[gpt.PaperAnnotated],
     items: Sequence[str],
     polarity: rp.ContextPolarity,
+    background: str | None,
+    target: str | None,
 ) -> list[rp.PaperRelated]:
     """Get top K most similar papers by `items`."""
     sem_emb = encoder.encode_multi(items)
@@ -757,6 +763,8 @@ def get_top_k_semantic(
             title=paper.title,
             abstract=paper.abstract,
             score=score,
+            background=background,
+            target=target,
         )
         for paper, score in top_k
     ]
@@ -786,6 +794,10 @@ def get_top_k_reference_by_polarity(
             title=paper.title,
             abstract=paper.abstract,
             score=score,
+            contexts=[
+                pr.CitationContext(sentence=ctx.text, polarity=ctx.gold)
+                for ctx in paper.contexts
+            ],
         )
         for paper, score in top_k
     ]

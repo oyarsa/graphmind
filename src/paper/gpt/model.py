@@ -821,6 +821,10 @@ class PaperRelatedSummarised(Record):
     polarity: pr.ContextPolarity
     source: RelatedPaperSource
 
+    contexts: Sequence[pr.CitationContext] | None = None  # For citation-based papers
+    background: str | None = None  # For semantic papers matched by background
+    target: str | None = None  # For semantic papers matched by target
+
     @property
     def id(self) -> str:
         """Identify the summary by its underlying paper ID."""
@@ -837,6 +841,9 @@ class PaperRelatedSummarised(Record):
             score=related.score,
             polarity=pr.ContextPolarity(related.polarity),
             source=RelatedPaperSource(related.source),
+            contexts=related.contexts,
+            background=related.background,
+            target=related.target,
         )
 
 

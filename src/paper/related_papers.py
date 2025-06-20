@@ -11,6 +11,7 @@ from enum import StrEnum
 from typing import Protocol, Self
 
 from paper import gpt
+from paper import peerread as pr
 from paper.types import Immutable, PaperProxy
 from paper.util.serde import Record
 
@@ -50,6 +51,10 @@ class PaperRelated(Record):
     abstract: str
     score: float
     polarity: ContextPolarity
+
+    contexts: Sequence[pr.CitationContext] | None = None  # For citation-based papers
+    background: str | None = None  # For semantic papers matched by background
+    target: str | None = None  # For semantic papers matched by target
 
     @property
     def id(self) -> str:

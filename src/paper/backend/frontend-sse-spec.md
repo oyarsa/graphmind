@@ -79,7 +79,21 @@ data: {
     "result": {
       "paper": { /* PaperResult object */ },
       "graph": { /* GraphResult object */ },
-      "related": [ /* RelatedPaper array */ ]
+      "related": [
+        {
+          "summary": "Paper summary...",
+          "source": "citations" | "semantic",
+          "polarity": "positive" | "negative",
+          // For citation-based papers:
+          "contexts": [
+            {"sentence": "This work builds on...", "polarity": "positive"}
+          ],
+          // For semantic-based papers:
+          "background": "deep learning for NLP",  // What was matched for background
+          "target": "attention mechanisms"        // What was matched for target
+          /* ... other paper fields */
+        }
+      ]
       /* ... other fields */
     },
     "cost": 0.0123456789
