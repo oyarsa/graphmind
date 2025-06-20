@@ -67,6 +67,11 @@ api-dev:
 api-serve:
     uv run fastapi run src/paper/backend/api.py --port 8001
 
+# Bump version
+version bump:
+    uv version --bump {{bump}} && uv lock
+
+
 alias l := lint
 alias w := watch
 alias x := exp
