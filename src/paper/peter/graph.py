@@ -184,7 +184,7 @@ class Graph:
 def _result_from_related(
     papers_semantic: semantic.QueryResult, papers_citation: citations.QueryResult
 ) -> QueryResult:
-    return QueryResult(
+    result = QueryResult(
         semantic_positive=[
             PaperRelated.from_(
                 p, source=PaperSource.SEMANTIC, polarity=ContextPolarity.POSITIVE
@@ -210,6 +210,7 @@ def _result_from_related(
             for p in papers_citation.negative
         ],
     )
+    return result.deduplicated()
 
 
 class GraphData(Immutable):
