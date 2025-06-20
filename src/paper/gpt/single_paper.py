@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -171,7 +171,7 @@ async def get_paper_from_arxiv_id(
     limiter: Limiter,
     api_key: str,
     *,
-    callback: Callable[[str], None] | None = None,
+    callback: ProgressCallback | None = None,
 ) -> pr.Paper:
     """Get a single processed Paper from the arXiv ID using Semantic Scholar and arXiv.
 
@@ -193,7 +193,7 @@ async def get_paper_from_arxiv_id(
     """
     # First get arXiv result to get the title for S2 lookup
     if callback:
-        callback("Fetching arXiv data")
+        await callback("Fetching arXiv data")
 
     arxiv_result = await atimer(get_arxiv_from_id(arxiv_id), 3)
     if not arxiv_result:
@@ -202,7 +202,7 @@ async def get_paper_from_arxiv_id(
 
     # Run S2 lookup and LaTeX parsing in parallel
     if callback:
-        callback("Fetching Semantic Scholar data and parsing arXiv paper")
+        await callback("Fetching Semantic Scholar data and parsing arXiv paper")
 
     s2_paper, (sections, references) = await asyncio.gather(
         atimer(
@@ -239,7 +239,7 @@ async def annotate_paper_pipeline(
     negative_prompt_key: str = "negative",
     encoder_model: str = DEFAULT_SENTENCE_MODEL,
     request_timeout: float = REQUEST_TIMEOUT,
-    callback: Callable[[str], None] | None = None,
+    callback: ProgressCallback | None = None,
 ) -> GPTResult[gpt.PaperWithRelatedSummary]:
     """Annotate a single paper through the complete pipeline to get related papers.
 
@@ -285,7 +285,7 @@ async def annotate_paper_pipeline(
 
     # Phase 1: Fetch S2 recommended papers and reference data in parallel
     if callback:
-        callback("Fetching Semantic Scholar references and recommendations")
+        await callback("Fetching Semantic Scholar references and recommendations")
 
     logger.debug("Fetching S2 data for recommendations and references in parallel")
     paper_with_s2_refs, recommended_papers = await asyncio.gather(
@@ -306,7 +306,7 @@ async def annotate_paper_pipeline(
 
     # Phase 2: Extract annotations from all papers and classify contexts in parallel
     if callback:
-        callback("Extracting annotations and classifying contexts")
+        await callback("Extracting annotations and classifying contexts")
 
     logger.debug("Processing all annotations and citation contexts in parallel")
     (
@@ -334,7 +334,7 @@ async def annotate_paper_pipeline(
 
     # Phase 3: Get related papers (simplified approach without full PETER graphs)
     if callback:
-        callback("Discovering related papers")
+        await callback("Discovering related papers")
 
     logger.debug("Getting related papers using direct approach")
     related_papers = await atimer(
@@ -351,7 +351,7 @@ async def annotate_paper_pipeline(
 
     # Phase 4: Generate summaries for related papers
     if callback:
-        callback("Generating related paper summaries")
+        await callback("Generating related paper summaries")
 
     logger.debug("Generating summaries for related papers")
     related_papers_summarised = await atimer(
@@ -951,7 +951,7 @@ async def evaluate_paper_with_graph(
     demonstrations_key: str,
     demo_prompt_key: str,
     *,
-    callback: Callable[[str], None] | None = None,
+    callback: ProgressCallback | None = None,
 ) -> GPTResult[gpt.GraphResult]:
     """Evaluate a paper's novelty using graph extraction and related papers.
 
@@ -971,14 +971,14 @@ async def evaluate_paper_with_graph(
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
     if callback:
-        callback("Extracting graph representation")
+        await callback("Extracting graph representation")
 
     graph_result = await atimer(
         extract_graph_from_paper(paper.paper, client, graph_prompt), 3
     )
 
     if callback:
-        callback("Evaluating novelty")
+        await callback("Evaluating novelty")
 
     eval_result = await atimer(
         evaluate_paper_graph_novelty(
@@ -1445,6 +1445,9 @@ async def search_arxiv_papers(query: str, max_results: int = 10) -> list[arxiv.R
     return []
 
 
+type ProgressCallback = Callable[[str], Awaitable[None]]
+
+
 async def process_paper_from_selection(
     title: str,
     arxiv_id: str,
@@ -1460,7 +1463,7 @@ async def process_paper_from_selection(
     demonstrations_key: str,
     demo_prompt_key: str,
     *,
-    callback: Callable[[str], None] | None = None,
+    callback: ProgressCallback | None = None,
 ) -> EvaluationResult:
     """Process a paper from pre-selected title and arXiv ID through the PETER pipeline.
 
