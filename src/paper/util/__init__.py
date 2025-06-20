@@ -24,6 +24,7 @@ from typing import Any, Self, cast, no_type_check, overload
 
 import polars as pl
 import psutil
+import rich
 from rich.console import Console
 from thefuzz import fuzz  # type: ignore
 from tqdm import tqdm
@@ -875,19 +876,6 @@ def extract_task_name(task: Awaitable[Any]) -> str:
     return type(task).__name__.lower()
 
 
-def _get_depth_color(depth: int) -> str:
-    """Get ANSI color code based on depth level (1-5)."""
-    colors = {
-        1: "\033[32m",  # Green
-        2: "\033[34m",  # Blue
-        3: "\033[35m",  # Magenta
-        4: "\033[33m",  # Yellow
-        5: "\033[36m",  # Cyan
-    }
-    clamped_depth = max(1, min(5, depth))
-    return colors[clamped_depth]
-
-
 PRINT_TIMERS = os.getenv("TIMERS", "0") == "1"
 
 
@@ -900,7 +888,7 @@ async def atimer[T](
 
     Args:
         awaitable: The awaitable task/coroutine/future to time.
-        depth: Number of characters to prepend to prefix. Also determines color (max 5).
+        depth: Number of characters to prepend to prefix. Also determines colour (max 5).
         char: Character used to signal depth.
         max_width: Maximum width of the function label, including depth prefix.
 
@@ -909,15 +897,28 @@ async def atimer[T](
         await timer(some_task(), 2)  # ┃┃ some_task      0.10s (blue)
         await timer(some_task(), 3)  # ┃┃┃ some_task    10.00s (magenta)
     """
+    if not PRINT_TIMERS:
+        return await awaitable
+
     name = extract_task_name(awaitable)
     prefix = char * depth
     display_name = f"{prefix} {name}"
-    color = _get_depth_color(depth)
+
+    colours = {
+        1: "green",
+        2: "blue",
+        3: "magenta",
+        4: "yellow",
+        5: "cyan",
+    }
+    clamped_depth = max(1, min(5, depth))
+    colour = colours[clamped_depth]
 
     with Timer() as t:
         result = await awaitable
-    if PRINT_TIMERS:
-        print(
-            f"{color}{display_name[:max_width]:<{max_width}}{t.seconds:>7.2f}s\033[0m"
-        )
+
+    rich.print(
+        f"[{colour}]{display_name[:max_width]:<{max_width}}{t.seconds:>7.2f}s[/{colour}]"
+    )
+
     return result
