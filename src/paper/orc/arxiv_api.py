@@ -171,7 +171,7 @@ def get_arxiv(openreview_titles: list[str], batch_size: int) -> dict[str, ArxivR
     return {normalise_title(r.openreview_title): r for r in arxiv_results}
 
 
-@backoff.on_exception(backoff.expo, Exception, max_tries=5)
+@backoff.on_exception(backoff.expo, Exception, max_tries=5, logger=logger)
 def arxiv_search(
     client: arxiv.Client, query: str, max_results: int
 ) -> Iterator[arxiv.Result]:
@@ -179,7 +179,7 @@ def arxiv_search(
     return client.results(arxiv.Search(query=query, max_results=max_results))
 
 
-@backoff.on_exception(backoff.expo, Exception, max_tries=5)
+@backoff.on_exception(backoff.expo, Exception, max_tries=5, logger=logger)
 def arxiv_from_id(client: arxiv.Client, arxiv_id: str) -> Iterator[arxiv.Result]:
     """Query paper ID on arXiv with retries."""
     return client.results(arxiv.Search(id_list=[arxiv_id]))
@@ -229,7 +229,7 @@ def similar_titles(title1: str, title2: str) -> bool:
     return t1 == t2 or t1 in t2 or t2 in t1
 
 
-@backoff.on_exception(backoff.expo, Exception, max_tries=5)
+@backoff.on_exception(backoff.expo, Exception, max_tries=5, logger=logger)
 def download_latex_source(arxiv_id: str) -> bytes | None:
     """Download LaTeX source (tar.gz) from arXiv for the given arXiv ID."""
     url = f"https://arxiv.org/src/{arxiv_id}"
