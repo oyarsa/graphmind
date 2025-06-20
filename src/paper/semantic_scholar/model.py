@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Annotated, Self, override
 
-from pydantic import Field, computed_field
+from pydantic import Field, computed_field, field_validator
 
 from paper import peerread as pr
 from paper.peerread.model import clean_maintext
@@ -135,6 +135,12 @@ class PaperFromPeerRead(Record):
     ] = None
     authors: Annotated[Sequence[Author] | None, Field(description="Paper authors")]
     venue: Annotated[str | None, Field(description="Publication venue name")] = None
+
+    @field_validator("abstract", mode="before")
+    @classmethod
+    def replace_none_abstract(cls, v: str | None) -> str:
+        """Replace None abstract with empty string."""
+        return v if v is not None else ""
 
     @property
     def id(self) -> str:

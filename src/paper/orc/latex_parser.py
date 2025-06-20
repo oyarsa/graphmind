@@ -417,9 +417,11 @@ def process_latex(
             )
 
     # Remove references that don't have any matching citations
+    logger.debug("References before matching: %d", len(citationkey_to_reference))
     references = [
         ref for ref in citationkey_to_reference.values() if ref.citation_contexts
     ]
+    logger.debug("References with contexts: %d", len(references))
 
     markdown_content = _convert_latex_to_markdown(consolidated_content, title)
     if markdown_content is None:
