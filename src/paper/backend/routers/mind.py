@@ -4,17 +4,26 @@ Provides endpoints for searching arXiv papers and performing comprehensive
 paper evaluation using LLM-based analysis and recommendations.
 """
 
-from collections.abc import Sequence
+import asyncio
+import contextlib
+import json
+import logging
+from collections.abc import AsyncGenerator, Sequence
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Any
 
 import rich
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from paper import evaluate
+from paper.gpt.single_paper import ProgressCallback
+from paper.util import atimer, setup_logging
 
 router = APIRouter(prefix="/mind", tags=["mind"])
+logger = logging.getLogger(__name__)
+setup_logging()
 
 
 def get_limiter(request: Request) -> evaluate.Limiter:
@@ -136,14 +145,16 @@ async def evaluate_(
         LLMModel, Query(description="LLM model to use.")
     ] = LLMModel.GPT4oMini,
     seed: Annotated[int, Query(description="Random seed.")] = 0,
-) -> evaluate.EvaluationResult:
-    """Perform comprehensive paper analysis and evaluation.
+) -> StreamingResponse:
+    """Perform comprehensive paper analysis and evaluation with real-time progress.
 
     Analyses an arXiv paper using LLM-based evaluation, including:
     - Paper classification and annotation
     - Reference analysis
     - Recommendation generation
     - Related paper discovery
+
+    Returns progress updates via Server-Sent Events (SSE), followed by the final result.
 
     Args:
         limiter: Rate limiter dependency for API calls.
@@ -156,25 +167,97 @@ async def evaluate_(
         seed: Random seed for reproducible results.
 
     Returns:
-        Comprehensive evaluation result with analysis and recommendations.
+        StreamingResponse with Server-Sent Events containing progress updates and final
+        result.
     """
 
-    def callback(msg: str) -> None:
-        rich.print(f"[green]{msg}[/green]")
+    async def go(callback: ProgressCallback) -> evaluate.EvaluationResult:
+        return await atimer(
+            evaluate.process_paper_from_selection(
+                title=title,
+                arxiv_id=id,
+                top_k_refs=k_refs,
+                num_recommendations=recommendations,
+                num_related=related,
+                llm_model=str(llm_model),
+                encoder_model=ENCODER_MODEL,
+                seed=seed,
+                limiter=limiter,
+                eval_prompt_key=EVAL_PROMPT,
+                graph_prompt_key=GRAPH_PROMPT,
+                demonstrations_key=DEMOS,
+                demo_prompt_key=DEMO_PROMPT,
+                callback=callback,
+            )
+        )
 
-    return await evaluate.process_paper_from_selection(
-        title=title,
-        arxiv_id=id,
-        top_k_refs=k_refs,
-        num_recommendations=recommendations,
-        num_related=related,
-        llm_model=str(llm_model),
-        encoder_model=ENCODER_MODEL,
-        seed=seed,
-        limiter=limiter,
-        eval_prompt_key=EVAL_PROMPT,
-        graph_prompt_key=GRAPH_PROMPT,
-        demonstrations_key=DEMOS,
-        demo_prompt_key=DEMO_PROMPT,
-        callback=callback,
+    def sse_event(event: str | None, data: Any) -> str:
+        """Format an SSE frame.
+
+        Adding an `event:` field lets the client register
+        addEventListener('progress', …) if it wants to.
+        """
+        payload = json.dumps(data)
+        prefix = f"event: {event}\n" if event else ""
+        return f"{prefix}data: {payload}\n\n"
+
+    async def generate_events() -> AsyncGenerator[str, None]:
+        """Generate Server-Sent Events for progress updates and final result."""
+        queue: asyncio.Queue[str | None] = asyncio.Queue()
+
+        async def progress_cb(msg: str) -> None:
+            rich.print(f"[green]{msg}[/green]")
+            await queue.put(msg)
+
+        async def run_task() -> evaluate.EvaluationResult:
+            try:
+                return await go(progress_cb)
+            finally:
+                await queue.put(None)  # sentinel → stream is over
+
+        # kick things off
+        yield sse_event("connected", {"message": "Starting evaluation..."})
+        task = asyncio.create_task(run_task())
+
+        try:
+            # stream until we see the sentinel
+            while True:
+                try:
+                    msg = await asyncio.wait_for(queue.get(), timeout=15)
+                except TimeoutError:
+                    # 15-sec pulse keeps the pipe warm
+                    yield ": keep-alive\n\n"
+                    continue
+
+                if msg is None:  # sentinel
+                    break
+
+                yield sse_event("progress", {"message": msg})
+
+            # task is done; surface its result or its error
+            if exc := task.exception():
+                yield sse_event("error", {"message": str(exc)})
+                logger.error(f"Paper evaluation failed: {exc}")
+                return
+            else:
+                evaluation_result = task.result()
+                logger.info(f"Evaluation completed. Cost: {evaluation_result.cost}")
+
+                yield sse_event("complete", {"result": evaluation_result.model_dump()})
+
+        except (asyncio.CancelledError, GeneratorExit):
+            logger.info("Client disconnected - cancelling worker")
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+            raise
+
+    return StreamingResponse(
+        generate_events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
     )
