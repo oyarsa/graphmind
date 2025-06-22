@@ -11,31 +11,41 @@
   target: ./semantic_scholar/areas.py
 
 - source: ./peerread/preprocess.py
-  target: ./gpt/evaluate_paper_full.py
+  target: ./gpt/evaluate_paper.py
 
 - source: ./construct_dataset.py
   target: ./gpt/classify_contexts.py
   detail: main
 
 - source: ./gpt/classify_contexts.py
-  target: ./peter/build.py
-  detail: main
+  target: ./peter/citations.py
+  detail: contexts for citation graph
 
 - source: ./gpt/annotate_paper.py
-  target: ./peter/build.py
-  detail: related
+  target: ./peter/semantic.py
+  detail: semantic embeddings
 
 - source: ./gpt/annotate_paper.py
-  target: ./peter/peerread.py
-  detail: main
+  target: ./related_papers.py
+  detail: paper relationships
 
-- source: ./peter/build.py
-  target: ./peter/peerread.py
+- source: ./peter/citations.py
+  target: ./peter/graph.py
+  detail: citation subgraph
 
-- source: ./peter/peerread.py
-  target: ./gpt/evaluate_paper_peter.py
+- source: ./peter/semantic.py
+  target: ./peter/graph.py
+  detail: semantic subgraph
 
-- source: allenai/CSAbstruct
+- source: ./peter/graph.py
+  target: ./peter/cli.py
+  detail: graph construction commands
+
+- source: ./peter/cli.py
+  target: ./gpt/evaluate_paper.py
+  detail: evaluation using PETER graph
+
+- source: allenai/CSAbstract
   target: ./gpt/annotate_paper.py
 
 - source: ./semantic_scholar/areas.py
@@ -70,3 +80,27 @@
 
 - source: neulab/ReviewAdvisor
   target: ./peerread/preprocess.py
+
+- source: ./embedding.py
+  target: ./peter/citations.py
+  detail: encoding functionality
+
+- source: ./embedding.py
+  target: ./peter/semantic.py
+  detail: encoding functionality
+
+- source: ./embedding.py
+  target: ./peter/graph.py
+  detail: encoding functionality
+
+- source: ./related_papers.py
+  target: ./peter/citations.py
+  detail: context polarity types
+
+- source: ./related_papers.py
+  target: ./peter/graph.py
+  detail: paper relationship types
+
+- source: ./cli.py
+  target: ./peter/cli.py
+  detail: integrate PETER commands
