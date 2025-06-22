@@ -148,7 +148,14 @@ class PaperRelated(Record):
 
     @classmethod
     def from_(
-        cls, paper: RelatedResult, *, source: PaperSource, polarity: ContextPolarity
+        cls,
+        paper: RelatedResult,
+        *,
+        source: PaperSource,
+        polarity: ContextPolarity,
+        contexts: Sequence[pr.CitationContext] | None = None,
+        background: str | None = None,
+        target: str | None = None,
     ) -> Self:
         """Create concrete paper result from abstract/protocol data and a source."""
         return cls(
@@ -158,6 +165,9 @@ class PaperRelated(Record):
             score=paper.score,
             source=source,
             polarity=polarity,
+            contexts=contexts,
+            background=background,
+            target=target,
         )
 
 

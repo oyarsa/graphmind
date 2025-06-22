@@ -14,6 +14,7 @@ from typing import Protocol, Self
 from tqdm import tqdm
 
 from paper import embedding as emb
+from paper import peerread as pr
 from paper.related_papers import ContextPolarity
 from paper.types import Immutable
 from paper.util.serde import Record
@@ -75,6 +76,14 @@ class Graph(Immutable):
                         abstract=paper.abstract,
                         paper_id=paper.id,
                         polarity=polarity,
+                        contexts=[
+                            pr.CitationContext(
+                                sentence=ctx.text,
+                                polarity=pr.ContextPolarity(ctx.prediction.value),
+                            )
+                            for ctx in paper.contexts
+                            if ctx.prediction.value == polarity.value
+                        ],
                     )
                     for paper, score in sorted(
                         zip(peer_paper.references, s2_similarities),
@@ -145,6 +154,7 @@ class Citation(Record):
     title: str
     abstract: str
     polarity: ContextPolarity
+    contexts: Sequence[pr.CitationContext] | None = None
 
     @property
     def id(self) -> str:
@@ -212,6 +222,11 @@ class ReferenceClassified(Protocol):
         """
         ...
 
+    @property
+    def contexts(self) -> Sequence[ContextProto]:
+        """Citation contexts for this reference."""
+        ...
+
 
 class PolarityProto(Protocol):
     """Protocol representing an Enum with POSITIVE/NEGATIVE members.
@@ -225,4 +240,18 @@ class PolarityProto(Protocol):
     @property
     def value(self) -> str:
         """Get value of the enum."""
+        ...
+
+
+class ContextProto(Protocol):
+    """Protocol representing a citation context with text and polarity prediction."""
+
+    @property
+    def text(self) -> str:
+        """Context text."""
+        ...
+
+    @property
+    def prediction(self) -> PolarityProto:
+        """Context polarity prediction."""
         ...

@@ -77,7 +77,9 @@ class Graph:
         )
         papers_citation = self._citation.query_threshold(paper_id, citation_threshold)
 
-        return _result_from_related(papers_semantic, papers_citation)
+        return _result_from_related(
+            papers_semantic, papers_citation, background, target
+        )
 
     def query_all(
         self,
@@ -91,7 +93,9 @@ class Graph:
         """Find papers related to `paper` through citations and semantic similarity."""
         papers_semantic = self._semantic.query(background, target, k=semantic_k)
         papers_citation = self._citation.query(paper_id, k=citation_k)
-        return _result_from_related(papers_semantic, papers_citation)
+        return _result_from_related(
+            papers_semantic, papers_citation, background, target
+        )
 
     @classmethod
     def build(
@@ -182,30 +186,45 @@ class Graph:
 
 
 def _result_from_related(
-    papers_semantic: semantic.QueryResult, papers_citation: citations.QueryResult
+    papers_semantic: semantic.QueryResult,
+    papers_citation: citations.QueryResult,
+    background: str,
+    target: str,
 ) -> QueryResult:
     result = QueryResult(
         semantic_positive=[
             PaperRelated.from_(
-                p, source=PaperSource.SEMANTIC, polarity=ContextPolarity.POSITIVE
+                p,
+                source=PaperSource.SEMANTIC,
+                polarity=ContextPolarity.POSITIVE,
+                target=target,
             )
             for p in papers_semantic.targets
         ],
         semantic_negative=[
             PaperRelated.from_(
-                p, source=PaperSource.SEMANTIC, polarity=ContextPolarity.NEGATIVE
+                p,
+                source=PaperSource.SEMANTIC,
+                polarity=ContextPolarity.NEGATIVE,
+                background=background,
             )
             for p in papers_semantic.backgrounds
         ],
         citations_positive=[
             PaperRelated.from_(
-                p, source=PaperSource.CITATIONS, polarity=ContextPolarity.POSITIVE
+                p,
+                source=PaperSource.CITATIONS,
+                polarity=ContextPolarity.POSITIVE,
+                contexts=p.contexts,
             )
             for p in papers_citation.positive
         ],
         citations_negative=[
             PaperRelated.from_(
-                p, source=PaperSource.CITATIONS, polarity=ContextPolarity.NEGATIVE
+                p,
+                source=PaperSource.CITATIONS,
+                polarity=ContextPolarity.NEGATIVE,
+                contexts=p.contexts,
             )
             for p in papers_citation.negative
         ],
