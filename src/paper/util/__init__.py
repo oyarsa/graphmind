@@ -20,7 +20,7 @@ from importlib import resources
 from io import StringIO
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Self, cast, no_type_check, overload
+from typing import TYPE_CHECKING, Any, Self, cast, no_type_check, overload
 
 import polars as pl
 import psutil
@@ -30,6 +30,9 @@ from thefuzz import fuzz  # type: ignore
 from tqdm import tqdm
 
 from paper.util import cli, progress
+
+if TYPE_CHECKING:
+    from paper.util.typing import TSeq
 
 logger = logging.getLogger(__name__)
 
@@ -788,7 +791,7 @@ async def await_and_call_async[T](
     return result
 
 
-def seqcat[T](*iters: Iterable[T]) -> Sequence[T]:
+def seqcat[T](*iters: Iterable[T]) -> TSeq[T]:
     """Concatenate iterators in a sequence."""
     return tuple(itertools.chain(*iters))
 

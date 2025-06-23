@@ -10,6 +10,9 @@ from typing_extensions import TypeIs
 
 _T_contra = TypeVar("_T_contra", contravariant=True)
 
+type TSeq[T] = tuple[T, ...]
+"""Variable-length tuple alias."""
+
 
 class _SupportsLT(Protocol[_T_contra]):
     """A type that supports less-than comparison (`__lt__` method)."""
