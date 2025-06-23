@@ -17,8 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from paper import evaluate
-from paper.gpt.single_paper import ProgressCallback
+from paper import single_paper
 from paper.util import atimer, setup_logging
 
 router = APIRouter(prefix="/mind", tags=["mind"])
@@ -26,7 +25,7 @@ logger = logging.getLogger(__name__)
 setup_logging()
 
 
-def get_limiter(request: Request) -> evaluate.Limiter:
+def get_limiter(request: Request) -> single_paper.Limiter:
     """Dependency injection for the request rate limiter.
 
     Args:
@@ -38,7 +37,7 @@ def get_limiter(request: Request) -> evaluate.Limiter:
     return request.app.state.limiter
 
 
-LimiterDep = Annotated[evaluate.Limiter, Depends(get_limiter)]
+LimiterDep = Annotated[single_paper.Limiter, Depends(get_limiter)]
 
 
 class PaperSearchItem(BaseModel):
@@ -91,14 +90,14 @@ async def search(
     Returns:
         Search results containing matching papers from arXiv.
     """
-    search_results = await evaluate.search_arxiv_papers(q, max_results=limit)
+    search_results = await single_paper.search_arxiv_papers(q, max_results=limit)
     if search_results is None:
         raise HTTPException(status_code=503, detail="arXiv API error")
 
     items = [
         PaperSearchItem(
             title=r.title,
-            arxiv_id=evaluate.arxiv_id_from_url(r.entry_id),
+            arxiv_id=single_paper.arxiv_id_from_url(r.entry_id),
             abstract=r.summary,
             year=r.published.year if r.published else None,
             authors=[a.name for a in r.authors],
@@ -120,7 +119,7 @@ class LLMModel(StrEnum):
 
 
 # Configuration constants for paper evaluation
-ENCODER_MODEL = evaluate.DEFAULT_SENTENCE_MODEL
+ENCODER_MODEL = single_paper.DEFAULT_SENTENCE_MODEL
 EVAL_PROMPT = "full-graph-structured"
 GRAPH_PROMPT = "full"
 DEMOS = "orc_4"
@@ -174,9 +173,11 @@ async def evaluate_(
         result.
     """
 
-    async def go(callback: ProgressCallback) -> evaluate.EvaluationResult:
+    async def go(
+        callback: single_paper.ProgressCallback,
+    ) -> single_paper.EvaluationResult:
         return await atimer(
-            evaluate.process_paper_from_selection(
+            single_paper.process_paper_from_selection(
                 title=title,
                 arxiv_id=id,
                 top_k_refs=k_refs,
@@ -212,7 +213,7 @@ async def evaluate_(
             rich.print(f"[green]{msg}[/green]")
             await queue.put(msg)
 
-        async def run_task() -> evaluate.EvaluationResult:
+        async def run_task() -> single_paper.EvaluationResult:
             try:
                 return await go(progress_cb)
             finally:

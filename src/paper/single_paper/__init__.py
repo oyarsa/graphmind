@@ -1,0 +1,38 @@
+"""Single paper processing pipeline for ORC dataset.
+
+This module provides functionality to process a single paper through the complete PETER
+pipeline, including S2 reference enhancement, GPT annotations, context classification,
+related paper discovery, and summarisation.
+
+Main entry point:
+    main: CLI command for processing papers
+
+Core pipeline functions:
+    annotate_paper_pipeline: Complete PETER pipeline processing
+    process_paper_from_query: End-to-end processing from title/ID
+    process_paper_from_selection: Processing from pre-selected paper
+"""
+
+from paper.embedding import DEFAULT_SENTENCE_MODEL
+from paper.single_paper.cli import main
+from paper.single_paper.graph_evaluation import EvaluationResult, ProgressCallback
+from paper.single_paper.paper_retrieval import (
+    arxiv_id_from_url,
+    fetch_s2_paper_info,
+    search_arxiv_papers,
+)
+from paper.single_paper.pipeline import process_paper_from_selection
+from paper.util.rate_limiter import Limiter, get_limiter
+
+__all__ = (
+    "DEFAULT_SENTENCE_MODEL",
+    "EvaluationResult",
+    "Limiter",
+    "ProgressCallback",
+    "arxiv_id_from_url",
+    "fetch_s2_paper_info",
+    "get_limiter",
+    "main",
+    "process_paper_from_selection",
+    "search_arxiv_papers",
+)

@@ -13,7 +13,7 @@ import dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from paper import evaluate
+from paper import single_paper
 from paper.backend.db import DatabaseManager
 from paper.backend.model import HealthCheck
 from paper.backend.routers import mind, network
@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         None during application runtime.
     """
     dotenv.load_dotenv()
-    app.state.limiter = evaluate.get_limiter(use_semaphore=False)
+    app.state.limiter = single_paper.get_limiter(use_semaphore=False)
 
     async with DatabaseManager(
         dbname=os.environ["XP_DB_NAME"],
