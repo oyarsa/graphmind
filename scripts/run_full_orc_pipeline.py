@@ -384,6 +384,31 @@ def main(
     )
     assert acu_query.exists()
 
+    title("Evaluate with graph")
+    eval_graph_dir = output_dir / "eval-graph"
+    eval_graph = eval_graph_dir / "result.json.zst"
+    _checkrun(
+        eval_graph,
+        "paper",
+        "gpt",
+        "eval",
+        "graph",
+        "run",
+        "--papers",
+        petersum,
+        "--output",
+        eval_graph_dir,
+        "--limit",
+        0,
+        "--linearisation",
+        "topo",
+        "--eval-prompt",
+        "full-graph-structured",
+        "--graph-prompt",
+        "excerpts",
+    )
+    assert eval_graph.exists()
+
 
 def _checkrun(path: Path, *cmd: object) -> None:
     """Run command only if `path` does not already exist.
