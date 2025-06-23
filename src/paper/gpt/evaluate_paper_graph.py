@@ -51,7 +51,6 @@ from paper.gpt.model import (
     PeerReadAnnotated,
     Prompt,
     PromptResult,
-    RelatedPaperSource,
 )
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
@@ -61,6 +60,7 @@ from paper.gpt.run_gpt import (
     gpt_sequence,
     init_remaining_items,
 )
+from paper.types import PaperSource
 from paper.util import (
     Timer,
     batch_map_with_progress,
@@ -169,9 +169,9 @@ def run(
         int, typer.Option(help="Number of requests per batch.")
     ] = 100,
     sources: Annotated[
-        list[RelatedPaperSource],
+        list[PaperSource],
         typer.Option(help="What sources to use for related papers."),
-    ] = [RelatedPaperSource.CITATIONS, RelatedPaperSource.SEMANTIC],  # noqa: B006
+    ] = [PaperSource.CITATIONS, PaperSource.SEMANTIC],  # noqa: B006
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers."""
     asyncio.run(
@@ -214,7 +214,7 @@ async def evaluate_papers(
     demo_prompt_key: str,
     linearisation_method: LinearisationMethod,
     batch_size: int,
-    sources: set[RelatedPaperSource],
+    sources: set[PaperSource],
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers.
 
@@ -325,7 +325,7 @@ async def _evaluate_papers(
     demonstrations: str,
     linearisation_method: LinearisationMethod,
     batch_size: int,
-    sources: set[RelatedPaperSource],
+    sources: set[PaperSource],
 ) -> GPTResult[Sequence[PromptResult[GraphResult]]]:
     """Evaluate paper novelty using a paper graph and PETER-related papers.
 
@@ -372,7 +372,7 @@ async def evaluate_paper(
     graph_prompt: PromptTemplate,
     demonstrations: str,
     linearisation_method: LinearisationMethod,
-    sources: set[RelatedPaperSource],
+    sources: set[PaperSource],
 ) -> GPTResult[PromptResult[GraphResult]]:
     """Evaluate a single paper's novelty using graph extraction and related papers.
 
@@ -475,11 +475,11 @@ def format_eval_template(
     graph: Graph,
     demonstrations: str,
     method: LinearisationMethod = LinearisationMethod.TOPO,
-    sources: set[RelatedPaperSource] | None = None,
+    sources: set[PaperSource] | None = None,
 ) -> str:
     """Format evaluation template using the paper graph and PETER-queried related papers."""
     if sources is None:
-        sources = set(RelatedPaperSource)
+        sources = set(PaperSource)
 
     related = [p for p in paper.related if p.source in sources]
     return prompt.template.format(

@@ -25,6 +25,7 @@ from paper.gpt.evaluate_paper_graph import (
     GRAPH_EVAL_USER_PROMPTS,
     GRAPH_EXTRACT_USER_PROMPTS,
 )
+from paper.types import PaperSource
 from paper.util import cli, metrics
 from paper.util.cmd import run, title
 from paper.util.serde import load_data
@@ -399,7 +400,7 @@ def _count_related_summarised(item: gpt.GraphResult) -> Counts:
         raise ValueError("Invalid graph result. Must have related papers.")
 
     ctx = pr.ContextPolarity
-    src = gpt.RelatedPaperSource
+    src = PaperSource
 
     semantic_positive = _filter_related(related, ctx.POSITIVE, src.SEMANTIC)
     semantic_negative = _filter_related(related, ctx.NEGATIVE, src.SEMANTIC)
@@ -424,7 +425,7 @@ def _count_related_summarised(item: gpt.GraphResult) -> Counts:
 def _filter_related(
     related: Iterable[gpt.PaperRelatedSummarised],
     polarity: pr.ContextPolarity,
-    source: gpt.RelatedPaperSource,
+    source: PaperSource,
 ) -> int:
     return sum(1 for r in related if r.polarity is polarity and r.source is source)
 

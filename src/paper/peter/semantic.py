@@ -9,11 +9,14 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Protocol, Self
+from typing import TYPE_CHECKING, Self
 
 from paper import embedding as emb
 from paper.types import Immutable
 from paper.util.serde import Record
+
+if TYPE_CHECKING:
+    from paper.gpt import PeerReadAnnotated
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +98,7 @@ class Graph:
     def from_papers(
         cls,
         encoder: emb.Encoder,
-        papers: Iterable[PaperAnnotated],
+        papers: Iterable[PeerReadAnnotated],
         *,
         progress: bool = False,
     ) -> Self:
@@ -176,7 +179,7 @@ class Graph:
 
     def _query(
         self, sentence: str, elements: _Components, *, k: int
-    ) -> list[PaperResult]:
+    ) -> list[SemanticResult]:
         """Get top K nodes in `elements` by similarity with `sentence`.
 
         Results are sorted by their scores, descending.
@@ -185,7 +188,7 @@ class Graph:
         sim = emb.similarities(embedding, elements.embeddings)
 
         return [
-            PaperResult.from_related(
+            SemanticResult.from_related(
                 related=elements.node_to_paper[elements.nodes[idx]], score=sim[idx]
             )
             for idx in emb.top_k_indices(sim, k)
@@ -200,41 +203,12 @@ class Graph:
         )
 
 
-class PaperAnnotated(Protocol):
-    """PeerRead paper whose abstract has been separated into `background` and `target`."""
-
-    @property
-    def id(self) -> str:
-        """Paper unique identifier."""
-        ...
-
-    @property
-    def title(self) -> str:
-        """Paper title."""
-        ...
-
-    @property
-    def abstract(self) -> str:
-        """Paper abstract."""
-        ...
-
-    @property
-    def background(self) -> str:
-        """Paper background sentences: tasks, context, motivation, etc."""
-        ...
-
-    @property
-    def target(self) -> str:
-        """Paper target sentences: methods, objectives, etc."""
-        ...
-
-
 class QueryResult(Immutable):
     """Result from querying the semantic graph."""
 
-    targets: Sequence[PaperResult]
+    targets: Sequence[SemanticResult]
     """Top K similar papers by target sentence similarity."""
-    backgrounds: Sequence[PaperResult]
+    backgrounds: Sequence[SemanticResult]
     """Top K similar papers by background sentence similarity."""
 
 
@@ -251,15 +225,12 @@ class _PaperRelated(Record):
         return self.paper_id
 
     @classmethod
-    def from_ann(cls, paper: PaperAnnotated) -> Self:
-        """Construct related paper from input annotated paper.
-
-        PaperAnnotated is an abstract/protocol type, and we need a concrete BaseModel.
-        """
+    def from_ann(cls, paper: PeerReadAnnotated) -> Self:
+        """Construct related paper from input annotated paper."""
         return cls(title=paper.title, abstract=paper.abstract, paper_id=paper.id)
 
 
-class PaperResult(_PaperRelated):
+class SemanticResult(_PaperRelated):
     """Related paper with similarity score."""
 
     score: float

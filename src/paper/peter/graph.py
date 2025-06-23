@@ -11,10 +11,11 @@ from typing import ClassVar, Self
 import orjson
 
 from paper import embedding as emb
+from paper import gpt
+from paper.peerread import ContextPolarity
 from paper.peter import citations, semantic
-from paper.peter.citations import ContextPolarity
-from paper.related_papers import PaperRelated, PaperSource, QueryResult
-from paper.types import Immutable
+from paper.related_papers import PaperRelated, QueryResult
+from paper.types import Immutable, PaperSource
 from paper.util import Timer
 from paper.util.serde import (
     load_data_single,
@@ -101,7 +102,7 @@ class Graph:
     def build(
         cls,
         encoder: emb.Encoder,
-        papers_ann: Iterable[semantic.PaperAnnotated],
+        papers_ann: Iterable[gpt.PeerReadAnnotated],
         papers_context: Iterable[citations.PaperWithContextClassfied],
         output_dir: Path,
     ) -> None:

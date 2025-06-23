@@ -1,9 +1,17 @@
 """Paper mixin type to automatically proxy paper properties."""
 
 from collections.abc import Sequence
+from enum import StrEnum
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
+
+
+class PaperSource(StrEnum):
+    """Denote where the related paper came from."""
+
+    CITATIONS = "citations"
+    SEMANTIC = "semantic"
 
 
 class PaperSectionProtocol(Protocol):

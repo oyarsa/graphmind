@@ -93,7 +93,7 @@ def semantic_(
 
     logger.debug("Loading annotated papers.")
     peerread_papers = gpt.PromptResult.unwrap(
-        load_data(input_file, gpt.PromptResult[gpt.PaperAnnotated])
+        load_data(input_file, gpt.PromptResult[gpt.PeerReadAnnotated])
     )
 
     logger.debug("Loading encoder.")
@@ -134,7 +134,7 @@ def build(
 
     logger.debug("Loading annotated papers.")
     papers_ann = gpt.PromptResult.unwrap(
-        load_data(ann_file, gpt.PromptResult[gpt.PaperAnnotated])
+        load_data(ann_file, gpt.PromptResult[gpt.PeerReadAnnotated])
     )
     logger.debug("Loading context papers.")
     papers_context = gpt.PromptResult.unwrap(

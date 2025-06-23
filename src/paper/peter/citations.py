@@ -9,15 +9,18 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Protocol, Self
+from typing import TYPE_CHECKING, Self
 
 from tqdm import tqdm
 
 from paper import embedding as emb
 from paper import peerread as pr
-from paper.related_papers import ContextPolarity
+from paper.peerread import ContextPolarity
 from paper.types import Immutable
 from paper.util.serde import Record
+
+if TYPE_CHECKING:
+    from paper.gpt.classify_contexts import PaperWithContextClassfied
 
 logger = logging.getLogger(__name__)
 
@@ -79,10 +82,10 @@ class Graph(Immutable):
                         contexts=[
                             pr.CitationContext(
                                 sentence=ctx.text,
-                                polarity=pr.ContextPolarity(ctx.prediction.value),
+                                polarity=ctx.prediction,
                             )
                             for ctx in paper.contexts
-                            if ctx.prediction.value == polarity.value
+                            if ctx.prediction == polarity
                         ],
                     )
                     for paper, score in sorted(
@@ -90,7 +93,7 @@ class Graph(Immutable):
                         key=lambda x: x[1],
                         reverse=True,
                     )
-                    if paper.polarity.value == polarity.value
+                    if paper.polarity == polarity
                 ]
 
         logger.debug("Done processing papers.")
@@ -167,91 +170,3 @@ class QueryResult(Immutable):
 
     positive: Sequence[Citation]
     negative: Sequence[Citation]
-
-
-class PaperWithContextClassfied(Protocol):
-    """Paper from PeerRead with each citation polarity classified.
-
-    Input for the PETER Citations graph.
-    """
-
-    @property
-    def title(self) -> str:
-        """Paper title."""
-        ...
-
-    @property
-    def id(self) -> str:
-        """Unique identifier for the paper."""
-        ...
-
-    @property
-    def references(self) -> Sequence[ReferenceClassified]:
-        """References made in the paper with their polarity."""
-        ...
-
-
-class ReferenceClassified(Protocol):
-    """Paper reference with a polarity."""
-
-    @property
-    def title_peer(self) -> str:
-        """Paper title in the original PeerRead reference."""
-        ...
-
-    @property
-    def title(self) -> str:
-        """Paper title in the S2 API."""
-        ...
-
-    @property
-    def id(self) -> str:
-        """Unique identifier for the reference."""
-        ...
-
-    @property
-    def abstract(self) -> str:
-        """Abstract text."""
-        ...
-
-    @property
-    def polarity(self) -> PolarityProto:
-        """Reference polarity.
-
-        Majority of all the context polarities. Ties are positive.
-        """
-        ...
-
-    @property
-    def contexts(self) -> Sequence[ContextProto]:
-        """Citation contexts for this reference."""
-        ...
-
-
-class PolarityProto(Protocol):
-    """Protocol representing an Enum with POSITIVE/NEGATIVE members.
-
-    The goal is to decouple from the representation in other packages.
-    """
-
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
-
-    @property
-    def value(self) -> str:
-        """Get value of the enum."""
-        ...
-
-
-class ContextProto(Protocol):
-    """Protocol representing a citation context with text and polarity prediction."""
-
-    @property
-    def text(self) -> str:
-        """Context text."""
-        ...
-
-    @property
-    def prediction(self) -> PolarityProto:
-        """Context polarity prediction."""
-        ...

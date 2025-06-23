@@ -7,13 +7,16 @@ from __future__ import annotations
 
 import itertools
 from collections.abc import Iterable, Sequence
-from enum import StrEnum
-from typing import Protocol, Self
+from typing import TYPE_CHECKING, Self
 
 from paper import gpt
 from paper import peerread as pr
-from paper.types import Immutable, PaperProxy
+from paper.peerread import ContextPolarity
+from paper.types import Immutable, PaperProxy, PaperSource
 from paper.util.serde import Record
+
+if TYPE_CHECKING:
+    from paper import peter
 
 
 class PaperResult(Immutable, PaperProxy[gpt.PeerReadAnnotated]):
@@ -149,7 +152,7 @@ class PaperRelated(Record):
     @classmethod
     def from_(
         cls,
-        paper: RelatedResult,
+        paper: peter.Citation | peter.SemanticResult,
         *,
         source: PaperSource,
         polarity: ContextPolarity,
@@ -169,41 +172,3 @@ class PaperRelated(Record):
             background=background,
             target=target,
         )
-
-
-class PaperSource(StrEnum):
-    """Denote where the related paper came from."""
-
-    CITATIONS = "citations"
-    SEMANTIC = "semantic"
-
-
-class ContextPolarity(StrEnum):
-    """Citation enum for polarity."""
-
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
-
-
-class RelatedResult(Protocol):
-    """Protocol for retrieved related papers used to build a concrete result."""
-
-    @property
-    def paper_id(self) -> str:
-        """Paper unique identifier."""
-        ...
-
-    @property
-    def title(self) -> str:
-        """Paper title."""
-        ...
-
-    @property
-    def abstract(self) -> str:
-        """Paper abstract."""
-        ...
-
-    @property
-    def score(self) -> float:
-        """Paper similarity score."""
-        ...

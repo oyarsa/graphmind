@@ -7,16 +7,14 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Self
+from typing import Any, ClassVar, Self
 
 from paper import embedding as emb
 from paper import gpt
+from paper import semantic_scholar as s2
 from paper.baselines.scimon import citations, kg, semantic
 from paper.types import Immutable
 from paper.util.serde import Record, load_data_single, save_data
-
-if TYPE_CHECKING:
-    from paper.baselines.scimon.model import PaperAnnotated
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +86,7 @@ class Graph:
         cls,
         encoder: emb.Encoder,
         annotated: Sequence[gpt.PaperAnnotated],
-        peerread_papers: Sequence[Any],
+        peerread_papers: Sequence[s2.PaperWithS2Refs],
         output_dir: Path,
         metadata: dict[str, Any] | None = None,
         *,
@@ -199,7 +197,10 @@ class Graph:
         )
 
     def query_all(
-        self, ann: PaperAnnotated, use_kg: bool = False, k: int = CITATION_DEFAULT_K
+        self,
+        ann: gpt.PeerReadAnnotated,
+        use_kg: bool = False,
+        k: int = CITATION_DEFAULT_K,
     ) -> QueryResult:
         """Retrieve terms from the annotated paper using all three graphs.
 

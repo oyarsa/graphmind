@@ -15,7 +15,7 @@ import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Self
+from typing import Annotated, Self
 
 import typer
 
@@ -24,9 +24,6 @@ from paper import gpt
 from paper.types import Immutable
 from paper.util import setup_logging
 from paper.util.serde import load_data, save_data
-
-if TYPE_CHECKING:
-    from paper.baselines.scimon.model import PaperTerms
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +101,7 @@ class Graph:
     def from_terms(
         cls,
         encoder: emb.Encoder,
-        terms: Iterable[PaperTerms],
+        terms: Iterable[gpt.PaperTerms],
         *,
         progress: bool = False,
     ) -> Self:

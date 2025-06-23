@@ -24,6 +24,7 @@ import typer
 from pydantic import Field
 from tqdm import tqdm
 
+from paper import peerread as pr
 from paper import related_papers as rp
 from paper.gpt.model import (
     PaperRelatedSummarised,
@@ -196,8 +197,8 @@ async def summarise_related(
     papers = sample(load_data(ann_graph_file, rp.PaperResult), limit_papers, rng)
 
     prompt_pol = {
-        rp.ContextPolarity.POSITIVE: PETER_SUMMARISE_USER_PROMPTS[positive_prompt_key],
-        rp.ContextPolarity.NEGATIVE: PETER_SUMMARISE_USER_PROMPTS[negative_prompt_key],
+        pr.ContextPolarity.POSITIVE: PETER_SUMMARISE_USER_PROMPTS[positive_prompt_key],
+        pr.ContextPolarity.NEGATIVE: PETER_SUMMARISE_USER_PROMPTS[negative_prompt_key],
     }
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -243,7 +244,7 @@ async def summarise_related(
 
 async def _summarise_papers(
     client: OpenAIClient,
-    prompt_pol: Mapping[rp.ContextPolarity, PromptTemplate],
+    prompt_pol: Mapping[pr.ContextPolarity, PromptTemplate],
     ann_graphs: Iterable[rp.PaperResult],
     output_intermediate_file: Path,
     batch_size: int,
@@ -292,7 +293,7 @@ paper.
 async def _summarise_paper(
     client: OpenAIClient,
     ann_result: rp.PaperResult,
-    prompt_pol: Mapping[rp.ContextPolarity, PromptTemplate],
+    prompt_pol: Mapping[pr.ContextPolarity, PromptTemplate],
 ) -> GPTResult[PromptResult[PaperWithRelatedSummary]]:
     output: list[PromptResult[PaperRelatedSummarised]] = []
     total_cost = 0

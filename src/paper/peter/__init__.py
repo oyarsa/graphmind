@@ -3,6 +3,6 @@
 Use paper graphs to evaluate a paper.
 """
 
-from paper.peter.citations import PaperWithContextClassfied as PaperWithContextClassfied
+from paper.peter.citations import Citation as Citation
 from paper.peter.graph import Graph as Graph
-from paper.peter.semantic import PaperAnnotated as PaperAnnotated
+from paper.peter.semantic import SemanticResult as SemanticResult

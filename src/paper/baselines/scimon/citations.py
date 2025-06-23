@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Annotated, Protocol, Self
+from typing import Annotated, Self
 
 import typer
 from tqdm import tqdm
@@ -65,44 +65,6 @@ def main(
     save_data(output_file, graph)
 
 
-class MainPaper(Protocol):
-    """Main paper with title, id and references."""
-
-    @property
-    def title(self) -> str:
-        """Title of the paper in the main dataset."""
-        ...
-
-    @property
-    def id(self) -> str:
-        """Unique identifier of the paper."""
-        ...
-
-    @property
-    def references(self) -> Iterable[S2Reference]:
-        """Other papers cited by this paper."""
-        ...
-
-
-class S2Reference(Protocol):
-    """S2-shaped paper referenced in an main paper."""
-
-    @property
-    def paper_id(self) -> str:
-        """Unique identifier of the paper."""
-        ...
-
-    @property
-    def title(self) -> str:
-        """Paper title in the S2 API."""
-        ...
-
-    @property
-    def title_peer(self) -> str:
-        """Title of the paper in the PeerRead dataset used to query S2."""
-        ...
-
-
 class Graph(Immutable):
     """Citation graph that connects main paper titles/ids with cited paper titles.
 
@@ -123,7 +85,7 @@ class Graph(Immutable):
     def from_papers(
         cls,
         encoder: emb.Encoder,
-        peerread_papers: Iterable[MainPaper],
+        peerread_papers: Iterable[s2.PaperWithS2Refs],
         *,
         progress: bool = False,
     ) -> Self:

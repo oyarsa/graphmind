@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Self
+from typing import Annotated, Self
 
 import typer
 
@@ -18,9 +18,6 @@ from paper import gpt
 from paper.types import Immutable
 from paper.util import setup_logging
 from paper.util.serde import load_data, save_data
-
-if TYPE_CHECKING:
-    from paper.baselines.scimon.model import PaperAnnotated
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +100,7 @@ class Graph:
     def from_annotated(
         cls,
         encoder: emb.Encoder,
-        annotated: Sequence[PaperAnnotated],
+        annotated: Sequence[gpt.PaperAnnotated],
         *,
         batch_size: int = 128,
         progress: bool = False,

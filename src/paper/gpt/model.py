@@ -14,7 +14,7 @@ from pydantic import Field, computed_field
 import paper.semantic_scholar as s2
 from paper import hierarchical_graph
 from paper import peerread as pr
-from paper.types import Immutable, PaperProxy
+from paper.types import Immutable, PaperProxy, PaperSource
 from paper.util import (
     fix_spaces_before_punctuation,
     format_numbered_list,
@@ -802,13 +802,6 @@ class PaperWithRelatedSummary(Record, PaperProxy[PeerReadAnnotated]):
         return self.paper.target
 
 
-class RelatedPaperSource(StrEnum):
-    """Denote where the related paper came from."""
-
-    CITATIONS = "citations"
-    SEMANTIC = "semantic"
-
-
 class PaperRelatedSummarised(Record):
     """PETER-related paper with summary."""
 
@@ -819,7 +812,7 @@ class PaperRelatedSummarised(Record):
     abstract: str
     score: float
     polarity: pr.ContextPolarity
-    source: RelatedPaperSource
+    source: PaperSource
 
     contexts: Sequence[pr.CitationContext] | None = None  # For citation-based papers
     background: str | None = None  # For semantic papers matched by background
@@ -840,7 +833,7 @@ class PaperRelatedSummarised(Record):
             abstract=related.abstract,
             score=related.score,
             polarity=pr.ContextPolarity(related.polarity),
-            source=RelatedPaperSource(related.source),
+            source=PaperSource(related.source),
             contexts=related.contexts,
             background=related.background,
             target=related.target,

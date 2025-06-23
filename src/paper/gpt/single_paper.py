@@ -700,10 +700,10 @@ def get_related_papers(
 
     references = paper_with_contexts.references
     references_positive_related = get_top_k_reference_by_polarity(
-        encoder, main_title_emb, references, num_related, rp.ContextPolarity.POSITIVE
+        encoder, main_title_emb, references, num_related, pr.ContextPolarity.POSITIVE
     )
     references_negative_related = get_top_k_reference_by_polarity(
-        encoder, main_title_emb, references, num_related, rp.ContextPolarity.NEGATIVE
+        encoder, main_title_emb, references, num_related, pr.ContextPolarity.NEGATIVE
     )
 
     background_related = get_top_k_semantic(
@@ -712,7 +712,7 @@ def get_related_papers(
         main_background_emb,
         recommended_papers,
         [r.background for r in recommended_papers],
-        rp.ContextPolarity.NEGATIVE,
+        pr.ContextPolarity.NEGATIVE,
         paper_annotated.background,
         paper_annotated.target,
     )
@@ -722,7 +722,7 @@ def get_related_papers(
         main_target_emb,
         recommended_papers,
         [r.target for r in recommended_papers],
-        rp.ContextPolarity.POSITIVE,
+        pr.ContextPolarity.POSITIVE,
         paper_annotated.background,
         paper_annotated.target,
     )
@@ -746,7 +746,7 @@ def get_top_k_semantic(
     main_emb: emb.Vector,
     papers: Sequence[gpt.PaperAnnotated],
     items: Sequence[str],
-    polarity: rp.ContextPolarity,
+    polarity: pr.ContextPolarity,
     background: str | None,
     target: str | None,
 ) -> list[rp.PaperRelated]:
@@ -775,10 +775,10 @@ def get_top_k_reference_by_polarity(
     title_emb: emb.Vector,
     references: Sequence[S2ReferenceClassified],
     k: int,
-    polarity: rp.ContextPolarity,
+    polarity: pr.ContextPolarity,
 ) -> list[rp.PaperRelated]:
     """Get top K references by title similarity."""
-    references_pol = [r for r in references if r.polarity.value == polarity.value]
+    references_pol = [r for r in references if r.polarity == polarity]
     if not references_pol:
         return []
 
@@ -815,8 +815,8 @@ async def generate_related_paper_summaries(
         return GPTResult(result=[], cost=0)
 
     prompt_pol = {
-        rp.ContextPolarity.POSITIVE: PETER_SUMMARISE_USER_PROMPTS[positive_prompt_key],
-        rp.ContextPolarity.NEGATIVE: PETER_SUMMARISE_USER_PROMPTS[negative_prompt_key],
+        pr.ContextPolarity.POSITIVE: PETER_SUMMARISE_USER_PROMPTS[positive_prompt_key],
+        pr.ContextPolarity.NEGATIVE: PETER_SUMMARISE_USER_PROMPTS[negative_prompt_key],
     }
 
     tasks = [
@@ -1238,13 +1238,13 @@ def display_graph_results(result: gpt.GraphResult) -> None:
 
     print("\n  ✅ Positive citations:")
     citations_positive = filter_related(
-        result, rp.ContextPolarity.POSITIVE, rp.PaperSource.CITATIONS
+        result, pr.ContextPolarity.POSITIVE, rp.PaperSource.CITATIONS
     )
     print("\n".join(map(display_related_paper, citations_positive)))
 
     print("\n  ❌ Negative citations:")
     citations_negative = filter_related(
-        result, rp.ContextPolarity.NEGATIVE, rp.PaperSource.CITATIONS
+        result, pr.ContextPolarity.NEGATIVE, rp.PaperSource.CITATIONS
     )
     print("\n".join(map(display_related_paper, citations_negative)))
 
@@ -1252,13 +1252,13 @@ def display_graph_results(result: gpt.GraphResult) -> None:
 
     print("\n  ✅ Positive semantic matches:")
     semantic_positive = filter_related(
-        result, rp.ContextPolarity.POSITIVE, rp.PaperSource.SEMANTIC
+        result, pr.ContextPolarity.POSITIVE, rp.PaperSource.SEMANTIC
     )
     print("\n".join(map(display_related_paper, semantic_positive)))
 
     print("\n  ❌ Negative semantic matches:")
     semantic_negative = filter_related(
-        result, rp.ContextPolarity.NEGATIVE, rp.PaperSource.SEMANTIC
+        result, pr.ContextPolarity.NEGATIVE, rp.PaperSource.SEMANTIC
     )
     print("\n".join(map(display_related_paper, semantic_negative)))
 
@@ -1358,7 +1358,7 @@ async def process_paper(
 
 
 def filter_related(
-    result: gpt.GraphResult, pol: rp.ContextPolarity, src: rp.PaperSource
+    result: gpt.GraphResult, pol: pr.ContextPolarity, src: rp.PaperSource
 ) -> list[gpt.PaperRelatedSummarised]:
     """Filter related papers by polarity and source."""
     if not result.related:
