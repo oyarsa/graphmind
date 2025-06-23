@@ -13,6 +13,7 @@ import typer
 
 from paper.util import seqcat
 from paper.util.cli import die
+from paper.util.typing import TSeq
 
 
 class NodeType(StrEnum):
@@ -30,9 +31,9 @@ class PipelineStep:
     """Represents a single step in the pipeline."""
 
     name: str
-    command: Sequence[str]
+    command: TSeq[str]
     output_file: Path
-    input_files: Sequence[Path]
+    input_files: TSeq[Path]
     node_type: NodeType = NodeType.UNKNOWN
     layer: int = field(default=-1, compare=False)
 
@@ -43,14 +44,14 @@ class Pipeline:
 
     steps: Sequence[PipelineStep]
     file_to_producer: Mapping[Path, PipelineStep]
-    file_to_consumers: Mapping[Path, Sequence[PipelineStep]]
+    file_to_consumers: Mapping[Path, TSeq[PipelineStep]]
 
 
 @dataclass(frozen=True)
 class ParseState:
     """Immutable state for parsing pipeline scripts."""
 
-    steps: Sequence[PipelineStep]
+    steps: TSeq[PipelineStep]
     current_outputs: Mapping[str, Path]
     current_title: str | None
 
@@ -326,7 +327,7 @@ def assign_topological_layers(pipeline: Pipeline) -> Pipeline:
 class AdjacencyInfo:
     """Adjacency information for topological sorting."""
 
-    graph: Mapping[int, Sequence[int]]
+    graph: Mapping[int, TSeq[int]]
     in_degree: Mapping[int, int]
 
 
