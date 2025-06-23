@@ -179,6 +179,7 @@ def _get_paper(item: dict[str, Any]) -> dict[str, Any]:
         "item.paper.paper.paper",  # gpt.PromptResult<gpt.ExtractedGraph>
         "item.paper.paper",  # gpt.PromptResult<gpt.PaperWithRelatedSummary>
         "ann.paper",  # scimon.AnnotatedGraphResult
+        "paper.paper",  # related_papers.PaperResult -> PeerReadAnnotated -> PaperWithS2Refs
     ]
     for path in paths:
         if (x := get_in(item, path)) is not None:
