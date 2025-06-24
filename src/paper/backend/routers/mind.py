@@ -18,7 +18,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from paper import single_paper
-from paper.backend.dependencies import LimiterDep
+from paper.backend.dependencies import LimiterDep, LLMRegistryDep
 from paper.util import atimer, setup_logging
 
 router = APIRouter(prefix="/mind", tags=["mind"])
@@ -113,8 +113,9 @@ DEMO_PROMPT = "abstract"
 
 
 @router.get("/evaluate")
-async def evaluate_(
+async def evaluate(
     limiter: LimiterDep,
+    llm_registry: LLMRegistryDep,
     id: Annotated[str, Query(description="ID of the paper to analyse.")],
     title: Annotated[str, Query(description="Title of the paper on arXiv.")],
     k_refs: Annotated[
@@ -132,7 +133,6 @@ async def evaluate_(
     llm_model: Annotated[
         LLMModel, Query(description="LLM model to use.")
     ] = LLMModel.GPT4oMini,
-    seed: Annotated[int, Query(description="Random seed.")] = 0,
 ) -> StreamingResponse:
     """Perform comprehensive paper analysis and evaluation with real-time progress.
 
@@ -146,32 +146,32 @@ async def evaluate_(
 
     Args:
         limiter: Rate limiter dependency for API calls.
+        llm_registry: Registry of LLM clients.
         id: arXiv ID of the paper to analyse.
         title: Title of the paper on arXiv.
         k_refs: Number of references to analyse (1-10).
         recommendations: Number of recommended papers to generate (5-50).
         related: Number of related papers to retrieve per type (1-10).
         llm_model: LLM model to use for analysis.
-        seed: Random seed for reproducible results.
 
     Returns:
         StreamingResponse with Server-Sent Events containing progress updates and final
         result.
     """
+    client = llm_registry.get_client(llm_model)
 
     async def go(
         callback: single_paper.ProgressCallback,
     ) -> single_paper.EvaluationResult:
         return await atimer(
             single_paper.process_paper_from_selection(
+                client=client,
                 title=title,
                 arxiv_id=id,
                 top_k_refs=k_refs,
                 num_recommendations=recommendations,
                 num_related=related,
-                llm_model=str(llm_model),
                 encoder_model=ENCODER_MODEL,
-                seed=seed,
                 limiter=limiter,
                 eval_prompt_key=EVAL_PROMPT,
                 graph_prompt_key=GRAPH_PROMPT,

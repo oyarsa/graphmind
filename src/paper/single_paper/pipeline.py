@@ -319,14 +319,13 @@ async def process_paper_from_query(
 
 
 async def process_paper_from_selection(
+    client: LLMClient,
     title: str,
     arxiv_id: str,
     top_k_refs: int,
     num_recommendations: int,
     num_related: int,
-    llm_model: str,
     encoder_model: str,
-    seed: int,
     limiter: Limiter,
     eval_prompt_key: str,
     graph_prompt_key: str,
@@ -354,15 +353,14 @@ async def process_paper_from_selection(
     4. Extracts a graph representation and evaluates novelty
 
     Args:
+        client: LLMClient to use for annotation and evaluation.
         title: Paper title (used for S2 lookups and display).
         arxiv_id: arXiv ID of the paper (e.g. "2301.00234").
         top_k_refs: Number of top references to process by semantic similarity.
         num_recommendations: Number of recommended papers to fetch from S2 API.
         num_related: Number of related papers to return for each type
             (citations/semantic, positive/negative).
-        llm_model: GPT/Gemini model to use for all LLM API calls.
         encoder_model: Embedding encoder model for semantic similarity computations.
-        seed: Random seed for GPT API calls to ensure reproducibility.
         limiter: Rate limiter for Semantic Scholar API requests.
         eval_prompt_key: Key for evaluation prompt template.
         graph_prompt_key: Key for graph extraction prompt template.
@@ -382,7 +380,6 @@ async def process_paper_from_selection(
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
     s2_api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
-    client = LLMClient.new_env(llm_model, seed)
 
     logger.debug("Processing paper: %s (arXiv:%s)", title, arxiv_id)
 
