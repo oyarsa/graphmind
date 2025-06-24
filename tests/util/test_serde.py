@@ -7,6 +7,9 @@ from typing import Literal
 import pytest
 from pydantic import BaseModel
 
+from paper import peerread as pr
+from paper.peerread import Paper as PRPaper
+from paper.semantic_scholar import Paper as S2Paper
 from paper.util.serde import (
     Compress,
     PydanticProtocol,
@@ -32,9 +35,6 @@ def test_pydantic_protocol() -> None:
 
 def test_get_full_type_name() -> None:
     """Test that `_get_full_type_name` gets the correct name for type."""
-    from paper import peerread as pr
-    from paper.peerread import Paper as PRPaper
-    from paper.semantic_scholar import Paper as S2Paper
 
     assert get_full_type_name(S2Paper) == "paper.semantic_scholar.model.Paper"
     assert get_full_type_name(PRPaper) == "paper.peerread.model.Paper"

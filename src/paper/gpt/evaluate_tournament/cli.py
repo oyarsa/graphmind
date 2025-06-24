@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 from enum import StrEnum
 from functools import partial
 from pathlib import Path
@@ -261,8 +262,6 @@ async def run_tournaments(
             Only considered if we're reusing a previous file. New comparisons are always
             saved.
     """
-    import random
-
     rng = random.Random(seed)
     client = OpenAIClient(
         api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed

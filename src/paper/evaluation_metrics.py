@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import statistics
 from collections.abc import Iterable, Sequence
 from enum import Enum
 from typing import Any, Literal, Protocol
@@ -266,7 +267,6 @@ class RatingStats(Immutable):
     @classmethod
     def calc(cls, values: Sequence[int]) -> RatingStats:
         """Calculate stats from sequence of values."""
-        import statistics
 
         return cls(
             mean=statistics.mean(values),
