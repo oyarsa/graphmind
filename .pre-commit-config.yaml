@@ -1,24 +1,18 @@
 repos:
-- repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v5.0.0
-  hooks:
-    - id: trailing-whitespace
-    - id: end-of-file-fixer
-    - id: check-yaml
-    - id: check-toml
-    - id: check-added-large-files
-    - id: debug-statements
-- repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.9.4
-  hooks:
-    - id: ruff
-      name: Ruff Linter (auto-fix)
-      args: [ --fix ]
-    - id: ruff-format
-      name: Ruff Formatter
-- repo: https://github.com/codespell-project/codespell
-  rev: v2.2.5
-  hooks:
-    - id: codespell
-      name: codespell
-      exclude: '.*\.(json|ipynb)$'
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+      - id: debug-statements
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.4
+    hooks:
+      - id: ruff
+        name: Ruff Linter (auto-fix)
+        args: [--fix]
+      - id: ruff-format
+        name: Ruff Formatter
