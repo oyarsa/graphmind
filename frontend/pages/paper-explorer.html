@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paper Explorer - Test</title>
+    <script>
+      // Apply theme immediately to prevent flash
+      (function () {
+        try {
+          const saved = localStorage.getItem("paper-explorer-theme");
+          if (saved === "dark") {
+            document.documentElement.classList.add("dark");
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body class="m-0 bg-white p-0 font-sans text-black dark:bg-black dark:text-white">
+    <div class="min-h-screen p-8">
+      <header class="mb-8 text-center">
+        <h1
+          class="mb-4 bg-gradient-to-r from-teal-600 to-blue-600 bg-clip-text text-4xl
+            font-bold text-transparent dark:from-teal-400 dark:to-blue-400"
+        >
+          Paper Explorer
+        </h1>
+        <p class="text-lg text-gray-600 dark:text-gray-400">
+          Explore papers from JSON dataset or search arXiv
+        </p>
+      </header>
+
+      <div class="mx-auto max-w-6xl">
+        <div class="mb-6 flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <h2 class="text-2xl font-semibold text-teal-600 dark:text-teal-400">
+              Paper Explorer
+            </h2>
+            <!-- Tab Navigation -->
+            <div class="flex rounded-lg bg-gray-200/50 p-1 dark:bg-gray-800/50">
+              <button
+                id="json-tab"
+                class="tab-button active cursor-pointer rounded-md bg-white px-4 py-2
+                  text-sm font-semibold text-teal-600 shadow-sm transition-all
+                  duration-200 dark:bg-gray-700 dark:text-teal-400"
+              >
+                JSON
+              </button>
+              <button
+                id="arxiv-tab"
+                class="tab-button cursor-pointer rounded-md px-4 py-2 text-sm
+                  font-semibold text-gray-600 transition-all duration-200
+                  hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                arXiv
+              </button>
+            </div>
+          </div>
+          <a
+            href="/paper-explorer/"
+            class="inline-block rounded-lg bg-gradient-to-br from-teal-500 to-blue-600
+              px-4 py-2 text-sm font-semibold text-white transition-all duration-200
+              hover:-translate-y-0.5 hover:from-teal-400 hover:to-blue-500"
+          >
+            Back to Home
+          </a>
+        </div>
+
+        <!-- JSON Tab Content -->
+        <div id="json-content" class="tab-content">
+          <div id="json-search-container" class="mb-6">
+            <div class="relative">
+              <input
+                type="text"
+                id="json-search-input"
+                placeholder="Search papers by title, authors, abstract, keywords..."
+                class="w-full rounded-lg border border-gray-400 bg-gray-100/50 px-4 py-3
+                  pr-10 text-black placeholder-gray-600 transition-all duration-200
+                  focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20
+                  focus:outline-none dark:border-gray-600 dark:bg-gray-900/50
+                  dark:text-white dark:placeholder-gray-400"
+              />
+              <button
+                id="json-clear-search"
+                class="absolute top-1/2 right-2 -translate-y-1/2 text-gray-600
+                  transition-colors duration-200 hover:text-black dark:text-gray-400
+                  dark:hover:text-white"
+                style="display: none"
+              >
+                <svg
+                  class="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  ></path>
+                </svg>
+              </button>
+            </div>
+            <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              <span id="json-result-count">Loading...</span>
+            </div>
+          </div>
+
+          <div id="json-loading" class="text-center text-gray-600 dark:text-gray-400">
+            Loading papers...
+          </div>
+
+          <div
+            id="json-error"
+            class="hidden rounded-lg border border-red-500 bg-red-100/50 p-4
+              text-red-700 dark:bg-red-900/20 dark:text-red-300"
+          >
+            <strong>Error:</strong> <span id="json-error-message"></span>
+          </div>
+
+          <div
+            id="json-papers-container"
+            class="grid hidden gap-6 md:grid-cols-2 lg:grid-cols-3"
+          ></div>
+        </div>
+
+        <!-- arXiv Tab Content -->
+        <div id="arxiv-content" class="tab-content hidden">
+          <div id="arxiv-search-container" class="mb-6">
+            <form id="arxiv-search-form" class="flex gap-2">
+              <div class="relative flex-1">
+                <input
+                  type="text"
+                  id="arxiv-search-input"
+                  name="arxiv-search"
+                  autocomplete="on"
+                  placeholder="Enter paper title to search arXiv..."
+                  class="w-full rounded-lg border border-gray-400 bg-gray-100/50 px-4
+                    py-3 pr-10 text-black placeholder-gray-600 transition-all
+                    duration-200 focus:border-teal-500 focus:ring-2
+                    focus:ring-teal-500/20 focus:outline-none dark:border-gray-600
+                    dark:bg-gray-900/50 dark:text-white dark:placeholder-gray-400"
+                />
+                <button
+                  type="button"
+                  id="arxiv-clear-search"
+                  class="absolute top-1/2 right-2 -translate-y-1/2 text-gray-600
+                    transition-colors duration-200 hover:text-black dark:text-gray-400
+                    dark:hover:text-white"
+                  style="display: none"
+                >
+                  <svg
+                    class="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    ></path>
+                  </svg>
+                </button>
+              </div>
+              <button
+                type="submit"
+                id="arxiv-search-button"
+                class="rounded-lg bg-teal-600 px-6 py-3 text-sm font-semibold text-white
+                  transition-all duration-200 hover:bg-teal-700 focus:ring-2
+                  focus:ring-teal-500/20 focus:outline-none dark:bg-teal-500
+                  dark:hover:bg-teal-600"
+              >
+                Search
+              </button>
+            </form>
+            <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              <span id="arxiv-result-count">Enter a search query and click Search</span>
+            </div>
+          </div>
+
+          <div
+            id="arxiv-loading"
+            class="hidden text-center text-gray-600 dark:text-gray-400"
+          >
+            Searching arXiv...
+          </div>
+
+          <div
+            id="arxiv-error"
+            class="hidden rounded-lg border border-red-500 bg-red-100/50 p-4
+              text-red-700 dark:bg-red-900/20 dark:text-red-300"
+          >
+            <strong>Error:</strong> <span id="arxiv-error-message"></span>
+          </div>
+
+          <div
+            id="arxiv-papers-container"
+            class="grid hidden gap-6 md:grid-cols-2 lg:grid-cols-3"
+          ></div>
+
+          <!-- Cache management -->
+          <div id="arxiv-cache-controls" class="mt-8 text-center">
+            <button
+              id="clear-cache"
+              class="text-xs text-gray-500 underline hover:text-gray-700
+                dark:text-gray-500 dark:hover:text-gray-300"
+            >
+              Clear cached papers
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/paper-explorer/main.ts"></script>
+  </body>
+</html>

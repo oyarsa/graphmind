@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paper Network - Scientific Paper Explorer</title>
+    <script>
+      // Apply theme immediately to prevent flash
+      (function () {
+        try {
+          const saved = localStorage.getItem("paper-explorer-theme");
+          if (saved === "dark") {
+            document.documentElement.classList.add("dark");
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body
+    class="m-0 overflow-hidden bg-white p-0 font-sans text-black dark:bg-black
+      dark:text-white"
+  >
+    <div class="flex h-screen w-screen flex-col">
+      <div
+        id="header"
+        class="header relative max-h-[50vh] overflow-y-auto border-b border-gray-300
+          bg-gray-100 p-4 shadow-lg shadow-black/20 dark:border-gray-700
+          dark:bg-gray-900 dark:shadow-black/50"
+      >
+        <div class="mb-4 flex items-center gap-2">
+          <a
+            href="/paper-explorer/"
+            class="cursor-pointer rounded-lg border-none bg-gradient-to-br from-gray-400
+              to-gray-500 px-5 py-2 text-sm font-semibold text-white transition-all
+              duration-200 hover:-translate-y-0.5 hover:from-gray-300 hover:to-gray-400
+              dark:from-gray-600 dark:to-gray-700 dark:hover:from-gray-500
+              dark:hover:to-gray-600"
+          >
+            Back
+          </a>
+          <div class="relative flex-1">
+            <input
+              type="text"
+              id="paperTitle"
+              autofocus
+              placeholder="Search for papers (e.g. 'attention transformer')..."
+              class="w-full rounded-lg border border-gray-400 bg-gray-50 px-4 py-2 pr-10
+                text-sm text-black focus:border-blue-500 focus:ring-2
+                focus:ring-blue-400/20 focus:outline-none dark:border-gray-600
+                dark:bg-gray-800 dark:text-white"
+            />
+            <button
+              id="clearSearch"
+              class="absolute top-1/2 right-2 -translate-y-1/2 text-gray-600
+                transition-colors duration-200 hover:text-black dark:text-gray-400
+                dark:hover:text-white"
+              style="display: none"
+            >
+              <svg
+                class="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                ></path>
+              </svg>
+            </button>
+          </div>
+          <button
+            id="searchPaper"
+            class="cursor-pointer rounded-lg border-none bg-gradient-to-br from-blue-500
+              to-blue-700 px-5 py-2 text-sm font-semibold text-white transition-all
+              duration-200 hover:-translate-y-0.5 hover:from-blue-400 hover:to-blue-600"
+          >
+            Search Papers
+          </button>
+          <button
+            id="clearGraph"
+            class="cursor-pointer rounded-lg border-none bg-gradient-to-br from-blue-500
+              to-blue-700 px-5 py-2 text-sm font-semibold text-white transition-all
+              duration-200 hover:-translate-y-0.5 hover:from-blue-400 hover:to-blue-600"
+          >
+            Clear Graph
+          </button>
+        </div>
+        <div
+          id="searchResults"
+          class="hide-scrollbar max-h-[40vh] overflow-y-auto border-t border-neutral-300
+            pt-4 dark:border-neutral-700"
+          style="display: none"
+        >
+          <div class="mb-3 flex items-center justify-between px-1">
+            <div class="text-sm font-semibold text-blue-600 dark:text-blue-500">
+              Search Results
+            </div>
+            <div
+              class="text-xs text-gray-600 dark:text-gray-500"
+              id="resultsCount"
+            ></div>
+          </div>
+          <div id="resultsList"></div>
+        </div>
+      </div>
+      <div class="flex min-h-0 flex-1">
+        <div
+          id="graphContainer"
+          class="graph-container relative flex min-h-0 flex-1 items-center
+            justify-center bg-gradient-to-br from-gray-100 to-gray-300 transition-all
+            duration-300 dark:from-gray-900 dark:to-black"
+        >
+          <svg id="graph" class="block h-full w-full"></svg>
+          <div
+            class="absolute top-5 right-5 rounded-lg border border-neutral-300
+              bg-neutral-100/90 p-4 text-black backdrop-blur-[10px]
+              dark:border-neutral-700 dark:bg-neutral-900/90 dark:text-white"
+          >
+            <div class="mb-2 flex items-center gap-2 text-xs">
+              <div class="h-0.5 w-5" style="background: #ff6b6b"></div>
+              <span>Citation Links</span>
+            </div>
+            <div class="mb-2 flex items-center gap-2 text-xs">
+              <div class="h-0.5 w-5" style="background: #4ecdc4"></div>
+              <span>Similarity Links</span>
+            </div>
+            <div class="text-xs">
+              <span class="italic">Thickness = Link Strength</span>
+            </div>
+          </div>
+          <div
+            class="absolute bottom-5 left-5 text-xs text-black opacity-70
+              dark:text-white"
+          >
+            <div>
+              Search papers above • Click results to add • Click nodes for details •
+              Mouse wheel to zoom • Drag to pan
+            </div>
+          </div>
+          <div
+            id="loading"
+            class="absolute top-5 left-1/2 z-[1000] -translate-x-1/2 rounded-md border
+              border-blue-500 bg-neutral-100/95 px-4 py-2 text-[13px] font-medium
+              text-blue-600 opacity-0 shadow-lg shadow-black/30 backdrop-blur-[10px]
+              transition-opacity duration-200 dark:bg-neutral-900/95 dark:text-blue-500"
+            style="display: none"
+          >
+            <span id="loadingText">Loading...</span>
+          </div>
+          <div
+            id="tooltip"
+            class="pointer-events-none absolute z-[1000] max-w-[250px] rounded-lg border
+              border-blue-500 bg-neutral-100/95 px-3 py-2 text-xs text-black opacity-0
+              shadow-xl shadow-black/50 backdrop-blur-[10px] transition-opacity
+              duration-200 dark:bg-neutral-900/95 dark:text-white"
+          ></div>
+        </div>
+        <div
+          id="infoPanel"
+          class="flex w-96 flex-shrink-0 flex-col border-l-2 border-blue-500
+            bg-neutral-100/[0.98] text-black backdrop-blur-[20px]
+            dark:bg-neutral-900/[0.98] dark:text-white"
+        >
+          <div class="flex-1 overflow-y-auto p-6">
+            <div class="mb-5 border-b border-gray-300 pb-4 dark:border-gray-700">
+              <div
+                id="infoPanelTitle"
+                class="info-panel-title mb-2 text-lg leading-snug font-semibold
+                  text-blue-600 dark:text-blue-500"
+              ></div>
+              <div
+                id="infoPanelId"
+                class="font-mono text-xs text-gray-600 dark:text-gray-500"
+              ></div>
+            </div>
+            <div class="mb-6">
+              <div
+                class="mb-2 text-xs font-semibold tracking-wide text-gray-600 uppercase
+                  dark:text-gray-500"
+              >
+                Authors
+              </div>
+              <div
+                id="infoPanelAuthors"
+                class="info-panel-authors text-sm leading-relaxed text-gray-700
+                  dark:text-gray-300"
+              ></div>
+            </div>
+            <div class="mb-6">
+              <div
+                class="mb-2 text-xs font-semibold tracking-wide text-gray-600 uppercase
+                  dark:text-gray-500"
+              >
+                Publication Year
+              </div>
+              <div
+                id="infoPanelYear"
+                class="info-panel-year text-sm text-gray-600 dark:text-gray-400"
+              ></div>
+            </div>
+            <div class="mb-6">
+              <div
+                class="mb-2 text-xs font-semibold tracking-wide text-gray-600 uppercase
+                  dark:text-gray-500"
+              >
+                Abstract
+              </div>
+              <div
+                id="infoPanelAbstract"
+                class="info-panel-abstract max-h-[200px] overflow-y-auto pr-1
+                  text-justify text-[13px] leading-relaxed text-neutral-700
+                  dark:text-neutral-300"
+              ></div>
+            </div>
+          </div>
+          <div
+            class="border-t border-gray-300 bg-neutral-200/80 p-5 dark:border-gray-700
+              dark:bg-neutral-950/80"
+          >
+            <div class="mb-4">
+              <div
+                class="mb-3 flex items-center gap-3 text-xs font-semibold tracking-wide
+                  text-gray-500 uppercase"
+              >
+                <span>Citations</span>
+                <span
+                  class="tracking-normal text-gray-700 normal-case dark:text-gray-400"
+                  id="citedCount"
+                ></span>
+              </div>
+              <div class="flex gap-2">
+                <button
+                  class="rounded bg-red-600 px-3 py-1 text-xs text-white
+                    hover:bg-red-500"
+                  id="expandCited1"
+                >
+                  +1
+                </button>
+                <button
+                  class="rounded bg-red-600 px-3 py-1 text-xs text-white
+                    hover:bg-red-500"
+                  id="expandCited2"
+                >
+                  +2
+                </button>
+                <button
+                  class="rounded bg-red-600 px-3 py-1 text-xs text-white
+                    hover:bg-red-500"
+                  id="expandCited3"
+                >
+                  +3
+                </button>
+              </div>
+            </div>
+            <div class="mb-4">
+              <div
+                class="mb-3 flex items-center gap-3 text-xs font-semibold tracking-wide
+                  text-gray-500 uppercase"
+              >
+                <span>Semantic Similarity</span>
+                <span
+                  class="tracking-normal text-gray-700 normal-case dark:text-gray-400"
+                  id="semanticCount"
+                ></span>
+              </div>
+              <div class="flex gap-2">
+                <button
+                  class="rounded bg-teal-600 px-3 py-1 text-xs text-white
+                    hover:bg-teal-500"
+                  id="expandSemantic1"
+                >
+                  +1
+                </button>
+                <button
+                  class="rounded bg-teal-600 px-3 py-1 text-xs text-white
+                    hover:bg-teal-500"
+                  id="expandSemantic2"
+                >
+                  +2
+                </button>
+                <button
+                  class="rounded bg-teal-600 px-3 py-1 text-xs text-white
+                    hover:bg-teal-500"
+                  id="expandSemantic3"
+                >
+                  +3
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Dialog Modal -->
+    <div
+      id="dialogOverlay"
+      class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50
+        dark:bg-black/70"
+      style="display: none"
+    >
+      <div
+        class="w-[90%] max-w-[400px] rounded-lg border border-blue-500 bg-neutral-100
+          dark:bg-neutral-900"
+      >
+        <div class="border-b border-gray-300 px-5 py-4 dark:border-gray-700">
+          <div
+            id="dialogTitle"
+            class="m-0 text-base font-semibold text-blue-600 dark:text-blue-500"
+          >
+            Alert
+          </div>
+        </div>
+        <div class="px-5 py-4">
+          <div
+            id="dialogMessage"
+            class="m-0 text-sm leading-relaxed text-black dark:text-white"
+          ></div>
+        </div>
+        <div class="border-t border-gray-300 px-5 py-3 text-right dark:border-gray-700">
+          <button
+            id="dialogOk"
+            class="cursor-pointer rounded-md border-none bg-blue-500 px-4 py-2 text-sm
+              font-medium text-white hover:bg-blue-400"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/paper-network/main.ts"></script>
+  </body>
+</html>

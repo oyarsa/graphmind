@@ -1,0 +1,44 @@
+_default:
+    @just --list
+
+# Run eslint with autofix
+fix:
+    npx eslint --fix
+
+# Run eslint check (no fix)
+check:
+    npx eslint
+
+# Run prettier formatting
+fmt:
+    npx prettier --write . --ignore-path .gitignore
+
+# Run TypeScript type checker
+type:
+    npx tsc
+
+# Run unit tests
+test:
+    npx vitest run
+
+# Run eslint fix, format, type checker and tests
+lint: fix fmt type test
+
+# Check eslint, type checker and tests
+check-all: check type test
+
+# Watch files and run `check-all` on changes
+watch:
+    watchexec --exts=ts,css,html --clear --restart "just check-all"
+
+# Start development server
+dev:
+    npx vite --host
+
+# Build the project
+build:
+    npx tsc && npx vite build
+
+# Preview the built project
+preview: build
+    npx vite preview --host

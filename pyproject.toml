@@ -74,7 +74,7 @@ preview = true
 known-first-party = ["paper"]
 
 [tool.ruff.lint]
-exclude = ["notebooks/*"]
+exclude = ["notebooks/*", "frontend/*"]
 select = ["ALL"]
 # I try to enable as many reasonable rules as possible, but sometimes it's too much:
 ignore = [
@@ -139,11 +139,12 @@ executionEnvironments = [
 exclude = [
     "**/__pycache__",
     "**/.*",
-    "notebooks/"
+    "notebooks/",
+    "frontend/"
 ]
 
 [tool.codespell]
-skip = "*.json,*.ipynb,.venv,output,*tmp,data,docs"
+skip = "*.json,*.ipynb,.venv,output,*tmp,data,docs,frontend"
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "class"
@@ -151,3 +152,8 @@ asyncio_default_fixture_loop_scope = "class"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "frontend/"
+]

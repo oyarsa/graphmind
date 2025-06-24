@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@variant dark (html.dark &);
+
+/* Hide scrollbars cross-browser */
+.hide-scrollbar {
+  /* Firefox */
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}

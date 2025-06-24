@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(cp:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(just build)",
+      "Bash(just lint)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run check:*)",
+      "Bash(npm run fix:*)",
+      "Bash(npm run format:fix:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run type:*)",
+      "Bash(npx prettier:*)",
+      "Bash(npx tailwindcss init:*)",
+      "Bash(npx vite:*)",
+      "Bash(rg:*)",
+      "Bash(rm:*)",
+      "Bash(rmdir:*)",
+      "Bash(uv run pytest:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": false
+}

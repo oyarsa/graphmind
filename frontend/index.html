@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paper Explorer - Home</title>
+    <script>
+      // Apply theme immediately to prevent flash
+      (function () {
+        try {
+          const saved = localStorage.getItem("paper-explorer-theme");
+          if (saved === "dark") {
+            document.documentElement.classList.add("dark");
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body
+    class="m-0 overflow-hidden bg-white p-0 font-sans text-black dark:bg-black
+      dark:text-white"
+  >
+    <!-- Theme Toggle Button -->
+    <button
+      id="themeToggle"
+      class="fixed top-4 right-4 z-50 rounded-lg bg-gray-200 p-3 shadow-lg
+        transition-all duration-200 hover:bg-gray-300 dark:bg-gray-800
+        dark:hover:bg-gray-700"
+      title="Toggle theme"
+    >
+      <!-- Sun icon (from heroicons) for light mode -->
+      <svg
+        class="h-5 w-5 text-gray-800 dark:hidden dark:text-gray-200"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343
+             6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0
+             11-8 0 4 4 0 018 0z"
+        ></path>
+      </svg>
+      <!-- Moon icon (from heroicons) for dark mode -->
+      <svg
+        class="hidden h-5 w-5 text-gray-800 dark:block dark:text-gray-200"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0
+             008.354-5.646z"
+        ></path>
+      </svg>
+    </button>
+
+    <div
+      class="flex h-screen w-screen items-center justify-center bg-gradient-to-br
+        from-gray-100 to-gray-300 dark:from-gray-900 dark:to-black"
+    >
+      <div class="text-center">
+        <div class="mb-16">
+          <h1
+            class="mb-6 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-6xl
+              font-bold text-transparent drop-shadow-lg dark:from-blue-400
+              dark:to-blue-300"
+          >
+            Paper Explorer
+          </h1>
+          <p class="text-lg text-gray-600 opacity-80 dark:text-gray-400">
+            Discover and visualise academic research papers
+          </p>
+        </div>
+
+        <div class="flex gap-8">
+          <div
+            class="group relative flex h-64 w-72 cursor-not-allowed flex-col
+              overflow-hidden rounded-xl border border-gray-300 bg-white/80 opacity-50
+              grayscale backdrop-blur-lg dark:border-gray-700 dark:bg-black/80"
+          >
+            <div class="relative z-10 flex h-full flex-col p-8">
+              <div class="mb-4 flex items-center gap-3">
+                <div
+                  class="h-3 w-3 rounded-full bg-gradient-to-r from-blue-400
+                    to-blue-500"
+                ></div>
+                <h2 class="text-2xl font-semibold text-blue-600 dark:text-blue-400">
+                  Paper Network
+                </h2>
+              </div>
+              <p
+                class="mb-6 flex-1 text-left leading-relaxed tracking-tight
+                  text-gray-600 dark:text-gray-300"
+              >
+                Explore academic papers through an interactive network visualization
+                with citations and semantic relationships
+              </p>
+              <div
+                class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-500"
+              >
+                <span>Coming soon</span>
+              </div>
+            </div>
+            <div
+              class="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent
+                opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            ></div>
+            <div
+              class="absolute -top-10 -right-10 h-20 w-20 rounded-full bg-blue-500/20
+                opacity-0 blur-xl transition-opacity duration-300
+                group-hover:opacity-100"
+            ></div>
+          </div>
+
+          <a
+            href="/paper-explorer/pages/paper-explorer.html"
+            class="group relative flex h-64 w-72 flex-col overflow-hidden rounded-xl
+              border border-gray-300 bg-white/80 backdrop-blur-lg transition-all
+              duration-300 hover:-translate-y-1 hover:border-teal-500
+              dark:border-gray-700 dark:bg-black/80"
+          >
+            <div class="relative z-10 flex h-full flex-col p-8">
+              <div class="mb-4 flex items-center gap-3">
+                <div
+                  class="h-3 w-3 rounded-full bg-gradient-to-r from-teal-400
+                    to-teal-500"
+                ></div>
+                <h2 class="text-2xl font-semibold text-teal-600 dark:text-teal-400">
+                  Paper Explorer
+                </h2>
+              </div>
+              <p
+                class="mb-6 flex-1 text-left leading-relaxed tracking-tight
+                  text-gray-600 dark:text-gray-300"
+              >
+                A new way to discover and explore research papers with advanced search
+                and analysis tools
+              </p>
+              <div
+                class="flex items-center gap-2 text-sm text-teal-500 dark:text-teal-500"
+              >
+                <span>Explore</span>
+                <svg
+                  class="h-4 w-4 transition-transform group-hover:translate-x-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 5l7 7-7 7"
+                  ></path>
+                </svg>
+              </div>
+            </div>
+            <div
+              class="absolute inset-0 bg-gradient-to-br from-teal-500/10 to-transparent
+                opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            ></div>
+            <div
+              class="absolute -top-10 -right-10 h-20 w-20 rounded-full bg-teal-500/20
+                opacity-0 blur-xl transition-opacity duration-300
+                group-hover:opacity-100"
+            ></div>
+          </a>
+        </div>
+
+        <div class="mt-12 text-center">
+          <div class="text-xs text-gray-600 opacity-70 dark:text-gray-500">
+            Choose your exploration method above • Interactive visualizations • Research
+            discovery
+          </div>
+          <div class="mt-6">
+            <a
+              href="/paper-explorer/pages/todo.html"
+              class="text-xs text-gray-500 transition-colors hover:text-gray-700
+                dark:text-gray-600 dark:hover:text-gray-400"
+            >
+              Planned Features
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/theme.ts"></script>
+    <script type="module">
+      import { ThemeManager } from "/src/theme.ts";
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const themeToggle = document.getElementById("themeToggle");
+        if (themeToggle) {
+          themeToggle.addEventListener("click", () => {
+            ThemeManager.toggle();
+          });
+        }
+      });
+    </script>
+  </body>
+</html>
