@@ -304,7 +304,7 @@ async def evaluate_papers(
 
     logger.info("Metrics\n%s", display_regular_negative_macro_metrics(results_items))
 
-    save_data(output_dir / "result.json", results_all)
+    save_data(output_dir / "result.json.zst", results_all)
     save_data(output_dir / "params.json", params)
     save_data(output_dir / "metrics.json", calculate_paper_metrics(results_items))
 

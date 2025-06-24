@@ -485,7 +485,7 @@ def evaluate(
     save_data(output_dir / "metrics.json", metrics)
     save_data(output_dir / "params.json", params)
     if save_results:
-        save_data(output_dir / "result.json", results)
+        save_data(output_dir / "result.json.zst", results)
 
 
 @app.callback(help=__doc__)

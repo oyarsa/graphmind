@@ -327,8 +327,8 @@ async def run_tournaments(
     logger.info("\n%s", display_tournament_ratings(summary, markdown=markdown_table))
 
     if isinstance(raw_comparisons, PromptResult) or save_comparisons:
-        save_data(output_dir / "raw_comparisons.json", raw_comparisons.result)
-    save_data(output_dir / f"tournament_results_{algorithm}.json", summary)
+        save_data(output_dir / "raw_comparisons.json.zst", raw_comparisons.result)
+    save_data(output_dir / f"tournament_results_{algorithm}.json.zst", summary)
 
 
 @app.callback()

@@ -216,7 +216,7 @@ async def extract_graphs(
 
     results_all = seqcat(papers_remaining.done, results.result)
 
-    save_data(output_dir / "result.json", results_all)
+    save_data(output_dir / "result.json.zst", results_all)
     save_data(output_dir / "params.json", params)
 
     if len(results_all) != len(papers):

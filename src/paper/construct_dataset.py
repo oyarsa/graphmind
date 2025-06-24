@@ -123,8 +123,8 @@ def main(
     print(f"Unique related papers: {len(related_papers)}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    save_data(output_dir / "peerread_with_s2_references.json", peerread_sampled)
-    save_data(output_dir / "peerread_related.json", related_papers)
+    save_data(output_dir / "peerread_with_s2_references.json.zst", peerread_sampled)
+    save_data(output_dir / "peerread_related.json.zst", related_papers)
     save_data(output_dir / "params.json", params)
 
 

@@ -335,7 +335,7 @@ async def evaluate_reviews(
     logger.info("%d reviews evaluated.", sum(len(p.reviews) for p in results_items))
     logger.info("Overall metrics:\n%s", metrics)
 
-    save_data(output_dir / "result.json", results_all)
+    save_data(output_dir / "result.json.zst", results_all)
     save_data(output_dir / "metrics.json", metrics)
     save_data(output_dir / "params.json", params)
 

@@ -246,7 +246,7 @@ async def evaluate_papers(
     logger.info("%s\n", display_metrics(metrics, results_items))
 
     assert len(results_all) == len(papers)
-    save_data(output_dir / "result.json", results_all)
+    save_data(output_dir / "result.json.zst", results_all)
     save_data(output_dir / "metrics.json", metrics)
     save_data(output_dir / "params.json", params)
 

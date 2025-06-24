@@ -236,8 +236,8 @@ async def _download_main_info(
     )
 
     output_path.mkdir(parents=True, exist_ok=True)
-    save_data(output_path / "valid.json", results_valid)
-    save_data(output_path / "final.json", results_filtered)
+    save_data(output_path / "valid.json.zst", results_valid)
+    save_data(output_path / "final.json.zst", results_filtered)
 
 
 async def _download_reference_info(
@@ -291,8 +291,8 @@ async def _download_reference_info(
     )
 
     output_path.mkdir(parents=True, exist_ok=True)
-    save_data(output_path / "valid.json", [paper for paper in results if paper])
-    save_data(output_path / "final.json", results_filtered)
+    save_data(output_path / "valid.json.zst", [paper for paper in results if paper])
+    save_data(output_path / "final.json.zst", results_filtered)
 
 
 def get_top_k_titles(encoder: emb.Encoder, paper: pr.Paper, k: int) -> list[str]:

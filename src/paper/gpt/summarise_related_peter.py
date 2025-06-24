@@ -237,8 +237,8 @@ async def summarise_related(
     results_items = PromptResult.unwrap(results_all)
 
     assert len(results_all) == len(papers)
-    save_data(output_dir / "result.json", results_all)
-    save_data(output_dir / "result_items.json", results_items)
+    save_data(output_dir / "result.json.zst", results_all)
+    save_data(output_dir / "result_items.json.zst", results_items)
     save_data(output_dir / "params.json", params)
 
 
