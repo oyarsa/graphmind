@@ -155,5 +155,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.sdist]
 exclude = [
-    "frontend/"
+    "frontend/",
+    ".jj",
+    "notebooks/",
+    "assets/",
+    ".github",
+    ".claude",
+    "experiments"
 ]
