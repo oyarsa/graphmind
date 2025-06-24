@@ -178,10 +178,7 @@ export const RelatedPaperSchema = z.object({
   /** Polarity of the relationship (positive/negative) to the main paper. */
   polarity: ContextPolaritySchema,
   /** Similarity score between the main and related paper. */
-  score: z
-    .number()
-    .min(0, "Score must be non-negative")
-    .max(1, "Score must be at most 1"),
+  score: z.number(),
   /** Source from which this related paper was retrieved. */
   source: RelatedPaperSourceSchema,
   /** Summary of the related paper's key points relevant to the main paper. */
