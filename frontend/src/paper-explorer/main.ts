@@ -667,8 +667,6 @@ class PaperExplorer {
         cacheKeys.forEach((key) => {
           localStorage.removeItem(key);
         });
-
-        alert(`Cleared ${cacheKeys.length} cached papers.`);
       }
     });
   }
