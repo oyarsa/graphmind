@@ -99,7 +99,7 @@ describe("createPaperTermsDisplay", () => {
 });
 
 describe("getRelationshipStyle", () => {
-  it("should return background style for semantic positive", () => {
+  it("should return target style for semantic positive", () => {
     const paper: RelatedPaper = {
       paper_id: "1",
       title: "Test",
@@ -112,14 +112,14 @@ describe("getRelationshipStyle", () => {
 
     const result = getRelationshipStyle(paper);
 
-    expect(result.type).toBe("background");
-    expect(result.label).toBe("Background");
+    expect(result.type).toBe("target");
+    expect(result.label).toBe("Target");
     expect(result.icon).toBe("🧠");
     expect(result.style).toBe("rounded-full");
-    expect(result.color).toContain("bg-green-100");
+    expect(result.color).toContain("bg-orange-100");
   });
 
-  it("should return target style for semantic negative", () => {
+  it("should return background style for semantic negative", () => {
     const paper: RelatedPaper = {
       paper_id: "1",
       title: "Test",
@@ -132,11 +132,11 @@ describe("getRelationshipStyle", () => {
 
     const result = getRelationshipStyle(paper);
 
-    expect(result.type).toBe("target");
-    expect(result.label).toBe("Target");
+    expect(result.type).toBe("background");
+    expect(result.label).toBe("Background");
     expect(result.icon).toBe("🧠");
     expect(result.style).toBe("rounded-full");
-    expect(result.color).toContain("bg-orange-100");
+    expect(result.color).toContain("bg-green-100");
   });
 
   it("should return supporting style for citations positive", () => {

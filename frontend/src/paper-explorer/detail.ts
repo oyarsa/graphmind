@@ -155,32 +155,7 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
       }
 
       ${
-        paper.source === "semantic" && paper.polarity === "positive" && paper.background
-          ? `
-      <!-- Background Matching Section -->
-      <div class="mb-4">
-        <div class="mb-3 flex items-center gap-2">
-          <div class="h-4 w-1 rounded-full bg-green-500"></div>
-          <h5
-            class="text-sm font-semibold tracking-wide text-gray-900 uppercase
-                   dark:text-gray-100"
-          >
-            Background Match
-          </h5>
-        </div>
-        <div class="rounded-md border border-gray-200 bg-gray-50 p-3
-                    dark:border-gray-700 dark:bg-gray-800">
-          <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${renderLatex(paper.background)}
-          </p>
-        </div>
-      </div>
-      `
-          : ""
-      }
-
-      ${
-        paper.source === "semantic" && paper.polarity === "negative" && paper.target
+        paper.source === "semantic" && paper.polarity === "positive" && paper.target
           ? `
       <!-- Target Matching Section -->
       <div class="mb-4">
@@ -197,6 +172,31 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
                     dark:border-gray-700 dark:bg-gray-800">
           <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
             ${renderLatex(paper.target)}
+          </p>
+        </div>
+      </div>
+      `
+          : ""
+      }
+
+      ${
+        paper.source === "semantic" && paper.polarity === "negative" && paper.background
+          ? `
+      <!-- Background Matching Section -->
+      <div class="mb-4">
+        <div class="mb-3 flex items-center gap-2">
+          <div class="h-4 w-1 rounded-full bg-green-500"></div>
+          <h5
+            class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                   dark:text-gray-100"
+          >
+            Background Match
+          </h5>
+        </div>
+        <div class="rounded-md border border-gray-200 bg-gray-50 p-3
+                    dark:border-gray-700 dark:bg-gray-800">
+          <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+            ${renderLatex(paper.background)}
           </p>
         </div>
       </div>
@@ -704,8 +704,8 @@ function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
   const countRelation = (src: string, pol: string) =>
     relatedPapers.filter((p) => p.source === src && p.polarity === pol).length;
   const counts = {
-    background: countRelation("semantic", "positive"),
-    target: countRelation("semantic", "negative"),
+    background: countRelation("semantic", "negative"),
+    target: countRelation("semantic", "positive"),
     supporting: countRelation("citations", "positive"),
     contrasting: countRelation("citations", "negative"),
   };

@@ -181,18 +181,18 @@ export function createPaperTermsDisplay(
 export function getRelationshipStyle(paper: RelatedPaper) {
   if (paper.source === "semantic" && paper.polarity === "positive") {
     return {
-      type: "background",
-      label: "Background",
-      icon: "🧠",
-      color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-      style: "rounded-full", // Rounded for semantic
-    };
-  } else if (paper.source === "semantic" && paper.polarity === "negative") {
-    return {
       type: "target",
       label: "Target",
       icon: "🧠",
       color: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+      style: "rounded-full", // Rounded for semantic
+    };
+  } else if (paper.source === "semantic" && paper.polarity === "negative") {
+    return {
+      type: "background",
+      label: "Background",
+      icon: "🧠",
+      color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
       style: "rounded-full", // Rounded for semantic
     };
   } else if (paper.source === "citations" && paper.polarity === "positive") {
