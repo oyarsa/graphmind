@@ -327,7 +327,7 @@ def save_data[T: BaseModel](
     file: Path,
     data: Sequence[T] | T | Any,
     use_alias: bool = True,
-    compress: Compress = Compress.ZSTD,
+    compress: Compress = Compress.AUTO,
 ) -> None:
     """Save data in JSON `file`. Can be a single Pydantic object or a Sequence, or Any.
 
