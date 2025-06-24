@@ -133,6 +133,13 @@ async def evaluate(
     llm_model: Annotated[
         LLMModel, Query(description="LLM model to use.")
     ] = LLMModel.GPT4oMini,
+    filter_by_date: Annotated[
+        bool,
+        Query(
+            description="Filter recommended papers to only include those published"
+            " before the main paper."
+        ),
+    ] = False,
 ) -> StreamingResponse:
     """Perform comprehensive paper analysis and evaluation with real-time progress.
 
@@ -153,6 +160,8 @@ async def evaluate(
         recommendations: Number of recommended papers to generate (5-50).
         related: Number of related papers to retrieve per type (1-10).
         llm_model: LLM model to use for analysis.
+        filter_by_date: Filter recommended papers to only include those published
+            before the main paper.
 
     Returns:
         StreamingResponse with Server-Sent Events containing progress updates and final
@@ -177,6 +186,7 @@ async def evaluate(
                 graph_prompt_key=GRAPH_PROMPT,
                 demonstrations_key=DEMOS,
                 demo_prompt_key=DEMO_PROMPT,
+                filter_by_date=filter_by_date,
                 callback=callback,
             )
         )

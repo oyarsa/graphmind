@@ -55,6 +55,8 @@ def get_related_papers(
     recommended_papers: Sequence[gpt.PaperAnnotated],
     num_related: int,
     encoder: emb.Encoder,
+    *,
+    filter_by_date: bool = False,
 ) -> list[rp.PaperRelated]:
     """Retrieve related papers through citations and semantic similarity.
 
@@ -79,6 +81,8 @@ def get_related_papers(
         recommended_papers: Pool of papers to search for semantic similarity.
         num_related: Number of papers to retrieve per category (this is the K value).
         encoder: Embedding encoder for similarity computations.
+        filter_by_date: If True, filter recommended papers to only include those
+            published before the main paper. Only affects semantic similarity search.
 
     Returns:
         Combined list of related papers from all discovery methods, including
@@ -96,12 +100,27 @@ def get_related_papers(
         encoder, main_title_emb, references, num_related, pr.ContextPolarity.NEGATIVE
     )
 
+    # Filter recommended papers by publication date if requested
+    filtered_recommended_papers = recommended_papers
+    if filter_by_date and paper_annotated.paper.year:
+        main_year = paper_annotated.paper.year
+        filtered_recommended_papers = [
+            paper
+            for paper in recommended_papers
+            if paper.paper.year and paper.paper.year < main_year
+        ]
+        logger.debug(
+            "Date filtering: %d -> %d papers",
+            len(recommended_papers),
+            len(filtered_recommended_papers),
+        )
+
     background_related = get_top_k_semantic(
         encoder,
         num_related,
         main_background_emb,
-        recommended_papers,
-        [r.background for r in recommended_papers],
+        filtered_recommended_papers,
+        [r.background for r in filtered_recommended_papers],
         pr.ContextPolarity.NEGATIVE,
         paper_annotated.background,
         paper_annotated.target,
@@ -110,8 +129,8 @@ def get_related_papers(
         encoder,
         num_related,
         main_target_emb,
-        recommended_papers,
-        [r.target for r in recommended_papers],
+        filtered_recommended_papers,
+        [r.target for r in filtered_recommended_papers],
         pr.ContextPolarity.POSITIVE,
         paper_annotated.background,
         paper_annotated.target,

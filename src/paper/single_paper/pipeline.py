@@ -63,6 +63,7 @@ async def annotate_paper_pipeline(
     negative_prompt_key: str = "negative",
     encoder_model: str = DEFAULT_SENTENCE_MODEL,
     request_timeout: float = REQUEST_TIMEOUT,
+    filter_by_date: bool = False,
     callback: ProgressCallback | None = None,
 ) -> GPTResult[gpt.PaperWithRelatedSummary]:
     """Annotate a single paper through the complete pipeline to get related papers.
@@ -90,6 +91,8 @@ async def annotate_paper_pipeline(
         negative_prompt_key: Key for negative paper summarisation prompt template.
         encoder_model: Embedding encoder model.
         request_timeout: Maximum time (seconds) for S2 requests before timeout.
+        filter_by_date: If True, filter recommended papers to only include those
+            published before the main paper.
         s2_api_key: Semantic Scholar API key.
         client: LLM client for GPT API calls.
         callback: Optional callback function to call with phase names after completion.
@@ -169,6 +172,7 @@ async def annotate_paper_pipeline(
             recommended_annotated.result,
             num_related,
             encoder,
+            filter_by_date=filter_by_date,
         ),
         3,
     )
@@ -332,6 +336,7 @@ async def process_paper_from_selection(
     demonstrations_key: str,
     demo_prompt_key: str,
     *,
+    filter_by_date: bool = False,
     callback: ProgressCallback | None = None,
 ) -> EvaluationResult:
     """Process a paper from pre-selected title and arXiv ID through the PETER pipeline.
@@ -366,6 +371,8 @@ async def process_paper_from_selection(
         graph_prompt_key: Key for graph extraction prompt template.
         demonstrations_key: Key for demonstrations file.
         demo_prompt_key: Key for demonstration prompt template.
+        filter_by_date: If True, filter recommended papers to only include those
+            published before the main paper.
         callback: Optional callback function to call with phase names during processing.
 
     Returns:
@@ -397,6 +404,7 @@ async def process_paper_from_selection(
             num_recommendations=num_recommendations,
             num_related=num_related,
             encoder_model=encoder_model,
+            filter_by_date=filter_by_date,
             callback=callback,
         ),
         2,
