@@ -319,6 +319,8 @@ export const EvaluationParamsSchema = z.object({
     .enum(["gpt-4o", "gpt-4o-mini", "gemini-2.0-flash"])
     .optional()
     .default("gpt-4o-mini"),
+  /** Filter recommended papers to only include those published before the main paper */
+  filter_by_date: z.boolean().optional().default(false),
   /** Random seed for reproducible results */
   seed: z.number().optional().default(0),
 });

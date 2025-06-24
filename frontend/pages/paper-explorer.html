@@ -322,6 +322,28 @@
             </select>
             <p class="mt-1 text-xs text-gray-500">Default: gpt-4o-mini</p>
           </div>
+
+          <div>
+            <div class="flex items-center">
+              <input
+                type="checkbox"
+                id="filter_by_date"
+                name="filter_by_date"
+                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500
+                  dark:border-gray-600 dark:bg-gray-700 dark:ring-offset-gray-800"
+              />
+              <label
+                for="filter_by_date"
+                class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Filter by publication date
+              </label>
+            </div>
+            <p class="mt-1 text-xs text-gray-500">
+              Only include recommended papers published before the main paper (default:
+              disabled)
+            </p>
+          </div>
         </form>
 
         <div class="mt-6 flex justify-end space-x-3">

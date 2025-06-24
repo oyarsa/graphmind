@@ -794,8 +794,15 @@ class PaperExplorer {
     const recommendationsInput = document.getElementById("recommendations");
     const relatedInput = document.getElementById("related");
     const llmModelSelect = document.getElementById("llm_model");
+    const filterByDateCheckbox = document.getElementById("filter_by_date");
 
-    if (!kRefsInput || !recommendationsInput || !relatedInput || !llmModelSelect) {
+    if (
+      !kRefsInput ||
+      !recommendationsInput ||
+      !relatedInput ||
+      !llmModelSelect ||
+      !filterByDateCheckbox
+    ) {
       console.error("Form elements not found");
       return;
     }
@@ -811,6 +818,7 @@ class PaperExplorer {
         | "gpt-4o"
         | "gpt-4o-mini"
         | "gemini-2.0-flash",
+      filter_by_date: (filterByDateCheckbox as HTMLInputElement).checked,
       seed: 0,
     };
 
