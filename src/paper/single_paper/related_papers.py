@@ -1,7 +1,27 @@
-"""Related paper retrieval and summarisation.
+"""Related paper retrieval and summarisation using embeddings and GPT.
 
-This module handles finding related papers through citation and semantic similarity,
-and generating summaries for the discovered papers.
+This module provides functionality to discover and summarise papers related to a target
+paper through two main mechanisms:
+
+1. Citation-based Relationships:
+- Identifies papers cited by the target paper.
+- Distinguishes between positive (supportive) and negative (contrasting) citations.
+- Uses citation context classification to determine relationship polarity.
+
+2. Semantic Similarity:
+- Finds papers with similar background concepts or target contributions.
+- Uses embedding-based similarity search on paper abstracts.
+- Separates background-related papers from target-related papers.
+
+The module operates without building full PETER graphs, instead using a direct approach
+that queries only within the paper's citations and recommended papers. It then generates
+contextual summaries for the discovered related papers using GPT.
+
+Key Features:
+- Embedding-based similarity computation for semantic relationships.
+- Polarity-aware citation analysis.
+- Parallel GPT summarisation for efficiency.
+- Support for different summary prompts based on relationship type.
 """
 
 from __future__ import annotations
@@ -36,19 +56,33 @@ def get_related_papers(
     num_related: int,
     encoder: emb.Encoder,
 ) -> list[rp.PaperRelated]:
-    """Get related papers using a direct approach without building full PETER graphs.
+    """Retrieve related papers through citations and semantic similarity.
 
-    For citations:
-    - Get top `num_related` citations with positive and another `num_related` with
-      negative polarity.
+    This function implements a direct approach to finding related papers without
+    constructing full PETER graphs. It discovers relationships through two channels:
 
-    For semantic:
-    - Get recommended papers with extract terms (background/target).
-    - Find top `num_related` papers by background similarity (negative polarity) and
-      target similarity (positive polarity).
+    Citation-based discovery:
+    - Extracts papers cited with positive sentiment (supportive references).
+    - Extracts papers cited with negative sentiment (contrasting references).
+    - Ranks citations by title similarity to the main paper.
+    - Returns top K papers for each polarity type.
 
-    This doesn't need a full PETER graph because we're only querying inside the citations
-    and recommended papers, but the actual querying process is the same.
+    Semantic similarity discovery:
+    - Finds papers with similar background concepts (negative polarity).
+    - Finds papers with similar target contributions (positive polarity).
+    - Uses embedding similarity on extracted background/target text.
+    - Returns top K papers for each similarity type.
+
+    Args:
+        paper_annotated: Main paper with extracted terms and classifications.
+        paper_with_contexts: Paper with classified citation contexts.
+        recommended_papers: Pool of papers to search for semantic similarity.
+        num_related: Number of papers to retrieve per category (this is the K value).
+        encoder: Embedding encoder for similarity computations.
+
+    Returns:
+        Combined list of related papers from all discovery methods, including
+        citation-based and semantic similarity-based papers
     """
     main_title_emb = encoder.encode(paper_annotated.title)
     main_background_emb = encoder.encode(paper_annotated.background)
@@ -106,7 +140,25 @@ def get_top_k_semantic(
     background: str | None,
     target: str | None,
 ) -> list[rp.PaperRelated]:
-    """Get top K most similar papers by `items`."""
+    """Find top K semantically similar papers based on text embeddings.
+
+    Computes embedding similarity between the main paper's text (background or target)
+    and corresponding text from candidate papers. Returns the K most similar papers with
+    their similarity scores.
+
+    Args:
+        encoder: Embedding encoder for vectorisation.
+        k: Number of top papers to return.
+        main_emb: Pre-computed embedding of main paper's text.
+        papers: Candidate papers to search through.
+        items: Text items from papers to embed (backgrounds or targets).
+        polarity: Relationship polarity (positive for targets, negative for backgrounds).
+        background: Background text of main paper (for metadata).
+        target: Target text of main paper (for metadata).
+
+    Returns:
+        List of K most similar papers as PaperRelated objects with similarity scores.
+    """
     sem_emb = encoder.encode_multi(items)
     sims = emb.similarities(main_emb, sem_emb)
     top_k = [(papers[i], float(sims[i])) for i in emb.top_k_indices(sims, k)]
@@ -133,7 +185,23 @@ def get_top_k_reference_by_polarity(
     k: int,
     polarity: pr.ContextPolarity,
 ) -> list[rp.PaperRelated]:
-    """Get top K references by title similarity."""
+    """Extract top K cited papers filtered by citation polarity.
+
+    Filters references by the specified polarity (positive or negative) and ranks them
+    by title similarity to the main paper. This helps identify the most relevant
+    citations of each sentiment type.
+
+    Args:
+        encoder: Embedding encoder for title vectorisation.
+        title_emb: Pre-computed embedding of main paper's title.
+        references: All classified references from the paper.
+        k: Number of top references to return.
+        polarity: Citation polarity to filter by (positive or negative).
+
+    Returns:
+        List of K most similar references with the specified polarity, including their
+        citation contexts and similarity scores
+    """
     references_pol = [r for r in references if r.polarity == polarity]
     if not references_pol:
         return []
@@ -166,7 +234,22 @@ async def generate_related_paper_summaries(
     positive_prompt_key: str,
     negative_prompt_key: str,
 ) -> GPTResult[Sequence[gpt.PaperRelatedSummarised]]:
-    """Generate GPT summaries for related papers."""
+    """Generate contextual summaries for all related papers using GPT.
+
+    Creates summaries that explain how each related paper connects to the main paper,
+    with different prompts for positive and negative relationships. Processes all papers
+    concurrently.
+
+    Args:
+        paper_annotated: Main paper with annotations for context.
+        related_papers: Papers to summarise.
+        client: LLM client for GPT calls.
+        positive_prompt_key: Prompt key for positive relationships.
+        negative_prompt_key: Prompt key for negative relationships.
+
+    Returns:
+        GPTResult containing summarised papers with total API cost.
+    """
     if not related_papers:
         return GPTResult(result=[], cost=0)
 
@@ -190,7 +273,21 @@ async def generate_summary_single(
     user_prompt: gpt.PromptTemplate,
     related_paper: rp.PaperRelated,
 ) -> GPTResult[gpt.PaperRelatedSummarised]:
-    """Generate a single summary for a related paper."""
+    """Generate a contextual summary for one related paper.
+
+    Creates a summary explaining the relationship between the related paper and the main
+    paper, using polarity-specific prompts for appropriate context.
+
+    Args:
+        paper_annotated: Main paper providing context for the summary.
+        client: LLM client for GPT calls.
+        user_prompt: Template for generating the summary prompt.
+        related_paper: The paper to summarise.
+
+    Returns:
+        GPTResult with PaperRelatedSummarised containing the summary and API cost, with
+        error fallback to "<error>" message.
+    """
     result = await client.run(
         GPTRelatedSummary,
         PETER_SUMMARISE_SYSTEM_PROMPT,

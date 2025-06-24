@@ -1,13 +1,28 @@
-"""GPT-based annotation extraction for papers and context classification.
+"""GPT-based annotation extraction for papers and citation context classification.
 
-This module handles extracting structured annotations from papers including:
-- Key terms (methods and tasks)
-- Background information extraction
-- Target/contribution identification
-- Citation context polarity (positive/negative)
+This module provides functionality to extract structured information from academic papers
+using Large Language Models (GPT). It handles two main types of annotation tasks:
+
+1. Paper Annotation Extraction:
+- Key terms extraction: Identifies important methods and tasks mentioned in papers.
+- Background/target classification: Splits background context from paper contributions.
+- Works with both individual papers and lists of recommended papers.
+
+2. Citation Context Classification:
+- Analyses citation contexts to determine their polarity (positive/negative).
+- Helps understand how papers reference each other (supportive vs critical).
+- Groups classification results by reference for easy analysis.
+
+The module integrates with the Semantic Scholar API for paper data and uses predefined
+prompts for consistent GPT interactions. All operations are async for
+efficient concurrent processing of multiple papers or contexts.
+
+Key Features:
+- Graceful error handling with fallback to empty values.
+- Cost tracking for GPT API usage.
+- Support for batch processing of multiple papers.
+- Validation of extracted annotations.
 """
-
-from __future__ import annotations
 
 import asyncio
 import logging
@@ -41,10 +56,18 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, kw_only=True)
 class PaperAnnotations:
-    """GPT-extracted annotated terms and classified abstract."""
+    """Container for GPT-extracted paper annotations.
+
+    Combines term extraction results with abstract classification to provide a complete
+    annotation of a paper's key contributions and context.
+
+    Attributes:
+        terms: Extracted key terms including methods and tasks.
+        abstract: Classification of abstract into background and target sections.
+    """
 
     terms: gpt.PaperTerms
-    abstr: GPTAbstractClassify
+    abstract: GPTAbstractClassify
 
 
 async def extract_annotations(
@@ -54,23 +77,27 @@ async def extract_annotations(
     term_prompt: gpt.PromptTemplate,
     abstract_prompt: gpt.PromptTemplate,
 ) -> GPTResult[PaperAnnotations]:
-    """Extracting annotations from a paper given title and abstract.
+    """Extract comprehensive annotations from a paper using GPT.
+
+    Performs parallel extraction of key terms and abstract classification, combining
+    results into a single annotation object. Handles errors gracefully by falling back
+    to empty values.
 
     Args:
-        title: Paper title.
-        abstract: Paper abstract.
+        title: Paper title for extraction context.
+        abstract: Paper abstract to analyse.
         client: LLM client for GPT calls.
-        term_prompt: Prompt template for term extraction.
-        abstract_prompt: Prompt template for abstract classification.
+        term_prompt: Template for term extraction prompts.
+        abstract_prompt: Template for abstract classification prompts.
 
     Returns:
-        _PaperAnnotations (terms, abstract_classification) with fallbacks to empty
-        values on error.
+        GPTResult containing PaperAnnotations with both term extraction and abstract
+        classification results, along with total API cost.
     """
     # Prepare prompts
     term_prompt_text = term_prompt.template.format(title=title, abstract=abstract)
     abstract_prompt_text = abstract_prompt.template.format(
-        demonstrations="",  # TODO: No demonstrations for now
+        demonstrations="",
         abstract=abstract,
     )
 
@@ -90,7 +117,7 @@ async def extract_annotations(
         logger.warning("Paper '%s': invalid GPTAbstractClassify", title)
 
     return GPTResult(
-        result=PaperAnnotations(terms=terms, abstr=abstract_classification),
+        result=PaperAnnotations(terms=terms, abstract=abstract_classification),
         cost=result_term.cost + result_abstract.cost,
     )
 
@@ -101,7 +128,21 @@ async def extract_paper_annotations(
     term_prompt_key: str,
     abstract_prompt_key: str,
 ) -> GPTResult[gpt.PeerReadAnnotated]:
-    """Extract key terms and background/target information from paper using GPT."""
+    """Extract annotations from a PeerRead paper with Semantic Scholar references.
+
+    This is the main entry point for annotating individual papers in the PeerRead
+    dataset. It extracts both key terms and classifies the abstract into background
+    and target sections.
+
+    Args:
+        paper_with_s2_refs: Paper data including S2 references.
+        client: LLM client for GPT calls.
+        term_prompt_key: Key to select term extraction prompt from TERM_USER_PROMPTS.
+        abstract_prompt_key: Key to select abstract prompt from ABS_USER_PROMPTS.
+
+    Returns:
+        GPTResult containing PeerReadAnnotated with extracted annotations and costs.
+    """
     term_prompt = TERM_USER_PROMPTS[term_prompt_key]
     abstract_prompt = ABS_USER_PROMPTS[abstract_prompt_key]
 
@@ -116,8 +157,8 @@ async def extract_paper_annotations(
         lambda ann: gpt.PeerReadAnnotated(
             terms=ann.terms,
             paper=paper_with_s2_refs,
-            background=ann.abstr.background,
-            target=ann.abstr.target,
+            background=ann.abstract.background,
+            target=ann.abstract.target,
         )
     )
 
@@ -128,7 +169,20 @@ async def extract_recommended_annotations(
     term_prompt_key: str,
     abstract_prompt_key: str,
 ) -> GPTResult[Sequence[gpt.PaperAnnotated]]:
-    """Extract annotations from recommended papers using GPT."""
+    """Extract annotations from a list of recommended papers concurrently.
+
+    Processes multiple papers in parallel for efficiency. Only processes papers that
+    have both title and abstract. Aggregates costs across all extractions.
+
+    Args:
+        recommended_papers: List of S2 papers to annotate.
+        client: LLM client for GPT calls.
+        term_prompt_key: Key for term extraction prompt selection.
+        abstract_prompt_key: Key for abstract classification prompt.
+
+    Returns:
+        GPTResult with sequence of annotated papers and total cost.
+    """
     term_prompt = TERM_USER_PROMPTS[term_prompt_key]
     abstract_prompt = ABS_USER_PROMPTS[abstract_prompt_key]
 
@@ -148,7 +202,20 @@ async def extract_recommended_annotations_single(
     abstract_prompt: gpt.PromptTemplate,
     s2_paper: s2.Paper,
 ) -> GPTResult[gpt.PaperAnnotated]:
-    """Extract terms and split abstract from paper."""
+    """Extract annotations from a single Semantic Scholar paper.
+
+    Helper function that processes individual papers from the recommended list.
+    Ensures the paper has required fields before processing.
+
+    Args:
+        client: LLM client for GPT calls
+        term_prompt: Template for term extraction prompts
+        abstract_prompt: Template for abstract classification
+        s2_paper: Individual S2 paper to process
+
+    Returns:
+        GPTResult containing PaperAnnotated with all extracted information
+    """
     # We know these are not None because of the filter in extract_recommended_annotations
     assert s2_paper.title is not None
     assert s2_paper.abstract is not None
@@ -165,19 +232,33 @@ async def extract_recommended_annotations_single(
         lambda a: gpt.PaperAnnotated(
             terms=a.terms,
             paper=s2_paper,
-            background=a.abstr.background,
-            target=a.abstr.target,
+            background=a.abstract.background,
+            target=a.abstract.target,
         )
     )
 
 
 ReferenceIdx = NewType("ReferenceIdx", int)
-"""Index of a reference from a paper. Used to split and group tasks."""
+"""Type-safe index for paper references.
+
+Used to maintain the relationship between citation contexts and their
+corresponding references when processing contexts in parallel."""
 
 
 @dataclass(frozen=True, kw_only=True)
 class ClassifyContextSpec:
-    """Task data for classifying a single citation context."""
+    """Specification for classifying a single citation context.
+
+    Contains all necessary information to classify how a paper cites another,
+    including both papers' metadata and the citation context itself.
+
+    Attributes:
+        main_title: Title of the citing paper
+        main_abstract: Abstract of the citing paper
+        reference: The cited paper's information
+        context: The citation context to classify
+        prompt: Template for generating the classification prompt
+    """
 
     main_title: str
     main_abstract: str
@@ -189,7 +270,19 @@ class ClassifyContextSpec:
 async def classify_context_single(
     client: LLMClient, spec: ClassifyContextSpec
 ) -> GPTResult[ContextClassified]:
-    """Classify a single citation context using GPT."""
+    """Classify the polarity of a single citation context.
+
+    Determines whether a citation is positive (supportive) or negative (critical)
+    based on the context sentence and both papers' content. Falls back to
+    positive classification if GPT fails.
+
+    Args:
+        client: LLM client for GPT calls
+        spec: Classification task specification
+
+    Returns:
+        GPTResult with classified context including prediction and gold label
+    """
     user_prompt_text = spec.prompt.template.format(
         main_title=spec.main_title,
         main_abstract=spec.main_abstract,
@@ -212,7 +305,19 @@ async def classify_context_single(
 async def classify_contexts(
     client: LLMClient, specs: list[tuple[ReferenceIdx, ClassifyContextSpec]]
 ) -> list[tuple[ReferenceIdx, GPTResult[ContextClassified]]]:
-    """Classify all contexts concurrently and return results with reference indices."""
+    """Classify multiple citation contexts in parallel.
+
+    Processes all classification tasks concurrently for efficiency while
+    maintaining the association between contexts and their references through
+    the ReferenceIdx.
+
+    Args:
+        client: LLM client for GPT calls
+        specs: List of (index, specification) tuples to process
+
+    Returns:
+        List of (index, result) tuples maintaining original associations
+    """
     tasks = [classify_context_single(client, task) for _, task in specs]
     results = await asyncio.gather(*tasks)
     return [(ref_idx, result) for (ref_idx, _), result in zip(specs, results)]
@@ -221,7 +326,21 @@ async def classify_contexts(
 async def classify_citation_contexts(
     paper: s2.PaperWithS2Refs, client: LLMClient, context_prompt_key: str
 ) -> GPTResult[gpt.PaperWithContextClassfied]:
-    """Classify citation contexts by polarity (positive/negative) using GPT."""
+    """Classify all citation contexts in a paper by polarity.
+
+    Main entry point for citation context classification. Processes all contexts
+    for all references in a paper, grouping results by reference for easy analysis.
+    Tracks total GPT API costs across all classifications.
+
+    Args:
+        paper: Paper containing references with citation contexts
+        client: LLM client for GPT calls
+        context_prompt_key: Key to select prompt from CONTEXT_USER_PROMPTS
+
+    Returns:
+        GPTResult with PaperWithContextClassfied containing all classified contexts
+        organised by reference, along with total API cost
+    """
     context_prompt = CONTEXT_USER_PROMPTS[context_prompt_key]
 
     tasks: list[tuple[ReferenceIdx, ClassifyContextSpec]] = []

@@ -1,6 +1,28 @@
-"""Types and functions for managing related papers.
+"""Types and functions for managing related papers from citation and semantic graphs.
 
-These papers can be retrieved from graphs such as SciMON and PETER.
+This module provides data structures and utilities for working with papers related to
+a target paper through various relationships. It supports papers retrieved from
+citation and semantic similarity graphs.
+
+Key Concepts:
+- Related Papers: Papers connected to a target paper through citations or semantic
+  similarity.
+- Query Results: Organised collections of related papers categorised by source and
+  polarity.
+- Polarity: Whether a relationship is positive (supportive) or negative (contrasting).
+- Source: Papers can come from citation networks or semantic similarity searches.
+
+The module handles:
+1. Storage and retrieval of related papers with their metadata.
+2. Deduplication of papers appearing in multiple result sets.
+3. Priority-based conflict resolution when papers appear multiple times.
+4. Integration with PETER graph queries for citation-based relationships.
+5. Support for semantic similarity results from various sources.
+
+Deduplication Priority (highest to lowest):
+1. Citation-based papers over semantic similarity papers.
+2. For semantic papers: background context over target context.
+3. First occurrence wins for identical priority.
 """
 
 from __future__ import annotations
@@ -20,14 +42,34 @@ if TYPE_CHECKING:
 
 
 class PaperResult(Immutable, PaperProxy[gpt.PeerReadAnnotated]):
-    """PeerRead paper with its related papers queried from the PETER graph."""
+    """Container for a PeerRead paper with its related papers from citation graphs.
+
+    Combines an annotated PeerRead paper with query results containing all related papers
+    found through various graph-based searches. Acts as a proxy to the underlying paper
+    while providing access to related papers.
+
+    Attributes:
+        paper: The annotated PeerRead paper being analysed.
+        results: Combined query results containing all related papers.
+    """
 
     paper: gpt.PeerReadAnnotated
     results: QueryResult
 
 
 class QueryResult(Immutable):
-    """Combined query results from PETER graphs."""
+    """Collection of related papers organised by source and polarity.
+
+    Stores related papers in four categories based on how they were found (citation vs
+    semantic) and their relationship polarity (positive vs negative). Provides utilities
+    for accessing and deduplicating the complete set.
+
+    Attributes:
+        semantic_positive: Papers related by semantic similarity to target/contributions.
+        semantic_negative: Papers related by semantic similarity to background/context.
+        citations_positive: Papers cited positively (supportive references).
+        citations_negative: Papers cited negatively (critical references).
+    """
 
     semantic_positive: Sequence[PaperRelated]
     semantic_negative: Sequence[PaperRelated]
@@ -36,7 +78,11 @@ class QueryResult(Immutable):
 
     @property
     def related(self) -> Iterable[PaperRelated]:
-        """Retrieve all related papers from all polarities."""
+        """Iterate over all related papers regardless of source or polarity.
+
+        Yields papers in order: positive citations, negative citations, positive semantic,
+        negative semantic.
+        """
         return itertools.chain(
             self.semantic_positive,
             self.semantic_negative,
@@ -45,11 +91,19 @@ class QueryResult(Immutable):
         )
 
     def deduplicated(self) -> QueryResult:
-        """Return a new QueryResult with deduplicated papers using priority rules.
+        """Create a deduplicated version of query results using priority rules.
 
-        Priority order:
-        1. Citations > Semantic
-        2. For semantic: Background (negative polarity) > Target (positive polarity)
+        When the same paper appears in multiple result sets, keeps only the highest
+        priority occurrence. This ensures each paper appears exactly once while
+        preserving the most important relationship type.
+
+        Priority order (highest to lowest):
+        1. Citation-based papers (both positive and negative).
+        2. Semantic papers from background context (negative polarity).
+        3. Semantic papers from target context (positive polarity).
+
+        Returns:
+            New QueryResult with each paper appearing at most once.
         """
         ps = PaperSource
         cp = ContextPolarity
@@ -102,9 +156,16 @@ class QueryResult(Immutable):
 def _should_replace_paper(existing: PaperRelated, new: PaperRelated) -> bool:
     """Determine if new paper should replace existing paper based on priority.
 
-    Priority order:
-    1. Citations > Semantic
-    2. For semantic: Background (negative polarity) > Target (positive polarity)
+    Used during deduplication to decide which occurrence to keep when the same paper
+    appears multiple times. Implements the priority rules for paper source and polarity
+    comparisons.
+
+    Args:
+        existing: Currently stored paper.
+        new: Candidate paper that might replace it.
+
+    Returns:
+        True if new paper has higher priority and should replace existing.
     """
     # Citations always have priority over semantic
     if existing.source == PaperSource.CITATIONS and new.source == PaperSource.SEMANTIC:
@@ -131,7 +192,23 @@ def _should_replace_paper(existing: PaperRelated, new: PaperRelated) -> bool:
 
 
 class PaperRelated(Record):
-    """S2 paper cited by the PeerRead paper with the title similarity score and polarity."""
+    """Related paper with metadata about its relationship to the target paper.
+
+    Represents a paper that is related to the target paper through either citation or
+    semantic similarity. Includes relationship metadata like similarity scores, polarity,
+    and context information.
+
+    Attributes:
+        source: How this paper was found (citations or semantic search).
+        paper_id: Unique Semantic Scholar paper identifier.
+        title: Paper title.
+        abstract: Paper abstract.
+        score: Similarity/relevance score (interpretation depends on source).
+        polarity: Positive (supportive) or negative (contrasting) relationship.
+        contexts: Citation contexts (for citation-based papers).
+        background: Background text that matched (for semantic papers).
+        target: Target text that matched (for semantic papers).
+    """
 
     source: PaperSource
     paper_id: str
@@ -146,7 +223,11 @@ class PaperRelated(Record):
 
     @property
     def id(self) -> str:
-        """Identify the Citation by its underlying paper ID."""
+        """Get the unique identifier for this related paper.
+
+        Returns the Semantic Scholar paper ID, ensuring consistent identification across
+        different sources and result sets.
+        """
         return self.paper_id
 
     @classmethod
@@ -160,7 +241,23 @@ class PaperRelated(Record):
         background: str | None = None,
         target: str | None = None,
     ) -> Self:
-        """Create concrete paper result from abstract/protocol data and a source."""
+        """Factory method to create PaperRelated from various paper data types.
+
+        Converts abstract paper representations (like Citation or SemanticResult) into
+        concrete PaperRelated instances with full metadata. Supports both citation-based
+        and semantic similarity-based paper relationships.
+
+        Args:
+            paper: Source paper data (Citation or SemanticResult).
+            source: How this paper was found.
+            polarity: Relationship polarity.
+            contexts: Citation contexts (for citation papers).
+            background: Matching background text (for semantic papers).
+            target: Matching target text (for semantic papers).
+
+        Returns:
+            New PaperRelated instance with all metadata.
+        """
         return cls(
             paper_id=paper.paper_id,
             title=paper.title,
