@@ -30,6 +30,7 @@ class PaperExplorer {
     if (this.arxivService) {
       this.setupArxivSearchBar();
       this.setupClearCacheButton();
+      this.setupEvaluationModal();
     }
     await this.loadPapers();
   }
@@ -389,7 +390,7 @@ class PaperExplorer {
       `;
 
       paperDiv.addEventListener("click", () => {
-        void this.handleArxivPaperSelection(item);
+        this.handleArxivPaperSelection(item);
       });
 
       container.appendChild(paperDiv);
@@ -448,7 +449,7 @@ class PaperExplorer {
     updateClearButton();
   }
 
-  private async handleArxivPaperSelection(item: PaperSearchItem): Promise<void> {
+  private handleArxivPaperSelection(item: PaperSearchItem): void {
     if (!this.arxivService) {
       console.error("ArXiv service not available");
       return;
@@ -457,6 +458,7 @@ class PaperExplorer {
     // Store the selected item for potential retry
     this.lastSelectedArxivItem = item;
 
+    // Check if paper is already cached first
     console.log(`[Cache] Checking cache for arXiv paper: ${item.arxiv_id}`);
 
     // Check if paper is already cached
@@ -491,70 +493,10 @@ class PaperExplorer {
       }
     }
 
-    // Paper not in cache, show progress modal and fetch from API
-    console.log(
-      `[Cache] MISS! Paper ${item.arxiv_id} not found in cache, fetching from API...`,
-    );
+    // Paper not in cache, show evaluation settings modal
+    console.log(`[Cache] MISS! Paper ${item.arxiv_id} not found in cache`);
 
-    // We need permission for evaluation completion notification
-    await this.requestNotificationPermission();
-
-    this.showEvaluationModal(item.title);
-
-    try {
-      if (!this.paperEvaluator) {
-        throw new Error("Paper evaluator not available");
-      }
-
-      // Set up progress callbacks
-      this.paperEvaluator.onConnected = (message: string) => {
-        console.log("Connected:", message);
-        this.updateEvaluationProgress(message, 0);
-      };
-
-      this.paperEvaluator.onProgress = (message: string, progress: number) => {
-        console.log(`Progress: ${message} (${progress.toFixed(1)}%)`);
-        this.updateEvaluationProgress(message, progress);
-      };
-
-      this.paperEvaluator.onError = (error: string) => {
-        console.error("Evaluation error:", error);
-        this.showEvaluationError(error);
-      };
-
-      this.paperEvaluator.onConnectionError = (event: Event) => {
-        console.error("Connection error:", event);
-        this.showEvaluationError("Connection lost. Please try again.");
-      };
-
-      // Start evaluation
-      const evalResult = await this.paperEvaluator.startEvaluation({
-        id: item.arxiv_id,
-        title: item.title,
-        k_refs: 2,
-        recommendations: 30,
-        related: 2,
-        llm_model: "gpt-4o-mini",
-        seed: 0,
-      });
-
-      // Store the result in localStorage cache
-      const paperId = evalResult.result.paper.id;
-      console.log(
-        `[Cache] Storing paper ${item.arxiv_id} in cache with key paper-cache-${paperId}`,
-      );
-      localStorage.setItem(`paper-cache-${paperId}`, JSON.stringify(evalResult.result));
-
-      // Show completion notification
-      this.showCompletionNotification(item.title);
-
-      // Navigate to detail page
-      const encodedId = encodeURIComponent(paperId);
-      window.location.href = `/paper-explorer/pages/paper-detail.html?id=${encodedId}`;
-    } catch (error) {
-      console.error("Error evaluating paper:", error);
-      this.showEvaluationError("Failed to evaluate paper. Please try again.");
-    }
+    this.showEvaluationSettingsModal(item);
   }
 
   private showEvaluationModal(title: string): void {
@@ -686,7 +628,7 @@ class PaperExplorer {
         this.hideEvaluationModal();
         // Restart the evaluation with the same item
         if (this.lastSelectedArxivItem) {
-          void this.handleArxivPaperSelection(this.lastSelectedArxivItem);
+          this.handleArxivPaperSelection(this.lastSelectedArxivItem);
         }
       });
     }
@@ -773,6 +715,169 @@ class PaperExplorer {
       };
     } catch (error) {
       console.warn("Failed to show notification:", error);
+    }
+  }
+
+  private setupEvaluationModal(): void {
+    const modal = document.getElementById("evaluation-settings-modal");
+    const form = document.getElementById("evaluation-settings-form");
+    const cancelButton = document.getElementById("cancel-evaluation");
+    const paperTitleEl = document.getElementById("evaluation-paper-title");
+
+    if (!modal || !form || !cancelButton || !paperTitleEl) {
+      console.warn("Evaluation modal elements not found");
+      return;
+    }
+
+    // Handle cancel button
+    cancelButton.addEventListener("click", () => {
+      this.hideEvaluationSettingsModal();
+    });
+
+    // Handle clicking outside modal
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) {
+        this.hideEvaluationSettingsModal();
+      }
+    });
+
+    // Handle form submission
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      void this.handleEvaluationSubmit();
+    });
+
+    // Handle Escape key
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !modal.classList.contains("hidden")) {
+        this.hideEvaluationSettingsModal();
+      }
+    });
+  }
+
+  private showEvaluationSettingsModal(item: PaperSearchItem): void {
+    const modal = document.getElementById("evaluation-settings-modal");
+    const paperTitleEl = document.getElementById("evaluation-paper-title");
+
+    if (!modal || !paperTitleEl) {
+      console.error("Evaluation settings modal elements not found");
+      return;
+    }
+
+    // Store the item for later use
+    this.lastSelectedArxivItem = item;
+
+    // Update modal title with paper info
+    paperTitleEl.textContent = `Configure evaluation for: ${item.title}`;
+
+    // Show modal
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+  }
+
+  private hideEvaluationSettingsModal(): void {
+    const modal = document.getElementById("evaluation-settings-modal");
+    if (modal) {
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+  }
+
+  private async handleEvaluationSubmit(): Promise<void> {
+    if (!this.lastSelectedArxivItem || !this.paperEvaluator) {
+      console.error("No selected item or evaluator not available");
+      return;
+    }
+
+    // Get form values
+    const kRefsInput = document.getElementById("k_refs");
+    const recommendationsInput = document.getElementById("recommendations");
+    const relatedInput = document.getElementById("related");
+    const llmModelSelect = document.getElementById("llm_model");
+
+    if (!kRefsInput || !recommendationsInput || !relatedInput || !llmModelSelect) {
+      console.error("Form elements not found");
+      return;
+    }
+
+    // Parse and validate form values
+    const params = {
+      id: this.lastSelectedArxivItem.arxiv_id,
+      title: this.lastSelectedArxivItem.title,
+      k_refs: parseInt((kRefsInput as HTMLInputElement).value, 10),
+      recommendations: parseInt((recommendationsInput as HTMLInputElement).value, 10),
+      related: parseInt((relatedInput as HTMLInputElement).value, 10),
+      llm_model: (llmModelSelect as HTMLSelectElement).value as
+        | "gpt-4o"
+        | "gpt-4o-mini"
+        | "gemini-2.0-flash",
+      seed: 0,
+    };
+
+    // Validate parameters
+    if (params.k_refs < 1 || params.k_refs > 10) {
+      alert("References to analyse must be between 1 and 10");
+      return;
+    }
+    if (params.recommendations < 5 || params.recommendations > 50) {
+      alert("Recommended papers must be between 5 and 50");
+      return;
+    }
+    if (params.related < 1 || params.related > 10) {
+      alert("Related papers per type must be between 1 and 10");
+      return;
+    }
+
+    // Hide settings modal and show progress modal
+    this.hideEvaluationSettingsModal();
+
+    // Request notification permission
+    await this.requestNotificationPermission();
+
+    // Show progress modal
+    this.showEvaluationModal(params.title);
+
+    try {
+      // Set up progress callbacks
+      this.paperEvaluator.onConnected = (message: string) => {
+        console.log("Connected:", message);
+        this.updateEvaluationProgress(message, 0);
+      };
+
+      this.paperEvaluator.onProgress = (message: string, progress: number) => {
+        console.log(`Progress: ${message} (${progress.toFixed(1)}%)`);
+        this.updateEvaluationProgress(message, progress);
+      };
+
+      this.paperEvaluator.onError = (error: string) => {
+        console.error("Evaluation error:", error);
+        this.showEvaluationError(error);
+      };
+
+      this.paperEvaluator.onConnectionError = (event: Event) => {
+        console.error("Connection error:", event);
+        this.showEvaluationError("Connection lost. Please try again.");
+      };
+
+      // Start evaluation with custom parameters
+      const evalResult = await this.paperEvaluator.startEvaluation(params);
+
+      // Store the result in localStorage cache
+      const paperId = evalResult.result.paper.id;
+      console.log(
+        `[Cache] Storing paper ${params.id} in cache with key paper-cache-${paperId}`,
+      );
+      localStorage.setItem(`paper-cache-${paperId}`, JSON.stringify(evalResult.result));
+
+      // Show completion notification
+      this.showCompletionNotification(params.title);
+
+      // Navigate to detail page
+      const encodedId = encodeURIComponent(paperId);
+      window.location.href = `/paper-explorer/pages/paper-detail.html?id=${encodedId}`;
+    } catch (error) {
+      console.error("Error evaluating paper:", error);
+      this.showEvaluationError("Failed to evaluate paper. Please try again.");
     }
   }
 }
