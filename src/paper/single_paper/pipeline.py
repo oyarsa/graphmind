@@ -19,7 +19,7 @@ from paper.gpt.run_gpt import GPTResult, LLMClient
 from paper.orc.arxiv_api import arxiv_id_from_url
 from paper.single_paper.annotation_extraction import (
     classify_citation_contexts,
-    extract_paper_annotations,
+    extract_main_paper_annotations,
     extract_recommended_annotations,
 )
 from paper.single_paper.graph_evaluation import (
@@ -139,7 +139,7 @@ async def annotate_paper_pipeline(
         paper_with_classified_contexts,
     ) = await asyncio.gather(
         atimer(
-            extract_paper_annotations(
+            extract_main_paper_annotations(
                 paper_with_s2_refs, client, term_prompt_key, abstract_prompt_key
             ),
             3,

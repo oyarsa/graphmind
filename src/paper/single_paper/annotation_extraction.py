@@ -102,9 +102,9 @@ async def extract_annotations(
     )
 
     # Run GPT extractions
-    result_term = await client.run(gpt.PaperTerms, TERM_SYSTEM_PROMPT, term_prompt_text)
-    result_abstract = await client.run(
-        GPTAbstractClassify, ABS_SYSTEM_PROMPT, abstract_prompt_text
+    result_term, result_abstract = await asyncio.gather(
+        client.run(gpt.PaperTerms, TERM_SYSTEM_PROMPT, term_prompt_text),
+        client.run(GPTAbstractClassify, ABS_SYSTEM_PROMPT, abstract_prompt_text),
     )
 
     # Extract results with fallbacks
