@@ -13,31 +13,17 @@ from enum import StrEnum
 from typing import Annotated, Any
 
 import rich
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from paper import single_paper
+from paper.backend.dependencies import LimiterDep
 from paper.util import atimer, setup_logging
 
 router = APIRouter(prefix="/mind", tags=["mind"])
 logger = logging.getLogger(__name__)
 setup_logging()
-
-
-def get_limiter(request: Request) -> single_paper.Limiter:
-    """Dependency injection for the request rate limiter.
-
-    Args:
-        request: FastAPI request object containing application state.
-
-    Returns:
-        Rate limiter instance from application state.
-    """
-    return request.app.state.limiter
-
-
-LimiterDep = Annotated[single_paper.Limiter, Depends(get_limiter)]
 
 
 class PaperSearchItem(BaseModel):

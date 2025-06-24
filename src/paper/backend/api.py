@@ -6,46 +6,13 @@ CORS middleware, and routes for the Paper Explorer API.
 
 import datetime as dt
 import os
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
 
-import dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from paper import single_paper
-from paper.backend.db import DatabaseManager
+from paper.backend.dependencies import lifespan
 from paper.backend.model import HealthCheck
 from paper.backend.routers import mind, network
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Manage application lifespan events.
-
-    Handles startup and shutdown operations including:
-    - Loading environment variables from .env file
-    - Setting up rate limiter for external API calls
-    - Opening and closing database connections
-
-    Args:
-        app: FastAPI application instance.
-
-    Yields:
-        None during application runtime.
-    """
-    dotenv.load_dotenv()
-    app.state.limiter = single_paper.get_limiter(use_semaphore=False)
-
-    async with DatabaseManager(
-        dbname=os.environ["XP_DB_NAME"],
-        user=os.environ["XP_DB_USER"],
-        password=os.environ["XP_DB_PASSWORD"],
-        host=os.environ["XP_DB_HOST"],
-        port=os.environ["XP_DB_PORT"],
-    ) as db:
-        app.state.db = db
-        yield
 
 
 def _setup_cors(app: FastAPI) -> None:

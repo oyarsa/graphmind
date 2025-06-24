@@ -122,7 +122,7 @@ async def extract_annotations(
     )
 
 
-async def extract_paper_annotations(
+async def extract_main_paper_annotations(
     paper_with_s2_refs: s2.PaperWithS2Refs,
     client: LLMClient,
     term_prompt_key: str,
