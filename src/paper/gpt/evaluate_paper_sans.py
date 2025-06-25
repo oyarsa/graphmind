@@ -34,14 +34,13 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    OpenAIClient,
+    LLMClient,
     append_intermediate_result,
     get_remaining_items,
 )
 from paper.util import (
     Timer,
     cli,
-    ensure_envvar,
     get_params,
     progress,
     render_params,
@@ -198,9 +197,7 @@ async def evaluate_papers(
     if limit_papers == 0:
         limit_papers = None
 
-    client = OpenAIClient(
-        api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
-    )
+    client = LLMClient.new_env(model=model, seed=seed)
 
     papers = sample(load_data(papers_path, s2.PaperWithS2Refs), limit_papers, rng)
     user_prompt = SANS_CLASSIFY_USER_PROMPTS[user_prompt_key]
@@ -252,7 +249,7 @@ async def evaluate_papers(
 
 
 async def _classify_papers(
-    client: OpenAIClient,
+    client: LLMClient,
     user_prompt: PromptTemplate,
     papers: Sequence[s2.PaperWithS2Refs],
     output_intermediate_file: Path,
@@ -306,7 +303,7 @@ def format_template(
 
 
 async def _classify_paper(
-    client: OpenAIClient,
+    client: LLMClient,
     paper: s2.PaperWithS2Refs,
     user_prompt: PromptTemplate,
     demonstrations: str,

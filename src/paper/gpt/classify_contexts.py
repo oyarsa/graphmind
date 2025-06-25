@@ -32,7 +32,7 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    OpenAIClient,
+    LLMClient,
     append_intermediate_result,
     init_remaining_items,
 )
@@ -40,7 +40,6 @@ from paper.types import Immutable
 from paper.util import (
     Timer,
     cli,
-    ensure_envvar,
     get_params,
     hashstr,
     progress,
@@ -160,9 +159,7 @@ async def classify_contexts(
     if limit_references == 0:
         limit_references = None
 
-    client = OpenAIClient(
-        api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
-    )
+    client = LLMClient.new_env(model=model, seed=seed)
 
     data = load_data(data_path, s2.PaperWithS2Refs)
 
@@ -337,7 +334,7 @@ CONTEXT_SYSTEM_PROMPT = (
 
 
 async def _classify_paper(
-    client: OpenAIClient,
+    client: LLMClient,
     limit_references: int | None,
     paper: s2.PaperWithS2Refs,
     user_prompt: PromptTemplate,
@@ -407,7 +404,7 @@ async def _classify_paper(
 
 
 async def _classify_contexts(
-    client: OpenAIClient,
+    client: LLMClient,
     user_prompt: PromptTemplate,
     papers: Sequence[s2.PaperWithS2Refs],
     limit_references: int | None,

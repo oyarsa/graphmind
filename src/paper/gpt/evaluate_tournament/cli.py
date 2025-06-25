@@ -38,11 +38,10 @@ from paper.gpt.evaluate_tournament.tournament import (
 )
 from paper.gpt.model import PromptResult
 from paper.gpt.prompts import load_prompts, print_prompts
-from paper.gpt.run_gpt import OpenAIClient
+from paper.gpt.run_gpt import LLMClient
 from paper.util import (
     Timer,
     cli,
-    ensure_envvar,
     get_params,
     render_params,
     setup_logging,
@@ -263,9 +262,7 @@ async def run_tournaments(
             saved.
     """
     rng = random.Random(seed)
-    client = OpenAIClient(
-        api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
-    )
+    client = LLMClient.new_env(model=model, seed=seed)
 
     # Step 1: Either load existing comparisons or generate new ones
     if reuse_comparisons_path is not None:

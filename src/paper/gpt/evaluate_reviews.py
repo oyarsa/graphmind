@@ -37,7 +37,7 @@ from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
     GPTResult,
-    OpenAIClient,
+    LLMClient,
     append_intermediate_result,
     get_remaining_items,
 )
@@ -45,7 +45,6 @@ from paper.types import Immutable
 from paper.util import (
     Timer,
     cli,
-    ensure_envvar,
     get_params,
     progress,
     render_params,
@@ -263,9 +262,7 @@ async def evaluate_reviews(
     if limit_papers == 0:
         limit_papers = None
 
-    client = OpenAIClient(
-        api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
-    )
+    client = LLMClient.new_env(model=model, seed=seed)
 
     papers = sample(load_data(peerread_path, pr.Paper), limit_papers, rng)
     logger.info("%s", _display_label_dist(papers, mode))
@@ -386,7 +383,7 @@ def _format_demonstrations(
 
 
 async def _evaluate_reviews(
-    client: OpenAIClient,
+    client: LLMClient,
     user_prompt: PromptTemplate,
     extract_prompt: PromptTemplate | None,
     papers: Sequence[pr.Paper],
@@ -449,7 +446,7 @@ class _GPTRationale(Immutable):
 
 
 async def _evaluate_paper_reviews(
-    client: OpenAIClient,
+    client: LLMClient,
     paper: pr.Paper,
     user_prompt: PromptTemplate,
     extract_prompt: PromptTemplate | None,

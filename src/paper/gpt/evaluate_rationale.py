@@ -37,7 +37,6 @@ from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     GPTResult,
     LLMClient,
-    OpenAIClient,
     append_intermediate_result,
     init_remaining_items,
 )
@@ -45,7 +44,6 @@ from paper.types import Immutable
 from paper.util import (
     Timer,
     cli,
-    ensure_envvar,
     get_params,
     progress,
     render_params,
@@ -358,9 +356,7 @@ async def evaluate_rationales(
     if limit_papers == 0:
         limit_papers = None
 
-    client = OpenAIClient(
-        api_key=ensure_envvar("OPENAI_API_KEY"), model=model, seed=seed
-    )
+    client = LLMClient.new_env(model=model, seed=seed)
 
     input_type_ = input_type.lower()
     if input_type_ not in InputResultMapping:
