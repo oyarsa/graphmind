@@ -25,6 +25,33 @@ import {
   getArxivUrl,
 } from "./helpers";
 
+/**
+ * Get color for score progress bar (red to green gradient)
+ */
+function getScoreColor(score: number): string {
+  // Ensure score is between 0 and 1
+  const clampedScore = Math.max(0, Math.min(1, score));
+
+  // Convert to percentage for color calculation
+  const percent = clampedScore * 100;
+
+  if (percent < 50) {
+    // Red to yellow gradient (0-50%)
+    const ratio = percent / 50;
+    const r = 239; // red-500
+    const g = Math.round(68 + (245 - 68) * ratio); // transition to yellow-400
+    const b = 68;
+    return `rgb(${r}, ${g}, ${b})`;
+  } else {
+    // Yellow to green gradient (50-100%)
+    const ratio = (percent - 50) / 50;
+    const r = Math.round(245 - (245 - 34) * ratio); // transition from yellow-400 to green-600
+    const g = Math.round(158 + (197 - 158) * ratio);
+    const b = Math.round(11 + (77 - 11) * ratio);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+}
+
 function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
   const { scorePercent } = getScoreDisplay(paper.score);
   const relationship = getRelationshipStyle(paper);
@@ -51,9 +78,18 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
           >
             ${relationship.icon} ${relationship.label}
           </span>
-          <span class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-            Similarity Score: <span class="font-medium">${scorePercent}%</span>
-          </span>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+              Similarity Score: <span class="font-medium">${scorePercent}%</span>
+            </span>
+            <!-- Progress bar -->
+            <div class="relative w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div 
+                class="absolute top-0 left-0 h-full rounded-full transition-all duration-300"
+                style="width: ${scorePercent}%; background-color: ${getScoreColor(paper.score)}"
+              ></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -322,7 +358,7 @@ function createStructuredEvaluationDisplay(evaluation: StructuredEval): string {
 
       <!-- Key Comparisons -->
       ${
-        evaluation.key_comparisons && evaluation.key_comparisons.length > 0
+        evaluation.key_comparisons.length > 0
           ? `
         <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
                     dark:border-gray-700 dark:bg-gray-800/50">
