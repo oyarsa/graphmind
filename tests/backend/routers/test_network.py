@@ -7,12 +7,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 from paper.backend.api import app
+from paper.backend.dependencies import ENABLE_NETWORK
 from paper.backend.model import (
     Paper,
     RelatedPaperNeighbourhood,
     RelatedType,
     SearchResult,
 )
+
+if not ENABLE_NETWORK:
+    pytest.skip("Network module disabled", allow_module_level=True)
 
 
 @pytest.fixture

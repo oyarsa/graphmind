@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from paper.backend.api import app
+from paper.backend.dependencies import ENABLE_NETWORK
 from paper.backend.model import HealthCheck
 
 
@@ -39,11 +40,13 @@ def test_openapi_schema(client: TestClient) -> None:
     assert schema["info"]["title"] == "Paper Explorer"
     assert "paths" in schema
     assert "/health" in schema["paths"]
-    assert "/network/search" in schema["paths"]
-    assert "/network/papers/{id}" in schema["paths"]
-    assert "/network/related/{paper_id}" in schema["paths"]
     assert "/mind/search" in schema["paths"]
     assert "/mind/evaluate" in schema["paths"]
+
+    if ENABLE_NETWORK:
+        assert "/network/search" in schema["paths"]
+        assert "/network/papers/{id}" in schema["paths"]
+        assert "/network/related/{paper_id}" in schema["paths"]
 
 
 def test_docs_available(client: TestClient) -> None:
