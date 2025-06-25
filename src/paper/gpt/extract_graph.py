@@ -32,8 +32,6 @@ class GraphResult(Immutable, PaperProxy[PaperResult]):
 
     graph: Graph
     paper: PaperResult
-    # TODO: Make this required once enough time has passed that we don't have old files
-    # anymore.
     related: Sequence[PaperRelatedSummarised] | None = None
 
     # Optional annotation data from the original PeerReadAnnotated paper
