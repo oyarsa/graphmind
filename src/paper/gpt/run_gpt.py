@@ -147,6 +147,31 @@ def gpr_map[T, U](
     return result.map(lambda r: r.map(f))
 
 
+def _get_api_tier(provider: str, base_url: str | None = None) -> int:
+    """Get API tier from environment or defaults.
+
+    Args:
+        provider: The API provider.
+        base_url: Base URL for the API (used to detect Azure).
+
+    Returns:
+        The API tier number.
+    """
+    if provider == "azure":
+        return AZURE_TIER
+
+    if provider == "openai" and base_url is not None:
+        # Custom OpenAI-compatible endpoint
+        return -1
+
+    key_var = f"{provider.upper()}_API_TIER"
+    if provider in ("openai", "gemini") and (api_tier_s := os.getenv(key_var)):
+        return int(api_tier_s)
+
+    logger.warning(f"{key_var} unset. Defaulting to tier 1.")
+    return 1
+
+
 def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
     """Get the rate limiter for a specific model based on the API tier.
 
@@ -169,8 +194,6 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
     # <request_limit, token_limit> per minute
     limits: dict[str, tuple[int, int]]
 
-    # TODO: Refactor how we deal with tiers from different provides (Gemini, OpenAI, Azure).
-    # We really need to revamp this overall. It works but it's kind of hacky. (2025-05-15)
     if tier == -1:
         rate_limits = (1_000, 1_000_000)
     else:
@@ -232,19 +255,7 @@ def _find_best_match(
     return limits[max(matching_prefixes, key=len)]
 
 
-def _prepare_messages_gpt(
-    system_prompt: str, user_prompt: str, max_input_tokens: int | None
-) -> list[dict[str, str]]:
-    prepared_system, prepared_user = _prepare_messages(
-        system_prompt, user_prompt, max_input_tokens
-    )
-    return [
-        {"role": "system", "content": prepared_system},
-        {"role": "user", "content": prepared_user},
-    ]
-
-
-def _prepare_messages(
+def prepare_messages(
     system_prompt: str, user_prompt: str, max_input_tokens: int | None
 ) -> tuple[str, str]:
     """Prepare messages for the API call, applying token limits if needed.
@@ -277,6 +288,53 @@ class LLMClient(ABC):
 
     API_KEY_VAR: ClassVar[str]
     """Name of the environment variable holding the API key."""
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        seed: int,
+        temperature: float = 0,
+        timeout: float = 60,
+        max_input_tokens: int | None = 90_000,
+        log_exception: bool | None = None,
+    ) -> None:
+        """Initialize common LLM client attributes.
+
+        Args:
+            api_key: Authentication key.
+            model: Model code to use.
+            seed: Seed to give the model.
+            temperature: How unpredictable the model is.
+            timeout: Timeout in seconds for the API calls.
+            max_input_tokens: Maximum number of tokens allowed in the input.
+            log_exception: If True, log full traceback for non-API exceptions.
+        """
+        self.api_key = api_key
+        self.model = MODEL_SYNONYMS.get(model, model)
+        self.seed = seed
+        self.temperature = temperature
+        self.timeout = timeout
+        self.max_input_tokens = max_input_tokens
+
+        if log_exception is not None:
+            self.should_log_exception = log_exception
+        else:
+            self.should_log_exception = os.getenv("LOG_EXCEPTION", "0") == "1"
+
+    def _log_exception(self, msg: str, exc: Exception) -> None:
+        """Log exception with appropriate level based on configuration."""
+        log = logger.exception if self.should_log_exception else logger.warning
+        log(msg, exc)
+
+    async def _prepare_prompts(
+        self, system_prompt: str, user_prompt: str
+    ) -> tuple[str, str]:
+        """Prepare prompts applying token limits if needed."""
+        return await asyncio.to_thread(
+            prepare_messages, system_prompt, user_prompt, self.max_input_tokens
+        )
 
     @classmethod
     def new(
@@ -399,7 +457,6 @@ class OpenAIClient(LLMClient):
 
     API_KEY_VAR: ClassVar[str] = "OPENAI_API_KEY"
 
-    # TODO: This desperately needs a better way to handle the Azure API.
     def __init__(
         self,
         *,
@@ -432,25 +489,38 @@ class OpenAIClient(LLMClient):
                 log the exception description as a warning. If None, get value from
                 the `LOG_EXCEPTION` environment variable (1 or 0), defaulting to 0.
         """
+        # Initialize common attributes first
+        super().__init__(
+            api_key=api_key,
+            model=model,
+            seed=seed,
+            temperature=temperature,
+            timeout=timeout,
+            max_input_tokens=max_input_tokens,
+            log_exception=log_exception,
+        )
+
+        self.base_url = base_url
         is_openai = base_url is None
         is_azure = base_url is not None and "azure" in base_url
-        if not is_azure:
-            model = MODEL_SYNONYMS.get(model, model)
 
-        if is_openai and model not in MODELS_ALLOWED:
+        # Azure doesn't use model synonyms
+        if is_azure:
+            self.model = model  # Override the synonym resolution
+
+        if is_openai and self.model not in MODELS_ALLOWED:
             raise ValueError(
-                f"Invalid OpenAI model: '{model}'. Should be one of: {MODELS_ALLOWED}."
+                f"Invalid OpenAI model: '{self.model}'. Should be one of: {MODELS_ALLOWED}."
             )
 
         if is_azure:
-            assert base_url is not None
-
             if model not in MODELS_ALLOWED_AZURE:
                 raise ValueError(
                     f"Invalid Azure model: '{model}'. Should be one of:"
                     f" {MODELS_ALLOWED_AZURE}."
                 )
 
+            assert base_url, "Base URL must be non-empty for Azure"
             self.client = AsyncAzureOpenAI(
                 azure_endpoint=base_url,
                 api_version="2024-12-01-preview",
@@ -459,28 +529,12 @@ class OpenAIClient(LLMClient):
         else:
             self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
-        self.model = model
-        self.seed = seed
-        self.temperature = temperature
-        self.timeout = timeout
-        self.max_input_tokens = max_input_tokens
-
-        if log_exception is not None:
-            self.should_log_exception = log_exception
-        else:
-            self.should_log_exception = os.getenv("LOG_EXCEPTION", "0") == "1"
-
+        # Determine API tier and create rate limiter
         if is_azure:
-            api_tier = AZURE_TIER
-        elif not is_openai:
-            api_tier = -1
-        elif api_tier_s := os.getenv("OPENAI_API_TIER"):
-            api_tier = int(api_tier_s)
+            api_tier = _get_api_tier("azure")
         else:
-            logger.warning("OPENAI_API_TIER unset. Defaulting to tier 1.")
-            api_tier = 1
-
-        self.rate_limiter = get_rate_limiter(api_tier, model)
+            api_tier = _get_api_tier("openai", base_url)
+        self.rate_limiter = get_rate_limiter(api_tier, self.model)
 
     @classmethod
     def from_env(
@@ -507,22 +561,26 @@ class OpenAIClient(LLMClient):
         use_azure = os.getenv("USE_AZURE", "0") == "1"
 
         if use_azure:
-            # Remove model suffixes (e.g. date version) since Azure doesn't use those.
+            # Azure requires simplified model names without version suffixes
             if model.startswith("gpt-4o-mini"):
-                model = "gpt-4o-mini"
+                model_base = "gpt-4o-mini"
             elif model.startswith("gpt-4o"):
-                model = "gpt-4o"
+                model_base = "gpt-4o"
             else:
                 raise ValueError(f"Invalid Azure model: {model}")
 
+            if model_base not in MODELS_ALLOWED_AZURE:
+                raise ValueError(f"Invalid Azure model: {model}")
+
             env = mustenv("AZURE_BASE_URL", "AZURE_API_KEY")
-            base_url = env["AZURE_BASE_URL"].replace("{{model}}", model)
+            base_url = env["AZURE_BASE_URL"].replace("{{model}}", model_base)
             api_key = env["AZURE_API_KEY"]
+            model = model_base  # Use simplified name for Azure
         else:
             base_url = os.getenv("OPENAI_BASE_URL")
             api_key = ensure_envvar("OPENAI_API_KEY")
 
-        return OpenAIClient(
+        return cls(
             api_key=api_key,
             model=model,
             seed=seed,
@@ -569,15 +627,12 @@ class OpenAIClient(LLMClient):
         """
 
         try:
-            messages = await asyncio.to_thread(
-                _prepare_messages_gpt,
-                system_prompt,
-                user_prompt,
-                self.max_input_tokens,
+            system_prompt, user_prompt = await self._prepare_prompts(
+                system_prompt, user_prompt
             )
             completion = await self._call_gpt(
                 model=self.model,
-                messages=messages,
+                messages=prompts_to_messages(system_prompt, user_prompt),
                 response_format=class_,
                 seed=self.seed,
                 temperature=self.temperature,
@@ -633,11 +688,12 @@ class OpenAIClient(LLMClient):
         )
 
         try:
+            system_prompt, user_prompt = await self._prepare_prompts(
+                system_prompt, user_prompt
+            )
             completion = await self._call_gpt_plain(
                 model=self.model,
-                messages=_prepare_messages_gpt(
-                    system_prompt, user_prompt, self.max_input_tokens
-                ),
+                messages=prompts_to_messages(system_prompt, user_prompt),
                 seed=seed,
                 temperature=temperature,
                 max_tokens=max_tokens,
@@ -684,10 +740,6 @@ class OpenAIClient(LLMClient):
             logger.warning("Non-API error: %s", e)
             return None
 
-    def _log_exception(self, msg: str, exc: Exception) -> None:
-        log = logger.exception if self.should_log_exception else logger.warning
-        log(msg, exc)
-
     @backoff.on_exception(
         backoff.expo,
         (openai.APIError, asyncio.TimeoutError),
@@ -722,6 +774,14 @@ class OpenAIClient(LLMClient):
         except Exception as e:
             logger.warning("Non-API error: %s", e)
             return None
+
+
+def prompts_to_messages(system_prompt: str, user_prompt: str) -> list[dict[str, str]]:
+    """Format system and user prompts as OpenAI-style messages."""
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
 
 
 class GeminiClient(LLMClient):
@@ -771,19 +831,23 @@ class GeminiClient(LLMClient):
         Raises:
             ValueError: if the model is invalid or if `thinking_budget` is out of range.
         """
-        model = MODEL_SYNONYMS.get(model, model)
+        # Initialize common attributes first
+        super().__init__(
+            api_key=api_key,
+            model=model,
+            seed=seed,
+            temperature=temperature,
+            timeout=timeout,
+            max_input_tokens=max_input_tokens,
+            log_exception=log_exception,
+        )
 
-        if model not in MODELS_ALLOWED:
+        if self.model not in MODELS_ALLOWED:
             raise ValueError(
-                f"Invalid model: {model!r}. Should be one of: {MODELS_ALLOWED}."
+                f"Invalid model: {self.model!r}. Should be one of: {MODELS_ALLOWED}."
             )
 
         self.client = genai.Client(api_key=api_key)
-        self.model = model
-        self.seed = seed
-        self.temperature = temperature
-        self.timeout = timeout
-        self.max_input_tokens = max_input_tokens
         self.base_url = base_url
         self.include_thoughts = include_thoughts
 
@@ -791,18 +855,9 @@ class GeminiClient(LLMClient):
             raise ValueError("thinking_budget must be in [0, 24576]")
         self.thinking_budget = thinking_budget
 
-        if log_exception is not None:
-            self.should_log_exception = log_exception
-        else:
-            self.should_log_exception = os.getenv("LOG_EXCEPTION", "0") == "1"
-
-        if api_tier_s := os.getenv("GEMINI_API_TIER"):
-            api_tier = int(api_tier_s)
-        else:
-            logger.warning("GEMINI_API_TIER unset. Defaulting to tier 1.")
-            api_tier = 1
-
-        self.rate_limiter = get_rate_limiter(api_tier, model)
+        # Get API tier and create rate limiter
+        api_tier = _get_api_tier("gemini")
+        self.rate_limiter = get_rate_limiter(api_tier, self.model)
 
     @classmethod
     def from_env(
@@ -897,8 +952,8 @@ class GeminiClient(LLMClient):
             parsing the result), the object is None. The cost is provided either way.
         """
 
-        system_prompt, user_prompt = _prepare_messages(
-            system_prompt, user_prompt, self.max_input_tokens
+        system_prompt, user_prompt = await self._prepare_prompts(
+            system_prompt, user_prompt
         )
         try:
             completion = await self._call_api(
@@ -962,8 +1017,8 @@ class GeminiClient(LLMClient):
             either way.
         """
         is_search = search_level is not None
-        system_prompt, user_prompt = _prepare_messages(
-            system_prompt, user_prompt, self.max_input_tokens
+        system_prompt, user_prompt = await self._prepare_prompts(
+            system_prompt, user_prompt
         )
 
         try:
@@ -1003,10 +1058,6 @@ class GeminiClient(LLMClient):
             content = None
 
         return GPTResult(result=content, cost=cost)
-
-    def _log_exception(self, msg: str, exc: Exception) -> None:
-        log = logger.exception if self.should_log_exception else logger.warning
-        log(msg, exc)
 
     def _thinking_config(self) -> types.ThinkingConfig | None:
         """Create config if both `thinking_budget` and `include_thoughts` are set."""
@@ -1048,7 +1099,7 @@ class GeminiClient(LLMClient):
                 )
                 await update_usage(response)
                 return response
-        except openai.APIError as e:
+        except errors.APIError as e:
             logger.warning("API error: %s", e)
             raise
         except Exception as e:
