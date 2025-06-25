@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from paper.backend.dependencies import lifespan
 from paper.backend.model import HealthCheck
-from paper.backend.routers import mind, network
+from paper.backend.routers import mind
 
 
 def _setup_cors(app: FastAPI) -> None:
@@ -59,7 +59,11 @@ app = FastAPI(
 _setup_cors(app)
 
 
-app.include_router(network.router)
+if os.getenv("XP_ENABLE_NETWORK", "0") == "1":
+    from paper.backend.routers import network
+
+    app.include_router(network.router)
+
 app.include_router(mind.router)
 
 
