@@ -12,6 +12,8 @@ from paper import single_paper
 from paper.backend.db import DatabaseManager
 from paper.gpt.run_gpt import LLMClient
 
+ENABLE_NETWORK = os.getenv("XP_ENABLE_NETWORK", "0") == "1"
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -32,15 +34,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.limiter = single_paper.get_limiter(use_semaphore=False)
     app.state.llm_registry = LLMClientRegistry()
 
-    async with DatabaseManager(
-        dbname=os.environ["XP_DB_NAME"],
-        user=os.environ["XP_DB_USER"],
-        password=os.environ["XP_DB_PASSWORD"],
-        host=os.environ["XP_DB_HOST"],
-        port=os.environ["XP_DB_PORT"],
-    ) as db:
-        app.state.db = db
+    db: DatabaseManager | None = None
+    try:
+        if ENABLE_NETWORK:
+            db = DatabaseManager(
+                dbname=os.environ["XP_DB_NAME"],
+                user=os.environ["XP_DB_USER"],
+                password=os.environ["XP_DB_PASSWORD"],
+                host=os.environ["XP_DB_HOST"],
+                port=os.environ["XP_DB_PORT"],
+            )
+            await db.open()
+            app.state.db = db
+
         yield
+    finally:
+        if db:
+            await db.close()
 
 
 def get_limiter(request: Request) -> single_paper.Limiter:
@@ -93,3 +103,20 @@ def get_llm_clients(request: Request) -> LLMClientRegistry:
 
 
 LLMRegistryDep = Annotated[LLMClientRegistry, Depends(get_llm_clients)]
+
+
+def get_db(request: Request) -> DatabaseManager:
+    """Dependency injection for the database manager.
+
+    Args:
+        request: FastAPI request object containing application state.
+
+    Returns:
+        DatabaseManager instance from application state.
+    """
+    db = request.app.state.db
+    assert db, "Database must be initialised in `lifespan`"
+    return db
+
+
+DbDep = Annotated[DatabaseManager, Depends(get_db)]

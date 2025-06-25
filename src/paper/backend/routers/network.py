@@ -6,10 +6,10 @@ and exploring relationships between papers through citations and semantic simila
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.params import Path
 
-from paper.backend.db import DatabaseManager
+from paper.backend.dependencies import DbDep
 from paper.backend.model import (
     Paper,
     PaperId,
@@ -19,21 +19,6 @@ from paper.backend.model import (
 )
 
 router = APIRouter(prefix="/network", tags=["network"])
-
-
-def get_db(request: Request) -> DatabaseManager:
-    """Dependency injection for the database manager.
-
-    Args:
-        request: FastAPI request object containing application state.
-
-    Returns:
-        DatabaseManager instance from application state.
-    """
-    return request.app.state.db
-
-
-DbDep = Annotated[DatabaseManager, Depends(get_db)]
 
 
 @router.get("/search")
