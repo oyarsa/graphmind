@@ -116,7 +116,7 @@ class GPTResult[T]:
         return self.then(func(self.result))
 
     @staticmethod
-    def pure(value: T) -> GPTResult[T]:
+    def unit(value: T) -> GPTResult[T]:
         """New result with cost 0."""
         return GPTResult(result=value, cost=0)
 

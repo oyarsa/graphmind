@@ -55,6 +55,9 @@ The main command to use to check if the code is correct is `just lint`.
 - **English**: Always write in British English. This applies to names in the code (e.g.
   classes, functions, etc.) and comments.
 - **Type Access**: Never use hasattr/getattr. Always get the proper type and access fields through there.
+- **Testing**: Do not write trivial type checks (e.g. isinstance) when type annotations
+  already assert the type. Avoid hasattr/getattr in tests - existence of
+  methods/attributes is checked by the type checker.
 
 ## CLI Structure
 Main command: `uv run paper [subcommand]`
