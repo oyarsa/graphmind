@@ -467,6 +467,9 @@ ideas, methods, approach, etc.) and "contrasting" papers (those that go against 
 paper's ideas). Use these related papers to understand the context around the main paper, \
 so you know what other works exist in comparison with the main paper.
 
+Each related paper is presented with its ID, title, and relevant information. When \
+referencing evidence from these papers, you MUST include the paper's ID and title.
+
 Based on this, decide whether the paper is novel. It is novel if brings new ideas or \
 develops new ideas previously unseen. Make sure that the ideas are truly unique. The \
 paper is not novel if anything similar to it has been done before. Be very thorough. \
@@ -475,9 +478,22 @@ When in doubt, tend towards the not novel label.
 Provide your evaluation in structured format with:
 1. A brief summary of the paper's main contributions and approach
 2. Specific evidence from related papers that supports the paper's novelty
+   - For each piece of evidence, include the paper ID and title it comes from
+   - Quote or paraphrase the specific finding that supports novelty
+   - Indicate whether this is a citation-based or semantic-based related paper
 3. Specific evidence from related papers that contradicts the paper's novelty
-4. Your final assessment and conclusion about the paper's novelty
-5. A binary label (1 for novel, 0 for not novel)
+   - For each piece of evidence, include the paper ID and title it comes from
+   - Quote or paraphrase the specific finding that contradicts novelty
+   - Indicate whether this is a citation-based or semantic-based related paper
+4. Key technical comparisons that influenced your decision
+5. Your final assessment and conclusion about the paper's novelty
+6. A binary label (1 for novel, 0 for not novel)
+
+IMPORTANT: When creating evidence items, structure them as:
+- text: The evidence text describing the finding
+- paper_id: The ID of the paper (if available)
+- paper_title: The title of the paper
+- source: Either "citations" or "semantic" to indicate how this paper was found
 
 If the paper approval decision is "True", the novelty label should be 1 (novel).
 

@@ -14,7 +14,7 @@ from pydantic import Field, computed_field
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import TargetMode
 from paper.gpt.prompts import PromptTemplate, load_prompts
-from paper.types import Immutable
+from paper.types import Immutable, PaperSource
 from paper.util.serde import load_data
 
 logger = logging.getLogger(__name__)
@@ -183,6 +183,28 @@ class GPTUncertain(Immutable):
         return self.rationale != "<error>"
 
 
+class EvidenceItem(Immutable):
+    """Evidence item with paper citation information."""
+
+    text: Annotated[str, Field(description="The evidence text or finding.")]
+    paper_id: Annotated[
+        str | None,
+        Field(
+            description="ID of the paper this evidence comes from (e.g., S2 paper ID)."
+        ),
+    ] = None
+    paper_title: Annotated[
+        str | None,
+        Field(description="Title of the paper this evidence comes from."),
+    ] = None
+    source: Annotated[
+        PaperSource | None,
+        Field(
+            description="Source of the related paper (citations or semantic similarity)."
+        ),
+    ] = None
+
+
 class GPTStructured(Immutable):
     """Structured evaluation of paper novelty with detailed components."""
 
@@ -193,19 +215,25 @@ class GPTStructured(Immutable):
         ),
     ]
     supporting_evidence: Annotated[
-        Sequence[str],
+        Sequence[EvidenceItem],
         Field(
             description="List of evidence from related papers that support the paper's"
             " novelty."
         ),
     ]
     contradictory_evidence: Annotated[
-        Sequence[str],
+        Sequence[EvidenceItem],
         Field(
             description="List of evidence from related papers that contradict the"
             " paper's novelty."
         ),
     ]
+    key_comparisons: Annotated[
+        Sequence[str],
+        Field(
+            description="Key technical comparisons that influenced the novelty decision."
+        ),
+    ] = []
     conclusion: Annotated[
         str,
         Field(
@@ -225,13 +253,27 @@ class GPTStructured(Immutable):
             f"Paper Summary: {self.paper_summary}",
             "",
             "Supporting Evidence:",
-            *[f"- {evidence}" for evidence in self.supporting_evidence],
-            "",
-            "Contradictory Evidence:",
-            *[f"- {evidence}" for evidence in self.contradictory_evidence],
-            "",
-            f"Conclusion: {self.conclusion}",
         ]
+
+        for evidence in self.supporting_evidence:
+            evidence_text = f"- {evidence.text}"
+            if evidence.paper_title:
+                evidence_text += f" (from: {evidence.paper_title})"
+            sections.append(evidence_text)
+
+        sections.extend(["", "Contradictory Evidence:"])
+
+        for evidence in self.contradictory_evidence:
+            evidence_text = f"- {evidence.text}"
+            if evidence.paper_title:
+                evidence_text += f" (from: {evidence.paper_title})"
+            sections.append(evidence_text)
+
+        if self.key_comparisons:
+            sections.extend(["", "Key Comparisons:"])
+            sections.extend([f"- {comp}" for comp in self.key_comparisons])
+
+        sections.extend(["", f"Conclusion: {self.conclusion}"])
         return "\n".join(sections)
 
     @classmethod
@@ -241,6 +283,7 @@ class GPTStructured(Immutable):
             paper_summary="<error>",
             supporting_evidence=[],
             contradictory_evidence=[],
+            key_comparisons=[],
             conclusion="<error>",
             label=0,
         )

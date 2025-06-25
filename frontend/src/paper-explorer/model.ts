@@ -98,15 +98,36 @@ export const PaperSectionSchema = z.object({
 });
 
 /**
+ * Source of evidence paper - matching backend PaperSource enum.
+ */
+export const EvidenceSourceSchema = z.enum(["citations", "semantic"]);
+
+/**
+ * Evidence item with paper citation information.
+ */
+export const EvidenceItemSchema = z.object({
+  /** The evidence text or finding. */
+  text: z.string(),
+  /** ID of the paper this evidence comes from (e.g., S2 paper ID). */
+  paper_id: z.string().nullable().optional(),
+  /** Title of the paper this evidence comes from. */
+  paper_title: z.string().nullable().optional(),
+  /** Source of the related paper (citations or semantic similarity). */
+  source: EvidenceSourceSchema.nullable().optional(),
+});
+
+/**
  * Structured evaluation of a paper's novelty with supporting and contradictory evidence.
  */
 export const StructuredEvalSchema = z.object({
   /** Brief summary of the paper's main contributions and approach */
   paper_summary: z.string(),
   /** List of evidence from related papers that support the paper's novelty */
-  supporting_evidence: z.array(z.string()),
+  supporting_evidence: z.array(z.union([z.string(), EvidenceItemSchema])),
   /** List of evidence from related papers that contradict the paper's novelty */
-  contradictory_evidence: z.array(z.string()),
+  contradictory_evidence: z.array(z.union([z.string(), EvidenceItemSchema])),
+  /** Key technical comparisons that influenced the novelty decision */
+  key_comparisons: z.array(z.string()).optional().default([]),
   /** Final assessment of the paper's novelty based on the evidence */
   conclusion: z.string(),
   /** 1 if the paper is novel, or 0 if it's not novel */
@@ -287,6 +308,8 @@ export type Entity = z.infer<typeof EntitySchema>;
 export type Relationship = z.infer<typeof RelationshipSchema>;
 export type Graph = z.infer<typeof GraphSchema>;
 export type PaperSection = z.infer<typeof PaperSectionSchema>;
+export type EvidenceSource = z.infer<typeof EvidenceSourceSchema>;
+export type EvidenceItem = z.infer<typeof EvidenceItemSchema>;
 export type StructuredEval = z.infer<typeof StructuredEvalSchema>;
 export type Paper = z.infer<typeof PaperSchema>;
 export type ContextPolarity = z.infer<typeof ContextPolaritySchema>;

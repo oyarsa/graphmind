@@ -13,6 +13,7 @@ import {
   Graph,
   Entity,
   StructuredEval,
+  EvidenceItem,
 } from "./model";
 import {
   createPaperTermsDisplay,
@@ -215,6 +216,25 @@ function createStructuredEvaluationDisplay(evaluation: StructuredEval): string {
       : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
   const labelText = evaluation.label === 1 ? "Novel" : "Not Novel";
 
+  // Helper function to render evidence with proper handling of both string and object formats
+  const renderEvidence = (evidence: string | EvidenceItem): string => {
+    if (typeof evidence === "string") {
+      return renderLatex(evidence);
+    }
+
+    let text = renderLatex(evidence.text);
+    if (evidence.paper_title) {
+      const sourceType = evidence.source === "citations" ? "Citation" : "Semantic";
+      text += ` <span class="inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-md
+                      bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
+                      text-xs font-medium">
+                <span class="font-normal">from:</span> ${renderLatex(evidence.paper_title)}
+                <span class="text-blue-600 dark:text-blue-400">[${sourceType}]</span>
+              </span>`;
+    }
+    return text;
+  };
+
   return `
     <div class="space-y-4">
       <!-- Paper Summary -->
@@ -254,7 +274,7 @@ function createStructuredEvaluationDisplay(evaluation: StructuredEval): string {
                              bg-green-500">
                 </span>
                 <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-                  ${renderLatex(evidence)}
+                  ${renderEvidence(evidence)}
                 </span>
               </li>
             `,
@@ -288,7 +308,41 @@ function createStructuredEvaluationDisplay(evaluation: StructuredEval): string {
                              bg-red-500">
                 </span>
                 <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-                  ${renderLatex(evidence)}
+                  ${renderEvidence(evidence)}
+                </span>
+              </li>
+            `,
+              )
+              .join("")}
+          </ul>
+        </div>
+      `
+          : ""
+      }
+
+      <!-- Key Comparisons -->
+      ${
+        evaluation.key_comparisons && evaluation.key_comparisons.length > 0
+          ? `
+        <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
+                    dark:border-gray-700 dark:bg-gray-800/50">
+          <div class="mb-2 flex items-center gap-2">
+            <div class="h-4 w-1 rounded-full bg-orange-500"></div>
+            <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                       dark:text-gray-100">
+              Key Technical Comparisons
+            </h4>
+          </div>
+          <ul class="space-y-2">
+            ${evaluation.key_comparisons
+              .map(
+                (comparison) => `
+              <li class="flex items-start gap-2">
+                <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full
+                             bg-orange-500">
+                </span>
+                <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                  ${renderLatex(comparison)}
                 </span>
               </li>
             `,
