@@ -906,6 +906,7 @@ async function initialiseApp(): Promise<void> {
   if (!jsonPath) {
     throw new Error("VITE_XP_DATA_PATH environment variable is required");
   }
+  console.debug(`API URL: ${apiUrl}`);
 
   // Create services
   const jsonDataset = new JsonPaperDataset(jsonPath);

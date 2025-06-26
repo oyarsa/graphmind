@@ -55,6 +55,7 @@ jobs:
       - name: Build
         working-directory: ./frontend
         env:
+          VITE_API_URL: ${{ secrets.API_URL }}
           VITE_XP_DATA_PATH: data/test-data.json
         run: npm run build
 
