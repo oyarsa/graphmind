@@ -55,7 +55,7 @@ jobs:
       - name: Build
         working-directory: ./frontend
         env:
-          VITE_XP_DATA_PATH: /paper-hypergraph/data/test-data.json
+          VITE_XP_DATA_PATH: ../data/test-data.json
         run: npm run build
 
       - name: Setup Pages
