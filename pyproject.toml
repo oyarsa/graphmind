@@ -24,14 +24,9 @@ dependencies = [
     "openreview-py>=1.46.3",
     "arxiv>=2.1.3",
     "nltk>=3.9.1",
-    "faiss-cpu>=1.10.0",
     "numpy>=2.1.3",
     "scipy-stubs>=1.15.2.1",
-    "transformers>=4.46.2",
-    "datasets>=3.5.0",
-    "peft>=0.15.1",
     "torch>=2.5.1",
-    "bitsandbytes>=0.45.3 ; sys_platform == 'linux' and platform_machine == 'x86_64'",
     "toml>=0.10.2",
     "google-genai>=1.10.0",
     "typing-extensions>=4.12.2",
@@ -41,6 +36,7 @@ dependencies = [
     "semanticscholar>=0.10.0",
     "fastapi[standard]>=0.115.13",
     "psycopg[binary,pool]>=3.2.9",
+    "psutil>=6.1.0",
 ]
 
 [dependency-groups]
@@ -162,4 +158,23 @@ exclude = [
     ".github",
     ".claude",
     "experiments"
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[project.optional-dependencies]
+sft = [
+    "faiss-cpu>=1.10.0",
+    "transformers>=4.46.2",
+    "datasets>=3.5.0",
+    "peft>=0.15.1",
+    "bitsandbytes>=0.45.3 ; sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
