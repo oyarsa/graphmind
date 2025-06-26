@@ -1,0 +1,8 @@
+# Data files - don't format large JSON datasets
+public/data/test-data.json
+
+# Build output
+dist/
+
+# Dependencies
+node_modules/
