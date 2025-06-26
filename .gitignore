@@ -170,3 +170,4 @@ tmp
 *.sqlite*
 archive/
 docs/
+!frontend/public/data
