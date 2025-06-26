@@ -2,6 +2,12 @@ name: Deploy to GitHub Pages
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - "*"
 
 permissions:
   contents: read
@@ -33,7 +39,7 @@ jobs:
       - name: Build
         working-directory: ./frontend
         env:
-          VITE_XP_DATA_PATH: /paper-explorer/data/test-data.json
+          VITE_XP_DATA_PATH: /paper-hypergraph/data/test-data.json
         run: npm run build
 
       - name: Setup Pages
