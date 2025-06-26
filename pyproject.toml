@@ -31,7 +31,7 @@ dependencies = [
     "datasets>=3.5.0",
     "peft>=0.15.1",
     "torch>=2.5.1",
-    "bitsandbytes>=0.45.3 ; sys_platform != 'darwin'",
+    "bitsandbytes>=0.45.3 ; sys_platform == 'linux' and platform_machine == 'x86_64'",
     "toml>=0.10.2",
     "google-genai>=1.10.0",
     "typing-extensions>=4.12.2",

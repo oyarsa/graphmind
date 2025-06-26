@@ -270,7 +270,6 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3c/c7/36f41619278a67a51e00d7890c3542195295467453ec74ec23dc5940b265/bitsandbytes-0.45.4-py3-none-manylinux_2_24_x86_64.whl", hash = "sha256:96a48aa669048b99a6b98d57fc755dc4d7a77c90c33b98a15abe2c5c0616734b", size = 76049223, upload-time = "2025-03-25T16:23:38.599Z" },
-    { url = "https://files.pythonhosted.org/packages/fe/87/a05fc847edcfb21a1c343952a3b80de44fa9a5073d8819628c05cf09a564/bitsandbytes-0.45.4-py3-none-win_amd64.whl", hash = "sha256:d9b44b8e2ed9e06e3201531c0aa08d9027938b8738cef9906d1d97e7a647d343", size = 75430140, upload-time = "2025-03-25T16:23:44.526Z" },
 ]
 
 [[package]]
@@ -1961,7 +1960,7 @@ dependencies = [
     { name = "arxiv" },
     { name = "backoff" },
     { name = "beartype" },
-    { name = "bitsandbytes", marker = "sys_platform != 'darwin'" },
+    { name = "bitsandbytes", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "datasets" },
     { name = "faiss-cpu" },
     { name = "fastapi", extra = ["standard"] },
@@ -2016,7 +2015,7 @@ requires-dist = [
     { name = "arxiv", specifier = ">=2.1.3" },
     { name = "backoff", specifier = ">=2.2.1" },
     { name = "beartype", specifier = ">=0.20.2" },
-    { name = "bitsandbytes", marker = "sys_platform != 'darwin'", specifier = ">=0.45.3" },
+    { name = "bitsandbytes", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", specifier = ">=0.45.3" },
     { name = "datasets", specifier = ">=3.5.0" },
     { name = "faiss-cpu", specifier = ">=1.10.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.13" },
