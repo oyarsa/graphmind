@@ -14,12 +14,18 @@ import {
 /**
  * Service for managing the static JSON paper dataset.
  * Handles loading and local operations on the dataset.
+ * 
+ * Uses Vite's BASE_URL to properly resolve paths in both development and production:
+ * - Development: BASE_URL = "/" → "data/test.json" → "/data/test.json" 
+ * - Production: BASE_URL = "/paper-hypergraph/" → "data/test.json" → "/paper-hypergraph/data/test.json"
  */
 export class JsonPaperDataset {
   constructor(private jsonPath: string) {}
 
   async loadDataset(): Promise<GraphResult[]> {
-    const response = await fetch(this.jsonPath);
+    // Combine base URL with the relative path for proper resolution
+    const fullPath = import.meta.env.BASE_URL + this.jsonPath;
+    const response = await fetch(fullPath);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
