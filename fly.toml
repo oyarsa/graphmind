@@ -1,0 +1,26 @@
+# fly.toml app configuration file generated for graphmind on 2025-06-26T16:06:51+01:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'graphmind'
+primary_region = 'lhr'
+
+[build]
+
+[http_service]
+internal_port = 8000
+force_https = true
+auto_stop_machines = false
+auto_start_machines = false
+min_machines_running = 0
+processes = ['app']
+
+[[vm]]
+memory = '1gb'
+cpu_kind = 'shared'
+cpus = 1
+
+[env]
+TIMERS = "1"
+LOG_LEVEL = "debug"
