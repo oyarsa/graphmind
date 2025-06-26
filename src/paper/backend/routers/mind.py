@@ -21,7 +21,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from paper import single_paper
-from paper.backend.dependencies import LimiterDep, LLMRegistryDep
+from paper.backend.dependencies import EncoderDep, LimiterDep, LLMRegistryDep
 from paper.util import Timer, atimer, setup_logging
 
 router = APIRouter(prefix="/mind", tags=["mind"])
@@ -138,7 +138,6 @@ class LLMModel(StrEnum):
 
 
 # Configuration constants for paper evaluation
-ENCODER_MODEL = single_paper.DEFAULT_SENTENCE_MODEL
 EVAL_PROMPT = "full-graph-structured"
 GRAPH_PROMPT = "full"
 DEMOS = "orc_4"
@@ -149,6 +148,7 @@ DEMO_PROMPT = "abstract"
 async def evaluate(
     limiter: LimiterDep,
     llm_registry: LLMRegistryDep,
+    encoder: EncoderDep,
     id: Annotated[str, Query(description="ID of the paper to analyse.")],
     title: Annotated[str, Query(description="Title of the paper on arXiv.")],
     k_refs: Annotated[
@@ -187,6 +187,7 @@ async def evaluate(
     Args:
         limiter: Rate limiter dependency for API calls.
         llm_registry: Registry of LLM clients.
+        encoder: Text encoder for embeddings.
         id: arXiv ID of the paper to analyse.
         title: Title of the paper on arXiv.
         k_refs: Number of references to analyse (1-10).
@@ -211,10 +212,10 @@ async def evaluate(
                 client=client,
                 title=title,
                 arxiv_id=id,
+                encoder=encoder,
                 top_k_refs=k_refs,
                 num_recommendations=recommendations,
                 num_related=related,
-                encoder_model=ENCODER_MODEL,
                 limiter=limiter,
                 eval_prompt_key=EVAL_PROMPT,
                 graph_prompt_key=GRAPH_PROMPT,

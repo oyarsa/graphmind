@@ -52,6 +52,7 @@ async def annotate_paper_pipeline(
     limiter: Limiter,
     s2_api_key: str,
     client: LLMClient,
+    encoder: emb.Encoder,
     *,
     top_k_refs: int = 20,
     num_recommendations: int = 30,
@@ -61,7 +62,6 @@ async def annotate_paper_pipeline(
     context_prompt_key: str = "sentence",
     positive_prompt_key: str = "positive",
     negative_prompt_key: str = "negative",
-    encoder_model: str = DEFAULT_SENTENCE_MODEL,
     request_timeout: float = REQUEST_TIMEOUT,
     filter_by_date: bool = False,
     callback: ProgressCallback | None = None,
@@ -95,6 +95,7 @@ async def annotate_paper_pipeline(
             published before the main paper.
         s2_api_key: Semantic Scholar API key.
         client: LLM client for GPT API calls.
+        encoder: Embedding encoder for semantic similarity computations.
         callback: Optional callback function to call with phase names after completion.
 
     Returns:
@@ -106,7 +107,6 @@ async def annotate_paper_pipeline(
     Requires:
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
-    encoder = emb.Encoder(encoder_model, device="cpu")
 
     logger.debug("Processing paper: %s", paper.title)
 
@@ -225,7 +225,7 @@ async def process_paper_from_query(
     num_recommendations: int,
     num_related: int,
     llm_model: str,
-    encoder_model: str,
+    encoder: emb.Encoder,
     seed: int,
     limiter: Limiter,
     eval_prompt_key: str,
@@ -254,7 +254,7 @@ async def process_paper_from_query(
         num_related: Number of related papers to return for each type
             (citations/semantic, positive/negative).
         llm_model: GPT/Gemini model to use for all LLM API calls.
-        encoder_model: Embedding encoder model for semantic similarity computations.
+        encoder: Embedding encoder model for semantic similarity computations.
         seed: Random seed for GPT API calls to ensure reproducibility.
         limiter: Rate limiter for Semantic Scholar API requests to prevent 429 errors.
         eval_prompt_key: Key for evaluation prompt template.
@@ -294,14 +294,14 @@ async def process_paper_from_query(
     # Process paper through PETER pipeline
     paper_result = await atimer(
         annotate_paper_pipeline(
-            paper,
-            limiter,
-            s2_api_key,
-            client,
+            paper=paper,
+            limiter=limiter,
+            s2_api_key=s2_api_key,
+            client=client,
+            encoder=encoder,
             top_k_refs=top_k_refs,
             num_recommendations=num_recommendations,
             num_related=num_related,
-            encoder_model=encoder_model,
         ),
         2,
     )
@@ -329,8 +329,8 @@ async def process_paper_from_selection(
     top_k_refs: int,
     num_recommendations: int,
     num_related: int,
-    encoder_model: str,
     limiter: Limiter,
+    encoder: emb.Encoder,
     eval_prompt_key: str,
     graph_prompt_key: str,
     demonstrations_key: str,
@@ -365,7 +365,7 @@ async def process_paper_from_selection(
         num_recommendations: Number of recommended papers to fetch from S2 API.
         num_related: Number of related papers to return for each type
             (citations/semantic, positive/negative).
-        encoder_model: Embedding encoder model for semantic similarity computations.
+        encoder: Embedding encoder for semantic similarity computations.
         limiter: Rate limiter for Semantic Scholar API requests.
         eval_prompt_key: Key for evaluation prompt template.
         graph_prompt_key: Key for graph extraction prompt template.
@@ -396,14 +396,14 @@ async def process_paper_from_selection(
 
     paper_annotated = await atimer(
         annotate_paper_pipeline(
-            paper,
-            limiter,
-            s2_api_key,
-            client,
+            paper=paper,
+            limiter=limiter,
+            s2_api_key=s2_api_key,
+            client=client,
+            encoder=encoder,
             top_k_refs=top_k_refs,
             num_recommendations=num_recommendations,
             num_related=num_related,
-            encoder_model=encoder_model,
             filter_by_date=filter_by_date,
             callback=callback,
         ),

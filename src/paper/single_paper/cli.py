@@ -186,6 +186,7 @@ async def process_paper(
     """
 
     limiter = get_limiter(1, 1)  # 1 request per second
+    encoder = emb.Encoder(encoder_model)
 
     result = await atimer(
         process_paper_from_query(
@@ -195,7 +196,7 @@ async def process_paper(
             num_recommendations,
             num_related,
             llm_model,
-            encoder_model,
+            encoder,
             seed,
             limiter,
             eval_prompt,
