@@ -84,7 +84,7 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
             </span>
             <!-- Progress bar -->
             <div class="relative w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div 
+              <div
                 class="absolute top-0 left-0 h-full rounded-full transition-all duration-300"
                 style="width: ${scorePercent}%; background-color: ${getScoreColor(paper.score)}"
               ></div>

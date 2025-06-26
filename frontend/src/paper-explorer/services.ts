@@ -14,9 +14,9 @@ import {
 /**
  * Service for managing the static JSON paper dataset.
  * Handles loading and local operations on the dataset.
- * 
+ *
  * Uses Vite's BASE_URL to properly resolve paths in both development and production:
- * - Development: BASE_URL = "/" → "data/test.json" → "/data/test.json" 
+ * - Development: BASE_URL = "/" → "data/test.json" → "/data/test.json"
  * - Production: BASE_URL = "/paper-hypergraph/" → "data/test.json" → "/paper-hypergraph/data/test.json"
  */
 export class JsonPaperDataset {
