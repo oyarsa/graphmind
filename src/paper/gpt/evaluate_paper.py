@@ -192,17 +192,17 @@ class EvidenceItem(Immutable):
         Field(
             description="ID of the paper this evidence comes from (e.g., S2 paper ID)."
         ),
-    ] = None
+    ]
     paper_title: Annotated[
         str | None,
         Field(description="Title of the paper this evidence comes from."),
-    ] = None
+    ]
     source: Annotated[
         PaperSource | None,
         Field(
             description="Source of the related paper (citations or semantic similarity)."
         ),
-    ] = None
+    ]
 
 
 class GPTStructured(Immutable):
@@ -233,7 +233,7 @@ class GPTStructured(Immutable):
         Field(
             description="Key technical comparisons that influenced the novelty decision."
         ),
-    ] = []
+    ]
     conclusion: Annotated[
         str,
         Field(
