@@ -5,6 +5,7 @@ CORS middleware, and routes for the Paper Explorer API.
 """
 
 import datetime as dt
+import logging
 import os
 
 from fastapi import FastAPI
@@ -13,6 +14,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from paper.backend.dependencies import ENABLE_NETWORK, lifespan
 from paper.backend.model import HealthCheck
 from paper.backend.routers import mind
+
+logger = logging.getLogger(__name__)
 
 
 def _setup_cors(app: FastAPI) -> None:

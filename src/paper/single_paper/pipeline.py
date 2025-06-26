@@ -106,7 +106,7 @@ async def annotate_paper_pipeline(
     Requires:
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
-    encoder = emb.Encoder(encoder_model)
+    encoder = emb.Encoder(encoder_model, device="cpu")
 
     logger.debug("Processing paper: %s", paper.title)
 

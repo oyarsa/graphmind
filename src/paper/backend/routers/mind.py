@@ -6,12 +6,15 @@ paper evaluation using LLM-based analysis and recommendations.
 
 import asyncio
 import contextlib
+import functools
 import json
 import logging
-from collections.abc import AsyncGenerator, Sequence
+import os
+from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
 from enum import StrEnum
 from typing import Annotated, Any
 
+import psutil
 import rich
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -19,11 +22,40 @@ from pydantic import BaseModel
 
 from paper import single_paper
 from paper.backend.dependencies import LimiterDep, LLMRegistryDep
-from paper.util import atimer, setup_logging
+from paper.util import Timer, atimer, setup_logging
 
 router = APIRouter(prefix="/mind", tags=["mind"])
 logger = logging.getLogger(__name__)
 setup_logging()
+
+
+def measure_memory[**P, R](
+    func: Callable[P, Awaitable[R]],
+) -> Callable[P, Awaitable[R]]:
+    """Measures RAM used by func."""
+
+    @functools.wraps(func)
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        process = psutil.Process(os.getpid())
+
+        # Baseline memory
+        mem_start = process.memory_info().rss / 1024 / 1024
+
+        with Timer() as timer:
+            result = await func(*args, **kwargs)
+
+        # Final memory
+        mem_end = process.memory_info().rss / 1024 / 1024
+
+        logger.info(
+            f"'{func.__name__}': "
+            f"{mem_start:.1f} MB → {mem_end:.1f} MB (Δ {mem_end - mem_start:.1f} MB) | "
+            f"{timer.seconds:.2f}s"
+        )
+
+        return result
+
+    return wrapper
 
 
 class PaperSearchItem(BaseModel):
@@ -59,6 +91,7 @@ class PaperSearchResults(BaseModel):
 
 
 @router.get("/search")
+@measure_memory
 async def search(
     q: Annotated[str, Query(description="Query for paper title on arXiv.")],
     limit: Annotated[
@@ -169,6 +202,7 @@ async def evaluate(
     """
     client = llm_registry.get_client(llm_model)
 
+    @measure_memory
     async def go(
         callback: single_paper.ProgressCallback,
     ) -> single_paper.EvaluationResult:
