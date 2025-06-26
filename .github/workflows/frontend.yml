@@ -36,6 +36,22 @@ jobs:
         working-directory: ./frontend
         run: npm ci
 
+      - name: Lint and format code
+        working-directory: ./frontend
+        run: npx eslint --fix
+
+      - name: Format code
+        working-directory: ./frontend
+        run: npx prettier --write . --ignore-path .gitignore
+
+      - name: Type check
+        working-directory: ./frontend
+        run: npx tsc
+
+      - name: Run tests
+        working-directory: ./frontend
+        run: npx vitest run
+
       - name: Build
         working-directory: ./frontend
         env:
