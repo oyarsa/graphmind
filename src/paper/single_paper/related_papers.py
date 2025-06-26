@@ -88,14 +88,17 @@ def get_related_papers(
         Combined list of related papers from all discovery methods, including
         citation-based and semantic similarity-based papers
     """
+    logger.debug("Encoding main paper")
     main_title_emb = encoder.encode(paper_annotated.title)
     main_background_emb = encoder.encode(paper_annotated.background)
     main_target_emb = encoder.encode(paper_annotated.target)
 
     references = paper_with_contexts.references
+    logger.debug("Getting top K references - positive")
     references_positive_related = get_top_k_reference_by_polarity(
         encoder, main_title_emb, references, num_related, pr.ContextPolarity.POSITIVE
     )
+    logger.debug("Getting top K references - negative")
     references_negative_related = get_top_k_reference_by_polarity(
         encoder, main_title_emb, references, num_related, pr.ContextPolarity.NEGATIVE
     )
@@ -103,6 +106,7 @@ def get_related_papers(
     # Filter recommended papers by publication date if requested
     filtered_recommended_papers = recommended_papers
     if filter_by_date and paper_annotated.paper.year:
+        logger.debug("Filtering by publication date")
         main_year = paper_annotated.paper.year
         filtered_recommended_papers = [
             paper
@@ -115,6 +119,7 @@ def get_related_papers(
             len(filtered_recommended_papers),
         )
 
+    logger.debug("Getting top K semantic - background")
     background_related = get_top_k_semantic(
         encoder,
         num_related,
@@ -125,6 +130,8 @@ def get_related_papers(
         paper_annotated.background,
         paper_annotated.target,
     )
+
+    logger.debug("Getting top K semantic - target")
     target_related = get_top_k_semantic(
         encoder,
         num_related,
