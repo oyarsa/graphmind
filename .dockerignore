@@ -1,0 +1,11 @@
+__pycache__
+tmp
+output
+data
+docs
+.jj
+.git
+.ruff_cache
+tests
+experiments
+.venv
