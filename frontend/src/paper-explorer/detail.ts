@@ -246,7 +246,30 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
    `;
 }
 
-function createStructuredEvaluationDisplay(evaluation: StructuredEval): string {
+/**
+ * Helper function to find the index of a related paper by title in the currently filtered papers
+ */
+function findRelatedPaperIndex(
+  paperTitle: string,
+  relatedPapers: RelatedPaper[],
+  activeFilters: Set<string>,
+): number | null {
+  // Filter papers based on their relationship type (same logic as renderFilteredRelatedPapers)
+  const filteredPapers = relatedPapers.filter((paper) => {
+    const relationship = getRelationshipStyle(paper);
+    return activeFilters.has(relationship.type);
+  });
+
+  // Find the index in the filtered array
+  const index = filteredPapers.findIndex((paper) => paper.title === paperTitle);
+  return index >= 0 ? index : null;
+}
+
+function createStructuredEvaluationDisplay(
+  evaluation: StructuredEval,
+  graphResult: GraphResult | null,
+  activeFilters: Set<string>,
+): string {
   const labelClass =
     evaluation.label === 1
       ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
@@ -261,10 +284,31 @@ function createStructuredEvaluationDisplay(evaluation: StructuredEval): string {
 
     let text = renderLatex(evidence.text);
     if (evidence.paper_title) {
+      // Try to find the related paper index for linking
+      const relatedPaperIndex = graphResult
+        ? findRelatedPaperIndex(
+            evidence.paper_title,
+            graphResult.related,
+            activeFilters,
+          )
+        : null;
+
+      const paperTitleElement =
+        relatedPaperIndex !== null
+          ? `<a href="#related-papers" 
+               class="related-paper-link hover:underline cursor-pointer" 
+               data-paper-index="${relatedPaperIndex}">
+               ${renderLatex(evidence.paper_title)}
+             </a>`
+          : `<a href="#related-papers" 
+               class="related-paper-link hover:underline cursor-pointer">
+               ${renderLatex(evidence.paper_title)}
+             </a>`;
+
       text += ` <span class="inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-md
                       bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
                       text-xs font-medium">
-                <span class="font-normal">from:</span> ${renderLatex(evidence.paper_title)}
+                <span class="font-normal">from:</span> ${paperTitleElement}
               </span>`;
     }
     return text;
@@ -953,6 +997,50 @@ function renderFilteredRelatedPapers(
   });
 }
 
+/**
+ * Function to expand a related paper card by index and scroll to it
+ */
+function expandRelatedPaper(index: number): void {
+  const card = document.getElementById(`related-card-${index}`);
+  const expandedContent = document.getElementById(`expanded-content-${index}`);
+
+  if (card && expandedContent) {
+    // Expand the card if it's not already expanded
+    if (expandedContent.classList.contains("hidden")) {
+      expandedContent.classList.remove("hidden");
+      card.querySelector(".expand-icon")?.classList.add("rotate-180");
+    }
+
+    // Scroll to the card with some offset for better visibility
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+/**
+ * Setup event delegation for related paper links
+ */
+function setupRelatedPaperLinkHandlers(): void {
+  document.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    if (target.classList.contains("related-paper-link")) {
+      event.preventDefault();
+
+      const paperIndex = target.dataset.paperIndex;
+      if (paperIndex) {
+        // Expand specific paper if index is available
+        const index = parseInt(paperIndex, 10);
+        expandRelatedPaper(index);
+      } else {
+        // Just scroll to Related Papers section if no specific paper
+        const relatedPapersSection = document.getElementById("related-papers");
+        if (relatedPapersSection) {
+          relatedPapersSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
+    }
+  });
+}
+
 function showExcerptsModal(entity: Entity): void {
   const modal = document.getElementById("excerptsModal");
   const modalTitle = document.getElementById("modalTitle");
@@ -1182,8 +1270,17 @@ function loadPaperDetail(): void {
     );
     if (structuredEvalContainer && structuredEvalSection) {
       if (paper.structured_evaluation) {
+        // Use default active filters (all types visible by default)
+        const defaultActiveFilters = new Set([
+          "background",
+          "target",
+          "supporting",
+          "contrasting",
+        ]);
         structuredEvalContainer.innerHTML = createStructuredEvaluationDisplay(
           paper.structured_evaluation,
+          graphResult,
+          defaultActiveFilters,
         );
         setupSectionToggle("structured-evaluation");
       } else {
@@ -1245,6 +1342,9 @@ async function initialiseApp(): Promise<void> {
     showMobileMessage();
     return;
   }
+
+  // Setup event delegation for related paper links
+  setupRelatedPaperLinkHandlers();
 
   await retryWithBackoff(() => {
     loadPaperDetail();
