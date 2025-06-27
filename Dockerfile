@@ -13,7 +13,7 @@ COPY . /app
 
 # Install the application dependencies.
 WORKDIR /app
-RUN uv sync --frozen --no-dev --no-cache
+RUN uv sync --frozen --no-dev --no-cache --extra cpu
 
 EXPOSE 8000
 

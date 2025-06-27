@@ -27,7 +27,7 @@ jobs:
           python-version-file: ".python-version"
 
       - name: Install dependencies
-        run: uv sync --dev --all-extras
+        run: uv sync --dev --extra cpu
 
       - name: Ruff format
         run: uv run ruff format --check .

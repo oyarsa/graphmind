@@ -11,7 +11,8 @@ environment and dependencies:
 
 ```console
 # Set up virtual environment and install dependencies
-$ uv sync --all-extras
+$ uv sync --extra cpu  # For CPU-only PyTorch/SentenceTransformers/etc.
+$ uv sync --extra cuda # For CUDA (x86-64 Linux only).
 # Install pre-commit hooks
 $ uv run pre-commit install
 ```
