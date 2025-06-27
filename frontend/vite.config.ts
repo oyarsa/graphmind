@@ -19,7 +19,6 @@ export default defineConfig({
         "paper-explorer": resolve(__dirname, "pages/paper-explorer.html"),
         // "paper-network": resolve(__dirname, "pages/paper-network.html"),
         "paper-detail": resolve(__dirname, "pages/paper-detail.html"),
-        todo: resolve(__dirname, "pages/todo.html"),
       },
     },
   },
