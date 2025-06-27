@@ -7,6 +7,7 @@ CORS middleware, and routes for the Paper Explorer API.
 import datetime as dt
 import logging
 import os
+from importlib import metadata
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -75,6 +76,10 @@ async def health() -> HealthCheck:
     """Health check endpoint.
 
     Returns:
-        HealthCheck response with status and timestamp.
+        HealthCheck response with status, timestamp, and version.
     """
-    return HealthCheck(status="ok", timestamp=dt.datetime.now(dt.UTC).isoformat())
+    return HealthCheck(
+        status="ok",
+        timestamp=dt.datetime.now(dt.UTC).isoformat(),
+        version=metadata.version("paper"),
+    )

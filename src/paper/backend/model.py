@@ -179,7 +179,9 @@ class HealthCheck(Model):
     Attributes:
         status: Health status indicator.
         timestamp: ISO timestamp of the check.
+        version: Project version.
     """
 
     status: str
     timestamp: str
+    version: str
