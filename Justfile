@@ -67,11 +67,18 @@ api-dev:
 api-serve:
     uv run fastapi run src/paper/backend/api.py --port 8001
 
-# Bump version
+# Bump version for both backend and frontend (ensures they're synchronized)
 version bump:
-    uv version --bump {{bump}} && uv lock
+    #!/usr/bin/env bash
+    set -euo pipefail
 
+    # Bump the Python version first
+    uv version --bump {{bump}}
+    uv lock
 
-alias l := lint
-alias w := watch
-alias x := exp
+    # Get the new version from uv
+    NEW_VERSION=$(uv version | cut -d' ' -f2)
+
+    # Set the frontend to the same version
+    cd frontend
+    npm version "$NEW_VERSION" --no-git-tag-version --allow-same-version
