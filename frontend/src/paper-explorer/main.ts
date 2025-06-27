@@ -11,6 +11,7 @@ import {
 import { GraphResult, PaperSearchResults, PaperSearchItem } from "./model";
 import { renderLatex, getArxivUrl } from "./helpers";
 import { JsonPaperDataset, ArxivPaperService, PaperEvaluator } from "./services";
+import { addFooter } from "../footer";
 
 class PaperExplorer {
   private allPapers: GraphResult[] = [];
@@ -915,6 +916,9 @@ async function initialiseApp(): Promise<void> {
 
   const explorer = new PaperExplorer(jsonDataset, arxivService, paperEvaluator);
   await retryWithBackoff(() => explorer.initialize());
+
+  // Add footer
+  addFooter();
 }
 
 initialiseApp().catch(showInitError);

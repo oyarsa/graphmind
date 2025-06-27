@@ -1,6 +1,11 @@
 import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "path";
+import { readFileSync } from "fs";
+
+const packageJson = JSON.parse(readFileSync("./package.json", "utf-8")) as {
+  version: string;
+};
 
 export default defineConfig({
   base: "/paper-hypergraph/",
@@ -12,6 +17,10 @@ export default defineConfig({
     },
   },
   plugins: [tailwindcss()],
+  define: {
+    VERSION: JSON.stringify(packageJson.version),
+    BUILD_TIME: JSON.stringify(new Date().toISOString()),
+  },
   build: {
     rollupOptions: {
       input: {

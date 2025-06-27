@@ -24,6 +24,7 @@ import {
   renderLatex,
   getArxivUrl,
 } from "./helpers";
+import { addFooter } from "../footer";
 
 /**
  * Get color for score progress bar (red to green gradient)
@@ -1251,6 +1252,9 @@ async function initialiseApp(): Promise<void> {
     loadPaperDetail();
     return Promise.resolve();
   });
+
+  // Add footer
+  addFooter();
 }
 
 initialiseApp().catch(showInitError);

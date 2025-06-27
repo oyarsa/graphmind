@@ -8,6 +8,7 @@ import {
   isMobileDevice,
   showMobileMessage,
 } from "../util";
+import { addFooter } from "../footer";
 
 /**
  * Initialise the Paper Network application.
@@ -30,6 +31,9 @@ async function initialiseApp(): Promise<void> {
     console.log("PaperNetwork initialised successfully");
     return Promise.resolve();
   });
+
+  // Add footer
+  addFooter();
 }
 
 initialiseApp().catch(showInitError);
