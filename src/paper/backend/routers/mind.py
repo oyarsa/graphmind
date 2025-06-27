@@ -16,14 +16,16 @@ from typing import Annotated, Any
 
 import psutil
 import rich
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from paper import single_paper
 from paper.backend.dependencies import EncoderDep, LimiterDep, LLMRegistryDep
+from paper.backend.rate_limiter import RateLimiter
 from paper.util import Timer, atimer, setup_logging
 
+rate_limiter = RateLimiter()
 router = APIRouter(prefix="/mind", tags=["mind"])
 logger = logging.getLogger(__name__)
 setup_logging()
@@ -145,7 +147,9 @@ DEMO_PROMPT = "abstract"
 
 
 @router.get("/evaluate")
+@rate_limiter.limit("5/minute")
 async def evaluate(
+    request: Request,
     limiter: LimiterDep,
     llm_registry: LLMRegistryDep,
     encoder: EncoderDep,
@@ -185,6 +189,7 @@ async def evaluate(
     Returns progress updates via Server-Sent Events (SSE), followed by the final result.
 
     Args:
+        request: Incoming request. Necessary for the rate limiter.
         limiter: Rate limiter dependency for API calls.
         llm_registry: Registry of LLM clients.
         encoder: Text encoder for embeddings.
