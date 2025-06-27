@@ -11,7 +11,7 @@ check:
 
 # Run prettier formatting
 fmt:
-    npx prettier --write . --ignore-path .gitignore
+    npx prettier --write . --ignore-path .gitignore --ignore-path .prettierignore
 
 # Run TypeScript type checker
 type:
