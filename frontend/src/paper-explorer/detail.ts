@@ -261,12 +261,10 @@ function createStructuredEvaluationDisplay(evaluation: StructuredEval): string {
 
     let text = renderLatex(evidence.text);
     if (evidence.paper_title) {
-      const sourceType = evidence.source === "citations" ? "Citation" : "Semantic";
       text += ` <span class="inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-md
                       bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
                       text-xs font-medium">
                 <span class="font-normal">from:</span> ${renderLatex(evidence.paper_title)}
-                <span class="text-blue-600 dark:text-blue-400">[${sourceType}]</span>
               </span>`;
     }
     return text;
