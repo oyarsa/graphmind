@@ -60,11 +60,11 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
   return `
   <div
     id="related-card-${index}"
-    class="cursor-pointer rounded-lg border border-gray-300 bg-gray-50/50 p-4
+    class="rounded-lg border border-gray-300 bg-gray-50/50 p-4
            transition-all duration-200 hover:border-teal-500/50 dark:border-gray-700
            dark:bg-gray-800/50"
   >
-    <div class="flex items-start justify-between">
+    <div class="card-header cursor-pointer flex items-start justify-between">
       <div class="min-w-0 flex-1">
         <h4
           class="mb-2 line-clamp-2 font-semibold text-gray-900 dark:text-gray-100"
@@ -985,13 +985,15 @@ function renderFilteredRelatedPapers(
 
   // Add click event listeners for expansion
   filteredPapers.forEach((_, index) => {
-    const card = document.getElementById(`related-card-${index}`);
+    const cardHeader = document.querySelector(`#related-card-${index} .card-header`);
     const expandedContent = document.getElementById(`expanded-content-${index}`);
-    if (card && expandedContent) {
-      card.addEventListener("click", () => {
+    if (cardHeader && expandedContent) {
+      cardHeader.addEventListener("click", () => {
         const isExpanded = !expandedContent.classList.contains("hidden");
         expandedContent.classList.toggle("hidden", isExpanded);
-        card.querySelector(".expand-icon")?.classList.toggle("rotate-180", !isExpanded);
+        cardHeader
+          .querySelector(".expand-icon")
+          ?.classList.toggle("rotate-180", !isExpanded);
       });
     }
   });
