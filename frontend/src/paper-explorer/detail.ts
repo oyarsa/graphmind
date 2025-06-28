@@ -108,7 +108,7 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
           </svg>
           Go back
         </button>
-        
+
         <svg
           class="expand-icon h-5 w-5 text-gray-400 transition-transform duration-200"
           fill="none"
@@ -309,12 +309,12 @@ function createStructuredEvaluationDisplay(
 
       const paperTitleElement =
         relatedPaperIndex !== null
-          ? `<a href="#related-papers" 
-               class="related-paper-link hover:underline cursor-pointer" 
+          ? `<a href="#related-papers"
+               class="related-paper-link hover:underline cursor-pointer"
                data-paper-index="${relatedPaperIndex}">
                ${renderLatex(evidence.paper_title)}
              </a>`
-          : `<a href="#related-papers" 
+          : `<a href="#related-papers"
                class="related-paper-link hover:underline cursor-pointer">
                ${renderLatex(evidence.paper_title)}
              </a>`;
