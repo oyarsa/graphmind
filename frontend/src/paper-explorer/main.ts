@@ -815,8 +815,8 @@ class PaperExplorer {
     };
 
     // Validate parameters
-    if (params.k_refs < 1 || params.k_refs > 10) {
-      alert("References to analyse must be between 1 and 10");
+    if (params.k_refs < 10 || params.k_refs > 50) {
+      alert("References to analyse must be between 10 and 50");
       return;
     }
     if (params.recommendations < 5 || params.recommendations > 50) {

@@ -350,7 +350,7 @@ export const EvaluationParamsSchema = z.object({
   /** Title of the paper on arXiv */
   title: z.string(),
   /** Number of references to analyse */
-  k_refs: z.number().min(1).max(10).optional().default(2),
+  k_refs: z.number().min(10).max(50).optional().default(20),
   /** Number of recommended papers to retrieve */
   recommendations: z.number().min(5).max(50).optional().default(30),
   /** Number of related papers per type */
