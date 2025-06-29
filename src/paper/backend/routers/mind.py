@@ -94,7 +94,9 @@ class PaperSearchResults(BaseModel):
 
 @router.get("/search")
 @measure_memory
+@rate_limiter.limit("1/second")
 async def search(
+    request: Request,
     q: Annotated[str, Query(description="Query for paper title on arXiv.")],
     limit: Annotated[
         int, Query(description="How many results to retrieve.", ge=1, le=100)
@@ -105,6 +107,7 @@ async def search(
     Performs live search against the arXiv API to find relevant papers.
 
     Args:
+        request: Incoming request. Necessary for the rate limiter.
         q: Search query string for paper titles.
         limit: Maximum number of results to return (1-100).
 
