@@ -9,7 +9,7 @@ import {
   showMobileMessage,
 } from "../util";
 import { GraphResult, PaperSearchResults, PaperSearchItem } from "./model";
-import { renderLatex, getArxivUrl } from "./helpers";
+import { renderLatex, getArxivUrl, formatConferenceName } from "./helpers";
 import { JsonPaperDataset, ArxivPaperService, PaperEvaluator } from "./services";
 import { addFooter } from "../footer";
 
@@ -147,7 +147,7 @@ class PaperExplorer {
         <div class="flex justify-between items-center text-xs text-gray-600
                     dark:text-gray-400">
           <div class="flex items-center gap-2">
-            <span>${paper.conference} (${paper.year})</span>
+            <span>${formatConferenceName(paper.conference)} (${paper.year})</span>
             ${
               paper.arxiv_id
                 ? `

@@ -235,6 +235,22 @@ export function formatTypeName(type: string): string {
 }
 
 /**
+ * Transform conference names to proper case
+ */
+export function formatConferenceName(
+  conference: string | null | undefined,
+): string | null {
+  if (!conference) return null;
+
+  const transformations: Record<string, string> = {
+    iclr: "ICLR",
+    neurips: "NeurIPS",
+  };
+
+  return transformations[conference.toLowerCase()] || conference;
+}
+
+/**
  * Generate arXiv URL from arXiv ID, if available.
  */
 export function getArxivUrl(arxivId?: string | null): string | null {

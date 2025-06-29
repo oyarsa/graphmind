@@ -23,6 +23,7 @@ import {
   setupSectionToggle,
   renderLatex,
   getArxivUrl,
+  formatConferenceName,
 } from "./helpers";
 import { addFooter } from "../footer";
 
@@ -1251,7 +1252,7 @@ function loadPaperDetail(): void {
     if (titleEl) titleEl.innerHTML = renderLatex(paper.title);
     if (authorsEl) authorsEl.textContent = paper.authors.join(", ");
     if (yearEl) yearEl.textContent = paper.year.toString();
-    if (conferenceEl) conferenceEl.textContent = paper.conference ?? null;
+    if (conferenceEl) conferenceEl.textContent = formatConferenceName(paper.conference);
     if (abstractEl) abstractEl.innerHTML = renderLatex(paper.abstract);
     if (idEl) idEl.textContent = paper.id;
     if (approvalEl) {
