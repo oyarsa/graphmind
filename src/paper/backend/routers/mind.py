@@ -280,7 +280,9 @@ async def evaluate(
             # task is done; surface its result or its error
             if exc := task.exception():
                 yield sse_event("error", {"message": str(exc)})
-                logger.error(f"Paper evaluation failed: {exc}")
+                logger.error(
+                    f"Paper evaluation failed for '{title}' (arXiv:{id}): {exc}"
+                )
                 return
             else:
                 evaluation_result = task.result()
