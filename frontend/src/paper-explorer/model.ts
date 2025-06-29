@@ -206,6 +206,24 @@ export const RelatedPaperSchema = z.object({
   summary: z.string().min(1, "Summary cannot be empty"),
   /** Title of the related paper. */
   title: z.string().min(1, "Title cannot be empty"),
+  /** Publication year of the related paper. */
+  year: z.number().nullish(),
+  /** Authors of the related paper. */
+  authors: z.array(z.string()).nullish(),
+  /** Publication venue of the related paper. */
+  venue: z.string().nullish(),
+  /** Number of papers that cite this related paper. */
+  citation_count: z.number().nullish(),
+  /** Number of papers this related paper references. */
+  reference_count: z.number().nullish(),
+  /** Number of influential citations for this related paper. */
+  influential_citation_count: z.number().nullish(),
+  /** Semantic Scholar's secondary identifier for this related paper. */
+  corpus_id: z.number().nullish(),
+  /** URL to the related paper on Semantic Scholar website. */
+  url: z.string().nullish(),
+  /** arXiv identifier for this related paper if available. */
+  arxiv_id: z.string().nullish(),
   /** Citation contexts for citation-based papers. */
   contexts: z.array(CitationContextSchema).nullish(),
   /** Background text for semantic papers (background matching). */

@@ -1,6 +1,20 @@
 import { describe, it, expect } from "vitest";
 import { getNodeId, getNodePos, D3Node } from "./model";
 
+// Helper function to create test D3Node with all required fields
+function createTestD3Node(overrides: Partial<D3Node>): D3Node {
+  return {
+    id: "test-node",
+    title: "Test Paper",
+    authors: ["Test Author"],
+    year: 2023,
+    abstract: "Test abstract",
+    venue: "Test Venue",
+    citation_count: 10,
+    ...overrides,
+  };
+}
+
 describe("getNodeId", () => {
   it("should return string as-is", () => {
     expect(getNodeId("paper-123")).toBe("paper-123");
@@ -12,7 +26,7 @@ describe("getNodeId", () => {
   });
 
   it("should extract id from D3Node object", () => {
-    const node: D3Node = {
+    const node = createTestD3Node({
       id: "node-456",
       title: "Test Paper",
       authors: ["Author 1"],
@@ -20,13 +34,13 @@ describe("getNodeId", () => {
       abstract: "Test abstract",
       venue: "Test Venue",
       citation_count: 10,
-    };
+    });
 
     expect(getNodeId(node)).toBe("node-456");
   });
 
   it("should handle D3Node with position data", () => {
-    const node: D3Node = {
+    const node = createTestD3Node({
       id: "positioned-node",
       title: "Positioned Paper",
       authors: ["Author 1"],
@@ -36,7 +50,7 @@ describe("getNodeId", () => {
       citation_count: 5,
       x: 100,
       y: 200,
-    };
+    });
 
     expect(getNodeId(node)).toBe("positioned-node");
   });
@@ -52,7 +66,7 @@ describe("getNodePos", () => {
   });
 
   it("should extract position from D3Node without position", () => {
-    const node: D3Node = {
+    const node = createTestD3Node({
       id: "node-456",
       title: "Test Paper",
       authors: ["Author 1"],
@@ -60,14 +74,14 @@ describe("getNodePos", () => {
       abstract: "Test abstract",
       venue: "Test Venue",
       citation_count: 10,
-    };
+    });
 
     const result = getNodePos(node);
     expect(result).toEqual({ x: undefined, y: undefined });
   });
 
   it("should extract position from D3Node with position", () => {
-    const node: D3Node = {
+    const node = createTestD3Node({
       id: "positioned-node",
       title: "Positioned Paper",
       authors: ["Author 1"],
@@ -77,14 +91,14 @@ describe("getNodePos", () => {
       citation_count: 5,
       x: 150,
       y: 250,
-    };
+    });
 
     const result = getNodePos(node);
     expect(result).toEqual({ x: 150, y: 250 });
   });
 
   it("should handle partial position data", () => {
-    const nodeXOnly: D3Node = {
+    const nodeXOnly = createTestD3Node({
       id: "x-only-node",
       title: "X Only Paper",
       authors: ["Author 1"],
@@ -93,12 +107,12 @@ describe("getNodePos", () => {
       venue: "Test Venue",
       citation_count: 3,
       x: 100,
-    };
+    });
 
     const resultXOnly = getNodePos(nodeXOnly);
     expect(resultXOnly).toEqual({ x: 100, y: undefined });
 
-    const nodeYOnly: D3Node = {
+    const nodeYOnly = createTestD3Node({
       id: "y-only-node",
       title: "Y Only Paper",
       authors: ["Author 1"],
@@ -107,14 +121,14 @@ describe("getNodePos", () => {
       venue: "Test Venue",
       citation_count: 3,
       y: 200,
-    };
+    });
 
     const resultYOnly = getNodePos(nodeYOnly);
     expect(resultYOnly).toEqual({ x: undefined, y: 200 });
   });
 
   it("should handle zero coordinates", () => {
-    const node: D3Node = {
+    const node = createTestD3Node({
       id: "origin-node",
       title: "Origin Paper",
       authors: ["Author 1"],
@@ -124,7 +138,7 @@ describe("getNodePos", () => {
       citation_count: 1,
       x: 0,
       y: 0,
-    };
+    });
 
     const result = getNodePos(node);
     expect(result).toEqual({ x: 0, y: 0 });

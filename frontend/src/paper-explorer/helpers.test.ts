@@ -7,6 +7,20 @@ import {
 } from "./helpers";
 import { RelatedPaper } from "./model";
 
+// Helper function to create test related papers with all required fields
+function createTestRelatedPaper(overrides: Partial<RelatedPaper>): RelatedPaper {
+  return {
+    paper_id: "test-id",
+    title: "Test Paper",
+    abstract: "Test abstract",
+    summary: "Test summary",
+    score: 0.8,
+    source: "semantic",
+    polarity: "positive",
+    ...overrides,
+  };
+}
+
 describe("createPaperTermsDisplay", () => {
   it("should return no data message when all inputs are null/empty", () => {
     const result = createPaperTermsDisplay(null, null, null);
@@ -45,7 +59,7 @@ describe("createPaperTermsDisplay", () => {
 
 describe("getRelationshipStyle", () => {
   it("should return target style for semantic positive", () => {
-    const paper: RelatedPaper = {
+    const paper = createTestRelatedPaper({
       paper_id: "1",
       title: "Test",
       abstract: "Test",
@@ -53,7 +67,7 @@ describe("getRelationshipStyle", () => {
       score: 0.8,
       source: "semantic",
       polarity: "positive",
-    };
+    });
 
     const result = getRelationshipStyle(paper);
 
@@ -65,7 +79,7 @@ describe("getRelationshipStyle", () => {
   });
 
   it("should return background style for semantic negative", () => {
-    const paper: RelatedPaper = {
+    const paper = createTestRelatedPaper({
       paper_id: "1",
       title: "Test",
       abstract: "Test",
@@ -73,7 +87,7 @@ describe("getRelationshipStyle", () => {
       score: 0.8,
       source: "semantic",
       polarity: "negative",
-    };
+    });
 
     const result = getRelationshipStyle(paper);
 
@@ -85,7 +99,7 @@ describe("getRelationshipStyle", () => {
   });
 
   it("should return supporting style for citations positive", () => {
-    const paper: RelatedPaper = {
+    const paper = createTestRelatedPaper({
       paper_id: "1",
       title: "Test",
       abstract: "Test",
@@ -93,7 +107,7 @@ describe("getRelationshipStyle", () => {
       score: 0.8,
       source: "citations",
       polarity: "positive",
-    };
+    });
 
     const result = getRelationshipStyle(paper);
 
@@ -105,7 +119,7 @@ describe("getRelationshipStyle", () => {
   });
 
   it("should return contrasting style for citations negative", () => {
-    const paper: RelatedPaper = {
+    const paper = createTestRelatedPaper({
       paper_id: "1",
       title: "Test",
       abstract: "Test",
@@ -113,7 +127,7 @@ describe("getRelationshipStyle", () => {
       score: 0.8,
       source: "citations",
       polarity: "negative",
-    };
+    });
 
     const result = getRelationshipStyle(paper);
 
@@ -125,7 +139,7 @@ describe("getRelationshipStyle", () => {
   });
 
   it("should default to contrasting for unknown combinations", () => {
-    const paper: RelatedPaper = {
+    const paper = createTestRelatedPaper({
       paper_id: "1",
       title: "Test",
       abstract: "Test",
@@ -133,7 +147,7 @@ describe("getRelationshipStyle", () => {
       score: 0.8,
       source: "unknown" as "semantic" | "citations",
       polarity: "unknown" as "positive" | "negative",
-    };
+    });
 
     const result = getRelationshipStyle(paper);
 

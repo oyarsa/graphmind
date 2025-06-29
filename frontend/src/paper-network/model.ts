@@ -8,6 +8,11 @@ export const PaperSchema = z.object({
   abstract: z.string(),
   venue: z.string(),
   citation_count: z.number(),
+  reference_count: z.number().nullish(),
+  influential_citation_count: z.number().nullish(),
+  corpus_id: z.number().nullish(),
+  url: z.string().nullish(),
+  arxiv_id: z.string().nullish(),
   doi: z.string().optional(),
   pdf_url: z.string().optional(),
 });
