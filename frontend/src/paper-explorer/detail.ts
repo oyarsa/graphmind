@@ -132,6 +132,21 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
       id="expanded-content-${index}"
       class="mt-4 hidden border-t border-gray-200 pt-4 dark:border-gray-700"
     >
+      <!-- Authors and Year -->
+      ${paper.authors && paper.authors.length > 0 && paper.year
+        ? `<div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+             ${paper.authors.join(", ")} (${paper.year})
+           </div>`
+        : paper.authors && paper.authors.length > 0
+        ? `<div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+             ${paper.authors.join(", ")}
+           </div>`
+        : paper.year
+        ? `<div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+             (${paper.year})
+           </div>`
+        : ''}
+
       <div class="mb-4">
         <div class="mb-3 flex items-center gap-2">
           <div class="h-4 w-1 rounded-full bg-blue-500"></div>
@@ -305,7 +320,7 @@ function createStructuredEvaluationDisplay(
         : null;
 
       // Use formatted citation if we have the paper data, otherwise fall back to title
-      const displayText = relatedPaper 
+      const displayText = relatedPaper
         ? formatPaperCitation(relatedPaper)
         : evidence.paper_title;
 
