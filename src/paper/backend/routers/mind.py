@@ -159,8 +159,8 @@ async def evaluate(
     id: Annotated[str, Query(description="ID of the paper to analyse.")],
     title: Annotated[str, Query(description="Title of the paper on arXiv.")],
     k_refs: Annotated[
-        int, Query(description="How many references to use.", ge=1, le=10)
-    ] = 2,
+        int, Query(description="How many references to use.", ge=10, le=50)
+    ] = 20,
     recommendations: Annotated[
         int, Query(description="How many recommended papers to retrieve.", ge=5, le=50)
     ] = 30,
