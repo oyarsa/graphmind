@@ -91,3 +91,6 @@ Use `uv run paper [subcommand] --help` for detailed options.
 - After each major operation, create a new revision.
 - In general, follow all the common git workflows, but using jujutsu instead. If you
   don't know how to do something, ask and I'll help you.
+- Use `jj commit -m "<message>"` to create commits using jujutsu. It works similarly to
+  how Git commits work, but you don't need to stage the files first.
+- Only commit changes when requested. By default, do not commit anything.
