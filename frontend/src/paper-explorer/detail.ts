@@ -24,6 +24,7 @@ import {
   renderLatex,
   getArxivUrl,
   formatConferenceName,
+  formatPaperCitation,
 } from "./helpers";
 import { addFooter } from "../footer";
 
@@ -298,15 +299,25 @@ function createStructuredEvaluationDisplay(
           )
         : null;
 
+      // Get the related paper object for formatting citation
+      const relatedPaper = relatedPaperIndex !== null && graphResult
+        ? graphResult.related[relatedPaperIndex]
+        : null;
+
+      // Use formatted citation if we have the paper data, otherwise fall back to title
+      const displayText = relatedPaper 
+        ? formatPaperCitation(relatedPaper)
+        : evidence.paper_title;
+
       const paperTitleElement =
         relatedPaperIndex !== null
           ? `<a href="#related-papers"
                class="related-paper-link hover:underline cursor-pointer text-blue-800 dark:text-blue-200"
                data-paper-index="${relatedPaperIndex}">
-               ${renderLatex(evidence.paper_title)}:</a>`
+               ${renderLatex(displayText)}:</a>`
           : `<a href="#related-papers"
                class="related-paper-link hover:underline cursor-pointer text-blue-800 dark:text-blue-200">
-               ${renderLatex(evidence.paper_title)}:</a>`;
+               ${renderLatex(displayText)}:</a>`;
 
       return `<span class="font-medium">${paperTitleElement}</span> ${renderLatex(evidence.text)}`;
     }

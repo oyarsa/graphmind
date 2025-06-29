@@ -185,6 +185,22 @@ export function getArxivUrl(arxivId?: string | null): string | null {
 }
 
 /**
+ * Format paper title for display as citation link.
+ * Uses "Author et al. (Year)" format when metadata is available,
+ * otherwise falls back to first 20 characters of title.
+ */
+export function formatPaperCitation(paper: RelatedPaper): string {
+  if (paper.authors && paper.authors.length > 0 && paper.year) {
+    const firstAuthor = paper.authors[0];
+    const suffix = paper.authors.length > 1 ? " et al." : "";
+    return `${firstAuthor}${suffix} (${paper.year})`;
+  }
+
+  // Fallback to first 20 characters of title
+  return paper.title.length > 20 ? `${paper.title.substring(0, 20)}...` : paper.title;
+}
+
+/**
  * Render any LaTeX fragments in the input text to KaTeX HTML.
  *
  * • Display maths: wrap in $$ … $$ (may span multiple lines, but must be non-empty)

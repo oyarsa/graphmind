@@ -4,6 +4,7 @@ import {
   getRelationshipStyle,
   getScoreDisplay,
   formatTypeName,
+  formatPaperCitation,
 } from "./helpers";
 import { RelatedPaper } from "./model";
 
@@ -214,5 +215,84 @@ describe("formatTypeName", () => {
 
   it("should handle already formatted strings", () => {
     expect(formatTypeName("AlreadyFormatted")).toBe("AlreadyFormatted");
+  });
+});
+
+describe("formatPaperCitation", () => {
+  it("should format with single author and year", () => {
+    const paper = createTestRelatedPaper({
+      authors: ["Smith"],
+      year: 2023,
+      title: "A Very Long Paper Title That Should Be Truncated",
+    });
+
+    const result = formatPaperCitation(paper);
+    expect(result).toBe("Smith (2023)");
+  });
+
+  it("should format with multiple authors and year", () => {
+    const paper = createTestRelatedPaper({
+      authors: ["Smith", "Johnson", "Williams"],
+      year: 2022,
+      title: "A Very Long Paper Title That Should Be Truncated",
+    });
+
+    const result = formatPaperCitation(paper);
+    expect(result).toBe("Smith et al. (2022)");
+  });
+
+  it("should fallback to truncated title when no authors", () => {
+    const paper = createTestRelatedPaper({
+      authors: null,
+      year: 2023,
+      title: "A Very Long Paper Title That Should Be Truncated",
+    });
+
+    const result = formatPaperCitation(paper);
+    expect(result).toBe("A Very Long Paper Ti...");
+  });
+
+  it("should fallback to truncated title when no year", () => {
+    const paper = createTestRelatedPaper({
+      authors: ["Smith"],
+      year: null,
+      title: "A Very Long Paper Title That Should Be Truncated",
+    });
+
+    const result = formatPaperCitation(paper);
+    expect(result).toBe("A Very Long Paper Ti...");
+  });
+
+  it("should fallback to truncated title when empty authors array", () => {
+    const paper = createTestRelatedPaper({
+      authors: [],
+      year: 2023,
+      title: "A Very Long Paper Title That Should Be Truncated",
+    });
+
+    const result = formatPaperCitation(paper);
+    expect(result).toBe("A Very Long Paper Ti...");
+  });
+
+  it("should return full title when shorter than 20 characters", () => {
+    const paper = createTestRelatedPaper({
+      authors: null,
+      year: null,
+      title: "Short Title",
+    });
+
+    const result = formatPaperCitation(paper);
+    expect(result).toBe("Short Title");
+  });
+
+  it("should handle exactly 20 character title", () => {
+    const paper = createTestRelatedPaper({
+      authors: null,
+      year: null,
+      title: "This is exactly 20c", // Exactly 20 characters
+    });
+
+    const result = formatPaperCitation(paper);
+    expect(result).toBe("This is exactly 20c");
   });
 });
