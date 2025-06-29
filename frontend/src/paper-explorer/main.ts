@@ -163,13 +163,6 @@ class PaperExplorer {
                 : ""
             }
           </div>
-          <span class="px-2 py-1 rounded-full text-xs font-medium ${
-            paper.approval
-              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-          }">
-            ${paper.approval ? "Accepted" : "Rejected"}
-          </span>
         </div>
       `;
 
