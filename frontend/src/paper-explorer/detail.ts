@@ -742,38 +742,6 @@ function createHierarchicalGraph(graph: Graph): void {
       this.appendChild(innerDiv);
     });
 
-  // Add hover tooltips
-  const tooltip = d3.select("#graph-tooltip");
-
-  nodeSelection
-    .on("mouseenter", function (event: MouseEvent, d) {
-      if (d.detail) {
-        tooltip
-          .html(
-            `<strong>${renderLatex(d.label)}</strong><br/><br/>${renderLatex(d.detail)}`,
-          )
-          .style("display", "block")
-          .style("opacity", 1)
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 10}px`);
-      } else {
-        tooltip
-          .html(`<strong>${renderLatex(d.label)}</strong>`)
-          .style("display", "block")
-          .style("opacity", 1)
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 10}px`);
-      }
-    })
-    .on("mousemove", function (event: MouseEvent) {
-      tooltip
-        .style("left", `${event.pageX + 10}px`)
-        .style("top", `${event.pageY - 10}px`);
-    })
-    .on("mouseleave", function () {
-      tooltip.style("display", "none").style("opacity", 0);
-    });
-
   // Create legend at top-right (compact and narrower)
   const uniqueTypes = [...new Set(allNodes.map((n) => n.type))];
   const legendGroup = svg.append("g").attr("class", "legend");
