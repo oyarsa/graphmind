@@ -5,96 +5,41 @@ import {
   getScoreDisplay,
   formatTypeName,
 } from "./helpers";
-import { RelatedPaper, PaperTerms } from "./model";
+import { RelatedPaper } from "./model";
 
 describe("createPaperTermsDisplay", () => {
   it("should return no data message when all inputs are null/empty", () => {
-    const result = createPaperTermsDisplay(null, null, null, null);
+    const result = createPaperTermsDisplay(null, null, null);
     expect(result).toContain("No analysis data available");
   });
 
   it("should display primary area when provided", () => {
-    const result = createPaperTermsDisplay(null, null, null, "Machine Learning");
+    const result = createPaperTermsDisplay(null, null, "Machine Learning");
     expect(result).toContain("Primary Area");
     expect(result).toContain("Machine Learning");
     expect(result).toContain("bg-green-500");
   });
 
   it("should display background when provided", () => {
-    const result = createPaperTermsDisplay(null, "Background text", null, null);
+    const result = createPaperTermsDisplay("Background text", null, null);
     expect(result).toContain("Background");
     expect(result).toContain("Background text");
     expect(result).toContain("bg-blue-500");
   });
 
   it("should display target when provided", () => {
-    const result = createPaperTermsDisplay(null, null, "Target text", null);
+    const result = createPaperTermsDisplay(null, "Target text", null);
     expect(result).toContain("Target");
     expect(result).toContain("Target text");
     expect(result).toContain("bg-purple-500");
   });
 
-  it("should display terms sections when provided", () => {
-    const terms: PaperTerms = {
-      tasks: ["classification", "detection"],
-      methods: ["CNN", "transformer"],
-      metrics: ["accuracy", "F1-score"],
-      resources: ["dataset1", "dataset2"],
-      relations: [],
-    };
-
-    const result = createPaperTermsDisplay(terms, null, null, null);
-
-    expect(result).toContain("Tasks");
-    expect(result).toContain("classification");
-    expect(result).toContain("detection");
-
-    expect(result).toContain("Methods");
-    expect(result).toContain("CNN");
-    expect(result).toContain("transformer");
-
-    expect(result).toContain("Metrics");
-    expect(result).toContain("accuracy");
-    expect(result).toContain("F1-score");
-
-    expect(result).toContain("Resources");
-    expect(result).toContain("dataset1");
-    expect(result).toContain("dataset2");
-  });
-
-  it("should skip empty term sections", () => {
-    const terms: PaperTerms = {
-      tasks: ["classification"],
-      methods: [],
-      metrics: [],
-      resources: [],
-      relations: [],
-    };
-
-    const result = createPaperTermsDisplay(terms, null, null, null);
-
-    expect(result).toContain("Tasks");
-    expect(result).not.toContain("🔧 Methods");
-    expect(result).not.toContain("📊 Metrics");
-    expect(result).not.toContain("📚 Resources");
-  });
-
-  it("should display both background sections and terms", () => {
-    const terms: PaperTerms = {
-      tasks: ["classification"],
-      methods: [],
-      metrics: [],
-      resources: [],
-      relations: [],
-    };
-
-    const result = createPaperTermsDisplay(terms, "Background", "Target", "ML");
+  it("should only display background sections when provided", () => {
+    const result = createPaperTermsDisplay("Background", "Target", "ML");
 
     expect(result).toContain("Primary Area");
     expect(result).toContain("Background");
     expect(result).toContain("Target");
-    expect(result).toContain("Tasks");
-    expect(result).toContain("mt-4"); // Should add spacing when both sections present
   });
 });
 

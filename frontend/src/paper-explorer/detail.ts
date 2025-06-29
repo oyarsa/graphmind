@@ -1252,7 +1252,6 @@ function loadPaperDetail(): void {
       const primaryAreaText = primaryAreaEntity?.label ?? null;
 
       paperTermsContainer.innerHTML = createPaperTermsDisplay(
-        graphResult.terms ?? null,
         graphResult.background ?? null,
         graphResult.target ?? null,
         primaryAreaText,

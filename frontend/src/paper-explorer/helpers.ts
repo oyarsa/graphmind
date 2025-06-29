@@ -1,6 +1,6 @@
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { RelatedPaper, PaperTerms } from "./model";
+import { RelatedPaper } from "./model";
 
 /**
  * Sets up a collapsible section with header, content, and chevron toggle.
@@ -28,12 +28,11 @@ export function setupSectionToggle(baseId: string): void {
  * Creates HTML display for paper terms including background, target, and primary area
  */
 export function createPaperTermsDisplay(
-  terms: PaperTerms | null,
   background: string | null,
   target: string | null,
   primaryArea: string | null = null,
 ): string {
-  if (!terms && !background && !target && !primaryArea) {
+  if (!background && !target && !primaryArea) {
     return `<div class="text-gray-600 dark:text-gray-500 text-sm">
       No analysis data available
     </div>`;
@@ -95,79 +94,6 @@ export function createPaperTermsDisplay(
           </p>
         </div>`;
     }
-
-    html += `</div>`;
-  }
-
-  // Terms section
-  if (terms) {
-    const sections = [
-      {
-        title: "Tasks",
-        items: terms.tasks,
-        color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-        borderColor: "border-blue-300/50 dark:border-blue-700/50",
-      },
-      {
-        title: "Methods",
-        items: terms.methods,
-        color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-        borderColor: "border-green-300/50 dark:border-green-700/50",
-      },
-      {
-        title: "Metrics",
-        items: terms.metrics,
-        color:
-          "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-        borderColor: "border-yellow-300/50 dark:border-yellow-700/50",
-      },
-      {
-        title: "Resources",
-        items: terms.resources,
-        color:
-          "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-        borderColor: "border-purple-300/50 dark:border-purple-700/50",
-      },
-    ];
-
-    html += `
-      <div class="${background || target || primaryArea ? "mt-4" : ""} space-y-3">
-    `;
-
-    sections.forEach((section) => {
-      if (section.items.length > 0) {
-        html += `
-          <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
-                      dark:border-gray-700 dark:bg-gray-800/50">
-            <div class="mb-2 flex items-center gap-2">
-              <div class="h-4 w-1 rounded-full ${
-                section.title === "Tasks"
-                  ? "bg-blue-500"
-                  : section.title === "Methods"
-                    ? "bg-green-500"
-                    : section.title === "Metrics"
-                      ? "bg-yellow-500"
-                      : "bg-purple-500"
-              }"></div>
-              <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
-                         dark:text-gray-100">
-                ${section.title}
-              </h4>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              ${section.items
-                .map(
-                  (item) => `
-                    <span class="px-2 py-1 ${section.color} text-sm rounded-md border
-                                 ${section.borderColor}">
-                      ${item}
-                    </span>`,
-                )
-                .join("")}
-            </div>
-          </div>`;
-      }
-    });
 
     html += `</div>`;
   }
