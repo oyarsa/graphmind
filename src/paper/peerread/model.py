@@ -187,6 +187,7 @@ class Paper(Record):
         sections: Sequence[PaperSection],
         references: Sequence[PaperReference],
         arxiv_id: str | None = None,
+        arxiv_summary: str | None = None,
     ) -> Self:
         """Create Paper from Semantic Scholar data without reviews.
 
@@ -195,6 +196,8 @@ class Paper(Record):
             sections: Paper sections (from arXiv LaTeX parsing).
             references: Paper references (from arXiv LaTeX parsing).
             arxiv_id: ID of the paper in the arXiv API.
+            arxiv_summary: Summary from the arXiv API to use, if possible. If not, we
+                use the abstract from the Semantic Scholar API.
 
         Returns:
             Paper instance with S2 metadata and empty reviews.
@@ -204,9 +207,12 @@ class Paper(Record):
         # Infer conference from venue data if available
         conference = s2_paper.venue or ""
 
+        # Use arXiv summary if available, otherwise fall back to S2 abstract
+        abstract = arxiv_summary if arxiv_summary else s2_paper.abstract
+
         return cls(
             title=s2_paper.title,
-            abstract=s2_paper.abstract,
+            abstract=abstract,
             reviews=[],  # No reviews from S2
             authors=author_names,
             sections=sections,

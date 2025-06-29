@@ -28,6 +28,7 @@ class ArxivResult:
     openreview_title: str
     arxiv_title: str
     id: str
+    summary: str | None = None
 
 
 def latex(
@@ -206,6 +207,7 @@ def _batch_search_arxiv(
                         id=arxiv_id_from_url(result.entry_id),
                         openreview_title=openreview_titles[i],
                         arxiv_title=arxiv_title,
+                        summary=result.summary,
                     )
                     break
     except Exception as e:

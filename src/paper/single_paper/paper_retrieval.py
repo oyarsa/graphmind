@@ -96,7 +96,11 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr
     )
 
     return pr.Paper.from_s2(
-        s2_paper, sections=sections, references=references, arxiv_id=arxiv_result.id
+        s2_paper,
+        sections=sections,
+        references=references,
+        arxiv_id=arxiv_result.id,
+        arxiv_summary=arxiv_result.summary,
     )
 
 
@@ -153,7 +157,11 @@ async def get_paper_from_arxiv_id(
         )
 
     return pr.Paper.from_s2(
-        s2_paper, sections=sections, references=references, arxiv_id=arxiv_id
+        s2_paper,
+        sections=sections,
+        references=references,
+        arxiv_id=arxiv_id,
+        arxiv_summary=arxiv_result.summary,
     )
 
 
@@ -170,6 +178,7 @@ async def get_arxiv_from_title(openreview_title: str) -> ArxivResult | None:
                 id=arxiv_id_from_url(result.entry_id),
                 openreview_title=openreview_title,
                 arxiv_title=result.title,
+                summary=result.summary,
             )
     except Exception as e:
         logger.warning(f"Error searching for '{openreview_title}' on arXiv: {e}")
@@ -187,6 +196,7 @@ async def get_arxiv_from_id(arxiv_id: str) -> ArxivResult | None:
             id=arxiv_id,
             openreview_title=result.title,
             arxiv_title=result.title,
+            summary=result.summary,
         )
     except Exception as e:
         logger.warning(f"Error searching for '{arxiv_id}' on arXiv: {e}")
