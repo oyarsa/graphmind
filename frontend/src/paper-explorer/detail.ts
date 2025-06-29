@@ -288,7 +288,6 @@ function createStructuredEvaluationDisplay(
       return renderLatex(evidence);
     }
 
-    let text = renderLatex(evidence.text);
     if (evidence.paper_title) {
       // Try to find the related paper index for linking
       const relatedPaperIndex = graphResult
@@ -302,22 +301,16 @@ function createStructuredEvaluationDisplay(
       const paperTitleElement =
         relatedPaperIndex !== null
           ? `<a href="#related-papers"
-               class="related-paper-link hover:underline cursor-pointer"
+               class="related-paper-link hover:underline cursor-pointer text-blue-800 dark:text-blue-200"
                data-paper-index="${relatedPaperIndex}">
-               ${renderLatex(evidence.paper_title)}
-             </a>`
+               ${renderLatex(evidence.paper_title)}:</a>`
           : `<a href="#related-papers"
-               class="related-paper-link hover:underline cursor-pointer">
-               ${renderLatex(evidence.paper_title)}
-             </a>`;
+               class="related-paper-link hover:underline cursor-pointer text-blue-800 dark:text-blue-200">
+               ${renderLatex(evidence.paper_title)}:</a>`;
 
-      text += ` <span class="inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-md
-                      bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
-                      text-xs font-medium">
-                <span class="font-normal">from:</span> ${paperTitleElement}
-              </span>`;
+      return `<span class="font-medium">${paperTitleElement}</span> ${renderLatex(evidence.text)}`;
     }
-    return text;
+    return renderLatex(evidence.text);
   };
 
   return `
