@@ -320,7 +320,7 @@ def get_top_k_reference_by_polarity(
     """
     references_pol = [r for r in references if r.polarity == polarity]
     if not references_pol:
-        logger.debug("No papers with polarity %s abstracts found.", polarity)
+        logger.debug("No papers with polarity %s found.", polarity)
         return []
 
     titles_emb = encoder.encode_multi([r.title for r in references_pol])
