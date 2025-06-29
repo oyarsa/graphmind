@@ -1154,7 +1154,6 @@ function loadPaperDetail(): void {
     const yearEl = document.getElementById("paper-year");
     const conferenceEl = document.getElementById("paper-conference");
     const abstractEl = document.getElementById("paper-abstract");
-    const idEl = document.getElementById("paper-id");
     const approvalEl = document.getElementById("paper-approval");
     const ratingEl = document.getElementById("paper-rating");
     const arxivEl = document.getElementById("paper-arxiv");
@@ -1164,7 +1163,6 @@ function loadPaperDetail(): void {
     if (yearEl) yearEl.textContent = paper.year.toString();
     if (conferenceEl) conferenceEl.textContent = formatConferenceName(paper.conference);
     if (abstractEl) abstractEl.innerHTML = renderLatex(paper.abstract);
-    if (idEl) idEl.textContent = paper.id;
     if (approvalEl) {
       const approvalText =
         paper.approval === null ? "Unknown" : paper.approval ? "Approved" : "Rejected";
