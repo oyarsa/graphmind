@@ -61,7 +61,7 @@ doc:
 
 # Start development server
 api-dev:
-    TIMERS=1 uv run fastapi dev src/paper/backend/api.py
+    LOG_LEVEL=debug TIMERS=1 uv run fastapi dev src/paper/backend/api.py
 
 # Start production server
 api-serve:
