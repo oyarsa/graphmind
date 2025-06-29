@@ -102,7 +102,7 @@ class Graph:
     def build(
         cls,
         encoder: emb.Encoder,
-        papers_ann: Iterable[gpt.PeerReadAnnotated],
+        papers_ann: Iterable[gpt.PaperAnnotated],
         papers_context: Iterable[citations.PaperWithContextClassfied],
         output_dir: Path,
     ) -> None:

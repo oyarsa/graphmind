@@ -16,7 +16,7 @@ from paper.types import Immutable
 from paper.util.serde import Record
 
 if TYPE_CHECKING:
-    from paper.gpt import PeerReadAnnotated
+    from paper.gpt import PaperAnnotated
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ class Graph:
     def from_papers(
         cls,
         encoder: emb.Encoder,
-        papers: Iterable[PeerReadAnnotated],
+        papers: Iterable[PaperAnnotated],
         *,
         progress: bool = False,
     ) -> Self:
@@ -225,7 +225,7 @@ class _PaperRelated(Record):
         return self.paper_id
 
     @classmethod
-    def from_ann(cls, paper: PeerReadAnnotated) -> Self:
+    def from_ann(cls, paper: PaperAnnotated) -> Self:
         """Construct related paper from input annotated paper."""
         return cls(title=paper.title, abstract=paper.abstract, paper_id=paper.id)
 
