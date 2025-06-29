@@ -179,24 +179,21 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
           ${paper.contexts
             .map(
               (context) => `
-            <div class="rounded-md border border-gray-200 bg-gray-50 p-3
-                        dark:border-gray-700 dark:bg-gray-800">
-              <div class="flex items-start gap-2">
-                ${
-                  context.polarity
-                    ? `<span class="mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        context.polarity === "positive"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                          : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                      }">
-                        ${context.polarity === "positive" ? "+" : "-"}
-                      </span>`
-                    : ""
-                }
-                <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 flex-1">
-                  ${renderLatex(context.sentence)}
-                </span>
-              </div>
+            <div class="flex items-start gap-2">
+              ${
+                context.polarity
+                  ? `<span class="mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      context.polarity === "positive"
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                    }">
+                      ${context.polarity === "positive" ? "+" : "-"}
+                    </span>`
+                  : ""
+              }
+              <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 flex-1">
+                ${renderLatex(context.sentence)}
+              </span>
             </div>
           `,
             )
@@ -221,12 +218,9 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
             Target Match
           </h5>
         </div>
-        <div class="rounded-md border border-gray-200 bg-gray-50 p-3
-                    dark:border-gray-700 dark:bg-gray-800">
-          <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${renderLatex(paper.target)}
-          </p>
-        </div>
+        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          ${renderLatex(paper.target)}
+        </p>
       </div>
       `
           : ""
@@ -246,12 +240,9 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
             Background Match
           </h5>
         </div>
-        <div class="rounded-md border border-gray-200 bg-gray-50 p-3
-                    dark:border-gray-700 dark:bg-gray-800">
-          <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${renderLatex(paper.background)}
-          </p>
-        </div>
+        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          ${renderLatex(paper.background)}
+        </p>
       </div>
       `
           : ""
