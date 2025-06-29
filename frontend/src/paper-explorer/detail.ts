@@ -551,14 +551,14 @@ function createHierarchicalGraph(graph: Graph): void {
     }
   }
 
-  // Color scheme for different node types (original colors)
+  // Color scheme for different node types (Transformer-inspired colors)
   const nodeColors: Record<string, string> = {
-    title: "#1e40af", // blue-800
-    primary_area: "#16a34a", // green-600
-    tldr: "#059669", // emerald-600
-    claim: "#ea580c", // orange-600
-    method: "#0891b2", // cyan-600
-    experiment: "#9333ea", // purple-600
+    title: "#A8D5BA", // soft sage green (like attention mechanisms)
+    primary_area: "#FFE4E1", // light peach (like embeddings)
+    tldr: "#FFF8DC", // cream (like Add & Norm layers)
+    claim: "#FFE6CC", // slightly darker coral/peach
+    method: "#CCE7FF", // darker blue (like Feed Forward layers)
+    experiment: "#F0E6FF", // light purple (like Linear layers)
   };
 
   // Calculate total height and set SVG dimensions
@@ -627,25 +627,12 @@ function createHierarchicalGraph(graph: Graph): void {
     .attr("stroke", "rgba(255,255,255,0.1)")
     .attr("stroke-width", 0.5)
     .attr("class", "transition-all duration-300 ease-out")
-    .style(
-      "filter",
-      "drop-shadow(0 4px 12px rgba(0,0,0,0.08)) drop-shadow(0 2px 4px rgba(0,0,0,0.05))",
-    )
+    .style("filter", "none")
     .on("mouseenter", function () {
-      d3.select(this)
-        .style(
-          "filter",
-          "drop-shadow(0 8px 20px rgba(0,0,0,0.12)) drop-shadow(0 4px 8px rgba(0,0,0,0.08))",
-        )
-        .style("transform", "translateY(-1px)");
+      d3.select(this).attr("stroke", "#666666").attr("stroke-width", 1.5);
     })
     .on("mouseleave", function () {
-      d3.select(this)
-        .style(
-          "filter",
-          "drop-shadow(0 4px 12px rgba(0,0,0,0.08)) drop-shadow(0 2px 4px rgba(0,0,0,0.05))",
-        )
-        .style("transform", "translateY(0px)");
+      d3.select(this).attr("stroke", "rgba(255,255,255,0.1)").attr("stroke-width", 0.5);
     });
 
   // Add text labels with proper truncation and centering
@@ -662,12 +649,12 @@ function createHierarchicalGraph(graph: Graph): void {
     .style("height", `${nodeHeight}px`)
     .style("padding", "12px")
     .style("box-sizing", "border-box")
-    .style("color", "white")
+    .style("color", "#2C2C2C")
     .style("font-size", "15px")
-    .style("font-weight", "600")
+    .style("font-weight", "500")
     .style("text-align", "center")
     .style("line-height", "1.3")
-    .style("text-shadow", "0 1px 2px rgba(0,0,0,0.1)")
+    .style("text-shadow", "none")
     .style("overflow", "hidden")
     .style("display", "flex")
     .style("align-items", "center")
