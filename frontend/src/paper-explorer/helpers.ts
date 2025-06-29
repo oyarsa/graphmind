@@ -192,8 +192,10 @@ export function getArxivUrl(arxivId?: string | null): string | null {
 export function formatPaperCitation(paper: RelatedPaper): string {
   if (paper.authors && paper.authors.length > 0 && paper.year) {
     const firstAuthor = paper.authors[0];
+    // Extract only the last name from the first author
+    const lastName = firstAuthor.split(" ").pop() ?? firstAuthor;
     const suffix = paper.authors.length > 1 ? " et al." : "";
-    return `${firstAuthor}${suffix} (${paper.year})`;
+    return `${lastName}${suffix} (${paper.year})`;
   }
 
   // Fallback to first 20 characters of title
