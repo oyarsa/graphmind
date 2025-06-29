@@ -1299,7 +1299,8 @@ function loadPaperDetail(): void {
     if (keywordsContainer) {
       const keywords = graphResult.graph.entities
         .filter((e) => e.type === "keyword")
-        .map((e) => e.label);
+        .map((e) => e.label)
+        .slice(0, 5);
 
       if (keywords.length > 0) {
         keywordsContainer.innerHTML = keywords
