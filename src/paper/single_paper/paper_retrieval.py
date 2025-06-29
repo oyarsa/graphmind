@@ -136,7 +136,7 @@ async def get_paper_from_arxiv_id(
     arxiv_result = await atimer(get_arxiv_from_id(arxiv_id), 3)
     if not arxiv_result:
         raise ValueError(f"Paper not found on arXiv: {arxiv_id}")
-    logger.debug("arXiv result: %s", arxiv_result)
+    logger.debug("arXiv result: %s - %s", arxiv_id, arxiv_result.arxiv_title)
 
     # Run S2 lookup and LaTeX parsing in parallel
     if callback:
