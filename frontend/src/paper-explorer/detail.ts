@@ -331,6 +331,25 @@ function createStructuredEvaluationDisplay(
 
   return `
     <div class="space-y-4">
+      <!-- Result -->
+      <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
+                  dark:border-gray-700 dark:bg-gray-800/50">
+        <div class="mb-2 flex items-center gap-3">
+          <div class="h-4 w-1 rounded-full bg-purple-500"></div>
+          <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                     dark:text-gray-100">
+            Result
+          </h4>
+          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs
+                       font-medium ${labelClass}">
+            ${labelText}
+          </span>
+        </div>
+        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          ${renderLatex(evaluation.conclusion)}
+        </p>
+      </div>
+
       <!-- Supporting Evidence -->
       ${
         evaluation.supporting_evidence.length > 0
@@ -398,25 +417,6 @@ function createStructuredEvaluationDisplay(
       `
           : ""
       }
-
-      <!-- Conclusion -->
-      <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
-                  dark:border-gray-700 dark:bg-gray-800/50">
-        <div class="mb-2 flex items-center gap-3">
-          <div class="h-4 w-1 rounded-full bg-purple-500"></div>
-          <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
-                     dark:text-gray-100">
-            Conclusion
-          </h4>
-          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs
-                       font-medium ${labelClass}">
-            ${labelText}
-          </span>
-        </div>
-        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-          ${renderLatex(evaluation.conclusion)}
-        </p>
-      </div>
     </div>
   `;
 }
