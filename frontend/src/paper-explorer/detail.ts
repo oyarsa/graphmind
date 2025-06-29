@@ -331,21 +331,6 @@ function createStructuredEvaluationDisplay(
 
   return `
     <div class="space-y-4">
-      <!-- Paper Summary -->
-      <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
-                  dark:border-gray-700 dark:bg-gray-800/50">
-        <div class="mb-2 flex items-center gap-2">
-          <div class="h-4 w-1 rounded-full bg-blue-500"></div>
-          <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
-                     dark:text-gray-100">
-            Paper Summary
-          </h4>
-        </div>
-        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-          ${renderLatex(evaluation.paper_summary)}
-        </p>
-      </div>
-
       <!-- Supporting Evidence -->
       ${
         evaluation.supporting_evidence.length > 0
@@ -403,40 +388,6 @@ function createStructuredEvaluationDisplay(
                 </span>
                 <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
                   ${renderEvidence(evidence)}
-                </span>
-              </li>
-            `,
-              )
-              .join("")}
-          </ul>
-        </div>
-      `
-          : ""
-      }
-
-      <!-- Key Comparisons -->
-      ${
-        evaluation.key_comparisons.length > 0
-          ? `
-        <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
-                    dark:border-gray-700 dark:bg-gray-800/50">
-          <div class="mb-2 flex items-center gap-2">
-            <div class="h-4 w-1 rounded-full bg-orange-500"></div>
-            <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
-                       dark:text-gray-100">
-              Key Technical Comparisons
-            </h4>
-          </div>
-          <ul class="space-y-2">
-            ${evaluation.key_comparisons
-              .map(
-                (comparison) => `
-              <li class="flex items-start gap-2">
-                <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full
-                             bg-orange-500">
-                </span>
-                <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-                  ${renderLatex(comparison)}
                 </span>
               </li>
             `,
