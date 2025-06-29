@@ -51,6 +51,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def is_empty_string(s: str | None) -> bool:
+    """Check if the string is None or empty after stripping whitespace.
+
+    Args:
+        s: String to validate.
+
+    Returns:
+        True if the string is empty (None or empty after stripping).
+    """
+    return s is None or s.strip() == ""
+
+
 @dataclass(frozen=True, kw_only=True)
 class PaperMetadata:
     """Metadata extracted from a paper."""
@@ -142,7 +154,10 @@ def get_related_papers(
     main_background_emb = encoder.encode(paper_annotated.background)
     main_target_emb = encoder.encode(paper_annotated.target)
 
-    references = paper_with_contexts.references
+    # Valid references with non-empty abstracts
+    references = [
+        r for r in paper_with_contexts.references if not is_empty_string(r.abstract)
+    ]
     logger.debug("Getting top K references - positive")
     references_positive_related = get_top_k_reference_by_polarity(
         encoder, main_title_emb, references, num_related, pr.ContextPolarity.POSITIVE
@@ -152,21 +167,30 @@ def get_related_papers(
         encoder, main_title_emb, references, num_related, pr.ContextPolarity.NEGATIVE
     )
 
+    # Valid recommended papers with non-empty abstracts
+    filtered_recommended_papers = [
+        r for r in recommended_papers if not is_empty_string(r.abstract)
+    ]
+    logger.debug(
+        "Abstract filtering: %d -> %d papers",
+        len(recommended_papers),
+        len(filtered_recommended_papers),
+    )
     # Filter recommended papers by publication date if requested
-    filtered_recommended_papers = recommended_papers
     if filter_by_date and paper_annotated.paper.year:
         logger.debug("Filtering by publication date")
         main_year = paper_annotated.paper.year
-        filtered_recommended_papers = [
+        filtered_by_date_recommended_papers = [
             paper
-            for paper in recommended_papers
+            for paper in filtered_recommended_papers
             if paper.paper.year and paper.paper.year < main_year
         ]
         logger.debug(
             "Date filtering: %d -> %d papers",
-            len(recommended_papers),
             len(filtered_recommended_papers),
+            len(filtered_by_date_recommended_papers),
         )
+        filtered_recommended_papers = filtered_by_date_recommended_papers
 
     logger.debug("Getting top K semantic - background")
     background_related = get_top_k_semantic(
@@ -197,12 +221,17 @@ def get_related_papers(
     logger.debug("Background related: %d", len(background_related))
     logger.debug("Target related: %d", len(target_related))
 
-    return (
+    all_related = (
         references_positive_related
         + references_negative_related
         + background_related
         + target_related
     )
+
+    total_related = len(all_related)
+    logger.debug("Total related papers with valid abstracts: %d", total_related)
+
+    return all_related
 
 
 def get_top_k_semantic(
@@ -291,6 +320,7 @@ def get_top_k_reference_by_polarity(
     """
     references_pol = [r for r in references if r.polarity == polarity]
     if not references_pol:
+        logger.debug("No papers with polarity %s abstracts found.", polarity)
         return []
 
     titles_emb = encoder.encode_multi([r.title for r in references_pol])
