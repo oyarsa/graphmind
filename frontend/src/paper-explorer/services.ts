@@ -203,6 +203,24 @@ export class PaperEvaluator {
       });
 
       eventSource.onerror = (event) => {
+        // Try to parse error data if available
+        try {
+          const messageEvent = event as MessageEvent;
+          if (messageEvent.data) {
+            const data = SSEEventDataSchema.parse(
+              JSON.parse(messageEvent.data as string),
+            );
+            const errorMessage = data.message ?? "Unknown error occurred";
+            this.onError?.(errorMessage);
+            this.cleanup();
+            reject(new Error(errorMessage));
+            return;
+          }
+        } catch (error) {
+          console.error("Failed to parse error data:", error);
+        }
+
+        // Fallback to generic connection error
         this.onConnectionError?.(event);
         this.cleanup();
         reject(new Error("Connection lost"));
