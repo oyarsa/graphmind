@@ -814,6 +814,16 @@ class PaperRelatedSummarised(Record):
     polarity: pr.ContextPolarity
     source: PaperSource
 
+    year: int | None = None
+    authors: Sequence[str] | None = None
+    venue: str | None = None
+    citation_count: int | None = None
+    reference_count: int | None = None
+    influential_citation_count: int | None = None
+    corpus_id: int | None = None
+    url: str | None = None
+    arxiv_id: str | None = None
+
     contexts: Sequence[pr.CitationContext] | None = None  # For citation-based papers
     background: str | None = None  # For semantic papers matched by background
     target: str | None = None  # For semantic papers matched by target
@@ -834,6 +844,15 @@ class PaperRelatedSummarised(Record):
             score=related.score,
             polarity=pr.ContextPolarity(related.polarity),
             source=PaperSource(related.source),
+            year=related.year,
+            authors=related.authors,
+            venue=related.venue,
+            citation_count=related.citation_count,
+            reference_count=related.reference_count,
+            influential_citation_count=related.influential_citation_count,
+            corpus_id=related.corpus_id,
+            url=related.url,
+            arxiv_id=related.arxiv_id,
             contexts=related.contexts,
             background=related.background,
             target=related.target,

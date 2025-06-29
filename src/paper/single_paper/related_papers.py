@@ -29,12 +29,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from paper import embedding as emb
 from paper import gpt
 from paper import peerread as pr
 from paper import related_papers as rp
+from paper import semantic_scholar as s2
 from paper.gpt.run_gpt import GPTResult, LLMClient, gpt_sequence
 from paper.gpt.summarise_related_peter import (
     PETER_SUMMARISE_SYSTEM_PROMPT,
@@ -47,6 +49,53 @@ if TYPE_CHECKING:
     from paper.gpt.classify_contexts import S2ReferenceClassified
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, kw_only=True)
+class PaperMetadata:
+    """Metadata extracted from a paper."""
+
+    year: int | None
+    authors: Sequence[str] | None
+    venue: str | None
+    citation_count: int | None
+    reference_count: int | None
+    influential_citation_count: int | None
+    corpus_id: int | None
+    url: str | None
+    arxiv_id: str | None
+
+
+def _extract_paper_metadata(paper: s2.Paper | s2.PaperWithS2Refs) -> PaperMetadata:
+    """Extract metadata fields from a paper, handling different paper types."""
+    match paper:
+        case s2.PaperWithS2Refs():
+            return PaperMetadata(
+                year=paper.year,
+                authors=paper.authors,
+                venue=paper.conference,
+                arxiv_id=paper.arxiv_id,
+                # Not available in PeerRead papers
+                citation_count=None,
+                reference_count=None,
+                influential_citation_count=None,
+                corpus_id=None,
+                url=None,
+            )
+        case s2.Paper():
+            return PaperMetadata(
+                year=paper.year,
+                authors=[author.name for author in paper.authors if author.name]
+                if paper.authors
+                else None,
+                venue=paper.venue,
+                citation_count=paper.citation_count,
+                reference_count=paper.reference_count,
+                influential_citation_count=paper.influential_citation_count,
+                corpus_id=paper.corpus_id,
+                url=paper.url,
+                arxiv_id=None,  # Not available in s2.Paper
+            )
 
 
 def get_related_papers(
@@ -189,19 +238,31 @@ def get_top_k_semantic(
     sims = emb.similarities(main_emb, sem_emb)
     top_k = [(papers[i], float(sims[i])) for i in emb.top_k_indices(sims, k)]
 
-    return [
-        rp.PaperRelated(
-            source=rp.PaperSource.SEMANTIC,
-            polarity=polarity,
-            paper_id=paper.id,
-            title=paper.title,
-            abstract=paper.abstract,
-            score=score,
-            background=background,
-            target=target,
+    related_papers: list[rp.PaperRelated] = []
+    for paper, score in top_k:
+        metadata = _extract_paper_metadata(paper.paper)
+        related_papers.append(
+            rp.PaperRelated(
+                source=rp.PaperSource.SEMANTIC,
+                polarity=polarity,
+                paper_id=paper.id,
+                title=paper.title,
+                abstract=paper.abstract,
+                score=score,
+                year=metadata.year,
+                authors=metadata.authors,
+                venue=metadata.venue,
+                citation_count=metadata.citation_count,
+                reference_count=metadata.reference_count,
+                influential_citation_count=metadata.influential_citation_count,
+                corpus_id=metadata.corpus_id,
+                url=metadata.url,
+                arxiv_id=metadata.arxiv_id,
+                background=background,
+                target=target,
+            )
         )
-        for paper, score in top_k
-    ]
+    return related_papers
 
 
 def get_top_k_reference_by_polarity(
@@ -244,6 +305,17 @@ def get_top_k_reference_by_polarity(
             title=paper.title,
             abstract=paper.abstract,
             score=score,
+            year=paper.year,
+            authors=[author.name for author in paper.authors if author.name]
+            if paper.authors
+            else None,
+            venue=paper.venue,
+            citation_count=paper.citation_count,
+            reference_count=paper.reference_count,
+            influential_citation_count=paper.influential_citation_count,
+            corpus_id=paper.corpus_id,
+            url=paper.url,
+            arxiv_id=None,  # Not available in S2ReferenceClassified
             contexts=[
                 pr.CitationContext(sentence=ctx.text, polarity=ctx.gold)
                 for ctx in paper.contexts

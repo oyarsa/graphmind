@@ -12,11 +12,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Self
 
 from paper import embedding as emb
+from paper import semantic_scholar as s2
 from paper.types import Immutable
 from paper.util.serde import Record
 
 if TYPE_CHECKING:
-    from paper.gpt import PaperAnnotated
+    from paper import gpt
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ class Graph:
     def from_papers(
         cls,
         encoder: emb.Encoder,
-        papers: Iterable[PaperAnnotated],
+        papers: Iterable[gpt.PaperAnnotated],
         *,
         progress: bool = False,
     ) -> Self:
@@ -218,6 +219,15 @@ class _PaperRelated(Record):
     title: str
     abstract: str
     paper_id: str
+    year: int | None = None
+    authors: Sequence[str] | None = None
+    venue: str | None = None
+    citation_count: int | None = None
+    reference_count: int | None = None
+    influential_citation_count: int | None = None
+    corpus_id: int | None = None
+    url: str | None = None
+    arxiv_id: str | None = None
 
     @property
     def id(self) -> str:
@@ -225,9 +235,44 @@ class _PaperRelated(Record):
         return self.paper_id
 
     @classmethod
-    def from_ann(cls, paper: PaperAnnotated) -> Self:
+    def from_ann(cls, paper: gpt.PaperAnnotated) -> Self:
         """Construct related paper from input annotated paper."""
-        return cls(title=paper.title, abstract=paper.abstract, paper_id=paper.id)
+        match p := paper.paper:
+            case s2.Paper():
+                authors = [a.name for a in p.authors or [] if a.name]
+                conference = None
+                arxiv_id = None
+                # Extract S2 metadata
+                citation_count = p.citation_count
+                reference_count = p.reference_count
+                influential_citation_count = p.influential_citation_count
+                corpus_id = p.corpus_id
+                url = p.url
+            case s2.PaperWithS2Refs():
+                authors = p.authors
+                conference = p.conference
+                arxiv_id = p.arxiv_id
+                # PeerRead papers don't have these fields
+                citation_count = None
+                reference_count = None
+                influential_citation_count = None
+                corpus_id = None
+                url = None
+
+        return cls(
+            title=paper.title,
+            abstract=paper.abstract,
+            paper_id=paper.id,
+            year=paper.paper.year,
+            authors=authors,
+            venue=conference,
+            citation_count=citation_count,
+            reference_count=reference_count,
+            influential_citation_count=influential_citation_count,
+            corpus_id=corpus_id,
+            url=url,
+            arxiv_id=arxiv_id,
+        )
 
 
 class SemanticResult(_PaperRelated):

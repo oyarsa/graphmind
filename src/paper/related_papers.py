@@ -205,6 +205,15 @@ class PaperRelated(Record):
         abstract: Paper abstract.
         score: Similarity/relevance score (interpretation depends on source).
         polarity: Positive (supportive) or negative (contrasting) relationship.
+        year: Year of publication.
+        authors: List of author names.
+        venue: Publication venue name.
+        citation_count: Number of papers that cite this paper.
+        reference_count: Number of papers this paper references.
+        influential_citation_count: Number of influential citations.
+        corpus_id: Semantic Scholar's secondary identifier.
+        url: URL to paper on Semantic Scholar website.
+        arxiv_id: arXiv identifier if available.
         contexts: Citation contexts (for citation-based papers).
         background: Background text that matched (for semantic papers).
         target: Target text that matched (for semantic papers).
@@ -216,6 +225,16 @@ class PaperRelated(Record):
     abstract: str
     score: float
     polarity: ContextPolarity
+
+    year: int | None = None
+    authors: Sequence[str] | None = None
+    venue: str | None = None
+    citation_count: int | None = None
+    reference_count: int | None = None
+    influential_citation_count: int | None = None
+    corpus_id: int | None = None
+    url: str | None = None
+    arxiv_id: str | None = None
 
     contexts: Sequence[pr.CitationContext] | None = None  # For citation-based papers
     background: str | None = None  # For semantic papers matched by background
@@ -265,6 +284,15 @@ class PaperRelated(Record):
             score=paper.score,
             source=source,
             polarity=polarity,
+            year=paper.year,
+            authors=paper.authors,
+            venue=paper.venue,
+            citation_count=paper.citation_count,
+            reference_count=paper.reference_count,
+            influential_citation_count=paper.influential_citation_count,
+            corpus_id=paper.corpus_id,
+            url=paper.url,
+            arxiv_id=paper.arxiv_id,
             contexts=contexts,
             background=background,
             target=target,

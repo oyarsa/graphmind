@@ -79,6 +79,19 @@ class Graph(Immutable):
                         abstract=paper.abstract,
                         paper_id=paper.id,
                         polarity=polarity,
+                        year=paper.year,
+                        authors=[
+                            author.name for author in paper.authors or [] if author.name
+                        ]
+                        if paper.authors
+                        else None,
+                        venue=paper.venue,
+                        citation_count=paper.citation_count,
+                        reference_count=paper.reference_count,
+                        influential_citation_count=paper.influential_citation_count,
+                        corpus_id=paper.corpus_id,
+                        url=paper.url,
+                        arxiv_id=None,  # arXiv ID not available in S2ReferenceClassified
                         contexts=[
                             pr.CitationContext(
                                 sentence=ctx.text,
@@ -157,6 +170,15 @@ class Citation(Record):
     title: str
     abstract: str
     polarity: ContextPolarity
+    year: int | None = None
+    authors: Sequence[str] | None = None
+    venue: str | None = None
+    citation_count: int | None = None
+    reference_count: int | None = None
+    influential_citation_count: int | None = None
+    corpus_id: int | None = None
+    url: str | None = None
+    arxiv_id: str | None = None
     contexts: Sequence[pr.CitationContext] | None = None
 
     @property
