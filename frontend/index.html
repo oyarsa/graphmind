@@ -136,9 +136,7 @@
       document.addEventListener("DOMContentLoaded", () => {
         const themeToggle = document.getElementById("themeToggle");
         if (themeToggle) {
-          themeToggle.addEventListener("click", () => {
-            ThemeManager.toggle();
-          });
+          themeToggle.addEventListener("click", () => ThemeManager.toggle());
         }
       });
     </script>

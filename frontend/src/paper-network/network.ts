@@ -85,9 +85,7 @@ export class PaperNetwork {
     this.setupEventListeners();
     this.handleResize();
 
-    window.addEventListener("resize", () => {
-      this.handleResize();
-    });
+    window.addEventListener("resize", () => this.handleResize());
   }
 
   private setupEventListeners(): void {
@@ -120,9 +118,7 @@ export class PaperNetwork {
       }
     });
 
-    clearGraphBtn.addEventListener("click", () => {
-      this.clearGraph();
-    });
+    clearGraphBtn.addEventListener("click", () => this.clearGraph());
 
     clearSearchBtn.addEventListener("click", () => {
       paperTitleInput.value = "";
@@ -667,15 +663,9 @@ export class PaperNetwork {
 
     // Add hover handlers for links
     linkUpdate
-      .on("mouseover", (event: MouseEvent, d: D3Link) => {
-        this.showLinkTooltip(event, d);
-      })
-      .on("mousemove", (event: MouseEvent) => {
-        this.updateTooltipPosition(event);
-      })
-      .on("mouseout", () => {
-        this.hideTooltip();
-      });
+      .on("mouseover", (event: MouseEvent, d: D3Link) => this.showLinkTooltip(event, d))
+      .on("mousemove", (event: MouseEvent) => this.updateTooltipPosition(event))
+      .on("mouseout", () => this.hideTooltip());
 
     // Update nodes
     const nodeSelection = this.nodeGroup
@@ -781,15 +771,9 @@ export class PaperNetwork {
         event.stopPropagation();
         this.showInfoPanel(d);
       })
-      .on("mouseover", (event: MouseEvent, d: D3Node) => {
-        this.showTooltip(event, d);
-      })
-      .on("mousemove", (event: MouseEvent) => {
-        this.updateTooltipPosition(event);
-      })
-      .on("mouseout", () => {
-        this.hideTooltip();
-      });
+      .on("mouseover", (event: MouseEvent, d: D3Node) => this.showTooltip(event, d))
+      .on("mousemove", (event: MouseEvent) => this.updateTooltipPosition(event))
+      .on("mouseout", () => this.hideTooltip());
 
     // Update simulation
     this.simulation.nodes(this.nodes).on("tick", () => {

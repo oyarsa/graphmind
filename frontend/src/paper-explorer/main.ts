@@ -246,13 +246,8 @@ class PaperExplorer {
 
     if (!jsonTab || !arxivTab || !jsonContent || !arxivContent) return;
 
-    jsonTab.addEventListener("click", () => {
-      this.switchTab("json");
-    });
-
-    arxivTab.addEventListener("click", () => {
-      this.switchTab("arxiv");
-    });
+    jsonTab.addEventListener("click", () => this.switchTab("json"));
+    arxivTab.addEventListener("click", () => this.switchTab("arxiv"));
   }
 
   private switchTab(tab: "json" | "arxiv"): void {
@@ -379,9 +374,7 @@ class PaperExplorer {
         </div>
       `;
 
-      paperDiv.addEventListener("click", () => {
-        this.handleArxivPaperSelection(item);
-      });
+      paperDiv.addEventListener("click", () => this.handleArxivPaperSelection(item));
 
       container.appendChild(paperDiv);
     });
@@ -624,9 +617,7 @@ class PaperExplorer {
     }
 
     if (dismissButton) {
-      dismissButton.addEventListener("click", () => {
-        this.hideEvaluationModal();
-      });
+      dismissButton.addEventListener("click", () => this.hideEvaluationModal());
     }
   }
 
@@ -654,9 +645,7 @@ class PaperExplorer {
 
       if (confirm(`Clear ${cacheKeys.length} cached papers? This cannot be undone.`)) {
         // Remove all cache keys
-        cacheKeys.forEach((key) => {
-          localStorage.removeItem(key);
-        });
+        cacheKeys.forEach((key) => localStorage.removeItem(key));
       }
     });
   }
@@ -692,9 +681,7 @@ class PaperExplorer {
       });
 
       // Auto-close notification after 5 seconds
-      setTimeout(() => {
-        notification.close();
-      }, 5000);
+      setTimeout(() => notification.close(), 5000);
 
       // Handle notification click
       notification.onclick = () => {
@@ -718,9 +705,7 @@ class PaperExplorer {
     }
 
     // Handle cancel button
-    cancelButton.addEventListener("click", () => {
-      this.hideEvaluationSettingsModal();
-    });
+    cancelButton.addEventListener("click", () => this.hideEvaluationSettingsModal());
 
     // Handle clicking outside modal
     modal.addEventListener("click", (e) => {

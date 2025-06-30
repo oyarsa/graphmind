@@ -1070,10 +1070,7 @@ function showExcerptsModal(entity: Entity): void {
   modal.style.display = "flex";
 
   // Close modal handlers
-  const closeModal = () => {
-    modal.style.display = "none";
-  };
-
+  const closeModal = () => (modal.style.display = "none");
   closeButton.onclick = closeModal;
 
   // Click outside to close
