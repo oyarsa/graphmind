@@ -32,11 +32,8 @@ import { addFooter } from "../footer";
  * Get color for score progress bar (red to green gradient)
  */
 function getScoreColor(score: number): string {
-  // Ensure score is between 0 and 1
-  const clampedScore = Math.max(0, Math.min(1, score));
-
   // Convert to percentage for color calculation
-  const percent = clampedScore * 100;
+  const percent = score * 100;
 
   if (percent < 50) {
     // Red to yellow gradient (0-50%)
