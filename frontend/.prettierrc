@@ -5,5 +5,6 @@
     "prettier-plugin-classnames",
     "prettier-plugin-merge"
   ],
-  "endingPosition": "absolute-with-indent"
+  "endingPosition": "absolute-with-indent",
+  "arrowParens": "avoid"
 }

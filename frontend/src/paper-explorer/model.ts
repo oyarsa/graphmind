@@ -75,11 +75,11 @@ export const GraphSchema = z
     valid_status_all: z.array(z.string()).min(1),
   })
   .refine(
-    (data) => {
+    data => {
       // Validate that all relationship nodes exist in entities
-      const entityLabels = new Set(data.entities.map((e) => e.label));
+      const entityLabels = new Set(data.entities.map(e => e.label));
       return data.relationships.every(
-        (rel) => entityLabels.has(rel.source) && entityLabels.has(rel.target),
+        rel => entityLabels.has(rel.source) && entityLabels.has(rel.target),
       );
     },
     {

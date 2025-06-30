@@ -131,7 +131,7 @@ export class PaperEvaluator {
       }
 
       // Use specific event listeners for each event type
-      eventSource.addEventListener("connected", (event) => {
+      eventSource.addEventListener("connected", event => {
         try {
           const data = SSEEventDataSchema.parse(JSON.parse(event.data as string));
           if (data.message) {
@@ -146,7 +146,7 @@ export class PaperEvaluator {
         }
       });
 
-      eventSource.addEventListener("progress", (event) => {
+      eventSource.addEventListener("progress", event => {
         try {
           const data = SSEEventDataSchema.parse(JSON.parse(event.data as string));
           if (data.message) {
@@ -162,7 +162,7 @@ export class PaperEvaluator {
         }
       });
 
-      eventSource.addEventListener("complete", (event) => {
+      eventSource.addEventListener("complete", event => {
         try {
           const data = SSEEventDataSchema.parse(JSON.parse(event.data as string));
           if (data.result) {
@@ -183,7 +183,7 @@ export class PaperEvaluator {
         }
       });
 
-      eventSource.addEventListener("error", (event) => {
+      eventSource.addEventListener("error", event => {
         try {
           const messageEvent = event as MessageEvent;
           const data = SSEEventDataSchema.parse(
@@ -202,7 +202,7 @@ export class PaperEvaluator {
         }
       });
 
-      eventSource.onerror = (event) => {
+      eventSource.onerror = event => {
         // Try to parse error data if available
         try {
           const messageEvent = event as MessageEvent;
@@ -262,7 +262,7 @@ export class PaperEvaluator {
       "Evaluating novelty",
     ];
 
-    const currentPhase = phases.findIndex((phase) =>
+    const currentPhase = phases.findIndex(phase =>
       message.toLowerCase().includes(phase.toLowerCase()),
     );
 

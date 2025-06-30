@@ -4,7 +4,7 @@
  * @param ms Number of milliseconds to sleep.
  */
 export async function sleep(ms: number): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, ms));
+  await new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
@@ -44,7 +44,7 @@ export function requireElement(id: string): HTMLElement {
  * @returns A promise that resolves when the dialog is closed.
  */
 export function showDialog(message: string, title: string): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const overlay = requireElement("dialogOverlay");
     const titleElement = requireElement("dialogTitle");
     const messageElement = requireElement("dialogMessage");
@@ -139,7 +139,7 @@ export async function retryWithBackoff<T>(
  */
 export async function waitForDOM(): Promise<void> {
   if (document.readyState === "loading") {
-    await new Promise((resolve) => {
+    await new Promise(resolve => {
       document.addEventListener("DOMContentLoaded", resolve);
     });
   }

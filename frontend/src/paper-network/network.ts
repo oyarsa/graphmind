@@ -75,7 +75,7 @@ export class PaperNetwork {
         "link",
         d3
           .forceLink<D3Node, D3Link>()
-          .id((d) => d.id)
+          .id(d => d.id)
           .distance(150),
       )
       .force("charge", d3.forceManyBody<D3Node>().strength(-500))
@@ -136,7 +136,7 @@ export class PaperNetwork {
       }
     });
 
-    paperTitleInput.addEventListener("keypress", (e) => {
+    paperTitleInput.addEventListener("keypress", e => {
       if (e.key === "Enter") {
         searchPaperBtn.click();
       }
@@ -514,7 +514,7 @@ export class PaperNetwork {
       console.log(`Loaded ${config.linkType} pool:`, {
         nodeId,
         count: response.neighbours.length,
-        papers: response.neighbours.map((p) => `${p.id}: ${p.title}`),
+        papers: response.neighbours.map(p => `${p.id}: ${p.title}`),
       });
 
       // Update button states if this is the currently selected node
@@ -559,7 +559,7 @@ export class PaperNetwork {
     });
 
     // Add nodes and links for papers to show
-    papersToShow.forEach((paper) => {
+    papersToShow.forEach(paper => {
       // Add node if it doesn't exist
       if (!this.nodeMap.has(paper.id)) {
         // Create D3Node from PaperNeighbour
@@ -618,7 +618,7 @@ export class PaperNetwork {
   private addLink(link: GraphLink): void {
     // Check if link already exists
     const exists = this.links.some(
-      (l) => getNodeId(l.source) === link.source && getNodeId(l.target) === link.target,
+      l => getNodeId(l.source) === link.source && getNodeId(l.target) === link.target,
     );
 
     if (!exists) {
@@ -628,7 +628,7 @@ export class PaperNetwork {
 
   private linkExists(sourceId: string, targetId: string): boolean {
     return this.links.some(
-      (l) => getNodeId(l.source) === sourceId && getNodeId(l.target) === targetId,
+      l => getNodeId(l.source) === sourceId && getNodeId(l.target) === targetId,
     );
   }
 
@@ -636,7 +636,7 @@ export class PaperNetwork {
     // Update links
     const linkSelection = this.linkGroup
       .selectAll<SVGLineElement, D3Link>(".link")
-      .data(this.links, (d) => `${getNodeId(d.source)}-${getNodeId(d.target)}`);
+      .data(this.links, d => `${getNodeId(d.source)}-${getNodeId(d.target)}`);
 
     linkSelection.exit().remove();
 
@@ -644,8 +644,8 @@ export class PaperNetwork {
       .enter()
       .append("line")
       .attr("class", "link")
-      .attr("stroke", (d) => (d.type === "cited" ? "#ff6b6b" : "#4ecdc4"))
-      .attr("stroke-width", (d) => {
+      .attr("stroke", d => (d.type === "cited" ? "#ff6b6b" : "#4ecdc4"))
+      .attr("stroke-width", d => {
         // Minimum thickness for similarities below 40%
         const minThickness = 4;
         const maxThickness = 12;
@@ -670,7 +670,7 @@ export class PaperNetwork {
     // Update nodes
     const nodeSelection = this.nodeGroup
       .selectAll<SVGGElement, D3Node>(".node")
-      .data(this.nodes, (d) => d.id);
+      .data(this.nodes, d => d.id);
 
     nodeSelection.exit().remove();
 
@@ -778,12 +778,12 @@ export class PaperNetwork {
     // Update simulation
     this.simulation.nodes(this.nodes).on("tick", () => {
       linkUpdate
-        .attr("x1", (d) => getNodePos(d.source).x ?? 0)
-        .attr("y1", (d) => getNodePos(d.source).y ?? 0)
-        .attr("x2", (d) => getNodePos(d.target).x ?? 0)
-        .attr("y2", (d) => getNodePos(d.target).y ?? 0);
+        .attr("x1", d => getNodePos(d.source).x ?? 0)
+        .attr("y1", d => getNodePos(d.source).y ?? 0)
+        .attr("x2", d => getNodePos(d.target).x ?? 0)
+        .attr("y2", d => getNodePos(d.target).y ?? 0);
 
-      nodeUpdate.attr("transform", (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
+      nodeUpdate.attr("transform", d => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
 
     this.simulation.force<d3.ForceLink<D3Node, D3Link>>("link")?.links(this.links);
@@ -903,7 +903,7 @@ export class PaperNetwork {
     this.nodeGroup
       .selectAll(".node")
       // @ts-expect-error Improper typing from D3
-      .filter((d) => d.id === nodeId)
+      .filter(d => d.id === nodeId)
       .select(".node-rect")
       .transition()
       .duration(300)

@@ -94,7 +94,7 @@ class PaperExplorer {
       return;
     }
 
-    papers.forEach((graphResult) => {
+    papers.forEach(graphResult => {
       const paper = graphResult.paper;
       const paperLink = document.createElement("a");
       const encodedId = encodeURIComponent(paper.id);
@@ -106,8 +106,8 @@ class PaperExplorer {
 
       // Extract keywords from graph entities
       const keywords = graphResult.graph.entities
-        .filter((e) => e.type === "keyword")
-        .map((e) => e.label)
+        .filter(e => e.type === "keyword")
+        .map(e => e.label)
         .slice(0, 5); // Limit to 5 keywords
 
       paperLink.innerHTML = `
@@ -130,7 +130,7 @@ class PaperExplorer {
           <div class="flex flex-wrap gap-2 mb-4">
             ${keywords
               .map(
-                (keyword) => `
+                keyword => `
                 <span class="px-2 py-1 bg-teal-100/70 dark:bg-teal-900/30 text-teal-800
                              dark:text-teal-300 text-xs rounded-md border border-teal-300/50
                              dark:border-teal-700/50">
@@ -205,7 +205,7 @@ class PaperExplorer {
       return papers;
     }
 
-    return this.fuse.search(query).map((result) => result.item);
+    return this.fuse.search(query).map(result => result.item);
   }
 
   private setupSearchBar(): void {
@@ -337,7 +337,7 @@ class PaperExplorer {
       return;
     }
 
-    searchResults.items.forEach((item) => {
+    searchResults.items.forEach(item => {
       const paperDiv = document.createElement("div");
       paperDiv.className =
         "block rounded-lg bg-gray-100/50 dark:bg-gray-900/50 border border-gray-300" +
@@ -404,7 +404,7 @@ class PaperExplorer {
     };
 
     // Handle form submission
-    formElement.addEventListener("submit", (event) => {
+    formElement.addEventListener("submit", event => {
       event.preventDefault();
       performSearch();
     });
@@ -446,7 +446,7 @@ class PaperExplorer {
 
     // Check if paper is already cached
     // Only check keys that match the paper cache pattern (paper-cache-{hash})
-    const cacheKeys = Object.keys(localStorage).filter((key) =>
+    const cacheKeys = Object.keys(localStorage).filter(key =>
       key.startsWith("paper-cache-"),
     );
     console.log(`[Cache] Found ${cacheKeys.length} cached papers in localStorage`);
@@ -634,7 +634,7 @@ class PaperExplorer {
 
     clearButton.addEventListener("click", () => {
       // Find all cache keys
-      const cacheKeys = Object.keys(localStorage).filter((key) =>
+      const cacheKeys = Object.keys(localStorage).filter(key =>
         key.startsWith("paper-cache-"),
       );
 
@@ -645,7 +645,7 @@ class PaperExplorer {
 
       if (confirm(`Clear ${cacheKeys.length} cached papers? This cannot be undone.`)) {
         // Remove all cache keys
-        cacheKeys.forEach((key) => localStorage.removeItem(key));
+        cacheKeys.forEach(key => localStorage.removeItem(key));
       }
     });
   }
@@ -708,20 +708,20 @@ class PaperExplorer {
     cancelButton.addEventListener("click", () => this.hideEvaluationSettingsModal());
 
     // Handle clicking outside modal
-    modal.addEventListener("click", (e) => {
+    modal.addEventListener("click", e => {
       if (e.target === modal) {
         this.hideEvaluationSettingsModal();
       }
     });
 
     // Handle form submission
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", e => {
       e.preventDefault();
       void this.handleEvaluationSubmit();
     });
 
     // Handle Escape key
-    document.addEventListener("keydown", (e) => {
+    document.addEventListener("keydown", e => {
       if (e.key === "Escape" && !modal.classList.contains("hidden")) {
         this.hideEvaluationSettingsModal();
       }

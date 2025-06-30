@@ -222,7 +222,7 @@ export function renderLatex(text: string): string {
 
   return text
     .split(math_pattern)
-    .map((segment) => {
+    .map(segment => {
       const display = segment.startsWith("$$") && segment.endsWith("$$");
       const inline = !display && segment.startsWith("$") && segment.endsWith("$");
 

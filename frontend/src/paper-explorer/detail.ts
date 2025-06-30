@@ -196,7 +196,7 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
         <div class="space-y-2">
           ${paper.contexts
             .map(
-              (context) => `
+              context => `
             <div class="flex items-start gap-2">
               ${
                 context.polarity
@@ -279,13 +279,13 @@ function findRelatedPaperIndex(
   activeFilters: Set<string>,
 ): number | null {
   // Filter papers based on their relationship type (same logic as renderFilteredRelatedPapers)
-  const filteredPapers = relatedPapers.filter((paper) => {
+  const filteredPapers = relatedPapers.filter(paper => {
     const relationship = getRelationshipStyle(paper);
     return activeFilters.has(relationship.type);
   });
 
   // Find the index in the filtered array
-  const index = filteredPapers.findIndex((paper) => paper.title === paperTitle);
+  const index = filteredPapers.findIndex(paper => paper.title === paperTitle);
   return index >= 0 ? index : null;
 }
 
@@ -379,7 +379,7 @@ function createStructuredEvaluationDisplay(
           <ul class="space-y-2">
             ${evaluation.supporting_evidence
               .map(
-                (evidence) => `
+                evidence => `
               <li class="flex items-start gap-2">
                 <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full
                              bg-green-500">
@@ -413,7 +413,7 @@ function createStructuredEvaluationDisplay(
           <ul class="space-y-2">
             ${evaluation.contradictory_evidence
               .map(
-                (evidence) => `
+                evidence => `
               <li class="flex items-start gap-2">
                 <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full
                              bg-red-500">
@@ -451,15 +451,15 @@ function createHierarchicalGraph(graph: Graph): void {
   // Group entities by type in hierarchical order (remove keywords, tldr, primary_area)
   const levelTypes = [["title"], ["claim"], ["method"], ["experiment"]];
 
-  const levels = levelTypes.map((types) =>
-    graph.entities.filter((entity) => types.includes(entity.type)),
+  const levels = levelTypes.map(types =>
+    graph.entities.filter(entity => types.includes(entity.type)),
   );
 
   // Filter out empty levels
-  const nonEmptyLevels = levels.filter((level) => level.length > 0);
+  const nonEmptyLevels = levels.filter(level => level.length > 0);
 
   // Calculate required width based on actual content
-  const maxNodesInLevel = Math.max(...nonEmptyLevels.map((level) => level.length));
+  const maxNodesInLevel = Math.max(...nonEmptyLevels.map(level => level.length));
   const requiredWidth = Math.max(
     titleNodeWidth + padding, // Minimum for title
     maxNodesInLevel * (nodeWidth + nodeSpacing) - nodeSpacing + padding, // Width for widest level
@@ -512,7 +512,7 @@ function createHierarchicalGraph(graph: Graph): void {
 
   // Create edges based on relationships, with special handling for removed nodes
   const edges = graph.relationships
-    .map((rel) => {
+    .map(rel => {
       const source = nodesByLabel.get(rel.source);
       const target = nodesByLabel.get(rel.target);
 
@@ -523,24 +523,22 @@ function createHierarchicalGraph(graph: Graph): void {
 
       // Handle cases where intermediate nodes (tldr, primary_area) were removed
       // If source is title and target is removed node, find what the removed node connects to
-      const titleNode = [...nodesByLabel.values()].find((n) => n.type === "title");
-      const claimNodes = [...nodesByLabel.values()].filter((n) => n.type === "claim");
+      const titleNode = [...nodesByLabel.values()].find(n => n.type === "title");
+      const claimNodes = [...nodesByLabel.values()].filter(n => n.type === "claim");
 
       // If we have a title and claims, but no direct connections, create them
       if (
         titleNode &&
         claimNodes.length > 0 &&
         rel.source === titleNode.label &&
-        ["primary_area", "tldr"].some((type) =>
-          graph.entities.find((e) => e.type === type && e.label === rel.target),
+        ["primary_area", "tldr"].some(type =>
+          graph.entities.find(e => e.type === type && e.label === rel.target),
         )
       ) {
         // Find what this removed node connects to
-        const downstreamRels = graph.relationships.filter(
-          (r) => r.source === rel.target,
-        );
+        const downstreamRels = graph.relationships.filter(r => r.source === rel.target);
         return downstreamRels
-          .map((downRel) => {
+          .map(downRel => {
             const downTarget = nodesByLabel.get(downRel.target);
             return downTarget ? { source: titleNode, target: downTarget } : null;
           })
@@ -550,20 +548,20 @@ function createHierarchicalGraph(graph: Graph): void {
       return null;
     })
     .flat()
-    .filter((edge) => edge !== null);
+    .filter(edge => edge !== null);
 
   // Ensure title connects to claims if no connections exist
-  const titleNode = [...nodesByLabel.values()].find((n) => n.type === "title");
-  const claimNodes = [...nodesByLabel.values()].filter((n) => n.type === "claim");
+  const titleNode = [...nodesByLabel.values()].find(n => n.type === "title");
+  const claimNodes = [...nodesByLabel.values()].filter(n => n.type === "claim");
 
   if (titleNode && claimNodes.length > 0) {
     const hasDirectConnections = edges.some(
-      (edge) => edge.source.type === "title" || edge.target.type === "title",
+      edge => edge.source.type === "title" || edge.target.type === "title",
     );
 
     if (!hasDirectConnections) {
       // Create direct connections from title to all claims
-      claimNodes.forEach((claimNode) => {
+      claimNodes.forEach(claimNode => {
         edges.push({ source: titleNode, target: claimNode });
       });
     }
@@ -599,7 +597,7 @@ function createHierarchicalGraph(graph: Graph): void {
     .selectAll("path")
     .data(edges)
     .join("path")
-    .attr("d", (d) => {
+    .attr("d", d => {
       const sourceY = d.source.y + nodeHeight;
       const targetY = d.target.y;
       const midY = (sourceY + targetY) / 2;
@@ -624,10 +622,8 @@ function createHierarchicalGraph(graph: Graph): void {
     .selectAll("g")
     .data(allNodes)
     .join("g")
-    .attr("transform", (d) => `translate(${d.x - d.width / 2}, ${d.y})`)
-    .style("cursor", (d) =>
-      d.excerpts && d.excerpts.length > 0 ? "pointer" : "default",
-    )
+    .attr("transform", d => `translate(${d.x - d.width / 2}, ${d.y})`)
+    .style("cursor", d => (d.excerpts && d.excerpts.length > 0 ? "pointer" : "default"))
     .on("click", function (event: MouseEvent, d) {
       if (d.excerpts && d.excerpts.length > 0) {
         event.stopPropagation();
@@ -638,10 +634,10 @@ function createHierarchicalGraph(graph: Graph): void {
   // Add solid color rectangles for nodes
   nodeSelection
     .append("rect")
-    .attr("width", (d) => d.width)
+    .attr("width", d => d.width)
     .attr("height", nodeHeight)
     .attr("rx", 10)
-    .attr("fill", (d) => nodeColors[d.type] || "#6b7280") // defaults to gray-500
+    .attr("fill", d => nodeColors[d.type] || "#6b7280") // defaults to gray-500
     .attr("stroke", "rgba(255,255,255,0.1)")
     .attr("stroke-width", 0.5)
     .attr("class", "transition-all duration-300 ease-out")
@@ -658,12 +654,12 @@ function createHierarchicalGraph(graph: Graph): void {
     .append("foreignObject")
     .attr("x", 0)
     .attr("y", 0)
-    .attr("width", (d) => d.width)
+    .attr("width", d => d.width)
     .attr("height", nodeHeight)
     .style("pointer-events", "none")
     .append("xhtml:div")
     .attr("class", "node-content")
-    .style("width", (d) => `${d.width}px`)
+    .style("width", d => `${d.width}px`)
     .style("height", `${nodeHeight}px`)
     .style("padding", "12px")
     .style("box-sizing", "border-box")
@@ -694,13 +690,13 @@ function createHierarchicalGraph(graph: Graph): void {
     });
 
   // Create legend at top-right (compact and narrower)
-  const uniqueTypes = [...new Set(allNodes.map((n) => n.type))];
+  const uniqueTypes = [...new Set(allNodes.map(n => n.type))];
   const legendGroup = svg.append("g").attr("class", "legend");
   const legendWidth = 104; // Increased by 30%
   const itemHeight = 21; // Increased by 30%
 
   // Calculate rightmost node position and position legend
-  const rightmostNodeX = Math.max(...allNodes.map((n) => n.x + n.width / 2));
+  const rightmostNodeX = Math.max(...allNodes.map(n => n.x + n.width / 2));
   const legendX = rightmostNodeX - legendWidth - 10; // Position with small gap from rightmost node edge
   const legendY = 20; // Top position
 
@@ -740,7 +736,7 @@ function createHierarchicalGraph(graph: Graph): void {
   });
 
   // Add help text if any nodes have excerpts
-  const hasExcerpts = allNodes.some((n) => n.excerpts && n.excerpts.length > 0);
+  const hasExcerpts = allNodes.some(n => n.excerpts && n.excerpts.length > 0);
   if (hasExcerpts) {
     svg
       .append("text")
@@ -769,7 +765,7 @@ function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
 
   // Calculate counts for each relationship type
   const countRelation = (src: string, pol: string) =>
-    relatedPapers.filter((p) => p.source === src && p.polarity === pol).length;
+    relatedPapers.filter(p => p.source === src && p.polarity === pol).length;
   const counts = {
     background: countRelation("semantic", "negative"),
     target: countRelation("semantic", "positive"),
@@ -818,7 +814,7 @@ function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
 
   // Update chip visual state
   const updateChipStates = () => {
-    filterChips.forEach((chip) => {
+    filterChips.forEach(chip => {
       const type = chip.getAttribute("data-type");
       if (type && activeFilters.has(type)) {
         // Active state - keep current colors but add border emphasis
@@ -853,7 +849,7 @@ function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
   };
 
   // Add click handlers for filter chips
-  filterChips.forEach((chip) => {
+  filterChips.forEach(chip => {
     chip.addEventListener("click", () => {
       const type = chip.getAttribute("data-type");
       if (!type) return;
@@ -898,7 +894,7 @@ function renderFilteredRelatedPapers(
   if (!relatedPapersContainer) return;
 
   // Filter papers based on their relationship type
-  const filteredPapers = relatedPapers.filter((paper) => {
+  const filteredPapers = relatedPapers.filter(paper => {
     const relationship = getRelationshipStyle(paper);
     return activeFilters.has(relationship.type);
   });
@@ -925,7 +921,7 @@ function renderFilteredRelatedPapers(
 
     if (cardHeader && expandedContent) {
       // Handle card expansion/collapse
-      cardHeader.addEventListener("click", (event) => {
+      cardHeader.addEventListener("click", event => {
         // Prevent expansion if clicking the go back button
         if ((event.target as Element).closest(".go-back-btn")) {
           return;
@@ -943,7 +939,7 @@ function renderFilteredRelatedPapers(
 
       // Handle go back button click
       if (goBackBtn) {
-        goBackBtn.addEventListener("click", (event) => {
+        goBackBtn.addEventListener("click", event => {
           event.stopPropagation(); // Prevent card expansion
           scrollToEvaluationSection();
         });
@@ -1015,7 +1011,7 @@ function expandRelatedPaper(index: number): void {
  * Setup event delegation for related paper links
  */
 function setupRelatedPaperLinkHandlers(): void {
-  document.addEventListener("click", (event) => {
+  document.addEventListener("click", event => {
     const target = event.target as HTMLElement;
     if (target.classList.contains("related-paper-link")) {
       event.preventDefault();
@@ -1051,7 +1047,7 @@ function showExcerptsModal(entity: Entity): void {
   if (entity.excerpts && entity.excerpts.length > 0) {
     modalContent.innerHTML = entity.excerpts
       .map(
-        (excerpt) => `
+        excerpt => `
         <div class="rounded-lg border border-gray-200 bg-gray-50 p-4
                     dark:border-gray-700 dark:bg-gray-800">
           <div class="mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
@@ -1074,7 +1070,7 @@ function showExcerptsModal(entity: Entity): void {
   closeButton.onclick = closeModal;
 
   // Click outside to close
-  modal.onclick = (event) => {
+  modal.onclick = event => {
     if (event.target === modal) {
       closeModal();
     }
@@ -1135,7 +1131,7 @@ function loadPaperDetail(): void {
       const storedPapers = localStorage.getItem("papers-dataset");
       if (storedPapers) {
         const graphResults = JSON.parse(storedPapers) as GraphResult[];
-        graphResult = graphResults.find((gr) => gr.paper.id === paperId) ?? null;
+        graphResult = graphResults.find(gr => gr.paper.id === paperId) ?? null;
         if (graphResult) {
           console.log(`[Detail] Found paper ${paperId} in JSON dataset`);
         } else {
@@ -1212,14 +1208,14 @@ function loadPaperDetail(): void {
     const keywordsContainer = document.getElementById("paper-keywords");
     if (keywordsContainer) {
       const keywords = graphResult.graph.entities
-        .filter((e) => e.type === "keyword")
-        .map((e) => e.label)
+        .filter(e => e.type === "keyword")
+        .map(e => e.label)
         .slice(0, 5);
 
       if (keywords.length > 0) {
         keywordsContainer.innerHTML = keywords
           .map(
-            (keyword) => `
+            keyword => `
             <span class="px-2 py-1 bg-teal-100/70 dark:bg-teal-900/30 text-teal-800
                          dark:text-teal-300 text-xs rounded-md border border-teal-300/50
                          dark:border-teal-700/50">
@@ -1242,7 +1238,7 @@ function loadPaperDetail(): void {
     if (paperTermsContainer) {
       // Extract primary area from graph entities
       const primaryAreaEntity = graphResult.graph.entities.find(
-        (e) => e.type === "primary_area",
+        e => e.type === "primary_area",
       );
       const primaryAreaText = primaryAreaEntity?.label ?? null;
 
