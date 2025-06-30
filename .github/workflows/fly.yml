@@ -1,13 +1,19 @@
 name: Fly Deploy
 on:
-  push:
+  workflow_run:
+    workflows: ["Python Build"]
     branches:
       - master
+    types:
+      - completed
+
 jobs:
   deploy:
     name: Deploy app
     runs-on: ubuntu-latest
     concurrency: deploy-group
+    # Only run if the build workflow succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
