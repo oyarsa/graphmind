@@ -1,6 +1,6 @@
 const sep = "•";
 const github = `<a href="https://github.com/italo/paper-hypergraph" target="_blank" rel="noopener noreferrer" class="hover:text-gray-600 dark:hover:text-gray-400 underline">GitHub</a>`;
-const license = "GPL-3.0-or-later";
+const license = "AGPL-3.0-or-later";
 
 /**
  * Creates and returns a footer element with project version and build information

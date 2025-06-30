@@ -3,7 +3,7 @@ name = "paper"
 version = "0.13.0"
 description = "Add your description here"
 readme = "README.md"
-license = {text = "GPL-3.0-or-later"}
+license = {text = "AGPL-3.0-or-later"}
 requires-python = ">=3.12"
 dependencies = [
     "aiohttp>=3.10.5",
