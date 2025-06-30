@@ -25,9 +25,9 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
-        "paper-explorer": resolve(__dirname, "pages/paper-explorer.html"),
+        search: resolve(__dirname, "pages/search.html"),
         // "paper-network": resolve(__dirname, "pages/paper-network.html"),
-        "paper-detail": resolve(__dirname, "pages/paper-detail.html"),
+        detail: resolve(__dirname, "pages/detail.html"),
       },
     },
   },

@@ -98,7 +98,7 @@ class PaperExplorer {
       const paper = graphResult.paper;
       const paperLink = document.createElement("a");
       const encodedId = encodeURIComponent(paper.id);
-      paperLink.href = `/paper-hypergraph/pages/paper-detail.html?id=${encodedId}`;
+      paperLink.href = `/paper-hypergraph/pages/detail.html?id=${encodedId}`;
       paperLink.className =
         "block rounded-lg bg-gray-100/50 dark:bg-gray-900/50 border border-gray-300" +
         " dark:border-gray-700 p-6 transition-all duration-200 hover:border-teal-500/50" +
@@ -466,7 +466,7 @@ class PaperExplorer {
               `[Cache] HIT! Found paper ${item.arxiv_id} in cache with key ${key}`,
             );
             const encodedId = encodeURIComponent(graphResult.paper.id);
-            window.location.href = `/paper-hypergraph/pages/paper-detail.html?id=${encodedId}`;
+            window.location.href = `/paper-hypergraph/pages/detail.html?id=${encodedId}`;
             return;
           }
         }
@@ -855,7 +855,7 @@ class PaperExplorer {
 
       // Navigate to detail page
       const encodedId = encodeURIComponent(paperId);
-      window.location.href = `/paper-hypergraph/pages/paper-detail.html?id=${encodedId}`;
+      window.location.href = `/paper-hypergraph/pages/detail.html?id=${encodedId}`;
     } catch (error) {
       console.error("Error evaluating paper:", error);
       this.showEvaluationError("Failed to evaluate paper. Please try again.");

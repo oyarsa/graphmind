@@ -169,7 +169,7 @@ async def evaluate(
         Query(
             description="How many related papers to retrieve, per type.", ge=1, le=10
         ),
-    ] = 2,
+    ] = 3,
     llm_model: Annotated[
         LLMModel, Query(description="LLM model to use.")
     ] = LLMModel.GPT4oMini,
