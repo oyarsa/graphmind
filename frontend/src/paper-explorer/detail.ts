@@ -1174,7 +1174,7 @@ function loadPaperDetail(): void {
     if (abstractEl) abstractEl.innerHTML = renderLatex(paper.abstract);
     if (approvalEl) {
       const approvalText =
-        paper.approval === null ? "Unknown" : paper.approval ? "Approved" : "Rejected";
+        paper.approval === null ? "-" : paper.approval ? "Approved" : "Rejected";
       const approvalClass =
         paper.approval === null
           ? "text-gray-600 dark:text-gray-400 font-semibold"

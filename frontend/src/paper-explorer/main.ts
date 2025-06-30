@@ -366,7 +366,7 @@ class PaperExplorer {
         <div class="flex justify-between items-center text-xs text-gray-600
                     dark:text-gray-400">
           <div class="flex items-center gap-2">
-            <span>arXiv (${item.year ?? "N/A"})</span>
+            <span>${item.year ?? "N/A"}</span>
             <a href="${getArxivUrl(item.arxiv_id)}" target="_blank"
                rel="noopener noreferrer"
                class="text-blue-600 dark:text-blue-400 hover:text-blue-500
@@ -376,10 +376,6 @@ class PaperExplorer {
               View on arXiv
             </a>
           </div>
-          <span class="px-2 py-1 rounded-full text-xs font-medium bg-blue-100
-                       text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-            arXiv Paper
-          </span>
         </div>
       `;
 
