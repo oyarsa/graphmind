@@ -756,7 +756,8 @@ function createHierarchicalGraph(graph: Graph): void {
 function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
   const filtersContainer = document.getElementById("related-papers-filters");
   const filterChips = document.querySelectorAll(".filter-chip");
-  const resetButton = document.getElementById("filter-reset");
+  const showAllButton = document.getElementById("filter-show-all");
+  const hideAllButton = document.getElementById("filter-hide-all");
 
   if (!filtersContainer) return;
 
@@ -862,14 +863,24 @@ function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
     });
   });
 
-  // Add click handler for reset button
-  if (resetButton) {
-    resetButton.addEventListener("click", () => {
+  // Add click handler for show all button
+  if (showAllButton) {
+    showAllButton.addEventListener("click", () => {
       activeFilters.clear();
       activeFilters.add("background");
       activeFilters.add("target");
       activeFilters.add("supporting");
       activeFilters.add("contrasting");
+
+      updateChipStates();
+      renderFilteredRelatedPapers(relatedPapers, activeFilters);
+    });
+  }
+
+  // Add click handler for hide all button
+  if (hideAllButton) {
+    hideAllButton.addEventListener("click", () => {
+      activeFilters.clear();
 
       updateChipStates();
       renderFilteredRelatedPapers(relatedPapers, activeFilters);
