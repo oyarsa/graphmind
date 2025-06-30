@@ -138,7 +138,3 @@ just test
 # or as part of the full lint process
 just lint
 ```
-
-## License
-
-GPL-3.0-or-later
