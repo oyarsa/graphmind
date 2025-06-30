@@ -760,9 +760,6 @@ function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
 
   if (!filtersContainer) return;
 
-  // Show the filters container
-  filtersContainer.classList.remove("hidden");
-
   // Calculate counts for each relationship type
   const countRelation = (src: string, pol: string) =>
     relatedPapers.filter(p => p.source === src && p.polarity === pol).length;
@@ -890,7 +887,7 @@ function renderFilteredRelatedPapers(
   relatedPapers: RelatedPaper[],
   activeFilters: Set<string>,
 ): void {
-  const relatedPapersContainer = document.getElementById("related-papers");
+  const relatedPapersContainer = document.getElementById("related-papers-content");
   if (!relatedPapersContainer) return;
 
   // Filter papers based on their relationship type
@@ -1023,9 +1020,9 @@ function setupRelatedPaperLinkHandlers(): void {
         expandRelatedPaper(index);
       } else {
         // Just scroll to Related Papers section if no specific paper
-        const relatedPapersSection = document.getElementById("related-papers");
-        if (relatedPapersSection) {
-          relatedPapersSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        const relatedPapersHeader = document.getElementById("related-papers-header");
+        if (relatedPapersHeader) {
+          relatedPapersHeader.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }
     }
@@ -1280,8 +1277,10 @@ function loadPaperDetail(): void {
     createHierarchicalGraph(graphResult.graph);
 
     // Handle related papers
-    const relatedPapersContainer = document.getElementById("related-papers");
-    if (relatedPapersContainer) {
+    const relatedPapersContentContainer = document.getElementById(
+      "related-papers-content",
+    );
+    if (relatedPapersContentContainer) {
       if (graphResult.related.length > 0) {
         // Setup filtering functionality
         setupRelatedPapersFiltering(graphResult.related);
@@ -1292,7 +1291,7 @@ function loadPaperDetail(): void {
           new Set(["background", "target", "supporting", "contrasting"]),
         );
       } else {
-        relatedPapersContainer.innerHTML = `
+        relatedPapersContentContainer.innerHTML = `
           <div class="text-gray-600 dark:text-gray-500 text-sm">
             No related papers available
           </div>
