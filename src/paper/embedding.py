@@ -104,7 +104,7 @@ def similarities(vector: Vector, matrix: Matrix) -> npt.NDArray[np.float32]:
     epsilon = 1e-8
     denominator = (vector_norm * matrix_norms) + epsilon
 
-    similarities = (dot_product / denominator).astype(np.float32)
+    similarities = np.clip(dot_product / denominator, 0, 1).astype(np.float32)
 
     # Postconditions
     assert similarities.ndim == 1, "similarities should be 1D"
