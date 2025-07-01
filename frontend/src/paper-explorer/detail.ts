@@ -1021,6 +1021,12 @@ function setupRelatedPaperLinkHandlers(): void {
     if (target.classList.contains("related-paper-link")) {
       event.preventDefault();
 
+      // First, enable all paper types to ensure the target paper is visible
+      const showAllButton = document.getElementById("filter-show-all");
+      if (showAllButton) {
+        showAllButton.click();
+      }
+
       const paperIndex = target.dataset.paperIndex;
       if (paperIndex) {
         // Expand specific paper if index is available
