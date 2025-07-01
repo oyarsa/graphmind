@@ -471,9 +471,11 @@ class PaperExplorer {
     if (!searchInput || (searchInput as HTMLInputElement).value.trim()) return;
 
     const cachedPapers = this.getCachedPapers();
+    const papersContainer = document.getElementById("arxiv-papers-container");
+    const resultCount = document.getElementById("arxiv-result-count");
+
     if (cachedPapers.length > 0) {
       // Make container visible
-      const papersContainer = document.getElementById("arxiv-papers-container");
       if (papersContainer) papersContainer.classList.remove("hidden");
 
       // Convert cached papers to PaperSearchResults format to reuse existing display logic
@@ -481,9 +483,17 @@ class PaperExplorer {
       this.displayArxivPapers(searchResults as PaperSearchResults);
 
       // Update result count for cached papers
-      const resultCount = document.getElementById("arxiv-result-count");
       if (resultCount) {
         resultCount.textContent = `${cachedPapers.length} previous result${cachedPapers.length === 1 ? "" : "s"}`;
+      }
+    } else {
+      // No cached papers - clear the display
+      if (papersContainer) {
+        papersContainer.innerHTML = "";
+        papersContainer.classList.add("hidden");
+      }
+      if (resultCount) {
+        resultCount.textContent = "Enter a search query and click Search";
       }
     }
   }
