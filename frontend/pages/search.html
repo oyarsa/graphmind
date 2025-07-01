@@ -21,6 +21,47 @@
     class="m-0 flex min-h-screen flex-col bg-white p-0 font-sans text-black
       dark:bg-black dark:text-white"
   >
+    <!-- Theme Toggle Button -->
+    <button
+      id="themeToggle"
+      class="fixed top-4 right-4 z-50 rounded-lg bg-gray-200 p-3 shadow-lg
+        transition-all duration-200 hover:bg-gray-300 dark:bg-gray-800
+        dark:hover:bg-gray-700"
+      title="Toggle theme"
+    >
+      <!-- Sun icon (from heroicons) for light mode -->
+      <svg
+        class="h-5 w-5 text-gray-800 dark:hidden dark:text-gray-200"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343
+             6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0
+             11-8 0 4 4 0 018 0z"
+        ></path>
+      </svg>
+      <!-- Moon icon (from heroicons) for dark mode -->
+      <svg
+        class="hidden h-5 w-5 text-gray-800 dark:block dark:text-gray-200"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0
+             008.354-5.646z"
+        ></path>
+      </svg>
+    </button>
+
     <div class="flex-1 p-8">
       <header class="mb-8 text-center">
         <h1
@@ -207,6 +248,153 @@
       </div>
     </div>
 
+    <!-- Help Button -->
+    <button
+      id="help-button"
+      class="fixed right-6 bottom-6 z-40 flex h-12 w-12 items-center justify-center
+        rounded-full bg-teal-600 text-white shadow-lg transition-all duration-200
+        hover:bg-teal-700 focus:ring-2 focus:ring-teal-500/20 focus:outline-none
+        dark:bg-teal-500 dark:hover:bg-teal-600"
+      title="Show help"
+    >
+      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        ></path>
+      </svg>
+    </button>
+
+    <!-- Help Modal -->
+    <div
+      id="help-modal"
+      class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4
+        dark:bg-black/80"
+    >
+      <div
+        class="relative mx-auto max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg
+          bg-white p-8 shadow-xl dark:border dark:border-gray-700 dark:bg-gray-800"
+      >
+        <!-- Close button -->
+        <button
+          id="help-modal-close"
+          class="absolute top-4 right-4 text-gray-500 hover:text-gray-700
+            dark:text-gray-400 dark:hover:text-gray-200"
+        >
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            ></path>
+          </svg>
+        </button>
+
+        <!-- Modal content -->
+        <div class="space-y-6">
+          <div>
+            <h2 class="mb-2 text-2xl font-bold text-gray-900 dark:text-white">
+              Welcome to GraphMind
+            </h2>
+            <p class="text-gray-600 dark:text-gray-400">
+              GraphMind helps you explore academic papers through two powerful search
+              modes.
+            </p>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <h3 class="mb-2 text-lg font-semibold text-gray-800 dark:text-gray-200">
+                📚 Library Search
+              </h3>
+              <ul class="space-y-2 text-gray-600 dark:text-gray-400">
+                <li class="flex items-start">
+                  <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
+                  <span
+                    >Search through our curated library of papers with instant
+                    results</span
+                  >
+                </li>
+                <li class="flex items-start">
+                  <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
+                  <span
+                    >Use fuzzy search to find papers by title, authors, or abstract
+                    content</span
+                  >
+                </li>
+                <li class="flex items-start">
+                  <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
+                  <span
+                    >Click on any paper card to view detailed information and related
+                    papers</span
+                  >
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="mb-2 text-lg font-semibold text-gray-800 dark:text-gray-200">
+                🔍 arXiv Search
+              </h3>
+              <ul class="space-y-2 text-gray-600 dark:text-gray-400">
+                <li class="flex items-start">
+                  <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
+                  <span>Search the entire arXiv database for papers by title</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
+                  <span>Results are cached locally for faster access</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
+                  <span
+                    >Click "Evaluate" on any paper to analyze its relationships with
+                    other papers</span
+                  >
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="mb-2 text-lg font-semibold text-gray-800 dark:text-gray-200">
+                💡 Tips
+              </h3>
+              <ul class="space-y-2 text-gray-600 dark:text-gray-400">
+                <li class="flex items-start">
+                  <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
+                  <span>The search is case-insensitive and matches partial words</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
+                  <span
+                    >Try searching for author names, keywords, or specific topics</span
+                  >
+                </li>
+                <li class="flex items-start">
+                  <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
+                  <span
+                    >Use the theme toggle (top-right) to switch between light and dark
+                    modes</span
+                  >
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="border-t border-gray-200 pt-4 dark:border-gray-700">
+            <p class="text-sm text-gray-500 dark:text-gray-500">
+              Click anywhere outside this modal or press the × button to close. You can
+              always access this help by clicking the ? button in the bottom-right
+              corner.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Evaluation Settings Modal -->
     <div
       id="evaluation-settings-modal"
@@ -364,5 +552,15 @@
     </div>
 
     <script type="module" src="/src/paper-explorer/main.ts"></script>
+    <script type="module">
+      import { ThemeManager } from "/src/theme.ts";
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const themeToggle = document.getElementById("themeToggle");
+        if (themeToggle) {
+          themeToggle.addEventListener("click", () => ThemeManager.toggle());
+        }
+      });
+    </script>
   </body>
 </html>

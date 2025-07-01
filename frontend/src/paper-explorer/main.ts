@@ -33,6 +33,7 @@ class PaperExplorer {
       this.setupClearCacheButton();
       this.setupEvaluationModal();
     }
+    this.setupHelpModal();
     await this.loadPapers();
   }
 
@@ -726,6 +727,60 @@ class PaperExplorer {
         this.hideEvaluationSettingsModal();
       }
     });
+  }
+
+  private setupHelpModal(): void {
+    const helpButton = document.getElementById("help-button");
+    const helpModal = document.getElementById("help-modal");
+    const helpModalClose = document.getElementById("help-modal-close");
+
+    if (!helpButton || !helpModal || !helpModalClose) {
+      console.warn("Help modal elements not found");
+      return;
+    }
+
+    // Check if user has seen the help modal before
+    const hasSeenHelp = localStorage.getItem("paper-explorer-help-seen");
+    if (!hasSeenHelp) {
+      // Show modal for first-time users
+      helpModal.classList.remove("hidden");
+      helpModal.classList.add("flex");
+    }
+
+    // Handle help button click
+    helpButton.addEventListener("click", () => {
+      helpModal.classList.remove("hidden");
+      helpModal.classList.add("flex");
+    });
+
+    // Handle close button click
+    helpModalClose.addEventListener("click", () => {
+      this.hideHelpModal();
+    });
+
+    // Handle clicking outside modal
+    helpModal.addEventListener("click", e => {
+      if (e.target === helpModal) {
+        this.hideHelpModal();
+      }
+    });
+
+    // Handle Escape key
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape" && !helpModal.classList.contains("hidden")) {
+        this.hideHelpModal();
+      }
+    });
+  }
+
+  private hideHelpModal(): void {
+    const helpModal = document.getElementById("help-modal");
+    if (helpModal) {
+      helpModal.classList.add("hidden");
+      helpModal.classList.remove("flex");
+      // Mark as seen
+      localStorage.setItem("paper-explorer-help-seen", "true");
+    }
   }
 
   private showEvaluationSettingsModal(item: PaperSearchItem): void {
