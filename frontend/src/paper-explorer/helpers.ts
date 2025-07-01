@@ -203,6 +203,72 @@ export function formatPaperCitation(paper: RelatedPaper): string {
 }
 
 /**
+ * Create a reusable side-by-side comparison component for background/target analysis.
+ *
+ * @param leftTitle - Title for the left column (e.g., "Main Paper")
+ * @param leftContent - Content for the left column
+ * @param rightTitle - Title for the right column (e.g., "Related Paper")
+ * @param rightContent - Content for the right column
+ * @param sectionType - Type of comparison ("background" or "target") for color theming
+ * @returns HTML string for the side-by-side comparison
+ */
+export function createSideBySideComparison(
+  leftTitle: string,
+  leftContent: string | null,
+  rightTitle: string,
+  rightContent: string | null,
+  sectionType: "background" | "target",
+): string {
+  if (!leftContent && !rightContent) {
+    return "";
+  }
+
+  const colorTheme =
+    sectionType === "background"
+      ? {
+          accent: "bg-green-500",
+        }
+      : {
+          accent: "bg-orange-500",
+        };
+
+  const formatTitle = sectionType === "background" ? "Background" : "Target";
+
+  return `
+    <div class="mb-4">
+      <div class="mb-3 flex items-center gap-2">
+        <div class="h-4 w-1 rounded-full ${colorTheme.accent}"></div>
+        <h5 class="text-sm font-semibold tracking-wide text-gray-900 uppercase dark:text-gray-100">
+          ${formatTitle} Comparison
+        </h5>
+      </div>
+      
+      <div class="grid gap-4 md:grid-cols-2">
+        <!-- Left Column -->
+        <div class="space-y-2">
+          <h6 class="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+            ${leftTitle}
+          </h6>
+          <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+            ${leftContent ? renderLatex(leftContent) : '<span class="text-gray-500 dark:text-gray-500 italic">No data available</span>'}
+          </div>
+        </div>
+        
+        <!-- Right Column -->
+        <div class="space-y-2">
+          <h6 class="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+            ${rightTitle}
+          </h6>
+          <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+            ${rightContent ? renderLatex(rightContent) : '<span class="text-gray-500 dark:text-gray-500 italic">No data available</span>'}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
  * Render any LaTeX fragments in the input text to KaTeX HTML.
  *
  * • Display maths: wrap in $$ … $$ (may span multiple lines, but must be non-empty)

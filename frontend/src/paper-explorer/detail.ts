@@ -25,6 +25,7 @@ import {
   getArxivUrl,
   formatConferenceName,
   formatPaperCitation,
+  createSideBySideComparison,
 } from "./helpers";
 import { addFooter } from "../footer";
 
@@ -52,7 +53,12 @@ function getScoreColor(score: number): string {
   }
 }
 
-function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
+function createRelatedPaperCard(
+  paper: RelatedPaper,
+  index: number,
+  mainPaperBackground?: string | null,
+  mainPaperTarget?: string | null,
+): string {
   const { scorePercent } = getScoreDisplay(paper.score);
   const relationship = getRelationshipStyle(paper);
 
@@ -220,46 +226,30 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
       }
 
       ${
-        paper.source === "semantic" && paper.polarity === "positive" && paper.target
-          ? `
-      <!-- Target Matching Section -->
-      <div class="mb-4">
-        <div class="mb-3 flex items-center gap-2">
-          <div class="h-4 w-1 rounded-full bg-orange-500"></div>
-          <h5
-            class="text-sm font-semibold tracking-wide text-gray-900 uppercase
-                   dark:text-gray-100"
-          >
-            Target Match
-          </h5>
-        </div>
-        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-          ${renderLatex(paper.target)}
-        </p>
-      </div>
-      `
+        paper.source === "semantic" &&
+        paper.polarity === "positive" &&
+        (paper.target || mainPaperTarget)
+          ? createSideBySideComparison(
+              "Main Paper",
+              mainPaperTarget ?? null,
+              "Related Paper",
+              paper.target ?? null,
+              "target",
+            )
           : ""
       }
 
       ${
-        paper.source === "semantic" && paper.polarity === "negative" && paper.background
-          ? `
-      <!-- Background Matching Section -->
-      <div class="mb-4">
-        <div class="mb-3 flex items-center gap-2">
-          <div class="h-4 w-1 rounded-full bg-green-500"></div>
-          <h5
-            class="text-sm font-semibold tracking-wide text-gray-900 uppercase
-                   dark:text-gray-100"
-          >
-            Background Match
-          </h5>
-        </div>
-        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-          ${renderLatex(paper.background)}
-        </p>
-      </div>
-      `
+        paper.source === "semantic" &&
+        paper.polarity === "negative" &&
+        (paper.background || mainPaperBackground)
+          ? createSideBySideComparison(
+              "Main Paper",
+              mainPaperBackground ?? null,
+              "Related Paper",
+              paper.background ?? null,
+              "background",
+            )
           : ""
       }
     </div>
@@ -766,7 +756,11 @@ function createHierarchicalGraph(graph: Graph): void {
 /**
  * Setup filtering functionality for related papers
  */
-function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
+function setupRelatedPapersFiltering(
+  relatedPapers: RelatedPaper[],
+  mainPaperBackground?: string | null,
+  mainPaperTarget?: string | null,
+): void {
   const filtersContainer = document.getElementById("related-papers-filters");
   const filterChips = document.querySelectorAll(".filter-chip");
   const showAllButton = document.getElementById("filter-show-all");
@@ -872,7 +866,12 @@ function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
       }
 
       updateChipStates();
-      renderFilteredRelatedPapers(relatedPapers, activeFilters);
+      renderFilteredRelatedPapers(
+        relatedPapers,
+        activeFilters,
+        mainPaperBackground,
+        mainPaperTarget,
+      );
     });
   });
 
@@ -886,7 +885,12 @@ function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
       activeFilters.add("contrasting");
 
       updateChipStates();
-      renderFilteredRelatedPapers(relatedPapers, activeFilters);
+      renderFilteredRelatedPapers(
+        relatedPapers,
+        activeFilters,
+        mainPaperBackground,
+        mainPaperTarget,
+      );
     });
   }
 
@@ -896,7 +900,12 @@ function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
       activeFilters.clear();
 
       updateChipStates();
-      renderFilteredRelatedPapers(relatedPapers, activeFilters);
+      renderFilteredRelatedPapers(
+        relatedPapers,
+        activeFilters,
+        mainPaperBackground,
+        mainPaperTarget,
+      );
     });
   }
 
@@ -910,6 +919,8 @@ function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
 function renderFilteredRelatedPapers(
   relatedPapers: RelatedPaper[],
   activeFilters: Set<string>,
+  mainPaperBackground?: string | null,
+  mainPaperTarget?: string | null,
 ): void {
   const relatedPapersContainer = document.getElementById("related-papers-content");
   if (!relatedPapersContainer) return;
@@ -931,7 +942,9 @@ function renderFilteredRelatedPapers(
 
   // Render filtered papers
   relatedPapersContainer.innerHTML = filteredPapers
-    .map((relatedPaper, index) => createRelatedPaperCard(relatedPaper, index))
+    .map((relatedPaper, index) =>
+      createRelatedPaperCard(relatedPaper, index, mainPaperBackground, mainPaperTarget),
+    )
     .join("");
 
   // Add click event listeners for expansion
@@ -1311,12 +1324,18 @@ function loadPaperDetail(): void {
     if (relatedPapersContentContainer) {
       if (graphResult.related.length > 0) {
         // Setup filtering functionality
-        setupRelatedPapersFiltering(graphResult.related);
+        setupRelatedPapersFiltering(
+          graphResult.related,
+          graphResult.background,
+          graphResult.target,
+        );
 
         // Initial render with all papers visible
         renderFilteredRelatedPapers(
           graphResult.related,
           new Set(["background", "target", "supporting", "contrasting"]),
+          graphResult.background,
+          graphResult.target,
         );
       } else {
         relatedPapersContentContainer.innerHTML = `
