@@ -506,10 +506,10 @@ def format_eval_template(
         title=paper.title,
         abstract=paper.abstract,
         demonstrations=demonstrations,
-        positive=_format_related(
+        positive=format_related(
             p for p in related if p.polarity is pr.ContextPolarity.POSITIVE
         ),
-        negative=_format_related(
+        negative=format_related(
             p for p in related if p.polarity is pr.ContextPolarity.NEGATIVE
         ),
         graph=graph.to_text(method),
@@ -517,7 +517,7 @@ def format_eval_template(
     )
 
 
-def _format_related(related: Iterable[PaperRelatedSummarised]) -> str:
+def format_related(related: Iterable[PaperRelatedSummarised]) -> str:
     """Build prompt from related papers titles and summaries."""
     return "\n\n".join(
         f"Title: {paper.title}\nSummary: {paper.summary}\n" for paper in related

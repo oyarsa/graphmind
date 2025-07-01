@@ -10,6 +10,9 @@ from typing import Annotated, NewType
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from paper import gpt
+from paper.gpt.evaluate_paper import EvidenceItem
+
 
 class Model(BaseModel):
     """Base class for immutable models.
@@ -185,3 +188,56 @@ class HealthCheck(Model):
     status: str
     timestamp: str
     version: str
+
+
+class PartialPaperInput(Model):
+    """Input validation for title+abstract evaluation.
+
+    Attributes:
+        title: Paper title.
+        abstract: Paper abstract.
+    """
+
+    title: Annotated[str, Field(description="Paper title.")]
+    abstract: Annotated[str, Field(description="Paper abstract.")]
+
+
+class PartialEvaluationResponse(Model):
+    """Response from partial paper evaluation.
+
+    Attributes:
+        title: Evaluated paper title.
+        abstract: Evaluated paper abstract.
+        label: Binary novelty score (1=novel, 0=not novel).
+        probability: Percentage chance of the paper being novel.
+        paper_summary: Brief summary of paper contributions.
+        supporting_evidence: Evidence supporting novelty.
+        contradictory_evidence: Evidence contradicting novelty.
+        conclusion: Final assessment conclusion.
+    """
+
+    title: Annotated[str, Field(description="Paper title.")]
+    abstract: Annotated[str, Field(description="Paper abstract.")]
+    label: Annotated[int, Field(description="Binary novelty score.")]
+    probability: Annotated[
+        float | None, Field(description="Percentage chance of the paper being novel")
+    ]
+    paper_summary: Annotated[str, Field(description="Summary of paper contributions.")]
+    supporting_evidence: Annotated[
+        Sequence[EvidenceItem], Field(description="Evidence supporting novelty")
+    ]
+    contradictory_evidence: Annotated[
+        Sequence[EvidenceItem], Field(description="Evidence contradicting novelty")
+    ]
+    conclusion: Annotated[str, Field(description="Final assessment.")]
+    total_cost: Annotated[float, Field(description="Total GPT cost.")]
+    related: Annotated[
+        Sequence[gpt.PaperRelatedSummarised], Field(description="Related papers.")
+    ]
+
+
+# Configuration constants for paper evaluation
+EVAL_PROMPT = "full-graph-structured"
+GRAPH_PROMPT = "full"
+DEMOS = "orc_4"
+DEMO_PROMPT = "abstract"

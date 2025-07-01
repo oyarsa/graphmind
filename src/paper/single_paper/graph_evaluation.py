@@ -128,11 +128,9 @@ async def evaluate_paper_graph_novelty(
     if not eval.result.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid evaluation result")
 
-    # Models tend to be very confident, so we're using the least extreme value as our
-    # confidence.
     return eval.map(
         lambda r: r.with_prob(get_novelty_probability(eval.logprobs))
-    ).noprob()
+    ).nologits()
 
 
 def construct_graph_result(

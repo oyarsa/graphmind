@@ -9,9 +9,9 @@ import dotenv
 from fastapi import Depends, FastAPI, Request
 
 from paper import embedding as emb
-from paper import single_paper
 from paper.backend.db import DatabaseManager
 from paper.gpt.run_gpt import LLMClient
+from paper.util import rate_limiter
 
 ENABLE_NETWORK = os.getenv("XP_ENABLE_NETWORK", "0") == "1"
 
@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         None during application runtime.
     """
     dotenv.load_dotenv()
-    app.state.limiter = single_paper.get_limiter(use_semaphore=False)
+    app.state.limiter = rate_limiter.get_limiter(use_semaphore=False)
     app.state.llm_registry = LLMClientRegistry()
     app.state.encoder = emb.Encoder(device="cpu")
 
@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await db.close()
 
 
-def get_limiter(request: Request) -> single_paper.Limiter:
+def get_limiter(request: Request) -> rate_limiter.Limiter:
     """Dependency injection for the request rate limiter.
 
     Args:
@@ -67,7 +67,7 @@ def get_limiter(request: Request) -> single_paper.Limiter:
     return request.app.state.limiter
 
 
-LimiterDep = Annotated[single_paper.Limiter, Depends(get_limiter)]
+LimiterDep = Annotated[rate_limiter.Limiter, Depends(get_limiter)]
 
 
 class LLMClientRegistry:

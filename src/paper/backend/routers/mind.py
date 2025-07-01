@@ -22,6 +22,14 @@ from pydantic import BaseModel
 
 from paper import single_paper
 from paper.backend.dependencies import EncoderDep, LimiterDep, LLMRegistryDep
+from paper.backend.model import (
+    DEMO_PROMPT,
+    DEMOS,
+    EVAL_PROMPT,
+    GRAPH_PROMPT,
+    PartialEvaluationResponse,
+    PartialPaperInput,
+)
 from paper.backend.rate_limiter import RateLimiter
 from paper.util import Timer, atimer, setup_logging
 
@@ -140,13 +148,6 @@ class LLMModel(StrEnum):
     GPT4o = "gpt-4o"
     GPT4oMini = "gpt-4o-mini"
     Gemini2Flash = "gemini-2.0-flash"
-
-
-# Configuration constants for paper evaluation
-EVAL_PROMPT = "full-graph-structured"
-GRAPH_PROMPT = "full"
-DEMOS = "orc_4"
-DEMO_PROMPT = "abstract"
 
 
 @router.get("/evaluate")
@@ -292,6 +293,155 @@ async def evaluate(
 
         except (asyncio.CancelledError, GeneratorExit):
             logger.info("Client disconnected - cancelling worker")
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+            raise
+
+    return StreamingResponse(
+        generate_events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )
+
+
+@router.post("/evaluate-partial")
+@rate_limiter.limit("5/minute")
+async def evaluate_partial(
+    request: Request,
+    llm_registry: LLMRegistryDep,
+    limiter: LimiterDep,
+    encoder: EncoderDep,
+    paper_input: PartialPaperInput,
+    recommendations: Annotated[
+        int, Query(description="Number of related papers to retrieve.", ge=5, le=50)
+    ] = 20,
+    llm_model: Annotated[
+        LLMModel, Query(description="LLM model to use.")
+    ] = LLMModel.GPT4oMini,
+    use_keywords: Annotated[
+        bool, Query(description="Extract keywords for recommendations search")
+    ] = False,
+    related: Annotated[
+        int,
+        Query(
+            description="How many related papers to retrieve, per type.", ge=1, le=10
+        ),
+    ] = 3,
+) -> StreamingResponse:
+    """Evaluate paper novelty using only title and abstract with real-time progress.
+
+    Performs simplified paper evaluation for unpublished papers, including:
+    - Research context extraction from abstract
+    - Related paper discovery via semantic search
+    - Semantic similarity-based paper ranking
+    - GPT-based structured novelty evaluation
+
+    This endpoint is designed for unpublished papers where full content is not available.
+    It uses Semantic Scholar search instead of citation analysis and provides faster
+    evaluation with reduced accuracy compared to the full evaluation pipeline.
+
+    Args:
+        request: Incoming request. Necessary for the rate limiter.
+        llm_registry: Registry of LLM clients.
+        encoder: Text encoder for embeddings.
+        limiter: Rate limiter dependency for Semantic Scholar API calls.
+        paper_input: Paper title and abstract to evaluate.
+        recommendations: Number of related papers to find (5-50).
+        llm_model: LLM model to use for evaluation.
+        use_keywords: Whether to extract keywords from the abstract for better search.
+        related: Number of related papers to retrieve per type (1-10).
+
+    Returns:
+        StreamingResponse with Server-Sent Events containing progress updates and final
+        evaluation result.
+
+    Raises:
+        HTTPException: If evaluation fails or invalid input provided.
+    """
+    client = llm_registry.get_client(llm_model)
+
+    @measure_memory
+    async def go(callback: single_paper.ProgressCallback) -> PartialEvaluationResponse:
+        """Run the partial evaluation pipeline."""
+        _ = callback
+        try:
+            return await single_paper.partial_evaluation(
+                client=client,
+                limiter=limiter,
+                encoder=encoder,
+                callback=callback,
+                num_recommendations=recommendations,
+                title=paper_input.title,
+                abstract=paper_input.abstract,
+                num_semantic=related,
+                use_keywords=use_keywords,
+            )
+        except Exception as e:
+            logger.exception(f"Partial evaluation failed for '{paper_input.title}'")
+            raise HTTPException(
+                status_code=500, detail=f"Evaluation failed: {e}"
+            ) from e
+
+    def sse_event(event: str | None, data: Any) -> str:
+        """Format an SSE frame."""
+        payload = json.dumps(data)
+        prefix = f"event: {event}\n" if event else ""
+        return f"{prefix}data: {payload}\n\n"
+
+    async def generate_events() -> AsyncGenerator[str, None]:
+        """Generate Server-Sent Events for progress updates and final result."""
+        queue: asyncio.Queue[str | None] = asyncio.Queue()
+
+        async def progress_cb(msg: str) -> None:
+            rich.print(f"[blue]{msg}[/blue]")
+            await queue.put(msg)
+
+        async def run_task() -> PartialEvaluationResponse:
+            try:
+                return await go(progress_cb)
+            finally:
+                await queue.put(None)  # sentinel → stream is over
+
+        # Start evaluation
+        yield sse_event("connected", {"message": "Starting partial evaluation..."})
+        task = asyncio.create_task(run_task())
+
+        try:
+            # Stream progress updates
+            while True:
+                try:
+                    msg = await asyncio.wait_for(queue.get(), timeout=15)
+                except TimeoutError:
+                    # Keep-alive pulse
+                    yield ": keep-alive\n\n"
+                    continue
+
+                if msg is None:  # sentinel
+                    break
+
+                yield sse_event("progress", {"message": msg})
+
+            # Return final result or error
+            if exc := task.exception():
+                yield sse_event("error", {"message": str(exc)})
+                logger.error(
+                    f"Partial evaluation failed for '{paper_input.title}': {exc}"
+                )
+                return
+            else:
+                evaluation_result = task.result()
+                logger.info(
+                    f"Partial evaluation completed. Cost: {evaluation_result.total_cost}"
+                )
+                yield sse_event("complete", {"result": evaluation_result.model_dump()})
+
+        except (asyncio.CancelledError, GeneratorExit):
+            logger.info("Client disconnected - cancelling partial evaluation")
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task

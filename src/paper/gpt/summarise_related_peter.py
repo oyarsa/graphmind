@@ -345,7 +345,9 @@ async def _summarise_paper_related(
     related: rp.PaperRelated,
     user_prompt: PromptTemplate,
 ) -> GPTResult[PromptResult[PaperRelatedSummarised]]:
-    user_prompt_text = format_template(user_prompt, paper, related)
+    user_prompt_text = format_template(
+        user_prompt, paper.title, paper.abstract, related.title, related.abstract
+    )
 
     result = await client.run(
         GPTRelatedSummary, PETER_SUMMARISE_SYSTEM_PROMPT, user_prompt_text
@@ -366,15 +368,17 @@ async def _summarise_paper_related(
 
 def format_template(
     prompt: PromptTemplate,
-    main: PeerReadAnnotated,
-    related: rp.PaperRelated,
+    main_title: str,
+    main_abstract: str,
+    related_title: str,
+    related_abstract: str,
 ) -> str:
     """Format related paper summarisation template."""
     return prompt.template.format(
-        title_main=main.title,
-        abstract_main=main.abstract,
-        title_related=related.title,
-        abstract_related=related.abstract,
+        title_main=main_title,
+        abstract_main=main_abstract,
+        title_related=related_title,
+        abstract_related=related_abstract,
     )
 
 

@@ -411,7 +411,13 @@ async def generate_summary_single(
     result = await client.run(
         GPTRelatedSummary,
         PETER_SUMMARISE_SYSTEM_PROMPT,
-        format_template(user_prompt, paper_annotated, related_paper),
+        format_template(
+            user_prompt,
+            paper_annotated.title,
+            paper_annotated.abstract,
+            related_paper.title,
+            related_paper.abstract,
+        ),
     )
     return result.map(
         lambda r: gpt.PaperRelatedSummarised.from_related(

@@ -21,18 +21,17 @@ from paper.single_paper.paper_retrieval import (
     fetch_s2_paper_info,
     search_arxiv_papers,
 )
+from paper.single_paper.partial_evaluation import partial_evaluation
 from paper.single_paper.pipeline import process_paper_from_selection
-from paper.util.rate_limiter import Limiter, get_limiter
 
 __all__ = (
     "DEFAULT_SENTENCE_MODEL",
     "EvaluationResult",
-    "Limiter",
     "ProgressCallback",
     "arxiv_id_from_url",
     "fetch_s2_paper_info",
-    "get_limiter",
     "main",
+    "partial_evaluation",
     "process_paper_from_selection",
     "search_arxiv_papers",
 )

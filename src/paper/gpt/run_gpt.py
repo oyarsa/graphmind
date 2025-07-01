@@ -147,7 +147,7 @@ class GPTResult[T]:
         """Apply monadic function to inner value and sum the costs."""
         return self.then(func(self.result))
 
-    def noprob(self) -> GPTResult[T]:
+    def nologits(self) -> GPTResult[T]:
         """Unset the `logprobs` field to decrease memory usage.
 
         We need to return logprobs from the `LLMClient.run` methods in some cases, but
@@ -159,6 +159,14 @@ class GPTResult[T]:
     def unit(value: T) -> GPTResult[T]:
         """New result with cost 0."""
         return GPTResult(result=value, cost=0)
+
+
+def gpt_unit[T](value: T) -> GPTResult[T]:
+    """Create a unit GPTResult with the given value and cost 0.
+
+    Use this instead of GPTResult.unit for type inference.
+    """
+    return GPTResult[T].unit(value)
 
 
 def gpt_sequence[T](results: Iterable[GPTResult[T]]) -> GPTResult[Sequence[T]]:
