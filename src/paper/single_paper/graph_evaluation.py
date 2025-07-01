@@ -21,7 +21,7 @@ from paper.gpt.evaluate_paper_graph import (
     get_demonstrations,
 )
 from paper.gpt.graph_types.excerpts import GPTExcerpt
-from paper.gpt.novelty_utils import best_novelty_probability
+from paper.gpt.novelty_utils import get_novelty_probability
 from paper.gpt.run_gpt import GPTResult, LLMClient
 from paper.types import Immutable
 from paper.util import atimer
@@ -131,7 +131,7 @@ async def evaluate_paper_graph_novelty(
     # Models tend to be very confident, so we're using the least extreme value as our
     # confidence.
     return eval.map(
-        lambda r: r.with_prob(best_novelty_probability(eval.logprobs))
+        lambda r: r.with_prob(get_novelty_probability(eval.logprobs))
     ).noprob()
 
 

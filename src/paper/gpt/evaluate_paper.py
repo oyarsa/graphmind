@@ -244,10 +244,6 @@ class GPTStructuredRaw(Immutable):
         int,
         Field(description="1 if the paper is novel, or 0 if it's not novel."),
     ]
-    novel: Annotated[
-        str,
-        Field(description="'yes' if the paper is novel, or 'no' if it's not novel."),
-    ]
 
     @computed_field
     @property
@@ -290,7 +286,6 @@ class GPTStructuredRaw(Immutable):
             key_comparisons=[],
             conclusion="<error>",
             label=0,
-            novel="no",
         )
 
     def is_valid(self) -> bool:

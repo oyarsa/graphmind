@@ -54,7 +54,7 @@ from paper.gpt.model import (
     Prompt,
     PromptResult,
 )
-from paper.gpt.novelty_utils import best_novelty_probability
+from paper.gpt.novelty_utils import get_novelty_probability
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     GPTResult,
@@ -322,10 +322,10 @@ async def evaluate_papers(
 
 
 def _display_item_probs(items: Sequence[PaperResult]) -> None:
-    table = Table("Label", "Word", "Percentage")
+    table = Table("Label", "Percentage")
     for item in items[:10]:
         if s := item.structured_evaluation:
-            table.add_row(str(item.y_pred), s.novel, f"{s.probability or 0:.8%}")
+            table.add_row(str(item.y_pred), f"{s.probability or 0:.8%}")
 
     Console().print(table)
 
@@ -449,7 +449,7 @@ async def evaluate_paper(
 
     if isinstance(eval_result.result, GPTStructuredRaw):
         structured = (
-            eval_result.result.with_prob(best_novelty_probability(eval_result.logprobs))
+            eval_result.result.with_prob(get_novelty_probability(eval_result.logprobs))
             or GPTStructuredRaw.error()
         )
 

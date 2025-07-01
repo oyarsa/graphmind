@@ -60,46 +60,6 @@ def find_novelty_label_token(logprobs: list[TokenProb]) -> TokenProb | None:
     return None
 
 
-def find_novel_field_token(logprobs: list[TokenProb]) -> TokenProb | None:
-    """Find the novel field token by looking for 'novel' + '": ' pattern.
-
-    Based on tokenization analysis, the consistent pattern is:
-    'novel' + '": ' + (optional space) + 'yes' or 'no'
-
-    Args:
-        logprobs: List of token probabilities from GPT output.
-
-    Returns:
-        Tuple of (index, TokenProb) for the novel value, or None if not found.
-    """
-    if not logprobs:
-        return None
-
-    # Look for the consistent pattern: 'nov' + 'el' + '":"' + yes/no
-    for i in range(len(logprobs) - 4):
-        if (
-            logprobs[i].token == "nov"  # noqa: S105
-            and i + 1 < len(logprobs)
-            and logprobs[i + 1].token == "el"  # noqa: S105
-            and i + 2 < len(logprobs)
-            and logprobs[i + 2].token == '":"'  # noqa: S105
-            and i + 3 < len(logprobs)
-        ):
-            next_token = logprobs[i + 3]
-            if next_token.token in ["yes", "no"]:
-                return next_token
-
-            # Check if there's a space, then the yes/no
-            if (
-                next_token.token == " "  # noqa: S105
-                and i + 4 < len(logprobs)
-                and logprobs[i + 4].token in ["yes", "no"]
-            ):
-                return logprobs[i + 4]
-
-    return None
-
-
 def calculate_binary_confidence(
     token: TokenProb, positive_token: str, negative_token: str
 ) -> float:
@@ -127,66 +87,28 @@ def calculate_binary_confidence(
             if alt.token in [positive_token, negative_token]:
                 probs[alt.token] = exp(alt.logprob)
 
-    # Calculate confidence
-    if positive_token in probs and negative_token in probs:
-        # Both options present, calculate relative probability
-        return probs[positive_token] / (probs[positive_token] + probs[negative_token])
-    elif positive_token in probs:
-        # Only found positive token, interpret probability directly
-        return probs[positive_token]
-    elif negative_token in probs:
-        # Only found negative token, confidence in positive is inverse
-        return 1 - probs[negative_token]
-    else:
-        # Neither token found
-        return 0
+    match (probs.get(positive_token), probs.get(negative_token)):
+        case (None, None):  # No tokens found
+            return 0.5
+        case (p_pos, None):  # Only positive found: use directly
+            return p_pos
+        case (None, p_neg):  # Only negative found: use complement
+            return 1 - p_neg
+        case (p_pos, p_neg):  # Both found: use relative probability
+            return p_pos / (p_pos + p_neg)
 
 
-def calculate_novel_confidence(novel_token: TokenProb) -> float:
-    """Calculate novel confidence from novel field token probabilities.
-
-    This calculates the probability that the paper is novel (novel=yes) vs not novel
-    (novel=no) based on the token probabilities. It considers both the chosen token and
-    alternatives.
-
-    Args:
-        novel_token: TokenProb for the novel field position, with potential alternatives.
-
-    Returns:
-        Confidence as a float between 0 and 1, or 0 if can't calculate.
-        A value of 0.8 means 80% confidence the paper is novel.
-    """
-    return calculate_binary_confidence(novel_token, "yes", "no")
-
-
-def calculate_label_confidence(label_token: TokenProb) -> float:
-    """Calculate novelty confidence from label token probabilities.
-
-    This calculates the probability that the paper is novel (label=1) vs not novel
-    (label=0) based on the token probabilities. It considers both the chosen token and
-    alternatives.
-
-    Args:
-        label_token: TokenProb for the label position, with potential alternatives.
-
-    Returns:
-        Confidence as a float between 0 and 1, or None if can't calculate.
-        A value of 0.8 means 80% confidence the paper is novel.
-    """
-    return calculate_binary_confidence(label_token, "1", "0")
-
-
-def get_novelty_probability(
-    logprobs: list[TokenProb] | None, format: NoveltyFormat
-) -> float:
+def get_novelty_probability(logprobs: list[TokenProb] | None) -> float:
     """Get novelty probability directly from GPTResult logprobs.
 
     This is a convenience function that finds the appropriate token and calculates
     the probability that the paper is novel in one step.
 
+    We first find the token respective to the "label" number and calculate the
+    probability from the top values.
+
     Args:
         logprobs: The logprobs list from GPTResult.logprobs.
-        format: Whether to extract from "label" (0/1) or "novel" (yes/no) field.
 
     Returns:
         Probability as a float between 0 and 1. Returns 0.5 if can't calculate.
@@ -196,32 +118,7 @@ def get_novelty_probability(
         logger.debug("Cannot calculate probability: null or empty logprobs")
         return 0.5  # Default to neutral if no logprobs
 
-    match format:
-        case NoveltyFormat.LABEL:
-            token_info = find_novelty_label_token(logprobs)
-            if token_info is None:
-                return 0.5  # Default to neutral if can't find token
-            return calculate_label_confidence(token_info)
-        case NoveltyFormat.WORD:
-            token_info = find_novel_field_token(logprobs)
-            if token_info is None:
-                return 0.5  # Default to neutral if can't find token
-            return calculate_novel_confidence(token_info)
-
-
-def best_novelty_probability(logprobs: list[TokenProb] | None) -> float:
-    """Use the least extreme probability between the label and novel fields.
-
-    We calculate the probabilities from both "label" (0/1) and "novel" ("yes"/"no")
-    and use the less extreme one.
-    """
-    label_confidence = get_novelty_probability(logprobs, NoveltyFormat.LABEL)
-    word_confidence = get_novelty_probability(logprobs, NoveltyFormat.WORD)
-    return least_extreme(label_confidence, word_confidence)
-
-
-def least_extreme(x: float, y: float) -> float:
-    """Assuming x and y are in 0..1, return the less extreme (furthest from 0 and 1)."""
-    assert 0 <= x <= 1
-    assert 0 <= y <= 1
-    return x if abs(x - 0.5) <= abs(y - 0.5) else y
+    token_info = find_novelty_label_token(logprobs)
+    if token_info is None:
+        return 0.5  # Default to neutral if can't find token
+    return calculate_binary_confidence(token_info, "1", "0")
