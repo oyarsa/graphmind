@@ -120,6 +120,7 @@ The application consists of two primary interfaces accessible from a central hom
 - After each major operation, create a new revision.
 - In general, follow all the common git workflows, but using jujutsu instead. If you
   don't know how to do something, ask and I'll help you.
+- When creating commits for the frontend, prefix all messages with `frontend: {msg}`
 
 ## Memories
 

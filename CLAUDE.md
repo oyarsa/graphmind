@@ -96,3 +96,6 @@ Use `uv run paper [subcommand] --help` for detailed options.
 - Use `jj commit -m "<message>"` to create commits using jujutsu. It works similarly to
   how Git commits work, but you don't need to stage the files first.
 - Only commit changes when requested. By default, do not commit anything.
+- Ensure that the first line in  commit messages is never more than 69 characters long
+- If the message spans multiple lines, make sure there's an empty line between the first
+  and the rest.
