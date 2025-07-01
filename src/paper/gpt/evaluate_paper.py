@@ -248,6 +248,21 @@ class GPTStructured(Immutable):
         str,
         Field(description="'yes' if the paper is novel, or 'no' if it's not novel."),
     ]
+    # TODO: This is very hacky. Figure out a better way.
+    # Private attribute. Not set or validated by Pydantic or Structured Outputs.
+    _probability: float | None = None
+
+    @computed_field
+    @property
+    def probability(self) -> float | None:
+        """Probability of the paper being novel."""
+        return self._probability
+
+    def with_prob(self, probability: float) -> Self:
+        """Set confidence for the evaluation. Returns new object."""
+        other = self.model_copy()
+        other._probability = probability  # noqa: SLF001
+        return other
 
     @computed_field
     @property

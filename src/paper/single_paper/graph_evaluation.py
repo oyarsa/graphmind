@@ -21,6 +21,7 @@ from paper.gpt.evaluate_paper_graph import (
     get_demonstrations,
 )
 from paper.gpt.graph_types.excerpts import GPTExcerpt
+from paper.gpt.novelty_utils import best_novelty_probability
 from paper.gpt.run_gpt import GPTResult, LLMClient
 from paper.types import Immutable
 from paper.util import atimer
@@ -120,12 +121,18 @@ async def evaluate_paper_graph_novelty(
         GPTStructured,
         eval_prompt.system,
         format_eval_template(eval_prompt, paper, graph, demonstrations),
+        logprobs=True,
+        top_logprobs=3,
     )
     eval = result.map(lambda r: r or GPTStructured.error())
     if not eval.result.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid evaluation result")
 
-    return eval
+    # Models tend to be very confident, so we're using the least extreme value as our
+    # confidence.
+    return eval.map(
+        lambda r: r.with_prob(best_novelty_probability(eval.logprobs))
+    ).noprob()
 
 
 def construct_graph_result(

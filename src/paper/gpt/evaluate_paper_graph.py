@@ -24,6 +24,8 @@ from typing import Annotated
 
 import dotenv
 import typer
+from rich.console import Console
+from rich.table import Table
 
 from paper import peerread as pr
 from paper.evaluation_metrics import (
@@ -52,6 +54,7 @@ from paper.gpt.model import (
     Prompt,
     PromptResult,
 )
+from paper.gpt.novelty_utils import best_novelty_probability
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     GPTResult,
@@ -315,6 +318,17 @@ async def evaluate_papers(
             len(results_all),
         )
 
+    _display_item_probs(results_items)
+
+
+def _display_item_probs(items: Sequence[PaperResult]) -> None:
+    table = Table("Label", "Word", "Percentage")
+    for item in items[:10]:
+        if s := item.structured_evaluation:
+            table.add_row(str(item.y_pred), s.novel, f"{s.probability or 0:.8%}")
+
+    Console().print(table)
+
 
 async def _evaluate_papers(
     client: LLMClient,
@@ -426,13 +440,18 @@ async def evaluate_paper(
         eval_type = GPTFull
         target_mode = TargetMode.BIN
 
-    eval_result = await client.run(eval_type, eval_system_prompt, eval_prompt_text)
+    eval_result = await client.run(
+        eval_type, eval_system_prompt, eval_prompt_text, logprobs=True, top_logprobs=3
+    )
 
     if not eval_result.result or not eval_result.result.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid evaluation result")
 
     if isinstance(eval_result.result, GPTStructured):
-        structured = eval_result.result or GPTStructured.error()
+        structured = (
+            eval_result.result.with_prob(best_novelty_probability(eval_result.logprobs))
+            or GPTStructured.error()
+        )
         fixed_label = fix_evaluated_rating(structured, target_mode).label
         paper_result = PaperResult.from_s2peer(
             paper.paper.paper,
