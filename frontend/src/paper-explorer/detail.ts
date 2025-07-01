@@ -270,6 +270,17 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
 /**
  * Helper function to find the index of a related paper by title in the currently filtered papers
  */
+/**
+ * Normalize a paper title for matching by removing non-alphabetical characters
+ * and converting to lowercase. This helps match titles that differ by punctuation.
+ */
+function normalizeTitle(title: string): string {
+  return title
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function findRelatedPaperIndex(
   paperTitle: string,
   relatedPapers: RelatedPaper[],
@@ -281,8 +292,13 @@ function findRelatedPaperIndex(
     return activeFilters.has(relationship.type);
   });
 
-  // Find the index in the filtered array
-  const index = filteredPapers.findIndex(paper => paper.title === paperTitle);
+  // Normalize the search title for comparison
+  const normalizedSearchTitle = normalizeTitle(paperTitle);
+
+  // Find the index in the filtered array using normalized title matching
+  const index = filteredPapers.findIndex(
+    paper => normalizeTitle(paper.title) === normalizedSearchTitle,
+  );
   return index >= 0 ? index : null;
 }
 
