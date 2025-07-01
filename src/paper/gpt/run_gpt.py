@@ -96,16 +96,31 @@ def _calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
 
 
 @dataclass(frozen=True, kw_only=True)
+class TopLogprob:
+    """Alternative token with its log probability.
+
+    Attributes:
+        token: Alternative LLM token.
+        logprob: Log probability of the token.
+    """
+
+    token: str
+    logprob: float
+
+
+@dataclass(frozen=True, kw_only=True)
 class TokenProb:
     """Represents a token and its log probability.
 
     Attributes:
         token: LLM token.
         logprob: Log probability of the token, as returned by the LLM API.
+        top_logprobs: Alternative tokens at this position with their probabilities.
     """
 
     token: str
     logprob: float
+    top_logprobs: list[TopLogprob] | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -465,6 +480,8 @@ class LLMClient(ABC):
         system_prompt: str,
         user_prompt: str,
         max_tokens: int | None = None,
+        logprobs: bool | None = None,
+        top_logprobs: int | None = None,
     ) -> GPTResult[T | None]:
         """Run the query and return a parsed object of `class_`."""
 
@@ -475,6 +492,8 @@ class LLMClient(ABC):
         user_prompt: str,
         max_tokens: int | None = None,
         search_level: Literal["low", "medium", "high"] | None = None,
+        logprobs: bool | None = None,
+        top_logprobs: int | None = None,
     ) -> GPTResult[str | None]:
         """Run the GPT query and return plain text output."""
 
@@ -626,6 +645,7 @@ class OpenAIClient(LLMClient):
         user_prompt: str,
         max_tokens: int | None = None,
         logprobs: bool | None = None,
+        top_logprobs: int | None = None,
     ) -> GPTResult[T | None]:
         """Run the GPT query and return a parsed object of `class_`.
 
@@ -645,6 +665,8 @@ class OpenAIClient(LLMClient):
                 try to get consistent outputs from the model.
             max_tokens: Maximum number of tokens in the output.
             logprobs: Whether to include the logprobs in the result.
+            top_logprobs: Number of most likely tokens to return at each position.
+                Must be between 0 and 20. Only used if logprobs is True.
 
         Returns:
             Result with the cost for the request and the result object parsed. If there
@@ -667,6 +689,7 @@ class OpenAIClient(LLMClient):
                 temperature=self.temperature,
                 max_tokens=max_tokens,
                 logprobs=logprobs,
+                top_logprobs=top_logprobs,
             )
         except Exception:
             logger.exception("Error when calling OpenAI. Gave up on retrying")
@@ -695,6 +718,7 @@ class OpenAIClient(LLMClient):
         max_tokens: int | None = None,
         search_level: Literal["low", "medium", "high"] | None = None,
         logprobs: bool | None = None,
+        top_logprobs: int | None = None,
     ) -> GPTResult[str | None]:
         """Run the GPT query and return plain text output.
 
@@ -709,6 +733,7 @@ class OpenAIClient(LLMClient):
                 See https://platform.openai.com/docs/guides/tools-web-search?api-mode=chat
                 for more information.
             logprobs: Whether to include the logprobs in the result.
+            top_logprobs: Number of most likely tokens to return at each position.
 
         Returns:
             Result with the cost for the request and the plain text response. If there
@@ -736,6 +761,7 @@ class OpenAIClient(LLMClient):
                 max_tokens=max_tokens,
                 web_search_options=search_options,
                 logprobs=logprobs,
+                top_logprobs=top_logprobs,
             )
         except Exception:
             logger.exception("Error when calling OpenAI. Gave up on retrying")
@@ -835,7 +861,21 @@ def tokenprob_from_gpt_choiceprob(
     if choiceprob is None or choiceprob.content is None:
         return None
 
-    return [TokenProb(token=c.token, logprob=c.logprob) for c in choiceprob.content]
+    # TODO: Vibe-coded
+    result: list[TokenProb] = []
+    for c in choiceprob.content:
+        # Extract top_logprobs if available
+        top_alternatives: list[TopLogprob] | None = None
+        if c.top_logprobs:
+            top_alternatives = [
+                TopLogprob(token=t.token, logprob=t.logprob) for t in c.top_logprobs
+            ]
+
+        result.append(
+            TokenProb(token=c.token, logprob=c.logprob, top_logprobs=top_alternatives)
+        )
+
+    return result
 
 
 def prompts_to_messages(system_prompt: str, user_prompt: str) -> list[dict[str, str]]:
@@ -995,6 +1035,8 @@ class GeminiClient(LLMClient):
         system_prompt: str,
         user_prompt: str,
         max_tokens: int | None = None,
+        logprobs: bool | None = None,
+        top_logprobs: int | None = None,
     ) -> GPTResult[T | None]:
         """Run the query and return a parsed object of `class_`.
 
@@ -1007,6 +1049,8 @@ class GeminiClient(LLMClient):
             system_prompt: Text for the system prompt (role: system).
             user_prompt: Text for the user prompt (role: user).
             max_tokens: Maximum number of tokens in the output.
+            logprobs: Ignored (Gemini does not support logprobs).
+            top_logprobs: Ignored (Gemini does not support logprobs).
 
         Returns:
             Result with the cost for the request and the result object parsed. If there
@@ -1060,6 +1104,8 @@ class GeminiClient(LLMClient):
         user_prompt: str,
         max_tokens: int | None = None,
         search_level: Literal["low", "medium", "high"] | None = None,
+        logprobs: bool | None = None,
+        top_logprobs: int | None = None,
     ) -> GPTResult[str | None]:
         """Run the query and return plain text output.
 
@@ -1072,6 +1118,8 @@ class GeminiClient(LLMClient):
             search_level: If given, use the web search tool with this context size.
                 Gemini doesn't support specifying the level, so any setting will have
                 the same effect.
+            logprobs: Ignored (Gemini does not support logprobs).
+            top_logprobs: Ignored (Gemini does not support logprobs).
 
         Returns:
             Result with the cost for the request and the plain text response. If there
