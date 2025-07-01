@@ -13,6 +13,13 @@ import { renderLatex, getArxivUrl, formatConferenceName } from "./helpers";
 import { JsonPaperDataset, ArxivPaperService, PaperEvaluator } from "./services";
 import { addFooter } from "../footer";
 
+// Extended interface for cached papers
+interface CachedPaperSearchItem extends Omit<PaperSearchItem, "arxiv_id"> {
+  arxiv_id?: string; // Make optional for cached papers
+  _isCached?: boolean;
+  _cachedPaperId?: string;
+}
+
 class PaperExplorer {
   private allPapers: GraphResult[] = [];
   private filteredPapers: GraphResult[] = [];
@@ -418,22 +425,105 @@ class PaperExplorer {
       inputElement.value = "";
       clearElement.style.display = "none";
       inputElement.focus();
-      const container = document.getElementById("arxiv-papers-container");
-      if (container) {
-        container.innerHTML = "";
-        container.classList.add("hidden");
-      }
-      const resultCount = document.getElementById("arxiv-result-count");
-      if (resultCount) {
-        resultCount.textContent = "Enter a search query and click Search";
-      }
+
+      // Show cached papers when search is cleared
+      this.displayCachedPapersIfEmpty();
     });
 
     // Initial update
     updateClearButton();
+
+    // Show cached papers initially when search is empty
+    this.displayCachedPapersIfEmpty();
+  }
+
+  /**
+   * Get all cached papers from localStorage
+   */
+  private getCachedPapers(): GraphResult[] {
+    const cacheKeys = Object.keys(localStorage).filter(key =>
+      key.startsWith("paper-cache-"),
+    );
+
+    const cachedPapers: GraphResult[] = [];
+
+    for (const key of cacheKeys) {
+      try {
+        const cachedData = localStorage.getItem(key);
+        if (cachedData) {
+          const graphResult = JSON.parse(cachedData) as GraphResult;
+          cachedPapers.push(graphResult);
+        }
+      } catch (error) {
+        console.warn(`Failed to parse cached paper ${key}:`, error);
+      }
+    }
+
+    // Sort by title for consistent display
+    return cachedPapers.sort((a, b) => a.paper.title.localeCompare(b.paper.title));
+  }
+
+  /**
+   * Display cached papers as cards if search is empty
+   */
+  private displayCachedPapersIfEmpty(): void {
+    const searchInput = document.getElementById("arxiv-search-input");
+    if (!searchInput || (searchInput as HTMLInputElement).value.trim()) return;
+
+    const cachedPapers = this.getCachedPapers();
+    if (cachedPapers.length > 0) {
+      // Make container visible
+      const papersContainer = document.getElementById("arxiv-papers-container");
+      if (papersContainer) papersContainer.classList.remove("hidden");
+
+      // Convert cached papers to PaperSearchResults format to reuse existing display logic
+      const searchResults = this.convertCachedPapersToSearchResults(cachedPapers);
+      this.displayArxivPapers(searchResults as PaperSearchResults);
+
+      // Update result count for cached papers
+      const resultCount = document.getElementById("arxiv-result-count");
+      if (resultCount) {
+        resultCount.textContent = `${cachedPapers.length} cached paper${cachedPapers.length === 1 ? "" : "s"}`;
+      }
+    }
+  }
+
+  /**
+   * Convert cached GraphResult objects to PaperSearchResults format
+   */
+  private convertCachedPapersToSearchResults(
+    cachedPapers: GraphResult[],
+  ): Omit<PaperSearchResults, "items"> & { items: CachedPaperSearchItem[] } {
+    const items: CachedPaperSearchItem[] = cachedPapers.map(graphResult => {
+      const paper = graphResult.paper;
+      return {
+        title: paper.title,
+        abstract: paper.abstract,
+        authors: paper.authors,
+        year: paper.year,
+        ...(paper.arxiv_id && { arxiv_id: paper.arxiv_id }),
+        // Add a flag to identify cached papers for different click behavior
+        _isCached: true,
+        _cachedPaperId: paper.id,
+      };
+    });
+
+    return {
+      query: "cached",
+      total: items.length,
+      items: items,
+    };
   }
 
   private handleArxivPaperSelection(item: PaperSearchItem): void {
+    // Handle cached papers differently
+    const cachedItem = item as CachedPaperSearchItem;
+    if (cachedItem._isCached && cachedItem._cachedPaperId) {
+      const encodedId = encodeURIComponent(cachedItem._cachedPaperId);
+      window.location.href = `/paper-hypergraph/pages/detail.html?id=${encodedId}`;
+      return;
+    }
+
     if (!this.arxivService) {
       console.error("ArXiv service not available");
       return;
@@ -647,6 +737,12 @@ class PaperExplorer {
       if (confirm(`Clear ${cacheKeys.length} cached papers? This cannot be undone.`)) {
         // Remove all cache keys
         cacheKeys.forEach(key => localStorage.removeItem(key));
+
+        // Refresh the cached papers display if currently showing
+        const searchInput = document.getElementById("arxiv-search-input");
+        if (searchInput && !(searchInput as HTMLInputElement).value.trim()) {
+          this.displayCachedPapersIfEmpty();
+        }
       }
     });
   }
