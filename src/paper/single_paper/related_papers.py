@@ -200,8 +200,6 @@ def get_related_papers(
         filtered_recommended_papers,
         [r.background for r in filtered_recommended_papers],
         pr.ContextPolarity.NEGATIVE,
-        paper_annotated.background,
-        paper_annotated.target,
     )
 
     logger.debug("Getting top K semantic - target")
@@ -212,8 +210,6 @@ def get_related_papers(
         filtered_recommended_papers,
         [r.target for r in filtered_recommended_papers],
         pr.ContextPolarity.POSITIVE,
-        paper_annotated.background,
-        paper_annotated.target,
     )
 
     logger.debug("Positive references: %d", len(references_positive_related))
@@ -241,8 +237,6 @@ def get_top_k_semantic(
     papers: Sequence[gpt.PaperAnnotated],
     items: Sequence[str],
     polarity: pr.ContextPolarity,
-    background: str | None,
-    target: str | None,
 ) -> list[rp.PaperRelated]:
     """Find top K semantically similar papers based on text embeddings.
 
@@ -257,8 +251,6 @@ def get_top_k_semantic(
         papers: Candidate papers to search through.
         items: Text items from papers to embed (backgrounds or targets).
         polarity: Relationship polarity (positive for targets, negative for backgrounds).
-        background: Background text of main paper (for metadata).
-        target: Target text of main paper (for metadata).
 
     Returns:
         List of K most similar papers as PaperRelated objects with similarity scores.
@@ -287,8 +279,8 @@ def get_top_k_semantic(
                 corpus_id=metadata.corpus_id,
                 url=metadata.url,
                 arxiv_id=metadata.arxiv_id,
-                background=background,
-                target=target,
+                background=paper.background,
+                target=paper.target,
             )
         )
     return related_papers
