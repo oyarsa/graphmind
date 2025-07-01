@@ -1246,7 +1246,7 @@ function loadPaperDetail(): void {
     }
     if (ratingEl) {
       const isNovel = paper.rating >= 3;
-      const novelText = isNovel ? "Yes" : "No";
+      const novelText = isNovel ? "High" : "Low";
       const novelClass = isNovel
         ? "text-green-600 dark:text-green-400 font-semibold"
         : "text-red-600 dark:text-red-400 font-semibold";
