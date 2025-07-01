@@ -354,7 +354,7 @@ export const EvaluationParamsSchema = z.object({
   /** Number of recommended papers to retrieve */
   recommendations: z.number().min(5).max(50).optional().default(30),
   /** Number of related papers per type */
-  related: z.number().min(1).max(10).optional().default(2),
+  related: z.number().min(1).max(10).optional().default(3),
   /** LLM model to use */
   llm_model: z
     .enum(["gpt-4o", "gpt-4o-mini", "gemini-2.0-flash"])
