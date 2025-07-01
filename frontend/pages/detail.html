@@ -53,11 +53,41 @@
         Loading paper details...
       </div>
 
-      <div
-        id="error-detail"
-        class="mx-auto hidden max-w-4xl text-center text-red-500 dark:text-red-400"
-      >
-        Error loading paper details. Please try again.
+      <div id="error-detail" class="mx-auto hidden max-w-2xl text-center">
+        <div
+          class="rounded-lg border border-gray-300 bg-gray-50 p-12 shadow-sm
+            dark:border-gray-700 dark:bg-gray-900/50"
+        >
+          <svg
+            class="mx-auto mb-6 h-16 w-16 text-gray-400 dark:text-gray-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0
+                11-18 0 9 9 0 0118 0z"
+            ></path>
+          </svg>
+          <h2 class="mb-3 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            Paper Not Found
+          </h2>
+          <p class="mb-8 text-gray-600 dark:text-gray-400">
+            We couldn't find the paper you're looking for. It may have been removed from
+            the cache or hasn't been loaded yet.
+          </p>
+          <a
+            href="/paper-hypergraph/pages/search.html"
+            class="inline-block rounded-lg bg-teal-600 px-6 py-3 font-semibold
+              text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5
+              hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600"
+          >
+            ← Go Back to Search
+          </a>
+        </div>
       </div>
 
       <!-- Main paper content wrapper -->

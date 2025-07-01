@@ -1146,9 +1146,7 @@ function loadPaperDetail(): void {
     }
 
     if (!graphResult) {
-      throw new Error(
-        `Paper with ID "${paperId}" not found. Please return to the main page to load the paper.`,
-      );
+      throw new Error("Paper not found");
     }
 
     const paper = graphResult.paper;
@@ -1317,11 +1315,6 @@ function loadPaperDetail(): void {
     console.error("Error loading paper details:", error);
     if (loadingEl) loadingEl.style.display = "none";
     if (errorEl) errorEl.classList.remove("hidden");
-
-    // Update error message to be more helpful
-    if (errorEl && error instanceof Error) {
-      errorEl.textContent = error.message;
-    }
   }
 }
 
