@@ -67,6 +67,11 @@ api-dev:
 api-serve:
     uv run fastapi run src/paper/backend/api.py --port 8001
 
+# Lint both core and frontend
+lint-all:
+    just lint
+    cd frontend && just lint
+
 # Bump version for both backend and frontend (ensures they're synchronized)
 version bump:
     #!/usr/bin/env bash
