@@ -205,8 +205,8 @@ class EvidenceItem(Immutable):
     ]
 
 
-class GPTStructured(Immutable):
-    """Structured evaluation of paper novelty with detailed components."""
+class GPTStructuredRaw(Immutable):
+    """Structured evaluation of paper novelty with detailed components. Raw version."""
 
     paper_summary: Annotated[
         str,
@@ -248,21 +248,6 @@ class GPTStructured(Immutable):
         str,
         Field(description="'yes' if the paper is novel, or 'no' if it's not novel."),
     ]
-    # TODO: This is very hacky. Figure out a better way.
-    # Private attribute. Not set or validated by Pydantic or Structured Outputs.
-    _probability: float | None = None
-
-    @computed_field
-    @property
-    def probability(self) -> float | None:
-        """Probability of the paper being novel."""
-        return self._probability
-
-    def with_prob(self, probability: float) -> Self:
-        """Set confidence for the evaluation. Returns new object."""
-        other = self.model_copy()
-        other._probability = probability  # noqa: SLF001
-        return other
 
     @computed_field
     @property
@@ -311,6 +296,39 @@ class GPTStructured(Immutable):
     def is_valid(self) -> bool:
         """Check if instance is valid."""
         return self.paper_summary != "<error>" and self.conclusion != "<error>"
+
+    def with_prob(self, probability: float) -> GPTStructured:
+        """Create a `GPTStructured` instance with the given probability.
+
+        Args:
+            probability: Probability of the evaluation being correct, if available.
+
+        Returns:
+            A `GPTStructured` instance with the raw data and probability.
+        """
+        return GPTStructured.from_(self, probability)
+
+
+class GPTStructured(GPTStructuredRaw):
+    """Structured evaluation of paper novelty with detailed components.
+
+    Version with the evaluation probability.
+    """
+
+    probability: float | None
+
+    @classmethod
+    def from_(cls, raw: GPTStructuredRaw, probability: float | None) -> Self:
+        """Create a `GPTStructured` instance from a raw evaluation and probability.
+
+        Args:
+            raw: Raw structured evaluation data.
+            probability: Probability of the evaluation being correct, if available.
+
+        Returns:
+            A `GPTStructured` instance with the raw data and probability.
+        """
+        return cls.model_validate(raw.model_dump() | {"probability": probability})
 
 
 def _load_demonstrations() -> dict[str, list[Demonstration]]:

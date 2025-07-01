@@ -37,7 +37,7 @@ from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
     GPTFull,
-    GPTStructured,
+    GPTStructuredRaw,
     GPTUncertain,
     PaperResult,
     fix_evaluated_rating,
@@ -434,7 +434,7 @@ async def evaluate_paper(
         eval_type = GPTUncertain
         target_mode = TargetMode.UNCERTAIN
     elif eval_prompt.type_name == "GPTStructured":
-        eval_type = GPTStructured
+        eval_type = GPTStructuredRaw
         target_mode = TargetMode.BIN
     else:
         eval_type = GPTFull
@@ -447,11 +447,12 @@ async def evaluate_paper(
     if not eval_result.result or not eval_result.result.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid evaluation result")
 
-    if isinstance(eval_result.result, GPTStructured):
+    if isinstance(eval_result.result, GPTStructuredRaw):
         structured = (
             eval_result.result.with_prob(best_novelty_probability(eval_result.logprobs))
-            or GPTStructured.error()
+            or GPTStructuredRaw.error()
         )
+
         fixed_label = fix_evaluated_rating(structured, target_mode).label
         paper_result = PaperResult.from_s2peer(
             paper.paper.paper,
