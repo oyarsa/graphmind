@@ -242,7 +242,7 @@ export function createSideBySideComparison(
           ${formatTitle} Comparison
         </h5>
       </div>
-      
+
       <div class="grid gap-4 md:grid-cols-2">
         <!-- Left Column -->
         <div class="space-y-2">
@@ -253,7 +253,7 @@ export function createSideBySideComparison(
             ${leftContent ? renderLatex(leftContent) : '<span class="text-gray-500 dark:text-gray-500 italic">No data available</span>'}
           </div>
         </div>
-        
+
         <!-- Right Column -->
         <div class="space-y-2">
           <h6 class="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
@@ -266,6 +266,205 @@ export function createSideBySideComparison(
       </div>
     </div>
   `;
+}
+
+// Import types - we need to define a minimal interface to avoid circular imports
+interface EvidenceItem {
+  text: string;
+  paper_title?: string | null;
+  paper_id?: string | null;
+  source?: "citations" | "semantic" | null;
+}
+
+interface RelatedPaperForEvidence {
+  source: "citations" | "semantic";
+  polarity: "positive" | "negative";
+  background?: string | null;
+  target?: string | null;
+  contexts?:
+    | {
+        sentence: string;
+        polarity: "positive" | "negative" | null;
+      }[]
+    | null;
+  title: string;
+  authors?: string[] | null;
+  year?: number | null;
+}
+
+/**
+ * Create an expandable evidence item with comparison information.
+ *
+ * @param evidence - The evidence item (string or EvidenceItem)
+ * @param evidenceIndex - Unique index for this evidence item
+ * @param relatedPaper - The related paper object if found
+ * @param relatedPaperIndex - Index in related papers array for linking
+ * @param mainPaperBackground - Main paper's background text
+ * @param mainPaperTarget - Main paper's target text
+ * @param bulletColor - Color class for the bullet point
+ * @returns HTML string for the expandable evidence item
+ */
+export function createExpandableEvidenceItem(
+  evidence: string | EvidenceItem,
+  evidenceIndex: string,
+  relatedPaper: RelatedPaperForEvidence | null,
+  relatedPaperIndex: number | null,
+  mainPaperBackground: string | null,
+  mainPaperTarget: string | null,
+  bulletColor: string,
+): string {
+  // Handle string evidence
+  if (typeof evidence === "string") {
+    return `
+      <li class="flex items-start gap-2">
+        <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
+        <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          ${renderLatex(evidence)}
+        </span>
+      </li>
+    `;
+  }
+
+  // Handle EvidenceItem with paper information
+  if (evidence.paper_title) {
+    // Simple title extraction for display
+    const displayText = evidence.paper_title;
+
+    const paperTitleElement =
+      relatedPaperIndex !== null
+        ? `<a href="#related-papers"
+             class="related-paper-link hover:underline cursor-pointer text-blue-800 dark:text-blue-200"
+             data-paper-index="${relatedPaperIndex}">
+             ${renderLatex(displayText)}:</a>`
+        : `<a href="#related-papers"
+             class="related-paper-link hover:underline cursor-pointer text-blue-800 dark:text-blue-200">
+             ${renderLatex(displayText)}:</a>`;
+
+    const hasExpandableContent =
+      relatedPaper &&
+      ((relatedPaper.source === "semantic" &&
+        (relatedPaper.background ?? relatedPaper.target)) ??
+        (relatedPaper.source === "citations" &&
+          relatedPaper.contexts &&
+          relatedPaper.contexts.length > 0));
+
+    return `
+      <li class="flex items-start gap-2">
+        <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
+        <div class="flex-1">
+          <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+            <span class="font-medium">${paperTitleElement}</span> ${renderLatex(evidence.text)}
+            ${
+              hasExpandableContent
+                ? `
+              <button
+                class="ml-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors duration-200 evidence-expand-btn"
+                data-evidence-index="${evidenceIndex}"
+                title="Show comparison details">
+                <span class="expand-text">Show details</span>
+                <svg class="inline-block w-3 h-3 ml-1 transform transition-transform duration-200 expand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </button>
+            `
+                : ""
+            }
+          </div>
+          ${
+            hasExpandableContent
+              ? `
+            <div class="evidence-details hidden mt-3 pl-4 border-l-2 border-gray-200 dark:border-gray-700" id="evidence-details-${evidenceIndex}">
+              ${createEvidenceComparisonContent(relatedPaper, mainPaperBackground, mainPaperTarget)}
+            </div>
+          `
+              : ""
+          }
+        </div>
+      </li>
+    `;
+  }
+
+  // Fallback for evidence with just text
+  return `
+    <li class="flex items-start gap-2">
+      <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
+      <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+        ${renderLatex(evidence.text)}
+      </span>
+    </li>
+  `;
+}
+
+/**
+ * Create comparison content for evidence details based on paper type.
+ */
+function createEvidenceComparisonContent(
+  relatedPaper: RelatedPaperForEvidence,
+  mainPaperBackground: string | null,
+  mainPaperTarget: string | null,
+): string {
+  if (relatedPaper.source === "semantic") {
+    // For semantic papers, show background/target comparison
+    if (
+      relatedPaper.polarity === "negative" &&
+      (relatedPaper.background ?? mainPaperBackground)
+    ) {
+      return createSideBySideComparison(
+        "Main Paper",
+        mainPaperBackground,
+        "Related Paper",
+        relatedPaper.background ?? null,
+        "background",
+      );
+    } else if (
+      relatedPaper.polarity === "positive" &&
+      (relatedPaper.target ?? mainPaperTarget)
+    ) {
+      return createSideBySideComparison(
+        "Main Paper",
+        mainPaperTarget,
+        "Related Paper",
+        relatedPaper.target ?? null,
+        "target",
+      );
+    }
+  } else if (relatedPaper.contexts) {
+    // For citation papers, show citation contexts
+    return `
+      <div class="mb-4">
+        <div class="mb-3 flex items-center gap-2">
+          <div class="h-4 w-1 rounded-full bg-blue-500"></div>
+          <h6 class="text-sm font-semibold tracking-wide text-gray-900 uppercase dark:text-gray-100">
+            Citation Contexts
+          </h6>
+        </div>
+        <div class="space-y-3">
+          ${relatedPaper.contexts
+            .map(
+              context => `
+            <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+              <div class="mb-2 flex items-center gap-2">
+                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                  context.polarity === "positive"
+                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                    : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                }">
+                  ${context.polarity === "positive" ? "Positive" : "Negative"}
+                </span>
+              </div>
+              <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                ${renderLatex(context.sentence)}
+              </p>
+            </div>
+          `,
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  return "";
 }
 
 /**

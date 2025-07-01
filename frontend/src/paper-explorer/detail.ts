@@ -13,7 +13,6 @@ import {
   Graph,
   Entity,
   StructuredEval,
-  EvidenceItem,
 } from "./model";
 import {
   createPaperTermsDisplay,
@@ -24,8 +23,8 @@ import {
   renderLatex,
   getArxivUrl,
   formatConferenceName,
-  formatPaperCitation,
   createSideBySideComparison,
+  createExpandableEvidenceItem,
 } from "./helpers";
 import { addFooter } from "../footer";
 
@@ -296,6 +295,8 @@ function createStructuredEvaluationDisplay(
   evaluation: StructuredEval,
   graphResult: GraphResult | null,
   activeFilters: Set<string>,
+  mainPaperBackground?: string | null,
+  mainPaperTarget?: string | null,
 ): string {
   const labelClass =
     evaluation.label === 1
@@ -303,47 +304,7 @@ function createStructuredEvaluationDisplay(
       : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
   const labelText = evaluation.label === 1 ? "Novel" : "Not Novel";
 
-  // Helper function to render evidence with proper handling of both string and object formats
-  const renderEvidence = (evidence: string | EvidenceItem): string => {
-    if (typeof evidence === "string") {
-      return renderLatex(evidence);
-    }
-
-    if (evidence.paper_title) {
-      // Try to find the related paper index for linking
-      const relatedPaperIndex = graphResult
-        ? findRelatedPaperIndex(
-            evidence.paper_title,
-            graphResult.related,
-            activeFilters,
-          )
-        : null;
-
-      // Get the related paper object for formatting citation
-      const relatedPaper =
-        relatedPaperIndex !== null && graphResult
-          ? graphResult.related[relatedPaperIndex]
-          : null;
-
-      // Use formatted citation if we have the paper data, otherwise fall back to title
-      const displayText = relatedPaper
-        ? formatPaperCitation(relatedPaper)
-        : evidence.paper_title;
-
-      const paperTitleElement =
-        relatedPaperIndex !== null
-          ? `<a href="#related-papers"
-               class="related-paper-link hover:underline cursor-pointer text-blue-800 dark:text-blue-200"
-               data-paper-index="${relatedPaperIndex}">
-               ${renderLatex(displayText)}:</a>`
-          : `<a href="#related-papers"
-               class="related-paper-link hover:underline cursor-pointer text-blue-800 dark:text-blue-200">
-               ${renderLatex(displayText)}:</a>`;
-
-      return `<span class="font-medium">${paperTitleElement}</span> ${renderLatex(evidence.text)}`;
-    }
-    return renderLatex(evidence.text);
-  };
+  // Note: renderEvidence function moved to createExpandableEvidenceItem helper
 
   return `
     <div class="space-y-4">
@@ -379,20 +340,32 @@ function createStructuredEvaluationDisplay(
               Supporting Evidence
             </h4>
           </div>
-          <ul class="space-y-2">
+          <ul class="space-y-3">
             ${evaluation.supporting_evidence
-              .map(
-                evidence => `
-              <li class="flex items-start gap-2">
-                <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full
-                             bg-green-500">
-                </span>
-                <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-                  ${renderEvidence(evidence)}
-                </span>
-              </li>
-            `,
-              )
+              .map((evidence, index) => {
+                const relatedPaperIndex =
+                  typeof evidence === "object" && evidence.paper_title && graphResult
+                    ? findRelatedPaperIndex(
+                        evidence.paper_title,
+                        graphResult.related,
+                        activeFilters,
+                      )
+                    : null;
+                const relatedPaper =
+                  relatedPaperIndex !== null && graphResult
+                    ? graphResult.related[relatedPaperIndex]
+                    : null;
+
+                return createExpandableEvidenceItem(
+                  evidence,
+                  `supporting-${index}`,
+                  relatedPaper,
+                  relatedPaperIndex,
+                  mainPaperBackground ?? null,
+                  mainPaperTarget ?? null,
+                  "bg-green-500",
+                );
+              })
               .join("")}
           </ul>
         </div>
@@ -413,20 +386,32 @@ function createStructuredEvaluationDisplay(
               Contradictory Evidence
             </h4>
           </div>
-          <ul class="space-y-2">
+          <ul class="space-y-3">
             ${evaluation.contradictory_evidence
-              .map(
-                evidence => `
-              <li class="flex items-start gap-2">
-                <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full
-                             bg-red-500">
-                </span>
-                <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-                  ${renderEvidence(evidence)}
-                </span>
-              </li>
-            `,
-              )
+              .map((evidence, index) => {
+                const relatedPaperIndex =
+                  typeof evidence === "object" && evidence.paper_title && graphResult
+                    ? findRelatedPaperIndex(
+                        evidence.paper_title,
+                        graphResult.related,
+                        activeFilters,
+                      )
+                    : null;
+                const relatedPaper =
+                  relatedPaperIndex !== null && graphResult
+                    ? graphResult.related[relatedPaperIndex]
+                    : null;
+
+                return createExpandableEvidenceItem(
+                  evidence,
+                  `contradictory-${index}`,
+                  relatedPaper,
+                  relatedPaperIndex,
+                  mainPaperBackground ?? null,
+                  mainPaperTarget ?? null,
+                  "bg-red-500",
+                );
+              })
               .join("")}
           </ul>
         </div>
@@ -1042,6 +1027,49 @@ function expandRelatedPaper(index: number): void {
 }
 
 /**
+ * Setup event delegation for evidence expansion buttons
+ */
+function setupEvidenceExpansionHandlers(): void {
+  document.addEventListener("click", event => {
+    const target = event.target as HTMLElement;
+    if (
+      target.classList.contains("evidence-expand-btn") ||
+      target.closest(".evidence-expand-btn")
+    ) {
+      event.preventDefault();
+
+      const button = target.classList.contains("evidence-expand-btn")
+        ? target
+        : target.closest(".evidence-expand-btn");
+
+      if (!button) return;
+
+      const evidenceIndex = (button as HTMLElement).dataset.evidenceIndex;
+      if (!evidenceIndex) return;
+
+      const detailsElement = document.getElementById(
+        `evidence-details-${evidenceIndex}`,
+      );
+      const expandIcon = button.querySelector(".expand-icon");
+      const expandText = button.querySelector(".expand-text");
+
+      if (detailsElement && expandIcon && expandText) {
+        const isHidden = detailsElement.classList.contains("hidden");
+
+        // Toggle visibility
+        detailsElement.classList.toggle("hidden", !isHidden);
+
+        // Update icon rotation
+        expandIcon.classList.toggle("rotate-180", isHidden);
+
+        // Update button text
+        expandText.textContent = isHidden ? "Hide details" : "Show details";
+      }
+    }
+  });
+}
+
+/**
  * Setup event delegation for related paper links
  */
 function setupRelatedPaperLinkHandlers(): void {
@@ -1305,6 +1333,8 @@ function loadPaperDetail(): void {
           paper.structured_evaluation,
           graphResult,
           defaultActiveFilters,
+          graphResult.background,
+          graphResult.target,
         );
         setupSectionToggle("structured-evaluation");
       } else {
@@ -1372,6 +1402,9 @@ async function initialiseApp(): Promise<void> {
 
   // Setup event delegation for related paper links
   setupRelatedPaperLinkHandlers();
+
+  // Setup event delegation for evidence expansion
+  setupEvidenceExpansionHandlers();
 
   await retryWithBackoff(() => {
     loadPaperDetail();
