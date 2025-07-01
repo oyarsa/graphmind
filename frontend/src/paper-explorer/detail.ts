@@ -298,12 +298,6 @@ function createStructuredEvaluationDisplay(
   mainPaperBackground?: string | null,
   mainPaperTarget?: string | null,
 ): string {
-  const labelClass =
-    evaluation.label === 1
-      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-      : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
-  const labelText = evaluation.label === 1 ? "Novel" : "Not Novel";
-
   // Note: renderEvidence function moved to createExpandableEvidenceItem helper
 
   return `
@@ -317,10 +311,6 @@ function createStructuredEvaluationDisplay(
                      dark:text-gray-100">
             Result
           </h4>
-          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs
-                       font-medium ${labelClass}">
-            ${labelText}
-          </span>
         </div>
         <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
           ${renderLatex(evaluation.conclusion)}
@@ -1245,14 +1235,29 @@ function loadPaperDetail(): void {
       approvalEl.className = approvalClass;
     }
     if (ratingEl) {
-      const isNovel = paper.rating >= 3;
-      const novelText = isNovel ? "High" : "Low";
-      const novelClass = isNovel
-        ? "text-green-600 dark:text-green-400 font-semibold"
-        : "text-red-600 dark:text-red-400 font-semibold";
+      // Check if structured evaluation has probability
+      if (paper.structured_evaluation?.probability != null) {
+        const probability = paper.structured_evaluation.probability;
+        const probabilityPercent = Math.round(probability * 100);
+        const novelText = `${probabilityPercent}%`;
+        const novelClass =
+          probability >= 0.5
+            ? "text-green-600 dark:text-green-400 font-semibold"
+            : "text-red-600 dark:text-red-400 font-semibold";
 
-      ratingEl.textContent = novelText;
-      ratingEl.className = novelClass;
+        ratingEl.textContent = novelText;
+        ratingEl.className = novelClass;
+      } else {
+        // Fallback to original High/Low display
+        const isNovel = paper.rating >= 3;
+        const novelText = isNovel ? "High" : "Low";
+        const novelClass = isNovel
+          ? "text-green-600 dark:text-green-400 font-semibold"
+          : "text-red-600 dark:text-red-400 font-semibold";
+
+        ratingEl.textContent = novelText;
+        ratingEl.className = novelClass;
+      }
     }
     if (arxivEl) {
       const arxivUrl = getArxivUrl(paper.arxiv_id);

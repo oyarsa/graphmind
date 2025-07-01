@@ -132,6 +132,8 @@ export const StructuredEvalSchema = z.object({
   conclusion: z.string(),
   /** 1 if the paper is novel, or 0 if it's not novel */
   label: z.int(),
+  /** Probability that the paper is novel. */
+  probability: z.number().nullish(),
 });
 
 /**
