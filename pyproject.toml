@@ -135,7 +135,8 @@ exclude = [
     "**/__pycache__",
     "**/.*",
     "notebooks/",
-    "frontend/"
+    "frontend/",
+    "tmp/"
 ]
 
 [tool.codespell]
