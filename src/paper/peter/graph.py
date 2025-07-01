@@ -78,9 +78,7 @@ class Graph:
         )
         papers_citation = self._citation.query_threshold(paper_id, citation_threshold)
 
-        return _result_from_related(
-            papers_semantic, papers_citation, background, target
-        )
+        return _result_from_related(papers_semantic, papers_citation)
 
     def query_all(
         self,
@@ -94,9 +92,7 @@ class Graph:
         """Find papers related to `paper` through citations and semantic similarity."""
         papers_semantic = self._semantic.query(background, target, k=semantic_k)
         papers_citation = self._citation.query(paper_id, k=citation_k)
-        return _result_from_related(
-            papers_semantic, papers_citation, background, target
-        )
+        return _result_from_related(papers_semantic, papers_citation)
 
     @classmethod
     def build(
@@ -187,10 +183,7 @@ class Graph:
 
 
 def _result_from_related(
-    papers_semantic: semantic.QueryResult,
-    papers_citation: citations.QueryResult,
-    background: str,
-    target: str,
+    papers_semantic: semantic.QueryResult, papers_citation: citations.QueryResult
 ) -> QueryResult:
     result = QueryResult(
         semantic_positive=[
@@ -198,7 +191,8 @@ def _result_from_related(
                 p,
                 source=PaperSource.SEMANTIC,
                 polarity=ContextPolarity.POSITIVE,
-                target=target,
+                background=p.background,
+                target=p.target,
             )
             for p in papers_semantic.targets
         ],
@@ -207,7 +201,8 @@ def _result_from_related(
                 p,
                 source=PaperSource.SEMANTIC,
                 polarity=ContextPolarity.NEGATIVE,
-                background=background,
+                background=p.background,
+                target=p.target,
             )
             for p in papers_semantic.backgrounds
         ],

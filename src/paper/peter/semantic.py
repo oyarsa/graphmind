@@ -219,6 +219,8 @@ class _PaperRelated(Record):
     title: str
     abstract: str
     paper_id: str
+    background: str
+    target: str
     year: int | None = None
     authors: Sequence[str] | None = None
     venue: str | None = None
@@ -272,6 +274,8 @@ class _PaperRelated(Record):
             corpus_id=corpus_id,
             url=url,
             arxiv_id=arxiv_id,
+            background=paper.background,
+            target=paper.target,
         )
 
 
