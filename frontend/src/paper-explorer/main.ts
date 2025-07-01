@@ -483,7 +483,7 @@ class PaperExplorer {
       // Update result count for cached papers
       const resultCount = document.getElementById("arxiv-result-count");
       if (resultCount) {
-        resultCount.textContent = `${cachedPapers.length} cached paper${cachedPapers.length === 1 ? "" : "s"}`;
+        resultCount.textContent = `${cachedPapers.length} previous result${cachedPapers.length === 1 ? "" : "s"}`;
       }
     }
   }
@@ -730,11 +730,13 @@ class PaperExplorer {
       );
 
       if (cacheKeys.length === 0) {
-        alert("No cached papers found.");
+        alert("No previous results found.");
         return;
       }
 
-      if (confirm(`Clear ${cacheKeys.length} cached papers? This cannot be undone.`)) {
+      if (
+        confirm(`Clear ${cacheKeys.length} previous results? This cannot be undone.`)
+      ) {
         // Remove all cache keys
         cacheKeys.forEach(key => localStorage.removeItem(key));
 
