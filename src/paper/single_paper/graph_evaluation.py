@@ -20,7 +20,7 @@ from paper.gpt.evaluate_paper_graph import (
     format_graph_template,
     get_demonstrations,
 )
-from paper.gpt.graph_types.full import GPTGraph
+from paper.gpt.graph_types.excerpts import GPTExcerpt
 from paper.gpt.run_gpt import GPTResult, LLMClient
 from paper.types import Immutable
 from paper.util import atimer
@@ -86,7 +86,7 @@ async def extract_graph_from_paper(
         Extracted graph wrapped in GPTResult.
     """
     result = await client.run(
-        GPTGraph, graph_prompt.system, format_graph_template(graph_prompt, paper)
+        GPTExcerpt, graph_prompt.system, format_graph_template(graph_prompt, paper)
     )
     graph = result.map(
         lambda r: r.to_graph(paper.title, paper.abstract) if r else gpt.Graph.empty()
