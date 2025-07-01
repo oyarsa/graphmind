@@ -223,21 +223,11 @@ export function createSideBySideComparison(
     return "";
   }
 
-  const colorTheme =
-    sectionType === "background"
-      ? {
-          accent: "bg-green-500",
-        }
-      : {
-          accent: "bg-orange-500",
-        };
-
   const formatTitle = sectionType === "background" ? "Background" : "Target";
 
   return `
     <div class="mb-4">
-      <div class="mb-3 flex items-center gap-2">
-        <div class="h-4 w-1 rounded-full ${colorTheme.accent}"></div>
+      <div class="mb-3">
         <h5 class="text-sm font-semibold tracking-wide text-gray-900 uppercase dark:text-gray-100">
           ${formatTitle} Comparison
         </h5>
