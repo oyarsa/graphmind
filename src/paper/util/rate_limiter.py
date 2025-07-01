@@ -15,7 +15,7 @@ from aiolimiter import AsyncLimiter
 from google.genai.types import GenerateContentResponse  # type: ignore
 from openai.types.chat import ChatCompletion
 
-_TOKENIZER = tiktoken.get_encoding("cl100k_base")
+_TOKENIZER = tiktoken.get_encoding("o200k_base")
 
 
 class Message(TypedDict):
