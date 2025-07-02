@@ -413,15 +413,15 @@ function createHierarchicalGraph(graph: Graph): void {
   // Filter out empty levels
   const nonEmptyLevels = levels.filter(level => level.length > 0);
 
-  // Calculate required width based on actual content
+  // Calculate minimum required width based on content, with reasonable bounds
   const maxNodesInLevel = Math.max(...nonEmptyLevels.map(level => level.length));
-  const requiredWidth = Math.max(
-    titleNodeWidth + padding, // Minimum for title
-    maxNodesInLevel * (nodeWidth + nodeSpacing) - nodeSpacing + padding, // Width for widest level
+  const minRequiredWidth = Math.max(
+    titleNodeWidth + 2 * padding, // Minimum for title
+    maxNodesInLevel * (nodeWidth + nodeSpacing) - nodeSpacing + 2 * padding, // Width for widest level
   );
 
-  // Use content-based width, with reasonable minimum
-  const graphWidth = Math.max(requiredWidth, 600);
+  // Use calculated width with minimum of 800px and maximum of 1200px
+  const graphWidth = Math.max(800, Math.min(minRequiredWidth, 1200));
 
   // Calculate positions with centered layout
   const allNodes: (Entity & { x: number; y: number; level: number; width: number })[] =
@@ -650,10 +650,9 @@ function createHierarchicalGraph(graph: Graph): void {
   const legendWidth = 104; // Increased by 30%
   const itemHeight = 21; // Increased by 30%
 
-  // Calculate rightmost node position and position legend
-  const rightmostNodeX = Math.max(...allNodes.map(n => n.x + n.width / 2));
-  const legendX = rightmostNodeX - legendWidth - 10; // Position with small gap from rightmost node edge
-  const legendY = 20; // Top position
+  // Fixed position in upper right corner
+  const legendX = graphWidth - legendWidth - 20; // 20px from right edge
+  const legendY = 20; // 20px from top
 
   legendGroup
     .append("rect")
