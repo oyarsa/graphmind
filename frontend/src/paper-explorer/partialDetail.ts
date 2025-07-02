@@ -103,14 +103,11 @@ function displayPartialEvaluation(evaluation: PartialEvaluationResponse): void {
   // Keywords
   displayKeywords(evaluation.keywords);
 
-  // Display novelty rating in the top section (if exists)
-  displayNoveltyRating(evaluation);
-
   // Novelty Assessment section content
   displayNoveltyAssessment(evaluation);
 
   // Related Papers
-  displayRelatedPapers(evaluation.related);
+  displayRelatedPapers(evaluation.related, evaluation);
 }
 
 /**
@@ -143,36 +140,6 @@ function displayKeywords(keywords: string[]): void {
 }
 
 /**
- * Display novelty rating in the top section (similar to regular Detail page)
- */
-function displayNoveltyRating(evaluation: PartialEvaluationResponse): void {
-  const ratingEl = document.getElementById("paper-rating");
-
-  if (ratingEl && evaluation.probability != null) {
-    const probability = evaluation.probability;
-    const probabilityPercent = Math.round(probability * 100);
-    const novelText = `${probabilityPercent}%`;
-    const novelClass =
-      probability >= 0.5
-        ? "text-green-600 dark:text-green-400 font-semibold"
-        : "text-red-600 dark:text-red-400 font-semibold";
-
-    ratingEl.textContent = novelText;
-    ratingEl.className = novelClass;
-  } else if (ratingEl) {
-    // Fallback to binary label display
-    const isNovel = evaluation.label === 1;
-    const novelText = isNovel ? "High" : "Low";
-    const novelClass = isNovel
-      ? "text-green-600 dark:text-green-400 font-semibold"
-      : "text-red-600 dark:text-red-400 font-semibold";
-
-    ratingEl.textContent = novelText;
-    ratingEl.className = novelClass;
-  }
-}
-
-/**
  * Display novelty assessment content (Paper Summary, Result, Supporting Evidence, Contradictory Evidence)
  * following the same structure as regular detail page
  */
@@ -181,8 +148,34 @@ function displayNoveltyAssessment(evaluation: PartialEvaluationResponse): void {
   if (!evidenceContainer) return;
 
   // Create the structured evaluation display similar to regular detail page
+  // Calculate novelty for the badge
+  const probability = evaluation.probability ?? (evaluation.label === 1 ? 1 : 0);
+  const probabilityPercent = Math.round(probability * 100);
+  const isNovel = probability >= 0.5;
+  const noveltyBadgeColor = isNovel
+    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-300 dark:border-green-700"
+    : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-300 dark:border-red-700";
+
   let evidenceHtml = `
     <div class="space-y-4">
+      <!-- Result -->
+      <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
+                  dark:border-gray-700 dark:bg-gray-800/50">
+        <div class="mb-2 flex items-center gap-3">
+          <div class="h-4 w-1 rounded-full bg-purple-500"></div>
+          <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                     dark:text-gray-100">
+            Result
+          </h4>
+          <span class="px-2 py-0.5 text-xs font-medium rounded-md border ${noveltyBadgeColor}">
+            Novel: ${probabilityPercent}%
+          </span>
+        </div>
+        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          ${renderLatex(evaluation.conclusion)}
+        </p>
+      </div>
+
       <!-- Paper Summary -->
       <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
                   dark:border-gray-700 dark:bg-gray-800/50">
@@ -195,21 +188,6 @@ function displayNoveltyAssessment(evaluation: PartialEvaluationResponse): void {
         </div>
         <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
           ${renderLatex(evaluation.paper_summary)}
-        </p>
-      </div>
-
-      <!-- Result -->
-      <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
-                  dark:border-gray-700 dark:bg-gray-800/50">
-        <div class="mb-2 flex items-center gap-2">
-          <div class="h-4 w-1 rounded-full bg-purple-500"></div>
-          <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
-                     dark:text-gray-100">
-            Result
-          </h4>
-        </div>
-        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-          ${renderLatex(evaluation.conclusion)}
         </p>
       </div>
   `;
@@ -234,6 +212,7 @@ function displayNoveltyAssessment(evaluation: PartialEvaluationResponse): void {
                 `supporting-${index}`,
                 "bg-green-500",
                 evaluation.related,
+                evaluation,
               ),
             )
             .join("")}
@@ -262,6 +241,7 @@ function displayNoveltyAssessment(evaluation: PartialEvaluationResponse): void {
                 `contradictory-${index}`,
                 "bg-red-500",
                 evaluation.related,
+                evaluation,
               ),
             )
             .join("")}
@@ -276,63 +256,85 @@ function displayNoveltyAssessment(evaluation: PartialEvaluationResponse): void {
 
   evidenceContainer.innerHTML = evidenceHtml;
 
-  // Setup event handlers for related paper links
+  // Setup event handlers for related paper links and evidence expansion
   setupRelatedPaperLinkHandlers();
+  setupEvidenceExpansionHandlers();
 }
 
 /**
- * Create an evidence item (either string or EvidenceItem object)
+ * Create an evidence item (either string or EvidenceItem object) - matches regular detail page format
  */
 function createEvidenceItem(
   evidence: string | EvidenceItem,
-  _itemId: string,
-  accentColor: string,
+  itemId: string,
+  bulletColor: string,
   relatedPapers: RelatedPaper[],
+  evaluation: PartialEvaluationResponse,
 ): string {
+  // Handle string evidence
   if (typeof evidence === "string") {
     return `
       <li class="flex items-start gap-2">
-        <div class="mt-1.5 h-2 w-2 rounded-full ${accentColor}"></div>
-        <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 flex-1">
+        <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
+        <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
           ${renderLatex(evidence)}
         </span>
       </li>
     `;
   }
 
-  // Evidence is an EvidenceItem object
-  // Find the related paper for this evidence item
+  // Handle EvidenceItem with paper information
   const relatedPaper = relatedPapers.find(
     paper => paper.title === evidence.paper_title,
   );
   const relatedPaperIndex = relatedPaper ? relatedPapers.indexOf(relatedPaper) : -1;
 
+  const displayText = evidence.paper_title ?? "Unknown Paper";
+
+  const paperTitleElement =
+    relatedPaperIndex >= 0
+      ? `<a href="#related-papers"
+           class="related-paper-link hover:underline cursor-pointer text-blue-800 dark:text-blue-200"
+           data-paper-index="${relatedPaperIndex}">
+           ${renderLatex(displayText)}:</a>`
+      : `<span class="text-blue-800 dark:text-blue-200">
+           ${renderLatex(displayText)}:</span>`;
+
+  const hasExpandableContent =
+    relatedPaper?.source === "semantic" &&
+    ((relatedPaper.polarity === "positive" && Boolean(relatedPaper.target)) ||
+      (relatedPaper.polarity === "negative" && Boolean(relatedPaper.background)));
+
   return `
     <li class="flex items-start gap-2">
-      <div class="mt-1.5 h-2 w-2 rounded-full ${accentColor}"></div>
+      <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
       <div class="flex-1">
-        <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-          ${renderLatex(evidence.text)}
-        </span>
-        ${
-          evidence.paper_title && relatedPaperIndex >= 0
-            ? `
-          <div class="mt-1 text-xs">
-            Source: <button 
-              class="related-paper-link text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline cursor-pointer"
-              data-paper-index="${relatedPaperIndex}"
-            >
-              ${evidence.paper_title}
-            </button>
-          </div>
-        `
-            : evidence.paper_title
+        <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          <span class="font-medium">${paperTitleElement}</span> ${renderLatex(evidence.text)}
+          ${
+            hasExpandableContent
               ? `
-          <div class="mt-1 text-xs text-gray-500 dark:text-gray-500">
-            Source: ${evidence.paper_title}
+            <button
+              class="ml-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors duration-200 evidence-expand-btn"
+              data-evidence-index="${itemId}"
+              title="Show comparison details">
+              <span class="expand-text">Show details</span>
+              <svg class="inline-block w-3 h-3 ml-1 transform transition-transform duration-200 expand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+          `
+              : ""
+          }
+        </div>
+        ${
+          hasExpandableContent
+            ? `
+          <div id="evidence-details-${itemId}" class="mt-3 hidden">
+            ${createEvidenceComparisonContent(relatedPaper, evaluation)}
           </div>
         `
-              : ""
+            : ""
         }
       </div>
     </li>
@@ -340,9 +342,48 @@ function createEvidenceItem(
 }
 
 /**
+ * Create comparison content for evidence details based on paper type
+ */
+function createEvidenceComparisonContent(
+  relatedPaper: RelatedPaper,
+  evaluation: PartialEvaluationResponse,
+): string {
+  if (relatedPaper.source === "semantic") {
+    // For semantic papers, show background/target comparison
+    if (relatedPaper.polarity === "negative" && relatedPaper.background) {
+      return createSideBySideComparison(
+        "Main Paper",
+        evaluation.background,
+        "Related Paper",
+        relatedPaper.background,
+        "background",
+      );
+    } else if (relatedPaper.polarity === "positive" && relatedPaper.target) {
+      return createSideBySideComparison(
+        "Main Paper",
+        evaluation.target,
+        "Related Paper",
+        relatedPaper.target,
+        "target",
+      );
+    }
+  }
+
+  // Fallback if no comparison data available
+  return `
+    <div class="text-center text-gray-600 dark:text-gray-400 py-2">
+      No comparison data available.
+    </div>
+  `;
+}
+
+/**
  * Display related papers found during evaluation
  */
-function displayRelatedPapers(relatedPapers: RelatedPaper[]): void {
+function displayRelatedPapers(
+  relatedPapers: RelatedPaper[],
+  evaluation: PartialEvaluationResponse,
+): void {
   const countEl = document.getElementById("related-papers-count");
   const contentEl = document.getElementById("related-papers-content");
 
@@ -362,7 +403,9 @@ function displayRelatedPapers(relatedPapers: RelatedPaper[]): void {
   }
 
   contentEl.innerHTML = relatedPapers
-    .map((paper, index) => createRelatedPaperCard(paper, index))
+    .map((paper, index) =>
+      createRelatedPaperCard(paper, index, evaluation.background, evaluation.target),
+    )
     .join("");
 
   // Add click handlers for expanding papers
@@ -385,7 +428,12 @@ function displayRelatedPapers(relatedPapers: RelatedPaper[]): void {
 /**
  * Create a card for a related paper
  */
-function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
+function createRelatedPaperCard(
+  paper: RelatedPaper,
+  index: number,
+  mainPaperBackground: string | null,
+  mainPaperTarget: string | null,
+): string {
   const relationship = getRelationshipStyle(paper);
   const scorePercent = Math.round(paper.score * 100);
 
@@ -494,7 +542,7 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
             ? `<div class="mb-4">
                  ${createSideBySideComparison(
                    "Main Paper",
-                   null, // Partial evaluation doesn't have main paper target text
+                   mainPaperTarget,
                    "Related Paper",
                    paper.target,
                    "target",
@@ -509,7 +557,7 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
             ? `<div class="mb-4">
                  ${createSideBySideComparison(
                    "Main Paper",
-                   null, // Partial evaluation doesn't have main paper background text
+                   mainPaperBackground,
                    "Related Paper",
                    paper.background,
                    "background",
@@ -547,6 +595,42 @@ function setupRelatedPaperLinkHandlers(): void {
 
           // Scroll to the card
           relatedCard.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }
+    }
+  });
+}
+
+/**
+ * Setup event handlers for evidence expansion buttons
+ */
+function setupEvidenceExpansionHandlers(): void {
+  document.addEventListener("click", event => {
+    const target = event.target as HTMLElement;
+
+    // Find the button element (could be the target itself or a parent)
+    const button = target.closest(".evidence-expand-btn");
+
+    if (button) {
+      const evidenceIndex = button.getAttribute("data-evidence-index");
+
+      if (evidenceIndex) {
+        const detailsEl = document.getElementById(`evidence-details-${evidenceIndex}`);
+
+        if (detailsEl) {
+          const isHidden = detailsEl.classList.contains("hidden");
+          const expandText = button.querySelector(".expand-text");
+          const expandIcon = button.querySelector(".expand-icon");
+
+          if (isHidden) {
+            detailsEl.classList.remove("hidden");
+            if (expandText) expandText.textContent = "Hide details";
+            if (expandIcon) expandIcon.classList.add("rotate-180");
+          } else {
+            detailsEl.classList.add("hidden");
+            if (expandText) expandText.textContent = "Show details";
+            if (expandIcon) expandIcon.classList.remove("rotate-180");
+          }
         }
       }
     }
