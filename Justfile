@@ -99,3 +99,7 @@ version bump="major":
     # Set the frontend to the same version
     cd frontend
     npm version "$npm_version" --no-git-tag-version --allow-same-version
+
+    # Commit the version bump
+    cd ..
+    jj commit -m "$new_version"
