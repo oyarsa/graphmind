@@ -192,6 +192,30 @@ export function getScoreDisplay(score: number) {
 }
 
 /**
+ * Get color for score progress bar (red to green gradient)
+ */
+export function getScoreColor(score: number): string {
+  // Convert to percentage for color calculation
+  const percent = score * 100;
+
+  if (percent < 50) {
+    // Red to yellow gradient (0-50%)
+    const ratio = percent / 50;
+    const r = 239; // red-500
+    const g = Math.round(68 + (245 - 68) * ratio); // transition to yellow-400
+    const b = 68;
+    return `rgb(${r}, ${g}, ${b})`;
+  } else {
+    // Yellow to green gradient (50-100%)
+    const ratio = (percent - 50) / 50;
+    const r = Math.round(245 - (245 - 34) * ratio); // transition from yellow-400 to green-600
+    const g = Math.round(158 + (197 - 158) * ratio);
+    const b = Math.round(11 + (77 - 11) * ratio);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+}
+
+/**
  * Format type names for display (capitalize and replace underscores)
  */
 export function formatTypeName(type: string): string {

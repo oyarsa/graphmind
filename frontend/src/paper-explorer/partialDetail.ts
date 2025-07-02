@@ -17,6 +17,8 @@ import {
   setupSectionToggle,
   createSideBySideComparison,
   formatScientificCitation,
+  getScoreDisplay,
+  getScoreColor,
 } from "./helpers";
 import { addFooter } from "../footer";
 
@@ -169,7 +171,7 @@ function displayNoveltyAssessment(evaluation: PartialEvaluationResponse): void {
             Result
           </h4>
           <span class="px-2 py-0.5 text-xs font-medium rounded-md border ${noveltyBadgeColor}">
-            Novel: ${probabilityPercent}%
+            Novelty: ${probabilityPercent}%
           </span>
         </div>
         <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
@@ -432,8 +434,8 @@ function createRelatedPaperCard(
   mainPaperBackground: string | null,
   mainPaperTarget: string | null,
 ): string {
+  const { scorePercent } = getScoreDisplay(paper.score);
   const relationship = getRelationshipStyle(paper);
-  const scorePercent = Math.round(paper.score * 100);
 
   return `
     <div
@@ -459,8 +461,15 @@ function createRelatedPaperCard(
             </span>
             <div class="flex items-center gap-2">
               <span class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                Similarity: <span class="font-medium">${scorePercent}%</span>
+                Similarity Score: <span class="font-medium">${scorePercent}%</span>
               </span>
+              <!-- Progress bar -->
+              <div class="relative w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  class="absolute top-0 left-0 h-full rounded-full transition-all duration-300"
+                  style="width: ${scorePercent}%; background-color: ${getScoreColor(paper.score)}"
+                ></div>
+              </div>
             </div>
           </div>
         </div>
