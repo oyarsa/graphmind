@@ -198,6 +198,8 @@ class PartialEvaluationResponse(Model):
         title: Evaluated paper title.
         abstract: Evaluated paper abstract.
         keywords: Search keywords extracted from the title and abstract.
+        background: Background extracted from the abstract.
+        target: Target extracted from the abstract.
         label: Binary novelty score (1=novel, 0=not novel).
         probability: Percentage chance of the paper being novel.
         paper_summary: Brief summary of paper contributions.
@@ -209,6 +211,10 @@ class PartialEvaluationResponse(Model):
     title: Annotated[str, Field(description="Paper title.")]
     abstract: Annotated[str, Field(description="Paper abstract.")]
     keywords: Annotated[Sequence[str], Field(description="Extracted keywords.")]
+    background: Annotated[
+        str, Field(description="Extracted background from the abstract.")
+    ]
+    target: Annotated[str, Field(description="Extracted target from the abstract.")]
     label: Annotated[int, Field(description="Binary novelty score.")]
     probability: Annotated[
         float | None, Field(description="Percentage chance of the paper being novel")
