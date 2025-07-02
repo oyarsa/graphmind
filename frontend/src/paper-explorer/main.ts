@@ -8,9 +8,20 @@ import {
   isMobileDevice,
   showMobileMessage,
 } from "../util";
-import { GraphResult, PaperSearchResults, PaperSearchItem } from "./model";
+import {
+  GraphResult,
+  PaperSearchResults,
+  PaperSearchItem,
+  PartialEvaluationResponse,
+} from "./model";
 import { renderLatex, getArxivUrl, formatConferenceName } from "./helpers";
-import { JsonPaperDataset, ArxivPaperService, PaperEvaluator } from "./services";
+import {
+  JsonPaperDataset,
+  ArxivPaperService,
+  PaperEvaluator,
+  PartialPaperEvaluator,
+  PartialEvaluationParams,
+} from "./services";
 import { addFooter } from "../footer";
 
 // Extended interface for cached papers
@@ -31,6 +42,7 @@ class PaperExplorer {
     private jsonDataset: JsonPaperDataset,
     private arxivService: ArxivPaperService | null = null,
     private paperEvaluator: PaperEvaluator | null = null,
+    private partialEvaluator: PartialPaperEvaluator | null = null,
   ) {}
 
   async initialize(): Promise<void> {
@@ -39,6 +51,9 @@ class PaperExplorer {
       this.setupArxivSearchBar();
       this.setupClearCacheButton();
       this.setupEvaluationModal();
+    }
+    if (this.partialEvaluator) {
+      this.setupAbstractTab();
     }
     this.setupHelpModal();
     await this.loadPapers();
@@ -249,47 +264,77 @@ class PaperExplorer {
   private setupTabs(): void {
     const jsonTab = document.getElementById("json-tab");
     const arxivTab = document.getElementById("arxiv-tab");
+    const abstractTab = document.getElementById("abstract-tab");
     const jsonContent = document.getElementById("json-content");
     const arxivContent = document.getElementById("arxiv-content");
+    const abstractContent = document.getElementById("abstract-content");
 
-    if (!jsonTab || !arxivTab || !jsonContent || !arxivContent) return;
+    if (
+      !jsonTab ||
+      !arxivTab ||
+      !abstractTab ||
+      !jsonContent ||
+      !arxivContent ||
+      !abstractContent
+    )
+      return;
 
     jsonTab.addEventListener("click", () => this.switchTab("json"));
     arxivTab.addEventListener("click", () => this.switchTab("arxiv"));
+    abstractTab.addEventListener("click", () => this.switchTab("abstract"));
   }
 
-  private switchTab(tab: "json" | "arxiv"): void {
+  private switchTab(tab: "json" | "arxiv" | "abstract"): void {
     // this.currentTab = tab;
 
     const jsonTab = document.getElementById("json-tab");
     const arxivTab = document.getElementById("arxiv-tab");
+    const abstractTab = document.getElementById("abstract-tab");
     const jsonContent = document.getElementById("json-content");
     const arxivContent = document.getElementById("arxiv-content");
+    const abstractContent = document.getElementById("abstract-content");
 
-    if (!jsonTab || !arxivTab || !jsonContent || !arxivContent) return;
+    if (
+      !jsonTab ||
+      !arxivTab ||
+      !abstractTab ||
+      !jsonContent ||
+      !arxivContent ||
+      !abstractContent
+    )
+      return;
 
+    // Define active and inactive classes
+    const activeClasses =
+      "tab-button active cursor-pointer rounded-md bg-white px-4 py-2 text-sm font-semibold" +
+      " text-teal-600 shadow-sm transition-all duration-200 dark:bg-gray-700 dark:text-teal-400";
+    const inactiveClasses =
+      "tab-button cursor-pointer rounded-md px-4 py-2 text-sm font-semibold text-gray-600" +
+      " transition-all duration-200 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200";
+
+    // Reset all tabs to inactive
+    jsonTab.className = inactiveClasses;
+    arxivTab.className = inactiveClasses;
+    abstractTab.className = inactiveClasses;
+
+    // Hide all content
+    jsonContent.classList.add("hidden");
+    arxivContent.classList.add("hidden");
+    abstractContent.classList.add("hidden");
+
+    // Activate the selected tab and show its content
     if (tab === "json") {
-      jsonTab.className =
-        "tab-button active cursor-pointer rounded-md bg-white px-4 py-2 text-sm font-semibold" +
-        " text-teal-600 shadow-sm transition-all duration-200 dark:bg-gray-700" +
-        " dark:text-teal-400";
-      arxivTab.className =
-        "tab-button cursor-pointer rounded-md px-4 py-2 text-sm font-semibold text-gray-600" +
-        " transition-all duration-200 hover:text-gray-800 dark:text-gray-400" +
-        " dark:hover:text-gray-200";
+      jsonTab.className = activeClasses;
       jsonContent.classList.remove("hidden");
-      arxivContent.classList.add("hidden");
-    } else {
-      arxivTab.className =
-        "tab-button active cursor-pointer rounded-md bg-white px-4 py-2 text-sm font-semibold" +
-        " text-teal-600 shadow-sm transition-all duration-200 dark:bg-gray-700" +
-        " dark:text-teal-400";
-      jsonTab.className =
-        "tab-button cursor-pointer rounded-md px-4 py-2 text-sm font-semibold text-gray-600" +
-        " transition-all duration-200 hover:text-gray-800 dark:text-gray-400" +
-        " dark:hover:text-gray-200";
+    } else if (tab === "arxiv") {
+      arxivTab.className = activeClasses;
       arxivContent.classList.remove("hidden");
-      jsonContent.classList.add("hidden");
+    } else {
+      // tab === "abstract"
+      abstractTab.className = activeClasses;
+      abstractContent.classList.remove("hidden");
+      // Load previous evaluations when switching to abstract tab
+      this.loadPreviousAbstractEvaluations();
     }
   }
 
@@ -1024,6 +1069,475 @@ class PaperExplorer {
       this.showEvaluationError("Failed to evaluate paper. Please try again.");
     }
   }
+
+  // TODO: The following abstract tab methods duplicate significant logic from arXiv tab methods.
+  // Consider refactoring to share common functionality in a future iteration.
+
+  /**
+   * Setup Abstract tab functionality including form submission and cache management
+   */
+  private setupAbstractTab(): void {
+    this.setupAbstractForm();
+    this.setupAbstractClearCache();
+    this.loadPreviousAbstractEvaluations();
+  }
+
+  /**
+   * Setup the abstract evaluation form submission
+   */
+  private setupAbstractForm(): void {
+    const form = document.getElementById(
+      "abstract-evaluation-form",
+    ) as HTMLFormElement | null;
+    if (!form) return;
+
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+
+      const titleElement = document.getElementById(
+        "abstract-title",
+      ) as HTMLTextAreaElement | null;
+      const abstractElement = document.getElementById(
+        "abstract-text",
+      ) as HTMLTextAreaElement | null;
+      const recommendationsElement = document.getElementById(
+        "abstract-recommendations",
+      ) as HTMLInputElement | null;
+      const relatedElement = document.getElementById(
+        "abstract-related",
+      ) as HTMLInputElement | null;
+      const llmModelElement = document.getElementById(
+        "abstract-llm-model",
+      ) as HTMLSelectElement | null;
+
+      if (
+        !titleElement ||
+        !abstractElement ||
+        !recommendationsElement ||
+        !relatedElement ||
+        !llmModelElement
+      ) {
+        console.error("Required form elements not found");
+        return;
+      }
+
+      void this.handleAbstractFormSubmission(
+        titleElement,
+        abstractElement,
+        recommendationsElement,
+        relatedElement,
+        llmModelElement,
+      );
+    });
+  }
+
+  /**
+   * Handle abstract form submission
+   */
+  private async handleAbstractFormSubmission(
+    titleElement: HTMLTextAreaElement,
+    abstractElement: HTMLTextAreaElement,
+    recommendationsElement: HTMLInputElement,
+    relatedElement: HTMLInputElement,
+    llmModelElement: HTMLSelectElement,
+  ): Promise<void> {
+    const title = titleElement.value.trim();
+    const abstract = abstractElement.value.trim();
+
+    if (!title || !abstract) {
+      this.showAbstractError("Please provide both title and abstract.");
+      return;
+    }
+
+    const params: PartialEvaluationParams = {
+      title,
+      abstract,
+      recommendations: parseInt(recommendationsElement.value) || 20,
+      related: parseInt(relatedElement.value) || 3,
+      llm_model: llmModelElement.value || "gpt-4o-mini",
+    };
+
+    await this.evaluateAbstract(params);
+  }
+
+  /**
+   * Setup clear cache button for abstract evaluations
+   */
+  private setupAbstractClearCache(): void {
+    const clearButton = document.getElementById("clear-abstract-cache");
+    if (!clearButton) return;
+
+    clearButton.addEventListener("click", () => {
+      // Remove all partial evaluation cache entries
+      const keys = Object.keys(localStorage);
+      const partialKeys = keys.filter(key =>
+        key.startsWith("partial-evaluation-cache-"),
+      );
+
+      partialKeys.forEach(key => localStorage.removeItem(key));
+      localStorage.removeItem("partial-evaluations-list");
+
+      this.loadPreviousAbstractEvaluations();
+
+      // Show brief notification
+      this.showAbstractError("Previous evaluations cleared.", false);
+      setTimeout(() => this.hideAbstractError(), 2000);
+    });
+  }
+
+  /**
+   * Load and display previous abstract evaluations
+   */
+  private loadPreviousAbstractEvaluations(): void {
+    const container = document.getElementById("abstract-results-container");
+    const noResults = document.getElementById("abstract-no-results");
+
+    if (!container || !noResults) return;
+
+    // Get list of evaluation IDs from localStorage
+    const evaluationsList = localStorage.getItem("partial-evaluations-list");
+    const evaluationIds: string[] = evaluationsList
+      ? (JSON.parse(evaluationsList) as string[])
+      : [];
+
+    container.innerHTML = "";
+
+    if (evaluationIds.length === 0) {
+      container.classList.add("hidden");
+      noResults.classList.remove("hidden");
+      return;
+    }
+
+    noResults.classList.add("hidden");
+    container.classList.remove("hidden");
+
+    // Load and display each evaluation
+    const evaluations: PartialEvaluationResponse[] = [];
+
+    for (const id of evaluationIds) {
+      try {
+        const cached = localStorage.getItem(`partial-evaluation-cache-${id}`);
+        if (cached) {
+          const evaluation = JSON.parse(cached) as PartialEvaluationResponse;
+          evaluations.push(evaluation);
+        }
+      } catch (error) {
+        console.warn(`Failed to load cached evaluation ${id}:`, error);
+      }
+    }
+
+    // Sort by most recent (assuming IDs are chronological)
+    evaluations.sort((a, b) => b.id.localeCompare(a.id));
+
+    evaluations.forEach(evaluation => {
+      const card = this.createAbstractEvaluationCard(evaluation);
+      container.appendChild(card);
+    });
+  }
+
+  /**
+   * Create a card element for displaying an abstract evaluation result
+   */
+  private createAbstractEvaluationCard(
+    evaluation: PartialEvaluationResponse,
+  ): HTMLElement {
+    const card = document.createElement("div");
+    card.className =
+      "rounded-lg border border-gray-300 bg-gray-50/50 p-4 transition-all " +
+      "duration-200 hover:border-teal-500/50 dark:border-gray-700 dark:bg-gray-800/50";
+
+    const probabilityPercent = evaluation.probability
+      ? Math.round(evaluation.probability * 100)
+      : null;
+    const noveltyText = evaluation.label === 1 ? "Novel" : "Not Novel";
+    const noveltyColor =
+      evaluation.label === 1
+        ? "text-green-600 dark:text-green-400"
+        : "text-red-600 dark:text-red-400";
+
+    card.innerHTML = `
+      <div class="cursor-pointer" onclick="window.location.href='/paper-hypergraph/pages/partial-detail.html?id=${evaluation.id}'">
+        <h4 class="mb-2 line-clamp-2 font-semibold text-gray-900 dark:text-gray-100">
+          ${renderLatex(evaluation.title)}
+        </h4>
+        <p class="mb-3 line-clamp-3 text-sm text-gray-600 dark:text-gray-400">
+          ${evaluation.abstract.substring(0, 150)}${evaluation.abstract.length > 150 ? "..." : ""}
+        </p>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-medium ${noveltyColor}">
+              ${noveltyText}
+            </span>
+            ${
+              probabilityPercent !== null
+                ? `
+              <span class="text-xs text-gray-500 dark:text-gray-500">
+                (${probabilityPercent}%)
+              </span>
+            `
+                : ""
+            }
+          </div>
+          <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
+            <span>${evaluation.keywords.length} keywords</span>
+            <span>•</span>
+            <span>${evaluation.related.length} related</span>
+          </div>
+        </div>
+        <div class="mt-2 flex flex-wrap gap-1">
+          ${evaluation.keywords
+            .slice(0, 3)
+            .map(
+              keyword => `
+            <span class="inline-block rounded-md bg-teal-100/70 px-2 py-0.5 text-xs text-teal-800
+                   dark:bg-teal-900/30 dark:text-teal-300">
+              ${keyword}
+            </span>
+          `,
+            )
+            .join("")}
+          ${
+            evaluation.keywords.length > 3
+              ? `
+            <span class="text-xs text-gray-500 dark:text-gray-500">
+              +${evaluation.keywords.length - 3} more
+            </span>
+          `
+              : ""
+          }
+        </div>
+      </div>
+    `;
+
+    return card;
+  }
+
+  /**
+   * Evaluate an abstract using the partial evaluation service
+   */
+  private async evaluateAbstract(params: PartialEvaluationParams): Promise<void> {
+    if (!this.partialEvaluator) {
+      this.showAbstractError("Abstract evaluation service not available.");
+      return;
+    }
+
+    try {
+      // Show progress modal
+      this.showAbstractEvaluationModal(params.title);
+
+      // Setup progress callbacks
+      this.partialEvaluator.onConnected = message => {
+        this.updateAbstractEvaluationProgress(message, 0);
+      };
+
+      this.partialEvaluator.onProgress = (message, progress) => {
+        this.updateAbstractEvaluationProgress(message, progress);
+      };
+
+      this.partialEvaluator.onError = error => {
+        this.hideAbstractEvaluationModal();
+        this.showAbstractError(`Evaluation failed: ${error}`);
+      };
+
+      this.partialEvaluator.onConnectionError = () => {
+        this.hideAbstractEvaluationModal();
+        this.showAbstractError("Connection lost during evaluation. Please try again.");
+      };
+
+      // Start evaluation
+      const result = await this.partialEvaluator.startEvaluation(params);
+
+      // Hide progress modal
+      this.hideAbstractEvaluationModal();
+
+      // Cache the result
+      localStorage.setItem(
+        `partial-evaluation-cache-${result.id}`,
+        JSON.stringify(result),
+      );
+
+      // Update the evaluations list
+      const currentList = localStorage.getItem("partial-evaluations-list");
+      const evaluationIds: string[] = currentList
+        ? (JSON.parse(currentList) as string[])
+        : [];
+      if (!evaluationIds.includes(result.id)) {
+        evaluationIds.push(result.id);
+        localStorage.setItem("partial-evaluations-list", JSON.stringify(evaluationIds));
+      }
+
+      // Show completion notification
+      this.showAbstractCompletionNotification(params.title);
+
+      // Navigate to partial detail page
+      window.location.href = `/paper-hypergraph/pages/partial-detail.html?id=${result.id}`;
+    } catch (error) {
+      this.hideAbstractEvaluationModal();
+      console.error("Error evaluating abstract:", error);
+      this.showAbstractError("Failed to evaluate abstract. Please try again.");
+    }
+  }
+
+  /**
+   * Show progress modal for abstract evaluation
+   */
+  private showAbstractEvaluationModal(title: string): void {
+    // Remove any existing modal
+    this.hideAbstractEvaluationModal();
+
+    const modal = document.createElement("div");
+    modal.id = "abstract-evaluation-modal";
+    modal.className =
+      "fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm";
+
+    modal.innerHTML = `
+      <div class="mx-4 w-96 rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+        <div class="text-center">
+          <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
+            Evaluating Abstract
+          </h3>
+          <p class="mb-4 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+            ${renderLatex(title)}
+          </p>
+
+          <!-- Progress Bar -->
+          <div class="mb-4 w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+            <div id="abstract-progress-bar" class="bg-teal-600 h-2 rounded-full transition-all duration-300"
+                 style="width: 0%">
+            </div>
+          </div>
+
+          <!-- Progress Text -->
+          <div class="mb-2 h-12 flex items-center justify-center px-2">
+            <p id="abstract-progress-text" class="text-sm text-gray-700 dark:text-gray-300 text-center leading-tight">
+              Starting evaluation...
+            </p>
+          </div>
+
+          <!-- Progress Percentage -->
+          <p id="abstract-progress-percentage" class="text-xs text-gray-500 dark:text-gray-500">
+            0%
+          </p>
+
+          <!-- Cancel Button -->
+          <button id="cancel-abstract-evaluation"
+                  class="mt-4 px-4 py-2 text-sm bg-gray-500 hover:bg-gray-600 text-white
+                         rounded-lg transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Add cancel button handler
+    const cancelButton = document.getElementById("cancel-abstract-evaluation");
+    if (cancelButton) {
+      cancelButton.addEventListener("click", () => {
+        if (this.partialEvaluator) {
+          this.partialEvaluator.stopEvaluation();
+        }
+        this.hideAbstractEvaluationModal();
+      });
+    }
+  }
+
+  /**
+   * Update progress in the abstract evaluation modal
+   */
+  private updateAbstractEvaluationProgress(message: string, progress: number): void {
+    const progressBar = document.getElementById("abstract-progress-bar");
+    const progressText = document.getElementById("abstract-progress-text");
+    const progressPercentage = document.getElementById("abstract-progress-percentage");
+
+    if (progressBar) {
+      progressBar.style.width = `${progress}%`;
+    }
+
+    if (progressText) {
+      progressText.textContent = message;
+    }
+
+    if (progressPercentage) {
+      progressPercentage.textContent = `${Math.round(progress)}%`;
+    }
+  }
+
+  /**
+   * Hide the abstract evaluation modal
+   */
+  private hideAbstractEvaluationModal(): void {
+    const modal = document.getElementById("abstract-evaluation-modal");
+    if (modal) {
+      modal.remove();
+    }
+  }
+
+  /**
+   * Show error message in abstract tab
+   */
+  private showAbstractError(message: string, isError = true): void {
+    const errorEl = document.getElementById("abstract-error");
+    const errorMessage = document.getElementById("abstract-error-message");
+
+    if (errorEl && errorMessage) {
+      errorMessage.textContent = message;
+      if (isError) {
+        errorEl.className =
+          "rounded-lg border border-red-500 bg-red-100/50 p-4 " +
+          "text-red-700 dark:bg-red-900/20 dark:text-red-300";
+      } else {
+        errorEl.className =
+          "rounded-lg border border-green-500 bg-green-100/50 p-4 " +
+          "text-green-700 dark:bg-green-900/20 dark:text-green-300";
+      }
+      errorEl.classList.remove("hidden");
+    }
+  }
+
+  /**
+   * Hide error message in abstract tab
+   */
+  private hideAbstractError(): void {
+    const errorEl = document.getElementById("abstract-error");
+    if (errorEl) {
+      errorEl.classList.add("hidden");
+    }
+  }
+
+  /**
+   * Show completion notification for abstract evaluation
+   */
+  private showAbstractCompletionNotification(title: string): void {
+    // Create notification element
+    const notification = document.createElement("div");
+    notification.className =
+      "fixed top-4 right-4 z-50 rounded-lg bg-green-600 p-4 text-white shadow-lg dark:bg-green-700";
+
+    notification.innerHTML = `
+      <div class="flex items-center gap-3">
+        <svg class="h-5 w-5 text-green-200" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+        </svg>
+        <div>
+          <p class="font-medium">Abstract Evaluation Complete!</p>
+          <p class="text-sm text-green-200 line-clamp-1">
+            ${title.length > 50 ? title.substring(0, 50) + "..." : title}
+          </p>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Remove after 4 seconds
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        notification.remove();
+      }
+    }, 4000);
+  }
 }
 
 /**
@@ -1050,8 +1564,14 @@ async function initialiseApp(): Promise<void> {
   const jsonDataset = new JsonPaperDataset(jsonPath);
   const arxivService = apiUrl ? new ArxivPaperService(apiUrl) : null;
   const paperEvaluator = apiUrl ? new PaperEvaluator(apiUrl) : null;
+  const partialEvaluator = apiUrl ? new PartialPaperEvaluator(apiUrl) : null;
 
-  const explorer = new PaperExplorer(jsonDataset, arxivService, paperEvaluator);
+  const explorer = new PaperExplorer(
+    jsonDataset,
+    arxivService,
+    paperEvaluator,
+    partialEvaluator,
+  );
   await retryWithBackoff(() => explorer.initialize());
 
   // Add footer

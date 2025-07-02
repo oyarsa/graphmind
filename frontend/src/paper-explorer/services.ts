@@ -9,6 +9,8 @@ import {
   EvaluationParams,
   EvaluationParamsSchema,
   SSEEventDataSchema,
+  PartialSSEEventDataSchema,
+  PartialEvaluationResponse,
 } from "./model";
 
 /**
@@ -260,6 +262,217 @@ export class PaperEvaluator {
       "Generating related paper summaries",
       "Extracting graph representation",
       "Evaluating novelty",
+    ];
+
+    const currentPhase = phases.findIndex(phase =>
+      message.toLowerCase().includes(phase.toLowerCase()),
+    );
+
+    if (currentPhase >= 0) {
+      return ((currentPhase + 1) / phases.length) * 100;
+    }
+
+    return 0;
+  }
+}
+
+/**
+ * Input parameters for partial paper evaluation.
+ */
+export interface PartialEvaluationParams {
+  title: string;
+  abstract: string;
+  recommendations?: number;
+  llm_model?: string;
+  related?: number;
+}
+
+/**
+ * Real-time partial paper evaluator using Server-Sent Events.
+ * Provides live progress updates during partial evaluation using only title and abstract.
+ *
+ * TODO: This duplicates significant logic from PaperEvaluator - consider refactoring
+ * to share common SSE handling code in a future iteration.
+ */
+export class PartialPaperEvaluator {
+  private eventSource: EventSource | null = null;
+  private isEvaluating = false;
+
+  onConnected?: (message: string) => void;
+  onProgress?: (message: string, progress: number) => void;
+  onComplete?: (result: PartialEvaluationResponse) => void;
+  onError?: (error: string) => void;
+  onConnectionError?: (event: Event) => void;
+
+  constructor(private baseUrl: string) {}
+
+  /**
+   * Start partial paper evaluation with real-time progress updates
+   */
+  async startEvaluation(
+    paperData: PartialEvaluationParams,
+  ): Promise<PartialEvaluationResponse> {
+    if (this.isEvaluating) {
+      throw new Error("Evaluation already in progress");
+    }
+
+    // Build URL parameters
+    const params = new URLSearchParams({
+      title: paperData.title,
+      abstract: paperData.abstract,
+    });
+
+    if (paperData.recommendations) {
+      params.set("recommendations", paperData.recommendations.toString());
+    }
+    if (paperData.llm_model) {
+      params.set("llm_model", paperData.llm_model);
+    }
+    if (paperData.related) {
+      params.set("related", paperData.related.toString());
+    }
+
+    const url = `${this.baseUrl}/mind/evaluate-partial?${params}`;
+    this.eventSource = new EventSource(url);
+    this.isEvaluating = true;
+
+    return new Promise((resolve, reject) => {
+      const eventSource = this.eventSource;
+      if (!eventSource) {
+        reject(new Error("EventSource not initialized"));
+        return;
+      }
+
+      // Use specific event listeners for each event type
+      eventSource.addEventListener("connected", event => {
+        try {
+          const data = SSEEventDataSchema.parse(JSON.parse(event.data as string));
+          if (data.message) {
+            this.onConnected?.(data.message);
+          }
+        } catch (error) {
+          console.error("Failed to parse connected event:", error);
+          const errorMsg = "Failed to establish connection properly. Please try again.";
+          this.onError?.(errorMsg);
+          this.cleanup();
+          reject(new Error(errorMsg));
+        }
+      });
+
+      eventSource.addEventListener("progress", event => {
+        try {
+          const data = SSEEventDataSchema.parse(JSON.parse(event.data as string));
+          if (data.message) {
+            const progress = this.calculateProgress(data.message);
+            this.onProgress?.(data.message, progress);
+          }
+        } catch (error) {
+          console.error("Failed to parse progress event:", error);
+          const errorMsg = "Connection issue during evaluation. Please try again.";
+          this.onError?.(errorMsg);
+          this.cleanup();
+          reject(new Error(errorMsg));
+        }
+      });
+
+      eventSource.addEventListener("complete", event => {
+        try {
+          const data = PartialSSEEventDataSchema.parse(
+            JSON.parse(event.data as string),
+          );
+          if (data.result) {
+            this.onComplete?.(data.result);
+            this.cleanup();
+            resolve(data.result);
+          } else {
+            this.cleanup();
+            reject(new Error("Complete event missing result data"));
+          }
+        } catch (error) {
+          console.error("Failed to parse complete event:", error);
+          const errorMsg =
+            "Evaluation completed but the response format was invalid. Please try again.";
+          this.onError?.(errorMsg);
+          this.cleanup();
+          reject(new Error(errorMsg));
+        }
+      });
+
+      eventSource.addEventListener("error", event => {
+        try {
+          const messageEvent = event as MessageEvent;
+          const data = SSEEventDataSchema.parse(
+            JSON.parse(messageEvent.data as string),
+          );
+          const errorMessage = data.message ?? "Unknown error occurred";
+          this.onError?.(errorMessage);
+          this.cleanup();
+          reject(new Error(errorMessage));
+        } catch (error) {
+          console.error("Failed to parse error event:", error);
+          const errorMsg = "Error occurred during evaluation. Please try again.";
+          this.onError?.(errorMsg);
+          this.cleanup();
+          reject(new Error(errorMsg));
+        }
+      });
+
+      eventSource.onerror = event => {
+        // Try to parse error data if available
+        try {
+          const messageEvent = event as MessageEvent;
+          if (messageEvent.data) {
+            const data = SSEEventDataSchema.parse(
+              JSON.parse(messageEvent.data as string),
+            );
+            const errorMessage = data.message ?? "Unknown error occurred";
+            this.onError?.(errorMessage);
+            this.cleanup();
+            reject(new Error(errorMessage));
+            return;
+          }
+        } catch (error) {
+          console.error("Failed to parse error data:", error);
+        }
+
+        // Fallback to generic connection error
+        this.onConnectionError?.(event);
+        this.cleanup();
+        reject(new Error("Connection lost"));
+      };
+    });
+  }
+
+  /**
+   * Stop the current evaluation
+   */
+  stopEvaluation(): void {
+    this.cleanup();
+  }
+
+  /**
+   * Check if evaluation is currently in progress
+   */
+  get isRunning(): boolean {
+    return this.isEvaluating;
+  }
+
+  private cleanup(): void {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+    this.isEvaluating = false;
+  }
+
+  private calculateProgress(message: string): number {
+    const phases = [
+      "Extracting keywords from abstract",
+      "Searching related papers",
+      "Extracting background and target from abstracts",
+      "Retrieving semantic papers",
+      "Summarising related papers",
+      "Evaluating partial paper",
     ];
 
     const currentPhase = phases.findIndex(phase =>

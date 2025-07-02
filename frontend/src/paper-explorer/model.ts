@@ -383,6 +383,16 @@ export const PartialEvaluationResponseSchema = z.object({
   related: z.array(RelatedPaperSchema),
 });
 
+/**
+ * Server-Sent Event data structure for partial evaluation progress
+ */
+export const PartialSSEEventDataSchema = z.object({
+  /** Optional message for progress/error events */
+  message: z.string().optional(),
+  /** Result data for complete events (PartialEvaluationResponse) */
+  result: PartialEvaluationResponseSchema.optional(),
+});
+
 // ============================================================================
 // Type Exports (Inferred from Schemas)
 // ============================================================================
@@ -409,4 +419,5 @@ export type PaperSearchResults = z.infer<typeof PaperSearchResultsSchema>;
 export type EvalResult = z.infer<typeof EvalResultSchema>;
 export type EvaluationParams = z.infer<typeof EvaluationParamsSchema>;
 export type SSEEventData = z.infer<typeof SSEEventDataSchema>;
+export type PartialSSEEventData = z.infer<typeof PartialSSEEventDataSchema>;
 export type PartialEvaluationResponse = z.infer<typeof PartialEvaluationResponseSchema>;

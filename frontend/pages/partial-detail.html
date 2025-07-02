@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Abstract Evaluation - GraphMind</title>
+    <script>
+      // Apply theme immediately to prevent flash
+      (function () {
+        try {
+          const saved = localStorage.getItem("paper-explorer-theme");
+          if (saved === "dark") {
+            document.documentElement.classList.add("dark");
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body
+    class="m-0 flex min-h-screen flex-col bg-white p-0 font-sans text-black
+      dark:bg-black dark:text-white"
+  >
+    <!-- Theme Toggle Button -->
+    <button
+      id="themeToggle"
+      class="fixed top-4 right-4 z-50 rounded-lg bg-gray-200 p-3 shadow-lg
+        transition-all duration-200 hover:bg-gray-300 dark:bg-gray-800
+        dark:hover:bg-gray-700"
+      title="Toggle theme"
+    >
+      <!-- Sun icon (from heroicons) for light mode -->
+      <svg
+        class="h-5 w-5 text-gray-800 dark:hidden dark:text-gray-200"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343
+             6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0
+             11-8 0 4 4 0 018 0z"
+        ></path>
+      </svg>
+      <!-- Moon icon (from heroicons) for dark mode -->
+      <svg
+        class="hidden h-5 w-5 text-gray-800 dark:block dark:text-gray-200"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0
+             008.354-5.646z"
+        ></path>
+      </svg>
+    </button>
+
+    <!-- Loading State -->
+    <div id="loading-detail" class="flex flex-1 items-center justify-center p-8">
+      <div class="text-center">
+        <div
+          class="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4
+            border-gray-300 border-t-teal-600 dark:border-gray-600
+            dark:border-t-teal-400"
+        ></div>
+        <p class="text-gray-600 dark:text-gray-400">Loading evaluation...</p>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="error-detail" class="hidden flex-1 items-center justify-center p-8">
+      <div class="text-center">
+        <div class="mb-4 text-4xl text-red-500 dark:text-red-400">⚠️</div>
+        <h2 class="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
+          Evaluation Not Found
+        </h2>
+        <p class="mb-4 text-gray-600 dark:text-gray-400">
+          The requested evaluation could not be found. It may have been removed from
+          cache or the link is invalid.
+        </p>
+        <a
+          href="/paper-hypergraph/pages/search.html"
+          class="inline-block rounded-lg bg-teal-600 px-4 py-2 text-white
+            transition-colors hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600"
+        >
+          ← Back to Search
+        </a>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="paper-content" class="hidden flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-4xl">
+        <!-- Header -->
+        <div class="mb-8">
+          <div class="mb-4 flex items-center justify-between">
+            <a
+              href="/paper-hypergraph/pages/search.html"
+              class="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700
+                dark:text-teal-400 dark:hover:text-teal-300"
+            >
+              <svg
+                class="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                ></path>
+              </svg>
+              Back to Search
+            </a>
+          </div>
+
+          <h1
+            id="paper-title"
+            class="mb-4 text-3xl font-bold text-gray-900 dark:text-white"
+          >
+            <!-- Title will be inserted here -->
+          </h1>
+
+          <div
+            id="paper-abstract"
+            class="rounded-lg bg-gray-50/50 p-4 text-gray-700 dark:bg-gray-800/50
+              dark:text-gray-300"
+          >
+            <!-- Abstract will be inserted here -->
+          </div>
+
+          <!-- Novelty Rating -->
+          <div class="mt-4 flex items-center gap-4">
+            <div class="text-sm text-gray-600 dark:text-gray-400">
+              Novelty Assessment:
+            </div>
+            <div id="paper-rating" class="text-lg font-semibold">
+              <!-- Rating will be inserted here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Keywords Section -->
+        <div class="mb-8" data-section="keywords">
+          <div class="mb-4 flex items-center gap-2">
+            <button
+              class="toggle-button flex items-center gap-2 text-lg font-semibold
+                text-gray-900 dark:text-white"
+            >
+              <div class="h-4 w-1 rounded-full bg-blue-500"></div>
+              Extracted Keywords
+              <svg
+                class="toggle-icon h-5 w-5 transition-transform duration-200"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                ></path>
+              </svg>
+            </button>
+          </div>
+          <div class="toggle-content">
+            <div id="paper-keywords" class="flex flex-wrap gap-2">
+              <!-- Keywords will be inserted here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Novelty Assessment Section -->
+        <div class="mb-8" data-section="novelty">
+          <div
+            id="structured-evaluation-header"
+            class="-m-2 mb-4 flex cursor-pointer items-center justify-between rounded-lg
+              p-2 transition-colors duration-200 hover:bg-gray-50
+              dark:hover:bg-gray-800/50"
+          >
+            <div class="flex items-center gap-2">
+              <div class="h-6 w-1.5 rounded-full bg-orange-500"></div>
+              <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+                Novelty Assessment
+              </h3>
+              <svg
+                id="structured-evaluation-chevron"
+                class="h-5 w-5 text-gray-400 transition-transform duration-200"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                ></path>
+              </svg>
+            </div>
+          </div>
+          <div id="evidence-content" class="hidden space-y-4">
+            <!-- Paper Summary, Result, and Evidence will be inserted here -->
+          </div>
+        </div>
+
+        <!-- Related Papers Section -->
+        <div class="mb-8" data-section="related-papers">
+          <div
+            id="related-papers-header"
+            class="-m-2 mb-4 flex cursor-pointer items-center justify-between rounded-lg
+              p-2 transition-colors duration-200 hover:bg-gray-50
+              dark:hover:bg-gray-800/50"
+          >
+            <div class="flex items-center gap-2">
+              <div class="h-6 w-1.5 rounded-full bg-teal-500"></div>
+              <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+                Related Papers
+              </h3>
+              <span
+                id="related-papers-count"
+                class="text-sm font-normal text-gray-600 dark:text-gray-400"
+              >
+                <!-- Count will be inserted here -->
+              </span>
+              <svg
+                id="related-papers-chevron"
+                class="h-5 w-5 text-gray-400 transition-transform duration-200"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                ></path>
+              </svg>
+            </div>
+          </div>
+
+          <div id="related-papers" class="hidden">
+            <div id="related-papers-content" class="space-y-3">
+              <!-- Related papers will be inserted here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/paper-explorer/partialDetail.ts"></script>
+    <script type="module">
+      import { ThemeManager } from "/src/theme.ts";
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const themeToggle = document.getElementById("themeToggle");
+        if (themeToggle) {
+          themeToggle.addEventListener("click", () => ThemeManager.toggle());
+        }
+      });
+    </script>
+  </body>
+</html>
