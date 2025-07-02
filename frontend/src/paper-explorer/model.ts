@@ -318,31 +318,6 @@ export const EvalResultSchema = z.object({
   cost: z.number(),
 });
 
-// ============================================================================
-// Type Exports (Inferred from Schemas)
-// ============================================================================
-
-export type Excerpt = z.infer<typeof ExcerptSchema>;
-export type EntityType = z.infer<typeof EntityTypeSchema>;
-export type Entity = z.infer<typeof EntitySchema>;
-export type Relationship = z.infer<typeof RelationshipSchema>;
-export type Graph = z.infer<typeof GraphSchema>;
-export type PaperSection = z.infer<typeof PaperSectionSchema>;
-export type EvidenceSource = z.infer<typeof EvidenceSourceSchema>;
-export type EvidenceItem = z.infer<typeof EvidenceItemSchema>;
-export type StructuredEval = z.infer<typeof StructuredEvalSchema>;
-export type Paper = z.infer<typeof PaperSchema>;
-export type ContextPolarity = z.infer<typeof ContextPolaritySchema>;
-export type RelatedPaperSource = z.infer<typeof RelatedPaperSourceSchema>;
-export type CitationContext = z.infer<typeof CitationContextSchema>;
-export type RelatedPaper = z.infer<typeof RelatedPaperSchema>;
-export type PaperTermRelation = z.infer<typeof PaperTermRelationSchema>;
-export type PaperTerms = z.infer<typeof PaperTermsSchema>;
-export type GraphResult = z.infer<typeof GraphResultSchema>;
-export type PaperSearchItem = z.infer<typeof PaperSearchItemSchema>;
-export type PaperSearchResults = z.infer<typeof PaperSearchResultsSchema>;
-export type EvalResult = z.infer<typeof EvalResultSchema>;
-
 /**
  * Parameters for paper evaluation request
  */
@@ -378,9 +353,6 @@ export const SSEEventDataSchema = z.object({
   result: EvalResultSchema.optional(),
 });
 
-export type EvaluationParams = z.infer<typeof EvaluationParamsSchema>;
-export type SSEEventData = z.infer<typeof SSEEventDataSchema>;
-
 /**
  * Response from partial paper evaluation.
  */
@@ -407,4 +379,30 @@ export const PartialEvaluationResponseSchema = z.object({
   related: z.array(RelatedPaperSchema),
 });
 
+// ============================================================================
+// Type Exports (Inferred from Schemas)
+// ============================================================================
+
+export type Excerpt = z.infer<typeof ExcerptSchema>;
+export type EntityType = z.infer<typeof EntityTypeSchema>;
+export type Entity = z.infer<typeof EntitySchema>;
+export type Relationship = z.infer<typeof RelationshipSchema>;
+export type Graph = z.infer<typeof GraphSchema>;
+export type PaperSection = z.infer<typeof PaperSectionSchema>;
+export type EvidenceSource = z.infer<typeof EvidenceSourceSchema>;
+export type EvidenceItem = z.infer<typeof EvidenceItemSchema>;
+export type StructuredEval = z.infer<typeof StructuredEvalSchema>;
+export type Paper = z.infer<typeof PaperSchema>;
+export type ContextPolarity = z.infer<typeof ContextPolaritySchema>;
+export type RelatedPaperSource = z.infer<typeof RelatedPaperSourceSchema>;
+export type CitationContext = z.infer<typeof CitationContextSchema>;
+export type RelatedPaper = z.infer<typeof RelatedPaperSchema>;
+export type PaperTermRelation = z.infer<typeof PaperTermRelationSchema>;
+export type PaperTerms = z.infer<typeof PaperTermsSchema>;
+export type GraphResult = z.infer<typeof GraphResultSchema>;
+export type PaperSearchItem = z.infer<typeof PaperSearchItemSchema>;
+export type PaperSearchResults = z.infer<typeof PaperSearchResultsSchema>;
+export type EvalResult = z.infer<typeof EvalResultSchema>;
+export type EvaluationParams = z.infer<typeof EvaluationParamsSchema>;
+export type SSEEventData = z.infer<typeof SSEEventDataSchema>;
 export type PartialEvaluationResponse = z.infer<typeof PartialEvaluationResponseSchema>;
