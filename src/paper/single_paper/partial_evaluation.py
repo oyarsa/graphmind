@@ -105,12 +105,17 @@ async def partial_evaluation(
         keywords=keywords.result,
         max_results=num_recommendations,
     )
+    logger.debug("Recommended retrieved: %d", len(related))
 
     await callback("Extracting background and target from abstracts")
     recommended_annotated, main_annotated = await asyncio.gather(
         extract_background_target_related(related, client, abstract_prompt),
         extract_background_target(abstract, client, abstract_prompt),
     )
+    logger.debug("Recommended annotated: %d", len(recommended_annotated.result))
+
+    if not recommended_annotated.result:
+        raise RuntimeError("Could not retrieve relevant papers")
 
     background = main_annotated.result.background
     target = main_annotated.result.target
@@ -232,7 +237,7 @@ async def retrieve_semantic_papers(
     main_background_emb = encoder.encode(background)
     main_target_emb = encoder.encode(target)
 
-    logger.debug("Getting top K semantic - background")
+    logger.debug("Getting top K semantic - background - from %d papers", len(related))
     background_related = get_top_k_semantic(
         encoder,
         k,
@@ -242,7 +247,7 @@ async def retrieve_semantic_papers(
         pr.ContextPolarity.NEGATIVE,
     )
 
-    logger.debug("Getting top K semantic - target")
+    logger.debug("Getting top K semantic - target - from %d papers", len(related))
     target_related = get_top_k_semantic(
         encoder,
         k,
