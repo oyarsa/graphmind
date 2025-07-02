@@ -263,10 +263,12 @@ export function createSideBySideComparison(
   }
 
   const formatTitle = sectionType === "background" ? "Background" : "Target";
+  const notchColor = sectionType === "background" ? "bg-blue-500" : "bg-purple-500";
 
   return `
     <div class="mb-4">
-      <div class="mb-3">
+      <div class="mb-3 flex items-center gap-2">
+        <div class="h-4 w-1 rounded-full ${notchColor}"></div>
         <h5 class="text-sm font-semibold tracking-wide text-gray-900 uppercase dark:text-gray-100">
           ${formatTitle} Comparison
         </h5>
