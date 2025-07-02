@@ -127,14 +127,14 @@ def run(
             help="The user prompt to use for paper evaluation.",
             click_type=cli.Choice(GRAPH_EVAL_USER_PROMPTS),
         ),
-    ] = "sans",
+    ] = "full-graph-structured",
     graph_prompt: Annotated[
         str,
         typer.Option(
             help="The user prompt to use for graph extraction.",
             click_type=cli.Choice(GRAPH_EXTRACT_USER_PROMPTS),
         ),
-    ] = "full",
+    ] = "excerpts",
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run.")
     ] = None,
