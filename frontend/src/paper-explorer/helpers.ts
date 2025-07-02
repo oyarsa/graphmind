@@ -375,13 +375,16 @@ export function createExpandableEvidenceItem(
              class="related-paper-link hover:underline cursor-pointer text-blue-800 dark:text-blue-200">
              ${renderLatex(displayText)}:</a>`;
 
-    const hasExpandableContent =
-      relatedPaper &&
-      ((relatedPaper.source === "semantic" &&
-        (relatedPaper.background ?? relatedPaper.target)) ??
-        (relatedPaper.source === "citations" &&
-          relatedPaper.contexts &&
-          relatedPaper.contexts.length > 0));
+    const hasSemanticContent =
+      relatedPaper?.source === "semantic" &&
+      (relatedPaper.background != null || relatedPaper.target != null);
+
+    const hasCitationContent =
+      relatedPaper?.source === "citations" &&
+      relatedPaper.contexts &&
+      relatedPaper.contexts.length > 0;
+
+    const hasExpandableContent = hasSemanticContent || hasCitationContent;
 
     return `
       <li class="flex items-start gap-2">
@@ -468,28 +471,29 @@ function createEvidenceComparisonContent(
     return `
       <div class="mb-4">
         <div class="mb-3 flex items-center gap-2">
-          <div class="h-4 w-1 rounded-full bg-blue-500"></div>
           <h6 class="text-sm font-semibold tracking-wide text-gray-900 uppercase dark:text-gray-100">
             Citation Contexts
           </h6>
         </div>
-        <div class="space-y-3">
+        <div class="space-y-2">
           ${relatedPaper.contexts
             .map(
               context => `
-            <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-              <div class="mb-2 flex items-center gap-2">
-                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                  context.polarity === "positive"
-                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                    : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                }">
-                  ${context.polarity === "positive" ? "Positive" : "Negative"}
-                </span>
-              </div>
-              <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+            <div class="flex items-start gap-2">
+              ${
+                context.polarity
+                  ? `<span class="mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      context.polarity === "positive"
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                    }">
+                      ${context.polarity === "positive" ? "+" : "-"}
+                    </span>`
+                  : ""
+              }
+              <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 flex-1">
                 ${renderLatex(context.sentence)}
-              </p>
+              </span>
             </div>
           `,
             )
