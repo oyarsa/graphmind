@@ -3,6 +3,45 @@ import "katex/dist/katex.min.css";
 import { RelatedPaper } from "./model";
 
 /**
+ * Formats a scientific citation from paper information.
+ * @param authors - Array of author names (full names)
+ * @param year - Publication year
+ * @param title - Paper title (used as fallback)
+ * @returns Formatted citation string
+ */
+export function formatScientificCitation(
+  authors: string[] | null | undefined,
+  year: number | null | undefined,
+  title: string,
+): string {
+  // Extract last names from authors
+  const getLastName = (fullName: string): string => {
+    const parts = fullName.trim().split(/\s+/);
+    return parts[parts.length - 1];
+  };
+
+  if (authors && authors.length > 0 && year) {
+    const firstAuthorLastName = getLastName(authors[0]);
+    if (authors.length === 1) {
+      return `${firstAuthorLastName} (${year})`;
+    } else {
+      return `${firstAuthorLastName} et al. (${year})`;
+    }
+  } else if (authors && authors.length > 0) {
+    const firstAuthorLastName = getLastName(authors[0]);
+    if (authors.length === 1) {
+      return firstAuthorLastName;
+    } else {
+      return `${firstAuthorLastName} et al.`;
+    }
+  } else if (year) {
+    return `(${year})`;
+  } else {
+    return title;
+  }
+}
+
+/**
  * Sets up a collapsible section with header, content, and chevron toggle.
  * @param baseId - The base ID for the section (e.g., "paper-terms", "related-papers")
  */
@@ -317,8 +356,14 @@ export function createExpandableEvidenceItem(
 
   // Handle EvidenceItem with paper information
   if (evidence.paper_title) {
-    // Simple title extraction for display
-    const displayText = evidence.paper_title;
+    // Format display text as scientific citation when available, otherwise use title
+    const displayText = relatedPaper
+      ? formatScientificCitation(
+          relatedPaper.authors,
+          relatedPaper.year,
+          evidence.paper_title,
+        )
+      : evidence.paper_title;
 
     const paperTitleElement =
       relatedPaperIndex !== null
