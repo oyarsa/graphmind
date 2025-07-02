@@ -475,6 +475,20 @@ function createRelatedPaperCard(
         </div>
 
         <div class="flex-shrink-0 ml-4 flex items-center gap-2">
+          <!-- Go back button (shown when expanded) -->
+          <button
+            class="go-back-btn flex items-center gap-1 px-2 py-1 text-xs
+                   bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200
+                   dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
+            title="Go back to Novelty Assessment section"
+            style="display: none;"
+          >
+            <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Go back
+          </button>
+
           <svg
             class="expand-icon h-5 w-5 text-gray-400 transition-transform duration-200"
             fill="none"
@@ -758,17 +772,68 @@ function renderFilteredRelatedPapers(
   filteredPapers.forEach((_, index) => {
     const cardHeader = document.querySelector(`#related-card-${index} .card-header`);
     const expandedContent = document.getElementById(`expanded-content-${index}`);
+    const goBackBtn = cardHeader?.querySelector(".go-back-btn") as HTMLElement | null;
 
     if (cardHeader && expandedContent) {
-      cardHeader.addEventListener("click", () => {
+      // Handle card expansion/collapse
+      cardHeader.addEventListener("click", event => {
+        // Prevent expansion if clicking the go back button
+        if ((event.target as Element).closest(".go-back-btn")) {
+          return;
+        }
+
         const isExpanded = !expandedContent.classList.contains("hidden");
         expandedContent.classList.toggle("hidden", isExpanded);
         cardHeader
           .querySelector(".expand-icon")
           ?.classList.toggle("rotate-180", !isExpanded);
+
+        // Show/hide go back button based on expansion state
+        updateGoBackButtonVisibility(goBackBtn, !isExpanded);
       });
+
+      // Handle go back button click
+      if (goBackBtn) {
+        goBackBtn.addEventListener("click", event => {
+          event.stopPropagation(); // Prevent card expansion
+          scrollToNoveltyAssessmentSection();
+        });
+      }
+
+      // Set initial go back button visibility
+      const isInitiallyExpanded = !expandedContent.classList.contains("hidden");
+      updateGoBackButtonVisibility(goBackBtn, isInitiallyExpanded);
     }
   });
+}
+
+/**
+ * Update the visibility of the go back button based on expansion state
+ */
+function updateGoBackButtonVisibility(
+  goBackBtn: HTMLElement | null,
+  isExpanded: boolean,
+): void {
+  if (!goBackBtn) return;
+
+  if (isExpanded) {
+    // Show button always for expanded cards
+    goBackBtn.style.display = "flex";
+  } else {
+    // Hide button for collapsed cards
+    goBackBtn.style.display = "none";
+  }
+}
+
+/**
+ * Scroll to the Novelty Assessment section
+ */
+function scrollToNoveltyAssessmentSection(): void {
+  const assessmentHeader = document.getElementById("structured-evaluation-header");
+
+  if (assessmentHeader) {
+    assessmentHeader.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 /**
@@ -793,6 +858,9 @@ function setupRelatedPaperLinkHandlers(): void {
         const expandedContent = document.getElementById(
           `expanded-content-${paperIndex}`,
         );
+        const goBackBtn = relatedCard?.querySelector(
+          ".go-back-btn",
+        ) as HTMLElement | null;
 
         if (relatedCard && expandedContent) {
           // Show the expanded content
@@ -801,6 +869,9 @@ function setupRelatedPaperLinkHandlers(): void {
           if (expandIcon) {
             expandIcon.classList.add("rotate-180");
           }
+
+          // Show the go back button when expanded
+          updateGoBackButtonVisibility(goBackBtn, true);
 
           // Scroll to the card
           relatedCard.scrollIntoView({ behavior: "smooth", block: "center" });
