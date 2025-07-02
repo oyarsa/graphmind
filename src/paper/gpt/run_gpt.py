@@ -869,15 +869,14 @@ def tokenprob_from_gpt_choiceprob(
     if choiceprob is None or choiceprob.content is None:
         return None
 
-    # TODO: Vibe-coded
     result: list[TokenProb] = []
     for c in choiceprob.content:
         # Extract top_logprobs if available
-        top_alternatives: list[TopLogprob] | None = None
-        if c.top_logprobs:
-            top_alternatives = [
-                TopLogprob(token=t.token, logprob=t.logprob) for t in c.top_logprobs
-            ]
+        top_alternatives = (
+            [TopLogprob(token=t.token, logprob=t.logprob) for t in c.top_logprobs]
+            if c.top_logprobs
+            else None
+        )
 
         result.append(
             TokenProb(token=c.token, logprob=c.logprob, top_logprobs=top_alternatives)
