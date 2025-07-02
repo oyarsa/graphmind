@@ -412,27 +412,15 @@ function displayRelatedPapers(
     return;
   }
 
-  contentEl.innerHTML = relatedPapers
-    .map((paper, index) =>
-      createRelatedPaperCard(paper, index, evaluation.background, evaluation.target),
-    )
-    .join("");
+  // Setup filtering functionality
+  setupRelatedPapersFiltering(relatedPapers, evaluation);
 
-  // Add click handlers for expanding papers
-  relatedPapers.forEach((_, index) => {
-    const cardHeader = document.querySelector(`#related-card-${index} .card-header`);
-    const expandedContent = document.getElementById(`expanded-content-${index}`);
-
-    if (cardHeader && expandedContent) {
-      cardHeader.addEventListener("click", () => {
-        const isExpanded = !expandedContent.classList.contains("hidden");
-        expandedContent.classList.toggle("hidden", isExpanded);
-        cardHeader
-          .querySelector(".expand-icon")
-          ?.classList.toggle("rotate-180", !isExpanded);
-      });
-    }
-  });
+  // Initial render with all papers visible
+  renderFilteredRelatedPapers(
+    relatedPapers,
+    new Set(["background", "target", "supporting", "contrasting"]),
+    evaluation,
+  );
 }
 
 /**
@@ -581,12 +569,214 @@ function createRelatedPaperCard(
 }
 
 /**
+ * Setup filtering functionality for related papers
+ */
+function setupRelatedPapersFiltering(
+  relatedPapers: RelatedPaper[],
+  evaluation: PartialEvaluationResponse,
+): void {
+  const filtersContainer = document.getElementById("related-papers-filters");
+  const filterChips = document.querySelectorAll(".filter-chip");
+  const showAllButton = document.getElementById("filter-show-all");
+  const hideAllButton = document.getElementById("filter-hide-all");
+
+  if (!filtersContainer) return;
+
+  // Calculate counts for each relationship type
+  const countRelation = (src: string, pol: string) =>
+    relatedPapers.filter(p => p.source === src && p.polarity === pol).length;
+  const counts = {
+    background: countRelation("semantic", "negative"),
+    target: countRelation("semantic", "positive"),
+    supporting: countRelation("citations", "positive"),
+    contrasting: countRelation("citations", "negative"),
+  };
+
+  // Track active filters
+  const activeFilters = new Set(["background", "target", "supporting", "contrasting"]);
+
+  // Update filter chip counts and visibility
+  const updateFilterCounts = () => {
+    const chips = [
+      { id: "#filter-background", count: counts.background },
+      { id: "#filter-target", count: counts.target },
+      { id: "#filter-supporting", count: counts.supporting },
+      { id: "#filter-contrasting", count: counts.contrasting },
+    ];
+
+    chips.forEach(({ id, count }) => {
+      const chip = document.querySelector(id);
+      const countElement = document.querySelector(`${id} .filter-count`);
+
+      if (countElement) {
+        countElement.textContent = count.toString();
+      }
+
+      // Hide chips with zero count
+      if (chip) {
+        if (count === 0) {
+          chip.classList.add("hidden");
+          // Remove from active filters if it has no papers
+          const type = chip.getAttribute("data-type");
+          if (type) {
+            activeFilters.delete(type);
+          }
+        } else {
+          chip.classList.remove("hidden");
+        }
+      }
+    });
+  };
+
+  // Update counts immediately
+  updateFilterCounts();
+
+  // Update chip visual state
+  const updateChipStates = () => {
+    filterChips.forEach(chip => {
+      const type = chip.getAttribute("data-type");
+      if (type && activeFilters.has(type)) {
+        // Active state - keep current colors but add border emphasis
+        chip.classList.remove("opacity-50");
+        chip.classList.add("ring-2", "ring-offset-1");
+        if (type === "background") {
+          chip.classList.add("ring-green-400", "dark:ring-green-600");
+        } else if (type === "target") {
+          chip.classList.add("ring-orange-400", "dark:ring-orange-600");
+        } else if (type === "supporting") {
+          chip.classList.add("ring-emerald-400", "dark:ring-emerald-600");
+        } else if (type === "contrasting") {
+          chip.classList.add("ring-red-400", "dark:ring-red-600");
+        }
+      } else {
+        // Inactive state - dim and remove ring
+        chip.classList.add("opacity-50");
+        chip.classList.remove(
+          "ring-2",
+          "ring-offset-1",
+          "ring-green-400",
+          "ring-orange-400",
+          "ring-emerald-400",
+          "ring-red-400",
+          "dark:ring-green-600",
+          "dark:ring-orange-600",
+          "dark:ring-emerald-600",
+          "dark:ring-red-600",
+        );
+      }
+    });
+  };
+
+  // Add click handlers for filter chips
+  filterChips.forEach(chip => {
+    chip.addEventListener("click", () => {
+      const type = chip.getAttribute("data-type");
+      if (!type) return;
+
+      if (activeFilters.has(type)) {
+        activeFilters.delete(type);
+      } else {
+        activeFilters.add(type);
+      }
+
+      updateChipStates();
+      renderFilteredRelatedPapers(relatedPapers, activeFilters, evaluation);
+    });
+  });
+
+  // Add click handler for show all button
+  if (showAllButton) {
+    showAllButton.addEventListener("click", () => {
+      activeFilters.clear();
+      activeFilters.add("background");
+      activeFilters.add("target");
+      activeFilters.add("supporting");
+      activeFilters.add("contrasting");
+
+      updateChipStates();
+      renderFilteredRelatedPapers(relatedPapers, activeFilters, evaluation);
+    });
+  }
+
+  // Add click handler for hide all button
+  if (hideAllButton) {
+    hideAllButton.addEventListener("click", () => {
+      activeFilters.clear();
+
+      updateChipStates();
+      renderFilteredRelatedPapers(relatedPapers, activeFilters, evaluation);
+    });
+  }
+
+  // Initial state
+  updateChipStates();
+}
+
+/**
+ * Render related papers based on active filters
+ */
+function renderFilteredRelatedPapers(
+  relatedPapers: RelatedPaper[],
+  activeFilters: Set<string>,
+  evaluation: PartialEvaluationResponse,
+): void {
+  const relatedPapersContainer = document.getElementById("related-papers-content");
+  if (!relatedPapersContainer) return;
+
+  // Filter papers based on their relationship type
+  const filteredPapers = relatedPapers.filter(paper => {
+    const relationship = getRelationshipStyle(paper);
+    return activeFilters.has(relationship.type);
+  });
+
+  if (filteredPapers.length === 0) {
+    relatedPapersContainer.innerHTML = `
+      <div class="text-gray-600 dark:text-gray-500 text-sm text-center py-4">
+        No related papers match the selected filters.
+      </div>
+    `;
+    return;
+  }
+
+  // Render filtered papers
+  relatedPapersContainer.innerHTML = filteredPapers
+    .map((paper, index) =>
+      createRelatedPaperCard(paper, index, evaluation.background, evaluation.target),
+    )
+    .join("");
+
+  // Add click handlers for expanding papers
+  filteredPapers.forEach((_, index) => {
+    const cardHeader = document.querySelector(`#related-card-${index} .card-header`);
+    const expandedContent = document.getElementById(`expanded-content-${index}`);
+
+    if (cardHeader && expandedContent) {
+      cardHeader.addEventListener("click", () => {
+        const isExpanded = !expandedContent.classList.contains("hidden");
+        expandedContent.classList.toggle("hidden", isExpanded);
+        cardHeader
+          .querySelector(".expand-icon")
+          ?.classList.toggle("rotate-180", !isExpanded);
+      });
+    }
+  });
+}
+
+/**
  * Setup event handlers for related paper links
  */
 function setupRelatedPaperLinkHandlers(): void {
   document.addEventListener("click", event => {
     const target = event.target as HTMLElement;
     if (target.classList.contains("related-paper-link")) {
+      event.preventDefault();
+
+      // First, enable all paper types to ensure the target paper is visible
+      const showAllButton = document.getElementById("filter-show-all");
+      if (showAllButton) {
+        showAllButton.click();
+      }
+
       const paperIndex = parseInt(target.getAttribute("data-paper-index") ?? "-1");
       if (paperIndex >= 0) {
         // Scroll to and expand the corresponding related paper card
@@ -605,6 +795,12 @@ function setupRelatedPaperLinkHandlers(): void {
 
           // Scroll to the card
           relatedCard.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      } else {
+        // Just scroll to Related Papers section if no specific paper
+        const relatedPapersHeader = document.getElementById("related-papers-header");
+        if (relatedPapersHeader) {
+          relatedPapersHeader.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }
     }
