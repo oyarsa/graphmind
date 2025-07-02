@@ -146,7 +146,8 @@ class LLMModel(StrEnum):
 
     GPT4o = "gpt-4o"
     GPT4oMini = "gpt-4o-mini"
-    Gemini2Flash = "gemini-2.0-flash"
+    # Disable Gemini for now (clash with some structured output types with default values)
+    # Gemini2Flash = "gemini-2.0-flash"  # noqa: ERA001
 
 
 @router.get("/evaluate")
