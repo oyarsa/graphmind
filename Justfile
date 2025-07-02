@@ -82,8 +82,20 @@ version bump:
     uv lock
 
     # Get the new version from uv
-    NEW_VERSION=$(uv version | cut -d' ' -f2)
+    new_version=$(uv version | cut -d' ' -f2)
+
+    # Convert Python version to npm-compatible semver
+    # Count the dots to determine format
+    dot_count=$(echo "$new_version" | tr -cd '.' | wc -c)
+
+    if [ "$dot_count" -eq 1 ]; then
+        # Version like "16.0" -> append ".0"
+        npm_version="${new_version}.0"
+    else
+        # Version like "16.0.1" -> use as-is
+        npm_version="$new_version"
+    fi
 
     # Set the frontend to the same version
     cd frontend
-    npm version "$NEW_VERSION".0 --no-git-tag-version --allow-same-version
+    npm version "$npm_version" --no-git-tag-version --allow-same-version
