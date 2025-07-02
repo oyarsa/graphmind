@@ -337,7 +337,10 @@ function createEvidenceItem(
         ${
           hasExpandableContent
             ? `
-          <div id="evidence-details-${itemId}" class="mt-3 hidden">
+          <div id="evidence-details-${itemId}"
+               class="evidence-details hidden mt-3 pl-4 border-l-2 border-gray-200
+                      dark:border-gray-700"
+          >
             ${createEvidenceComparisonContent(relatedPaper, evaluation)}
           </div>
         `
