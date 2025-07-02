@@ -361,6 +361,8 @@ export const PartialEvaluationResponseSchema = z.object({
   title: z.string(),
   /** Paper abstract. */
   abstract: z.string(),
+  /** Unique ID for this evaluation based on title and abstract. */
+  id: z.string(),
   /** Search keywords extracted from the title and abstract. */
   keywords: z.array(z.string()),
   /** Binary novelty score (1=novel, 0=not novel). */

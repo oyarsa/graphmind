@@ -8,10 +8,11 @@ from collections.abc import Sequence
 from enum import StrEnum
 from typing import Annotated, NewType
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from paper import gpt
 from paper.gpt.evaluate_paper import EvidenceItem
+from paper.util import hashstr
 
 
 class Model(BaseModel):
@@ -236,6 +237,12 @@ class PartialEvaluationResponse(Model):
     related: Annotated[
         Sequence[gpt.PaperRelatedSummarised], Field(description="Related papers.")
     ]
+
+    @computed_field
+    @property
+    def id(self) -> str:
+        """Generate a unique ID for the evaluation based on title and abstract."""
+        return hashstr(self.title + self.abstract)
 
 
 # Configuration constants for paper evaluation
