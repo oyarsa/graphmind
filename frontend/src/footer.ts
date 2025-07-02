@@ -1,5 +1,10 @@
 const sep = "•";
-const github = `<a href="https://github.com/italo/paper-hypergraph" target="_blank" rel="noopener noreferrer" class="hover:text-gray-600 dark:hover:text-gray-400 underline">GitHub</a>`;
+const github = `
+  <a href="https://github.com/oyarsa/paper-hypergraph"
+     rel="noopener noreferrer"
+     class="hover:text-gray-600 dark:hover:text-gray-400 underline"
+     >GitHub</a>
+`;
 const license = "AGPL-3.0-or-later";
 
 /**
