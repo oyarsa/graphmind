@@ -54,7 +54,6 @@ async def partial_evaluation(
     title: str,
     abstract: str,
     callback: ProgressCallback,
-    use_keywords: bool,
     demonstrations_key: str = DEMOS,
     demo_prompt_key: str = DEMO_PROMPT,
     abstract_prompt_key: str = "simple",
@@ -93,11 +92,9 @@ async def partial_evaluation(
     api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
     abstract_prompt = ABS_USER_PROMPTS[abstract_prompt_key]
 
-    if use_keywords:
-        await callback("Extracting keywords from abstract")
-        keywords = await extract_keywords(client, title, abstract)
-    else:
-        keywords = gpt_unit(None)
+    await callback("Extracting keywords from abstract")
+    keywords = await extract_keywords(client, title, abstract)
+    logger.debug("Extracted keywords: %s", keywords)
 
     await callback("Searching related papers")
     related = await search_related_papers(

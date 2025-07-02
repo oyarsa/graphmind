@@ -323,9 +323,6 @@ async def evaluate_partial(
     llm_model: Annotated[
         LLMModel, Query(description="LLM model to use.")
     ] = LLMModel.GPT4oMini,
-    use_keywords: Annotated[
-        bool, Query(description="Extract keywords for recommendations search")
-    ] = False,
     related: Annotated[
         int,
         Query(
@@ -353,7 +350,6 @@ async def evaluate_partial(
         paper_input: Paper title and abstract to evaluate.
         recommendations: Number of related papers to find (5-50).
         llm_model: LLM model to use for evaluation.
-        use_keywords: Whether to extract keywords from the abstract for better search.
         related: Number of related papers to retrieve per type (1-10).
 
     Returns:
@@ -379,7 +375,6 @@ async def evaluate_partial(
                 title=paper_input.title,
                 abstract=paper_input.abstract,
                 num_semantic=related,
-                use_keywords=use_keywords,
             )
         except Exception as e:
             logger.exception(f"Partial evaluation failed for '{paper_input.title}'")
