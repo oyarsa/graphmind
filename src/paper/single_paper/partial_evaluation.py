@@ -265,13 +265,55 @@ class Keywords(BaseModel):
     """Structured type for extracting keywords from a paper's title and abstract."""
 
     keywords: Annotated[
-        Sequence[str], Field(description="Keywords that represent the paper. Up to 5.")
+        Sequence[str], Field(description="Keywords that represent the paper. Up to 10.")
     ]
 
 
-# TODO: Write the prompts.
-KEYWORDS_SYSTEM_PROMPT = ""
-KEYWORDS_USER_TEMPLATE = ""
+KEYWORDS_SYSTEM_PROMPT = """
+You are an expert academic keyword extractor. Your task is to analyze paper titles and
+abstracts to extract keywords that would be most effective for finding related papers in
+academic databases.
+
+Extract keywords following these guidelines:
+
+1. Focus on core concepts, methodologies, techniques, and application domains
+2. Include both single-word terms and multi-word phrases (2-4 words)
+3. Aim for the "goldilocks zone" of specificity - not too broad, not too narrow
+4. Include acronyms if they are standard in the field
+5. Extract 5-10 keywords total
+6. Use the exact terminology from the text when possible
+7. Prioritize terms that distinguish this work from others in its specific area
+
+Keywords should be:
+- Specific to the paper's research area and approach
+- Terms that similar papers in this niche would likely use
+- More specific than broad field names (e.g., not "machine learning" but rather
+  "graph neural networks" or "few-shot learning")
+- Less specific than unique contributions of this exact paper
+
+Examples of good specificity levels:
+- Instead of "computer vision" → "semantic segmentation" or "object detection"
+- Instead of "natural language processing" → "named entity recognition" or
+  "transformer models"
+- Instead of "optimization" → "convex optimization" or "evolutionary algorithms"
+
+Do not include:
+- Generic academic terms like "research", "study", "analysis"
+- Broad field names like "machine learning", "artificial intelligence", "computer science"
+- Author names or institution names
+- Terms unique to only this paper's specific contribution
+"""
+KEYWORDS_USER_TEMPLATE = """
+Extract keywords from the following paper that would be most useful for finding related
+work on Semantic Scholar:
+
+Title: {title}
+
+Abstract: {abstract}
+
+Extract keywords that capture the main concepts, methods, techniques, and application
+areas of this paper.
+"""
 
 
 async def extract_keywords(
@@ -285,7 +327,7 @@ async def extract_keywords(
         abstract: Paper abstract.
 
     Returns:
-        A list of keywords representing the paper, up to 5 keywords.
+        A list of keywords representing the paper.
     """
     user_prompt = KEYWORDS_USER_TEMPLATE.format(title=title, abstract=abstract)
 
