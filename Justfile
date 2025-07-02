@@ -73,7 +73,7 @@ lint-all:
     cd frontend && just lint
 
 # Bump version for both backend and frontend (ensures they're synchronized)
-version bump:
+version bump="major":
     #!/usr/bin/env bash
     set -euo pipefail
 
