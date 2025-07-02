@@ -380,3 +380,31 @@ export const SSEEventDataSchema = z.object({
 
 export type EvaluationParams = z.infer<typeof EvaluationParamsSchema>;
 export type SSEEventData = z.infer<typeof SSEEventDataSchema>;
+
+/**
+ * Response from partial paper evaluation.
+ */
+export const PartialEvaluationResponseSchema = z.object({
+  /** Paper title. */
+  title: z.string(),
+  /** Paper abstract. */
+  abstract: z.string(),
+  /** Binary novelty score (1=novel, 0=not novel). */
+  label: z.int(),
+  /** Percentage chance of the paper being novel. */
+  probability: z.number().nullish(),
+  /** Summary of paper contributions. */
+  paper_summary: z.string(),
+  /** Evidence supporting novelty. */
+  supporting_evidence: z.array(EvidenceItemSchema),
+  /** Evidence contradicting novelty. */
+  contradictory_evidence: z.array(EvidenceItemSchema),
+  /** Final assessment. */
+  conclusion: z.string(),
+  /** Total GPT cost. */
+  total_cost: z.number(),
+  /** Related papers. */
+  related: z.array(RelatedPaperSchema),
+});
+
+export type PartialEvaluationResponse = z.infer<typeof PartialEvaluationResponseSchema>;
