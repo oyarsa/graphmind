@@ -86,4 +86,4 @@ version bump:
 
     # Set the frontend to the same version
     cd frontend
-    npm version "$NEW_VERSION" --no-git-tag-version --allow-same-version
+    npm version "$NEW_VERSION".0 --no-git-tag-version --allow-same-version
