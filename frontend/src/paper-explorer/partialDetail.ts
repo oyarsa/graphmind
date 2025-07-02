@@ -16,6 +16,7 @@ import {
   getRelationshipStyle,
   setupSectionToggle,
   createSideBySideComparison,
+  formatScientificCitation,
 } from "./helpers";
 import { addFooter } from "../footer";
 
@@ -289,7 +290,13 @@ function createEvidenceItem(
   );
   const relatedPaperIndex = relatedPaper ? relatedPapers.indexOf(relatedPaper) : -1;
 
-  const displayText = evidence.paper_title ?? "Unknown Paper";
+  const displayText = relatedPaper
+    ? formatScientificCitation(
+        relatedPaper.authors,
+        relatedPaper.year,
+        evidence.paper_title ?? "Unknown Paper",
+      )
+    : (evidence.paper_title ?? "Unknown Paper");
 
   const paperTitleElement =
     relatedPaperIndex >= 0
