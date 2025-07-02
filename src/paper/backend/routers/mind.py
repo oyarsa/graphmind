@@ -28,7 +28,6 @@ from paper.backend.model import (
     EVAL_PROMPT,
     GRAPH_PROMPT,
     PartialEvaluationResponse,
-    PartialPaperInput,
 )
 from paper.backend.rate_limiter import RateLimiter
 from paper.util import Timer, atimer, setup_logging
@@ -309,14 +308,15 @@ async def evaluate(
     )
 
 
-@router.post("/evaluate-partial")
+@router.get("/evaluate-partial")
 @rate_limiter.limit("5/minute")
 async def evaluate_partial(
     request: Request,
     llm_registry: LLMRegistryDep,
     limiter: LimiterDep,
     encoder: EncoderDep,
-    paper_input: PartialPaperInput,
+    title: str,
+    abstract: str,
     recommendations: Annotated[
         int, Query(description="Number of related papers to retrieve.", ge=5, le=50)
     ] = 20,
@@ -347,7 +347,8 @@ async def evaluate_partial(
         llm_registry: Registry of LLM clients.
         encoder: Text encoder for embeddings.
         limiter: Rate limiter dependency for Semantic Scholar API calls.
-        paper_input: Paper title and abstract to evaluate.
+        title: Paper title.
+        abstract: Paper abstract.
         recommendations: Number of related papers to find (5-50).
         llm_model: LLM model to use for evaluation.
         related: Number of related papers to retrieve per type (1-10).
@@ -372,12 +373,12 @@ async def evaluate_partial(
                 encoder=encoder,
                 callback=callback,
                 num_recommendations=recommendations,
-                title=paper_input.title,
-                abstract=paper_input.abstract,
+                title=title,
+                abstract=abstract,
                 num_semantic=related,
             )
         except Exception as e:
-            logger.exception(f"Partial evaluation failed for '{paper_input.title}'")
+            logger.exception(f"Partial evaluation failed for '{title}'")
             raise HTTPException(
                 status_code=500, detail=f"Evaluation failed: {e}"
             ) from e
@@ -424,9 +425,7 @@ async def evaluate_partial(
             # Return final result or error
             if exc := task.exception():
                 yield sse_event("error", {"message": str(exc)})
-                logger.error(
-                    f"Partial evaluation failed for '{paper_input.title}': {exc}"
-                )
+                logger.error(f"Partial evaluation failed for '{title}': {exc}")
                 return
             else:
                 evaluation_result = task.result()

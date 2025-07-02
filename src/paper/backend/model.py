@@ -191,18 +191,6 @@ class HealthCheck(Model):
     version: str
 
 
-class PartialPaperInput(Model):
-    """Input validation for title+abstract evaluation.
-
-    Attributes:
-        title: Paper title.
-        abstract: Paper abstract.
-    """
-
-    title: Annotated[str, Field(description="Paper title.")]
-    abstract: Annotated[str, Field(description="Paper abstract.")]
-
-
 class PartialEvaluationResponse(Model):
     """Response from partial paper evaluation.
 
