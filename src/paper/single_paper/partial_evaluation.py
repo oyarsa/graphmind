@@ -17,7 +17,7 @@ from paper.gpt.annotate_paper import (
     ABS_USER_PROMPTS,
     GPTAbstractClassify,
 )
-from paper.gpt.evaluate_paper import GPTStructured, get_demonstrations
+from paper.gpt.evaluate_paper import GPTStructured, GPTStructuredRaw, get_demonstrations
 from paper.gpt.evaluate_paper_graph import GRAPH_EVAL_USER_PROMPTS, format_related
 from paper.gpt.novelty_utils import get_novelty_probability
 from paper.gpt.run_gpt import GPTResult, gpt_sequence, gpt_unit
@@ -358,14 +358,18 @@ async def evaluate_partial_paper(
     """
     eval_prompt = GRAPH_EVAL_USER_PROMPTS["simple-basic"]
     result = await client.run(
-        GPTStructured,
+        GPTStructuredRaw,
         eval_prompt.system,
         format_eval_template(eval_prompt, title, abstract, related, demonstrations),
         logprobs=True,
         top_logprobs=3,
     )
 
-    eval = result.map(lambda r: r or GPTStructured.error())
+    eval = result.map(
+        lambda r: r.with_prob(get_novelty_probability(result.logprobs))
+        if r is not None
+        else GPTStructured.error()
+    )
     if not eval.result.is_valid():
         logger.warning(f"Paper '{title}': invalid evaluation result")
 
