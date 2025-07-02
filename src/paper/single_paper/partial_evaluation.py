@@ -148,6 +148,7 @@ async def partial_evaluation(
     return PartialEvaluationResponse(
         title=title,
         abstract=abstract,
+        keywords=keywords.result,
         label=evaluation.result.label,
         probability=evaluation.result.probability,
         paper_summary=evaluation.result.paper_summary,
