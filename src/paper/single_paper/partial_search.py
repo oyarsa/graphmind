@@ -22,6 +22,7 @@ import aiohttp
 import backoff
 
 from paper import semantic_scholar as s2
+from paper.single_paper.paper_retrieval import S2_FIELDS_BASE
 
 if TYPE_CHECKING:
     from paper.util.rate_limiter import Limiter
@@ -33,19 +34,6 @@ S2_SEARCH_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 REQUEST_TIMEOUT = 30
 MAX_RETRIES = 3
 
-# Fields to retrieve for each paper
-DEFAULT_FIELDS = [
-    "paperId",
-    "title",
-    "abstract",
-    "year",
-    "authors",
-    "venue",
-    "citationCount",
-    "influentialCitationCount",
-    "tldr",
-]
-
 
 @backoff.on_exception(
     backoff.expo, (aiohttp.ClientError, asyncio.TimeoutError), max_tries=MAX_RETRIES
@@ -55,19 +43,15 @@ async def _search_papers_request(
     api_key: str,
     query: str,
     limit: int = 20,
-    fields: Sequence[str] | None = None,
     offset: int = 0,
 ) -> list[dict[str, Any]]:
     """Make a single search request to the S2 API."""
-
-    if fields is None:
-        fields = DEFAULT_FIELDS
 
     params = {
         "query": query,
         "limit": min(limit, 100),  # S2 API limit
         "offset": offset,
-        "fields": ",".join(fields),
+        "fields": ",".join(S2_FIELDS_BASE),
     }
 
     headers = {"X-API-KEY": api_key}
@@ -97,7 +81,6 @@ async def search_papers_by_content(
     title: str,
     abstract: str,
     limit: int,
-    fields: Sequence[str],
 ) -> list[s2.Paper]:
     """Search for papers using title and abstract content.
 
@@ -107,7 +90,6 @@ async def search_papers_by_content(
         title: Paper title.
         abstract: Paper abstract.
         limit: Maximum number of papers to return.
-        fields: S2 API fields to retrieve.
 
     Returns:
         List of S2 Paper objects matching the content
@@ -117,9 +99,7 @@ async def search_papers_by_content(
     query = f"{title} {abstract[:500]}"
 
     async with limiter, aiohttp.ClientSession() as session:
-        raw_papers = await _search_papers_request(
-            session, api_key, query, limit, fields
-        )
+        raw_papers = await _search_papers_request(session, api_key, query, limit)
 
     # Convert to Paper objects, filtering out papers without abstracts
     papers: list[s2.Paper] = []
@@ -140,7 +120,6 @@ async def search_papers_by_keywords(
     api_key: str,
     keywords: Sequence[str],
     limit: int,
-    fields: Sequence[str],
 ) -> list[s2.Paper]:
     """Search for papers using extracted keywords.
 
@@ -149,7 +128,6 @@ async def search_papers_by_keywords(
         api_key: Semantic Scholar API key.
         keywords: List of research keywords/terms
         limit: Maximum number of papers to return per keyword
-        fields: S2 API fields to retrieve
 
     Returns:
         List of S2 Paper objects matching the keywords
@@ -160,9 +138,7 @@ async def search_papers_by_keywords(
     # Create search tasks for all keywords
     async def search_keyword(keyword: str) -> list[s2.Paper]:
         async with limiter, aiohttp.ClientSession() as session:
-            raw_papers = await _search_papers_request(
-                session, api_key, keyword, limit, fields
-            )
+            raw_papers = await _search_papers_request(session, api_key, keyword, limit)
 
         papers: list[s2.Paper] = []
         for raw_paper in raw_papers:
@@ -230,6 +206,11 @@ def combine_search_results(
     return combined[:max_results]
 
 
+def _normalise_title(title: str) -> str:
+    """Remove non-alpha characters from title."""
+    return "".join(c for c in title if c.isalpha() or c.isspace()).strip()
+
+
 async def search_related_papers(
     limiter: Limiter,
     api_key: str,
@@ -256,16 +237,12 @@ async def search_related_papers(
         List of related papers ranked by relevance.
     """
     # Run content and keyword searches in parallel
-    tasks = [
-        search_papers_by_content(
-            limiter, api_key, title, abstract, max_results, DEFAULT_FIELDS
-        )
-    ]
+    tasks = [search_papers_by_content(limiter, api_key, title, abstract, max_results)]
 
     if keywords:
         tasks.append(
             search_papers_by_keywords(
-                limiter, api_key, keywords, max_results // len(keywords), DEFAULT_FIELDS
+                limiter, api_key, keywords, max_results // len(keywords)
             )
         )
 
@@ -276,7 +253,13 @@ async def search_related_papers(
         results[1] if len(results) > 1 and isinstance(results[1], list) else []
     )
 
-    return combine_search_results(content_results, keyword_results, max_results)
+    combined = combine_search_results(content_results, keyword_results, max_results)
+    # Remove results with the same title as the main paper
+    return [
+        p
+        for p in combined
+        if p.title and _normalise_title(p.title) != _normalise_title(title)
+    ]
 
 
 def valid_papers(papers: Sequence[s2.Paper]) -> Iterable[s2.Paper]:
