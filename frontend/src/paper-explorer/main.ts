@@ -1,5 +1,4 @@
 import { z } from "zod/v4";
-import Fuse from "fuse.js";
 
 import {
   retryWithBackoff,
@@ -34,7 +33,6 @@ interface CachedPaperSearchItem extends Omit<PaperSearchItem, "arxiv_id"> {
 class PaperExplorer {
   private allPapers: GraphResult[] = [];
   private filteredPapers: GraphResult[] = [];
-  private fuse: Fuse<GraphResult> | null = null;
   private lastSelectedArxivItem: PaperSearchItem | null = null;
   // private currentTab: "json" | "arxiv" = "json";
 
@@ -71,8 +69,6 @@ class PaperExplorer {
 
       this.allPapers = validatedData;
       this.filteredPapers = [...this.allPapers];
-
-      this.initializeFuse();
 
       // Store papers in localStorage for detail page access
       localStorage.setItem("papers-dataset", JSON.stringify(validatedData));
@@ -193,42 +189,48 @@ class PaperExplorer {
     });
   }
 
-  private initializeFuse(): void {
-    if (this.allPapers.length === 0) return;
-
-    const fuseOptions = {
-      keys: [
-        {
-          name: "paper.authors" as const,
-          weight: 0.5, // Highest priority
-        },
-        {
-          name: "paper.title" as const,
-          weight: 0.3,
-        },
-        {
-          name: "paper.abstract" as const,
-          weight: 0.2, // Lowest priority
-        },
-      ],
-      threshold: 0.4, // Adjust fuzzy matching sensitivity (0 = exact, 1 = very fuzzy)
-      includeScore: true,
-      minMatchCharLength: 2,
-      ignoreLocation: true, // Don't consider position of match in string
-    };
-
-    this.fuse = new Fuse(this.allPapers, fuseOptions);
-  }
-
-  private fuzzySearch(query: string, papers: GraphResult[]): GraphResult[] {
+  private substringSearch(query: string, papers: GraphResult[]): GraphResult[] {
     if (!query.trim()) return papers;
 
-    if (!this.fuse) {
-      console.warn("Fuse.js not initialized, falling back to no filtering");
-      return papers;
+    const lowerQuery = query.toLowerCase();
+
+    // Filter and score papers
+    const scoredPapers = papers
+      .map(paper => {
+        const titleMatches = this.countSubstringMatches(
+          paper.paper.title.toLowerCase(),
+          lowerQuery,
+        );
+        const authorMatches = paper.paper.authors
+          .map(author => this.countSubstringMatches(author.toLowerCase(), lowerQuery))
+          .reduce((sum, count) => sum + count, 0);
+        const abstractMatches = this.countSubstringMatches(
+          paper.paper.abstract.toLowerCase(),
+          lowerQuery,
+        );
+
+        const score = titleMatches * 10 + authorMatches * 5 + abstractMatches * 1;
+
+        return { paper, score };
+      })
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    return scoredPapers.map(({ paper }) => paper);
+  }
+
+  private countSubstringMatches(text: string, query: string): number {
+    if (!text || !query) return 0;
+
+    let count = 0;
+    let position = 0;
+
+    while ((position = text.indexOf(query, position)) !== -1) {
+      count++;
+      position += query.length;
     }
 
-    return this.fuse.search(query).map(result => result.item);
+    return count;
   }
 
   private setupSearchBar(): void {
@@ -244,7 +246,7 @@ class PaperExplorer {
 
     const updateSearch = () => {
       const query = inputElement.value;
-      this.filteredPapers = this.fuzzySearch(query, this.allPapers);
+      this.filteredPapers = this.substringSearch(query, this.allPapers);
       this.displayPapers(this.filteredPapers);
 
       countElement.textContent = `${this.filteredPapers.length} of ${this.allPapers.length} papers`;

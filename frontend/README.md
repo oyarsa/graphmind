@@ -16,7 +16,7 @@ with detailed paper analysis.
 
 ### 📚 Paper Explorer
 
-- **Searchable paper grid** with fuzzy search powered by Fuse.js
+- **Searchable paper grid** by paper title, author and abstract
 - **Dataset-driven browsing** of research papers
 - **Detailed paper view** with comprehensive information display
 - **Related papers analysis** showing background, context, supporting, and contrasting
@@ -29,7 +29,6 @@ with detailed paper analysis.
 - **D3.js** for data visualization and SVG manipulation
 - **Tailwind CSS** with minimal custom CSS for complex effects
 - **Vite** for development server and bundling
-- **Fuse.js** for fuzzy search functionality
 - **Vitest** for unit testing
 
 ## Prerequisites

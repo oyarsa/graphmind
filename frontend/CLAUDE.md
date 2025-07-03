@@ -63,7 +63,6 @@ The application uses Vite as the build tool and follows a clean, modular archite
 - D3.js for data visualization and SVG manipulation
 - Tailwind CSS with minimal custom CSS for complex effects
 - Vite for development and bundling
-- Fuse.js for fuzzy search functionality
 
 **Main Components:**
 
@@ -84,7 +83,7 @@ The application consists of two primary interfaces accessible from a central hom
 
    - **Purpose**: Dataset-driven paper discovery and detailed analysis
    - **Architecture**: `src/paper-explorer/`
-     - `main.ts`: Paper loading, fuzzy search with Fuse.js, grid display
+     - `main.ts`: Paper loading, search, grid display
      - `detail.ts`: Individual paper detail sub-page with related papers analysis
      - `model.ts`: Zod schemas for data validation
    - **Data Source**: Static JSON dataset loaded from environment-specified path
