@@ -57,7 +57,7 @@ class Choice[T: SupportsLT](click.ParamType):
         return super().to_info_dict() | {"choices": self.choices}
 
     @override
-    def get_metavar(self, param: click.Parameter) -> str:
+    def get_metavar(self, param: click.Parameter, ctx: click.Context) -> str:
         choices_str = "|".join(self.choices_str)
 
         # Use curly braces to indicate a required argument.
@@ -68,7 +68,9 @@ class Choice[T: SupportsLT](click.ParamType):
         return f"[{choices_str}]"
 
     @override
-    def get_missing_message(self, param: click.Parameter) -> str:
+    def get_missing_message(
+        self, param: click.Parameter, ctx: click.Context | None
+    ) -> str:
         return "Choose from:\n\t{choices}".format(
             choices=",\n\t".join(self.choices_str)
         )
