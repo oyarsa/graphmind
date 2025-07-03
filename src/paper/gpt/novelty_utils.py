@@ -191,6 +191,7 @@ async def get_novelty_best_of_n(
             NoveltyResult,
             BEST_OF_SYSTEM_PROMPT,
             BEST_OF_USER_TEMPLATE.format(rationale=output.rationale),
+            temperature=1,
         )
         for _ in range(n)
     ]

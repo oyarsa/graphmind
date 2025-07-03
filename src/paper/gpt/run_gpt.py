@@ -575,6 +575,8 @@ class LLMClient(ABC):
         max_tokens: int | None = None,
         logprobs: bool | None = None,
         top_logprobs: int | None = None,
+        temperature: float | None = None,
+        seed: int | None = None,
     ) -> GPTResult[T | None]:
         """Run the query and return a parsed object of `class_`."""
 
@@ -587,6 +589,8 @@ class LLMClient(ABC):
         search_level: Literal["low", "medium", "high"] | None = None,
         logprobs: bool | None = None,
         top_logprobs: int | None = None,
+        temperature: float | None = None,
+        seed: int | None = None,
     ) -> GPTResult[str | None]:
         """Run the GPT query and return plain text output."""
 
@@ -739,6 +743,8 @@ class OpenAIClient(LLMClient):
         max_tokens: int | None = None,
         logprobs: bool | None = None,
         top_logprobs: int | None = None,
+        temperature: float | None = None,
+        seed: int | None = None,
     ) -> GPTResult[T | None]:
         """Run the GPT query and return a parsed object of `class_`.
 
@@ -778,8 +784,10 @@ class OpenAIClient(LLMClient):
                 model=self.model,
                 messages=prompts_to_messages(system_prompt, user_prompt),
                 response_format=class_,
-                seed=self.seed,
-                temperature=self.temperature,
+                seed=seed if seed is not None else self.seed,
+                temperature=temperature
+                if temperature is not None
+                else self.temperature,
                 max_tokens=max_tokens,
                 logprobs=logprobs,
                 top_logprobs=top_logprobs,
@@ -812,6 +820,8 @@ class OpenAIClient(LLMClient):
         search_level: Literal["low", "medium", "high"] | None = None,
         logprobs: bool | None = None,
         top_logprobs: int | None = None,
+        temperature: float | None = None,
+        seed: int | None = None,
     ) -> GPTResult[str | None]:
         """Run the GPT query and return plain text output.
 
@@ -827,6 +837,8 @@ class OpenAIClient(LLMClient):
                 for more information.
             logprobs: Whether to include the logprobs in the result.
             top_logprobs: Number of most likely tokens to return at each position.
+            temperature: Temperature override for this specific request.
+            seed: Seed override for this specific request.
 
         Returns:
             Result with the cost for the request and the plain text response. If there
@@ -836,8 +848,14 @@ class OpenAIClient(LLMClient):
         is_search = search_level is not None
 
         # Remove temperature and seed for web search models, as they aren't supported.
-        temperature = self.temperature if not is_search else NOT_GIVEN
-        seed = self.seed if not is_search else NOT_GIVEN
+        final_temperature = (
+            (temperature if temperature is not None else self.temperature)
+            if not is_search
+            else NOT_GIVEN
+        )
+        final_seed = (
+            (seed if seed is not None else self.seed) if not is_search else NOT_GIVEN
+        )
         search_options = (
             {"search_context_size": search_level} if is_search else NOT_GIVEN
         )
@@ -849,8 +867,8 @@ class OpenAIClient(LLMClient):
             completion = await self._call_gpt_plain(
                 model=self.model,
                 messages=prompts_to_messages(system_prompt, user_prompt),
-                seed=seed,
-                temperature=temperature,
+                seed=final_seed,
+                temperature=final_temperature,
                 max_tokens=max_tokens,
                 web_search_options=search_options,
                 logprobs=logprobs,
@@ -1129,6 +1147,8 @@ class GeminiClient(LLMClient):
         max_tokens: int | None = None,
         logprobs: bool | None = None,
         top_logprobs: int | None = None,
+        temperature: float | None = None,
+        seed: int | None = None,
     ) -> GPTResult[T | None]:
         """Run the query and return a parsed object of `class_`.
 
@@ -1143,6 +1163,8 @@ class GeminiClient(LLMClient):
             max_tokens: Maximum number of tokens in the output.
             logprobs: Ignored (Gemini does not support logprobs).
             top_logprobs: Ignored (Gemini does not support logprobs).
+            temperature: Temperature override for this specific request.
+            seed: Seed override for this specific request.
 
         Returns:
             Result with the cost for the request and the result object parsed. If there
@@ -1161,8 +1183,10 @@ class GeminiClient(LLMClient):
                     response_mime_type="application/json",
                     response_schema=class_,
                     system_instruction=system_prompt,
-                    temperature=self.temperature,
-                    seed=self.seed,
+                    temperature=temperature
+                    if temperature is not None
+                    else self.temperature,
+                    seed=seed if seed is not None else self.seed,
                     max_output_tokens=max_tokens,
                     thinking_config=self._thinking_config(),
                 ),
@@ -1198,6 +1222,8 @@ class GeminiClient(LLMClient):
         search_level: Literal["low", "medium", "high"] | None = None,
         logprobs: bool | None = None,
         top_logprobs: int | None = None,
+        temperature: float | None = None,
+        seed: int | None = None,
     ) -> GPTResult[str | None]:
         """Run the query and return plain text output.
 
@@ -1212,6 +1238,8 @@ class GeminiClient(LLMClient):
                 the same effect.
             logprobs: Ignored (Gemini does not support logprobs).
             top_logprobs: Ignored (Gemini does not support logprobs).
+            temperature: Temperature override for this specific request.
+            seed: Seed override for this specific request.
 
         Returns:
             Result with the cost for the request and the plain text response. If there
@@ -1229,8 +1257,10 @@ class GeminiClient(LLMClient):
                 contents=user_prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt,
-                    seed=self.seed,
-                    temperature=self.temperature,
+                    seed=seed if seed is not None else self.seed,
+                    temperature=temperature
+                    if temperature is not None
+                    else self.temperature,
                     max_output_tokens=max_tokens,
                     tools=[types.Tool(google_search=types.GoogleSearch())]
                     if is_search
