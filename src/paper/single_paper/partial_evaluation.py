@@ -367,17 +367,12 @@ async def evaluate_partial_paper(
         top_logprobs=3,
     )
 
-    eval = result.map(
-        lambda r: r.with_prob(get_novelty_probability(result.logprobs))
-        if r is not None
-        else GPTStructured.error()
-    )
-    if not eval.result.is_valid():
+    if result.result is None:
         logger.warning(f"Paper '{title}': invalid evaluation result")
 
-    return eval.map(
-        lambda r: r.with_prob(get_novelty_probability(eval.logprobs))
-    ).nologits()
+    eval = result.fix(GPTStructuredRaw.error)
+    prob = await get_novelty_probability(client, eval)
+    return eval.lift(prob, lambda s, p: s.with_prob(p)).nologits()
 
 
 def format_eval_template(

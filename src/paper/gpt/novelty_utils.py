@@ -4,13 +4,21 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from enum import Enum
 from math import exp
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
+
+from pydantic import Field
+
+from paper.gpt.run_gpt import GPTResult, gpt_is_valid, gpt_sequence
+from paper.types import Immutable
 
 if TYPE_CHECKING:
-    from paper.gpt.run_gpt import TokenProb
+    from paper.gpt.evaluate_paper import GPTStructuredRaw
+    from paper.gpt.run_gpt import LLMClient, TokenProb
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +106,91 @@ def calculate_binary_confidence(
             return p_pos / (p_pos + p_neg)
 
 
-def get_novelty_probability(logprobs: list[TokenProb] | None) -> float:
+class NoveltyResult(Immutable):
+    """Result of evaluating novelty given paper information and external evidence."""
+
+    explanation: Annotated[
+        str, Field(description="Explanation for the novelty label given.")
+    ]
+    is_novel: Annotated[bool, Field("True if the paper is novel, False if it isn't.")]
+
+
+async def get_novelty_probability(
+    client: LLMClient,
+    output: GPTResult[GPTStructuredRaw],
+) -> GPTResult[float]:
+    """Get novelty probability from evaluation output.
+
+    Can either calculate it from the logprob, re-prompt the LLM to give N results and
+    calculate the percentage, or just give 0/1 for novel/not novel.
+
+    Args:
+        client: LLM client to use to generate best of N results.
+        output: Evaluation output. Used as input for best of N results.
+
+    Environment variables:
+        PROB_METHOD: What method to use to determine the probability:
+        - "logit": use token logprobs
+        - N (int): parameter for best of N method
+        - <unset>: returns 0 for "not novel" and 1 for "novel"
+
+    Returns:
+        Probability as a float between 0 and 1. Returns 0.5 if can't calculate.
+        A value of 0.8 means 80% probability the paper is novel.
+    """
+    match method := os.getenv("PROB_METHOD"):
+        case "logit":
+            logger.warning("logprobs")
+            prob = get_novelty_probability_logbprob(output.logprobs)
+            return output.map(lambda _: prob)
+        case str() if method.isdigit():
+            logger.warning("N=%s", method)
+            return await output.abind(
+                lambda out: get_novelty_best_of_n(client, out, int(method))
+            )
+        case _:
+            logger.warning("default")
+            return output.map(lambda out: 0 if out.label == 0 else 1)
+
+
+BEST_OF_SYSTEM_PROMPT = ""
+BEST_OF_USER_TEMPLATE = ""
+
+
+async def get_novelty_best_of_n(
+    client: LLMClient, output: GPTStructuredRaw, n: int
+) -> GPTResult[float]:
+    """Get novelty probability from re-prompting the LLM for best of N results.
+
+    We use another round of calls to the LLM with a custom prompt to ask it to review
+    the evidence highlighted by the evaluation result, and generate a probability from
+    that.
+
+    Args:
+        client: LLM client to use to generate best of N results.
+        output: Evaluation output. Used as input for best of N results.
+        n: Number of results to prompt for.
+
+    Returns:
+        Probability as a float between 0 and 1, calculate as #positive / N.
+    """
+    tasks = [
+        client.run(
+            NoveltyResult,
+            BEST_OF_SYSTEM_PROMPT,
+            BEST_OF_USER_TEMPLATE.format(
+                rationale=output.rationale, label=output.label
+            ),
+        )
+        for _ in range(n)
+    ]
+    results = await asyncio.gather(*tasks)
+    result = gpt_sequence(r for r in results if gpt_is_valid(r))
+
+    return result.map(lambda results: sum(1 for r in results if r.is_novel) / n)
+
+
+def get_novelty_probability_logbprob(logprobs: list[TokenProb] | None) -> float:
     """Get novelty probability directly from GPTResult logprobs.
 
     This is a convenience function that finds the appropriate token and calculates
@@ -108,6 +200,7 @@ def get_novelty_probability(logprobs: list[TokenProb] | None) -> float:
     probability from the top values.
 
     Args:
+        output: Evaluation output. Used as input for best of N results.
         logprobs: The logprobs list from GPTResult.logprobs.
 
     Returns:
