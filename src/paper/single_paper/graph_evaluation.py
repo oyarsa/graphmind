@@ -128,6 +128,8 @@ async def evaluate_paper_graph_novelty(
     if not eval.result.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid evaluation result")
 
+    # TODO: Change novelty method to N samples and percentage: positive / N
+    # Just make a global/environment constant two swap between the two.
     return eval.map(
         lambda r: r.with_prob(get_novelty_probability(eval.logprobs))
     ).nologits()

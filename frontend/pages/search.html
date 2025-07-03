@@ -194,7 +194,7 @@
                   id="arxiv-search-input"
                   name="arxiv-search"
                   autocomplete="on"
-                  placeholder="Enter the paper title to search arXiv..."
+                  placeholder="Enter the paper title to search arXiv"
                   class="w-full rounded-lg border border-gray-400 bg-gray-100/50 px-4
                     py-3 pr-10 text-black placeholder-gray-600 transition-all
                     duration-200 focus:border-teal-500 focus:ring-2
@@ -236,7 +236,7 @@
               </button>
             </form>
             <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              <span id="arxiv-result-count">Enter a search query and click Search</span>
+              <span id="arxiv-result-count"></span>
             </div>
           </div>
 
@@ -296,6 +296,7 @@
                     focus:ring-teal-500/20 focus:outline-none dark:border-gray-600
                     dark:bg-gray-900/50 dark:text-white dark:placeholder-gray-400"
                   required
+                  minlength="5"
                 ></textarea>
               </div>
 
@@ -319,6 +320,7 @@
                     focus:ring-teal-500/20 focus:outline-none dark:border-gray-600
                     dark:bg-gray-900/50 dark:text-white dark:placeholder-gray-400"
                   required
+                  minlength="20"
                 ></textarea>
               </div>
 
@@ -436,10 +438,7 @@
             <div
               id="abstract-no-results"
               class="py-8 text-center text-gray-600 dark:text-gray-400"
-            >
-              No previous evaluations found. Start by evaluating your first abstract
-              above.
-            </div>
+            ></div>
 
             <!-- Cache management -->
             <div id="abstract-cache-controls" class="mt-8 text-center">
@@ -504,21 +503,21 @@
                   <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
                   <span
                     >Search through our curated library of papers with instant
-                    results</span
+                    results.</span
                   >
                 </li>
                 <li class="flex items-start">
                   <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
                   <span
                     >Use fuzzy search to find papers by title, authors, or abstract
-                    content</span
+                    content.</span
                   >
                 </li>
                 <li class="flex items-start">
                   <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
                   <span
                     >Click on any paper card to view detailed information and related
-                    papers</span
+                    papers.</span
                   >
                 </li>
               </ul>
@@ -531,17 +530,17 @@
               <ul class="space-y-2 text-gray-600 dark:text-gray-400">
                 <li class="flex items-start">
                   <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
-                  <span>Search the entire arXiv database for papers by title</span>
+                  <span>Search the entire arXiv database for papers by title.</span>
                 </li>
                 <li class="flex items-start">
                   <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
-                  <span>Results are stored locally for faster access</span>
+                  <span>Results are stored locally for faster access.</span>
                 </li>
                 <li class="flex items-start">
                   <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
                   <span
                     >Click "Evaluate" on any paper to analyse its relationships with
-                    other papers</span
+                    other papers.</span
                   >
                 </li>
               </ul>
@@ -554,16 +553,16 @@
               <ul class="space-y-2 text-gray-600 dark:text-gray-400">
                 <li class="flex items-start">
                   <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
-                  <span>Evaluate papers using only their title and abstract</span>
+                  <span>Evaluate papers using only their title and abstract.</span>
                 </li>
                 <li class="flex items-start">
                   <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
-                  <span>Provide paper title and abstract text in the form fields</span>
+                  <span>Provide paper title and abstract text in the form fields.</span>
                 </li>
                 <li class="flex items-start">
                   <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
                   <span>
-                    Results show related papers retrieved by semantic relationships
+                    Results show related papers retrieved by semantic relationships.
                   </span>
                 </li>
               </ul>
@@ -576,19 +575,19 @@
               <ul class="space-y-2 text-gray-600 dark:text-gray-400">
                 <li class="flex items-start">
                   <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
-                  <span>The search is case-insensitive and matches partial words</span>
+                  <span>The search is case-insensitive and matches partial words.</span>
                 </li>
                 <li class="flex items-start">
                   <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
                   <span
-                    >Try searching for author names, keywords, or specific topics</span
+                    >Try searching for author names, keywords, or specific topics.</span
                   >
                 </li>
                 <li class="flex items-start">
                   <span class="mr-2 text-teal-600 dark:text-teal-400">•</span>
                   <span
                     >Use the theme toggle (top-right) to switch between light and dark
-                    modes</span
+                    modes.</span
                   >
                 </li>
               </ul>

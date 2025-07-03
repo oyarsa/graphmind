@@ -484,7 +484,7 @@ function createRelatedPaperCard(
             style="display: none;"
           >
             <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19V5m0 0l-7 7m7-7l7 7"></path>
             </svg>
             Go up
           </button>
@@ -655,9 +655,6 @@ function setupRelatedPapersFiltering(
     });
   };
 
-  // Update counts immediately
-  updateFilterCounts();
-
   // Update chip visual state
   const updateChipStates = () => {
     filterChips.forEach(chip => {
@@ -694,12 +691,17 @@ function setupRelatedPapersFiltering(
     });
 
     // Update Show All/Hide All button states
+    // Only consider filter types that have papers available
+    const availableFilterTypes = [
+      counts.background > 0 ? "background" : null,
+      counts.target > 0 ? "target" : null,
+      counts.supporting > 0 ? "supporting" : null,
+      counts.contrasting > 0 ? "contrasting" : null,
+    ].filter(type => type !== null);
+
     const allFiltersActive =
-      activeFilters.size === 4 &&
-      activeFilters.has("background") &&
-      activeFilters.has("target") &&
-      activeFilters.has("supporting") &&
-      activeFilters.has("contrasting");
+      availableFilterTypes.length > 0 &&
+      availableFilterTypes.every(type => activeFilters.has(type));
     const noFiltersActive = activeFilters.size === 0;
 
     if (showAllButton) {
@@ -742,10 +744,11 @@ function setupRelatedPapersFiltering(
   if (showAllButton) {
     showAllButton.addEventListener("click", () => {
       activeFilters.clear();
-      activeFilters.add("background");
-      activeFilters.add("target");
-      activeFilters.add("supporting");
-      activeFilters.add("contrasting");
+      // Only add filters that have papers available
+      if (counts.background > 0) activeFilters.add("background");
+      if (counts.target > 0) activeFilters.add("target");
+      if (counts.supporting > 0) activeFilters.add("supporting");
+      if (counts.contrasting > 0) activeFilters.add("contrasting");
 
       updateChipStates();
       renderFilteredRelatedPapers(relatedPapers, activeFilters, evaluation);
@@ -762,7 +765,8 @@ function setupRelatedPapersFiltering(
     });
   }
 
-  // Initial state
+  // Initial setup - update counts first, then chip states
+  updateFilterCounts();
   updateChipStates();
 }
 

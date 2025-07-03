@@ -542,7 +542,7 @@ class PaperExplorer {
         papersContainer.classList.add("hidden");
       }
       if (resultCount) {
-        resultCount.textContent = "Enter a search query and click Search";
+        resultCount.textContent = "";
       }
     }
   }
@@ -955,6 +955,25 @@ class PaperExplorer {
     // Update modal title with paper info
     paperTitleEl.textContent = `Configure evaluation for: ${item.title}`;
 
+    // Reset form values to defaults
+    const kRefsInput = document.getElementById("k_refs") as HTMLInputElement | null;
+    const recommendationsInput = document.getElementById(
+      "recommendations",
+    ) as HTMLInputElement | null;
+    const relatedInput = document.getElementById("related") as HTMLInputElement | null;
+    const llmModelSelect = document.getElementById(
+      "llm_model",
+    ) as HTMLSelectElement | null;
+    const filterByDateCheckbox = document.getElementById(
+      "filter_by_date",
+    ) as HTMLInputElement | null;
+
+    if (kRefsInput) kRefsInput.value = "20";
+    if (recommendationsInput) recommendationsInput.value = "30";
+    if (relatedInput) relatedInput.value = "3";
+    if (llmModelSelect) llmModelSelect.value = "gpt-4o-mini";
+    if (filterByDateCheckbox) filterByDateCheckbox.checked = true;
+
     // Show modal
     modal.classList.remove("hidden");
     modal.classList.add("flex");
@@ -1182,6 +1201,13 @@ class PaperExplorer {
     if (!clearButton) return;
 
     clearButton.addEventListener("click", () => {
+      // Ask for confirmation
+      if (
+        !confirm("Are you sure you want to clear all previous abstract evaluations?")
+      ) {
+        return;
+      }
+
       // Remove all partial evaluation cache entries
       const keys = Object.keys(localStorage);
       const partialKeys = keys.filter(key =>
@@ -1192,10 +1218,6 @@ class PaperExplorer {
       localStorage.removeItem("partial-evaluations-list");
 
       this.loadPreviousAbstractEvaluations();
-
-      // Show brief notification
-      this.showAbstractError("Previous evaluations cleared.", false);
-      setTimeout(() => this.hideAbstractError(), 2000);
     });
   }
 
@@ -1518,16 +1540,6 @@ class PaperExplorer {
           "text-green-700 dark:bg-green-900/20 dark:text-green-300";
       }
       errorEl.classList.remove("hidden");
-    }
-  }
-
-  /**
-   * Hide error message in abstract tab
-   */
-  private hideAbstractError(): void {
-    const errorEl = document.getElementById("abstract-error");
-    if (errorEl) {
-      errorEl.classList.add("hidden");
     }
   }
 
