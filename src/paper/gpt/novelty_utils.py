@@ -1,13 +1,10 @@
 """Utilities for extracting and analyzing novelty labels from GPT logprobs."""
 
-# TODO: Vibe-coded. Review.
-
 from __future__ import annotations
 
 import asyncio
 import logging
 import os
-from enum import Enum
 from math import exp
 from typing import TYPE_CHECKING, Annotated
 
@@ -21,13 +18,6 @@ if TYPE_CHECKING:
     from paper.gpt.run_gpt import LLMClient, TokenProb
 
 logger = logging.getLogger(__name__)
-
-
-class NoveltyFormat(Enum):
-    """Format of novelty output to extract probability from."""
-
-    LABEL = "label"  # Extract from "label": 0/1 field
-    WORD = "word"  # Extract from "novel": yes/no field
 
 
 def find_novelty_label_token(logprobs: list[TokenProb]) -> TokenProb | None:
@@ -109,9 +99,6 @@ def calculate_binary_confidence(
 class NoveltyResult(Immutable):
     """Result of evaluating novelty given paper information and external evidence."""
 
-    explanation: Annotated[
-        str, Field(description="Explanation for the novelty label given.")
-    ]
     is_novel: Annotated[bool, Field("True if the paper is novel, False if it isn't.")]
 
 
@@ -130,7 +117,7 @@ async def get_novelty_probability(
 
     Environment variables:
         PROB_METHOD: What method to use to determine the probability:
-        - "logit": use token logprobs
+        - "logprob": use token logprobs
         - N (int): parameter for best of N method
         - <unset>: returns 0 for "not novel" and 1 for "novel"
 
@@ -139,7 +126,7 @@ async def get_novelty_probability(
         A value of 0.8 means 80% probability the paper is novel.
     """
     match method := os.getenv("PROB_METHOD"):
-        case "logit":
+        case "logprob":
             logger.warning("logprobs")
             prob = get_novelty_probability_logbprob(output.logprobs)
             return output.map(lambda _: prob)
@@ -153,8 +140,33 @@ async def get_novelty_probability(
             return output.map(lambda out: 0 if out.label == 0 else 1)
 
 
-BEST_OF_SYSTEM_PROMPT = ""
-BEST_OF_USER_TEMPLATE = ""
+BEST_OF_SYSTEM_PROMPT = """You are an expert research reviewer evaluating the
+novelty of academic papers. Your task is to assess whether a paper makes novel
+contributions to its field.
+
+A paper is considered novel if it:
+- Introduces genuinely new ideas, methods, or approaches not seen before
+- Makes significant advances beyond incremental improvements
+- Combines existing ideas in fundamentally new ways that create unique value
+- Addresses problems from entirely new perspectives
+
+Focus on the paper's core contributions rather than peripheral details.
+Consider both the supporting evidence (which validates novelty) and
+contradictory evidence (which challenges it), but remember that some
+opposition is normal for truly innovative work.
+
+Make a balanced assessment based on whether the paper's primary contributions
+represent a meaningful advance in the field."""
+
+BEST_OF_USER_TEMPLATE = """Review this analysis of a research paper and
+determine if the paper is novel.
+
+Analysis and evidence:
+{rationale}
+
+Based on this evidence, does the paper make novel contributions to its field?
+Focus on whether the core ideas and approaches are genuinely new and represent
+meaningful advances."""
 
 
 async def get_novelty_best_of_n(
@@ -178,16 +190,16 @@ async def get_novelty_best_of_n(
         client.run(
             NoveltyResult,
             BEST_OF_SYSTEM_PROMPT,
-            BEST_OF_USER_TEMPLATE.format(
-                rationale=output.rationale, label=output.label
-            ),
+            BEST_OF_USER_TEMPLATE.format(rationale=output.rationale),
         )
         for _ in range(n)
     ]
     results = await asyncio.gather(*tasks)
     result = gpt_sequence(r for r in results if gpt_is_valid(r))
-
-    return result.map(lambda results: sum(1 for r in results if r.is_novel) / n)
+    prob = result.map(lambda results: sum(1 for r in results if r.is_novel) / n)
+    labels = [int(x.is_novel) for x in result.result]
+    logger.warning(f"previous:{output.label} - labels:{labels} - prob:{prob.result}")
+    return prob
 
 
 def get_novelty_probability_logbprob(logprobs: list[TokenProb] | None) -> float:
