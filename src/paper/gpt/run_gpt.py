@@ -9,7 +9,16 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast, override
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Literal,
+    Self,
+    TypeGuard,
+    cast,
+    override,
+)
 
 import backoff
 import openai
@@ -147,6 +156,12 @@ class GPTResult[T]:
         """Apply monadic function to inner value and sum the costs."""
         return self.then(func(self.result))
 
+    async def abind[U](
+        self, func: Callable[[T], Awaitable[GPTResult[U]]]
+    ) -> GPTResult[U]:
+        """Apply monadic function to inner value and sum the costs (async version)."""
+        return self.then(await func(self.result))
+
     def nologits(self) -> GPTResult[T]:
         """Unset the `logprobs` field to decrease memory usage.
 
@@ -159,6 +174,52 @@ class GPTResult[T]:
     def unit(value: T) -> GPTResult[T]:
         """New result with cost 0."""
         return GPTResult(result=value, cost=0)
+
+    def lift2[U, V](
+        self, other: GPTResult[U], func: Callable[[T, U], V]
+    ) -> GPTResult[V]:
+        """Combine two results with a binary function."""
+        return GPTResult(
+            result=func(self.result, other.result),
+            cost=self.cost + other.cost,
+            logprobs=other.logprobs,
+        )
+
+    def fix[X](self: GPTResult[X | None], default: Callable[[], X] | X) -> GPTResult[X]:
+        """Fix the result of the GPTResult by replacing None with the result of `default`.
+
+        Args:
+            self: GPTResult to fix containing a value or None.
+            default: Function that returns the default value or the value itself.
+
+        Returns:
+            GPTResult with the result replaced by the default if it was None.
+            If the result is already valid (not None), it returns itself.
+        """
+        if gpt_is_valid(self):
+            return self
+
+        if callable(default):
+            value = cast(X, default())
+        else:
+            value: X = default
+
+        return self.map(lambda _: value)
+
+
+def gpt_is_valid[T](result: GPTResult[T | None]) -> TypeGuard[GPTResult[T]]:
+    """Check if the GPTResult is valid, i.e. has a non-None result."""
+    return result.result is not None
+
+
+def gpt_is_none[T](result: GPTResult[T | None]) -> TypeGuard[GPTResult[None]]:
+    """Check if the GPTResult is empty, i.e. has a None result."""
+    return result.result is None
+
+
+def gpt_is_type[T, U](result: GPTResult[T], type_: type[U]) -> TypeGuard[GPTResult[U]]:
+    """Check if the GPTResult is of a specific type."""
+    return isinstance(result.result, type_)
 
 
 def gpt_unit[T](value: T) -> GPTResult[T]:
