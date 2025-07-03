@@ -150,6 +150,14 @@ def run(
     seed: Annotated[
         int, typer.Option(help="Random seed used for data shuffling and OpenAI API.")
     ] = 0,
+    temperature: Annotated[
+        float,
+        typer.Option(
+            help="Temperature for the GPT model. 0 is deterministic, 1 is more random.",
+            min=0.0,
+            max=2.0,
+        ),
+    ] = 0.0,
     demos: Annotated[
         str | None,
         typer.Option(
@@ -190,6 +198,7 @@ def run(
             continue_papers,
             continue_,
             seed,
+            temperature,
             demos,
             demo_prompt,
             linearisation,
@@ -215,6 +224,7 @@ async def evaluate_papers(
     continue_papers_file: Path | None,
     continue_: bool,
     seed: int,
+    temperature: float,
     demonstrations_key: str | None,
     demo_prompt_key: str,
     linearisation_method: LinearisationMethod,
@@ -242,6 +252,7 @@ async def evaluate_papers(
             are there, we use those results and skip processing them.
         continue_: If True, ignore `continue_papers` and run everything from scratch.
         seed: Random seed used for shuffling and for the GPT call.
+        temperature: Temperature for the GPT model.
         demonstrations_key: Key to the demonstrations file for use with few-shot prompting.
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
@@ -260,7 +271,7 @@ async def evaluate_papers(
 
     dotenv.load_dotenv()
 
-    client = LLMClient.new_env(model=model, seed=seed)
+    client = LLMClient.new_env(model=model, seed=seed, temperature=temperature)
 
     papers = sample(
         PromptResult.unwrap(
