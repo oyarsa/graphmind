@@ -27,13 +27,26 @@ export class JsonPaperDataset {
   async loadDataset(): Promise<GraphResult[]> {
     // Combine base URL with the relative path for proper resolution
     const fullPath = import.meta.env.BASE_URL + this.jsonPath;
+
     const response = await fetch(fullPath);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
+    let jsonData: unknown;
+
+    // Check if the file is gzipped based on the path extension
+    if (this.jsonPath.endsWith(".json.gz")) {
+      const arrayBuffer = await response.arrayBuffer();
+      const jsonString = new TextDecoder().decode(arrayBuffer);
+      jsonData = JSON.parse(jsonString);
+    } else {
+      // Regular JSON parsing
+      jsonData = await response.json();
+    }
+
     const GraphResultArraySchema = z.array(GraphResultSchema);
-    return GraphResultArraySchema.parse(await response.json());
+    return GraphResultArraySchema.parse(jsonData);
   }
 }
 
