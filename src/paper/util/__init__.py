@@ -882,6 +882,20 @@ def extract_task_name(task: Awaitable[Any]) -> str:
 PRINT_TIMERS = os.getenv("TIMERS", "0") == "1"
 
 
+def clamp(x: int, low: int, high: int) -> int:
+    """Clamp `x` to be within the range [low, high].
+
+    Args:
+        x: The value to clamp.
+        low: The lower bound.
+        high: The upper bound.
+
+    Returns:
+        `x` if it's within the range, otherwise `low` or `high`.
+    """
+    return max(low, min(x, high))
+
+
 async def atimer[T](
     awaitable: Awaitable[T], depth: int = 1, *, char: str = "┃", max_width: int = 50
 ) -> T:
@@ -914,8 +928,7 @@ async def atimer[T](
         4: "yellow",
         5: "cyan",
     }
-    clamped_depth = max(1, min(5, depth))
-    colour = colours[clamped_depth]
+    colour = colours[clamp(depth, 1, 5)]
 
     with Timer() as t:
         result = await awaitable
