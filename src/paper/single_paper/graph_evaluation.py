@@ -133,7 +133,7 @@ async def evaluate_paper_graph_novelty(
         logger.warning(f"Paper '{paper.title}': invalid evaluation result")
 
     prob = await get_novelty_probability(client, eval)
-    return eval.lift2(prob, lambda e, p: e.with_prob(p)).nologits()
+    return eval.lift(prob, lambda e, p: e.with_prob(p)).nologits()
 
 
 def construct_graph_result(

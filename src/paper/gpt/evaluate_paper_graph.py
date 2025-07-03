@@ -452,7 +452,7 @@ async def evaluate_paper(
         fixed_label = fix_evaluated_rating(structured.result, target_mode).label
 
         prob = await get_novelty_probability(client, structured)
-        structured = structured.lift2(prob, lambda s, p: s.with_prob(p))
+        structured = structured.lift(prob, lambda s, p: s.with_prob(p))
 
         paper_result = structured.map(
             lambda s: PaperResult.from_s2peer(
@@ -474,7 +474,7 @@ async def evaluate_paper(
             )
         )
 
-    return graph.lift2(
+    return graph.lift(
         paper_result,
         lambda g, r: PromptResult(
             item=GraphResult.from_annotated(

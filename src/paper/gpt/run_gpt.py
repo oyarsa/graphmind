@@ -17,6 +17,7 @@ from typing import (
     Self,
     TypeGuard,
     cast,
+    overload,
     override,
 )
 
@@ -175,16 +176,6 @@ class GPTResult[T]:
         """New result with cost 0."""
         return GPTResult(result=value, cost=0)
 
-    def lift2[U, V](
-        self, other: GPTResult[U], func: Callable[[T, U], V]
-    ) -> GPTResult[V]:
-        """Combine two results with a binary function."""
-        return GPTResult(
-            result=func(self.result, other.result),
-            cost=self.cost + other.cost,
-            logprobs=other.logprobs,
-        )
-
     def fix[X](self: GPTResult[X | None], default: Callable[[], X] | X) -> GPTResult[X]:
         """Fix the result of the GPTResult by replacing None with the result of `default`.
 
@@ -205,6 +196,39 @@ class GPTResult[T]:
             value: X = default
 
         return self.map(lambda _: value)
+
+    @overload
+    def lift[U, V](
+        self, other: GPTResult[U], func: Callable[[T, U], V]
+    ) -> GPTResult[V]: ...
+
+    @overload
+    def lift[U1, U2, V](
+        self,
+        other1: GPTResult[U1],
+        other2: GPTResult[U2],
+        func: Callable[[T, U1, U2], V],
+    ) -> GPTResult[V]: ...
+
+    @overload
+    def lift[U1, U2, U3, V](
+        self,
+        other1: GPTResult[U1],
+        other2: GPTResult[U2],
+        other3: GPTResult[U3],
+        func: Callable[[T, U1, U2, U3], V],
+    ) -> GPTResult[V]: ...
+
+    def lift(self, *args: Any, **_: Any) -> GPTResult[Any]:
+        """Combine multiple results with an n-ary function."""
+        *others, func = args
+
+        values = [self, *others]
+        results = [v.result for v in values]
+        total_cost = sum(v.cost for v in values)
+        logprobs = others[-1].logprobs if others else self.logprobs
+
+        return GPTResult(result=func(*results), cost=total_cost, logprobs=logprobs)
 
 
 def gpt_is_valid[T](result: GPTResult[T | None]) -> TypeGuard[GPTResult[T]]:
