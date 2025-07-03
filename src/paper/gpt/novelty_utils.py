@@ -130,16 +130,18 @@ async def get_novelty_probability(
     """
     match method := os.getenv("PROB_METHOD"):
         case "logprob":
-            prob = get_novelty_probability_logbprob(output.logprobs)
-            return output.map(lambda _: prob)
+            prob = output.map(
+                lambda _: get_novelty_probability_logbprob(output.logprobs)
+            )
         case str() if method.isdigit():
-            return await output.abind(
+            prob = await output.abind(
                 lambda out: get_novelty_best_of_n(client, out, int(method))
             )
         case _:
-            return output.map(lambda out: 0 if out.label == 0 else 1)
+            prob = output.map(lambda out: 0.0 if out.label == 0 else 1.0)
 
-
+    # return prob.map(lambda p: min(p, 0.5) if output.result.label == 0 else max(p, 0.5))
+    return prob
 
 
 BEST_OF_SYSTEM_PROMPT = """You are one of several expert reviewers independently
