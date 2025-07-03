@@ -572,14 +572,24 @@ def _convert_latex_to_markdown(latex_content: str, title: str) -> str | None:
         ]
 
         try:
-            subprocess.run(pandoc_cmd, check=True, timeout=PANDOC_CMD_TIMEOUT)
+            subprocess.run(
+                pandoc_cmd,
+                check=True,
+                timeout=PANDOC_CMD_TIMEOUT,
+                capture_output=True,  # Capture stdout and stderr
+                text=True,  # Return output as string instead of bytes
+            )
             return markdown_file.read_text(errors="ignore")
         except subprocess.TimeoutExpired:
             logger.warning("Command timeout during pandoc conversion. Paper: %s", title)
             return None
         except subprocess.CalledProcessError as e:
             logger.warning(
-                "Error during pandoc conversion. Paper: %s. Error: %s", title, e
+                "Error during pandoc conversion. Paper: %s. Error: %s\nStderr: %s\nStdout: %s",
+                title,
+                e,
+                e.stderr,
+                e.stdout,
             )
             return None
 
