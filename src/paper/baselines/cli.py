@@ -2,9 +2,6 @@
 
 import typer
 
-from paper.baselines import novascore, sft
-from paper.baselines.scimon import cli as scimon
-
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     add_completion=False,
@@ -14,9 +11,28 @@ app = typer.Typer(
     help=__doc__,
 )
 
-app.add_typer(scimon.app, name="scimon")
-app.add_typer(novascore.app, name="nova")
-app.add_typer(sft.app, name="sft")
+
+try:
+    from paper.baselines.scimon import cli as scimon
+
+    app.add_typer(scimon.app, name="scimon")
+except ImportError:
+    pass
+
+
+try:
+    from paper.baselines import novascore
+
+    app.add_typer(novascore.app, name="nova")
+except ImportError:
+    pass
+
+try:
+    from paper.baselines import sft
+
+    app.add_typer(sft.app, name="sft")
+except ImportError:
+    pass
 
 if __name__ == "__main__":
     app()

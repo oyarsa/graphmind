@@ -187,7 +187,7 @@ explicit = true
 [project.optional-dependencies]
 cpu = ["torch>=2.5.1"]
 cuda = ["torch>=2.5.1"]
-sft = [
+baselines = [
     "faiss-cpu>=1.10.0",
     "transformers>=4.46.2",
     "datasets>=3.5.0",
