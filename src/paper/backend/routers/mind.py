@@ -10,6 +10,7 @@ import functools
 import json
 import logging
 import os
+import urllib.parse
 from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
 from enum import StrEnum
 from typing import Annotated, Any
@@ -210,6 +211,7 @@ async def evaluate(
         result.
     """
     client = llm_registry.get_client(llm_model)
+    arxiv_id = urllib.parse.unquote_plus(id)
 
     @measure_memory
     async def go(
@@ -219,7 +221,7 @@ async def evaluate(
             single_paper.process_paper_from_selection(
                 client=client,
                 title=title,
-                arxiv_id=id,
+                arxiv_id=arxiv_id,
                 encoder=encoder,
                 top_k_refs=k_refs,
                 num_recommendations=recommendations,
