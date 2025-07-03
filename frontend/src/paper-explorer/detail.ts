@@ -1235,7 +1235,7 @@ function loadPaperDetail(): void {
         paper.approval === null ? "?" : paper.approval ? "Approved" : "Rejected";
       const approvalClass =
         paper.approval === null
-          ? "text-gray-600 dark:text-gray-400 font-semibold"
+          ? "text-gray-600 dark:text-gray-400 font-semibold cursor-help inline-flex items-center justify-center w-5 h-5 border border-gray-400 dark:border-gray-500 rounded-full text-xs"
           : paper.approval
             ? "text-green-600 dark:text-green-400 font-semibold"
             : "text-red-600 dark:text-red-400 font-semibold";
@@ -1243,9 +1243,45 @@ function loadPaperDetail(): void {
       approvalEl.textContent = approvalText;
       approvalEl.className = approvalClass;
 
+      // Only add tooltip and immediate hover for null approval
       if (paper.approval === null) {
-        approvalEl.title = "Approval decision is not available for arXiv papers";
+        // Remove any existing event listeners to avoid duplicates
+        approvalEl.onmouseenter = null;
+        approvalEl.onmouseleave = null;
+
+        // Create immediate tooltip effect
+        let tooltipDiv: HTMLElement | null = null;
+
+        approvalEl.onmouseenter = () => {
+          // Create custom tooltip for immediate display
+          tooltipDiv = document.createElement("div");
+          tooltipDiv.textContent =
+            "Approval decision is not available for arXiv papers";
+          tooltipDiv.className =
+            "absolute z-50 bg-gray-900 text-white text-xs rounded px-2 py-1 pointer-events-none whitespace-nowrap";
+          tooltipDiv.style.bottom = "100%";
+          tooltipDiv.style.left = "50%";
+          tooltipDiv.style.transform = "translateX(-50%)";
+          tooltipDiv.style.marginBottom = "4px";
+
+          approvalEl.style.position = "relative";
+          approvalEl.appendChild(tooltipDiv);
+        };
+
+        approvalEl.onmouseleave = () => {
+          if (tooltipDiv) {
+            tooltipDiv.remove();
+            tooltipDiv = null;
+          }
+        };
+      } else {
+        // Clear everything for defined approval values
+        approvalEl.onmouseenter = null;
+        approvalEl.onmouseleave = null;
       }
+
+      // Always clear the title attribute to prevent native tooltip
+      approvalEl.title = "";
     }
     if (ratingEl) {
       // Check if structured evaluation has probability
