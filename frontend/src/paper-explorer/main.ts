@@ -423,7 +423,7 @@ class PaperExplorer {
                       dark:hover:text-blue-300 underline transition-colors
                       duration-200"
                onclick="event.stopPropagation();">
-              View on arXiv
+              arXiv
             </a>
           </div>
         </div>
