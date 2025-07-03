@@ -5,6 +5,7 @@ import io
 import itertools
 import logging
 import tarfile
+import urllib.parse
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Annotated
@@ -221,8 +222,15 @@ def _batch_search_arxiv(
 
 
 def arxiv_id_from_url(url: str) -> str:
-    """Parse arXiv paper ID from the URL (abstract, PDF, etc.)."""
-    return url.split("/")[-1]
+    """Parse arXiv paper ID from the URL (`arxiv.Result` entry_id).
+
+    Format of the URL: `https://arxiv.org/abs/{id}` (or http).
+    """
+    # e.g. "/abs/1234.5678v2/"
+    path = urllib.parse.unquote(urllib.parse.urlparse(url).path)
+    if not path.startswith("/abs/"):
+        return url.split("/")[-1]
+    return path.removeprefix("/abs/").strip()
 
 
 def similar_titles(title1: str, title2: str) -> bool:
