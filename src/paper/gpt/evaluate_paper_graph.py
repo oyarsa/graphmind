@@ -60,7 +60,9 @@ from paper.gpt.run_gpt import (
     GPTResult,
     LLMClient,
     append_intermediate_result_async,
+    gpt_is_type,
     gpt_sequence,
+    gpt_unit,
     init_remaining_items,
 )
 from paper.types import PaperSource
@@ -410,23 +412,21 @@ async def evaluate_paper(
             graph_system_prompt,
             graph_prompt_text,
         )
-        graph = (
-            graph_result.result.to_graph(title=paper.title, abstract=paper.abstract)
-            if graph_result.result
+        graph = graph_result.map(
+            lambda r: r.to_graph(title=paper.title, abstract=paper.abstract)
+            if r
             else Graph.empty()
         )
-        graph_cost = graph_result.cost
 
-        if graph.is_empty():
+        if graph.result.is_empty():
             logger.warning(f"Paper '{paper.title}': invalid Graph")
     else:
         graph_system_prompt = None
         graph_prompt_text = None
-        graph_cost = 0
-        graph = Graph.empty()
+        graph = gpt_unit(Graph.empty())
 
     eval_prompt_text = format_eval_template(
-        eval_prompt, paper, graph, demonstrations, linearisation_method, sources
+        eval_prompt, paper, graph.result, demonstrations, linearisation_method, sources
     )
     eval_system_prompt = eval_prompt.system
 
@@ -447,35 +447,43 @@ async def evaluate_paper(
     if not eval_result.result or not eval_result.result.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid evaluation result")
 
-    if isinstance(eval_result.result, GPTStructuredRaw):
-        structured = (
-            eval_result.result.with_prob(get_novelty_probability(eval_result.logprobs))
-            or GPTStructuredRaw.error()
-        )
+    if gpt_is_type(eval_result, GPTStructuredRaw):
+        structured = eval_result
+        fixed_label = fix_evaluated_rating(structured.result, target_mode).label
 
-        fixed_label = fix_evaluated_rating(structured, target_mode).label
-        paper_result = PaperResult.from_s2peer(
-            paper.paper.paper,
-            fixed_label,
-            structured.rationale,
-            structured_evaluation=structured,
+        prob = await get_novelty_probability(client, structured)
+        structured = structured.lift2(prob, lambda s, p: s.with_prob(p))
+
+        paper_result = structured.map(
+            lambda s: PaperResult.from_s2peer(
+                paper=paper.paper.paper,
+                y_pred=fixed_label,
+                rationale_pred=s.rationale,
+                structured_evaluation=s,
+            )
         )
     else:
-        evaluated = fix_evaluated_rating(
-            eval_result.result or GPTFull.error(), target_mode
+        evaluated = eval_result.fix(GPTFull.error).map(
+            lambda r: fix_evaluated_rating(r, target_mode)
         )
-        paper_result = PaperResult.from_s2peer(
-            paper.paper.paper, evaluated.label, evaluated.rationale
+        paper_result = evaluated.map(
+            lambda e: PaperResult.from_s2peer(
+                paper=paper.paper.paper,
+                y_pred=e.label,
+                rationale_pred=e.rationale,
+            )
         )
 
-    return GPTResult(
-        result=PromptResult(
+    return graph.lift2(
+        paper_result,
+        lambda g, r: PromptResult(
             item=GraphResult.from_annotated(
-                annotated=paper, result=paper_result, graph=graph
+                annotated=paper,
+                result=r,
+                graph=g,
             ),
             prompt=Prompt(system=eval_system_prompt, user=eval_prompt_text),
         ),
-        cost=graph_cost + eval_result.cost,
     )
 
 

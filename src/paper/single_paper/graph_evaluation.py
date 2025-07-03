@@ -12,7 +12,11 @@ from typing import Self
 
 from paper import gpt
 from paper.evaluation_metrics import TargetMode
-from paper.gpt.evaluate_paper import GPTStructured, fix_evaluated_rating
+from paper.gpt.evaluate_paper import (
+    GPTStructured,
+    GPTStructuredRaw,
+    fix_evaluated_rating,
+)
 from paper.gpt.evaluate_paper_graph import (
     GRAPH_EVAL_USER_PROMPTS,
     GRAPH_EXTRACT_USER_PROMPTS,
@@ -118,21 +122,18 @@ async def evaluate_paper_graph_novelty(
         Evaluation result wrapped in GPTResult.
     """
     result = await client.run(
-        GPTStructured,
+        GPTStructuredRaw,
         eval_prompt.system,
         format_eval_template(eval_prompt, paper, graph, demonstrations),
         logprobs=True,
         top_logprobs=3,
     )
-    eval = result.map(lambda r: r or GPTStructured.error())
+    eval = result.fix(GPTStructuredRaw.error)
     if not eval.result.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid evaluation result")
 
-    # TODO: Change novelty method to N samples and percentage: positive / N
-    # Just make a global/environment constant two swap between the two.
-    return eval.map(
-        lambda r: r.with_prob(get_novelty_probability(eval.logprobs))
-    ).nologits()
+    prob = await get_novelty_probability(client, eval)
+    return eval.lift2(prob, lambda e, p: e.with_prob(p)).nologits()
 
 
 def construct_graph_result(
