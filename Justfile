@@ -78,8 +78,8 @@ version bump="major":
     set -euo pipefail
 
     # Bump the Python version first
-    uv version --bump {{bump}}
-    uv lock
+    uv version --bump {{bump}} 2> /dev/null || true
+    uv lock 2> /dev/null
 
     # Get the new version from uv
     new_version=$(uv version | cut -d' ' -f2)
