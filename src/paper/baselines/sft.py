@@ -15,7 +15,7 @@ import random
 import warnings
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Annotated, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Literal, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -33,18 +33,12 @@ from pydantic import BaseModel, Field
 from paper.types import Immutable
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-from transformers import (
-    AutoModelForSequenceClassification,
-    AutoTokenizer,
-    BatchEncoding,
-    BitsAndBytesConfig,
-    DataCollatorWithPadding,
-    EvalPrediction,
-    PreTrainedModel,
-    PreTrainedTokenizer,
-    Trainer,
-    TrainingArguments,
-)
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers.data.data_collator import DataCollatorWithPadding
+from transformers.modeling_utils import PreTrainedModel
+from transformers.trainer import Trainer
+from transformers.training_args import TrainingArguments
+from transformers.utils.quantization_config import BitsAndBytesConfig
 
 from paper import gpt
 from paper import peerread as pr
@@ -58,6 +52,11 @@ from paper.evaluation_metrics import (
 from paper.util import describe, metrics, sample, setup_logging
 from paper.util.cli import Choice
 from paper.util.serde import load_data, save_data, write_file_bytes
+
+if TYPE_CHECKING:
+    from transformers.tokenization_utils import PreTrainedTokenizer
+    from transformers.tokenization_utils_base import BatchEncoding
+    from transformers.trainer_utils import EvalPrediction
 
 logger = logging.getLogger(__name__)
 
