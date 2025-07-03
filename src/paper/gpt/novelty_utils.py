@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import random
 from math import exp
 from typing import TYPE_CHECKING, Annotated
 
@@ -101,7 +102,7 @@ class NoveltyResult(Immutable):
     """Result of evaluating novelty given paper information and external evidence."""
 
     rating: Annotated[
-        int, Field("Novelty rating when 0 is not novel at all and 5 is very novel.")
+        int, Field("Novelty rating when 1 is not novel at all and 4 is very novel.")
     ]
 
 
@@ -120,9 +121,9 @@ async def get_novelty_probability(
 
     Environment variables:
         PROB_METHOD: What method to use to determine the probability:
-        - "logprob": use token logprobs
-        - N (int): parameter for best of N method
-        - <unset>: returns 0 for "not novel" and 1 for "novel"
+        - N: parameter for best of N method
+        - <unset>: best of N with N=5
+        - 0: returns 0 for "not novel" and 1 for "novel"
 
     Returns:
         Probability as a float between 0 and 1. Returns 0.5 if can't calculate.
@@ -140,41 +141,43 @@ async def get_novelty_probability(
         case _:
             prob = output.map(lambda out: 0.0 if out.label == 0 else 1.0)
 
-    # return prob.map(lambda p: min(p, 0.5) if output.result.label == 0 else max(p, 0.5))
-    return prob
+    return prob.map(lambda p: min(p, 0.4) if output.result.label == 0 else max(p, 0.6))
 
 
-BEST_OF_SYSTEM_PROMPT = """You are one of several expert reviewers independently
-assessing a paper's novelty on a scale from 1 to 5.
+BEST_OF_SYSTEM_PROMPT = """You are an expert reviewer assessing a paper's novelty on a
+scale from 1 to 4. You are given an expert assessment of the paper containing a summary
+and key evidence arguing for and against the novelty. Your task is to translate this
+assessment into a rating.
 
 Rating scale:
-1 - Not novel: Ideas clearly exist in prior work with minimal changes
-2 - Slightly novel: Minor variations or incremental improvements on existing work
-3 - Moderately novel: Notable advances with some original elements
-4 - Quite novel: Significant new contributions with substantial originality
-5 - Highly novel: Groundbreaking ideas that represent major advances
+1 - Not novel: Use this when contradictory evidence outweighs supporting evidence
+2 - Somewhat novel: Use this only when evidence is truly balanced
+3 - Novel: Use this when supporting evidence outweighs contradictory evidence
+4 - Very novel: Use this when supporting evidence is strong with minimal concerns
 
-Consider factors like:
-- The significance of the core contribution
-- How much the work differs from prior art
-- Whether similar ideas exist but in different contexts
-- The potential impact of the proposed approach
+IMPORTANT DISTRIBUTION GUIDANCE:
+- For "not novel" papers: most papers should be rated 1.
+- For "novel" papers: most papers should be rated 4.
+- Ratings 2 and 3 are for genuinely ambiguous cases, not default choices
 
-Different reviewers may reasonably assign different ratings based on how they
-weigh these factors. Make your own independent judgment."""
+Look at the balance of evidence. If one side clearly dominates, use the extreme
+rating (1 or 4). Only use middle ratings when the evidence is genuinely mixed.
+"""
 
 BEST_OF_USER_TEMPLATE = """As an independent reviewer, rate this paper's
-novelty on a scale from 1 to 5 based on the following analysis.
+novelty on a scale from 1 to 4 based on the following analysis.
 
 Analysis and evidence:
 {rationale}
 
-Different reviewers may weigh the supporting and contradictory evidence
-differently, leading to different ratings. Some may focus more on technical
-advances, others on conceptual novelty, and others on practical impact.
+Initial assessment: {label_text}
 
-Based on your independent assessment, what rating from 1 to 5 best reflects
+This initial assessment suggests the paper leans toward being {label_text}.
+
+Based on your independent assessment, what rating from 1 to 4 best reflects
 this paper's novelty?"""
+
+_RNG = random.Random(0)
 
 
 async def get_novelty_best_of_n(
@@ -200,15 +203,20 @@ async def get_novelty_best_of_n(
         client.run(
             NoveltyResult,
             BEST_OF_SYSTEM_PROMPT,
-            BEST_OF_USER_TEMPLATE.format(rationale=output.rationale),
+            BEST_OF_USER_TEMPLATE.format(
+                rationale=output.rationale,
+                label_text="not novel" if output.label == 0 else "novel",
+            ),
             temperature=1,
+            seed=_RNG.randint(1, 100),
         )
         for _ in range(n)
     ]
     task_results = await asyncio.gather(*tasks)
     valid_results = gpt_sequence(r for r in task_results if gpt_is_valid(r))
+    logger.warning(f"{[x.rating for x in valid_results.result]}")
     return valid_results.map(
-        lambda results: sum(clamp(r.rating, 1, 5) for r in results) / (5 * len(results))
+        lambda results: sum(clamp(r.rating, 1, 4) for r in results) / (4 * len(results))
     )
 
 
