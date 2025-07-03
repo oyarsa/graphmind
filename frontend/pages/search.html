@@ -194,7 +194,7 @@
                   id="arxiv-search-input"
                   name="arxiv-search"
                   autocomplete="on"
-                  placeholder="Enter paper title to search arXiv..."
+                  placeholder="Enter the paper title to search arXiv..."
                   class="w-full rounded-lg border border-gray-400 bg-gray-100/50 px-4
                     py-3 pr-10 text-black placeholder-gray-600 transition-all
                     duration-200 focus:border-teal-500 focus:ring-2
@@ -267,7 +267,7 @@
               class="text-xs text-gray-500 underline hover:text-gray-700
                 dark:text-gray-500 dark:hover:text-gray-300"
             >
-              Clear previous results
+              Clear previous evaluations
             </button>
           </div>
         </div>
@@ -289,7 +289,7 @@
                   id="abstract-title"
                   name="title"
                   rows="2"
-                  placeholder="Enter the paper title..."
+                  placeholder="Enter the paper title"
                   class="w-full resize-none rounded-lg border border-gray-400
                     bg-gray-100/50 px-4 py-3 text-black placeholder-gray-600
                     transition-all duration-200 focus:border-teal-500 focus:ring-2
@@ -312,7 +312,7 @@
                   id="abstract-text"
                   name="abstract"
                   rows="8"
-                  placeholder="Enter the paper abstract..."
+                  placeholder="Enter the paper abstract"
                   class="w-full resize-y rounded-lg border border-gray-400
                     bg-gray-100/50 px-4 py-3 text-black placeholder-gray-600
                     transition-all duration-200 focus:border-teal-500 focus:ring-2
@@ -425,7 +425,7 @@
               class="hidden rounded-lg border border-red-500 bg-red-100/50 p-4
                 text-red-700 dark:bg-red-900/20 dark:text-red-300"
             >
-              <strong>Error:</strong> <span id="abstract-error-message"></span>
+              <span id="abstract-error-message"></span>
             </div>
 
             <div
@@ -643,6 +643,7 @@
               value="20"
               min="10"
               max="50"
+              required
               class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 shadow-sm
                 focus:border-blue-500 focus:ring-blue-500 focus:outline-none
                 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -664,6 +665,7 @@
               value="30"
               min="5"
               max="50"
+              required
               class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 shadow-sm
                 focus:border-blue-500 focus:ring-blue-500 focus:outline-none
                 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -685,6 +687,7 @@
               value="3"
               min="1"
               max="10"
+              required
               class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 shadow-sm
                 focus:border-blue-500 focus:ring-blue-500 focus:outline-none
                 dark:border-gray-600 dark:bg-gray-700 dark:text-white"

@@ -76,18 +76,18 @@ function createRelatedPaperCard(
       </div>
 
       <div class="flex-shrink-0 ml-4 flex items-center gap-2">
-        <!-- Go back button (shown when expanded) -->
+        <!-- Go up button (shown when expanded) -->
         <button
           class="go-back-btn flex items-center gap-1 px-2 py-1 text-xs
                  bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200
                  dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
-          title="Go back to Evaluation section"
+          title="Go up to Evaluation section"
           style="display: none;"
         >
           <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
           </svg>
-          Go back
+          Go up
         </button>
 
         <svg
@@ -714,8 +714,12 @@ function setupRelatedPapersFiltering(
 ): void {
   const filtersContainer = document.getElementById("related-papers-filters");
   const filterChips = document.querySelectorAll(".filter-chip");
-  const showAllButton = document.getElementById("filter-show-all");
-  const hideAllButton = document.getElementById("filter-hide-all");
+  const showAllButton = document.getElementById(
+    "filter-show-all",
+  ) as HTMLButtonElement | null;
+  const hideAllButton = document.getElementById(
+    "filter-hide-all",
+  ) as HTMLButtonElement | null;
 
   if (!filtersContainer) return;
 
@@ -802,6 +806,33 @@ function setupRelatedPapersFiltering(
         );
       }
     });
+
+    // Update Show All/Hide All button states
+    const allFiltersActive =
+      activeFilters.size === 4 &&
+      activeFilters.has("background") &&
+      activeFilters.has("target") &&
+      activeFilters.has("supporting") &&
+      activeFilters.has("contrasting");
+    const noFiltersActive = activeFilters.size === 0;
+
+    if (showAllButton) {
+      showAllButton.disabled = allFiltersActive;
+      if (allFiltersActive) {
+        showAllButton.classList.add("opacity-50", "cursor-not-allowed");
+      } else {
+        showAllButton.classList.remove("opacity-50", "cursor-not-allowed");
+      }
+    }
+
+    if (hideAllButton) {
+      hideAllButton.disabled = noFiltersActive;
+      if (noFiltersActive) {
+        hideAllButton.classList.add("opacity-50", "cursor-not-allowed");
+      } else {
+        hideAllButton.classList.remove("opacity-50", "cursor-not-allowed");
+      }
+    }
   };
 
   // Add click handlers for filter chips
@@ -1045,7 +1076,9 @@ function setupRelatedPaperLinkHandlers(): void {
       event.preventDefault();
 
       // First, enable all paper types to ensure the target paper is visible
-      const showAllButton = document.getElementById("filter-show-all");
+      const showAllButton = document.getElementById(
+        "filter-show-all",
+      ) as HTMLButtonElement | null;
       if (showAllButton) {
         showAllButton.click();
       }
@@ -1199,7 +1232,7 @@ function loadPaperDetail(): void {
     if (abstractEl) abstractEl.innerHTML = renderLatex(paper.abstract);
     if (approvalEl) {
       const approvalText =
-        paper.approval === null ? "-" : paper.approval ? "Approved" : "Rejected";
+        paper.approval === null ? "?" : paper.approval ? "Approved" : "Rejected";
       const approvalClass =
         paper.approval === null
           ? "text-gray-600 dark:text-gray-400 font-semibold"
@@ -1209,6 +1242,10 @@ function loadPaperDetail(): void {
 
       approvalEl.textContent = approvalText;
       approvalEl.className = approvalClass;
+
+      if (paper.approval === null) {
+        approvalEl.title = "Approval decision is not available for arXiv papers";
+      }
     }
     if (ratingEl) {
       // Check if structured evaluation has probability

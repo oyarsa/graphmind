@@ -308,7 +308,7 @@ def parse_arxiv_latex(
         latex_paper = process_latex(splitter, arxiv_result.arxiv_title, tmp_file)
         if not latex_paper:
             raise RuntimeError(
-                f"Failed to parse LaTeX for paper: {arxiv_result.arxiv_title}"
+                f"Could not fetch paper content: {arxiv_result.arxiv_title}"
             )
 
         # Convert to PeerRead format using the helper function

@@ -89,6 +89,7 @@ export class ArxivPaperService {
 export class PaperEvaluator {
   private eventSource: EventSource | null = null;
   private isEvaluating = false;
+  private currentReject?: (reason?: unknown) => void;
 
   onConnected?: (message: string) => void;
   onProgress?: (message: string, progress: number) => void;
@@ -126,6 +127,9 @@ export class PaperEvaluator {
     this.isEvaluating = true;
 
     return new Promise((resolve, reject) => {
+      // Store reject function for cancellation
+      this.currentReject = reject;
+
       const eventSource = this.eventSource;
       if (!eventSource) {
         reject(new Error("EventSource not initialized"));
@@ -234,7 +238,7 @@ export class PaperEvaluator {
    * Stop the current evaluation
    */
   stopEvaluation(): void {
-    this.cleanup();
+    this.cleanupWithRejection("Evaluation cancelled by user");
   }
 
   /**
@@ -250,6 +254,15 @@ export class PaperEvaluator {
       this.eventSource = null;
     }
     this.isEvaluating = false;
+    this.currentReject = undefined;
+  }
+
+  private cleanupWithRejection(reason: string): void {
+    if (this.currentReject) {
+      this.currentReject(new Error(reason));
+      this.currentReject = undefined;
+    }
+    this.cleanup();
   }
 
   private calculateProgress(message: string): number {
@@ -269,7 +282,12 @@ export class PaperEvaluator {
     );
 
     if (currentPhase >= 0) {
-      return ((currentPhase + 1) / phases.length) * 100;
+      // Show progress for the current phase starting (not completing)
+      // Don't immediately jump to 100% on the last phase
+      if (currentPhase === phases.length - 1) {
+        return 90; // Show 90% when final phase starts, reserve 100% for completion
+      }
+      return (currentPhase / phases.length) * 100 + (100 / phases.length) * 0.1;
     }
 
     return 0;
@@ -297,6 +315,7 @@ export interface PartialEvaluationParams {
 export class PartialPaperEvaluator {
   private eventSource: EventSource | null = null;
   private isEvaluating = false;
+  private currentReject?: (reason?: unknown) => void;
 
   onConnected?: (message: string) => void;
   onProgress?: (message: string, progress: number) => void;
@@ -337,6 +356,9 @@ export class PartialPaperEvaluator {
     this.isEvaluating = true;
 
     return new Promise((resolve, reject) => {
+      // Store reject function for cancellation
+      this.currentReject = reject;
+
       const eventSource = this.eventSource;
       if (!eventSource) {
         reject(new Error("EventSource not initialized"));
@@ -447,7 +469,7 @@ export class PartialPaperEvaluator {
    * Stop the current evaluation
    */
   stopEvaluation(): void {
-    this.cleanup();
+    this.cleanupWithRejection("Evaluation cancelled by user");
   }
 
   /**
@@ -463,6 +485,15 @@ export class PartialPaperEvaluator {
       this.eventSource = null;
     }
     this.isEvaluating = false;
+    this.currentReject = undefined;
+  }
+
+  private cleanupWithRejection(reason: string): void {
+    if (this.currentReject) {
+      this.currentReject(new Error(reason));
+      this.currentReject = undefined;
+    }
+    this.cleanup();
   }
 
   private calculateProgress(message: string): number {
@@ -480,7 +511,12 @@ export class PartialPaperEvaluator {
     );
 
     if (currentPhase >= 0) {
-      return ((currentPhase + 1) / phases.length) * 100;
+      // Show progress for the current phase starting (not completing)
+      // Don't immediately jump to 100% on the last phase
+      if (currentPhase === phases.length - 1) {
+        return 90; // Show 90% when final phase starts, reserve 100% for completion
+      }
+      return (currentPhase / phases.length) * 100 + (100 / phases.length) * 0.1;
     }
 
     return 0;

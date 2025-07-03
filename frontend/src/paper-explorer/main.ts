@@ -529,7 +529,9 @@ class PaperExplorer {
 
       // Update result count for cached papers
       if (resultCount) {
-        resultCount.textContent = `${cachedPapers.length} previous result${cachedPapers.length === 1 ? "" : "s"}`;
+        resultCount.textContent =
+          `${cachedPapers.length}` +
+          ` previous evaluation${cachedPapers.length === 1 ? "" : "s"}`;
       }
     } else {
       // No cached papers - clear the display
@@ -667,7 +669,7 @@ class PaperExplorer {
           </p>
 
           <!-- Cancel Button -->
-          <button id="cancel-evaluation"
+          <button id="cancel-arxiv-evaluation"
                   class="mt-4 px-4 py-2 text-sm bg-gray-500 hover:bg-gray-600 text-white
                          rounded-lg transition-colors">
             Cancel
@@ -679,7 +681,7 @@ class PaperExplorer {
     document.body.appendChild(modal);
 
     // Add cancel button handler
-    const cancelButton = document.getElementById("cancel-evaluation");
+    const cancelButton = document.getElementById("cancel-arxiv-evaluation");
     if (cancelButton) {
       cancelButton.addEventListener("click", () => {
         if (this.paperEvaluator) {
@@ -1051,6 +1053,9 @@ class PaperExplorer {
       // Start evaluation with custom parameters
       const evalResult = await this.paperEvaluator.startEvaluation(params);
 
+      // Update progress to 100% on completion
+      this.updateEvaluationProgress("Evaluation complete", 100);
+
       // Store the result in localStorage cache
       const paperId = evalResult.result.paper.id;
       console.log(
@@ -1065,6 +1070,13 @@ class PaperExplorer {
       const encodedId = encodeURIComponent(paperId);
       window.location.href = `/paper-hypergraph/pages/detail.html?id=${encodedId}`;
     } catch (error) {
+      // Check if error is due to user cancellation
+      if (error instanceof Error && error.message.includes("cancelled by user")) {
+        console.log("Evaluation cancelled by user");
+        // Modal is already hidden by cancel button handler, no need to show error
+        return;
+      }
+
       console.error("Error evaluating paper:", error);
       this.showEvaluationError("Failed to evaluate paper. Please try again.");
     }
@@ -1347,6 +1359,9 @@ class PaperExplorer {
       // Start evaluation
       const result = await this.partialEvaluator.startEvaluation(params);
 
+      // Update progress to 100% on completion
+      this.updateAbstractEvaluationProgress("Evaluation complete", 100);
+
       // Hide progress modal
       this.hideAbstractEvaluationModal();
 
@@ -1372,6 +1387,13 @@ class PaperExplorer {
       // Navigate to partial detail page
       window.location.href = `/paper-hypergraph/pages/partial-detail.html?id=${result.id}`;
     } catch (error) {
+      // Check if error is due to user cancellation
+      if (error instanceof Error && error.message.includes("cancelled by user")) {
+        console.log("Abstract evaluation cancelled by user");
+        // Modal is already hidden by cancel button handler, no need to show error
+        return;
+      }
+
       this.hideAbstractEvaluationModal();
       console.error("Error evaluating abstract:", error);
       this.showAbstractError("Failed to evaluate abstract. Please try again.");
@@ -1482,7 +1504,8 @@ class PaperExplorer {
     const errorMessage = document.getElementById("abstract-error-message");
 
     if (errorEl && errorMessage) {
-      errorMessage.textContent = message;
+      const prefix = isError ? "Error: " : "";
+      errorMessage.innerHTML = `<strong>${prefix}</strong>${message}`;
       if (isError) {
         errorEl.className =
           "rounded-lg border border-red-500 bg-red-100/50 p-4 " +

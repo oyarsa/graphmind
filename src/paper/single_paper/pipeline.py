@@ -129,7 +129,7 @@ async def annotate_paper_pipeline(
     )
 
     if not paper_with_s2_refs or not recommended_papers:
-        raise ValueError("No recommended found")
+        raise ValueError("Could not find any related papers")
 
     # Phase 2: Extract annotations from all papers and classify contexts in parallel
     if callback:
