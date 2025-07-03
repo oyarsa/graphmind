@@ -12,6 +12,7 @@ from pydantic import Field
 
 from paper.gpt.run_gpt import GPTResult, gpt_is_valid, gpt_sequence
 from paper.types import Immutable
+from paper.util import clamp
 
 if TYPE_CHECKING:
     from paper.gpt.evaluate_paper import GPTStructuredRaw
@@ -99,7 +100,9 @@ def calculate_binary_confidence(
 class NoveltyResult(Immutable):
     """Result of evaluating novelty given paper information and external evidence."""
 
-    is_novel: Annotated[bool, Field("True if the paper is novel, False if it isn't.")]
+    rating: Annotated[
+        int, Field("Novelty rating when 0 is not novel at all and 5 is very novel.")
+    ]
 
 
 async def get_novelty_probability(
@@ -127,46 +130,49 @@ async def get_novelty_probability(
     """
     match method := os.getenv("PROB_METHOD"):
         case "logprob":
-            logger.warning("logprobs")
             prob = get_novelty_probability_logbprob(output.logprobs)
             return output.map(lambda _: prob)
         case str() if method.isdigit():
-            logger.warning("N=%s", method)
             return await output.abind(
                 lambda out: get_novelty_best_of_n(client, out, int(method))
             )
         case _:
-            logger.warning("default")
             return output.map(lambda out: 0 if out.label == 0 else 1)
 
 
-BEST_OF_SYSTEM_PROMPT = """You are an expert research reviewer evaluating the
-novelty of academic papers. Your task is to assess whether a paper makes novel
-contributions to its field.
 
-A paper is considered novel if it:
-- Introduces genuinely new ideas, methods, or approaches not seen before
-- Makes significant advances beyond incremental improvements
-- Combines existing ideas in fundamentally new ways that create unique value
-- Addresses problems from entirely new perspectives
 
-Focus on the paper's core contributions rather than peripheral details.
-Consider both the supporting evidence (which validates novelty) and
-contradictory evidence (which challenges it), but remember that some
-opposition is normal for truly innovative work.
+BEST_OF_SYSTEM_PROMPT = """You are one of several expert reviewers independently
+assessing a paper's novelty on a scale from 1 to 5.
 
-Make a balanced assessment based on whether the paper's primary contributions
-represent a meaningful advance in the field."""
+Rating scale:
+1 - Not novel: Ideas clearly exist in prior work with minimal changes
+2 - Slightly novel: Minor variations or incremental improvements on existing work
+3 - Moderately novel: Notable advances with some original elements
+4 - Quite novel: Significant new contributions with substantial originality
+5 - Highly novel: Groundbreaking ideas that represent major advances
 
-BEST_OF_USER_TEMPLATE = """Review this analysis of a research paper and
-determine if the paper is novel.
+Consider factors like:
+- The significance of the core contribution
+- How much the work differs from prior art
+- Whether similar ideas exist but in different contexts
+- The potential impact of the proposed approach
+
+Different reviewers may reasonably assign different ratings based on how they
+weigh these factors. Make your own independent judgment."""
+
+BEST_OF_USER_TEMPLATE = """As an independent reviewer, rate this paper's
+novelty on a scale from 1 to 5 based on the following analysis.
 
 Analysis and evidence:
 {rationale}
 
-Based on this evidence, does the paper make novel contributions to its field?
-Focus on whether the core ideas and approaches are genuinely new and represent
-meaningful advances."""
+Different reviewers may weigh the supporting and contradictory evidence
+differently, leading to different ratings. Some may focus more on technical
+advances, others on conceptual novelty, and others on practical impact.
+
+Based on your independent assessment, what rating from 1 to 5 best reflects
+this paper's novelty?"""
 
 
 async def get_novelty_best_of_n(
@@ -175,8 +181,8 @@ async def get_novelty_best_of_n(
     """Get novelty probability from re-prompting the LLM for best of N results.
 
     We use another round of calls to the LLM with a custom prompt to ask it to review
-    the evidence highlighted by the evaluation result, and generate a probability from
-    that.
+    the evidence highlighted by the evaluation result, and generate a novelty rating
+    from 1-5. The ratings are then averaged to produce a probability.
 
     Args:
         client: LLM client to use to generate best of N results.
@@ -184,7 +190,9 @@ async def get_novelty_best_of_n(
         n: Number of results to prompt for.
 
     Returns:
-        Probability as a float between 0 and 1, calculate as #positive / N.
+        Probability as a float between 0 and 1, calculated as the average of all
+        ratings divided by 5. For example, ratings [2, 3, 3, 4, 3] would yield
+        (2+3+3+4+3)/(5*5) = 15/25 = 0.6.
     """
     tasks = [
         client.run(
@@ -195,12 +203,11 @@ async def get_novelty_best_of_n(
         )
         for _ in range(n)
     ]
-    results = await asyncio.gather(*tasks)
-    result = gpt_sequence(r for r in results if gpt_is_valid(r))
-    prob = result.map(lambda results: sum(1 for r in results if r.is_novel) / n)
-    labels = [int(x.is_novel) for x in result.result]
-    logger.warning(f"previous:{output.label} - labels:{labels} - prob:{prob.result}")
-    return prob
+    task_results = await asyncio.gather(*tasks)
+    valid_results = gpt_sequence(r for r in task_results if gpt_is_valid(r))
+    return valid_results.map(
+        lambda results: sum(clamp(r.rating, 1, 5) for r in results) / (5 * len(results))
+    )
 
 
 def get_novelty_probability_logbprob(logprobs: list[TokenProb] | None) -> float:
