@@ -274,6 +274,11 @@ async def evaluate_papers(
 
     client = LLMClient.new_env(model=model, seed=seed, temperature=temperature)
 
+    if "gemini" in model:
+        # Maximum batch size for Geminmi is 25 because there's a hard limit on the number
+        # of concurrent requests. That limit is 50, but we're playing it safe here.
+        batch_size = min(batch_size, 25)
+
     papers = sample(
         PromptResult.unwrap(
             load_data(paper_file, PromptResult[PaperWithRelatedSummary])
