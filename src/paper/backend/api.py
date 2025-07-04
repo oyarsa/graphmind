@@ -7,7 +7,6 @@ CORS middleware, and routes for the Paper Explorer API.
 import datetime as dt
 import logging
 import os
-from importlib import metadata
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from paper.backend.dependencies import ENABLE_NETWORK, lifespan
 from paper.backend.model import HealthCheck
 from paper.backend.routers import mind
+from paper.util import VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,7 @@ app = FastAPI(
     title="Paper Explorer",
     description="API for the Paper Explorer tool. Allows exploration of papers and"
     " their relationships to others, including citations and semantic similarity.",
+    version=VERSION,
 )
 _setup_cors(app)
 
@@ -81,5 +82,5 @@ async def health() -> HealthCheck:
     return HealthCheck(
         status="ok",
         timestamp=dt.datetime.now(dt.UTC).isoformat(),
-        version=metadata.version("paper"),
+        version=VERSION,
     )

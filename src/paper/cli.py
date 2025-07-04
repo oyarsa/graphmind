@@ -10,6 +10,7 @@ from paper.orc import cli as orc
 from paper.peerread import cli as peerread
 from paper.peter import cli as peter
 from paper.semantic_scholar import cli as s2
+from paper.util import VERSION
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -31,6 +32,26 @@ app.command(no_args_is_help=True, name="findtype")(find_type.main)
 app.command(no_args_is_help=True, name="demo_data")(demo_data.main)
 app.command(no_args_is_help=False, name="deps")(pipeline_viz.main)
 app.command(no_args_is_help=False, name="single")(single_paper.main)
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        print(f"paper {VERSION}")
+        raise typer.Exit
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        None,
+        "--version",
+        "-V",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show the application version and exit.",
+    ),
+) -> None:
+    """My awesome CLI application."""
 
 
 if __name__ == "__main__":

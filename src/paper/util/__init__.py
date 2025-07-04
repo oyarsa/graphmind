@@ -16,7 +16,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Awaitable, Callable, Coroutine, Iterable, Mapping, Sequence
-from importlib import resources
+from importlib import metadata, resources
 from io import StringIO
 from pathlib import Path
 from types import TracebackType
@@ -35,6 +35,9 @@ if TYPE_CHECKING:
     from paper.util.typing import TSeq
 
 logger = logging.getLogger(__name__)
+
+
+VERSION = metadata.version("paper")
 
 
 def fuzzy_ratio(s1: str, s2: str) -> int:
