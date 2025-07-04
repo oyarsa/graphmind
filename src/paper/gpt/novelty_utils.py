@@ -136,7 +136,6 @@ async def get_novelty_best_of_n(
     ]
     task_results = await asyncio.gather(*tasks)
     valid_results = gpt_sequence(r for r in task_results if gpt_is_valid(r))
-    logger.warning(f"{[x.rating for x in valid_results.result]}")
     return valid_results.map(
         lambda results: sum(clamp(r.rating, 1, 4) for r in results) / (4 * len(results))
     )
