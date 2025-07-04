@@ -117,7 +117,7 @@ class PaperExplorer {
       const paper = graphResult.paper;
       const paperLink = document.createElement("a");
       const encodedId = encodeURIComponent(paper.id);
-      paperLink.href = `/paper-hypergraph/pages/detail.html?id=${encodedId}`;
+      paperLink.href = `/graphmind/pages/detail.html?id=${encodedId}`;
       paperLink.className =
         "block rounded-lg bg-gray-100/50 dark:bg-gray-900/50 border border-gray-300" +
         " dark:border-gray-700 p-6 transition-all duration-200 hover:border-teal-500/50" +
@@ -579,7 +579,7 @@ class PaperExplorer {
     const cachedItem = item as CachedPaperSearchItem;
     if (cachedItem._isCached && cachedItem._cachedPaperId) {
       const encodedId = encodeURIComponent(cachedItem._cachedPaperId);
-      window.location.href = `/paper-hypergraph/pages/detail.html?id=${encodedId}`;
+      window.location.href = `/graphmind/pages/detail.html?id=${encodedId}`;
       return;
     }
 
@@ -616,7 +616,7 @@ class PaperExplorer {
               `[Cache] HIT! Found paper ${item.arxiv_id} in cache with key ${key}`,
             );
             const encodedId = encodeURIComponent(graphResult.paper.id);
-            window.location.href = `/paper-hypergraph/pages/detail.html?id=${encodedId}`;
+            window.location.href = `/graphmind/pages/detail.html?id=${encodedId}`;
             return;
           }
         }
@@ -1089,7 +1089,7 @@ class PaperExplorer {
 
       // Navigate to detail page
       const encodedId = encodeURIComponent(paperId);
-      window.location.href = `/paper-hypergraph/pages/detail.html?id=${encodedId}`;
+      window.location.href = `/graphmind/pages/detail.html?id=${encodedId}`;
     } catch (error) {
       // Check if error is due to user cancellation
       if (error instanceof Error && error.message.includes("cancelled by user")) {
@@ -1292,7 +1292,7 @@ class PaperExplorer {
         : "text-red-600 dark:text-red-400";
 
     card.innerHTML = `
-      <div class="cursor-pointer" onclick="window.location.href='/paper-hypergraph/pages/partial-detail.html?id=${evaluation.id}'">
+      <div class="cursor-pointer" onclick="window.location.href='/graphmind/pages/partial-detail.html?id=${evaluation.id}'">
         <h4 class="mb-2 line-clamp-2 font-semibold text-gray-900 dark:text-gray-100">
           ${renderLatex(evaluation.title)}
         </h4>
@@ -1409,7 +1409,7 @@ class PaperExplorer {
       this.showAbstractCompletionNotification(params.title);
 
       // Navigate to partial detail page
-      window.location.href = `/paper-hypergraph/pages/partial-detail.html?id=${result.id}`;
+      window.location.href = `/graphmind/pages/partial-detail.html?id=${result.id}`;
     } catch (error) {
       // Check if error is due to user cancellation
       if (error instanceof Error && error.message.includes("cancelled by user")) {

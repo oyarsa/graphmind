@@ -6,7 +6,7 @@ const link = (link: string, txt: string): string => `
 `;
 const sep = "•";
 const api = link("https://graphmind.fly.dev/docs", "API docs");
-const github = link("https://github.com/oyarsa/paper-hypergraph", "Source Code");
+const github = link("https://github.com/oyarsa/graphmind", "Source Code");
 const license = "AGPL-3.0-or-later";
 
 /**

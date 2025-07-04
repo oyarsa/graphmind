@@ -8,7 +8,7 @@ const packageJson = JSON.parse(readFileSync("./package.json", "utf-8")) as {
 };
 
 export default defineConfig({
-  base: "/paper-hypergraph/",
+  base: "/graphmind/",
   root: ".",
   publicDir: "public",
   resolve: {

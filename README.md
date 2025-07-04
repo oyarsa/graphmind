@@ -133,8 +133,8 @@ See [REST API](./src/paper/backend/README.md) for more information.
 
 This project is licensed under the AGPL v3 or later:
 
-    paper-hypergraph: evaluating paper novelty and feasibility
-    Copyright (C) 2024-2025 The paper-hypergraph contributors
+    graphmind: evaluating paper novelty and feasibility
+    Copyright (C) 2024-2025 The graphmind contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
