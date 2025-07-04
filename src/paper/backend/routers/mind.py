@@ -13,7 +13,7 @@ import os
 import urllib.parse
 from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated, Any, Never
 
 import psutil
 import rich
@@ -128,7 +128,16 @@ class LLMModel(StrEnum):
     Gemini2Flash = "gemini-2.0-flash"
 
 
-@router.get("/evaluate")
+# This endpoint, like `evaluation_partial_options` below, is necessary to add the
+# output schema to the generate docs. Because SSE endpoints return string-typed
+# responses, they can't document themselves.
+@router.options("/evaluate", summary="Evaluate Schema Reference")
+async def evaluation_options() -> single_paper.EvaluationResult:
+    """This shows the schema of objects streamed by GET /evaluate."""
+    raise HTTPException(501, "Use GET method for the actual SSE stream")
+
+
+@router.get("/evaluate", summary="Evaluate (SSE)")
 @rate_limiter.limit("5/minute")
 async def evaluate(
     request: Request,
@@ -169,6 +178,8 @@ async def evaluate(
     - Related paper discovery
 
     Returns progress updates via Server-Sent Events (SSE), followed by the final result.
+
+    See OPTIONS /mind/evaluate from the result schema.
     """
     client = llm_registry.get_client(llm_model)
     arxiv_id = urllib.parse.unquote_plus(id)
@@ -270,7 +281,14 @@ async def evaluate(
     )
 
 
-@router.get("/evaluate-partial")
+# See `evaluation_options` for why this exists.
+@router.options("/evaluate-partial", summary="Evaluate Partial Schema Reference")
+async def evaluation_partial_options() -> PartialEvaluationResponse:
+    """This shows the schema of objects streamed by GET /evaluate-partial."""
+    raise HTTPException(501, "Use GET method for the actual SSE stream")
+
+
+@router.get("/evaluate-partial", summary="Evaluate Partial (SSE)")
 @rate_limiter.limit("5/minute")
 async def evaluate_partial(
     request: Request,
@@ -305,6 +323,8 @@ async def evaluate_partial(
     evaluation with reduced accuracy compared to the full evaluation pipeline.
 
     Returns progress updates via Server-Sent Events (SSE), followed by the final result.
+
+    See OPTIONS /mind/evaluate-partial from the result schema.
     """
     client = llm_registry.get_client(llm_model)
 
