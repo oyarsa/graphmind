@@ -241,12 +241,18 @@ def main(
         Path,
         typer.Option("--output", "-o", help="Output JSON file."),
     ],
-    limit: Annotated[
+    limit_before: Annotated[
         int,
         typer.Option(
-            "--limit", "-n", help="How many items to sample. Defaults to all."
+            help="How many items to sample before querying. Defaults to all.",
         ),
-    ] = 10,
+    ] = 0,
+    limit_after: Annotated[
+        int,
+        typer.Option(
+            help="How many items to sample from query results. Defaults to all.",
+        ),
+    ] = 0,
     seed: Annotated[int, typer.Option(help="Random seed used for sampling")] = 0,
     fetch_arxiv: Annotated[
         bool,
@@ -268,7 +274,7 @@ def main(
         and is_rationale_valid(p.rationale_pred)
         and p.related
     ]
-    papers_sampled = sample(papers_valid, limit, rng)
+    papers_sampled = sample(papers_valid, limit_before, rng)
 
     logger.info(f"{len(papers) = }")
     logger.info(f"{len(papers_valid) = }")
@@ -322,7 +328,8 @@ def main(
         ),
     )
 
-    save_data(output_file, papers_converted, compress=Compress.AUTO)
+    papers_converted_sampled = sample(papers_converted, limit_after, rng)
+    save_data(output_file, papers_converted_sampled, compress=Compress.AUTO)
 
 
 if __name__ == "__main__":
