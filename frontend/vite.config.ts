@@ -19,7 +19,6 @@ export default defineConfig({
   plugins: [tailwindcss()],
   define: {
     VERSION: JSON.stringify(packageJson.version),
-    BUILD_TIME: JSON.stringify(new Date().toISOString()),
   },
   build: {
     rollupOptions: {

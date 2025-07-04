@@ -1,10 +1,12 @@
-const sep = "•";
-const github = `
-  <a href="https://github.com/oyarsa/paper-hypergraph"
+const link = (link: string, txt: string): string => `
+  <a href="${link}"
      rel="noopener noreferrer"
      class="hover:text-gray-600 dark:hover:text-gray-400 underline"
-     >GitHub</a>
+     >${txt}</a>
 `;
+const sep = "•";
+const api = link("https://graphmind.fly.dev/docs", "API docs");
+const github = link("https://github.com/oyarsa/paper-hypergraph", "Source Code");
 const license = "AGPL-3.0-or-later";
 
 /**
@@ -15,7 +17,7 @@ export function createFooter(): HTMLElement {
   footer.className =
     "mt-auto py-2 text-center text-xs text-gray-500 dark:text-gray-600";
 
-  footer.innerHTML = `v${VERSION} ${sep} ${BUILD_TIME} ${sep} ${github} ${sep} ${license}`;
+  footer.innerHTML = `v${VERSION} ${sep} ${api} ${sep} ${github} ${sep} ${license}`;
 
   return footer;
 }
