@@ -1,4 +1,4 @@
-# Paper Hypergraph: evaluating paper novelty and feasibility
+# GraphMind: evaluating paper novelty and feasibility
 
 ## Getting started
 
