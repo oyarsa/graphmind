@@ -971,7 +971,7 @@ class PaperExplorer {
     if (kRefsInput) kRefsInput.value = "20";
     if (recommendationsInput) recommendationsInput.value = "30";
     if (relatedInput) relatedInput.value = "3";
-    if (llmModelSelect) llmModelSelect.value = "gpt-4o-mini";
+    if (llmModelSelect) llmModelSelect.value = "gemini-2.0-flash";
     if (filterByDateCheckbox) filterByDateCheckbox.checked = true;
 
     // Show modal
@@ -1187,7 +1187,7 @@ class PaperExplorer {
       abstract,
       recommendations: parseInt(recommendationsElement.value) || 20,
       related: parseInt(relatedElement.value) || 3,
-      llm_model: llmModelElement.value || "gpt-4o-mini",
+      llm_model: llmModelElement.value || "gemini-2.0-flash",
     };
 
     await this.evaluateAbstract(params);
