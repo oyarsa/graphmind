@@ -160,7 +160,7 @@ async def evaluate(
     ] = 3,
     llm_model: Annotated[
         LLMModel, Query(description="LLM model to use.")
-    ] = LLMModel.GPT4oMini,
+    ] = LLMModel.Gemini2Flash,
     filter_by_date: Annotated[
         bool,
         Query(
@@ -302,7 +302,7 @@ async def evaluate_partial(
     ] = 20,
     llm_model: Annotated[
         LLMModel, Query(description="LLM model to use.")
-    ] = LLMModel.GPT4oMini,
+    ] = LLMModel.Gemini2Flash,
     related: Annotated[
         int,
         Query(
@@ -349,6 +349,7 @@ async def evaluate_partial(
                 status_code=500, detail=f"Evaluation failed: {e}"
             ) from e
 
+    # TODO: Remove duplication for SSE stuff between evaluate and evaluate-partial
     def sse_event(event: str | None, data: Any) -> str:
         """Format an SSE frame."""
         payload = json.dumps(data)

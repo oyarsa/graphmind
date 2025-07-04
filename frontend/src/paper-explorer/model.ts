@@ -336,7 +336,7 @@ export const EvaluationParamsSchema = z.object({
   llm_model: z
     .enum(["gpt-4o", "gpt-4o-mini", "gemini-2.0-flash"])
     .optional()
-    .default("gpt-4o-mini"),
+    .default("gemini-2.0-flash"),
   /** Filter recommended papers to only include those published before the main paper */
   filter_by_date: z.boolean().optional().default(true),
   /** Random seed for reproducible results */
