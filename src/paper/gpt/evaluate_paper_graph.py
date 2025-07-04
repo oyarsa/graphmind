@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import random
 import tomllib
 from collections.abc import Iterable, Sequence
@@ -483,15 +482,7 @@ async def evaluate_paper(
         eval_type = GPTFull
         target_mode = TargetMode.BIN
 
-    # TODO: Use some proper method of configuration
-    use_logprob = os.getenv("PROB_METHOD") == "logprob"
-    eval_result = await client.run(
-        eval_type,
-        eval_system_prompt,
-        eval_prompt_text,
-        logprobs=use_logprob,
-        top_logprobs=3 if use_logprob else None,
-    )
+    eval_result = await client.run(eval_type, eval_system_prompt, eval_prompt_text)
 
     if not eval_result.result or not eval_result.result.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid evaluation result")

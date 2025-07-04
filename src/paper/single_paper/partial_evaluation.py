@@ -363,8 +363,6 @@ async def evaluate_partial_paper(
         GPTStructuredRaw,
         eval_prompt.system,
         format_eval_template(eval_prompt, title, abstract, related, demonstrations),
-        logprobs=True,
-        top_logprobs=3,
     )
 
     if result.result is None:
@@ -372,7 +370,7 @@ async def evaluate_partial_paper(
 
     eval = result.fix(GPTStructuredRaw.error)
     prob = await get_novelty_probability(client, eval)
-    return eval.lift(prob, lambda s, p: s.with_prob(p)).nologits()
+    return eval.lift(prob, lambda s, p: s.with_prob(p))
 
 
 def format_eval_template(

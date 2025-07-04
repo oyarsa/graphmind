@@ -10,7 +10,6 @@ from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
-    TYPE_CHECKING,
     Any,
     ClassVar,
     Literal,
@@ -35,9 +34,6 @@ from paper.types import Identifiable
 from paper.util import ensure_envvar, log_memory_usage, mustenv
 from paper.util.rate_limiter import ChatRateLimiter
 from paper.util.serde import Compress, load_data_jsonl, save_data_jsonl
-
-if TYPE_CHECKING:
-    from openai.types.chat.chat_completion import ChoiceLogprobs
 
 logger = logging.getLogger(__name__)
 
@@ -106,52 +102,19 @@ def _calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
 
 
 @dataclass(frozen=True, kw_only=True)
-class TopLogprob:
-    """Alternative token with its log probability.
-
-    Attributes:
-        token: Alternative LLM token.
-        logprob: Log probability of the token.
-    """
-
-    token: str
-    logprob: float
-
-
-@dataclass(frozen=True, kw_only=True)
-class TokenProb:
-    """Represents a token and its log probability.
-
-    Attributes:
-        token: LLM token.
-        logprob: Log probability of the token, as returned by the LLM API.
-        top_logprobs: Alternative tokens at this position with their probabilities.
-    """
-
-    token: str
-    logprob: float
-    top_logprobs: list[TopLogprob] | None = None
-
-
-@dataclass(frozen=True, kw_only=True)
 class GPTResult[T]:
     """Result of a GPT request and its full API cost."""
 
     result: T
     cost: float
-    logprobs: list[TokenProb] | None = None
 
     def map[U](self, func: Callable[[T], U]) -> GPTResult[U]:
         """Apply `func` to inner value and return new result."""
-        return GPTResult(
-            result=func(self.result), cost=self.cost, logprobs=self.logprobs
-        )
+        return GPTResult(result=func(self.result), cost=self.cost)
 
     def then[U](self, other: GPTResult[U]) -> GPTResult[U]:
         """Combine two request costs with the second result."""
-        return GPTResult(
-            result=other.result, cost=self.cost + other.cost, logprobs=other.logprobs
-        )
+        return GPTResult(result=other.result, cost=self.cost + other.cost)
 
     def bind[U](self, func: Callable[[T], GPTResult[U]]) -> GPTResult[U]:
         """Apply monadic function to inner value and sum the costs."""
@@ -162,14 +125,6 @@ class GPTResult[T]:
     ) -> GPTResult[U]:
         """Apply monadic function to inner value and sum the costs (async version)."""
         return self.then(await func(self.result))
-
-    def nologits(self) -> GPTResult[T]:
-        """Unset the `logprobs` field to decrease memory usage.
-
-        We need to return logprobs from the `LLMClient.run` methods in some cases, but
-        most of the usage code doesn't need it, and they cost quite a lot of RAM.
-        """
-        return GPTResult(result=self.result, cost=self.cost, logprobs=None)
 
     @staticmethod
     def unit(value: T) -> GPTResult[T]:
@@ -224,11 +179,10 @@ class GPTResult[T]:
         *others, func = args
 
         values = [self, *others]
-        results = [v.result for v in values]
+        results = (v.result for v in values)
         total_cost = sum(v.cost for v in values)
-        logprobs = others[-1].logprobs if others else self.logprobs
 
-        return GPTResult(result=func(*results), cost=total_cost, logprobs=logprobs)
+        return GPTResult(result=func(*results), cost=total_cost)
 
 
 def gpt_is_valid[T](result: GPTResult[T | None]) -> TypeGuard[GPTResult[T]]:
@@ -573,8 +527,6 @@ class LLMClient(ABC):
         system_prompt: str,
         user_prompt: str,
         max_tokens: int | None = None,
-        logprobs: bool | None = None,
-        top_logprobs: int | None = None,
         temperature: float | None = None,
         seed: int | None = None,
     ) -> GPTResult[T | None]:
@@ -587,8 +539,6 @@ class LLMClient(ABC):
         user_prompt: str,
         max_tokens: int | None = None,
         search_level: Literal["low", "medium", "high"] | None = None,
-        logprobs: bool | None = None,
-        top_logprobs: int | None = None,
         temperature: float | None = None,
         seed: int | None = None,
     ) -> GPTResult[str | None]:
@@ -741,8 +691,6 @@ class OpenAIClient(LLMClient):
         system_prompt: str,
         user_prompt: str,
         max_tokens: int | None = None,
-        logprobs: bool | None = None,
-        top_logprobs: int | None = None,
         temperature: float | None = None,
         seed: int | None = None,
     ) -> GPTResult[T | None]:
@@ -763,9 +711,6 @@ class OpenAIClient(LLMClient):
             temperature: Temperature for the model, between 0 and 2. Defaults to 0 to
                 try to get consistent outputs from the model.
             max_tokens: Maximum number of tokens in the output.
-            logprobs: Whether to include the logprobs in the result.
-            top_logprobs: Number of most likely tokens to return at each position.
-                Must be between 0 and 20. Only used if logprobs is True.
 
         Returns:
             Result with the cost for the request and the result object parsed. If there
@@ -789,8 +734,6 @@ class OpenAIClient(LLMClient):
                 if temperature is not None
                 else self.temperature,
                 max_tokens=max_tokens,
-                logprobs=logprobs,
-                top_logprobs=top_logprobs,
             )
         except Exception:
             logger.exception("Error when calling OpenAI. Gave up on retrying")
@@ -805,11 +748,7 @@ class OpenAIClient(LLMClient):
             cost = 0
 
         choice = completion.choices[0]
-        return GPTResult(
-            result=choice.message.parsed,
-            cost=cost,
-            logprobs=tokenprob_from_gpt_choiceprob(choice.logprobs),
-        )
+        return GPTResult(result=choice.message.parsed, cost=cost)
 
     @override
     async def plain(
@@ -818,8 +757,6 @@ class OpenAIClient(LLMClient):
         user_prompt: str,
         max_tokens: int | None = None,
         search_level: Literal["low", "medium", "high"] | None = None,
-        logprobs: bool | None = None,
-        top_logprobs: int | None = None,
         temperature: float | None = None,
         seed: int | None = None,
     ) -> GPTResult[str | None]:
@@ -835,8 +772,6 @@ class OpenAIClient(LLMClient):
                 Search results will be given as part of the textual response only.
                 See https://platform.openai.com/docs/guides/tools-web-search?api-mode=chat
                 for more information.
-            logprobs: Whether to include the logprobs in the result.
-            top_logprobs: Number of most likely tokens to return at each position.
             temperature: Temperature override for this specific request.
             seed: Seed override for this specific request.
 
@@ -871,8 +806,6 @@ class OpenAIClient(LLMClient):
                 temperature=final_temperature,
                 max_tokens=max_tokens,
                 web_search_options=search_options,
-                logprobs=logprobs,
-                top_logprobs=top_logprobs,
             )
         except Exception:
             logger.exception("Error when calling OpenAI. Gave up on retrying")
@@ -888,16 +821,10 @@ class OpenAIClient(LLMClient):
 
         try:
             content = completion.choices[0].message.content
-            choicelogprobs = completion.choices[0].logprobs
         except Exception:
             content = None
-            choicelogprobs = None
 
-        return GPTResult(
-            result=content,
-            cost=cost,
-            logprobs=tokenprob_from_gpt_choiceprob(choicelogprobs),
-        )
+        return GPTResult(result=content, cost=cost)
 
     @backoff.on_exception(
         backoff.expo,
@@ -955,37 +882,6 @@ class OpenAIClient(LLMClient):
         except Exception as e:
             logger.warning("Non-API error: %s", e)
             return None
-
-
-def tokenprob_from_gpt_choiceprob(
-    choiceprob: ChoiceLogprobs | None,
-) -> list[TokenProb] | None:
-    """Convert GPT-specific ChoiceLogprobs to LLM-agnostic format.
-
-    Args:
-        choiceprob: Result from the GPT API when given `logprobs=True`.
-
-    Returns:
-        List of TokenProb objects with token and logprob values if the input is valid.
-        Otherwise, None.
-    """
-    if choiceprob is None or choiceprob.content is None:
-        return None
-
-    result: list[TokenProb] = []
-    for c in choiceprob.content:
-        # Extract top_logprobs if available
-        top_alternatives = (
-            [TopLogprob(token=t.token, logprob=t.logprob) for t in c.top_logprobs]
-            if c.top_logprobs
-            else None
-        )
-
-        result.append(
-            TokenProb(token=c.token, logprob=c.logprob, top_logprobs=top_alternatives)
-        )
-
-    return result
 
 
 def prompts_to_messages(system_prompt: str, user_prompt: str) -> list[dict[str, str]]:
@@ -1145,8 +1041,6 @@ class GeminiClient(LLMClient):
         system_prompt: str,
         user_prompt: str,
         max_tokens: int | None = None,
-        logprobs: bool | None = None,
-        top_logprobs: int | None = None,
         temperature: float | None = None,
         seed: int | None = None,
     ) -> GPTResult[T | None]:
@@ -1161,8 +1055,6 @@ class GeminiClient(LLMClient):
             system_prompt: Text for the system prompt (role: system).
             user_prompt: Text for the user prompt (role: user).
             max_tokens: Maximum number of tokens in the output.
-            logprobs: Ignored (Gemini does not support logprobs).
-            top_logprobs: Ignored (Gemini does not support logprobs).
             temperature: Temperature override for this specific request.
             seed: Seed override for this specific request.
 
@@ -1220,8 +1112,6 @@ class GeminiClient(LLMClient):
         user_prompt: str,
         max_tokens: int | None = None,
         search_level: Literal["low", "medium", "high"] | None = None,
-        logprobs: bool | None = None,
-        top_logprobs: int | None = None,
         temperature: float | None = None,
         seed: int | None = None,
     ) -> GPTResult[str | None]:
@@ -1236,8 +1126,6 @@ class GeminiClient(LLMClient):
             search_level: If given, use the web search tool with this context size.
                 Gemini doesn't support specifying the level, so any setting will have
                 the same effect.
-            logprobs: Ignored (Gemini does not support logprobs).
-            top_logprobs: Ignored (Gemini does not support logprobs).
             temperature: Temperature override for this specific request.
             seed: Seed override for this specific request.
 
