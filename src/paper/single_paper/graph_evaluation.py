@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Self
+from typing import Annotated, Self
+
+from pydantic import Field
 
 from paper import gpt
 from paper.evaluation_metrics import TargetMode
@@ -38,8 +40,8 @@ type ProgressCallback = Callable[[str], Awaitable[None]]
 class EvaluationResult(Immutable):
     """Evaluation result with cost."""
 
-    result: gpt.GraphResult
-    cost: float
+    result: Annotated[gpt.GraphResult, Field(description="Evaluated graph result.")]
+    cost: Annotated[float, Field(description="Total cost of using the LLM API.")]
 
     @classmethod
     def from_(cls, result: GPTResult[gpt.GraphResult]) -> Self:

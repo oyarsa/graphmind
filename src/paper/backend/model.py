@@ -178,35 +178,15 @@ class RelatedPaperNeighbourhood(Model):
 
 
 class HealthCheck(Model):
-    """Health check response model.
+    """Health check response model."""
 
-    Attributes:
-        status: Health status indicator.
-        timestamp: ISO timestamp of the check.
-        version: Project version.
-    """
-
-    status: str
-    timestamp: str
-    version: str
+    status: Annotated[str, Field(description="Health status indicator.")]
+    timestamp: Annotated[str, Field(description="ISO timestamp of the check.")]
+    version: Annotated[str, Field(description="Project version.")]
 
 
 class PartialEvaluationResponse(Model):
-    """Response from partial paper evaluation.
-
-    Attributes:
-        title: Evaluated paper title.
-        abstract: Evaluated paper abstract.
-        keywords: Search keywords extracted from the title and abstract.
-        background: Background extracted from the abstract.
-        target: Target extracted from the abstract.
-        label: Binary novelty score (1=novel, 0=not novel).
-        probability: Percentage chance of the paper being novel.
-        paper_summary: Brief summary of paper contributions.
-        supporting_evidence: Evidence supporting novelty.
-        contradictory_evidence: Evidence contradicting novelty.
-        conclusion: Final assessment conclusion.
-    """
+    """Response from partial paper evaluation."""
 
     title: Annotated[str, Field(description="Paper title.")]
     abstract: Annotated[str, Field(description="Paper abstract.")]

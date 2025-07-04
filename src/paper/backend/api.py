@@ -76,8 +76,7 @@ app.include_router(mind.router)
 async def health() -> HealthCheck:
     """Health check endpoint.
 
-    Returns:
-        HealthCheck response with status, timestamp, and version.
+    Returns HealthCheck response with status, timestamp, and version.
     """
     return HealthCheck(
         status="ok",

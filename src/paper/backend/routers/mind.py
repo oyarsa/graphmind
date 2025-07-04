@@ -19,7 +19,7 @@ import psutil
 import rich
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from paper import single_paper
 from paper.backend.dependencies import EncoderDep, LimiterDep, LLMRegistryDep
@@ -69,35 +69,21 @@ def measure_memory[**P, R](
 
 
 class PaperSearchItem(BaseModel):
-    """Individual paper item from arXiv search results.
+    """Individual paper item from arXiv search results."""
 
-    Attributes:
-        title: Paper title.
-        arxiv_id: arXiv identifier.
-        abstract: Paper abstract text.
-        year: Publication year (may be None).
-        authors: List of author names.
-    """
-
-    title: str
-    arxiv_id: str
-    abstract: str
-    year: int | None
-    authors: Sequence[str]
+    title: Annotated[str, Field(description="Paper title.")]
+    arxiv_id: Annotated[str, Field(description="arXiv identifier.")]
+    abstract: Annotated[str, Field(description="Paper abstract text.")]
+    year: Annotated[int | None, Field(description="Publication year, if available.")]
+    authors: Annotated[Sequence[str], Field(description="List of author names.")]
 
 
 class PaperSearchResults(BaseModel):
-    """Collection of paper search results from arXiv.
+    """Collection of paper search results from arXiv."""
 
-    Attributes:
-        items: List of matching papers.
-        query: Original search query.
-        total: Total number of results returned.
-    """
-
-    items: Sequence[PaperSearchItem]
-    query: str
-    total: int
+    items: Annotated[Sequence[PaperSearchItem], Field(description="Items retrieved.")]
+    query: Annotated[str, Field(description="Title used for the query.")]
+    total: Annotated[int, Field(description="Number of items retrieved.")]
 
 
 @router.get("/search")
@@ -113,14 +99,6 @@ async def search(
     """Search papers on arXiv by title or abstract.
 
     Performs live search against the arXiv API to find relevant papers.
-
-    Args:
-        request: Incoming request. Necessary for the rate limiter.
-        q: Search query string for paper titles.
-        limit: Maximum number of results to return (1-100).
-
-    Returns:
-        Search results containing matching papers from arXiv.
     """
     search_results = await single_paper.search_arxiv_papers(q, max_results=limit)
     if search_results is None:
@@ -191,24 +169,6 @@ async def evaluate(
     - Related paper discovery
 
     Returns progress updates via Server-Sent Events (SSE), followed by the final result.
-
-    Args:
-        request: Incoming request. Necessary for the rate limiter.
-        limiter: Rate limiter dependency for API calls.
-        llm_registry: Registry of LLM clients.
-        encoder: Text encoder for embeddings.
-        id: arXiv ID of the paper to analyse.
-        title: Title of the paper on arXiv.
-        k_refs: Number of references to analyse (1-10).
-        recommendations: Number of recommended papers to generate (5-50).
-        related: Number of related papers to retrieve per type (1-10).
-        llm_model: LLM model to use for analysis.
-        filter_by_date: Filter recommended papers to only include those published
-            before the main paper.
-
-    Returns:
-        StreamingResponse with Server-Sent Events containing progress updates and final
-        result.
     """
     client = llm_registry.get_client(llm_model)
     arxiv_id = urllib.parse.unquote_plus(id)
@@ -344,23 +304,7 @@ async def evaluate_partial(
     It uses Semantic Scholar search instead of citation analysis and provides faster
     evaluation with reduced accuracy compared to the full evaluation pipeline.
 
-    Args:
-        request: Incoming request. Necessary for the rate limiter.
-        llm_registry: Registry of LLM clients.
-        encoder: Text encoder for embeddings.
-        limiter: Rate limiter dependency for Semantic Scholar API calls.
-        title: Paper title.
-        abstract: Paper abstract.
-        recommendations: Number of related papers to find (5-50).
-        llm_model: LLM model to use for evaluation.
-        related: Number of related papers to retrieve per type (1-10).
-
-    Returns:
-        StreamingResponse with Server-Sent Events containing progress updates and final
-        evaluation result.
-
-    Raises:
-        HTTPException: If evaluation fails or invalid input provided.
+    Returns progress updates via Server-Sent Events (SSE), followed by the final result.
     """
     client = llm_registry.get_client(llm_model)
 
