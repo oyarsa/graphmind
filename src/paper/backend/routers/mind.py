@@ -13,7 +13,7 @@ import os
 import urllib.parse
 from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
 from enum import StrEnum
-from typing import Annotated, Any, Never
+from typing import Annotated, Any
 
 import psutil
 import rich
