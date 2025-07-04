@@ -1,6 +1,6 @@
 [project]
 name = "paper"
-version = "24.0.1"
+version = "24.1.0"
 description = "Add your description here"
 readme = "README.md"
 license = {text = "AGPL-3.0-or-later"}
