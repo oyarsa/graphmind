@@ -33,8 +33,24 @@ export class JsonPaperDataset {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
+    let jsonData: unknown;
+
+    try {
+      // Try parsing as JSON first (for local/decompressed case)
+      jsonData = await response.clone().json();
+    } catch {
+      // If that fails, try decompressing (for GitHub Pages case)
+      const compressedData = await response.arrayBuffer();
+      const decompressedStream = new Response(
+        new Blob([compressedData])
+          .stream()
+          .pipeThrough(new DecompressionStream("gzip")),
+      );
+      jsonData = await decompressedStream.json();
+    }
+
     const GraphResultArraySchema = z.array(GraphResultSchema);
-    return GraphResultArraySchema.parse(await response.json());
+    return GraphResultArraySchema.parse(jsonData);
   }
 }
 
