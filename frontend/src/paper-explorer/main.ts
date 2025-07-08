@@ -11,15 +11,15 @@ import {
   GraphResult,
   PaperSearchResults,
   PaperSearchItem,
-  PartialEvaluationResponse,
+  AbstractEvaluationResponse,
 } from "./model";
 import { renderLatex, getArxivUrl, formatConferenceName } from "./helpers";
 import {
   JsonPaperDataset,
   ArxivPaperService,
   PaperEvaluator,
-  PartialPaperEvaluator,
-  PartialEvaluationParams,
+  AbstractPaperEvaluator,
+  AbstractEvaluationParams,
 } from "./services";
 import { addFooter } from "../footer";
 
@@ -40,7 +40,7 @@ class PaperExplorer {
     private jsonDataset: JsonPaperDataset,
     private arxivService: ArxivPaperService | null = null,
     private paperEvaluator: PaperEvaluator | null = null,
-    private partialEvaluator: PartialPaperEvaluator | null = null,
+    private abstractEvaluator: AbstractPaperEvaluator | null = null,
   ) {}
 
   async initialize(): Promise<void> {
@@ -50,7 +50,7 @@ class PaperExplorer {
       this.setupClearCacheButton();
       this.setupEvaluationModal();
     }
-    if (this.partialEvaluator) {
+    if (this.abstractEvaluator) {
       this.setupAbstractTab();
     }
     this.setupHelpModal();
@@ -1182,7 +1182,7 @@ class PaperExplorer {
       return;
     }
 
-    const params: PartialEvaluationParams = {
+    const params: AbstractEvaluationParams = {
       title,
       abstract,
       recommendations: parseInt(recommendationsElement.value) || 20,
@@ -1208,14 +1208,14 @@ class PaperExplorer {
         return;
       }
 
-      // Remove all partial evaluation cache entries
+      // Remove all abstract evaluation cache entries
       const keys = Object.keys(localStorage);
-      const partialKeys = keys.filter(key =>
-        key.startsWith("partial-evaluation-cache-"),
+      const abstractKeys = keys.filter(key =>
+        key.startsWith("abstract-evaluation-cache-"),
       );
 
-      partialKeys.forEach(key => localStorage.removeItem(key));
-      localStorage.removeItem("partial-evaluations-list");
+      abstractKeys.forEach(key => localStorage.removeItem(key));
+      localStorage.removeItem("abstract-evaluations-list");
 
       this.loadPreviousAbstractEvaluations();
     });
@@ -1231,7 +1231,7 @@ class PaperExplorer {
     if (!container || !noResults) return;
 
     // Get list of evaluation IDs from localStorage
-    const evaluationsList = localStorage.getItem("partial-evaluations-list");
+    const evaluationsList = localStorage.getItem("abstract-evaluations-list");
     const evaluationIds: string[] = evaluationsList
       ? (JSON.parse(evaluationsList) as string[])
       : [];
@@ -1248,13 +1248,13 @@ class PaperExplorer {
     container.classList.remove("hidden");
 
     // Load and display each evaluation
-    const evaluations: PartialEvaluationResponse[] = [];
+    const evaluations: AbstractEvaluationResponse[] = [];
 
     for (const id of evaluationIds) {
       try {
-        const cached = localStorage.getItem(`partial-evaluation-cache-${id}`);
+        const cached = localStorage.getItem(`abstract-evaluation-cache-${id}`);
         if (cached) {
-          const evaluation = JSON.parse(cached) as PartialEvaluationResponse;
+          const evaluation = JSON.parse(cached) as AbstractEvaluationResponse;
           evaluations.push(evaluation);
         }
       } catch (error) {
@@ -1275,7 +1275,7 @@ class PaperExplorer {
    * Create a card element for displaying an abstract evaluation result
    */
   private createAbstractEvaluationCard(
-    evaluation: PartialEvaluationResponse,
+    evaluation: AbstractEvaluationResponse,
   ): HTMLElement {
     const card = document.createElement("div");
     card.className =
@@ -1292,7 +1292,7 @@ class PaperExplorer {
         : "text-red-600 dark:text-red-400";
 
     card.innerHTML = `
-      <div class="cursor-pointer" onclick="window.location.href='/graphmind/pages/partial-detail.html?id=${evaluation.id}'">
+      <div class="cursor-pointer" onclick="window.location.href='/graphmind/pages/abstract-detail.html?id=${evaluation.id}'">
         <h4 class="mb-2 line-clamp-2 font-semibold text-gray-900 dark:text-gray-100">
           ${renderLatex(evaluation.title)}
         </h4>
@@ -1349,10 +1349,10 @@ class PaperExplorer {
   }
 
   /**
-   * Evaluate an abstract using the partial evaluation service
+   * Evaluate an abstract using the abstract evaluation service
    */
-  private async evaluateAbstract(params: PartialEvaluationParams): Promise<void> {
-    if (!this.partialEvaluator) {
+  private async evaluateAbstract(params: AbstractEvaluationParams): Promise<void> {
+    if (!this.abstractEvaluator) {
       this.showAbstractError("Abstract evaluation service not available.");
       return;
     }
@@ -1362,26 +1362,26 @@ class PaperExplorer {
       this.showAbstractEvaluationModal(params.title);
 
       // Setup progress callbacks
-      this.partialEvaluator.onConnected = message => {
+      this.abstractEvaluator.onConnected = message => {
         this.updateAbstractEvaluationProgress(message, 0);
       };
 
-      this.partialEvaluator.onProgress = (message, progress) => {
+      this.abstractEvaluator.onProgress = (message, progress) => {
         this.updateAbstractEvaluationProgress(message, progress);
       };
 
-      this.partialEvaluator.onError = error => {
+      this.abstractEvaluator.onError = error => {
         this.hideAbstractEvaluationModal();
         this.showAbstractError(`Evaluation failed: ${error}`);
       };
 
-      this.partialEvaluator.onConnectionError = () => {
+      this.abstractEvaluator.onConnectionError = () => {
         this.hideAbstractEvaluationModal();
         this.showAbstractError("Connection lost during evaluation. Please try again.");
       };
 
       // Start evaluation
-      const result = await this.partialEvaluator.startEvaluation(params);
+      const result = await this.abstractEvaluator.startEvaluation(params);
 
       // Update progress to 100% on completion
       this.updateAbstractEvaluationProgress("Evaluation complete", 100);
@@ -1391,25 +1391,28 @@ class PaperExplorer {
 
       // Cache the result
       localStorage.setItem(
-        `partial-evaluation-cache-${result.id}`,
+        `abstract-evaluation-cache-${result.id}`,
         JSON.stringify(result),
       );
 
       // Update the evaluations list
-      const currentList = localStorage.getItem("partial-evaluations-list");
+      const currentList = localStorage.getItem("abstract-evaluations-list");
       const evaluationIds: string[] = currentList
         ? (JSON.parse(currentList) as string[])
         : [];
       if (!evaluationIds.includes(result.id)) {
         evaluationIds.push(result.id);
-        localStorage.setItem("partial-evaluations-list", JSON.stringify(evaluationIds));
+        localStorage.setItem(
+          "abstract-evaluations-list",
+          JSON.stringify(evaluationIds),
+        );
       }
 
       // Show completion notification
       this.showAbstractCompletionNotification(params.title);
 
-      // Navigate to partial detail page
-      window.location.href = `/graphmind/pages/partial-detail.html?id=${result.id}`;
+      // Navigate to abstract detail page
+      window.location.href = `/graphmind/pages/abstract-detail.html?id=${result.id}`;
     } catch (error) {
       // Check if error is due to user cancellation
       if (error instanceof Error && error.message.includes("cancelled by user")) {
@@ -1481,8 +1484,8 @@ class PaperExplorer {
     const cancelButton = document.getElementById("cancel-abstract-evaluation");
     if (cancelButton) {
       cancelButton.addEventListener("click", () => {
-        if (this.partialEvaluator) {
-          this.partialEvaluator.stopEvaluation();
+        if (this.abstractEvaluator) {
+          this.abstractEvaluator.stopEvaluation();
         }
         this.hideAbstractEvaluationModal();
       });
@@ -1601,13 +1604,13 @@ async function initialiseApp(): Promise<void> {
   const jsonDataset = new JsonPaperDataset(jsonPath);
   const arxivService = apiUrl ? new ArxivPaperService(apiUrl) : null;
   const paperEvaluator = apiUrl ? new PaperEvaluator(apiUrl) : null;
-  const partialEvaluator = apiUrl ? new PartialPaperEvaluator(apiUrl) : null;
+  const abstractEvaluator = apiUrl ? new AbstractPaperEvaluator(apiUrl) : null;
 
   const explorer = new PaperExplorer(
     jsonDataset,
     arxivService,
     paperEvaluator,
-    partialEvaluator,
+    abstractEvaluator,
   );
   await retryWithBackoff(() => explorer.initialize());
 

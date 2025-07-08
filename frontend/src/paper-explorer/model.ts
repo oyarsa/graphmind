@@ -354,9 +354,9 @@ export const SSEEventDataSchema = z.object({
 });
 
 /**
- * Response from partial paper evaluation.
+ * Response from abstract paper evaluation.
  */
-export const PartialEvaluationResponseSchema = z.object({
+export const AbstractEvaluationResponseSchema = z.object({
   /** Paper title. */
   title: z.string(),
   /** Paper abstract. */
@@ -388,13 +388,13 @@ export const PartialEvaluationResponseSchema = z.object({
 });
 
 /**
- * Server-Sent Event data structure for partial evaluation progress
+ * Server-Sent Event data structure for abstract evaluation progress
  */
-export const PartialSSEEventDataSchema = z.object({
+export const AbstractSSEEventDataSchema = z.object({
   /** Optional message for progress/error events */
   message: z.string().optional(),
-  /** Result data for complete events (PartialEvaluationResponse) */
-  result: PartialEvaluationResponseSchema.optional(),
+  /** Result data for complete events (AbstractEvaluationResponse) */
+  result: AbstractEvaluationResponseSchema.optional(),
 });
 
 // ============================================================================
@@ -423,5 +423,7 @@ export type PaperSearchResults = z.infer<typeof PaperSearchResultsSchema>;
 export type EvalResult = z.infer<typeof EvalResultSchema>;
 export type EvaluationParams = z.infer<typeof EvaluationParamsSchema>;
 export type SSEEventData = z.infer<typeof SSEEventDataSchema>;
-export type PartialSSEEventData = z.infer<typeof PartialSSEEventDataSchema>;
-export type PartialEvaluationResponse = z.infer<typeof PartialEvaluationResponseSchema>;
+export type AbstractSSEEventData = z.infer<typeof AbstractSSEEventDataSchema>;
+export type AbstractEvaluationResponse = z.infer<
+  typeof AbstractEvaluationResponseSchema
+>;

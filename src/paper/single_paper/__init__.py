@@ -14,6 +14,7 @@ Core pipeline functions:
 """
 
 from paper.embedding import DEFAULT_SENTENCE_MODEL
+from paper.single_paper.abstract_evaluation import abstract_evaluation
 from paper.single_paper.cli import main
 from paper.single_paper.graph_evaluation import EvaluationResult, ProgressCallback
 from paper.single_paper.paper_retrieval import (
@@ -21,17 +22,16 @@ from paper.single_paper.paper_retrieval import (
     fetch_s2_paper_info,
     search_arxiv_papers,
 )
-from paper.single_paper.partial_evaluation import partial_evaluation
 from paper.single_paper.pipeline import process_paper_from_selection
 
 __all__ = (
     "DEFAULT_SENTENCE_MODEL",
     "EvaluationResult",
     "ProgressCallback",
+    "abstract_evaluation",
     "arxiv_id_from_url",
     "fetch_s2_paper_info",
     "main",
-    "partial_evaluation",
     "process_paper_from_selection",
     "search_arxiv_papers",
 )

@@ -1,4 +1,4 @@
-"""Functions to partially evaluate a paper from its title and abstract."""
+"""Functions to evaluate a paper from its title and abstract."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from paper import gpt
 from paper import peerread as pr
-from paper.backend.model import DEMO_PROMPT, DEMOS, PartialEvaluationResponse
+from paper.backend.model import DEMO_PROMPT, DEMOS, AbstractEvaluationResponse
 from paper.gpt.annotate_paper import (
     ABS_SYSTEM_PROMPT,
     ABS_USER_PROMPTS,
@@ -27,7 +27,7 @@ from paper.gpt.summarise_related_peter import (
     GPTRelatedSummary,
     format_template,
 )
-from paper.single_paper.partial_search import search_related_papers
+from paper.single_paper.abstract_search import search_related_papers
 from paper.single_paper.related_papers import get_top_k_semantic
 from paper.util import ensure_envvar
 
@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-async def partial_evaluation(
+async def abstract_evaluation(
     client: LLMClient,
     limiter: Limiter,
     encoder: emb.Encoder,
@@ -59,8 +59,8 @@ async def partial_evaluation(
     abstract_prompt_key: str = "simple",
     positive_prompt_key: str = "positive",
     negative_prompt_key: str = "negative",
-) -> PartialEvaluationResponse:
-    """Partially evaluate a paper from its title and abstract.
+) -> AbstractEvaluationResponse:
+    """Abstractly evaluate a paper from its title and abstract.
 
     Retrieves similar papers, finds semantic related papers and generates a rationale
     from this limited data.
@@ -84,7 +84,7 @@ async def partial_evaluation(
         demo_prompt_key: Key for demonstration prompt template.
 
     Returns:
-        Partial evaluation result.
+        Abstract evaluation result.
 
     Requires:
         SEMANTIC_SCHOLAR_API_KEY environment variable.
@@ -132,8 +132,8 @@ async def partial_evaluation(
 
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
-    await callback("Evaluating partial paper")
-    evaluation = await evaluate_partial_paper(
+    await callback("Evaluating abstract paper")
+    evaluation = await evaluate_abstract_paper(
         title, abstract, summaries.result, client, demonstrations
     )
 
@@ -145,7 +145,7 @@ async def partial_evaluation(
         + evaluation.cost
     )
 
-    return PartialEvaluationResponse(
+    return AbstractEvaluationResponse(
         title=title,
         abstract=abstract,
         keywords=keywords.result,
@@ -339,7 +339,7 @@ async def extract_keywords(
     return result.map(lambda r: r.keywords if r else [])
 
 
-async def evaluate_partial_paper(
+async def evaluate_abstract_paper(
     title: str,
     abstract: str,
     related: Sequence[PaperRelatedSummarised],

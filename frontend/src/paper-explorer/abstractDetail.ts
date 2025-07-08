@@ -6,8 +6,8 @@ import {
   showMobileMessage,
 } from "../util";
 import {
-  PartialEvaluationResponse,
-  PartialEvaluationResponseSchema,
+  AbstractEvaluationResponse,
+  AbstractEvaluationResponseSchema,
   EvidenceItem,
   RelatedPaper,
 } from "./model";
@@ -23,12 +23,12 @@ import {
 import { addFooter } from "../footer";
 
 /**
- * Load and display partial evaluation details
+ * Load and display abstract evaluation details
  *
  * TODO: This duplicates some functionality from detail.ts - consider refactoring
  * shared components into a common module in a future iteration.
  */
-function loadPartialDetail(): void {
+function loadAbstractDetail(): void {
   const urlParams = new URLSearchParams(window.location.search);
   const evaluationId = urlParams.get("id");
 
@@ -43,37 +43,37 @@ function loadPartialDetail(): void {
     }
 
     // Try to find the evaluation from cache
-    console.log(`[PartialDetail] Loading evaluation ${evaluationId} from cache`);
+    console.log(`[AbstractDetail] Loading evaluation ${evaluationId} from cache`);
     const cachedEvaluation = localStorage.getItem(
-      `partial-evaluation-cache-${evaluationId}`,
+      `abstract-evaluation-cache-${evaluationId}`,
     );
 
     if (!cachedEvaluation) {
       throw new Error("Evaluation not found in cache");
     }
 
-    let evaluation: PartialEvaluationResponse;
+    let evaluation: AbstractEvaluationResponse;
     try {
       const parsedData = JSON.parse(cachedEvaluation) as unknown;
       // Validate cached data against current schema
-      evaluation = PartialEvaluationResponseSchema.parse(parsedData);
+      evaluation = AbstractEvaluationResponseSchema.parse(parsedData);
       console.log(
-        `[PartialDetail] Cache validation successful for evaluation ${evaluationId}`,
+        `[AbstractDetail] Cache validation successful for evaluation ${evaluationId}`,
       );
     } catch (schemaError) {
       // Schema validation failed - cache is outdated
       console.log(
-        `[PartialDetail] INVALID SCHEMA! Evaluation ${evaluationId} cache outdated, removing from cache...`,
+        `[AbstractDetail] INVALID SCHEMA! Evaluation ${evaluationId} cache outdated, removing from cache...`,
       );
-      console.warn(`[PartialDetail] Schema validation error:`, schemaError);
-      localStorage.removeItem(`partial-evaluation-cache-${evaluationId}`);
+      console.warn(`[AbstractDetail] Schema validation error:`, schemaError);
+      localStorage.removeItem(`abstract-evaluation-cache-${evaluationId}`);
       throw new Error("Cached evaluation data is invalid");
     }
 
     document.title = `${evaluation.title} - Abstract Evaluation`;
 
     // Populate the content
-    displayPartialEvaluation(evaluation);
+    displayAbstractEvaluation(evaluation);
 
     // Setup section toggles (same as regular detail page)
     setupSectionToggle("keywords");
@@ -86,16 +86,16 @@ function loadPartialDetail(): void {
     if (loadingEl) loadingEl.style.display = "none";
     if (contentEl) contentEl.classList.remove("hidden");
   } catch (error) {
-    console.error("Error loading partial evaluation details:", error);
+    console.error("Error loading abstract evaluation details:", error);
     if (loadingEl) loadingEl.style.display = "none";
     if (errorEl) errorEl.classList.remove("hidden");
   }
 }
 
 /**
- * Display the partial evaluation data in the UI
+ * Display the abstract evaluation data in the UI
  */
-function displayPartialEvaluation(evaluation: PartialEvaluationResponse): void {
+function displayAbstractEvaluation(evaluation: AbstractEvaluationResponse): void {
   // Title and Abstract
   const titleEl = document.getElementById("paper-title");
   const abstractEl = document.getElementById("paper-abstract");
@@ -146,7 +146,7 @@ function displayKeywords(keywords: string[]): void {
  * Display novelty assessment content (Paper Summary, Result, Supporting Evidence, Contradictory Evidence)
  * following the same structure as regular detail page
  */
-function displayNoveltyAssessment(evaluation: PartialEvaluationResponse): void {
+function displayNoveltyAssessment(evaluation: AbstractEvaluationResponse): void {
   const evidenceContainer = document.getElementById("evidence-content");
   if (!evidenceContainer) return;
 
@@ -272,7 +272,7 @@ function createEvidenceItem(
   itemId: string,
   bulletColor: string,
   relatedPapers: RelatedPaper[],
-  evaluation: PartialEvaluationResponse,
+  evaluation: AbstractEvaluationResponse,
 ): string {
   // Handle string evidence
   if (typeof evidence === "string") {
@@ -358,7 +358,7 @@ function createEvidenceItem(
  */
 function createEvidenceComparisonContent(
   relatedPaper: RelatedPaper,
-  evaluation: PartialEvaluationResponse,
+  evaluation: AbstractEvaluationResponse,
 ): string {
   if (relatedPaper.source === "semantic") {
     // For semantic papers, show background/target comparison
@@ -394,7 +394,7 @@ function createEvidenceComparisonContent(
  */
 function displayRelatedPapers(
   relatedPapers: RelatedPaper[],
-  evaluation: PartialEvaluationResponse,
+  evaluation: AbstractEvaluationResponse,
 ): void {
   const countEl = document.getElementById("related-papers-count");
   const contentEl = document.getElementById("related-papers-content");
@@ -596,7 +596,7 @@ function createRelatedPaperCard(
  */
 function setupRelatedPapersFiltering(
   relatedPapers: RelatedPaper[],
-  evaluation: PartialEvaluationResponse,
+  evaluation: AbstractEvaluationResponse,
 ): void {
   const filtersContainer = document.getElementById("related-papers-filters");
   const filterChips = document.querySelectorAll(".filter-chip");
@@ -776,7 +776,7 @@ function setupRelatedPapersFiltering(
 function renderFilteredRelatedPapers(
   relatedPapers: RelatedPaper[],
   activeFilters: Set<string>,
-  evaluation: PartialEvaluationResponse,
+  evaluation: AbstractEvaluationResponse,
 ): void {
   const relatedPapersContainer = document.getElementById("related-papers-content");
   if (!relatedPapersContainer) return;
@@ -988,7 +988,7 @@ function setupNoveltyAssessmentToggle(): void {
 }
 
 /**
- * Initialize the Partial Detail application.
+ * Initialize the Abstract Detail application.
  */
 async function initializeApp(): Promise<void> {
   await waitForDOM();
@@ -999,7 +999,7 @@ async function initializeApp(): Promise<void> {
   }
 
   await retryWithBackoff(() => {
-    loadPartialDetail();
+    loadAbstractDetail();
     return Promise.resolve();
   });
 

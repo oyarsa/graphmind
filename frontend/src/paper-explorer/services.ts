@@ -9,8 +9,8 @@ import {
   EvaluationParams,
   EvaluationParamsSchema,
   SSEEventDataSchema,
-  PartialSSEEventDataSchema,
-  PartialEvaluationResponse,
+  AbstractSSEEventDataSchema,
+  AbstractEvaluationResponse,
 } from "./model";
 
 /**
@@ -312,9 +312,9 @@ export class PaperEvaluator {
 }
 
 /**
- * Input parameters for partial paper evaluation.
+ * Input parameters for abstract paper evaluation.
  */
-export interface PartialEvaluationParams {
+export interface AbstractEvaluationParams {
   title: string;
   abstract: string;
   recommendations?: number;
@@ -323,31 +323,31 @@ export interface PartialEvaluationParams {
 }
 
 /**
- * Real-time partial paper evaluator using Server-Sent Events.
- * Provides live progress updates during partial evaluation using only title and abstract.
+ * Real-time abstract paper evaluator using Server-Sent Events.
+ * Provides live progress updates during abstract evaluation using only title and abstract.
  *
  * TODO: This duplicates significant logic from PaperEvaluator - consider refactoring
  * to share common SSE handling code in a future iteration.
  */
-export class PartialPaperEvaluator {
+export class AbstractPaperEvaluator {
   private eventSource: EventSource | null = null;
   private isEvaluating = false;
   private currentReject?: (reason?: unknown) => void;
 
   onConnected?: (message: string) => void;
   onProgress?: (message: string, progress: number) => void;
-  onComplete?: (result: PartialEvaluationResponse) => void;
+  onComplete?: (result: AbstractEvaluationResponse) => void;
   onError?: (error: string) => void;
   onConnectionError?: (event: Event) => void;
 
   constructor(private baseUrl: string) {}
 
   /**
-   * Start partial paper evaluation with real-time progress updates
+   * Start abstract paper evaluation with real-time progress updates
    */
   async startEvaluation(
-    paperData: PartialEvaluationParams,
-  ): Promise<PartialEvaluationResponse> {
+    paperData: AbstractEvaluationParams,
+  ): Promise<AbstractEvaluationResponse> {
     if (this.isEvaluating) {
       throw new Error("Evaluation already in progress");
     }
@@ -368,7 +368,7 @@ export class PartialPaperEvaluator {
       params.set("related", paperData.related.toString());
     }
 
-    const url = `${this.baseUrl}/mind/evaluate-partial?${params}`;
+    const url = `${this.baseUrl}/mind/evaluate-abstract?${params}`;
     this.eventSource = new EventSource(url);
     this.isEvaluating = true;
 
@@ -416,7 +416,7 @@ export class PartialPaperEvaluator {
 
       eventSource.addEventListener("complete", event => {
         try {
-          const data = PartialSSEEventDataSchema.parse(
+          const data = AbstractSSEEventDataSchema.parse(
             JSON.parse(event.data as string),
           );
           if (data.result) {
@@ -520,7 +520,7 @@ export class PartialPaperEvaluator {
       "Extracting background and target from abstracts",
       "Retrieving semantic papers",
       "Summarising related papers",
-      "Evaluating partial paper",
+      "Evaluating abstract paper",
     ];
 
     const currentPhase = phases.findIndex(phase =>

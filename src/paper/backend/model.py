@@ -185,8 +185,8 @@ class HealthCheck(Model):
     version: Annotated[str, Field(description="Project version.")]
 
 
-class PartialEvaluationResponse(Model):
-    """Response from partial paper evaluation."""
+class AbstractEvaluationResponse(Model):
+    """Response from abstract paper evaluation."""
 
     title: Annotated[str, Field(description="Paper title.")]
     abstract: Annotated[str, Field(description="Paper abstract.")]

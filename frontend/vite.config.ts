@@ -27,7 +27,7 @@ export default defineConfig({
         search: resolve(__dirname, "pages/search.html"),
         // "paper-network": resolve(__dirname, "pages/paper-network.html"),
         detail: resolve(__dirname, "pages/detail.html"),
-        "partial-detail": resolve(__dirname, "pages/partial-detail.html"),
+        "abstract-detail": resolve(__dirname, "pages/abstract-detail.html"),
       },
     },
   },

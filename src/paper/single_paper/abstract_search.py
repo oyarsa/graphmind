@@ -1,4 +1,4 @@
-"""Search functionality for partial paper evaluation using the Semantic Scholar API.
+"""Search functionality for abstract paper evaluation using the Semantic Scholar API.
 
 This module provides search capabilities for finding papers based on title and abstract
 content, designed for the simplified evaluation pipeline that works with unpublished

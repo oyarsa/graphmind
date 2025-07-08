@@ -28,7 +28,7 @@ from paper.backend.model import (
     DEMOS,
     EVAL_PROMPT,
     GRAPH_PROMPT,
-    PartialEvaluationResponse,
+    AbstractEvaluationResponse,
 )
 from paper.backend.rate_limiter import RateLimiter
 from paper.util import Timer, atimer, setup_logging
@@ -282,15 +282,15 @@ async def evaluate(
 
 
 # See `evaluation_options` for why this exists.
-@router.options("/evaluate-partial", summary="Evaluate Partial Schema Reference")
-async def evaluation_partial_options() -> PartialEvaluationResponse:
-    """This shows the schema of objects streamed by GET /evaluate-partial."""
+@router.options("/evaluate-abstract", summary="Evaluate Abstract Schema Reference")
+async def evaluation_abstract_options() -> AbstractEvaluationResponse:
+    """This shows the schema of objects streamed by GET /evaluate-abstract."""
     raise HTTPException(501, "Use GET method for the actual SSE stream")
 
 
-@router.get("/evaluate-partial", summary="Evaluate Partial (SSE)")
+@router.get("/evaluate-abstract", summary="Evaluate Abstract (SSE)")
 @rate_limiter.limit("5/minute")
-async def evaluate_partial(
+async def evaluate_abstract(
     request: Request,
     llm_registry: LLMRegistryDep,
     limiter: LimiterDep,
@@ -324,16 +324,16 @@ async def evaluate_partial(
 
     Returns progress updates via Server-Sent Events (SSE), followed by the final result.
 
-    See OPTIONS /mind/evaluate-partial from the result schema.
+    See OPTIONS /mind/evaluate-abstract from the result schema.
     """
     client = llm_registry.get_client(llm_model)
 
     @measure_memory
-    async def go(callback: single_paper.ProgressCallback) -> PartialEvaluationResponse:
-        """Run the partial evaluation pipeline."""
+    async def go(callback: single_paper.ProgressCallback) -> AbstractEvaluationResponse:
+        """Run the abstract evaluation pipeline."""
         _ = callback
         try:
-            return await single_paper.partial_evaluation(
+            return await single_paper.abstract_evaluation(
                 client=client,
                 limiter=limiter,
                 encoder=encoder,
@@ -344,12 +344,12 @@ async def evaluate_partial(
                 num_semantic=related,
             )
         except Exception as e:
-            logger.exception(f"Partial evaluation failed for '{title}'")
+            logger.exception(f"Abstract evaluation failed for '{title}'")
             raise HTTPException(
                 status_code=500, detail=f"Evaluation failed: {e}"
             ) from e
 
-    # TODO: Remove duplication for SSE stuff between evaluate and evaluate-partial
+    # TODO: Remove duplication for SSE stuff between evaluate and evaluate-abstract
     def sse_event(event: str | None, data: Any) -> str:
         """Format an SSE frame."""
         payload = json.dumps(data)
@@ -364,14 +364,14 @@ async def evaluate_partial(
             rich.print(f"[blue]{msg}[/blue]")
             await queue.put(msg)
 
-        async def run_task() -> PartialEvaluationResponse:
+        async def run_task() -> AbstractEvaluationResponse:
             try:
                 return await go(progress_cb)
             finally:
                 await queue.put(None)  # sentinel → stream is over
 
         # Start evaluation
-        yield sse_event("connected", {"message": "Starting partial evaluation..."})
+        yield sse_event("connected", {"message": "Starting abstract evaluation..."})
         task = asyncio.create_task(run_task())
 
         try:
@@ -392,17 +392,17 @@ async def evaluate_partial(
             # Return final result or error
             if exc := task.exception():
                 yield sse_event("error", {"message": str(exc)})
-                logger.error(f"Partial evaluation failed for '{title}': {exc}")
+                logger.error(f"Abstract evaluation failed for '{title}': {exc}")
                 return
             else:
                 evaluation_result = task.result()
                 logger.info(
-                    f"Partial evaluation completed. Cost: {evaluation_result.total_cost}"
+                    f"Abstract evaluation completed. Cost: {evaluation_result.total_cost}"
                 )
                 yield sse_event("complete", {"result": evaluation_result.model_dump()})
 
         except (asyncio.CancelledError, GeneratorExit):
-            logger.info("Client disconnected - cancelling partial evaluation")
+            logger.info("Client disconnected - cancelling abstract evaluation")
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task

@@ -177,3 +177,59 @@ The following 8 progress messages are sent in order:
 - **Parameter Adjustment**: Suggest reducing `k_refs`, `recommendations`, or `related`
 - **Alternative Models**: Try different LLM models if one fails
 - **Graceful Degradation**: Show partial results if available
+
+---
+
+## Abstract Evaluation Endpoint
+
+**URL:** `GET /mind/evaluate-abstract`
+**Response Type:** `text/event-stream` (Server-Sent Events)
+**Authentication:** None required yet
+
+### Overview
+
+The `/mind/evaluate-abstract` endpoint provides abstract paper evaluation using only title and abstract. This is designed for unpublished papers where full content is not available.
+
+### Query Parameters
+
+| Parameter         | Type    | Required | Default               | Range     | Description                               |
+|-------------------|---------|----------|-----------------------|-----------|-------------------------------------------|
+| `title`           | string  | ✅       | -                     | -         | Paper title                              |
+| `abstract`        | string  | ✅       | -                     | -         | Paper abstract                           |
+| `recommendations` | integer | ❌       | 20                    | 5-50      | Number of related papers to retrieve     |
+| `related`         | integer | ❌       | 3                     | 1-10      | Number of semantic papers per type       |
+| `llm_model`       | string  | ❌       | "gemini-2.0-flash"    | See above | LLM model to use                         |
+
+### Event Types
+
+Same as `/mind/evaluate` endpoint with these differences:
+
+- Uses `AbstractEvaluationResponse` schema
+- Simplified progress phases (6 total):
+  1. "Extracting keywords from abstract"
+  2. "Searching related papers"
+  3. "Extracting background and target from abstracts"
+  4. "Retrieving semantic papers"
+  5. "Summarising related papers"
+  6. "Evaluating abstract paper"
+
+### Response Schema
+
+```typescript
+interface AbstractEvaluationResponse {
+  id: string;                    // Unique ID based on title+abstract hash
+  title: string;
+  abstract: string;
+  keywords: string[];            // Extracted search keywords
+  background: string;            // Extracted background context
+  target: string;                // Extracted target/contribution
+  label: number;                 // Binary novelty score (0 or 1)
+  probability: number | null;    // Percentage chance of novelty
+  paper_summary: string;
+  supporting_evidence: EvidenceItem[];
+  contradictory_evidence: EvidenceItem[];
+  conclusion: string;
+  total_cost: number;
+  related: RelatedPaper[];       // Simplified related papers
+}
+```
