@@ -24,9 +24,9 @@ from paper.orc.arxiv_api import arxiv_id_from_url as arxiv_id_from_url
 from paper.orc.download import parse_arxiv_latex
 from paper.orc.latex_parser import SentenceSplitter
 from paper.semantic_scholar.info import (
-    fetch_arxiv_papers,
     fetch_paper_data,
     fetch_paper_info,
+    fetch_papers_from_s2,
     get_top_k_titles,
 )
 from paper.semantic_scholar.recommended import fetch_paper_recommendations
@@ -274,7 +274,7 @@ async def enhance_with_s2_references(
         return s2.PaperWithS2Refs.from_peer(paper, [])
 
     # Fetch S2 data for the top references
-    s2_results = await fetch_arxiv_papers(
+    s2_results = await fetch_papers_from_s2(
         api_key, top_ref_titles, [*S2_FIELDS_BASE, "tldr"], limiter=limiter
     )
 

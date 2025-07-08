@@ -157,7 +157,7 @@ async def fetch_paper_info(
         return None
 
 
-async def fetch_arxiv_papers(
+async def fetch_papers_from_s2(
     api_key: str,
     titles: Sequence[str],
     fields: Sequence[str],
@@ -214,7 +214,7 @@ async def _download_main_info(
     papers = load_data(input_file, pr.Paper)[:limit_papers]
     title_to_paper = {paper.title: paper for paper in papers}
 
-    results = await fetch_arxiv_papers(
+    results = await fetch_papers_from_s2(
         api_key, list(title_to_paper.keys()), fields, desc="Downloading paper info"
     )
 
@@ -271,7 +271,7 @@ async def _download_reference_info(
     unique_titles = {title for titles in titles for title in titles}
     logger.info(f"{len(unique_titles)} unique titles")
 
-    results = await fetch_arxiv_papers(
+    results = await fetch_papers_from_s2(
         api_key, list(unique_titles), fields, desc="Downloading paper info"
     )
 

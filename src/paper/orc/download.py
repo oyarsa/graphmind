@@ -27,7 +27,7 @@ from paper.orc.latex_parser import (
 )
 from paper.peerread.model import Paper, PaperReference, PaperSection
 from paper.semantic_scholar.info import (
-    fetch_arxiv_papers,
+    fetch_papers_from_s2,
 )
 from paper.util import arun_safe, ensure_envvar
 from paper.util.serde import write_file_bytes
@@ -341,7 +341,7 @@ async def _download_papers_from_titles(
 
     logger.info("Fetching data from Semantic Scholar for %d titles", len(titles))
 
-    s2_results = await fetch_arxiv_papers(
+    s2_results = await fetch_papers_from_s2(
         api_key, titles, fields, desc="Downloading from S2"
     )
     s2_results_valid = [p for p in s2_results if p]
