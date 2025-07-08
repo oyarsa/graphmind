@@ -209,6 +209,10 @@ async def fetch_s2_paper_info(
 ) -> s2.PaperFromPeerRead | None:
     """Fetch paper information from the Semantic Scholar API.
 
+    If the paper retrieved from S2 does not have the same (normalised) title as `title`,
+    returns None too. This is because the S2 API will happily return somethines else
+    with a different title if the original was not found.
+
     Args:
         api_key: Semantic Scholar API key.
         title: Paper title to search for.
@@ -220,7 +224,17 @@ async def fetch_s2_paper_info(
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT)
     ) as session:
-        return await fetch_paper_info(session, api_key, title, S2_FIELDS, limiter)
+        info = await fetch_paper_info(session, api_key, title, S2_FIELDS, limiter)
+        if info is None:
+            return None
+        if _normalise_title(info.title) != _normalise_title(title):
+            return None
+        return info
+
+
+def _normalise_title(title: str) -> str:
+    """Remove non-alpha characters from title."""
+    return "".join(c for c in title if c.isalpha() or c.isspace()).strip()
 
 
 async def search_arxiv_papers(
