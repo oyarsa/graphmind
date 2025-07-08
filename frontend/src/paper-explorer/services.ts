@@ -71,6 +71,9 @@ export class ArxivPaperService {
       if (response.status === 503) {
         throw new Error("Error from arXiv. Try again later.");
       }
+      if (response.status === 429) {
+        throw new Error("Too many requests. Please wait a minute before trying again.");
+      }
       throw new Error(`ArXiv search failed: ${response.status} ${response.statusText}`);
     }
 

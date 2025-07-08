@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import urllib.parse
-from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
+from collections.abc import AsyncGenerator, Awaitable, Callable, Generator, Sequence
 from enum import StrEnum
 from typing import Annotated, Any
 
@@ -37,6 +37,8 @@ rate_limiter = RateLimiter()
 router = APIRouter(prefix="/mind", tags=["mind"])
 logger = logging.getLogger(__name__)
 setup_logging()
+
+EVAL_RATE_LIMIT = "10/minute"
 
 
 def measure_memory[**P, R](
@@ -138,7 +140,6 @@ async def evaluation_options() -> single_paper.EvaluationResult:
 
 
 @router.get("/evaluate", summary="Evaluate (SSE)")
-@rate_limiter.limit("5/minute")
 async def evaluate(
     request: Request,
     limiter: LimiterDep,
@@ -181,6 +182,10 @@ async def evaluate(
 
     See OPTIONS /mind/evaluate from the result schema.
     """
+    # Manual rate limiting check to return SSE error event instead of HTTP exception
+    if not rate_limiter.check_rate_limit(request, EVAL_RATE_LIMIT):
+        return new_streaming_response(rate_limit_error_stream())
+
     client = llm_registry.get_client(llm_model)
     arxiv_id = urllib.parse.unquote_plus(id)
 
@@ -206,16 +211,6 @@ async def evaluate(
                 callback=callback,
             )
         )
-
-    def sse_event(event: str | None, data: Any) -> str:
-        """Format an SSE frame.
-
-        Adding an `event:` field lets the client register
-        addEventListener('progress', …) if it wants to.
-        """
-        payload = json.dumps(data)
-        prefix = f"event: {event}\n" if event else ""
-        return f"{prefix}data: {payload}\n\n"
 
     async def generate_events() -> AsyncGenerator[str, None]:
         """Generate Server-Sent Events for progress updates and final result."""
@@ -270,15 +265,7 @@ async def evaluate(
                 await task
             raise
 
-    return StreamingResponse(
-        generate_events(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable nginx buffering
-        },
-    )
+    return new_streaming_response(generate_events())
 
 
 # See `evaluation_options` for why this exists.
@@ -289,7 +276,6 @@ async def evaluation_abstract_options() -> AbstractEvaluationResponse:
 
 
 @router.get("/evaluate-abstract", summary="Evaluate Abstract (SSE)")
-@rate_limiter.limit("5/minute")
 async def evaluate_abstract(
     request: Request,
     llm_registry: LLMRegistryDep,
@@ -326,6 +312,10 @@ async def evaluate_abstract(
 
     See OPTIONS /mind/evaluate-abstract from the result schema.
     """
+    # Manual rate limiting check to return SSE error event instead of HTTP exception
+    if not rate_limiter.check_rate_limit(request, EVAL_RATE_LIMIT):
+        return new_streaming_response(rate_limit_error_stream())
+
     client = llm_registry.get_client(llm_model)
 
     @measure_memory
@@ -348,13 +338,6 @@ async def evaluate_abstract(
             raise HTTPException(
                 status_code=500, detail=f"Evaluation failed: {e}"
             ) from e
-
-    # TODO: Remove duplication for SSE stuff between evaluate and evaluate-abstract
-    def sse_event(event: str | None, data: Any) -> str:
-        """Format an SSE frame."""
-        payload = json.dumps(data)
-        prefix = f"event: {event}\n" if event else ""
-        return f"{prefix}data: {payload}\n\n"
 
     async def generate_events() -> AsyncGenerator[str, None]:
         """Generate Server-Sent Events for progress updates and final result."""
@@ -408,12 +391,38 @@ async def evaluate_abstract(
                 await task
             raise
 
+    return new_streaming_response(generate_events())
+
+
+def sse_event(event: str | None, data: Any) -> str:
+    """Format an SSE frame.
+
+    Adding an `event:` field lets the client register
+    addEventListener('progress', …) if it wants to.
+    """
+    payload = json.dumps(data)
+    prefix = f"event: {event}\n" if event else ""
+    return f"{prefix}data: {payload}\n\n"
+
+
+def rate_limit_error_stream() -> Generator[str, None, None]:
+    """Generate SSE error event for rate limiting."""
+    yield sse_event(
+        "error",
+        {"message": "Too many requests. Please wait a minute before trying again."},
+    )
+
+
+def new_streaming_response(
+    content_fn: Generator[str] | AsyncGenerator[str],
+) -> StreamingResponse:
+    """Create a StreamingResponse for Server-Sent Events (SSE)."""
     return StreamingResponse(
-        generate_events(),
+        content_fn,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable nginx buffering
+            "X-Accel-Buffering": "no",
         },
     )

@@ -186,6 +186,9 @@ export function showMobileMessage(): void {
  */
 export function assertResponse(response: Response, message: string): void {
   if (!response.ok) {
+    if (response.status === 429) {
+      throw new Error("Too many requests. Please wait a minute before trying again.");
+    }
     throw new Error(`${message}: ${response.status} ${response.statusText}`);
   }
 }

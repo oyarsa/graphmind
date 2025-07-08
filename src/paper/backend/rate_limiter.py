@@ -45,6 +45,28 @@ class RateLimiter:
         Args:
             rule: Rate limit rule in format "count/period" (e.g., "5/minute").
         """
+
+        def decorator(func: EndpointFunc[P, R]) -> EndpointFunc[P, R]:
+            @functools.wraps(func)
+            async def wrapper(request: Request, *args: P.args, **kwargs: P.kwargs) -> R:
+                if not self.check_rate_limit(request, rule):
+                    raise HTTPException(status_code=429, detail="Too Many Requests")
+                return await func(request, *args, **kwargs)
+
+            return wrapper
+
+        return decorator
+
+    def check_rate_limit(self, request: Request, rule: str) -> bool:
+        """Check if a request would exceed the rate limit without raising an exception.
+
+        Args:
+            request: The FastAPI request object.
+            rule: Rate limit rule in format "count/period" (e.g., "5/minute").
+
+        Returns:
+            True if the request is allowed, False if rate limited.
+        """
         count, period = rule.split("/")
         count = int(count)
 
@@ -56,30 +78,21 @@ class RateLimiter:
             "day": 86400,
         }[period]
 
-        def decorator(func: EndpointFunc[P, R]) -> EndpointFunc[P, R]:
-            @functools.wraps(func)
-            async def wrapper(request: Request, *args: P.args, **kwargs: P.kwargs) -> R:
-                # Include endpoint path in the key to separate limits per endpoint
-                key = f"{self.key_func(request)}:{request.url.path}"
-                current_time = time.time()
+        # Include endpoint path in the key to separate limits per endpoint
+        key = f"{self.key_func(request)}:{request.url.path}"
+        current_time = time.time()
 
-                # Clean old entries
-                self._storage[key] = [
-                    timestamp
-                    for timestamp in self._storage[key]
-                    if current_time - timestamp < period_seconds
-                ]
+        # Clean old entries
+        self._storage[key] = [
+            timestamp
+            for timestamp in self._storage[key]
+            if current_time - timestamp < period_seconds
+        ]
 
-                # Check if limit exceeded
-                if len(self._storage[key]) >= count:
-                    raise HTTPException(status_code=429, detail="Too Many Requests")
+        # Check if limit would be exceeded
+        if len(self._storage[key]) >= count:
+            return False
 
-                # Record new request
-                self._storage[key].append(current_time)
-
-                # Execute original function
-                return await func(request, *args, **kwargs)
-
-            return wrapper
-
-        return decorator
+        # Record new request if allowed
+        self._storage[key].append(current_time)
+        return True
