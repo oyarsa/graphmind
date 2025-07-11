@@ -69,12 +69,27 @@ async def fetch_paper_data(
     paper_title: str,
     fields: Sequence[str],
     limiter: Limiter,
+    limit: int = 1,
 ) -> dict[str, Any] | None:
-    """Fetch raw paper data from the API with retry logic."""
+    """Fetch raw paper data from the API with retry logic.
+
+    Args:
+        session: aiohttp session to use for the request.
+        api_key: Semantic Scholar API key.
+        paper_title: Title of the paper to search for.
+        fields: Fields to retrieve from the S2 API.
+        limiter: Limiter to control the number of concurrent requests.
+        limit: Maximum number of results to return. Defaults to 1, i.e. the best title
+            match.
+
+    Returns:
+        A dictionary with the paper data if found, or None if not found or an error
+        occurred.
+    """
     params = {
         "query": paper_title,
         "fields": ",".join(fields),
-        "limit": 1,  # We're only interested in the best match
+        "limit": limit,
     }
     headers = {"x-api-key": api_key}
 
