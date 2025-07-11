@@ -19,8 +19,14 @@ import arxiv  # type: ignore
 from paper import embedding as emb
 from paper import peerread as pr
 from paper import semantic_scholar as s2
-from paper.orc.arxiv_api import ArxivResult, arxiv_from_id, arxiv_search, similar_titles
-from paper.orc.arxiv_api import arxiv_id_from_url as arxiv_id_from_url
+from paper.orc.arxiv_api import (
+    ArxivResult,
+    arxiv_from_id,
+    arxiv_id_from_url,
+    arxiv_search,
+    check_latex_availability,
+    similar_titles,
+)
 from paper.orc.download import parse_arxiv_latex
 from paper.orc.latex_parser import SentenceSplitter
 from paper.semantic_scholar.info import (
@@ -152,8 +158,10 @@ async def get_paper_from_arxiv_id(
     )
 
     if not s2_paper:
+        logger.warning("Paper not found on S2 API: %s", arxiv_result.arxiv_title)
         raise ValueError(
-            f"Paper not found on Semantic Scholar: {arxiv_result.arxiv_title}"
+            "Paper not found on Semantic Scholar. Try another paper, or try the"
+            " Abstract tab."
         )
 
     return pr.Paper.from_s2(
@@ -260,6 +268,65 @@ async def search_arxiv_papers(
         logger.warning("Error searching arXiv: %s", e)
 
     return None
+
+
+async def search_arxiv_papers_filtered(
+    query: str,
+    max_results: int,
+    *,
+    check_latex: bool,
+) -> list[arxiv.Result] | None:
+    """Search arXiv for papers with optional filtering by LaTeX availability.
+
+    Args:
+        query: Search query string.
+        max_results: Maximum number of results to return.
+        check_latex: Whether to filter by LaTeX availability on arXiv.
+
+    Returns:
+        None: API error occurred.
+        Empty list: successful query but no results found.
+        Non-empty list: successful query with filtered results.
+    """
+
+    # First get the raw arXiv results
+    # Get more to account for filtering
+    search_results = await search_arxiv_papers(query, max_results * 2)
+    if search_results is None:
+        return None
+
+    if not check_latex:
+        return search_results[:max_results]
+
+    filter_tasks = [_filter_paper_result(result) for result in search_results]
+    filter_results = await atimer(
+        asyncio.gather(*filter_tasks, return_exceptions=True), 2
+    )
+
+    filtered_papers: list[arxiv.Result] = []
+    for paper, passes_filter in zip(search_results, filter_results):
+        match passes_filter:
+            case passes_filter if passes_filter:
+                filtered_papers.append(paper)
+            case BaseException() as e:
+                logger.debug(f"Error filtering paper '{passes_filter}': {e}")
+            case _:
+                pass
+
+    return filtered_papers[:max_results]
+
+
+async def _filter_paper_result(result: arxiv.Result) -> bool:
+    """Check if paper has its LaTeX code on arXiv.
+
+    Returns:
+        True if the LaTex code exists, false otherwise.
+    """
+    try:
+        return await check_latex_availability(arxiv_id_from_url(result.entry_id))
+    except Exception as e:
+        logger.debug(f"Error in filter task: {e}")
+        return False
 
 
 async def enhance_with_s2_references(

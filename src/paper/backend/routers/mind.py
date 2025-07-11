@@ -101,8 +101,12 @@ async def search(
     """Search papers on arXiv by title or abstract.
 
     Performs live search against the arXiv API to find relevant papers.
+    Only returns papers that have LaTeX content available.
     """
-    search_results = await single_paper.search_arxiv_papers(q, max_results=limit)
+    search_results = await atimer(
+        single_paper.search_arxiv_papers_filtered(q, limit, check_latex=True)
+    )
+
     if search_results is None:
         raise HTTPException(status_code=503, detail="arXiv API error")
 

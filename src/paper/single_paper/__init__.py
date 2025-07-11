@@ -21,6 +21,7 @@ from paper.single_paper.paper_retrieval import (
     arxiv_id_from_url,
     fetch_s2_paper_info,
     search_arxiv_papers,
+    search_arxiv_papers_filtered,
 )
 from paper.single_paper.pipeline import process_paper_from_selection
 
@@ -34,4 +35,5 @@ __all__ = (
     "main",
     "process_paper_from_selection",
     "search_arxiv_papers",
+    "search_arxiv_papers_filtered",
 )

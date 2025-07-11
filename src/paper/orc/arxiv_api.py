@@ -10,6 +10,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Annotated
 
+import aiohttp
 import arxiv  # type: ignore
 import backoff
 import orjson
@@ -238,6 +239,30 @@ def similar_titles(title1: str, title2: str) -> bool:
     t1 = title1.casefold().strip()
     t2 = title2.casefold().strip()
     return t1 == t2 or t1 in t2 or t2 in t1
+
+
+async def check_latex_availability(arxiv_id: str, timeout_s: int = 10) -> bool:
+    """Check if LaTeX source is available on arXiv using HEAD request.
+
+    Args:
+        arxiv_id: The arXiv ID to check.
+        timeout_s: Timeout for the request in seconds.
+
+    Returns:
+        True if LaTeX source is available, False otherwise.
+        On error, returns True. In case something's wrong with the API, we don't want
+        it to block the evaluation.
+    """
+    url = f"https://arxiv.org/src/{arxiv_id}"
+    try:
+        async with (
+            aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(timeout_s)) as session,
+            session.head(url) as response,
+        ):
+            return response.status == 200
+    except Exception as e:
+        logger.debug(f"Error checking LaTeX availability for {arxiv_id}: {e}")
+        return True
 
 
 @backoff.on_exception(backoff.expo, Exception, max_tries=5, logger=logger)
