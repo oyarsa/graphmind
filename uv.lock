@@ -2124,7 +2124,7 @@ wheels = [
 
 [[package]]
 name = "paper"
-version = "24.1.0"
+version = "0.25.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
