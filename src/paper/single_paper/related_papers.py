@@ -224,10 +224,38 @@ def get_related_papers(
         + target_related
     )
 
-    total_related = len(all_related)
-    logger.debug("Total related papers with valid abstracts: %d", total_related)
+    unique_related = deduplicated(
+        citations_positive=references_positive_related,
+        citations_negative=references_negative_related,
+        semantic_positive=target_related,
+        semantic_negative=background_related,
+    )
+    logger.debug("Total related papers with valid abstracts: %d", len(all_related))
+    logger.debug("Unique related papers with valid abstracts: %d", len(unique_related))
 
-    return all_related
+    return unique_related
+
+
+def deduplicated(
+    citations_positive: Sequence[rp.PaperRelated],
+    citations_negative: Sequence[rp.PaperRelated],
+    semantic_positive: Sequence[rp.PaperRelated],
+    semantic_negative: Sequence[rp.PaperRelated],
+) -> list[rp.PaperRelated]:
+    """Create a deduplicated version of related papers results using priority rules.
+
+    See also: `related_papers.QueryResult.deduplicated`.
+
+    Returns:
+        List of related papers with each paper appearing only once.
+    """
+    query_result = rp.QueryResult(
+        citations_positive=citations_positive,
+        citations_negative=citations_negative,
+        semantic_positive=semantic_positive,
+        semantic_negative=semantic_negative,
+    )
+    return list(query_result.deduplicated().related)
 
 
 def get_top_k_semantic(

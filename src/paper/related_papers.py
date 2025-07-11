@@ -126,7 +126,7 @@ class QueryResult(Immutable):
             else:
                 existing_paper, _ = seen_papers[paper_id]
                 # Keep higher priority paper
-                if _should_replace_paper(existing_paper, paper):
+                if should_replace_paper(existing_paper, paper):
                     seen_papers[paper_id] = (paper, category)
 
         # Redistribute papers back to their categories
@@ -153,7 +153,7 @@ class QueryResult(Immutable):
         )
 
 
-def _should_replace_paper(existing: PaperRelated, new: PaperRelated) -> bool:
+def should_replace_paper(existing: PaperRelated, new: PaperRelated) -> bool:
     """Determine if new paper should replace existing paper based on priority.
 
     Used during deduplication to decide which occurrence to keep when the same paper
