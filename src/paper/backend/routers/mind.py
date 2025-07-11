@@ -151,14 +151,14 @@ async def evaluate(
         int, Query(description="How many references to use.", ge=10, le=50)
     ] = 20,
     recommendations: Annotated[
-        int, Query(description="How many recommended papers to retrieve.", ge=5, le=50)
+        int, Query(description="How many recommended papers to retrieve.", ge=20, le=50)
     ] = 30,
     related: Annotated[
         int,
         Query(
-            description="How many related papers to retrieve, per type.", ge=1, le=10
+            description="How many related papers to retrieve, per type.", ge=5, le=10
         ),
-    ] = 3,
+    ] = 5,
     llm_model: Annotated[
         LLMModel, Query(description="LLM model to use.")
     ] = LLMModel.Gemini2Flash,
@@ -284,7 +284,7 @@ async def evaluate_abstract(
     title: str,
     abstract: str,
     recommendations: Annotated[
-        int, Query(description="Number of related papers to retrieve.", ge=5, le=50)
+        int, Query(description="Number of related papers to retrieve.", ge=20, le=50)
     ] = 20,
     llm_model: Annotated[
         LLMModel, Query(description="LLM model to use.")
@@ -292,9 +292,9 @@ async def evaluate_abstract(
     related: Annotated[
         int,
         Query(
-            description="How many related papers to retrieve, per type.", ge=1, le=10
+            description="How many related papers to retrieve, per type.", ge=5, le=10
         ),
-    ] = 3,
+    ] = 5,
 ) -> StreamingResponse:
     """Evaluate paper novelty using only title and abstract with real-time progress.
 

@@ -508,7 +508,7 @@ export class PaperNetwork {
     this.showLoading(true, `Loading ${config.linkType}`);
 
     try {
-      const response = await config.apiCall(nodeId, 10);
+      const response = await config.apiCall(nodeId, 20);
       config.pool.set(nodeId, response.neighbours);
 
       console.log(`Loaded ${config.linkType} pool:`, {

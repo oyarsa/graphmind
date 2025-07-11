@@ -32,7 +32,7 @@ export class ApiService extends DataService {
     return PaperSchema.parse(await response.json());
   }
 
-  async getCitedPapers(id: string, limit = 10): Promise<RelatedPapersResponse> {
+  async getCitedPapers(id: string, limit = 20): Promise<RelatedPapersResponse> {
     const response = await fetch(
       `${this.baseUrl}/network/related/${id}?type=citation&limit=${limit}`,
     );
@@ -40,7 +40,7 @@ export class ApiService extends DataService {
     return RelatedPapersResponseSchema.parse(await response.json());
   }
 
-  async getSemanticPapers(id: string, limit = 10): Promise<RelatedPapersResponse> {
+  async getSemanticPapers(id: string, limit = 20): Promise<RelatedPapersResponse> {
     const response = await fetch(
       `${this.baseUrl}/network/related/${id}?type=semantic&limit=${limit}`,
     );

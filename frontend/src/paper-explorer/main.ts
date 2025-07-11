@@ -970,7 +970,7 @@ class PaperExplorer {
 
     if (kRefsInput) kRefsInput.value = "20";
     if (recommendationsInput) recommendationsInput.value = "30";
-    if (relatedInput) relatedInput.value = "3";
+    if (relatedInput) relatedInput.value = "5";
     if (llmModelSelect) llmModelSelect.value = "gemini-2.0-flash";
     if (filterByDateCheckbox) filterByDateCheckbox.checked = true;
 
