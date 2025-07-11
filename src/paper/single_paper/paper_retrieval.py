@@ -228,6 +228,7 @@ async def fetch_s2_paper_info(
         if info is None:
             return None
         if _normalise_title(info.title) != _normalise_title(title):
+            logger.debug("Invalid title. Original: '%s'. Got: '%s'", title, info.title)
             return None
         return info
 
