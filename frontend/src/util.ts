@@ -192,3 +192,18 @@ export function assertResponse(response: Response, message: string): void {
     throw new Error(`${message}: ${response.status} ${response.statusText}`);
   }
 }
+
+/**
+ * Clean a keyword by removing [keyword] or keyword prefix/suffix and trimming whitespace.
+ *
+ * @param keyword The keyword to clean.
+ * @returns The cleaned keyword.
+ */
+export function cleanKeyword(keyword: string): string {
+  return keyword
+    .replace(/^\[keyword\]\s*/i, "")
+    .replace(/\s*\[keyword\]$/i, "")
+    .replace(/^keyword\s+/i, "")
+    .replace(/\s+keyword$/i, "")
+    .trim();
+}

@@ -5,6 +5,7 @@ import {
   showInitError,
   isMobileDevice,
   showMobileMessage,
+  cleanKeyword,
 } from "../util";
 import {
   GraphResult,
@@ -1333,7 +1334,7 @@ function loadPaperDetail(): void {
     if (keywordsContainer) {
       const keywords = graphResult.graph.entities
         .filter(e => e.type === "keyword")
-        .map(e => e.label)
+        .map(e => cleanKeyword(e.label))
         .slice(0, 5);
 
       if (keywords.length > 0) {

@@ -4,6 +4,7 @@ import {
   showInitError,
   isMobileDevice,
   showMobileMessage,
+  cleanKeyword,
 } from "../util";
 import {
   AbstractEvaluationResponse,
@@ -135,7 +136,7 @@ function displayKeywords(keywords: string[]): void {
         <span class="px-3 py-1 bg-blue-100/70 dark:bg-blue-900/30 text-blue-800
                      dark:text-blue-300 text-sm rounded-md border border-blue-300/50
                      dark:border-blue-700/50 font-medium">
-          ${keyword}
+          ${cleanKeyword(keyword)}
         </span>
       `,
     )

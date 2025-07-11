@@ -6,6 +6,7 @@ import {
   showInitError,
   isMobileDevice,
   showMobileMessage,
+  cleanKeyword,
 } from "../util";
 import {
   GraphResult,
@@ -126,7 +127,7 @@ class PaperExplorer {
       // Extract keywords from graph entities
       const keywords = graphResult.graph.entities
         .filter(e => e.type === "keyword")
-        .map(e => e.label)
+        .map(e => cleanKeyword(e.label))
         .slice(0, 5); // Limit to 5 keywords
 
       paperLink.innerHTML = `
@@ -1327,7 +1328,7 @@ class PaperExplorer {
               keyword => `
             <span class="inline-block rounded-md bg-teal-100/70 px-2 py-0.5 text-xs text-teal-800
                    dark:bg-teal-900/30 dark:text-teal-300">
-              ${keyword}
+              ${cleanKeyword(keyword)}
             </span>
           `,
             )
