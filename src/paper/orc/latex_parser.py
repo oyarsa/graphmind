@@ -557,6 +557,7 @@ def _convert_latex_to_markdown(latex_content: str, title: str) -> str | None:
 
         latex_file.write_text(latex_content)
 
+        logger.debug("Converting LaTeX to Markdown with pandoc: %s", title)
         # Run pandoc to convert LaTeX to Markdown
         pandoc_cmd = [
             "pandoc",
@@ -643,6 +644,7 @@ def _extract_bibliography_from_bibfiles(
             tmp_file = tmpdir / "clean.bib"
             tmp_file.write_text(bib_content)
 
+            logger.debug("Parsing bibtex data with pandoc: %s", bib_path)
             pandoc_cmd = [
                 "pandoc",
                 "--quiet",
