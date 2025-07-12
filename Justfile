@@ -102,4 +102,4 @@ version bump="major":
 
     # Commit the version bump
     cd ..
-    jj commit -m "$new_version"
+    jj commit
