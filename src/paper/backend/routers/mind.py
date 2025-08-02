@@ -10,6 +10,8 @@ import functools
 import json
 import logging
 import os
+import random
+import string
 import urllib.parse
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator, Sequence
 from enum import Enum, StrEnum
@@ -39,6 +41,12 @@ logger = logging.getLogger(__name__)
 setup_logging()
 
 EVAL_RATE_LIMIT = "10/minute"
+
+
+def generate_request_id(length: int = 8) -> str:
+    """Generates a request ID with `length` characters (ASCII letters and digits)."""
+    alphabet = string.ascii_letters + string.digits
+    return "".join(random.choice(alphabet) for _ in range(length))
 
 
 class StreamStatus(Enum):
@@ -75,7 +83,8 @@ async def create_sse_streaming_response[T: BaseModel](
         queue: asyncio.Queue[str | StreamStatus] = asyncio.Queue()
 
         async def progress_cb(msg: str) -> None:
-            rich.print(f"[green]{name}: {msg}[/green]")
+            request_id = generate_request_id()
+            rich.print(f"[green]({request_id}) {name}: {msg}[/green]")
             await queue.put(msg)
 
         async def run_task() -> T:
