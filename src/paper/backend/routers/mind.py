@@ -12,7 +12,7 @@ import logging
 import os
 import urllib.parse
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator, Sequence
-from enum import StrEnum
+from enum import Enum, StrEnum
 from typing import Annotated, Any
 
 import psutil
@@ -39,6 +39,93 @@ logger = logging.getLogger(__name__)
 setup_logging()
 
 EVAL_RATE_LIMIT = "10/minute"
+
+
+class StreamStatus(Enum):
+    """Status sentinel tokens for the stream."""
+
+    DONE = 0
+    """Stream progressing is done. Signals the processing loop to end."""
+
+
+async def create_sse_streaming_response[T: BaseModel](
+    request: Request,
+    evaluation_func: Callable[[single_paper.ProgressCallback], Awaitable[T]],
+    name: str,
+    pulse_timeout_s: int = 15,
+) -> StreamingResponse:
+    """Create a StreamingResponse for Server-Sent Events with common streaming logic.
+
+    Args:
+        request: FastAPI request object for rate limiting.
+        evaluation_func: Async function that performs the evaluation, taking a progress
+            callback.
+        name: Name of the task (e.g. 'evaluation').
+        pulse_timeout_s: Timeout for keep-alive messages in seconds.
+
+    Returns:
+        StreamingResponse configured for SSE.
+    """
+    # Manual rate limiting check to return SSE error event instead of HTTP exception
+    if not rate_limiter.check_rate_limit(request, EVAL_RATE_LIMIT):
+        return new_streaming_response(rate_limit_error_stream())
+
+    async def generate_events() -> AsyncGenerator[str, None]:
+        """Generate Server-Sent Events for progress updates and final result."""
+        queue: asyncio.Queue[str | StreamStatus] = asyncio.Queue()
+
+        async def progress_cb(msg: str) -> None:
+            rich.print(f"[green]{name}: {msg}[/green]")
+            await queue.put(msg)
+
+        async def run_task() -> T:
+            try:
+                return await atimer(evaluation_func(progress_cb))
+            except Exception as e:
+                logger.exception(f"{name} failed")
+                raise HTTPException(
+                    status_code=500, detail=f"{name} failed: {e}"
+                ) from e
+            finally:
+                await queue.put(StreamStatus.DONE)
+
+        # Kick things off
+        yield sse_event("connected", {"message": f"Starting {name}..."})
+        task = asyncio.create_task(run_task())
+
+        try:
+            # stream until we see the sentinel
+            while True:
+                try:
+                    msg = await asyncio.wait_for(queue.get(), timeout=pulse_timeout_s)
+                except TimeoutError:
+                    # Periodic pulse keeps the pipe warm
+                    yield ": keep-alive\n\n"
+                    continue
+
+                if msg is StreamStatus.DONE:
+                    break
+
+                yield sse_event("progress", {"message": msg})
+
+            # Task is done; surface its result or its error
+            if exc := task.exception():
+                yield sse_event("error", {"message": str(exc)})
+                logger.error(f"Evaluation failed: {exc}")
+                return
+            else:
+                result = task.result()
+                logger.info(f"{name} completed.")
+                yield sse_event("complete", {"result": result.model_dump()})
+
+        except (asyncio.CancelledError, GeneratorExit):
+            logger.info("Client disconnected - cancelling worker")
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+            raise
+
+    return new_streaming_response(generate_events())
 
 
 def measure_memory[**P, R](
@@ -186,10 +273,6 @@ async def evaluate(
 
     See OPTIONS /mind/evaluate from the result schema.
     """
-    # Manual rate limiting check to return SSE error event instead of HTTP exception
-    if not rate_limiter.check_rate_limit(request, EVAL_RATE_LIMIT):
-        return new_streaming_response(rate_limit_error_stream())
-
     client = llm_registry.get_client(llm_model)
     arxiv_id = urllib.parse.unquote_plus(id)
 
@@ -197,79 +280,26 @@ async def evaluate(
     async def go(
         callback: single_paper.ProgressCallback,
     ) -> single_paper.EvaluationResult:
-        return await atimer(
-            single_paper.process_paper_from_selection(
-                client=client,
-                title=title,
-                arxiv_id=arxiv_id,
-                encoder=encoder,
-                top_k_refs=k_refs,
-                num_recommendations=recommendations,
-                num_related=related,
-                limiter=limiter,
-                eval_prompt_key=EVAL_PROMPT,
-                graph_prompt_key=GRAPH_PROMPT,
-                demonstrations_key=DEMOS,
-                demo_prompt_key=DEMO_PROMPT,
-                filter_by_date=filter_by_date,
-                callback=callback,
-            )
+        return await single_paper.process_paper_from_selection(
+            client=client,
+            title=title,
+            arxiv_id=arxiv_id,
+            encoder=encoder,
+            top_k_refs=k_refs,
+            num_recommendations=recommendations,
+            num_related=related,
+            limiter=limiter,
+            eval_prompt_key=EVAL_PROMPT,
+            graph_prompt_key=GRAPH_PROMPT,
+            demonstrations_key=DEMOS,
+            demo_prompt_key=DEMO_PROMPT,
+            filter_by_date=filter_by_date,
+            callback=callback,
         )
 
-    async def generate_events() -> AsyncGenerator[str, None]:
-        """Generate Server-Sent Events for progress updates and final result."""
-        queue: asyncio.Queue[str | None] = asyncio.Queue()
-
-        async def progress_cb(msg: str) -> None:
-            rich.print(f"[green]{msg}[/green]")
-            await queue.put(msg)
-
-        async def run_task() -> single_paper.EvaluationResult:
-            try:
-                return await go(progress_cb)
-            finally:
-                await queue.put(None)  # sentinel → stream is over
-
-        # kick things off
-        yield sse_event("connected", {"message": "Starting evaluation..."})
-        task = asyncio.create_task(run_task())
-
-        try:
-            # stream until we see the sentinel
-            while True:
-                try:
-                    msg = await asyncio.wait_for(queue.get(), timeout=15)
-                except TimeoutError:
-                    # 15-sec pulse keeps the pipe warm
-                    yield ": keep-alive\n\n"
-                    continue
-
-                if msg is None:  # sentinel
-                    break
-
-                yield sse_event("progress", {"message": msg})
-
-            # task is done; surface its result or its error
-            if exc := task.exception():
-                yield sse_event("error", {"message": str(exc)})
-                logger.error(
-                    f"Paper evaluation failed for '{title}' (arXiv:{id}): {exc}"
-                )
-                return
-            else:
-                evaluation_result = task.result()
-                logger.info(f"Evaluation completed. Cost: {evaluation_result.cost}")
-
-                yield sse_event("complete", {"result": evaluation_result.model_dump()})
-
-        except (asyncio.CancelledError, GeneratorExit):
-            logger.info("Client disconnected - cancelling worker")
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
-            raise
-
-    return new_streaming_response(generate_events())
+    return await create_sse_streaming_response(
+        request=request, evaluation_func=go, name="evaluation"
+    )
 
 
 # See `evaluation_options` for why this exists.
@@ -316,86 +346,25 @@ async def evaluate_abstract(
 
     See OPTIONS /mind/evaluate-abstract from the result schema.
     """
-    # Manual rate limiting check to return SSE error event instead of HTTP exception
-    if not rate_limiter.check_rate_limit(request, EVAL_RATE_LIMIT):
-        return new_streaming_response(rate_limit_error_stream())
-
     client = llm_registry.get_client(llm_model)
 
     @measure_memory
     async def go(callback: single_paper.ProgressCallback) -> AbstractEvaluationResponse:
         """Run the abstract evaluation pipeline."""
-        _ = callback
-        try:
-            return await single_paper.abstract_evaluation(
-                client=client,
-                limiter=limiter,
-                encoder=encoder,
-                callback=callback,
-                num_recommendations=recommendations,
-                title=title,
-                abstract=abstract,
-                num_semantic=related,
-            )
-        except Exception as e:
-            logger.exception(f"Abstract evaluation failed for '{title}'")
-            raise HTTPException(
-                status_code=500, detail=f"Evaluation failed: {e}"
-            ) from e
+        return await single_paper.abstract_evaluation(
+            client=client,
+            limiter=limiter,
+            encoder=encoder,
+            callback=callback,
+            num_recommendations=recommendations,
+            title=title,
+            abstract=abstract,
+            num_semantic=related,
+        )
 
-    async def generate_events() -> AsyncGenerator[str, None]:
-        """Generate Server-Sent Events for progress updates and final result."""
-        queue: asyncio.Queue[str | None] = asyncio.Queue()
-
-        async def progress_cb(msg: str) -> None:
-            rich.print(f"[blue]{msg}[/blue]")
-            await queue.put(msg)
-
-        async def run_task() -> AbstractEvaluationResponse:
-            try:
-                return await go(progress_cb)
-            finally:
-                await queue.put(None)  # sentinel → stream is over
-
-        # Start evaluation
-        yield sse_event("connected", {"message": "Starting abstract evaluation..."})
-        task = asyncio.create_task(run_task())
-
-        try:
-            # Stream progress updates
-            while True:
-                try:
-                    msg = await asyncio.wait_for(queue.get(), timeout=15)
-                except TimeoutError:
-                    # Keep-alive pulse
-                    yield ": keep-alive\n\n"
-                    continue
-
-                if msg is None:  # sentinel
-                    break
-
-                yield sse_event("progress", {"message": msg})
-
-            # Return final result or error
-            if exc := task.exception():
-                yield sse_event("error", {"message": str(exc)})
-                logger.error(f"Abstract evaluation failed for '{title}': {exc}")
-                return
-            else:
-                evaluation_result = task.result()
-                logger.info(
-                    f"Abstract evaluation completed. Cost: {evaluation_result.total_cost}"
-                )
-                yield sse_event("complete", {"result": evaluation_result.model_dump()})
-
-        except (asyncio.CancelledError, GeneratorExit):
-            logger.info("Client disconnected - cancelling abstract evaluation")
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
-            raise
-
-    return new_streaming_response(generate_events())
+    return await create_sse_streaming_response(
+        request=request, evaluation_func=go, name="abstract evaluation"
+    )
 
 
 def sse_event(event: str | None, data: Any) -> str:
