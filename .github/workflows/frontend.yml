@@ -21,6 +21,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Temporarily disabled - to re-enable, remove the "if: false" line below
+    if: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4

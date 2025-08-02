@@ -12,8 +12,9 @@ jobs:
     name: Deploy app
     runs-on: ubuntu-latest
     concurrency: deploy-group
-    # Only run if the build workflow succeeded
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # Temporarily disabled - to re-enable, replace "if: false" with:
+    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: false
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
