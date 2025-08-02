@@ -683,6 +683,35 @@ def log_memory_usage(file: Path) -> None:
         log(f"  Used Swap: {swap_used_gb:.2f} GB ({swap.percent}%)")
 
 
+def measure_memory[**P, R](
+    func: Callable[P, Awaitable[R]],
+) -> Callable[P, Awaitable[R]]:
+    """Measures RAM used by func."""
+
+    @functools.wraps(func)
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        process = psutil.Process(os.getpid())
+
+        # Baseline memory
+        mem_start = process.memory_info().rss / 1024 / 1024
+
+        with Timer() as timer:
+            result = await func(*args, **kwargs)
+
+        # Final memory
+        mem_end = process.memory_info().rss / 1024 / 1024
+
+        logger.info(
+            f"'{func.__name__}': "
+            f"{mem_start:.1f} MB → {mem_end:.1f} MB (Δ {mem_end - mem_start:.1f} MB) | "
+            f"{timer.seconds:.2f}s"
+        )
+
+        return result
+
+    return wrapper
+
+
 def sample[T](items: Sequence[T], k: int | None, rng: random.Random) -> list[T]:
     """Choose `k` unique elements from `items`.
 
