@@ -90,7 +90,7 @@ class _PipelineASTParser(ast.NodeVisitor):
             if node.func.id == "title" and node.args:
                 # Extract title for the next step
                 if isinstance(node.args[0], ast.Constant):
-                    self.current_title = node.args[0].value
+                    self.current_title = str(node.args[0].value)
 
             elif node.func.id == "_checkrun":
                 step = self._parse_checkrun(node)
