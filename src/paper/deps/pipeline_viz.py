@@ -58,7 +58,7 @@ class ParseState:
 
 def parse_pipeline_script(script_path: Path) -> Pipeline:
     """Parse a pipeline script to extract structure."""
-    tree = ast.parse(script_path.read_text())
+    tree = ast.parse(script_path.read_text(encoding="utf-8"))
     parse_state = _parse_ast(tree)
     initial_pipeline = _build_pipeline_from_steps(parse_state.steps)
     return _fix_input_dependencies(initial_pipeline)

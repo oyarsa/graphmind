@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Collection
+from dataclasses import dataclass
 from itertools import product
 from math import isclose
 from typing import TYPE_CHECKING
@@ -216,12 +217,12 @@ def test_create_tournament_result(
     assert "model_c" in result.overall_ranks
 
 
+@dataclass(frozen=True)
 class MockPaperWithId:
     """Mock paper class with an id property."""
 
-    def __init__(self, paper_id: str, rationale: str) -> None:
-        self.id = paper_id
-        self.rationale = rationale
+    id: str
+    rationale: str
 
 
 class TestFindCommonPapers:
@@ -406,5 +407,5 @@ def test_count_head_to_head_with_ties(
     h2h = count_head_to_head([tie_result], sample_player_names, [metric])
 
     # Check that ties are counted correctly
-    assert h2h[metric][(player_a, player_b)] == (0, 1, 0)  # wins, ties, losses
-    assert h2h[metric][(player_b, player_a)] == (0, 1, 0)  # wins, ties, losses
+    assert h2h[metric][player_a, player_b] == (0, 1, 0)  # wins, ties, losses
+    assert h2h[metric][player_b, player_a] == (0, 1, 0)  # wins, ties, losses

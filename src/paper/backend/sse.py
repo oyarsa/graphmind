@@ -35,7 +35,7 @@ class _StreamStatus(Enum):
     """Stream progressing is done. Signals the processing loop to end."""
 
 
-async def create_streaming_response[T: BaseModel](
+def create_streaming_response[T: BaseModel](
     rate_limiter: RateLimiter,
     rate_limit: str,
     request: Request,
@@ -62,7 +62,11 @@ async def create_streaming_response[T: BaseModel](
         return _new_streaming_response(_rate_limit_error_stream())
 
     async def generate_events() -> AsyncGenerator[str, None]:
-        """Generate Server-Sent Events for progress updates and final result."""
+        """Generate Server-Sent Events for progress updates and final result.
+
+        Yields:
+            Stringified events.
+        """
         queue: asyncio.Queue[str | _StreamStatus] = asyncio.Queue()
 
         async def progress_cb(msg: str) -> None:
@@ -123,8 +127,8 @@ async def create_streaming_response[T: BaseModel](
 def _sse_event(event: str | None, data: Any) -> str:
     """Format an SSE frame.
 
-    Adding an `event:` field lets the client register
-    addEventListener('progress', …) if it wants to.
+    Adding an `event:` field lets the client register addEventListener('progress', …) if
+    it wants to.
     """
     payload = json.dumps(data)
     prefix = f"event: {event}\n" if event else ""
@@ -132,7 +136,11 @@ def _sse_event(event: str | None, data: Any) -> str:
 
 
 def _rate_limit_error_stream() -> Generator[str, None, None]:
-    """Generate SSE error event for rate limiting."""
+    """Generate SSE error event for rate limiting.
+
+    Yields:
+        Stringified error event with "too many requests" message.
+    """
     yield _sse_event(
         "error",
         {"message": "Too many requests. Please wait a minute before trying again."},

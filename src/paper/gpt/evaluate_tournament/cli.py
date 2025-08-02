@@ -266,7 +266,7 @@ async def run_tournaments(
 
     # Step 1: Either load existing comparisons or generate new ones
     if reuse_comparisons_path is not None:
-        raw_comparisons = await load_reused_comparisons(reuse_comparisons_path)
+        raw_comparisons = load_reused_comparisons(reuse_comparisons_path)
     else:
         prompt = PAIRWISE_COMPARISON_PROMPTS[tournament_prompt_key]
         raw_comparisons = await generate_new_comparisons(

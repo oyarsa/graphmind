@@ -92,7 +92,7 @@ def _parse_section_number(heading: str) -> int | None:
         >>> parse_section_number("A Appendix")
         None
     """
-    section_mark = heading.split(" ")[0]
+    section_mark = heading.split(" ", maxsplit=1)[0]
     section_number = section_mark.split(".")[0].strip()
     try:
         return int(section_number)

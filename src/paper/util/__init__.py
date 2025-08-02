@@ -110,7 +110,7 @@ class Timer:
 
     def __str__(self) -> str:
         """Return "{name} took {time}"."""
-        name = self.name if self.name else "Timer"
+        name = self.name or "Timer"
         return f"{name} took {self.human}"
 
 
@@ -639,7 +639,7 @@ def log_memory_usage(file: Path) -> None:
 
     def log(x: str) -> None:
         logger.debug(x)
-        with file.open("a") as f:
+        with file.open("a", encoding="utf-8") as f:
             f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}]\n")
             f.write(x + "\n" + "-" * 80 + "\n\n")
 

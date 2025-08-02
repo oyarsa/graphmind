@@ -139,6 +139,10 @@ class ChatRateLimiter:
         Before the request, we estimate the number of tokens that will be spent based
         on the `max_token` request parameter. Use the update function for more precise
         tracking.
+
+        Yields:
+            Function to update rate limiter usage with the actual usage from the API
+            return.
         """
         if messages:
             # Fine, we'll use that as-is

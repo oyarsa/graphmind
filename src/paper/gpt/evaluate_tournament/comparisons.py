@@ -227,7 +227,7 @@ class CachedResult[T]:
         return -1
 
 
-async def load_reused_comparisons(path: Path) -> CachedResult[RawComparisonOutput]:
+def load_reused_comparisons(path: Path) -> CachedResult[RawComparisonOutput]:
     """Load comparison data from a previous run.
 
     Args:

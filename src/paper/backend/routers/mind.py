@@ -174,7 +174,7 @@ async def evaluate(
             callback=callback,
         )
 
-    return await sse.create_streaming_response(
+    return sse.create_streaming_response(
         rate_limiter=rate_limiter,
         rate_limit=EVAL_RATE_LIMIT,
         request=request,
@@ -243,7 +243,7 @@ async def evaluate_abstract(
             num_semantic=related,
         )
 
-    return await sse.create_streaming_response(
+    return sse.create_streaming_response(
         rate_limiter=rate_limiter,
         rate_limit=EVAL_RATE_LIMIT,
         request=request,

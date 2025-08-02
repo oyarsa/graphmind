@@ -275,7 +275,7 @@ class TestJsonlSerialization:
             file_path.write_text(content)
 
             # Should raise SerdeError
-            with pytest.raises(SerdeError, match="All lines in .* failed validation"):
+            with pytest.raises(SerdeError, match=r"All lines in .* failed validation"):
                 load_data_jsonl(file_path, SerdeTestModel)
 
     def test_load_mixed_valid_invalid_json(self) -> None:
@@ -304,5 +304,5 @@ class TestJsonlSerialization:
             file_path.write_text(content)
 
             # Should raise SerdeError since no valid lines exist
-            with pytest.raises(SerdeError, match="All lines in .* failed validation"):
+            with pytest.raises(SerdeError, match=r"All lines in .* failed validation"):
                 load_data_jsonl(file_path, SerdeTestModel)

@@ -208,7 +208,7 @@ class Paper(Record):
         conference = s2_paper.venue or ""
 
         # Use arXiv summary if available, otherwise fall back to S2 abstract
-        abstract = arxiv_summary if arxiv_summary else s2_paper.abstract
+        abstract = arxiv_summary or s2_paper.abstract
 
         return cls(
             title=s2_paper.title,

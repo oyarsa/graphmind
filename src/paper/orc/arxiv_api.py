@@ -230,7 +230,7 @@ def arxiv_id_from_url(url: str) -> str:
     # e.g. "/abs/1234.5678v2/"
     path = urllib.parse.unquote(urllib.parse.urlparse(url).path)
     if not path.startswith("/abs/"):
-        return url.split("/")[-1]
+        return url.rsplit("/", maxsplit=1)[-1]
     return path.removeprefix("/abs/").strip()
 
 

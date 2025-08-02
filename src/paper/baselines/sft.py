@@ -266,7 +266,7 @@ def train(
 
 def read_config(file: Path) -> AppConfig:
     """Read configuration from TOML `file` path."""
-    return AppConfig.model_validate(toml.loads(file.read_text()))
+    return AppConfig.model_validate(toml.loads(file.read_text(encoding="utf-8")))
 
 
 @app.command(no_args_is_help=True)
@@ -808,7 +808,7 @@ def evaluate_model_predictions(
     ]
 
     metrics_path = output_dir / "evaluation_metrics.txt"
-    with open(metrics_path, "w") as f:
+    with open(metrics_path, "w", encoding="utf-8") as f:
         f.write(f"Evaluation Results\n{'-' * 20}\n")
         f.write(display_metrics(metrics_result, evaluated_results))
 

@@ -96,7 +96,7 @@ class TestFixEvaluatedRating:
         result = GPTFull(label=1, rationale="")
         fixed = fix_evaluated_rating(result, TargetMode.BIN)
         assert fixed.label == 1
-        assert fixed.rationale == ""
+        assert not fixed.rationale
 
     @pytest.mark.parametrize(
         "label",

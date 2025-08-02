@@ -49,8 +49,8 @@ def _get_prompt(prompts: list[dict[str, str]], name: str) -> str:
 
 def _show_diff(str1: str, str2: str, *, side: bool) -> None:
     with (
-        tempfile.NamedTemporaryFile(mode="w") as f1,
-        tempfile.NamedTemporaryFile(mode="w") as f2,
+        tempfile.NamedTemporaryFile(encoding="utf-8", mode="w") as f1,
+        tempfile.NamedTemporaryFile(encoding="utf-8", mode="w") as f2,
     ):
         f1.write(str1)
         f1.flush()

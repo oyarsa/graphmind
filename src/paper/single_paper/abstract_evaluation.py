@@ -121,8 +121,13 @@ async def abstract_evaluation(
     target = main_annotated.result.target
 
     await callback("Retrieving semantic papers")
-    semantic = await retrieve_semantic_papers(
-        encoder, background, target, recommended_annotated.result, num_semantic
+    semantic = await asyncio.to_thread(
+        retrieve_semantic_papers,
+        encoder,
+        background,
+        target,
+        recommended_annotated.result,
+        num_semantic,
     )
 
     await callback("Summarising related papers")
@@ -217,7 +222,7 @@ async def extract_background_target_related(
     )
 
 
-async def retrieve_semantic_papers(
+def retrieve_semantic_papers(
     encoder: emb.Encoder,
     background: str,
     target: str,

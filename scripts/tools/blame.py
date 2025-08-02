@@ -156,7 +156,11 @@ class ParsedLine:
 
 
 def _format_output(lines: list[ParsedLine]) -> Iterator[str]:
-    """Format parsed lines for display."""
+    """Format parsed lines for display.
+
+    Yields:
+        Lines for the output one at a time.
+    """
     widths = _get_column_widths(lines)
     yield from (
         f"{_style(line.hash, 'hash', widths)} "

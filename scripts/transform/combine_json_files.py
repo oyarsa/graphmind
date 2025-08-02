@@ -14,7 +14,7 @@ files = sys.argv[1:]
 output: list[dict[str, Any]] = []
 
 for file in files:
-    with open(file) as f:
+    with open(file, encoding="utf-8") as f:
         output.append(orjson.loads(f.read()))
 
 print(orjson.dumps(output))

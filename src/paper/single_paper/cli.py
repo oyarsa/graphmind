@@ -336,7 +336,9 @@ async def get_paper_from_interactive_search(
         raise ValueError("Error searching arXiv")
 
     # Let user select
-    selected = await atimer(select_paper_interactive(results, console), 3)
+    selected = await atimer(
+        asyncio.to_thread(select_paper_interactive, results, console), 3
+    )
     if not selected:
         raise ValueError("No paper selected")
 
@@ -362,7 +364,7 @@ async def get_paper_from_interactive_search(
     )
 
 
-async def select_paper_interactive(
+def select_paper_interactive(
     results: list[arxiv.Result], console: Console
 ) -> ArxivResult | None:
     """Display search results and let user select a paper interactively.

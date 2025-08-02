@@ -266,6 +266,6 @@ def valid_papers(papers: Sequence[s2.Paper]) -> Iterable[s2.Paper]:
     """Filter papers to keep only those with non-empty abstracts and titles."""
 
     def is_valid(s: str | None) -> bool:
-        return s is not None and s.strip() != ""
+        return s is not None and bool(s.strip())
 
     return (p for p in papers if is_valid(p.abstract) and is_valid(p.title))

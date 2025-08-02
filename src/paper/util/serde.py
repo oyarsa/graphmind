@@ -53,7 +53,11 @@ class Compress(StrEnum):
 def open_compressed(
     file: Path, mode: Literal["r", "w", "a"], encoding: str = "utf-8"
 ) -> Generator[io.TextIOBase, None, None]:
-    """Open a file with automatic compression detection based on extension."""
+    """Open a file with automatic compression detection based on extension.
+
+    Yields:
+        Open file. Will be closed after the context ends.
+    """
     match file.suffix.lower():
         case ".gz":
             # gzip supports text mode directly

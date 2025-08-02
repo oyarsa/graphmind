@@ -336,7 +336,7 @@ class TestUtilityFunctions:
 
     def test_get_rate_limiter_unsupported_model_raises_error(self) -> None:
         """Test that unsupported model for tier raises ValueError."""
-        with pytest.raises(ValueError, match="Model .* is not supported for tier"):
+        with pytest.raises(ValueError, match=r"Model .* is not supported for tier"):
             get_rate_limiter(3, "gemini-2.0-flash")
 
     def test_count_tokens(self) -> None:

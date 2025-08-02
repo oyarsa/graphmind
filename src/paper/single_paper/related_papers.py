@@ -60,7 +60,7 @@ def is_empty_string(s: str | None) -> bool:
     Returns:
         True if the string is empty (None or empty after stripping).
     """
-    return s is None or s.strip() == ""
+    return s is None or not s.strip()
 
 
 @dataclass(frozen=True, kw_only=True)

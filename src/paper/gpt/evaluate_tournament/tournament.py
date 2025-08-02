@@ -342,6 +342,7 @@ def display_tournament_results(
         for m in metrics:
             # Get the rank from the overall rankings
             rank = str(item.metric_ranks[m])
+            metric_data.append(rank)
 
             # Find the rating for this item in the specific metric
             rating = "—"
@@ -350,7 +351,6 @@ def display_tournament_results(
                     rating = f"{player_rank.rating:.2f}"
                     break
 
-            metric_data.append(rank)
             metric_data.append(rating)
 
         row = [str(i), name, mean_rank, median_rank, *metric_data]

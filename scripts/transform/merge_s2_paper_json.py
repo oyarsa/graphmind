@@ -96,11 +96,11 @@ def main(
         output_path: Path to write merged results
     """
     # Read first file
-    with open(file1_path) as f:
+    with open(file1_path, encoding="utf-8") as f:
         papers1 = orjson.loads(f.read())
 
     # Read second file
-    with open(file2_path) as f:
+    with open(file2_path, encoding="utf-8") as f:
         papers2 = orjson.loads(f.read())
 
     # Validate input format

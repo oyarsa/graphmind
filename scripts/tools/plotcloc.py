@@ -66,7 +66,10 @@ class FileStats:
 def _count_lines(file_path: Path) -> int:
     """Count non-empty lines in a file."""
     try:
-        return sum(bool(line.strip()) for line in file_path.read_text().splitlines())
+        return sum(
+            bool(line.strip())
+            for line in file_path.read_text(encoding="utf-8").splitlines()
+        )
     except Exception as e:
         print(f"Error reading {file_path}: {e}", file=sys.stderr)
         return 0
