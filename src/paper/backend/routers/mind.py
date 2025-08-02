@@ -4,26 +4,21 @@ Provides endpoints for searching arXiv papers and performing comprehensive
 paper evaluation using LLM-based analysis and recommendations.
 """
 
-import asyncio
-import contextlib
 import functools
-import json
 import logging
 import os
-import random
-import string
 import urllib.parse
-from collections.abc import AsyncGenerator, Awaitable, Callable, Generator, Sequence
-from enum import Enum, StrEnum
-from typing import Annotated, Any
+from collections.abc import Awaitable, Callable, Sequence
+from enum import StrEnum
+from typing import Annotated
 
 import psutil
-import rich
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from paper import single_paper
+from paper.backend import sse
 from paper.backend.dependencies import EncoderDep, LimiterDep, LLMRegistryDep
 from paper.backend.model import (
     DEMO_PROMPT,
@@ -33,108 +28,13 @@ from paper.backend.model import (
     AbstractEvaluationResponse,
 )
 from paper.backend.rate_limiter import RateLimiter
-from paper.util import Timer, atimer, setup_logging
+from paper.util import Timer, atimer
 
 rate_limiter = RateLimiter()
 router = APIRouter(prefix="/mind", tags=["mind"])
 logger = logging.getLogger(__name__)
-setup_logging()
 
 EVAL_RATE_LIMIT = "10/minute"
-
-
-def generate_request_id(length: int = 8) -> str:
-    """Generates a request ID with `length` characters (ASCII letters and digits)."""
-    alphabet = string.ascii_letters + string.digits
-    return "".join(random.choice(alphabet) for _ in range(length))
-
-
-class StreamStatus(Enum):
-    """Status sentinel tokens for the stream."""
-
-    DONE = 0
-    """Stream progressing is done. Signals the processing loop to end."""
-
-
-async def create_sse_streaming_response[T: BaseModel](
-    request: Request,
-    evaluation_func: Callable[[single_paper.ProgressCallback], Awaitable[T]],
-    name: str,
-    pulse_timeout_s: int = 15,
-) -> StreamingResponse:
-    """Create a StreamingResponse for Server-Sent Events with common streaming logic.
-
-    Args:
-        request: FastAPI request object for rate limiting.
-        evaluation_func: Async function that performs the evaluation, taking a progress
-            callback.
-        name: Name of the task (e.g. 'evaluation').
-        pulse_timeout_s: Timeout for keep-alive messages in seconds.
-
-    Returns:
-        StreamingResponse configured for SSE.
-    """
-    # Manual rate limiting check to return SSE error event instead of HTTP exception
-    if not rate_limiter.check_rate_limit(request, EVAL_RATE_LIMIT):
-        return new_streaming_response(rate_limit_error_stream())
-
-    async def generate_events() -> AsyncGenerator[str, None]:
-        """Generate Server-Sent Events for progress updates and final result."""
-        queue: asyncio.Queue[str | StreamStatus] = asyncio.Queue()
-
-        async def progress_cb(msg: str) -> None:
-            request_id = generate_request_id()
-            rich.print(f"[green]({request_id}) {name}: {msg}[/green]")
-            await queue.put(msg)
-
-        async def run_task() -> T:
-            try:
-                return await atimer(evaluation_func(progress_cb))
-            except Exception as e:
-                logger.exception(f"{name} failed")
-                raise HTTPException(
-                    status_code=500, detail=f"{name} failed: {e}"
-                ) from e
-            finally:
-                await queue.put(StreamStatus.DONE)
-
-        # Kick things off
-        yield sse_event("connected", {"message": f"Starting {name}..."})
-        task = asyncio.create_task(run_task())
-
-        try:
-            # stream until we see the sentinel
-            while True:
-                try:
-                    msg = await asyncio.wait_for(queue.get(), timeout=pulse_timeout_s)
-                except TimeoutError:
-                    # Periodic pulse keeps the pipe warm
-                    yield ": keep-alive\n\n"
-                    continue
-
-                if msg is StreamStatus.DONE:
-                    break
-
-                yield sse_event("progress", {"message": msg})
-
-            # Task is done; surface its result or its error
-            if exc := task.exception():
-                yield sse_event("error", {"message": str(exc)})
-                logger.error(f"Evaluation failed: {exc}")
-                return
-            else:
-                result = task.result()
-                logger.info(f"{name} completed.")
-                yield sse_event("complete", {"result": result.model_dump()})
-
-        except (asyncio.CancelledError, GeneratorExit):
-            logger.info("Client disconnected - cancelling worker")
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
-            raise
-
-    return new_streaming_response(generate_events())
 
 
 def measure_memory[**P, R](
@@ -306,8 +206,12 @@ async def evaluate(
             callback=callback,
         )
 
-    return await create_sse_streaming_response(
-        request=request, evaluation_func=go, name="evaluation"
+    return await sse.create_streaming_response(
+        rate_limiter=rate_limiter,
+        rate_limit=EVAL_RATE_LIMIT,
+        request=request,
+        evaluation_func=go,
+        name="evaluation",
     )
 
 
@@ -371,40 +275,10 @@ async def evaluate_abstract(
             num_semantic=related,
         )
 
-    return await create_sse_streaming_response(
-        request=request, evaluation_func=go, name="abstract evaluation"
-    )
-
-
-def sse_event(event: str | None, data: Any) -> str:
-    """Format an SSE frame.
-
-    Adding an `event:` field lets the client register
-    addEventListener('progress', …) if it wants to.
-    """
-    payload = json.dumps(data)
-    prefix = f"event: {event}\n" if event else ""
-    return f"{prefix}data: {payload}\n\n"
-
-
-def rate_limit_error_stream() -> Generator[str, None, None]:
-    """Generate SSE error event for rate limiting."""
-    yield sse_event(
-        "error",
-        {"message": "Too many requests. Please wait a minute before trying again."},
-    )
-
-
-def new_streaming_response(
-    content_fn: Generator[str] | AsyncGenerator[str],
-) -> StreamingResponse:
-    """Create a StreamingResponse for Server-Sent Events (SSE)."""
-    return StreamingResponse(
-        content_fn,
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
+    return await sse.create_streaming_response(
+        rate_limiter=rate_limiter,
+        rate_limit=EVAL_RATE_LIMIT,
+        request=request,
+        evaluation_func=go,
+        name="abstract evaluation",
     )

@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from paper.backend.dependencies import ENABLE_NETWORK, lifespan
 from paper.backend.model import HealthCheck
 from paper.backend.routers import mind
-from paper.util import VERSION
+from paper.util import VERSION, setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,7 @@ def _setup_cors(app: FastAPI) -> None:
     )
 
 
+setup_logging()
 app = FastAPI(
     lifespan=lifespan,
     title="Paper Explorer",
