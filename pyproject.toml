@@ -51,7 +51,7 @@ dev = [
     "pytest>=8.3.4",
     "pytest-asyncio>=1.0.0",
     "pytest-cov>=6.1.1",
-    "ruff>=0.11.13,<0.12",
+    "ruff>=0.12.7,<0.13",
 ]
 
 [tool.uv.sources.cosy]
@@ -115,6 +115,7 @@ ignore = [
                 # especially with Path.
     "TC006",    # I don't want to quote `cast` arguments.
     "TRY003",   # Long messages outside exception class
+    "PLC0415",  # Allow non-top-level imports. They're useful to avoid circular dependencies.
 ]
 
 [tool.ruff.lint.pydocstyle]

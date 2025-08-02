@@ -118,6 +118,10 @@ class Just[T](Maybe[T]):
             and self.value == other.value
         )
 
+    def __hash__(self) -> int:
+        """Hash the object by its value."""
+        return hash(self.value)
+
     def __repr__(self) -> str:
         """Represent object as `Just(val)`."""
         return f"Just({self.value!r})"
@@ -151,6 +155,10 @@ class Nothing[T](Maybe[T]):
     def __eq__(self, other: object) -> bool:
         """Items are equal if they're both Nothing."""
         return ismaybe(other) and isnothing(other)
+
+    def __hash__(self) -> int:
+        """Hash a Nothing returns a constant value."""
+        return hash(None)
 
     def __repr__(self) -> str:
         """Represent object as `Nothing`."""

@@ -84,7 +84,7 @@ class _PipelineASTParser(ast.NodeVisitor):
         self.current_outputs: dict[str, Path] = {}
         self.current_title: str | None = None
 
-    def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
+    def visit_Call(self, node: ast.Call) -> None:
         """Extract _checkrun calls and title calls."""
         if isinstance(node.func, ast.Name):
             if node.func.id == "title" and node.args:
@@ -99,7 +99,7 @@ class _PipelineASTParser(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def visit_Assign(self, node: ast.Assign) -> None:  # noqa: N802
+    def visit_Assign(self, node: ast.Assign) -> None:
         """Track variable assignments for file paths."""
         if not isinstance(node.value, ast.BinOp) or not isinstance(
             node.value.op, ast.Div

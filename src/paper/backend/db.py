@@ -487,8 +487,8 @@ async def execute_query(
         print("Done.")
 
 
-@app.command()
-def test(
+@app.command(name="test")
+def db_test(
     dbname: OPTION_DBNAME = DEFAULT_DB_PARAMS["dbname"],
     user: OPTION_DBUSER = DEFAULT_DB_PARAMS["user"],
     password: OPTION_DBPASSWORD = DEFAULT_DB_PARAMS["password"],
