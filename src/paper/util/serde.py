@@ -4,7 +4,7 @@ import gzip
 import io
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Generator, Sequence
+from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
 from enum import StrEnum
 from pathlib import Path
@@ -23,9 +23,9 @@ import orjson
 import zstandard as zstd
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
-type JSONPrimitive = str | bool | int | float
+type JSONPrimitive = str | bool | int | float | None
 type JSONArray = Sequence[JSONValue]
-type JSONObject = dict[str, JSONValue]
+type JSONObject = Mapping[str, JSONValue]
 type JSONValue = JSONObject | JSONArray | JSONPrimitive
 
 

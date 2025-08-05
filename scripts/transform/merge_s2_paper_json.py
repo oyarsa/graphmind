@@ -38,7 +38,7 @@ def merge_objects(obj1: JSONObject, obj2: JSONObject) -> JSONObject:
     Keeping first value for primitives, merging lists, and recursively merging nested
     objects.
     """
-    result = copy.deepcopy(obj1)
+    result = dict(copy.deepcopy(obj1))
 
     for key, val2 in obj2.items():
         if key not in result:
