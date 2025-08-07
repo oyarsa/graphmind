@@ -19,7 +19,6 @@ dependencies = [
     "tiktoken>=0.8.0",
     "aiolimiter>=1.1.0",
     "sentence-transformers>=3.3.0",
-    "polars>=1.16.0",
     "openreview-py>=1.46.3",
     "arxiv>=2.1.3",
     "nltk>=3.9.1",

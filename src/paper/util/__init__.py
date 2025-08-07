@@ -22,10 +22,11 @@ from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Self, cast, no_type_check, overload
 
-import polars as pl
+import numpy as np
 import psutil
 import rich
 from rich.console import Console
+from rich.table import Table
 from thefuzz import fuzz  # type: ignore
 from tqdm import tqdm
 
@@ -758,24 +759,32 @@ def get_in(data: dict[str, Any], path: str, default: Any = None) -> Any | None:
     return current
 
 
-def prettify_polars() -> None:
-    """Make Polars output tables nicer.
-
-    - Hide data types.
-    - Hide dataframe shape.
-    - Show all columns.
-
-    This is stateful. Once called, all Polars DataFrames will use this.
-    """
-    pl.Config.set_tbl_hide_column_data_types(True).set_tbl_hide_dataframe_shape(
-        True
-    ).set_tbl_cols(-1)
-
-
 def describe(values: Iterable[int]) -> str:
     """Print descriptive statistics of `values`."""
-    prettify_polars()
-    return str(pl.Series(values).describe())
+    arr = np.array(values, dtype=float)
+    if arr.size == 0:
+        return "Empty series"
+
+    q0, q25, q50, q75, q100 = np.percentile(arr, [0, 25, 50, 75, 100])
+    stats = {
+        "count": len(arr),
+        "mean": arr.mean(),
+        "std": arr.std(ddof=1) if len(arr) > 1 else 0.0,
+        "min": q0,
+        "25%": q25,
+        "50%": q50,
+        "75%": q75,
+        "max": q100,
+    }
+
+    table = Table(show_header=False, show_edge=False, pad_edge=False)
+    table.add_column("statistic")
+    table.add_column("value", justify="right")
+
+    for name, value in stats.items():
+        table.add_row(name, f"{value:.6g}")
+
+    return render_rich(table)
 
 
 def render_rich(*objects: Any) -> str:
