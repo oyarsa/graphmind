@@ -7,11 +7,10 @@ import sys
 from typing import Annotated, Any
 
 import aiohttp
-import dotenv
 import typer
 
 from paper.semantic_scholar.info import fetch_paper_data
-from paper.util import ensure_envvar, setup_logging
+from paper.util import dotenv, ensure_envvar, setup_logging
 
 # Fields from paper_retrieval.py
 S2_FIELDS = [

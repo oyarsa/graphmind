@@ -13,7 +13,6 @@ from functools import partial
 from pathlib import Path
 from typing import Annotated
 
-import dotenv
 import typer
 
 from paper.gpt.evaluate_tournament.bradley_terry import calculate_bradley_terry_rankings
@@ -42,6 +41,7 @@ from paper.gpt.run_gpt import LLMClient
 from paper.util import (
     Timer,
     cli,
+    dotenv,
     get_params,
     render_params,
     setup_logging,

@@ -24,7 +24,6 @@ from typing import Annotated, Any
 
 import aiohttp
 import backoff
-import dotenv
 import typer
 
 from paper.semantic_scholar.model import (
@@ -35,6 +34,7 @@ from paper.semantic_scholar.model import (
 )
 from paper.util import (
     arun_safe,
+    dotenv,
     ensure_envvar,
     get_params,
     progress,

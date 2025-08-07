@@ -19,7 +19,6 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Annotated, Self
 
-import dotenv
 import typer
 from pydantic import Field
 from tqdm import tqdm
@@ -46,6 +45,7 @@ from paper.types import Immutable
 from paper.util import (
     Timer,
     cli,
+    dotenv,
     get_params,
     progress,
     render_params,

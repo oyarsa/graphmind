@@ -15,7 +15,6 @@ from pathlib import Path
 from statistics import mean, stdev
 from typing import Annotated, Any, Self
 
-import dotenv
 import typer
 from pydantic import Field
 from rich.console import Console
@@ -43,6 +42,7 @@ from paper.types import Immutable
 from paper.util import (
     Timer,
     cli,
+    dotenv,
     get_params,
     progress,
     render_params,

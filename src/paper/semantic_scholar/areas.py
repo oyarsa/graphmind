@@ -18,7 +18,6 @@ from typing import Annotated, Any
 
 import aiohttp
 import backoff
-import dotenv
 import typer
 from aiolimiter import AsyncLimiter
 from rich.console import Console
@@ -28,7 +27,7 @@ from tqdm import tqdm
 from paper.semantic_scholar.info import S2_SEARCH_BASE_URL
 from paper.semantic_scholar.model import Paper, PaperArea
 from paper.types import Immutable
-from paper.util import arun_safe, display_params, ensure_envvar, read_resource
+from paper.util import arun_safe, display_params, dotenv, ensure_envvar, read_resource
 from paper.util.cli import die
 from paper.util.serde import save_data
 

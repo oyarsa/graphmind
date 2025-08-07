@@ -22,7 +22,6 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
-import dotenv
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -71,6 +70,7 @@ from paper.util import (
     Timer,
     batch_map_with_progress,
     cli,
+    dotenv,
     get_params,
     read_resource,
     render_params,

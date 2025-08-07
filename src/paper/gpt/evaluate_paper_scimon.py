@@ -14,7 +14,6 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
-import dotenv
 import typer
 
 from paper.baselines import scimon
@@ -44,6 +43,7 @@ from paper.util import (
     Timer,
     batch_map_with_progress,
     cli,
+    dotenv,
     get_params,
     render_params,
     sample,

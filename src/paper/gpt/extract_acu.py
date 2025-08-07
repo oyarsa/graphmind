@@ -15,7 +15,6 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated, Self
 
-import dotenv
 import typer
 from pydantic import Field
 from tqdm import tqdm
@@ -41,6 +40,7 @@ from paper.util import (
     Timer,
     cli,
     describe,
+    dotenv,
     get_params,
     progress,
     render_params,

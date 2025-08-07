@@ -36,7 +36,6 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import aiohttp
-import dotenv
 import typer
 from pydantic import ValidationError
 from tqdm import tqdm
@@ -49,7 +48,7 @@ from paper.semantic_scholar.model import (
     title_ratio,
 )
 from paper.semantic_scholar.recommended import Limiter
-from paper.util import arun_safe, ensure_envvar, progress, setup_logging
+from paper.util import arun_safe, dotenv, ensure_envvar, progress, setup_logging
 from paper.util.serde import load_data, save_data
 
 MAX_CONCURRENT_REQUESTS = 10

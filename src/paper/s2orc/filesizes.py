@@ -6,11 +6,10 @@ from pathlib import Path
 from typing import Annotated
 
 import aiohttp
-import dotenv
 import orjson
 import typer
 
-from paper.util import ensure_envvar, progress
+from paper.util import dotenv, ensure_envvar, progress
 from paper.util.cli import die
 from paper.util.serde import write_file_bytes
 

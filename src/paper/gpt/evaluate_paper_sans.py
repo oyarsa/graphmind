@@ -15,7 +15,6 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
 
-import dotenv
 import typer
 
 from paper import semantic_scholar as s2
@@ -41,6 +40,7 @@ from paper.gpt.run_gpt import (
 from paper.util import (
     Timer,
     cli,
+    dotenv,
     get_params,
     progress,
     render_params,

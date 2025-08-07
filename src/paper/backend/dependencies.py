@@ -5,13 +5,12 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-import dotenv
 from fastapi import Depends, FastAPI, Request
 
 from paper import embedding as emb
 from paper.backend.db import DatabaseManager
 from paper.gpt.run_gpt import LLMClient
-from paper.util import rate_limiter
+from paper.util import dotenv, rate_limiter
 
 ENABLE_NETWORK = os.getenv("XP_ENABLE_NETWORK", "0") == "1"
 

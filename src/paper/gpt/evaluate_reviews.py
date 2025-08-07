@@ -11,7 +11,6 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
-import dotenv
 import typer
 from pydantic import Field
 
@@ -45,6 +44,7 @@ from paper.types import Immutable
 from paper.util import (
     Timer,
     cli,
+    dotenv,
     get_params,
     progress,
     render_params,

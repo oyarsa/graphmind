@@ -9,11 +9,10 @@ from pathlib import Path
 from typing import Annotated, Self
 
 import aiohttp
-import dotenv
 import typer
 from tqdm.asyncio import tqdm
 
-from paper.util import arun_safe, ensure_envvar, progress
+from paper.util import arun_safe, dotenv, ensure_envvar, progress
 from paper.util.cli import die
 from paper.util.serde import write_file_bytes
 

@@ -21,7 +21,6 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Annotated, Any, Self
 
-import dotenv
 import orjson
 import rich
 import typer
@@ -44,6 +43,7 @@ from paper.types import Immutable
 from paper.util import (
     Timer,
     cli,
+    dotenv,
     get_params,
     progress,
     render_params,

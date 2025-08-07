@@ -18,7 +18,6 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
 
-import dotenv
 import typer
 from tqdm import tqdm
 
@@ -40,6 +39,7 @@ from paper.gpt.run_gpt import (
 )
 from paper.util import (
     Timer,
+    dotenv,
     get_params,
     progress,
     read_resource,
