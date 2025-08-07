@@ -17,7 +17,6 @@ dependencies = [
     "rich>=13.9.2",
     "backoff>=2.2.1",
     "tiktoken>=0.8.0",
-    "aiolimiter>=1.1.0",
     "sentence-transformers>=3.3.0",
     "openreview-py>=1.46.3",
     "arxiv>=2.1.3",
