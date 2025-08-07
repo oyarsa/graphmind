@@ -50,7 +50,6 @@ from paper.util import (
 )
 from paper.util.cli import Choice, die
 from paper.util.serde import load_data, save_data
-from paper.util.typing import maybe
 
 logger = logging.getLogger(__name__)
 
@@ -278,9 +277,9 @@ async def _extract_graph(
         get_graph_type(prompt.type_name), prompt.system, prompt_text
     )
     graph = (
-        maybe(result.result)
-        .map(lambda g: g.to_graph(title=paper.title, abstract=paper.abstract))
-        .unwrap_f(Graph.empty)
+        result.result.to_graph(title=paper.title, abstract=paper.abstract)
+        if result.result
+        else Graph.empty()
     )
 
     if graph.is_empty():

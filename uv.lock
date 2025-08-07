@@ -2153,7 +2153,6 @@ dependencies = [
     { name = "toml" },
     { name = "tqdm" },
     { name = "typer" },
-    { name = "typing-extensions" },
     { name = "zstandard" },
 ]
 
@@ -2224,7 +2223,6 @@ requires-dist = [
     { name = "tqdm", specifier = ">=4.66.5" },
     { name = "transformers", marker = "extra == 'baselines'", specifier = ">=4.46.2" },
     { name = "typer", specifier = ">=0.12.5" },
-    { name = "typing-extensions", specifier = ">=4.12.2" },
     { name = "zstandard", specifier = ">=0.23.0" },
 ]
 provides-extras = ["cpu", "cuda", "baselines"]
