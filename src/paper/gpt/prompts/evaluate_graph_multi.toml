@@ -1,0 +1,58 @@
+[[prompts]]
+name = "simple"
+type = "GPTEvalMulti"
+system = """\
+Given a paper title and abstract along with related papers found through semantic search, \
+provide a structured novelty evaluation for this paper.
+"""
+prompt = """
+The following data contains information about a paper that needs novelty assessment. It includes \
+the paper's title and abstract, along with related papers discovered through semantic search.
+
+The related papers are ordered by relevance and include both supporting papers (those with \
+similar research directions or methods) and contrasting papers (those with different approaches \
+to similar problems). Use these related papers to understand the research landscape and assess \
+whether the target paper presents novel contributions.
+
+Each related paper is presented with its ID, title, and relevant information. When referencing \
+evidence from these papers, you MUST include the paper's ID and title.
+
+Based on this information, evaluate the paper using the paper novelty from the following \
+perspective:
+{perspective}
+
+Provide your evaluation in structured format with:
+1. A brief summary of the paper's main contributions and approach based on the title and abstract
+2. Specific evidence from related papers that supports the paper's novelty
+   - For each piece of evidence, include the paper ID and title it comes from
+   - Quote or paraphrase the specific finding that supports novelty
+   - Indicate that this is a search-based related paper
+3. Specific evidence from related papers that contradicts the paper's novelty
+   - For each piece of evidence, include the paper ID and title it comes from
+   - Quote or paraphrase the specific finding that contradicts novelty
+   - Indicate that this is a search-based related paper
+4. Your final assessment and conclusion about the paper's novelty
+5. A binary label (1 for novel, 0 for not novel)
+
+IMPORTANT: When creating evidence items, structure them as:
+- text: The evidence text describing the finding
+- paper_id: The ID of the paper (if available)
+- paper_title: The title of the paper
+- source: "search" to indicate this paper was found through semantic search
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+
+Abstract: {abstract}
+
+Supporting papers:
+{positive}
+
+Contrasting papers:
+{negative}
+
+#####
+"""

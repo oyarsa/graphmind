@@ -17,6 +17,10 @@ from paper.embedding import DEFAULT_SENTENCE_MODEL
 from paper.single_paper.abstract_evaluation import abstract_evaluation
 from paper.single_paper.cli import main
 from paper.single_paper.graph_evaluation import EvaluationResult, ProgressCallback
+from paper.single_paper.graph_evaluation_multi import (
+    EvaluationResultMulti,
+    process_paper_from_selection_multi,
+)
 from paper.single_paper.paper_retrieval import (
     arxiv_id_from_url,
     fetch_s2_paper_info,
@@ -28,12 +32,14 @@ from paper.single_paper.pipeline import process_paper_from_selection
 __all__ = (
     "DEFAULT_SENTENCE_MODEL",
     "EvaluationResult",
+    "EvaluationResultMulti",
     "ProgressCallback",
     "abstract_evaluation",
     "arxiv_id_from_url",
     "fetch_s2_paper_info",
     "main",
     "process_paper_from_selection",
+    "process_paper_from_selection_multi",
     "search_arxiv_papers",
     "search_arxiv_papers_filtered",
 )
