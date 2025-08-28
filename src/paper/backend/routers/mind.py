@@ -250,3 +250,82 @@ async def evaluate_abstract(
         evaluation_func=go,
         name="abstract evaluation",
     )
+
+
+@router.get("/evaluate-multi", summary="Evaluate multi-perspectives (SSE)")
+async def evaluate_multi(
+    request: Request,
+    limiter: LimiterDep,
+    llm_registry: LLMRegistryDep,
+    encoder: EncoderDep,
+    id: Annotated[str, Query(description="ID of the paper to analyse.")],
+    title: Annotated[str, Query(description="Title of the paper on arXiv.")],
+    k_refs: Annotated[
+        int, Query(description="How many references to use.", ge=10, le=50)
+    ] = 20,
+    recommendations: Annotated[
+        int, Query(description="How many recommended papers to retrieve.", ge=20, le=50)
+    ] = 30,
+    related: Annotated[
+        int,
+        Query(
+            description="How many related papers to retrieve, per type.", ge=5, le=10
+        ),
+    ] = 5,
+    llm_model: Annotated[
+        LLMModel, Query(description="LLM model to use.")
+    ] = LLMModel.Gemini2Flash,
+    filter_by_date: Annotated[
+        bool,
+        Query(
+            description="Filter recommended papers to only include those published"
+            " before the main paper."
+        ),
+    ] = False,
+) -> StreamingResponse:
+    """Perform comprehensive paper analysis and evaluation with real-time progress.
+
+    Uses multi-perspective evaluation. Each perspective is evaluated separately, with
+    combining them to obtain a final result.
+
+    Analyses an arXiv paper using LLM-based evaluation, including:
+    - Paper classification and annotation
+    - Reference analysis
+    - Recommendation generation
+    - Related paper discovery
+
+    Returns progress updates via Server-Sent Events (SSE), followed by the final result.
+
+    See OPTIONS /mind/evaluate from the result schema.
+    """
+    client = llm_registry.get_client(llm_model)
+    arxiv_id = urllib.parse.unquote_plus(id)
+
+    @measure_memory
+    async def go(
+        callback: single_paper.ProgressCallback,
+    ) -> single_paper.EvaluationResultMulti:
+        return await single_paper.process_paper_from_selection_multi(
+            client=client,
+            title=title,
+            arxiv_id=arxiv_id,
+            encoder=encoder,
+            top_k_refs=k_refs,
+            num_recommendations=recommendations,
+            num_related=related,
+            limiter=limiter,
+            eval_prompt_key=EVAL_PROMPT,
+            graph_prompt_key=GRAPH_PROMPT,
+            demonstrations_key=DEMOS,
+            demo_prompt_key=DEMO_PROMPT,
+            filter_by_date=filter_by_date,
+            callback=callback,
+        )
+
+    return sse.create_streaming_response(
+        rate_limiter=rate_limiter,
+        rate_limit=EVAL_RATE_LIMIT,
+        request=request,
+        evaluation_func=go,
+        name="evaluation",
+    )
