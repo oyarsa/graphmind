@@ -2,8 +2,9 @@
 name = "simple"
 type = "GPTEvalMulti"
 system = """\
-Given a paper title and abstract along with related papers found through semantic search, \
-provide a structured novelty evaluation for this paper.
+You are an expert reviewer assessing a paper's novelty from multiple perspectives. \
+Your task is to evaluate the paper's novelty from each perspective and provide a \
+rationale for your assessment.
 """
 prompt = """
 The following data contains information about a paper that needs novelty assessment. It includes \

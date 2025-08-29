@@ -52,26 +52,32 @@ logger = logging.getLogger(__name__)
 type ProgressCallback = Callable[[str], Awaitable[None]]
 
 GRAPH_EVAL_MULTI_USER_PROMPTS = load_prompts("evaluate_graph_multi")
-GRAPH_EVAL_MULTI_SYSTEM_PROMPT = """\
-You are an expert reviewer assessing a paper's novelty from multiple perspectives.
-Your task is to evaluate the paper's novelty from each perspective and provide a
-rationale for your assessment.
-"""
+GRAPH_EVAL_SUMM_USER_PROMPTS = load_prompts("summarise_perspectives")
+
+
+@dc.dataclass(frozen=True, kw_only=True)
+class _ChosenPrompts:
+    """Prompt templates from user-picked keys."""
+
+    eval: gpt.PromptTemplate
+    graph: gpt.PromptTemplate
+    summ: gpt.PromptTemplate
 
 
 def get_prompts(
-    eval_prompt_key: str, graph_prompt_key: str
-) -> tuple[gpt.PromptTemplate, gpt.PromptTemplate]:
-    """Retrieve evaluation and graph extraction prompts.
+    eval_prompt_key: str, graph_prompt_key: str, summ_prompt_key: str
+) -> _ChosenPrompts:
+    """Retrieve evaluation, graph extraction and perspective summarisation prompts.
 
     Both must have system prompts. The eval prompt must have type GPTEvalMulti.
 
     Args:
         eval_prompt_key: Key for evaluation prompt template.
         graph_prompt_key: Key for graph extraction prompt template.
+        summ_prompt_key: Key for perspective summarisation prompt template.
 
     Returns:
-        Tuple of (eval_prompt, graph_prompt).
+        Chosen prompts.
 
     Raises:
         ValueError: If prompts are invalid.
@@ -84,7 +90,11 @@ def get_prompts(
     if not graph_prompt.system:
         raise ValueError(f"Graph prompt {graph_prompt.name!r} is not valid.")
 
-    return eval_prompt, graph_prompt
+    summ_prompt = GRAPH_EVAL_SUMM_USER_PROMPTS[summ_prompt_key]
+    if not summ_prompt.system:
+        raise ValueError(f"summ prompt {summ_prompt.name!r} is not valid.")
+
+    return _ChosenPrompts(eval=eval_prompt, graph=graph_prompt, summ=summ_prompt)
 
 
 async def extract_graph_from_paper(
@@ -119,6 +129,7 @@ async def evaluate_paper_with_graph_multi(
     client: LLMClient,
     eval_prompt_key: str,
     graph_prompt_key: str,
+    summ_prompt_key: str,
     demonstrations_key: str,
     demo_prompt_key: str,
     perspectives: Sequence[str] | None,
@@ -132,6 +143,7 @@ async def evaluate_paper_with_graph_multi(
         client: LLM client for GPT API calls.
         eval_prompt_key: Key for evaluation prompt template.
         graph_prompt_key: Key for graph extraction prompt template.
+        summ_prompt_key: Key for perspective summarisation prompt template.
         demonstrations_key: Key for demonstrations file.
         demo_prompt_key: Key for demonstration prompt template.
         perspectives: List of perspectives to evaluate. If None, use all perspectives.
@@ -144,14 +156,14 @@ async def evaluate_paper_with_graph_multi(
         perspectives = list(EVAL_MULTI_PERSPECTIVES)
 
     _raise_if_invalid_perspectives(perspectives)
-    eval_prompt, graph_prompt = get_prompts(eval_prompt_key, graph_prompt_key)
+    prompts = get_prompts(eval_prompt_key, graph_prompt_key, summ_prompt_key)
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
     if callback:
         await callback("Extracting graph representation")
 
     graph_result = await atimer(
-        extract_graph_from_paper(paper.paper, client, graph_prompt), 3
+        extract_graph_from_paper(paper.paper, client, prompts.graph), 3
     )
 
     if callback:
@@ -162,7 +174,8 @@ async def evaluate_paper_with_graph_multi(
             paper,
             graph_result.result,
             client,
-            eval_prompt,
+            prompts.eval,
+            prompts.summ,
             perspectives,
             demonstrations,
         ),
@@ -194,6 +207,7 @@ async def evaluate_paper_graph_novelty_multi(
     graph: gpt.Graph,
     client: LLMClient,
     eval_prompt: gpt.PromptTemplate,
+    summ_prompt: gpt.PromptTemplate,
     perspective_keys: Sequence[str],
     demonstrations: str,
 ) -> GPTResult[GPTEvalMulti]:
@@ -207,6 +221,7 @@ async def evaluate_paper_graph_novelty_multi(
         graph: Extracted graph representation.
         client: LLM client for GPT API calls.
         eval_prompt: Evaluation prompt template.
+        summ_prompt: Perspective summarisation prompt template.
         perspective_keys: List of perspective (keys) to evaluate. Must be available on
             `EVAL_MULTI_PERSPECTIVES`.
         demonstrations: Demonstration examples.
@@ -228,7 +243,63 @@ async def evaluate_paper_graph_novelty_multi(
         )
     )
 
-    return gpt_sequence(evals).map(GPTEvalMulti.from_perspectives)
+    return await gpt_sequence(evals).abind(
+        lambda ps: _summarise_perspectives(client, summ_prompt, ps)
+    )
+
+
+async def _summarise_perspectives(
+    client: LLMClient, prompt: gpt.PromptTemplate, perspectives: Sequence[GPTEvalSingle]
+) -> GPTResult[GPTEvalMulti]:
+    perspectives_valid = [p for p in perspectives if p.is_valid()]
+
+    summary = await summarise_perspectives(client, prompt, perspectives_valid)
+    return summary.map(lambda s: GPTEvalMulti.from_summary(perspectives_valid, s))
+
+
+class PerspectiveSummary(Immutable):
+    """Summary of all perspectives for multi-perspective evaluation."""
+
+    summary: str
+    label: int
+
+    @classmethod
+    def error(cls) -> Self:
+        """Return an error summary placeholder result."""
+        return cls(summary=RATIONALE_ERROR, label=0)
+
+    def is_valid(self) -> bool:
+        """Check if the summary result is valid."""
+        return self.summary != RATIONALE_ERROR
+
+
+async def summarise_perspectives(
+    client: LLMClient,
+    prompt: gpt.PromptTemplate,
+    perspective_results: Sequence[GPTEvalSingle],
+) -> GPTResult[PerspectiveSummary]:
+    """Summarise all perspective rationales in a single text."""
+
+    result = await client.run(
+        PerspectiveSummary,
+        prompt.system,
+        format_perspective_summary_template(prompt, perspective_results),
+    )
+    eval = result.fix(PerspectiveSummary.error)
+
+    if not eval.result.is_valid():
+        logger.warning("Invalid perpsective summarisation result.")
+
+    return eval
+
+
+def format_perspective_summary_template(
+    prompt: gpt.PromptTemplate, perspective_results: Sequence[GPTEvalSingle]
+) -> str:
+    """Format perspective summary template using the perspective results."""
+    return prompt.template.format(
+        perspectives="\n".join(p.to_text() for p in perspective_results)
+    )
 
 
 @dc.dataclass(frozen=True, kw_only=True)
@@ -340,19 +411,17 @@ class GPTEvalMulti(Immutable):
     """Collection of perspectives used."""
 
     @classmethod
-    def from_perspectives(cls, perspectives: Sequence[GPTEvalSingle]) -> Self:
+    def from_summary(
+        cls, perspectives: Sequence[GPTEvalSingle], summary: PerspectiveSummary
+    ) -> Self:
         """Create GPTEvalMulti from multiple GPTEvalSingle perspectives."""
-        perspectives_valid = [p for p in perspectives if p.is_valid()]
-
-        rationale = "\n".join(f"{p.name} - {p.rationale}" for p in perspectives_valid)
-        label = _majority([p.label for p in perspectives_valid])
-        probability = sum(p.label for p in perspectives_valid) / len(perspectives_valid)
+        probability = sum(p.label for p in perspectives) / len(perspectives)
 
         return cls(
-            rationale=rationale,
-            label=label,
+            rationale=summary.summary,
+            label=summary.label,
             probability=probability,
-            perspectives=perspectives_valid,
+            perspectives=perspectives,
         )
 
     def fix_label(self, target_mode: TargetMode = TargetMode.BIN) -> Self:
@@ -364,15 +433,6 @@ class GPTEvalMulti(Immutable):
             "Invalid label: %d. Converting to %s", self.label, target_mode.labels()
         )
         return replace_fields(self, label=0)
-
-
-def _majority(labels: Sequence[int]) -> int:
-    """Return the majority label from a list of binary labels.
-
-    In case of a tie, returns 1.
-    """
-    assert labels, "Cannot find majority of empty labels"
-    return 1 if labels.count(1) >= len(labels) // 2 else 0
 
 
 class GPTEvalSingleRaw(Immutable):
@@ -402,6 +462,10 @@ class GPTEvalSingle(GPTEvalSingleRaw):
 
     name: str
     """Name of the perspective used for this evaluation."""
+
+    def to_text(self) -> str:
+        """Convert evaluation result to text for LLM prompt."""
+        return f"{self.name} - Label: {self.label}\nRationale: {self.rationale}"
 
 
 class PaperResultMulti(s2.PaperWithS2Refs):
@@ -513,6 +577,7 @@ async def process_paper_from_selection_multi(
     encoder: emb.Encoder,
     eval_prompt_key: str,
     graph_prompt_key: str,
+    summ_prompt_key: str,
     demonstrations_key: str,
     demo_prompt_key: str,
     *,
@@ -551,6 +616,7 @@ async def process_paper_from_selection_multi(
         limiter: Rate limiter for Semantic Scholar API requests.
         eval_prompt_key: Key for evaluation prompt template.
         graph_prompt_key: Key for graph extraction prompt template.
+        summ_prompt_key: Key for perspective summarisation prompt template.
         demonstrations_key: Key for demonstrations file.
         demo_prompt_key: Key for demonstration prompt template.
         filter_by_date: If True, filter recommended papers to only include those
@@ -598,6 +664,7 @@ async def process_paper_from_selection_multi(
             client,
             eval_prompt_key,
             graph_prompt_key,
+            summ_prompt_key,
             demonstrations_key,
             demo_prompt_key,
             perspectives=None,
