@@ -126,6 +126,10 @@ class GPTResult[T]:
         """Apply monadic function to inner value and sum the costs (async version)."""
         return self.then(await func(self.result))
 
+    async def amap[U](self, func: Callable[[T], Awaitable[U]]) -> GPTResult[U]:
+        """Apply `func` to inner value and return new result (async version)."""
+        return GPTResult(result=await func(self.result), cost=self.cost)
+
     @staticmethod
     def unit(value: T) -> GPTResult[T]:
         """New result with cost 0."""
