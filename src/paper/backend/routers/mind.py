@@ -22,6 +22,9 @@ from paper.backend.model import (
     DEMOS,
     EVAL_PROMPT,
     GRAPH_PROMPT,
+    MULTI_EVAL_PROMPT,
+    MULTI_STRUCT_PROMPT,
+    MULTI_SUMM_PROMPT,
     AbstractEvaluationResponse,
 )
 from paper.backend.rate_limiter import RateLimiter
@@ -252,6 +255,15 @@ async def evaluate_abstract(
     )
 
 
+# See `evaluation_options` for why this exists.
+@router.options(
+    "/evaluate-multi", summary="Evaluate Multi-Perspective Schema Reference"
+)
+async def evaluation_multi_options() -> single_paper.EvaluationResultMulti:
+    """This shows the schema of objects streamed by GET /evaluate-multi."""
+    raise HTTPException(501, "Use GET method for the actual SSE stream")
+
+
 @router.get("/evaluate-multi", summary="Evaluate multi-perspectives (SSE)")
 async def evaluate_multi(
     request: Request,
@@ -314,8 +326,9 @@ async def evaluate_multi(
             num_recommendations=recommendations,
             num_related=related,
             limiter=limiter,
-            eval_prompt_key=EVAL_PROMPT,
+            eval_prompt_key=MULTI_EVAL_PROMPT,
             graph_prompt_key=GRAPH_PROMPT,
+            summ_prompt_key=MULTI_SUMM_PROMPT,
             demonstrations_key=DEMOS,
             demo_prompt_key=DEMO_PROMPT,
             filter_by_date=filter_by_date,
