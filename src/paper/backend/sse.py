@@ -61,6 +61,8 @@ def create_streaming_response[T: BaseModel](
     if not rate_limiter.check_rate_limit(request, rate_limit):
         return _new_streaming_response(_rate_limit_error_stream())
 
+    request_id = _generate_request_id()
+
     async def generate_events() -> AsyncGenerator[str, None]:
         """Generate Server-Sent Events for progress updates and final result.
 
@@ -70,7 +72,6 @@ def create_streaming_response[T: BaseModel](
         queue: asyncio.Queue[str | _StreamStatus] = asyncio.Queue()
 
         async def progress_cb(msg: str) -> None:
-            request_id = _generate_request_id()
             rich.print(f"[green]({request_id}) {name}: {msg}[/green]")
             await queue.put(msg)
 
