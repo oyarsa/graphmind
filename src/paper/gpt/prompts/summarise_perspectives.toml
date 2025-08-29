@@ -1,7 +1,7 @@
 # TODO: Rewrite this
 [[prompts]]
 name = "simple"
-type = "GPTEvalMulti"
+type = "PerspectiveSummary"
 system = """\
 Given an evaluation of a paper's novelty from multiple perspectives, summarise the \
 results and give a final judgement.

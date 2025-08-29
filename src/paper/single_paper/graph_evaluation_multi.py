@@ -210,7 +210,7 @@ async def evaluate_paper_graph_novelty_multi(
     summ_prompt: gpt.PromptTemplate,
     perspective_keys: Sequence[str],
     demonstrations: str,
-) -> GPTResult[GPTEvalMulti]:
+) -> GPTResult[GPTEvalMultiResult]:
     """Evaluate a paper's multi-dimensional novelty using the extracted graph.
 
     Evaluate each perspective in `perspective_keys` separately, then aggregates the
@@ -249,12 +249,14 @@ async def evaluate_paper_graph_novelty_multi(
 
 
 async def _summarise_perspectives(
-    client: LLMClient, prompt: gpt.PromptTemplate, perspectives: Sequence[GPTEvalSingle]
-) -> GPTResult[GPTEvalMulti]:
+    client: LLMClient,
+    prompt: gpt.PromptTemplate,
+    perspectives: Sequence[GPTEvalPerspective],
+) -> GPTResult[GPTEvalMultiResult]:
     perspectives_valid = [p for p in perspectives if p.is_valid()]
 
     summary = await summarise_perspectives(client, prompt, perspectives_valid)
-    return summary.map(lambda s: GPTEvalMulti.from_summary(perspectives_valid, s))
+    return summary.map(lambda s: GPTEvalMultiResult.from_summary(perspectives_valid, s))
 
 
 class PerspectiveSummary(Immutable):
@@ -276,7 +278,7 @@ class PerspectiveSummary(Immutable):
 async def summarise_perspectives(
     client: LLMClient,
     prompt: gpt.PromptTemplate,
-    perspective_results: Sequence[GPTEvalSingle],
+    perspective_results: Sequence[GPTEvalPerspective],
 ) -> GPTResult[PerspectiveSummary]:
     """Summarise all perspective rationales in a single text."""
 
@@ -288,13 +290,13 @@ async def summarise_perspectives(
     eval = result.fix(PerspectiveSummary.error)
 
     if not eval.result.is_valid():
-        logger.warning("Invalid perpsective summarisation result.")
+        logger.warning("Invalid perspective summarisation result.")
 
     return eval
 
 
 def format_perspective_summary_template(
-    prompt: gpt.PromptTemplate, perspective_results: Sequence[GPTEvalSingle]
+    prompt: gpt.PromptTemplate, perspective_results: Sequence[GPTEvalPerspective]
 ) -> str:
     """Format perspective summary template using the perspective results."""
     return prompt.template.format(
@@ -303,7 +305,7 @@ def format_perspective_summary_template(
 
 
 @dc.dataclass(frozen=True, kw_only=True)
-class Perspective:
+class PerspectiveInfo:
     """Information about a perspective used for multi-perspective evaluation."""
 
     name: str
@@ -314,8 +316,8 @@ class Perspective:
         return f"{self.name}: {self.description}"
 
 
-EVAL_MULTI_PERSPECTIVES: Mapping[str, Perspective] = {
-    "technical_contributions": Perspective(
+EVAL_MULTI_PERSPECTIVES: Mapping[str, PerspectiveInfo] = {
+    "technical_contributions": PerspectiveInfo(
         name="Technical Contributions",
         description=(
             "Assess the novelty of the paper's technical contributions, such as new "
@@ -323,7 +325,7 @@ EVAL_MULTI_PERSPECTIVES: Mapping[str, Perspective] = {
             "from existing work and their potential impact on the field."
         ),
     ),
-    "problem_setup": Perspective(
+    "problem_setup": PerspectiveInfo(
         name="Problem Setup",
         description=(
             "Evaluate the novelty of the problem setup addressed by the paper. "
@@ -332,7 +334,7 @@ EVAL_MULTI_PERSPECTIVES: Mapping[str, Perspective] = {
             "the problem within its field."
         ),
     ),
-    "experiment_execution": Perspective(
+    "experiment_execution": PerspectiveInfo(
         name="Experiment Execution",
         description=(
             "Analyze the novelty of the experimental execution in the paper. "
@@ -351,17 +353,15 @@ async def eval_perspective(
     client: LLMClient,
     prompt: gpt.PromptTemplate,
     demonstrations: str,
-    perspective: Perspective,
-) -> GPTResult[GPTEvalSingle]:
+    perspective: PerspectiveInfo,
+) -> GPTResult[GPTEvalPerspective]:
     """Evaluate a paper's novelty from a single perspective."""
     result = await client.run(
-        GPTEvalSingleRaw,
+        GPTEvalPerspective,
         prompt.system,
         format_eval_template_multi(prompt, paper, graph, demonstrations, perspective),
     )
-    eval = result.fix(GPTEvalSingleRaw.error).map(
-        lambda x: x.with_name(perspective.name)
-    )
+    eval = result.fix(GPTEvalPerspective.error)
 
     if not eval.result.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid evaluation result")
@@ -374,7 +374,7 @@ def format_eval_template_multi(
     paper: PaperWithRelatedSummary,
     graph: Graph,
     demonstrations: str,
-    perspective: Perspective,
+    perspective: PerspectiveInfo,
     sources: set[PaperSource] | None = None,
 ) -> str:
     """Format evaluation template using the paper graph and related papers."""
@@ -398,7 +398,7 @@ def format_eval_template_multi(
     )
 
 
-class GPTEvalMulti(Immutable):
+class GPTEvalMultiResult(Immutable):
     """Evaluation result with multi-perspective evaluation."""
 
     rationale: str
@@ -407,12 +407,12 @@ class GPTEvalMulti(Immutable):
     """Final binary novelty label."""
     probability: float
     """Probability of being novel based on the multi perspectives."""
-    perspectives: Sequence[GPTEvalSingle]
+    perspectives: Sequence[GPTEvalPerspective]
     """Collection of perspectives used."""
 
     @classmethod
     def from_summary(
-        cls, perspectives: Sequence[GPTEvalSingle], summary: PerspectiveSummary
+        cls, perspectives: Sequence[GPTEvalPerspective], summary: PerspectiveSummary
     ) -> Self:
         """Create GPTEvalMulti from multiple GPTEvalSingle perspectives."""
         probability = sum(p.label for p in perspectives) / len(perspectives)
@@ -435,33 +435,31 @@ class GPTEvalMulti(Immutable):
         return replace_fields(self, label=0)
 
 
-class GPTEvalSingleRaw(Immutable):
-    """Evaluation result from a given perspective."""
+class GPTEvalPerspective(Immutable):
+    """Evaluation result from a given perspective. Raw version without the name.
 
-    rationale: str
-    """Rationale for given label for this perspective."""
-    label: int
-    """Novelty label given for this perspective, 0 or 1."""
+    Use `with_name` to create a complete object with the evaluation result and the
+    original perspective name.
+    """
+
+    rationale: Annotated[
+        str, Field(description="Rationale for given label for this perspective.")
+    ]
+    label: Annotated[
+        int, Field(description="Novelty label given for this perspective, 0 or 1.")
+    ]
+    name: Annotated[
+        str, Field(description="Name of the perspective used for this evaluation.")
+    ]
 
     @classmethod
     def error(cls) -> Self:
         """Return an error evaluation placeholder result."""
-        return cls(rationale=RATIONALE_ERROR, label=0)
+        return cls(rationale=RATIONALE_ERROR, label=0, name=RATIONALE_ERROR)
 
     def is_valid(self) -> bool:
         """Check if the evaluation result is valid."""
         return self.rationale == RATIONALE_ERROR
-
-    def with_name(self, name: str) -> GPTEvalSingle:
-        """Return GPTEvalSingle with the given name."""
-        return GPTEvalSingle(rationale=self.rationale, label=self.label, name=name)
-
-
-class GPTEvalSingle(GPTEvalSingleRaw):
-    """Evaluation result from a given perspective with the original perspective info."""
-
-    name: str
-    """Name of the perspective used for this evaluation."""
 
     def to_text(self) -> str:
         """Convert evaluation result to text for LLM prompt."""
@@ -473,7 +471,7 @@ class PaperResultMulti(s2.PaperWithS2Refs):
 
     y_true: Annotated[int, Field(description="Human annotation")]
     rationale_true: Annotated[str, Field(description="Human rationale annotation")]
-    evaluation: GPTEvalMulti
+    evaluation: GPTEvalMultiResult
 
     @computed_field
     @property
@@ -488,7 +486,9 @@ class PaperResultMulti(s2.PaperWithS2Refs):
         return self.evaluation.rationale
 
     @classmethod
-    def from_s2peer(cls, paper: s2.PaperWithS2Refs, evaluation: GPTEvalMulti) -> Self:
+    def from_s2peer(
+        cls, paper: s2.PaperWithS2Refs, evaluation: GPTEvalMultiResult
+    ) -> Self:
         """Construct `PaperResult` from the original paper and model predictions."""
         return cls.model_validate(
             paper.model_dump()
@@ -535,7 +535,7 @@ class GraphResultMulti(Immutable, PaperProxy[PaperResultMulti]):
 
 
 def construct_graph_result_multi(
-    paper: gpt.PaperWithRelatedSummary, graph: gpt.Graph, evaluation: GPTEvalMulti
+    paper: gpt.PaperWithRelatedSummary, graph: gpt.Graph, evaluation: GPTEvalMultiResult
 ) -> GraphResultMulti:
     """Construct the final graph result from components for multi-perspective evaluation.
 
