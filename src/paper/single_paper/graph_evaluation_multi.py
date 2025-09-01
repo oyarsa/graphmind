@@ -31,7 +31,7 @@ from paper.gpt.evaluate_paper_graph import (
 from paper.gpt.graph_types.excerpts import GPTExcerpt
 from paper.gpt.model import RATIONALE_ERROR
 from paper.gpt.prompts import load_prompts
-from paper.gpt.run_gpt import GPTResult, LLMClient, gpt_sequence
+from paper.gpt.run_gpt import GPTResult, LLMClient, gpt_sequence, gpt_unit
 from paper.single_paper.paper_retrieval import get_paper_from_arxiv_id
 from paper.single_paper.pipeline import annotate_paper_pipeline
 from paper.types import Immutable, PaperProxy, PaperSource
@@ -39,12 +39,6 @@ from paper.util import atimer, ensure_envvar
 from paper.util.serde import replace_fields
 
 if TYPE_CHECKING:
-    from paper.gpt.model import (
-        Graph,
-        PaperRelatedSummarised,
-        PaperTerms,
-        PaperWithRelatedSummary,
-    )
     from paper.util.rate_limiter import Limiter
 
 logger = logging.getLogger(__name__)
@@ -253,7 +247,22 @@ async def _summarise_perspectives(
     prompt: gpt.PromptTemplate,
     perspectives: Sequence[GPTEvalPerspective],
 ) -> GPTResult[GPTEvalMultiResult]:
+    """Summarise multiple perspectives into a single overall evaluation result.
+
+    Uses only valid perspectives (see `GPTEvalPerspective.is_valid`). If none of the
+    perspectives are valid, returns an error result (see `GPTEvalMultiResult.error`).
+
+    Args:
+        client: LLM client for GPT API calls.
+        prompt: Perspective summarisation prompt template.
+        perspectives: List of perspective evaluation results.
+
+    Returns:
+        Multi-dimensional evaluation result wrapped in GPTResult.
+    """
     perspectives_valid = [p for p in perspectives if p.is_valid()]
+    if not perspectives_valid:
+        return gpt_unit(GPTEvalMultiResult.error())
 
     summary = await summarise_perspectives(client, prompt, perspectives_valid)
     return summary.map(lambda s: GPTEvalMultiResult.from_summary(perspectives_valid, s))
@@ -371,8 +380,8 @@ async def eval_perspective(
 
 def format_eval_template_multi(
     prompt: gpt.PromptTemplate,
-    paper: PaperWithRelatedSummary,
-    graph: Graph,
+    paper: gpt.PaperWithRelatedSummary,
+    graph: gpt.Graph,
     demonstrations: str,
     perspective: PerspectiveInfo,
     sources: set[PaperSource] | None = None,
@@ -409,6 +418,16 @@ class GPTEvalMultiResult(Immutable):
     """Probability of being novel based on the multi perspectives."""
     perspectives: Sequence[GPTEvalPerspective]
     """Collection of perspectives used."""
+
+    @classmethod
+    def error(cls) -> Self:
+        """Return an error evaluation placeholder result."""
+        return cls(
+            rationale=RATIONALE_ERROR,
+            label=0,
+            probability=0.0,
+            perspectives=[],
+        )
 
     @classmethod
     def from_summary(
@@ -459,7 +478,7 @@ class GPTEvalPerspective(Immutable):
 
     def is_valid(self) -> bool:
         """Check if the evaluation result is valid."""
-        return self.rationale == RATIONALE_ERROR
+        return self.rationale != RATIONALE_ERROR
 
     def to_text(self) -> str:
         """Convert evaluation result to text for LLM prompt."""
@@ -503,11 +522,11 @@ class PaperResultMulti(s2.PaperWithS2Refs):
 class GraphResultMulti(Immutable, PaperProxy[PaperResultMulti]):
     """Extracted graph and paper evaluation results."""
 
-    graph: Graph
+    graph: gpt.Graph
     paper: PaperResultMulti
-    related: Sequence[PaperRelatedSummarised]
+    related: Sequence[gpt.PaperRelatedSummarised]
 
-    terms: PaperTerms
+    terms: gpt.PaperTerms
     background: str
     target: str
 
@@ -519,9 +538,9 @@ class GraphResultMulti(Immutable, PaperProxy[PaperResultMulti]):
     @classmethod
     def from_annotated(
         cls,
-        annotated: PaperWithRelatedSummary,
+        annotated: gpt.PaperWithRelatedSummary,
         result: PaperResultMulti,
-        graph: Graph,
+        graph: gpt.Graph,
     ) -> Self:
         """Create GraphResultMulti with annotation data."""
         return cls(
