@@ -191,6 +191,11 @@ def get_related_papers(
             len(filtered_by_date_recommended_papers),
         )
         filtered_recommended_papers = filtered_by_date_recommended_papers
+    else:
+        if not filter_by_date:
+            logger.debug("Date filtering disabled by user")
+        if not paper_annotated.paper.year:
+            logger.debug("Date filtering unavailable because of missing year")
 
     logger.debug("Getting top K semantic - background")
     background_related = get_top_k_semantic(
