@@ -186,6 +186,42 @@
 
         <!-- arXiv Tab Content -->
         <div id="arxiv-content" class="tab-content hidden">
+          <!-- Evaluation Mode Toggle -->
+          <div class="mb-4 flex justify-center">
+            <div class="flex rounded-lg bg-gray-200/50 p-1 dark:bg-gray-800/50">
+              <input
+                type="radio"
+                id="arxiv-mode-default"
+                name="arxiv-mode"
+                value="default"
+                checked
+                class="sr-only"
+              />
+              <label
+                for="arxiv-mode-default"
+                class="arxiv-mode-label cursor-pointer rounded-md bg-white px-4 py-2
+                  text-sm font-semibold text-teal-600 shadow-sm dark:bg-gray-700
+                  dark:text-teal-400"
+              >
+                Default
+              </label>
+              <input
+                type="radio"
+                id="arxiv-mode-multi"
+                name="arxiv-mode"
+                value="multi"
+                class="sr-only"
+              />
+              <label
+                for="arxiv-mode-multi"
+                class="arxiv-mode-label cursor-pointer rounded-md px-4 py-2 text-sm
+                  font-semibold text-gray-600 hover:text-gray-800 dark:text-gray-400
+                  dark:hover:text-gray-200"
+              >
+                Multi-Perspective
+              </label>
+            </div>
+          </div>
           <div id="arxiv-search-container" class="mb-6">
             <form id="arxiv-search-form" class="flex gap-2">
               <div class="relative flex-1">

@@ -6,9 +6,11 @@ import {
   PaperSearchResultsSchema,
   EvalResult,
   EvalResultSchema,
+  EvalResultMulti,
   EvaluationParams,
   EvaluationParamsSchema,
   SSEEventDataSchema,
+  SSEEventDataMultiSchema,
   AbstractSSEEventDataSchema,
   AbstractEvaluationResponse,
 } from "./model";
@@ -524,6 +526,223 @@ export class AbstractPaperEvaluator {
       "Retrieving semantic papers",
       "Summarising related papers",
       "Evaluating abstract paper",
+    ];
+
+    const currentPhase = phases.findIndex(phase =>
+      message.toLowerCase().includes(phase.toLowerCase()),
+    );
+
+    if (currentPhase >= 0) {
+      // Show progress for the current phase starting (not completing)
+      // Don't immediately jump to 100% on the last phase
+      if (currentPhase === phases.length - 1) {
+        return 90; // Show 90% when final phase starts, reserve 100% for completion
+      }
+      return (currentPhase / phases.length) * 100 + (100 / phases.length) * 0.1;
+    }
+
+    return 0;
+  }
+}
+
+/**
+ * Real-time multi-perspective paper evaluator using Server-Sent Events.
+ * Provides live progress updates during multi-perspective paper evaluation.
+ */
+export class PaperEvaluatorMulti {
+  private eventSource: EventSource | null = null;
+  private isEvaluating = false;
+  private currentReject?: (reason?: unknown) => void;
+
+  onConnected?: (message: string) => void;
+  onProgress?: (message: string, progress: number) => void;
+  onComplete?: (result: EvalResultMulti) => void;
+  onError?: (error: string) => void;
+  onConnectionError?: (event: Event) => void;
+
+  constructor(private baseUrl: string) {}
+
+  /**
+   * Start multi-perspective paper evaluation with real-time progress updates
+   */
+  async startEvaluation(paperData: EvaluationParams): Promise<EvalResultMulti> {
+    if (this.isEvaluating) {
+      throw new Error("Evaluation already in progress");
+    }
+
+    // Validate input parameters
+    const validatedParams = EvaluationParamsSchema.parse(paperData);
+
+    const encodedId = encodeURIComponent(validatedParams.id);
+    const encodedTitle = encodeURIComponent(validatedParams.title);
+    const params = new URLSearchParams({
+      id: encodedId,
+      title: encodedTitle,
+      k_refs: validatedParams.k_refs.toString(),
+      recommendations: validatedParams.recommendations.toString(),
+      related: validatedParams.related.toString(),
+      llm_model: validatedParams.llm_model,
+      seed: validatedParams.seed.toString(),
+    });
+
+    // Add filter_by_date - always set it since it has a default value
+    params.set("filter_by_date", validatedParams.filter_by_date.toString());
+
+    const url = `${this.baseUrl}/mind/evaluate-multi?${params}`;
+    this.eventSource = new EventSource(url);
+    this.isEvaluating = true;
+
+    return new Promise((resolve, reject) => {
+      // Store reject function for cancellation
+      this.currentReject = reject;
+
+      const eventSource = this.eventSource;
+      if (!eventSource) {
+        reject(new Error("EventSource not initialized"));
+        return;
+      }
+
+      // Use specific event listeners for each event type
+      eventSource.addEventListener("connected", event => {
+        try {
+          const data = SSEEventDataMultiSchema.parse(JSON.parse(event.data as string));
+          if (data.message) {
+            this.onConnected?.(data.message);
+          }
+        } catch (error) {
+          console.error("Failed to parse connected event:", error);
+          const errorMsg = "Failed to establish connection properly. Please try again.";
+          this.onError?.(errorMsg);
+          this.cleanup();
+          reject(new Error(errorMsg));
+        }
+      });
+
+      eventSource.addEventListener("progress", event => {
+        try {
+          const data = SSEEventDataMultiSchema.parse(JSON.parse(event.data as string));
+          if (data.message) {
+            const progress = this.calculateProgress(data.message);
+            this.onProgress?.(data.message, progress);
+          }
+        } catch (error) {
+          console.error("Failed to parse progress event:", error);
+          const errorMsg = "Connection issue during evaluation. Please try again.";
+          this.onError?.(errorMsg);
+          this.cleanup();
+          reject(new Error(errorMsg));
+        }
+      });
+
+      eventSource.addEventListener("complete", event => {
+        try {
+          const data = SSEEventDataMultiSchema.parse(JSON.parse(event.data as string));
+          if (data.result) {
+            this.onComplete?.(data.result);
+            this.cleanup();
+            resolve(data.result);
+          } else {
+            this.cleanup();
+            reject(new Error("Complete event missing result data"));
+          }
+        } catch (error) {
+          console.error("Failed to parse complete event:", error);
+          const errorMsg =
+            "Evaluation completed but the response format was invalid. Please try again.";
+          this.onError?.(errorMsg);
+          this.cleanup();
+          reject(new Error(errorMsg));
+        }
+      });
+
+      eventSource.addEventListener("error", event => {
+        try {
+          const messageEvent = event as MessageEvent;
+          const data = SSEEventDataMultiSchema.parse(
+            JSON.parse(messageEvent.data as string),
+          );
+          const errorMessage = data.message ?? "Unknown error occurred";
+          this.onError?.(errorMessage);
+          this.cleanup();
+          reject(new Error(errorMessage));
+        } catch (error) {
+          console.error("Failed to parse error event:", error);
+          const errorMsg = "Error occurred during evaluation. Please try again.";
+          this.onError?.(errorMsg);
+          this.cleanup();
+          reject(new Error(errorMsg));
+        }
+      });
+
+      eventSource.onerror = event => {
+        // Try to parse error data if available
+        try {
+          const messageEvent = event as MessageEvent;
+          if (messageEvent.data) {
+            const data = SSEEventDataMultiSchema.parse(
+              JSON.parse(messageEvent.data as string),
+            );
+            const errorMessage = data.message ?? "Unknown error occurred";
+            this.onError?.(errorMessage);
+            this.cleanup();
+            reject(new Error(errorMessage));
+            return;
+          }
+        } catch (error) {
+          console.error("Failed to parse error data:", error);
+        }
+
+        // Fallback to generic connection error
+        this.onConnectionError?.(event);
+        this.cleanup();
+        reject(new Error("Connection lost"));
+      };
+    });
+  }
+
+  /**
+   * Stop the current evaluation
+   */
+  stopEvaluation(): void {
+    this.cleanupWithRejection("Evaluation cancelled by user");
+  }
+
+  /**
+   * Check if evaluation is currently in progress
+   */
+  get isRunning(): boolean {
+    return this.isEvaluating;
+  }
+
+  private cleanup(): void {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+    this.isEvaluating = false;
+    this.currentReject = undefined;
+  }
+
+  private cleanupWithRejection(reason: string): void {
+    if (this.currentReject) {
+      this.currentReject(new Error(reason));
+      this.currentReject = undefined;
+    }
+    this.cleanup();
+  }
+
+  private calculateProgress(message: string): number {
+    // Multi-perspective evaluation has similar phases but may take longer
+    const phases = [
+      "Fetching arXiv data",
+      "Fetching Semantic Scholar data and parsing arXiv paper",
+      "Fetching Semantic Scholar references and recommendations",
+      "Extracting annotations and classifying contexts",
+      "Discovering related papers",
+      "Generating related paper summaries",
+      "Extracting graph representation",
+      "Evaluating multi-perspective novelty",
+      "Summarizing perspectives",
     ];
 
     const currentPhase = phases.findIndex(phase =>

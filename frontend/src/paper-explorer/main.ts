@@ -13,12 +13,14 @@ import {
   PaperSearchResults,
   PaperSearchItem,
   AbstractEvaluationResponse,
+  GraphResultMulti,
 } from "./model";
 import { renderLatex, getArxivUrl, formatConferenceName } from "./helpers";
 import {
   JsonPaperDataset,
   ArxivPaperService,
   PaperEvaluator,
+  PaperEvaluatorMulti,
   AbstractPaperEvaluator,
   AbstractEvaluationParams,
 } from "./services";
@@ -35,18 +37,20 @@ class PaperExplorer {
   private allPapers: GraphResult[] = [];
   private filteredPapers: GraphResult[] = [];
   private lastSelectedArxivItem: PaperSearchItem | null = null;
-  // private currentTab: "json" | "arxiv" = "json";
+  private currentArxivMode: "default" | "multi" = "default";
 
   constructor(
     private jsonDataset: JsonPaperDataset,
     private arxivService: ArxivPaperService | null = null,
     private paperEvaluator: PaperEvaluator | null = null,
+    private paperEvaluatorMulti: PaperEvaluatorMulti | null = null,
     private abstractEvaluator: AbstractPaperEvaluator | null = null,
   ) {}
 
   async initialize(): Promise<void> {
     this.setupTabs();
     if (this.arxivService) {
+      this.setupArxivModeToggle();
       this.setupArxivSearchBar();
       this.setupClearCacheButton();
       this.setupEvaluationModal();
@@ -341,6 +345,80 @@ class PaperExplorer {
     }
   }
 
+  private setupArxivModeToggle(): void {
+    const defaultRadio = document.getElementById(
+      "arxiv-mode-default",
+    ) as HTMLInputElement | null;
+    const multiRadio = document.getElementById(
+      "arxiv-mode-multi",
+    ) as HTMLInputElement | null;
+    const defaultLabel = document.querySelector<HTMLElement>(
+      'label[for="arxiv-mode-default"]',
+    );
+    const multiLabel = document.querySelector<HTMLElement>(
+      'label[for="arxiv-mode-multi"]',
+    );
+
+    if (!defaultRadio || !multiRadio || !defaultLabel || !multiLabel) {
+      console.warn("ArXiv mode toggle elements not found");
+      return;
+    }
+
+    const updateToggleStyle = (mode: "default" | "multi") => {
+      const activeClasses =
+        "arxiv-mode-label cursor-pointer rounded-md px-4 py-2 text-sm font-semibold " +
+        "bg-white text-teal-600 shadow-sm dark:bg-gray-700 dark:text-teal-400";
+      const inactiveClasses =
+        "arxiv-mode-label cursor-pointer rounded-md px-4 py-2 text-sm font-semibold " +
+        "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200";
+
+      if (mode === "default") {
+        defaultLabel.className = activeClasses;
+        multiLabel.className = inactiveClasses;
+      } else {
+        defaultLabel.className = inactiveClasses;
+        multiLabel.className = activeClasses;
+      }
+    };
+
+    const switchMode = (mode: "default" | "multi") => {
+      this.currentArxivMode = mode;
+      updateToggleStyle(mode);
+
+      // Clear search and refresh cached papers display
+      const searchInput = document.getElementById(
+        "arxiv-search-input",
+      ) as HTMLInputElement | null;
+      if (searchInput) {
+        searchInput.value = "";
+      }
+
+      this.displayCachedPapersIfEmpty();
+
+      // Update result count display
+      const resultCount = document.getElementById("arxiv-result-count");
+      if (resultCount) {
+        resultCount.textContent = "";
+      }
+    };
+
+    // Set up event listeners
+    defaultRadio.addEventListener("change", () => {
+      if (defaultRadio.checked) {
+        switchMode("default");
+      }
+    });
+
+    multiRadio.addEventListener("change", () => {
+      if (multiRadio.checked) {
+        switchMode("multi");
+      }
+    });
+
+    // Initialize with default mode
+    updateToggleStyle("default");
+  }
+
   private async searchArxivPapers(query: string): Promise<void> {
     if (!query.trim()) return;
 
@@ -486,11 +564,22 @@ class PaperExplorer {
   }
 
   /**
-   * Get all cached papers from localStorage
+   * Get all cached papers from localStorage for the current mode
    */
-  private getCachedPapers(): GraphResult[] {
-    const cacheKeys = Object.keys(localStorage).filter(key =>
-      key.startsWith("paper-cache-"),
+  private getCachedPapers(): (GraphResult | GraphResultMulti)[] {
+    if (this.currentArxivMode === "multi") {
+      return this.getCachedPapersMulti();
+    } else {
+      return this.getCachedPapersDefault();
+    }
+  }
+
+  /**
+   * Get all cached default papers from localStorage
+   */
+  private getCachedPapersDefault(): GraphResult[] {
+    const cacheKeys = Object.keys(localStorage).filter(
+      key => key.startsWith("paper-cache-") && !key.includes("paper-cache-multi-"),
     );
 
     const cachedPapers: GraphResult[] = [];
@@ -504,6 +593,32 @@ class PaperExplorer {
         }
       } catch (error) {
         console.warn(`Failed to parse cached paper ${key}:`, error);
+      }
+    }
+
+    // Sort by title for consistent display
+    return cachedPapers.sort((a, b) => a.paper.title.localeCompare(b.paper.title));
+  }
+
+  /**
+   * Get all cached multi-perspective papers from localStorage
+   */
+  private getCachedPapersMulti(): GraphResultMulti[] {
+    const cacheKeys = Object.keys(localStorage).filter(key =>
+      key.startsWith("paper-cache-multi-"),
+    );
+
+    const cachedPapers: GraphResultMulti[] = [];
+
+    for (const key of cacheKeys) {
+      try {
+        const cachedData = localStorage.getItem(key);
+        if (cachedData) {
+          const graphResult = JSON.parse(cachedData) as GraphResultMulti;
+          cachedPapers.push(graphResult);
+        }
+      } catch (error) {
+        console.warn(`Failed to parse cached multi paper ${key}:`, error);
       }
     }
 
@@ -593,20 +708,27 @@ class PaperExplorer {
     this.lastSelectedArxivItem = item;
 
     // Check if paper is already cached first
-    console.log(`[Cache] Checking cache for arXiv paper: ${item.arxiv_id}`);
+    const modeText =
+      this.currentArxivMode === "multi" ? "multi-perspective" : "default";
+    console.log(`[Cache] Checking ${modeText} cache for arXiv paper: ${item.arxiv_id}`);
 
-    // Check if paper is already cached
-    // Only check keys that match the paper cache pattern (paper-cache-{hash})
-    const cacheKeys = Object.keys(localStorage).filter(key =>
-      key.startsWith("paper-cache-"),
+    // Check if paper is already cached for current mode
+    const cacheKeys = Object.keys(localStorage).filter(key => {
+      if (this.currentArxivMode === "multi") {
+        return key.startsWith("paper-cache-multi-");
+      } else {
+        return key.startsWith("paper-cache-") && !key.includes("paper-cache-multi-");
+      }
+    });
+    console.log(
+      `[Cache] Found ${cacheKeys.length} cached ${modeText} papers in localStorage`,
     );
-    console.log(`[Cache] Found ${cacheKeys.length} cached papers in localStorage`);
 
     for (const key of cacheKeys) {
       try {
         const cachedData = localStorage.getItem(key);
         if (cachedData) {
-          const graphResult = JSON.parse(cachedData) as GraphResult;
+          const graphResult = JSON.parse(cachedData) as GraphResult | GraphResultMulti;
           console.log(
             `[Cache] Checking ${key}: arxiv_id=${graphResult.paper.arxiv_id}`,
           );
@@ -614,10 +736,15 @@ class PaperExplorer {
           if (graphResult.paper.arxiv_id === item.arxiv_id) {
             // Paper found in cache, navigate directly
             console.log(
-              `[Cache] HIT! Found paper ${item.arxiv_id} in cache with key ${key}`,
+              `[Cache] HIT! Found ${modeText} paper ${item.arxiv_id} in cache with key ${key}`,
             );
             const encodedId = encodeURIComponent(graphResult.paper.id);
-            window.location.href = `/graphmind/pages/detail.html?id=${encodedId}`;
+            // Navigate to appropriate detail page based on mode
+            const detailPage =
+              this.currentArxivMode === "multi"
+                ? "/graphmind/pages/detail-multi.html"
+                : "/graphmind/pages/detail.html";
+            window.location.href = `${detailPage}?id=${encodedId}`;
             return;
           }
         }
@@ -784,20 +911,30 @@ class PaperExplorer {
     if (!clearButton) return;
 
     clearButton.addEventListener("click", () => {
-      // Find all cache keys
-      const cacheKeys = Object.keys(localStorage).filter(key =>
-        key.startsWith("paper-cache-"),
-      );
+      // Find cache keys for current mode
+      const cacheKeys = Object.keys(localStorage).filter(key => {
+        if (this.currentArxivMode === "multi") {
+          return key.startsWith("paper-cache-multi-");
+        } else {
+          return key.startsWith("paper-cache-") && !key.includes("paper-cache-multi-");
+        }
+      });
 
       if (cacheKeys.length === 0) {
-        alert("No previous results found.");
+        const modeText =
+          this.currentArxivMode === "multi" ? "multi-perspective" : "default";
+        alert(`No previous ${modeText} results found.`);
         return;
       }
 
+      const modeText =
+        this.currentArxivMode === "multi" ? "multi-perspective" : "default";
       if (
-        confirm(`Clear ${cacheKeys.length} previous results? This cannot be undone.`)
+        confirm(
+          `Clear ${cacheKeys.length} previous ${modeText} results? This cannot be undone.`,
+        )
       ) {
-        // Remove all cache keys
+        // Remove cache keys for current mode only
         cacheKeys.forEach(key => localStorage.removeItem(key));
 
         // Refresh the cached papers display if currently showing
@@ -989,8 +1126,18 @@ class PaperExplorer {
   }
 
   private async handleEvaluationSubmit(): Promise<void> {
-    if (!this.lastSelectedArxivItem || !this.paperEvaluator) {
-      console.error("No selected item or evaluator not available");
+    if (!this.lastSelectedArxivItem) {
+      console.error("No selected item available");
+      return;
+    }
+
+    // Check if appropriate evaluator is available for current mode
+    const currentEvaluator =
+      this.currentArxivMode === "multi"
+        ? this.paperEvaluatorMulti
+        : this.paperEvaluator;
+    if (!currentEvaluator) {
+      console.error(`${this.currentArxivMode} evaluator not available`);
       return;
     }
 
@@ -1052,45 +1199,53 @@ class PaperExplorer {
 
     try {
       // Set up progress callbacks
-      this.paperEvaluator.onConnected = (message: string) => {
+      currentEvaluator.onConnected = (message: string) => {
         console.log("Connected:", message);
         this.updateEvaluationProgress(message, 0);
       };
 
-      this.paperEvaluator.onProgress = (message: string, progress: number) => {
+      currentEvaluator.onProgress = (message: string, progress: number) => {
         console.log(`Progress: ${message} (${progress.toFixed(1)}%)`);
         this.updateEvaluationProgress(message, progress);
       };
 
-      this.paperEvaluator.onError = (error: string) => {
+      currentEvaluator.onError = (error: string) => {
         console.error("Evaluation error:", error);
         this.showEvaluationError(error);
       };
 
-      this.paperEvaluator.onConnectionError = (event: Event) => {
+      currentEvaluator.onConnectionError = (event: Event) => {
         console.error("Connection error:", event);
         this.showEvaluationError("Connection lost. Please try again.");
       };
 
       // Start evaluation with custom parameters
-      const evalResult = await this.paperEvaluator.startEvaluation(params);
+      const evalResult = await currentEvaluator.startEvaluation(params);
 
       // Update progress to 100% on completion
       this.updateEvaluationProgress("Evaluation complete", 100);
 
-      // Store the result in localStorage cache
+      // Store the result in localStorage cache with appropriate key
       const paperId = evalResult.result.paper.id;
+      const cacheKey =
+        this.currentArxivMode === "multi"
+          ? `paper-cache-multi-${paperId}`
+          : `paper-cache-${paperId}`;
       console.log(
-        `[Cache] Storing paper ${params.id} in cache with key paper-cache-${paperId}`,
+        `[Cache] Storing ${this.currentArxivMode} paper ${params.id} in cache with key ${cacheKey}`,
       );
-      localStorage.setItem(`paper-cache-${paperId}`, JSON.stringify(evalResult.result));
+      localStorage.setItem(cacheKey, JSON.stringify(evalResult.result));
 
       // Show completion notification
       this.showCompletionNotification(params.title);
 
-      // Navigate to detail page
+      // Navigate to appropriate detail page based on mode
       const encodedId = encodeURIComponent(paperId);
-      window.location.href = `/graphmind/pages/detail.html?id=${encodedId}`;
+      const detailPage =
+        this.currentArxivMode === "multi"
+          ? "/graphmind/pages/detail-multi.html"
+          : "/graphmind/pages/detail.html";
+      window.location.href = `${detailPage}?id=${encodedId}`;
     } catch (error) {
       // Check if error is due to user cancellation
       if (error instanceof Error && error.message.includes("cancelled by user")) {
@@ -1605,12 +1760,14 @@ async function initialiseApp(): Promise<void> {
   const jsonDataset = new JsonPaperDataset(jsonPath);
   const arxivService = apiUrl ? new ArxivPaperService(apiUrl) : null;
   const paperEvaluator = apiUrl ? new PaperEvaluator(apiUrl) : null;
+  const paperEvaluatorMulti = apiUrl ? new PaperEvaluatorMulti(apiUrl) : null;
   const abstractEvaluator = apiUrl ? new AbstractPaperEvaluator(apiUrl) : null;
 
   const explorer = new PaperExplorer(
     jsonDataset,
     arxivService,
     paperEvaluator,
+    paperEvaluatorMulti,
     abstractEvaluator,
   );
   await retryWithBackoff(() => explorer.initialize());

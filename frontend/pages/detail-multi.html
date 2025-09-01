@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multi-Perspective Paper Detail - Paper Explorer</title>
+    <script>
+      // Apply theme immediately to prevent flash
+      (function () {
+        try {
+          const saved = localStorage.getItem("paper-explorer-theme");
+          if (saved === "dark") {
+            document.documentElement.classList.add("dark");
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body
+    class="m-0 flex min-h-screen flex-col bg-white p-0 font-sans text-black
+      dark:bg-black dark:text-white"
+  >
+    <div class="relative flex-1 p-8">
+      <header class="mb-8">
+        <div class="mx-auto max-w-6xl">
+          <div class="mb-4 flex items-center justify-between">
+            <div>
+              <h1
+                class="bg-gradient-to-r from-teal-600 to-blue-600 bg-clip-text text-3xl
+                  font-bold text-transparent dark:from-teal-400 dark:to-blue-400"
+              >
+                Multi-Perspective Paper Detail
+              </h1>
+              <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                This paper was evaluated using multiple perspectives for comprehensive
+                analysis
+              </p>
+            </div>
+            <div class="flex gap-2">
+              <a
+                href="/graphmind/pages/search.html"
+                class="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700
+                  dark:text-teal-400 dark:hover:text-teal-300"
+              >
+                <svg
+                  class="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                  ></path>
+                </svg>
+                Back to Search
+              </a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Loading and error states -->
+      <div
+        id="loading-detail"
+        class="mx-auto max-w-4xl text-center text-gray-600 dark:text-gray-400"
+      >
+        Loading multi-perspective paper details...
+      </div>
+
+      <div id="error-detail" class="mx-auto hidden max-w-2xl text-center">
+        <div
+          class="rounded-lg border border-gray-300 bg-gray-50 p-12 shadow-sm
+            dark:border-gray-700 dark:bg-gray-900/50"
+        >
+          <svg
+            class="mx-auto mb-6 h-16 w-16 text-gray-400 dark:text-gray-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0
+                11-18 0 9 9 0 0118 0z"
+            ></path>
+          </svg>
+          <h2 class="mb-3 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            Paper Not Found
+          </h2>
+          <p class="mb-8 text-gray-600 dark:text-gray-400">
+            We couldn't find the multi-perspective paper you're looking for. It may have
+            been removed from the cache or hasn't been loaded yet.
+          </p>
+          <a
+            href="/graphmind/pages/search.html"
+            class="inline-block rounded-lg bg-teal-600 px-6 py-3 font-semibold
+              text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5
+              hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600"
+          >
+            ← Go Back to Search
+          </a>
+        </div>
+      </div>
+
+      <!-- Main paper content wrapper -->
+      <div id="paper-content" class="hidden">
+        <!-- Top section (constrained width) -->
+        <div class="mx-auto max-w-6xl">
+          <div
+            id="paper-detail-top"
+            class="rounded-lg border border-gray-300 bg-gray-100/50 p-8
+              dark:border-gray-700 dark:bg-gray-900/50"
+          >
+            <h2
+              id="paper-title"
+              class="mb-4 text-2xl leading-tight font-bold text-black dark:text-white"
+            ></h2>
+
+            <div class="mb-6">
+              <div class="mb-2 text-sm text-gray-600 dark:text-gray-400">Authors</div>
+              <div
+                id="paper-authors"
+                class="text-lg text-gray-700 dark:text-gray-300"
+              ></div>
+            </div>
+
+            <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-5">
+              <div>
+                <div
+                  class="text-xs tracking-wide text-gray-600 uppercase
+                    dark:text-gray-500"
+                >
+                  Year
+                </div>
+                <div
+                  id="paper-year"
+                  class="text-lg font-semibold text-black dark:text-white"
+                ></div>
+              </div>
+              <div>
+                <div
+                  class="text-xs tracking-wide text-gray-600 uppercase
+                    dark:text-gray-500"
+                >
+                  Conference
+                </div>
+                <div
+                  id="paper-conference"
+                  class="text-lg font-semibold text-black dark:text-white"
+                ></div>
+              </div>
+              <div>
+                <div
+                  class="text-xs tracking-wide text-gray-600 uppercase
+                    dark:text-gray-500"
+                >
+                  Decision
+                </div>
+                <div id="paper-approval" class="text-lg font-semibold"></div>
+              </div>
+              <div>
+                <div
+                  class="text-xs tracking-wide text-gray-600 uppercase
+                    dark:text-gray-500"
+                >
+                  Novelty
+                </div>
+                <div
+                  id="paper-rating"
+                  class="text-lg font-semibold text-black dark:text-white"
+                ></div>
+              </div>
+              <div>
+                <div
+                  class="text-xs tracking-wide text-gray-600 uppercase
+                    dark:text-gray-500"
+                >
+                  arXiv
+                </div>
+                <div
+                  id="paper-arxiv"
+                  class="text-lg font-semibold text-black dark:text-white"
+                ></div>
+              </div>
+            </div>
+
+            <div class="mb-6">
+              <div class="mb-3 text-sm text-gray-600 dark:text-gray-400">Keywords</div>
+              <div id="paper-keywords" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <div>
+              <div class="mb-3 text-sm text-gray-600 dark:text-gray-400">Abstract</div>
+              <div
+                id="paper-abstract"
+                class="text-sm leading-relaxed text-gray-700 dark:text-gray-300"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Multi-Perspective Evaluation Section -->
+        <div class="mx-auto my-8 max-w-6xl">
+          <div data-section="multi-perspective-evaluation">
+            <div
+              id="multi-perspective-header"
+              class="-m-2 mb-4 flex cursor-pointer items-center justify-between
+                rounded-lg p-2 transition-colors duration-200 hover:bg-gray-50
+                dark:hover:bg-gray-800/50"
+            >
+              <div class="flex items-center gap-2">
+                <div class="h-6 w-1.5 rounded-full bg-purple-500"></div>
+                <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  Multi-Perspective Novelty Analysis
+                </h3>
+                <svg
+                  id="multi-perspective-chevron"
+                  class="h-5 w-5 text-gray-400 transition-transform duration-200"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 9l-7 7-7-7"
+                  ></path>
+                </svg>
+              </div>
+            </div>
+            <div id="multi-perspective-evaluation" class="space-y-6">
+              <!-- Individual perspectives will be populated here -->
+              <div id="individual-perspectives" class="space-y-4"></div>
+
+              <!-- Overall aggregated result -->
+              <div
+                id="aggregated-result"
+                class="rounded-lg border border-blue-300 bg-blue-50 p-6
+                  dark:border-blue-700 dark:bg-blue-900/30"
+              >
+                <h4 class="mb-4 text-lg font-semibold text-blue-900 dark:text-blue-100">
+                  🎯 Overall Assessment
+                </h4>
+                <div
+                  id="overall-rationale"
+                  class="mb-4 text-sm text-blue-800 dark:text-blue-200"
+                ></div>
+                <div class="flex items-center gap-4">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-blue-700 dark:text-blue-300"
+                      >Final Decision:</span
+                    >
+                    <span id="overall-label" class="text-lg font-bold"></span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-blue-700 dark:text-blue-300"
+                      >Confidence:</span
+                    >
+                    <span id="overall-probability" class="text-lg font-bold"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Graph section (dynamic width) -->
+        <div class="my-8 px-8">
+          <div data-section="paper-graph" class="mx-auto max-w-6xl">
+            <div
+              id="paper-graph-header"
+              class="-m-2 mb-4 flex cursor-pointer items-center justify-between
+                rounded-lg p-2 transition-colors duration-200 hover:bg-gray-50
+                dark:hover:bg-gray-800/50"
+            >
+              <div class="flex items-center gap-2">
+                <div class="h-6 w-1.5 rounded-full bg-blue-500"></div>
+                <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  Paper Structure Graph
+                </h3>
+                <svg
+                  id="paper-graph-chevron"
+                  class="h-5 w-5 text-gray-400 transition-transform duration-200"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 9l-7 7-7-7"
+                  ></path>
+                </svg>
+              </div>
+            </div>
+            <div
+              id="paper-graph"
+              class="flex justify-center rounded-lg border border-gray-200 bg-white/50
+                p-4 dark:border-gray-700 dark:bg-gray-800/50"
+              style="overflow-x: auto"
+            >
+              <svg id="graph-svg"></svg>
+              <div
+                id="graph-tooltip"
+                class="pointer-events-none absolute z-10 hidden max-w-md rounded-md
+                  bg-gray-900 px-2 py-1 text-sm whitespace-pre-line text-white"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom section (constrained width) -->
+        <div class="mx-auto max-w-6xl">
+          <div id="paper-detail-bottom">
+            <div class="mb-8" data-section="paper-terms">
+              <div
+                id="paper-terms-header"
+                class="-m-2 mb-4 flex cursor-pointer items-center justify-between
+                  rounded-lg p-2 transition-colors duration-200 hover:bg-gray-50
+                  dark:hover:bg-gray-800/50"
+              >
+                <div class="flex items-center gap-2">
+                  <div class="h-6 w-1.5 rounded-full bg-purple-500"></div>
+                  <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+                    Paper Analysis
+                  </h3>
+                  <svg
+                    id="paper-terms-chevron"
+                    class="h-5 w-5 text-gray-400 transition-transform duration-200"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    ></path>
+                  </svg>
+                </div>
+              </div>
+              <div id="paper-terms" class="hidden space-y-4"></div>
+            </div>
+
+            <div class="mb-8" data-section="related-papers">
+              <div
+                id="related-papers-header"
+                class="-m-2 mb-4 flex cursor-pointer items-center justify-between
+                  rounded-lg p-2 transition-colors duration-200 hover:bg-gray-50
+                  dark:hover:bg-gray-800/50"
+              >
+                <div class="flex items-center gap-2">
+                  <div class="h-6 w-1.5 rounded-full bg-teal-500"></div>
+                  <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+                    Related Papers
+                  </h3>
+                  <svg
+                    id="related-papers-chevron"
+                    class="h-5 w-5 text-gray-400 transition-transform duration-200"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    ></path>
+                  </svg>
+                </div>
+              </div>
+
+              <div id="related-papers" class="hidden">
+                <!-- Filter chips -->
+                <div
+                  id="related-papers-filters"
+                  class="mb-4 flex flex-wrap items-center gap-3"
+                >
+                  <span class="text-sm font-medium text-gray-600 dark:text-gray-400"
+                    >Filter:</span
+                  >
+                  <button
+                    id="filter-background"
+                    data-type="background"
+                    class="filter-chip rounded-full border border-green-300 bg-green-100
+                      px-3 py-1 text-sm font-medium text-green-800 transition-all
+                      duration-200 hover:bg-green-200 dark:border-green-700
+                      dark:bg-green-900/30 dark:text-green-300
+                      dark:hover:bg-green-900/50"
+                  >
+                    🧠 Background <span class="filter-count">0</span>
+                  </button>
+                  <button
+                    id="filter-target"
+                    data-type="target"
+                    class="filter-chip rounded-full border border-orange-300
+                      bg-orange-100 px-3 py-1 text-sm font-medium text-orange-800
+                      transition-all duration-200 hover:bg-orange-200
+                      dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-300
+                      dark:hover:bg-orange-900/50"
+                  >
+                    🧠 Target <span class="filter-count">0</span>
+                  </button>
+                  <button
+                    id="filter-supporting"
+                    data-type="supporting"
+                    class="filter-chip rounded-md border border-emerald-300
+                      bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-800
+                      transition-all duration-200 hover:bg-emerald-200
+                      dark:border-emerald-700 dark:bg-emerald-900/30
+                      dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                  >
+                    🔗 Supporting <span class="filter-count">0</span>
+                  </button>
+                  <button
+                    id="filter-contrasting"
+                    data-type="contrasting"
+                    class="filter-chip rounded-md border border-red-300 bg-red-100 px-3
+                      py-1 text-sm font-medium text-red-800 transition-all duration-200
+                      hover:bg-red-200 dark:border-red-700 dark:bg-red-900/30
+                      dark:text-red-300 dark:hover:bg-red-900/50"
+                  >
+                    🔗 Contrasting <span class="filter-count">0</span>
+                  </button>
+                  <button
+                    id="filter-show-all"
+                    class="rounded-md border border-gray-300 bg-gray-100 px-3 py-1
+                      text-sm font-medium text-gray-700 transition-all duration-200
+                      hover:bg-gray-200 dark:border-gray-600 dark:bg-gray-700
+                      dark:text-gray-300 dark:hover:bg-gray-600"
+                  >
+                    Show All
+                  </button>
+                  <button
+                    id="filter-hide-all"
+                    class="rounded-md border border-gray-300 bg-gray-100 px-3 py-1
+                      text-sm font-medium text-gray-700 transition-all duration-200
+                      hover:bg-gray-200 dark:border-gray-600 dark:bg-gray-700
+                      dark:text-gray-300 dark:hover:bg-gray-600"
+                  >
+                    Hide All
+                  </button>
+                </div>
+
+                <div id="related-papers-content" class="space-y-3"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Excerpts Modal -->
+    <div
+      id="excerptsModal"
+      class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50
+        dark:bg-black/70"
+      style="display: none"
+    >
+      <div
+        class="flex max-h-[80vh] w-[90%] max-w-[600px] flex-col rounded-lg border
+          border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900"
+      >
+        <div class="border-b border-gray-300 px-6 py-4 dark:border-gray-700">
+          <h3
+            id="modalTitle"
+            class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+          ></h3>
+        </div>
+        <div class="flex-1 overflow-y-auto px-6 py-4">
+          <div id="modalContent" class="space-y-3"></div>
+        </div>
+        <div class="border-t border-gray-300 px-6 py-3 text-right dark:border-gray-700">
+          <button
+            id="closeModal"
+            class="rounded-lg bg-gray-500 px-4 py-2 text-sm font-medium text-white
+              hover:bg-gray-400"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/paper-explorer/detail-multi.ts"></script>
+  </body>
+</html>

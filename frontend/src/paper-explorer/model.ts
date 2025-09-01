@@ -319,6 +319,68 @@ export const EvalResultSchema = z.object({
 });
 
 /**
+ * Individual perspective evaluation result for multi-perspective analysis.
+ */
+export const PerspectiveEvaluationSchema = z.object({
+  /** Name of the perspective (e.g., "technical_contributions", "problem_setup") */
+  name: z.string(),
+  /** Rationale for the evaluation from this perspective */
+  rationale: z.string(),
+  /** Binary novelty label for this perspective (1=novel, 0=not novel) */
+  label: z.number().int(),
+});
+
+/**
+ * Multi-perspective evaluation result combining individual perspectives.
+ */
+export const MultiEvaluationResultSchema = z.object({
+  /** Overall evaluation rationale combining all perspectives */
+  rationale: z.string(),
+  /** Final binary novelty label aggregated from all perspectives */
+  label: z.number().int(),
+  /** Final probability of being novel based on all perspectives */
+  probability: z.number().min(0).max(1),
+  /** Individual perspective evaluation results */
+  perspectives: z.array(PerspectiveEvaluationSchema),
+});
+
+/**
+ * Paper result with multi-perspective evaluation.
+ */
+export const PaperMultiSchema = PaperSchema.extend({
+  /** Multi-perspective evaluation results */
+  evaluation: MultiEvaluationResultSchema,
+});
+
+/**
+ * Graph result with multi-perspective evaluation.
+ */
+export const GraphResultMultiSchema = z.object({
+  /** The hierarchical graph extracted from the main paper. */
+  graph: GraphSchema,
+  /** The main paper with multi-perspective evaluation results. */
+  paper: PaperMultiSchema,
+  /** A list of related papers with their summaries. */
+  related: z.array(RelatedPaperSchema),
+  /** Structured scientific terms extracted from the paper (optional). */
+  terms: PaperTermsSchema.nullish(),
+  /** Background information about the paper (optional). */
+  background: z.string().nullish(),
+  /** Target information about the paper (optional). */
+  target: z.string().nullish(),
+});
+
+/**
+ * Results from multi-perspective paper evaluation.
+ */
+export const EvalResultMultiSchema = z.object({
+  /** Multi-perspective evaluated paper graph. */
+  result: GraphResultMultiSchema,
+  /** Total cost of evaluation, including annotation. */
+  cost: z.number(),
+});
+
+/**
  * Parameters for paper evaluation request
  */
 export const EvaluationParamsSchema = z.object({
@@ -351,6 +413,16 @@ export const SSEEventDataSchema = z.object({
   message: z.string().optional(),
   /** Result data for complete events (EvalResult already contains cost field) */
   result: EvalResultSchema.optional(),
+});
+
+/**
+ * Server-Sent Event data structure for multi-perspective evaluation progress
+ */
+export const SSEEventDataMultiSchema = z.object({
+  /** Optional message for progress/error events */
+  message: z.string().optional(),
+  /** Result data for complete events (EvalResultMulti already contains cost field) */
+  result: EvalResultMultiSchema.optional(),
 });
 
 /**
@@ -421,8 +493,14 @@ export type GraphResult = z.infer<typeof GraphResultSchema>;
 export type PaperSearchItem = z.infer<typeof PaperSearchItemSchema>;
 export type PaperSearchResults = z.infer<typeof PaperSearchResultsSchema>;
 export type EvalResult = z.infer<typeof EvalResultSchema>;
+export type PerspectiveEvaluation = z.infer<typeof PerspectiveEvaluationSchema>;
+export type MultiEvaluationResult = z.infer<typeof MultiEvaluationResultSchema>;
+export type PaperMulti = z.infer<typeof PaperMultiSchema>;
+export type GraphResultMulti = z.infer<typeof GraphResultMultiSchema>;
+export type EvalResultMulti = z.infer<typeof EvalResultMultiSchema>;
 export type EvaluationParams = z.infer<typeof EvaluationParamsSchema>;
 export type SSEEventData = z.infer<typeof SSEEventDataSchema>;
+export type SSEEventDataMulti = z.infer<typeof SSEEventDataMultiSchema>;
 export type AbstractSSEEventData = z.infer<typeof AbstractSSEEventDataSchema>;
 export type AbstractEvaluationResponse = z.infer<
   typeof AbstractEvaluationResponseSchema
