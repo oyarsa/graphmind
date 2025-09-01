@@ -144,6 +144,9 @@ export class PaperEvaluator {
       seed: validatedParams.seed.toString(),
     });
 
+    // Add filter_by_date - always set it since it has a default value
+    params.set("filter_by_date", validatedParams.filter_by_date.toString());
+
     const url = `${this.baseUrl}/mind/evaluate?${params}`;
     this.eventSource = new EventSource(url);
     this.isEvaluating = true;
