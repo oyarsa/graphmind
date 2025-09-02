@@ -49,6 +49,120 @@ GRAPH_EVAL_MULTI_USER_PROMPTS = load_prompts("evaluate_graph_multi")
 GRAPH_EVAL_SUMM_USER_PROMPTS = load_prompts("summarise_perspectives")
 
 
+class EvidenceItemMulti(Immutable):
+    """Evidence item for multi-perspective evaluation."""
+
+    text: Annotated[
+        str, Field(description="Piece of evidence or comparison from related papers.")
+    ]
+    paper_id: Annotated[
+        str | None,
+        Field(description="ID of the paper from which evidence is extracted."),
+    ]
+    paper_title: Annotated[
+        str | None,
+        Field(description="Title of the paper from which evidence is extracted."),
+    ]
+    source: Annotated[
+        PaperSource | None,
+        Field(
+            description="Source of the related paper (citations or semantic similarity)."
+        ),
+    ]
+
+
+class GPTStructuredMulti(Immutable):
+    """Structured evaluation of paper novelty for multi-perspective analysis."""
+
+    paper_summary: Annotated[
+        str,
+        Field(
+            description="Brief summary of the paper's main contributions and approach."
+        ),
+    ]
+    supporting_evidence: Annotated[
+        Sequence[EvidenceItemMulti],
+        Field(
+            description="List of evidence from related papers that support the paper's"
+            " novelty."
+        ),
+    ]
+    contradictory_evidence: Annotated[
+        Sequence[EvidenceItemMulti],
+        Field(
+            description="List of evidence from related papers that contradict the"
+            " paper's novelty."
+        ),
+    ]
+    key_comparisons: Annotated[
+        Sequence[str],
+        Field(
+            description="Key technical comparisons that influenced the novelty decision."
+        ),
+    ]
+    conclusion: Annotated[
+        str,
+        Field(
+            description="Final assessment of the paper's novelty based on the evidence."
+        ),
+    ]
+    label: Annotated[
+        int,
+        Field(description="1 if the paper is novel, or 0 if it's not novel."),
+    ]
+
+    @computed_field
+    @property
+    def rationale(self) -> str:
+        """Derive textual rationale from structured components."""
+        sections = [
+            f"Paper Summary: {self.paper_summary}",
+            "",
+            "Supporting Evidence:",
+        ]
+
+        for evidence in self.supporting_evidence:
+            evidence_text = f"- {evidence.text}"
+            if evidence.paper_title:
+                evidence_text += f" (from: {evidence.paper_title})"
+            sections.append(evidence_text)
+
+        sections.extend(["", "Contradictory Evidence:"])
+
+        for evidence in self.contradictory_evidence:
+            evidence_text = f"- {evidence.text}"
+            if evidence.paper_title:
+                evidence_text += f" (from: {evidence.paper_title})"
+            sections.append(evidence_text)
+
+        if self.key_comparisons:
+            sections.extend(["", "Key Comparisons:"])
+            sections.extend([f"- {comp}" for comp in self.key_comparisons])
+
+        sections.extend(["", f"Conclusion: {self.conclusion}"])
+        return "\n".join(sections)
+
+    @classmethod
+    def error(cls) -> Self:
+        """Output value for when there's an error."""
+        return cls(
+            paper_summary=RATIONALE_ERROR,
+            supporting_evidence=[],
+            contradictory_evidence=[],
+            key_comparisons=[],
+            conclusion=RATIONALE_ERROR,
+            label=0,
+        )
+
+    def is_valid(self) -> bool:
+        """Check if instance is valid."""
+        return RATIONALE_ERROR not in {self.paper_summary, self.conclusion}
+
+    def to_text(self) -> str:
+        """Convert structured information to text format for inclusion in prompts."""
+        return self.rationale
+
+
 @dc.dataclass(frozen=True, kw_only=True)
 class _ChosenPrompts:
     """Prompt templates from user-picked keys."""
@@ -56,19 +170,25 @@ class _ChosenPrompts:
     eval: gpt.PromptTemplate
     graph: gpt.PromptTemplate
     summ: gpt.PromptTemplate
+    structured: gpt.PromptTemplate
 
 
 def get_prompts(
-    eval_prompt_key: str, graph_prompt_key: str, summ_prompt_key: str
+    eval_prompt_key: str,
+    graph_prompt_key: str,
+    summ_prompt_key: str,
+    structured_prompt_key: str,
 ) -> _ChosenPrompts:
-    """Retrieve evaluation, graph extraction and perspective summarisation prompts.
+    """Get prompts used for the whole multi-perspective evaluation pipeline.
 
+    Evaluation, graph extraction, structured and perspective summarisation prompts.
     Both must have system prompts. The eval prompt must have type GPTEvalMulti.
 
     Args:
         eval_prompt_key: Key for evaluation prompt template.
         graph_prompt_key: Key for graph extraction prompt template.
         summ_prompt_key: Key for perspective summarisation prompt template.
+        structured_prompt_key: Key for structured extraction prompt template.
 
     Returns:
         Chosen prompts.
@@ -88,7 +208,19 @@ def get_prompts(
     if not summ_prompt.system:
         raise ValueError(f"summ prompt {summ_prompt.name!r} is not valid.")
 
-    return _ChosenPrompts(eval=eval_prompt, graph=graph_prompt, summ=summ_prompt)
+    structured_prompt = GRAPH_EVAL_MULTI_USER_PROMPTS[structured_prompt_key]
+    if (
+        not structured_prompt.system
+        or structured_prompt.type_name != "GPTStructuredMulti"
+    ):
+        raise ValueError(f"Structured prompt {structured_prompt.name!r} is not valid.")
+
+    return _ChosenPrompts(
+        eval=eval_prompt,
+        graph=graph_prompt,
+        summ=summ_prompt,
+        structured=structured_prompt,
+    )
 
 
 async def extract_graph_from_paper(
@@ -118,15 +250,82 @@ async def extract_graph_from_paper(
     return graph
 
 
+async def extract_structured_from_paper(
+    paper: gpt.PaperWithRelatedSummary,
+    graph: gpt.Graph,
+    client: LLMClient,
+    structured_prompt: gpt.PromptTemplate,
+    demonstrations: str,
+    sources: set[PaperSource] | None = None,
+) -> GPTResult[GPTStructuredMulti]:
+    """Extract structured information from a paper with graph and related papers.
+
+    Args:
+        paper: Paper with related papers and summaries.
+        graph: Extracted graph representation.
+        client: LLM client for GPT API calls.
+        structured_prompt: Structured extraction prompt template.
+        demonstrations: Demonstration examples.
+        sources: Paper sources to include in evaluation.
+
+    Returns:
+        Structured evaluation wrapped in GPTResult.
+    """
+    if sources is None:
+        sources = set(PaperSource)
+
+    prompt_text = format_struct_prompt(
+        structured_prompt, paper, graph, demonstrations, sources
+    )
+
+    result = await client.run(
+        GPTStructuredMulti,
+        structured_prompt.system,
+        prompt_text,
+    )
+
+    structured = result.fix(GPTStructuredMulti.error)
+    if not structured.result.is_valid():
+        logger.warning(f"Paper '{paper.title}': invalid structured extraction")
+
+    return structured
+
+
+def format_struct_prompt(
+    prompt: gpt.PromptTemplate,
+    paper: gpt.PaperWithRelatedSummary,
+    graph: gpt.Graph,
+    demonstrations: str,
+    sources: set[PaperSource],
+) -> str:
+    """Format structured extraction template using the paper graph and related papers."""
+    related = [p for p in paper.related if p.source in sources]
+
+    return prompt.template.format(
+        title=paper.title,
+        abstract=paper.abstract,
+        demonstrations=demonstrations,
+        positive=format_related(
+            p for p in related if p.polarity is pr.ContextPolarity.POSITIVE
+        ),
+        negative=format_related(
+            p for p in related if p.polarity is pr.ContextPolarity.NEGATIVE
+        ),
+        graph=graph.to_text(),
+    )
+
+
 async def evaluate_paper_with_graph_multi(
     paper: gpt.PaperWithRelatedSummary,
     client: LLMClient,
     eval_prompt_key: str,
     graph_prompt_key: str,
     summ_prompt_key: str,
+    struct_prompt_key: str,
     demonstrations_key: str,
     demo_prompt_key: str,
     perspectives: Sequence[str] | None,
+    sources: set[PaperSource] | None,
     *,
     callback: ProgressCallback | None = None,
 ) -> GPTResult[GraphResultMulti]:
@@ -138,9 +337,11 @@ async def evaluate_paper_with_graph_multi(
         eval_prompt_key: Key for evaluation prompt template.
         graph_prompt_key: Key for graph extraction prompt template.
         summ_prompt_key: Key for perspective summarisation prompt template.
+        struct_prompt_key: Key for structured extraction prompt template.
         demonstrations_key: Key for demonstrations file.
         demo_prompt_key: Key for demonstration prompt template.
         perspectives: List of perspectives to evaluate. If None, use all perspectives.
+        sources: Paper sources to include in evaluation. If None, use all sources.
         callback: Optional callback function to call with phase names after completion.
 
     Returns:
@@ -148,9 +349,14 @@ async def evaluate_paper_with_graph_multi(
     """
     if not perspectives:
         perspectives = list(EVAL_MULTI_PERSPECTIVES)
-
     _raise_if_invalid_perspectives(perspectives)
-    prompts = get_prompts(eval_prompt_key, graph_prompt_key, summ_prompt_key)
+
+    if not sources:
+        sources = set(PaperSource)
+
+    prompts = get_prompts(
+        eval_prompt_key, graph_prompt_key, summ_prompt_key, struct_prompt_key
+    )
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
     if callback:
@@ -161,24 +367,42 @@ async def evaluate_paper_with_graph_multi(
     )
 
     if callback:
+        await callback("Extracting structured information")
+
+    structured_result = await atimer(
+        extract_structured_from_paper(
+            paper,
+            graph_result.result,
+            client,
+            prompts.structured,
+            demonstrations,
+        ),
+        3,
+    )
+
+    if callback:
         await callback("Evaluating novelty")
 
     eval_result = await atimer(
         evaluate_paper_graph_novelty_multi(
             paper,
             graph_result.result,
+            structured_result.result,
             client,
             prompts.eval,
             prompts.summ,
             perspectives,
+            sources,
             demonstrations,
         ),
         3,
     )
 
-    return graph_result.lift(
-        eval_result,
-        lambda graph, eval: construct_graph_result_multi(paper, graph, eval),
+    return GPTResult(
+        result=construct_graph_result_multi(
+            paper, graph_result.result, eval_result.result
+        ),
+        cost=graph_result.cost + structured_result.cost + eval_result.cost,
     )
 
 
@@ -199,10 +423,12 @@ def _raise_if_invalid_perspectives(perspective_keys: Sequence[str]) -> None:
 async def evaluate_paper_graph_novelty_multi(
     paper: gpt.PaperWithRelatedSummary,
     graph: gpt.Graph,
+    structured: GPTStructuredMulti,
     client: LLMClient,
     eval_prompt: gpt.PromptTemplate,
     summ_prompt: gpt.PromptTemplate,
     perspective_keys: Sequence[str],
+    sources: set[PaperSource],
     demonstrations: str,
 ) -> GPTResult[GPTEvalMultiResult]:
     """Evaluate a paper's multi-dimensional novelty using the extracted graph.
@@ -213,11 +439,13 @@ async def evaluate_paper_graph_novelty_multi(
     Args:
         paper: Paper with related papers and summaries.
         graph: Extracted graph representation.
+        structured: Structured information extracted from the paper.
         client: LLM client for GPT API calls.
         eval_prompt: Evaluation prompt template.
         summ_prompt: Perspective summarisation prompt template.
         perspective_keys: List of perspective (keys) to evaluate. Must be available on
             `EVAL_MULTI_PERSPECTIVES`.
+        sources: Paper sources to include in evaluation.
         demonstrations: Demonstration examples.
 
     Returns:
@@ -228,9 +456,11 @@ async def evaluate_paper_graph_novelty_multi(
             eval_perspective(
                 paper,
                 graph,
+                structured,
                 client,
                 eval_prompt,
                 demonstrations,
+                sources,
                 perspective=EVAL_MULTI_PERSPECTIVES[perspective_key],
             )
             for perspective_key in perspective_keys
@@ -238,13 +468,14 @@ async def evaluate_paper_graph_novelty_multi(
     )
 
     return await gpt_sequence(evals).abind(
-        lambda ps: _summarise_perspectives(client, summ_prompt, ps)
+        lambda ps: _summarise_perspectives(client, summ_prompt, structured, ps)
     )
 
 
 async def _summarise_perspectives(
     client: LLMClient,
     prompt: gpt.PromptTemplate,
+    structured: GPTStructuredMulti,
     perspectives: Sequence[GPTEvalPerspective],
 ) -> GPTResult[GPTEvalMultiResult]:
     """Summarise multiple perspectives into a single overall evaluation result.
@@ -256,6 +487,7 @@ async def _summarise_perspectives(
         client: LLM client for GPT API calls.
         prompt: Perspective summarisation prompt template.
         perspectives: List of perspective evaluation results.
+        structured: Structured information extracted from the paper.
 
     Returns:
         Multi-dimensional evaluation result wrapped in GPTResult.
@@ -265,7 +497,9 @@ async def _summarise_perspectives(
         return gpt_unit(GPTEvalMultiResult.error())
 
     summary = await summarise_perspectives(client, prompt, perspectives_valid)
-    return summary.map(lambda s: GPTEvalMultiResult.from_summary(perspectives_valid, s))
+    return summary.map(
+        lambda s: GPTEvalMultiResult.from_summary(perspectives_valid, s, structured)
+    )
 
 
 class PerspectiveSummary(Immutable):
@@ -359,16 +593,20 @@ EVAL_MULTI_PERSPECTIVES: Mapping[str, PerspectiveInfo] = {
 async def eval_perspective(
     paper: gpt.PaperWithRelatedSummary,
     graph: gpt.Graph,
+    structured: GPTStructuredMulti,
     client: LLMClient,
     prompt: gpt.PromptTemplate,
     demonstrations: str,
+    sources: set[PaperSource],
     perspective: PerspectiveInfo,
 ) -> GPTResult[GPTEvalPerspective]:
     """Evaluate a paper's novelty from a single perspective."""
     result = await client.run(
         GPTEvalPerspective,
         prompt.system,
-        format_eval_template_multi(prompt, paper, graph, demonstrations, perspective),
+        format_eval_template_multi(
+            prompt, paper, graph, structured, demonstrations, perspective, sources
+        ),
     )
     eval = result.fix(GPTEvalPerspective.error)
 
@@ -382,13 +620,15 @@ def format_eval_template_multi(
     prompt: gpt.PromptTemplate,
     paper: gpt.PaperWithRelatedSummary,
     graph: gpt.Graph,
+    structured: GPTStructuredMulti,
     demonstrations: str,
     perspective: PerspectiveInfo,
-    sources: set[PaperSource] | None = None,
+    sources: set[PaperSource],
 ) -> str:
-    """Format evaluation template using the paper graph and related papers."""
-    if sources is None:
-        sources = set(PaperSource)
+    """Format evaluation template.
+
+    Uses the paper graph, structured info and related papers.
+    """
 
     related = [p for p in paper.related if p.source in sources]
     return prompt.template.format(
@@ -403,6 +643,7 @@ def format_eval_template_multi(
             p for p in related if p.polarity is pr.ContextPolarity.NEGATIVE
         ),
         graph=graph.to_text(),
+        structured=structured.to_text(),
         approval=paper.paper.paper.approval,
     )
 
@@ -418,6 +659,8 @@ class GPTEvalMultiResult(Immutable):
     """Probability of being novel based on the multi perspectives."""
     perspectives: Sequence[GPTEvalPerspective]
     """Collection of perspectives used."""
+    structured: GPTStructuredMulti
+    """Structured information extracted from the paper."""
 
     @classmethod
     def error(cls) -> Self:
@@ -427,11 +670,15 @@ class GPTEvalMultiResult(Immutable):
             label=0,
             probability=0.0,
             perspectives=[],
+            structured=GPTStructuredMulti.error(),
         )
 
     @classmethod
     def from_summary(
-        cls, perspectives: Sequence[GPTEvalPerspective], summary: PerspectiveSummary
+        cls,
+        perspectives: Sequence[GPTEvalPerspective],
+        summary: PerspectiveSummary,
+        structured: GPTStructuredMulti,
     ) -> Self:
         """Create GPTEvalMulti from multiple GPTEvalSingle perspectives."""
         probability = sum(p.label for p in perspectives) / len(perspectives)
@@ -441,6 +688,7 @@ class GPTEvalMultiResult(Immutable):
             label=summary.label,
             probability=probability,
             perspectives=perspectives,
+            structured=structured,
         )
 
     def fix_label(self, target_mode: TargetMode = TargetMode.BIN) -> Self:
@@ -597,9 +845,12 @@ async def process_paper_from_selection_multi(
     eval_prompt_key: str,
     graph_prompt_key: str,
     summ_prompt_key: str,
+    struct_prompt_key: str,
     demonstrations_key: str,
     demo_prompt_key: str,
     *,
+    sources: set[PaperSource] | None = None,
+    perspectives: Sequence[str] | None = None,
     filter_by_date: bool = False,
     callback: ProgressCallback | None = None,
 ) -> EvaluationResultMulti:
@@ -620,8 +871,9 @@ async def process_paper_from_selection_multi(
        - Related paper discovery via citations and semantic matching
        - GPT-generated summaries of related papers
     4. Extracts a graph representation
-    5. Uses graph to evaluate novelty using multiple perspectives, combining their
-        results in a single output value.
+    5. Derives structured info combining the graph representation and related papers.
+    6. Uses graph and structured info to evaluate novelty using multiple perspectives,
+        combining their results in a single output value.
 
     Args:
         client: LLMClient to use for annotation and evaluation.
@@ -636,8 +888,11 @@ async def process_paper_from_selection_multi(
         eval_prompt_key: Key for evaluation prompt template.
         graph_prompt_key: Key for graph extraction prompt template.
         summ_prompt_key: Key for perspective summarisation prompt template.
+        struct_prompt_key: Key for structured extraction prompt template.
         demonstrations_key: Key for demonstrations file.
         demo_prompt_key: Key for demonstration prompt template.
+        sources: Set of paper sources to include in evaluation. If None, use all sources.
+        perspectives: List of perspectives keys to evaluate. If None, use all available.
         filter_by_date: If True, filter recommended papers to only include those
             published before the main paper.
         callback: Optional callback function to call with phase names during processing.
@@ -684,9 +939,11 @@ async def process_paper_from_selection_multi(
             eval_prompt_key,
             graph_prompt_key,
             summ_prompt_key,
+            struct_prompt_key,
             demonstrations_key,
             demo_prompt_key,
-            perspectives=None,
+            sources=sources,
+            perspectives=perspectives,
             callback=callback,
         ),
         2,

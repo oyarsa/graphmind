@@ -49,11 +49,63 @@ Title: {title}
 
 Abstract: {abstract}
 
+Graph representation:
+{graph}
+
+Structured analysis:
+{structured}
+
 Supporting papers:
 {positive}
 
 Contrasting papers:
 {negative}
 
+#####
+"""
+
+[[prompts]]
+name = "structured_extraction"
+type = "GPTStructuredMulti"
+system = """\
+You are an expert reviewer analyzing research papers for novelty assessment. \
+Your task is to extract structured information about the paper's contributions, \
+evidence, and novelty assessment based on the provided information.
+"""
+prompt = """
+Analyze the following paper and its related work to extract structured information for novelty assessment.
+
+The paper is presented with its title, abstract, and a graph representation that captures \
+its key contributions. Related papers are provided to help contextualize the work within \
+the research landscape.
+
+Extract the following information:
+1. A comprehensive summary of the paper's main contributions and methodology
+2. Specific evidence from related papers that supports the paper's novelty
+3. Specific evidence from related papers that contradicts the paper's novelty
+4. An overall assessment of the paper's novelty with clear rationale
+5. A binary novelty label (1 for novel, 0 for not novel)
+
+For each piece of evidence:
+- Include the paper ID and title it comes from
+- Quote or paraphrase the specific finding
+- Indicate the source type (search-based or citation-based)
+
+#####
+{demonstrations}
+
+-Data-
+Title: {title}
+
+Abstract: {abstract}
+
+Graph representation:
+{graph}
+
+Supporting papers:
+{positive}
+
+Contrasting papers:
+{negative}
 #####
 """

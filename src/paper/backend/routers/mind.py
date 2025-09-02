@@ -329,6 +329,7 @@ async def evaluate_multi(
             eval_prompt_key=MULTI_EVAL_PROMPT,
             graph_prompt_key=GRAPH_PROMPT,
             summ_prompt_key=MULTI_SUMM_PROMPT,
+            struct_prompt_key=MULTI_STRUCT_PROMPT,
             demonstrations_key=DEMOS,
             demo_prompt_key=DEMO_PROMPT,
             filter_by_date=filter_by_date,
