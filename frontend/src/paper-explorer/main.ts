@@ -709,7 +709,12 @@ class PaperExplorer {
     const cachedItem = item as CachedPaperSearchItem;
     if (cachedItem._isCached && cachedItem._cachedPaperId) {
       const encodedId = encodeURIComponent(cachedItem._cachedPaperId);
-      window.location.href = `/graphmind/pages/detail.html?id=${encodedId}`;
+      // Navigate to appropriate detail page based on mode
+      const detailPage =
+        this.currentArxivMode === "multi"
+          ? "/graphmind/pages/detail-multi.html"
+          : "/graphmind/pages/detail.html";
+      window.location.href = `${detailPage}?id=${encodedId}`;
       return;
     }
 
