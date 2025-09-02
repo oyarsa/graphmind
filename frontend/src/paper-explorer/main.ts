@@ -1110,7 +1110,7 @@ class PaperExplorer {
     if (recommendationsInput) recommendationsInput.value = "30";
     if (relatedInput) relatedInput.value = "5";
     if (llmModelSelect) llmModelSelect.value = "gemini-2.0-flash";
-    if (filterByDateCheckbox) filterByDateCheckbox.checked = true;
+    if (filterByDateCheckbox) filterByDateCheckbox.checked = false;
 
     // Show modal
     modal.classList.remove("hidden");

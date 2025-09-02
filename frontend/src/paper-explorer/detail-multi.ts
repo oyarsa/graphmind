@@ -13,6 +13,7 @@ import {
   Entity,
   PerspectiveEvaluation,
   MultiEvaluationResult,
+  StructuredEval,
 } from "./model";
 import {
   createPaperTermsDisplay,
@@ -24,6 +25,7 @@ import {
   formatConferenceName,
   createSideBySideComparison,
   createHierarchicalGraph,
+  createExpandableEvidenceItem,
 } from "./helpers";
 import { addFooter } from "../footer";
 
@@ -153,6 +155,154 @@ function displayMultiPerspectiveEvaluation(evaluation: MultiEvaluationResult): v
 
   const probabilityPercent = Math.round(evaluation.probability * 100);
   overallProbability.textContent = `${probabilityPercent}%`;
+}
+
+function createStructuredAnalysisDisplay(
+  structured: StructuredEval,
+  graphResult: GraphResultMulti | null,
+  mainPaperBackground?: string | null,
+  mainPaperTarget?: string | null,
+): string {
+  /**
+   * Helper function to find the index of a related paper by title in the currently filtered papers
+   */
+  function findRelatedPaperIndex(paperTitle: string): number | null {
+    if (!graphResult) return null;
+
+    // Normalize the search title for comparison
+    const normalizedSearchTitle = paperTitle
+      .replace(/[^a-zA-Z0-9\s]/g, "")
+      .toLowerCase()
+      .trim();
+
+    // Find the index using normalized title matching
+    const index = graphResult.related.findIndex(
+      paper =>
+        paper.title
+          .replace(/[^a-zA-Z0-9\s]/g, "")
+          .toLowerCase()
+          .trim() === normalizedSearchTitle,
+    );
+    return index >= 0 ? index : null;
+  }
+
+  return `
+    <div class="space-y-4">
+      <!-- Summary -->
+      <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
+                  dark:border-gray-700 dark:bg-gray-800/50">
+        <div class="mb-2 flex items-center gap-3">
+          <div class="h-4 w-1 rounded-full bg-blue-500"></div>
+          <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                     dark:text-gray-100">
+            Paper Summary
+          </h4>
+        </div>
+        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          ${renderLatex(structured.paper_summary)}
+        </p>
+      </div>
+
+      <!-- Result -->
+      <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
+                  dark:border-gray-700 dark:bg-gray-800/50">
+        <div class="mb-2 flex items-center gap-3">
+          <div class="h-4 w-1 rounded-full bg-purple-500"></div>
+          <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                     dark:text-gray-100">
+            Conclusion
+          </h4>
+        </div>
+        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          ${renderLatex(structured.conclusion)}
+        </p>
+      </div>
+
+      <!-- Supporting Evidence -->
+      ${
+        structured.supporting_evidence.length > 0
+          ? `
+        <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
+                    dark:border-gray-700 dark:bg-gray-800/50">
+          <div class="mb-2 flex items-center gap-2">
+            <div class="h-4 w-1 rounded-full bg-green-500"></div>
+            <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                       dark:text-gray-100">
+              Supporting Evidence
+            </h4>
+          </div>
+          <ul class="space-y-3">
+            ${structured.supporting_evidence
+              .map((evidence, index) => {
+                const relatedPaperIndex =
+                  typeof evidence === "object" && evidence.paper_title && graphResult
+                    ? findRelatedPaperIndex(evidence.paper_title)
+                    : null;
+                const relatedPaper =
+                  relatedPaperIndex !== null && graphResult
+                    ? graphResult.related[relatedPaperIndex]
+                    : null;
+
+                return createExpandableEvidenceItem(
+                  evidence,
+                  `supporting-multi-${index}`,
+                  relatedPaper,
+                  relatedPaperIndex,
+                  mainPaperBackground ?? null,
+                  mainPaperTarget ?? null,
+                  "bg-green-500",
+                );
+              })
+              .join("")}
+          </ul>
+        </div>
+      `
+          : ""
+      }
+
+      <!-- Contradictory Evidence -->
+      ${
+        structured.contradictory_evidence.length > 0
+          ? `
+        <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
+                    dark:border-gray-700 dark:bg-gray-800/50">
+          <div class="mb-2 flex items-center gap-2">
+            <div class="h-4 w-1 rounded-full bg-red-500"></div>
+            <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                       dark:text-gray-100">
+              Contradictory Evidence
+            </h4>
+          </div>
+          <ul class="space-y-3">
+            ${structured.contradictory_evidence
+              .map((evidence, index) => {
+                const relatedPaperIndex =
+                  typeof evidence === "object" && evidence.paper_title && graphResult
+                    ? findRelatedPaperIndex(evidence.paper_title)
+                    : null;
+                const relatedPaper =
+                  relatedPaperIndex !== null && graphResult
+                    ? graphResult.related[relatedPaperIndex]
+                    : null;
+
+                return createExpandableEvidenceItem(
+                  evidence,
+                  `contradictory-multi-${index}`,
+                  relatedPaper,
+                  relatedPaperIndex,
+                  mainPaperBackground ?? null,
+                  mainPaperTarget ?? null,
+                  "bg-red-500",
+                );
+              })
+              .join("")}
+          </ul>
+        </div>
+      `
+          : ""
+      }
+    </div>
+  `;
 }
 
 function showExcerptsModal(entity: Entity): void {
@@ -396,6 +546,27 @@ function loadAndDisplayPaper(): Promise<void> {
       // Display multi-perspective evaluation
       displayMultiPerspectiveEvaluation(graphResult.paper.evaluation);
 
+      // Display structured analysis if available
+      const structuredAnalysisContainer =
+        document.getElementById("structured-analysis");
+      const structuredAnalysisSection = document.querySelector(
+        '[data-section="structured-analysis"]',
+      );
+      if (structuredAnalysisContainer && structuredAnalysisSection) {
+        if (graphResult.paper.evaluation.structured) {
+          structuredAnalysisContainer.innerHTML = createStructuredAnalysisDisplay(
+            graphResult.paper.evaluation.structured,
+            graphResult,
+            graphResult.background,
+            graphResult.target,
+          );
+          setupSectionToggle("structured-analysis");
+        } else {
+          // Hide the entire section if no structured analysis exists
+          structuredAnalysisSection.classList.add("hidden");
+        }
+      }
+
       // Display graph
       createHierarchicalGraph(graphResult.graph, "#graph-svg", (entity: Entity) => {
         if (entity.excerpts && entity.excerpts.length > 0) {
@@ -507,6 +678,67 @@ function displayPaperInfo(graphResult: GraphResultMulti): void {
   }
 }
 
+/**
+ * Setup event delegation for evidence expansion buttons
+ */
+function setupEvidenceExpansionHandlers(): void {
+  document.addEventListener("click", event => {
+    const target = event.target as HTMLElement;
+    if (
+      target.classList.contains("evidence-expand-btn") ||
+      target.closest(".evidence-expand-btn")
+    ) {
+      event.preventDefault();
+
+      const button = target.classList.contains("evidence-expand-btn")
+        ? target
+        : target.closest(".evidence-expand-btn");
+
+      if (!button) return;
+
+      const evidenceIndex = (button as HTMLElement).dataset.evidenceIndex;
+      if (!evidenceIndex) return;
+
+      const detailsElement = document.getElementById(
+        `evidence-details-${evidenceIndex}`,
+      );
+      const expandIcon = button.querySelector(".expand-icon");
+      const expandText = button.querySelector(".expand-text");
+
+      if (detailsElement && expandIcon && expandText) {
+        const isHidden = detailsElement.classList.contains("hidden");
+
+        // Toggle visibility
+        detailsElement.classList.toggle("hidden", !isHidden);
+
+        // Update icon rotation
+        expandIcon.classList.toggle("rotate-180", isHidden);
+
+        // Update button text
+        expandText.textContent = isHidden ? "Hide details" : "Show details";
+      }
+    }
+  });
+}
+
+/**
+ * Setup event delegation for related paper links
+ */
+function setupRelatedPaperLinkHandlers(): void {
+  document.addEventListener("click", event => {
+    const target = event.target as HTMLElement;
+    if (target.classList.contains("related-paper-link")) {
+      event.preventDefault();
+
+      // Scroll to Related Papers section
+      const relatedPapersHeader = document.getElementById("related-papers-header");
+      if (relatedPapersHeader) {
+        relatedPapersHeader.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  });
+}
+
 async function initializeDetailMultiPage(): Promise<void> {
   await waitForDOM();
 
@@ -514,6 +746,12 @@ async function initializeDetailMultiPage(): Promise<void> {
     showMobileMessage();
     return;
   }
+
+  // Setup event delegation for related paper links
+  setupRelatedPaperLinkHandlers();
+
+  // Setup event delegation for evidence expansion
+  setupEvidenceExpansionHandlers();
 
   await retryWithBackoff(() => loadAndDisplayPaper());
   addFooter();

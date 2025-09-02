@@ -342,6 +342,8 @@ export const MultiEvaluationResultSchema = z.object({
   probability: z.number().min(0).max(1),
   /** Individual perspective evaluation results */
   perspectives: z.array(PerspectiveEvaluationSchema),
+  /** Structured information extracted from the paper */
+  structured: StructuredEvalSchema.optional(),
 });
 
 /**
@@ -400,7 +402,7 @@ export const EvaluationParamsSchema = z.object({
     .optional()
     .default("gemini-2.0-flash"),
   /** Filter recommended papers to only include those published before the main paper */
-  filter_by_date: z.boolean().optional().default(true),
+  filter_by_date: z.boolean().optional().default(false),
   /** Random seed for reproducible results */
   seed: z.number().optional().default(0),
 });
