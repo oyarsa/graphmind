@@ -385,6 +385,18 @@ class PaperExplorer {
       this.currentArxivMode = mode;
       updateToggleStyle(mode);
 
+      // Update mode description
+      const modeDescription = document.getElementById("arxiv-mode-description");
+      if (modeDescription) {
+        if (mode === "multi") {
+          modeDescription.textContent =
+            "Multi-perspective evaluation with separate analysis from different viewpoints.";
+        } else {
+          modeDescription.textContent =
+            "Comprehensive analysis with novelty assessment and related papers discovery.";
+        }
+      }
+
       // Clear search and refresh cached papers display
       const searchInput = document.getElementById(
         "arxiv-search-input",
@@ -416,6 +428,8 @@ class PaperExplorer {
     });
 
     // Initialize with default mode
+    defaultRadio.checked = true;
+    multiRadio.checked = false;
     updateToggleStyle("default");
   }
 
