@@ -532,7 +532,23 @@ function loadAndDisplayPaper(): Promise<void> {
         throw new Error("Multi-perspective paper data not found in cache");
       }
 
-      const graphResult = GraphResultMultiSchema.parse(JSON.parse(cachedData));
+      let graphResult: GraphResultMulti;
+      try {
+        const parsedData = JSON.parse(cachedData) as unknown;
+        // Validate cached data against current schema
+        graphResult = GraphResultMultiSchema.parse(parsedData);
+        console.log(`[Detail-Multi] Cache validation successful for paper ${paperId}`);
+      } catch (schemaError) {
+        // Schema validation failed - cache is outdated
+        console.log(
+          `[Detail-Multi] INVALID SCHEMA! Paper ${paperId} cache outdated, removing from cache...`,
+        );
+        console.warn(`[Detail-Multi] Schema validation error:`, schemaError);
+        localStorage.removeItem(cacheKey);
+        throw new Error(
+          `Multi-perspective paper data is outdated. Please re-evaluate the paper to generate new results.`,
+        );
+      }
 
       // Hide loading state
       const loading = document.getElementById("loading-detail");
