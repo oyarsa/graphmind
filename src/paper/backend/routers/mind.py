@@ -228,7 +228,7 @@ async def evaluate_abstract(
 
     Returns progress updates via Server-Sent Events (SSE), followed by the final result.
 
-    See OPTIONS /mind/evaluate-abstract from the result schema.
+    See OPTIONS /mind/evaluate-abstract for the result schema.
     """
     client = llm_registry.get_client(llm_model)
 
@@ -308,7 +308,7 @@ async def evaluate_multi(
 
     Returns progress updates via Server-Sent Events (SSE), followed by the final result.
 
-    See OPTIONS /mind/evaluate from the result schema.
+    See OPTIONS /mind/evaluate for the result schema.
     """
     client = llm_registry.get_client(llm_model)
     arxiv_id = urllib.parse.unquote_plus(id)
