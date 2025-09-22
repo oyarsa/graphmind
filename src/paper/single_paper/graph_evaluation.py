@@ -13,6 +13,7 @@ from typing import Annotated, Self
 from pydantic import Field
 
 from paper import gpt
+from paper.backend.model import BEST_OF_N
 from paper.evaluation_metrics import TargetMode
 from paper.gpt.evaluate_paper import (
     GPTStructured,
@@ -132,7 +133,7 @@ async def evaluate_paper_graph_novelty(
     if not eval.result.is_valid():
         logger.warning(f"Paper '{paper.title}': invalid evaluation result")
 
-    prob = await get_novelty_probability(client, eval)
+    prob = await get_novelty_probability(client, eval, best_of_n=BEST_OF_N)
     return eval.lift(prob, lambda e, p: e.with_prob(p))
 
 

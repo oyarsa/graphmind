@@ -11,7 +11,12 @@ from pydantic import BaseModel, Field
 
 from paper import gpt
 from paper import peerread as pr
-from paper.backend.model import DEMO_PROMPT, DEMOS, AbstractEvaluationResponse
+from paper.backend.model import (
+    BEST_OF_N,
+    DEMO_PROMPT,
+    DEMOS,
+    AbstractEvaluationResponse,
+)
 from paper.gpt.annotate_paper import (
     ABS_SYSTEM_PROMPT,
     ABS_USER_PROMPTS,
@@ -374,7 +379,7 @@ async def evaluate_abstract_paper(
         logger.warning(f"Paper '{title}': invalid evaluation result")
 
     eval = result.fix(GPTStructuredRaw.error)
-    prob = await get_novelty_probability(client, eval)
+    prob = await get_novelty_probability(client, eval, best_of_n=BEST_OF_N)
     return eval.lift(prob, lambda s, p: s.with_prob(p))
 
 

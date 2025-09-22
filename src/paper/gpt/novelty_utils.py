@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import random
 from typing import TYPE_CHECKING, Annotated
 
@@ -32,35 +31,28 @@ class NoveltyResult(Immutable):
 async def get_novelty_probability(
     client: LLMClient,
     output: GPTResult[GPTStructuredRaw],
+    best_of_n: int = 0,
 ) -> GPTResult[float]:
     """Get novelty probability from evaluation output.
 
     We re-prompt the LLM to give N ratings and calculate the probability as the
-    percentage. We use the `BESTOFN` environment variable to set the number of
-    ratings to prompt. It defaults to 5.
+    percentage.
 
     If set to 0, we instead return 0 for 'not novel' papers and 1 for 'novel'.
 
     Args:
         client: LLM client to use to generate best of N results.
         output: Evaluation output. Used as input for best of N results.
-
-    Environment variables:
-        BESTOFN: How many ratings we should sample.
+        best_of_n: How many ratings we should sample. Defaults to 0.
 
     Returns:
         Probability as a float between 0 and 1. A value of 0.8 means 80% probability
         the paper is novel.
     """
-    try:
-        n = int(os.getenv("BESTOFN", "0"))
-    except ValueError:
-        n = 0
+    if best_of_n == 0:
+        return output.map(lambda out: 0.0 if out.label == 0 else 1.0)
 
-    if n == 0:
-        prob = output.map(lambda out: 0.0 if out.label == 0 else 1.0)
-    else:
-        prob = await output.abind(lambda out: get_novelty_best_of_n(client, out, n))
+    prob = await output.abind(lambda out: get_novelty_best_of_n(client, out, best_of_n))
 
     # "not novel" will have at most 40% prob, and "novel" will have at least 60%
     return prob.map(lambda p: min(p, 0.4) if output.result.label == 0 else max(p, 0.6))

@@ -227,3 +227,4 @@ DEMO_PROMPT = "abstract"
 MULTI_EVAL_PROMPT = "simple"
 MULTI_SUMM_PROMPT = "simple"
 MULTI_STRUCT_PROMPT = "structured_extraction"
+BEST_OF_N = 5
