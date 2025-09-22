@@ -60,7 +60,6 @@ from paper.gpt.model import (
     PeerReadAnnotated,
     PromptResult,
 )
-from paper.gpt.novelty_utils import get_novelty_probability
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     GPTResult,
@@ -525,8 +524,7 @@ def _handle_no_valid_evaluations(
     )
 
 
-async def _handle_structured_evaluations(
-    client: LLMClient,
+def _handle_structured_evaluations(
     paper: PaperWithRelatedSummary,
     valid_evals: GPTResult[list[GPTUncertain | GPTStructuredRaw | GPTFull]],
     target_mode: TargetMode,
@@ -550,9 +548,8 @@ async def _handle_structured_evaluations(
     aggregated_eval = structured_evaluations.map(aggregate_ensemble_evaluations)
     fixed_label = fix_evaluated_rating(aggregated_eval.result, target_mode).label
 
-    # Get probability for the final aggregated result
-    prob = await get_novelty_probability(client, aggregated_eval)
-    final_structured = aggregated_eval.lift(prob, lambda s, p: s.with_prob(p))
+    # Use confidence instead of probability for structured evaluations
+    final_structured = aggregated_eval.map(lambda s: s.with_prob(None))
 
     return final_structured.map(
         lambda s: PaperResult.from_s2peer(
@@ -660,9 +657,7 @@ async def evaluate_paper(
         paper_result = _handle_no_valid_evaluations(paper, valid_evals.cost)
     elif eval_type is GPTStructuredRaw:
         # Handle structured evaluations (with ensemble)
-        paper_result = await _handle_structured_evaluations(
-            client, paper, valid_evals, target_mode
-        )
+        paper_result = _handle_structured_evaluations(paper, valid_evals, target_mode)
     else:
         # For non-structured evaluations, there will only be one evaluation
         # (ensemble voting doesn't apply to GPTFull/GPTUncertain)
@@ -837,9 +832,7 @@ def aggregate_ensemble_evaluations(
         eval_ for eval_ in winning_evaluations if eval_.rationale == best_rationale
     )
 
-    return best_evaluation.model_copy(
-        update={"label": winning_label, "confidence": confidence}
-    )
+    return best_evaluation.with_confidence(confidence)
 
 
 @app.command(help="List available prompts.")

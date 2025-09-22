@@ -297,7 +297,7 @@ class GPTStructuredRaw(Immutable):
         """Check if instance is valid."""
         return self.paper_summary != "<error>" and self.conclusion != "<error>"
 
-    def with_prob(self, probability: float) -> GPTStructured:
+    def with_prob(self, probability: float | None) -> GPTStructured:
         """Create a `GPTStructured` instance with the given probability.
 
         Args:
