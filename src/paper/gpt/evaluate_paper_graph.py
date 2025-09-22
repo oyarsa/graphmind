@@ -355,6 +355,11 @@ async def evaluate_papers(
 
     logger.info("Metrics\n%s", display_regular_negative_macro_metrics(results_items))
 
+    # Calculate and display average confidence
+    avg_confidence = _calculate_average_confidence(results_items)
+    if avg_confidence is not None:
+        logger.info(f"Average confidence: {avg_confidence:.4f}")
+
     save_data(output_dir / "result.json.zst", results_all)
     save_data(output_dir / "params.json", params)
     save_data(output_dir / "metrics.json", calculate_paper_metrics(results_items))
@@ -829,6 +834,24 @@ def _aggregate_ensemble_evaluations(
     )
 
     return best_evaluation.with_confidence(confidence)
+
+
+def _calculate_average_confidence(items: Sequence[PaperResult]) -> float | None:
+    """Calculate the average confidence from papers with structured evaluations.
+
+    Args:
+        items: Sequence of PaperResult objects potentially containing structured evaluations.
+
+    Returns:
+        Average confidence as a float, or None if no valid confidences found.
+    """
+    confidences = [
+        eval_.confidence
+        for item in items
+        if (eval_ := item.structured_evaluation) is not None
+        and eval_.confidence is not None
+    ]
+    return sum(confidences) / len(confidences) if confidences else None
 
 
 @app.command(help="List available prompts.")
