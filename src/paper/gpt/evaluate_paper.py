@@ -244,10 +244,6 @@ class GPTStructuredRaw(Immutable):
         int,
         Field(description="1 if the paper is novel, or 0 if it's not novel."),
     ]
-    confidence: Annotated[
-        float | None,
-        Field(description="Confidence in the label from ensemble voting (0.0-1.0)."),
-    ] = None
 
     @computed_field
     @property
@@ -290,7 +286,6 @@ class GPTStructuredRaw(Immutable):
             key_comparisons=[],
             conclusion="<error>",
             label=0,
-            confidence=None,
         )
 
     def is_valid(self) -> bool:
@@ -306,40 +301,56 @@ class GPTStructuredRaw(Immutable):
         Returns:
             A `GPTStructured` instance with the raw data and probability.
         """
-        return GPTStructured.from_(self, probability)
+        return GPTStructured.from_(self, probability=probability)
 
-    def with_confidence(self, confidence: float | None) -> Self:
-        """Create a new instance with the given confidence value.
+    def with_confidence(self, confidence: float | None) -> GPTStructured:
+        """Create a GPTStructured instance with the given confidence.
 
         Args:
             confidence: Confidence in the label from ensemble voting (0.0-1.0).
 
         Returns:
-            A new instance with the confidence field updated.
+            A GPTStructured instance with the confidence and None probability.
         """
-        return self.model_copy(update={"confidence": confidence})
+        return GPTStructured.from_(self, confidence=confidence)
 
 
 class GPTStructured(GPTStructuredRaw):
     """Structured evaluation of paper novelty with detailed components.
 
-    Version with the evaluation probability.
+    Version with the evaluation probability and confidence.
     """
 
-    probability: float | None
+    probability: Annotated[
+        float | None,
+        Field(description="Probability of the evaluation being correct, if available."),
+    ]
+    confidence: Annotated[
+        float | None,
+        Field(description="Confidence in the label from ensemble voting (0.0-1.0)."),
+    ] = None
 
     @classmethod
-    def from_(cls, raw: GPTStructuredRaw, probability: float | None) -> Self:
-        """Create a `GPTStructured` instance from a raw evaluation and probability.
+    def from_(
+        cls,
+        raw: GPTStructuredRaw,
+        *,
+        probability: float | None = None,
+        confidence: float | None = None,
+    ) -> Self:
+        """Create a `GPTStructured` from a raw evaluation and probability/confidence.
 
         Args:
             raw: Raw structured evaluation data.
             probability: Probability of the evaluation being correct, if available.
+            confidence: Confidence in the label from ensemble voting, if available.
 
         Returns:
-            A `GPTStructured` instance with the raw data and probability.
+            A `GPTStructured` instance with the raw data and probability/confidence.
         """
-        return cls.model_validate(raw.model_dump() | {"probability": probability})
+        return cls.model_validate(
+            raw.model_dump() | {"probability": probability, "confidence": confidence}
+        )
 
 
 def _load_demonstrations() -> dict[str, list[Demonstration]]:

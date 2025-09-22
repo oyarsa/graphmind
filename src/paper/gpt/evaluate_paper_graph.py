@@ -30,7 +30,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 from sklearn.feature_extraction.text import (  # pyright: ignore[reportMissingTypeStubs]
-    TfidfVectorizer,  # type: ignore[import-untyped]
+    TfidfVectorizer,
 )
 
 from paper import peerread as pr
@@ -43,6 +43,7 @@ from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
     GPTFull,
+    GPTStructured,
     GPTStructuredRaw,
     GPTUncertain,
     PaperResult,
@@ -532,7 +533,6 @@ def _handle_structured_evaluations(
     """Handle structured evaluations with ensemble voting.
 
     Args:
-        client: LLM client for getting probability.
         paper: The paper being evaluated.
         valid_evals: Valid evaluation results.
         target_mode: Target mode for rating adjustment.
@@ -544,14 +544,12 @@ def _handle_structured_evaluations(
     structured_evaluations = valid_evals.map(
         lambda evals: [e for e in evals if isinstance(e, GPTStructuredRaw)]
     )
+
     # Aggregate evaluations using majority voting and TF-IDF
-    aggregated_eval = structured_evaluations.map(aggregate_ensemble_evaluations)
+    aggregated_eval = structured_evaluations.map(_aggregate_ensemble_evaluations)
     fixed_label = fix_evaluated_rating(aggregated_eval.result, target_mode).label
 
-    # Use confidence instead of probability for structured evaluations
-    final_structured = aggregated_eval.map(lambda s: s.with_prob(None))
-
-    return final_structured.map(
+    return aggregated_eval.map(
         lambda s: PaperResult.from_s2peer(
             paper=paper.paper.paper,
             y_pred=fixed_label,
@@ -727,7 +725,7 @@ def format_related(related: Iterable[PaperRelatedSummarised]) -> str:
     )
 
 
-def select_best_rationale_tfidf(rationales: Sequence[str]) -> str:
+def _select_best_rationale_tfidf(rationales: Sequence[str]) -> str:
     """Select the best rationale using a simple TF-IDF sum score.
 
     Falls back to the longest by word count if TF-IDF isn't available or if all non-empty
@@ -779,23 +777,23 @@ def select_best_rationale_tfidf(rationales: Sequence[str]) -> str:
 def _longest_by_word_count(items: Sequence[str]) -> str:
     """Pick the item with the highest word count; on ties, last wins."""
 
-    def wc(s: str) -> int:
+    def count_words(s: str) -> int:
         return len(re.findall(r"\w+", s))
 
-    best_idx = max(range(len(items)), key=lambda i: wc(items[i]))
+    best_idx = max(range(len(items)), key=lambda i: count_words(items[i]))
     return items[best_idx]
 
 
-def aggregate_ensemble_evaluations(
+def _aggregate_ensemble_evaluations(
     evaluations: Sequence[GPTStructuredRaw],
-) -> GPTStructuredRaw:
-    """Aggregate multiple evaluations using majority voting and TF-IDF rationale selection.
+) -> GPTStructured:
+    """Aggregate multiple evaluations using majority voting and rationale selection.
 
     Args:
         evaluations: List of valid GPTStructuredRaw evaluations.
 
     Returns:
-        GPTStructuredRaw with majority label and best rationale.
+        GPTStructured with majority label, best rationale and confidence.
 
     Raises:
         ValueError: If evaluations list is empty.
@@ -804,19 +802,17 @@ def aggregate_ensemble_evaluations(
         raise ValueError("Cannot aggregate empty list of evaluations")
 
     if len(evaluations) == 1:
-        return evaluations[0].with_confidence(1.0)
+        return evaluations[0].with_confidence(1)
 
     label_counts = Counter(eval_.label for eval_ in evaluations)
 
     # Determine winning label (ties go to negative/0)
     if label_counts[1] > label_counts[0]:
         winning_label = 1
-        winning_votes = label_counts[1]
     else:
         winning_label = 0
-        winning_votes = label_counts[0]
 
-    confidence = winning_votes / len(evaluations)
+    confidence = label_counts[winning_label] / len(evaluations)
 
     # Get evaluations with the winning label
     winning_evaluations = [
@@ -824,7 +820,7 @@ def aggregate_ensemble_evaluations(
     ]
 
     # Select best rationale using TF-IDF
-    best_rationale = select_best_rationale_tfidf([
+    best_rationale = _select_best_rationale_tfidf([
         eval_.rationale for eval_ in winning_evaluations
     ])
     # Find the evaluation that produced the best rationale to use as base
