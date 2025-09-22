@@ -53,9 +53,9 @@ async def get_novelty_probability(
         the paper is novel.
     """
     try:
-        n = int(os.getenv("BESTOFN", "5"))
+        n = int(os.getenv("BESTOFN", "0"))
     except ValueError:
-        n = 5
+        n = 0
 
     if n == 0:
         prob = output.map(lambda out: 0.0 if out.label == 0 else 1.0)
