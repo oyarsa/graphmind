@@ -134,6 +134,8 @@ export const StructuredEvalSchema = z.object({
   label: z.int(),
   /** Probability that the paper is novel. */
   probability: z.number().nullish(),
+  /** Confidence in the label from ensemble voting (0.0-1.0). */
+  confidence: z.number().nullish(),
 });
 
 /**

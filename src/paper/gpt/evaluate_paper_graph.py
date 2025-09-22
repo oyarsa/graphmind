@@ -17,15 +17,21 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import re
 import tomllib
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
 
+import numpy as np
 import typer
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
+from sklearn.feature_extraction.text import (  # pyright: ignore[reportMissingTypeStubs]
+    TfidfVectorizer,  # type: ignore[import-untyped]
+)
 
 from paper import peerread as pr
 from paper.evaluation_metrics import (
@@ -46,12 +52,12 @@ from paper.gpt.evaluate_paper import (
 from paper.gpt.extract_graph import GraphResult
 from paper.gpt.graph_types import get_graph_type
 from paper.gpt.model import (
+    RATIONALE_ERROR,
     Graph,
     LinearisationMethod,
     PaperRelatedSummarised,
     PaperWithRelatedSummary,
     PeerReadAnnotated,
-    Prompt,
     PromptResult,
 )
 from paper.gpt.novelty_utils import get_novelty_probability
@@ -60,7 +66,6 @@ from paper.gpt.run_gpt import (
     GPTResult,
     LLMClient,
     append_intermediate_result_async,
-    gpt_is_type,
     gpt_sequence,
     gpt_unit,
     init_remaining_items,
@@ -179,6 +184,21 @@ def run(
             help="How to convert the extracted graph into text for evaluation."
         ),
     ] = LinearisationMethod.TOPO,
+    n_evaluations: Annotated[
+        int,
+        typer.Option(
+            help="Number of evaluation rounds per paper for ensemble voting.",
+            min=1,
+        ),
+    ] = 10,
+    eval_temperature: Annotated[
+        float,
+        typer.Option(
+            help="Temperature for evaluation rounds. Higher values increase randomness.",
+            min=0.0,
+            max=2.0,
+        ),
+    ] = 0.8,
     batch_size: Annotated[
         int, typer.Option(help="Number of requests per batch.")
     ] = 100,
@@ -203,6 +223,8 @@ def run(
             demos,
             demo_prompt,
             linearisation,
+            n_evaluations,
+            eval_temperature,
             batch_size,
             set(sources),
         )
@@ -229,6 +251,8 @@ async def evaluate_papers(
     demonstrations_key: str | None,
     demo_prompt_key: str,
     linearisation_method: LinearisationMethod,
+    n_evaluations: int,
+    eval_temperature: float,
     batch_size: int,
     sources: set[PaperSource],
 ) -> None:
@@ -259,6 +283,9 @@ async def evaluate_papers(
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
             available options or `list_prompts` for more.
         linearisation_method: How to convert the extract graph into text for evaluation.
+        n_evaluations: Number of evaluation rounds per paper for ensemble voting.
+        eval_temperature: Temperature for evaluation rounds. Higher values increase
+            randomness in the LLM responses.
         batch_size: Number of items per batch.
         sources: What kinds of related paper sources to use.
 
@@ -314,6 +341,8 @@ async def evaluate_papers(
             output_intermediate_file,
             demonstrations,
             linearisation_method,
+            n_evaluations,
+            eval_temperature,
             batch_size,
             sources,
         )
@@ -387,6 +416,8 @@ async def _evaluate_papers(
     output_intermediate_file: Path,
     demonstrations: str,
     linearisation_method: LinearisationMethod,
+    n_evaluations: int,
+    eval_temperature: float,
     batch_size: int,
     sources: set[PaperSource],
 ) -> GPTResult[Sequence[PromptResult[GraphResult]]]:
@@ -401,6 +432,8 @@ async def _evaluate_papers(
         demonstrations: Text of demonstrations for few-shot prompting.
         linearisation_method: How to transform the extract graph into text for
             evaluation.
+        n_evaluations: Number of evaluation rounds per paper for ensemble voting.
+        eval_temperature: Temperature for evaluation rounds.
         batch_size: Number of items per batch.
         sources: What kinds of related paper sources to use.
 
@@ -418,6 +451,8 @@ async def _evaluate_papers(
             graph_prompt,
             demonstrations,
             linearisation_method,
+            n_evaluations,
+            eval_temperature,
             sources,
         )
         await append_intermediate_result_async(output_intermediate_file, result.result)
@@ -428,28 +463,123 @@ async def _evaluate_papers(
     )
 
 
-async def evaluate_paper(
+async def _run_evaluation_rounds(
     client: LLMClient,
-    paper: PaperWithRelatedSummary,
-    eval_prompt: PromptTemplate,
-    graph_prompt: PromptTemplate,
-    demonstrations: str,
-    linearisation_method: LinearisationMethod,
-    sources: set[PaperSource],
-) -> GPTResult[PromptResult[GraphResult]]:
-    """Evaluate a single paper's novelty using graph extraction and related papers.
+    eval_type: type[GPTUncertain | GPTStructuredRaw | GPTFull],
+    system_prompt: str,
+    user_prompt: str,
+    n_evaluations: int,
+    eval_temperature: float,
+) -> GPTResult[list[GPTUncertain | GPTStructuredRaw | GPTFull]]:
+    """Run N evaluation rounds and return valid evaluations.
 
     Args:
         client: LLM client for API calls.
-        paper: Paper with related papers and summaries.
-        eval_prompt: Prompt template for evaluation.
-        graph_prompt: Prompt template for graph extraction.
-        demonstrations: Text of demonstrations for few-shot prompting.
-        linearisation_method: How to convert graph to text.
-        sources: Which related paper sources to include.
+        eval_type: Type of evaluation to run.
+        system_prompt: System prompt for evaluation.
+        user_prompt: User prompt for evaluation.
+        n_evaluations: Number of evaluation rounds.
+        eval_temperature: Temperature for evaluation rounds.
 
     Returns:
-        GraphResult with evaluation wrapped in PromptResult and GPTResult.
+        GPTResult containing list of valid evaluations only.
+    """
+    eval_tasks = [
+        client.run(
+            eval_type,
+            system_prompt,
+            user_prompt,
+            temperature=eval_temperature,
+        )
+        for _ in range(n_evaluations)
+    ]
+
+    all_evals = gpt_sequence(await asyncio.gather(*eval_tasks))
+    return all_evals.map(
+        lambda evals: [eval_ for eval_ in evals if eval_ and eval_.is_valid()]
+    )
+
+
+def _handle_no_valid_evaluations(
+    paper: PaperWithRelatedSummary,
+    cost: float,
+) -> GPTResult[PaperResult]:
+    """Handle the case where no valid evaluations were obtained.
+
+    Args:
+        paper: The paper being evaluated.
+        cost: The cost from the failed evaluation attempts.
+
+    Returns:
+        GPTResult with error PaperResult.
+    """
+    logger.warning(f"Paper '{paper.title}': no valid evaluation results")
+    return GPTResult(
+        result=PaperResult.from_s2peer(
+            paper=paper.paper.paper,
+            y_pred=0,
+            rationale_pred=RATIONALE_ERROR,
+            structured_evaluation=None,
+        ),
+        cost=cost,
+    )
+
+
+async def _handle_structured_evaluations(
+    client: LLMClient,
+    paper: PaperWithRelatedSummary,
+    valid_evals: GPTResult[list[GPTUncertain | GPTStructuredRaw | GPTFull]],
+    target_mode: TargetMode,
+) -> GPTResult[PaperResult]:
+    """Handle structured evaluations with ensemble voting.
+
+    Args:
+        client: LLM client for getting probability.
+        paper: The paper being evaluated.
+        valid_evals: Valid evaluation results.
+        target_mode: Target mode for rating adjustment.
+
+    Returns:
+        GPTResult with ensemble PaperResult.
+    """
+    # Filter to only GPTStructuredRaw evaluations for ensemble
+    structured_evaluations = valid_evals.map(
+        lambda evals: [e for e in evals if isinstance(e, GPTStructuredRaw)]
+    )
+    # Aggregate evaluations using majority voting and TF-IDF
+    aggregated_eval = structured_evaluations.map(aggregate_ensemble_evaluations)
+    fixed_label = fix_evaluated_rating(aggregated_eval.result, target_mode).label
+
+    # Get probability for the final aggregated result
+    prob = await get_novelty_probability(client, aggregated_eval)
+    final_structured = aggregated_eval.lift(prob, lambda s, p: s.with_prob(p))
+
+    return final_structured.map(
+        lambda s: PaperResult.from_s2peer(
+            paper=paper.paper.paper,
+            y_pred=fixed_label,
+            rationale_pred=s.rationale,
+            structured_evaluation=s,
+        )
+    )
+
+
+async def _extract_graph(
+    client: LLMClient,
+    eval_prompt: PromptTemplate,
+    graph_prompt: PromptTemplate,
+    paper: PaperWithRelatedSummary,
+) -> GPTResult[Graph]:
+    """Extract graph from paper if needed by the evaluation prompt.
+
+    Args:
+        client: LLM client for API calls.
+        eval_prompt: Evaluation prompt template to check if graph is needed.
+        graph_prompt: Graph prompt template for extraction.
+        paper: Paper with related papers and summaries.
+
+    Returns:
+        GPTResult containing the extracted graph or empty graph.
     """
     if "graph" in eval_prompt.name:
         graph_prompt_text = format_graph_template(graph_prompt, paper.paper)
@@ -467,51 +597,76 @@ async def evaluate_paper(
 
         if graph.result.is_empty():
             logger.warning(f"Paper '{paper.title}': invalid Graph")
+        return graph
     else:
-        graph_system_prompt = None
-        graph_prompt_text = None
-        graph = gpt_unit(Graph.empty())
+        return gpt_unit(Graph.empty())
 
+
+async def evaluate_paper(
+    client: LLMClient,
+    paper: PaperWithRelatedSummary,
+    eval_prompt: PromptTemplate,
+    graph_prompt: PromptTemplate,
+    demonstrations: str,
+    linearisation_method: LinearisationMethod,
+    n_evaluations: int,
+    eval_temperature: float,
+    sources: set[PaperSource],
+) -> GPTResult[PromptResult[GraphResult]]:
+    """Evaluate a single paper's novelty using graph extraction and related papers.
+
+    Args:
+        client: LLM client for API calls.
+        paper: Paper with related papers and summaries.
+        eval_prompt: Prompt template for evaluation.
+        graph_prompt: Prompt template for graph extraction.
+        demonstrations: Text of demonstrations for few-shot prompting.
+        linearisation_method: How to convert graph to text.
+        n_evaluations: Number of evaluation rounds per paper for ensemble voting.
+        eval_temperature: Temperature for evaluation rounds.
+        sources: Which related paper sources to include.
+
+    Returns:
+        GraphResult with evaluation wrapped in PromptResult and GPTResult.
+    """
+    # Extract graph if needed
+    graph = await _extract_graph(client, eval_prompt, graph_prompt, paper)
+
+    # Prepare evaluation prompt
     eval_prompt_text = format_eval_template(
         eval_prompt, paper, graph.result, demonstrations, linearisation_method, sources
     )
-    eval_system_prompt = eval_prompt.system
 
     if eval_prompt.type_name == "GPTUncertain":
-        eval_type = GPTUncertain
-        target_mode = TargetMode.UNCERTAIN
+        eval_type, target_mode = GPTUncertain, TargetMode.UNCERTAIN
     elif eval_prompt.type_name == "GPTStructured":
-        eval_type = GPTStructuredRaw
-        target_mode = TargetMode.BIN
+        eval_type, target_mode = GPTStructuredRaw, TargetMode.BIN
     else:
-        eval_type = GPTFull
-        target_mode = TargetMode.BIN
+        eval_type, target_mode = GPTFull, TargetMode.BIN
 
-    eval_result = await client.run(eval_type, eval_system_prompt, eval_prompt_text)
+    if eval_type is not GPTStructuredRaw:
+        n_evaluations = 1
 
-    if not eval_result.result or not eval_result.result.is_valid():
-        logger.warning(f"Paper '{paper.title}': invalid evaluation result")
+    valid_evals = await _run_evaluation_rounds(
+        client,
+        eval_type,
+        eval_prompt.system,
+        eval_prompt_text,
+        n_evaluations,
+        eval_temperature,
+    )
 
-    if gpt_is_type(eval_result, GPTStructuredRaw):
-        structured = eval_result
-        fixed_label = fix_evaluated_rating(structured.result, target_mode).label
-
-        prob = await get_novelty_probability(client, structured)
-        structured = structured.lift(prob, lambda s, p: s.with_prob(p))
-
-        paper_result = structured.map(
-            lambda s: PaperResult.from_s2peer(
-                paper=paper.paper.paper,
-                y_pred=fixed_label,
-                rationale_pred=s.rationale,
-                structured_evaluation=s,
-            )
+    if not valid_evals.result:
+        paper_result = _handle_no_valid_evaluations(paper, valid_evals.cost)
+    elif eval_type is GPTStructuredRaw:
+        # Handle structured evaluations (with ensemble)
+        paper_result = await _handle_structured_evaluations(
+            client, paper, valid_evals, target_mode
         )
     else:
-        evaluated = eval_result.fix(GPTFull.error).map(
-            lambda r: fix_evaluated_rating(r, target_mode)
-        )
-        paper_result = evaluated.map(
+        # For non-structured evaluations, there will only be one evaluation
+        # (ensemble voting doesn't apply to GPTFull/GPTUncertain)
+        paper_result = valid_evals.map(lambda evals: evals[0]).map(
             lambda e: PaperResult.from_s2peer(
                 paper=paper.paper.paper,
                 y_pred=e.label,
@@ -527,7 +682,7 @@ async def evaluate_paper(
                 result=r,
                 graph=g,
             ),
-            prompt=Prompt(system=eval_system_prompt, user=eval_prompt_text),
+            prompt=eval_prompt.with_user(eval_prompt_text),
         ),
     )
 
@@ -574,6 +729,116 @@ def format_related(related: Iterable[PaperRelatedSummarised]) -> str:
     """Build prompt from related papers titles and summaries."""
     return "\n\n".join(
         f"Title: {paper.title}\nSummary: {paper.summary}\n" for paper in related
+    )
+
+
+def select_best_rationale_tfidf(rationales: Sequence[str]) -> str:
+    """Select the best rationale using a simple TF-IDF sum score.
+
+    Falls back to the longest by word count if TF-IDF isn't available or if all non-empty
+    rationales are identical.
+
+    Args:
+        rationales: Sequence of rationale strings.
+
+    Returns:
+        One rationale (empty string if all inputs are empty). The rationale is returned
+        as-is.
+    """
+    if not rationales:
+        return ""
+
+    # Trim whitespace but keep original indices for returning the original string
+    norm = [r.strip() for r in rationales]
+    non_empty = [i for i, r in enumerate(norm) if r]
+
+    if not non_empty:
+        return ""
+    if len(non_empty) == 1:
+        return rationales[non_empty[0]]
+
+    # If everything is literally the same text, just pick the first
+    if len({norm[i] for i in non_empty}) == 1:
+        return rationales[0]
+
+    try:
+        vec = TfidfVectorizer(
+            lowercase=True,
+            stop_words="english",
+            ngram_range=(1, 2),
+            max_features=1000,
+        )
+        scores = vec.fit_transform(norm)  # type: ignore[misc]
+
+        # If no features (e.g., only stopwords), fall back
+        if scores.shape[1] == 0:  # type: ignore[misc]
+            return _longest_by_word_count(rationales)
+
+        scores = np.asarray(scores.sum(axis=1)).ravel()  # type: ignore[misc]
+        best_idx = int(scores.argmax())
+        return rationales[best_idx]
+    except Exception:
+        return _longest_by_word_count(rationales)
+
+
+def _longest_by_word_count(items: Sequence[str]) -> str:
+    """Pick the item with the highest word count; on ties, last wins."""
+
+    def wc(s: str) -> int:
+        return len(re.findall(r"\w+", s))
+
+    best_idx = max(range(len(items)), key=lambda i: wc(items[i]))
+    return items[best_idx]
+
+
+def aggregate_ensemble_evaluations(
+    evaluations: Sequence[GPTStructuredRaw],
+) -> GPTStructuredRaw:
+    """Aggregate multiple evaluations using majority voting and TF-IDF rationale selection.
+
+    Args:
+        evaluations: List of valid GPTStructuredRaw evaluations.
+
+    Returns:
+        GPTStructuredRaw with majority label and best rationale.
+
+    Raises:
+        ValueError: If evaluations list is empty.
+    """
+    if not evaluations:
+        raise ValueError("Cannot aggregate empty list of evaluations")
+
+    if len(evaluations) == 1:
+        return evaluations[0].with_confidence(1.0)
+
+    label_counts = Counter(eval_.label for eval_ in evaluations)
+
+    # Determine winning label (ties go to negative/0)
+    if label_counts[1] > label_counts[0]:
+        winning_label = 1
+        winning_votes = label_counts[1]
+    else:
+        winning_label = 0
+        winning_votes = label_counts[0]
+
+    confidence = winning_votes / len(evaluations)
+
+    # Get evaluations with the winning label
+    winning_evaluations = [
+        eval_ for eval_ in evaluations if eval_.label == winning_label
+    ]
+
+    # Select best rationale using TF-IDF
+    best_rationale = select_best_rationale_tfidf([
+        eval_.rationale for eval_ in winning_evaluations
+    ])
+    # Find the evaluation that produced the best rationale to use as base
+    best_evaluation = next(
+        eval_ for eval_ in winning_evaluations if eval_.rationale == best_rationale
+    )
+
+    return best_evaluation.model_copy(
+        update={"label": winning_label, "confidence": confidence}
     )
 
 

@@ -4,6 +4,7 @@ import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from paper.gpt.model import Prompt
 from paper.util import read_resource
 
 
@@ -21,6 +22,10 @@ class PromptTemplate:
     template: str
     system: str
     type_name: str
+
+    def with_user(self, user_prompt: str) -> Prompt:
+        """Create a Prompt instance with the given user prompt text."""
+        return Prompt(system=self.system, user=user_prompt)
 
 
 def load_prompts(name: str) -> Mapping[str, PromptTemplate]:

@@ -244,6 +244,10 @@ class GPTStructuredRaw(Immutable):
         int,
         Field(description="1 if the paper is novel, or 0 if it's not novel."),
     ]
+    confidence: Annotated[
+        float | None,
+        Field(description="Confidence in the label from ensemble voting (0.0-1.0)."),
+    ] = None
 
     @computed_field
     @property
@@ -286,6 +290,7 @@ class GPTStructuredRaw(Immutable):
             key_comparisons=[],
             conclusion="<error>",
             label=0,
+            confidence=None,
         )
 
     def is_valid(self) -> bool:
@@ -302,6 +307,17 @@ class GPTStructuredRaw(Immutable):
             A `GPTStructured` instance with the raw data and probability.
         """
         return GPTStructured.from_(self, probability)
+
+    def with_confidence(self, confidence: float | None) -> Self:
+        """Create a new instance with the given confidence value.
+
+        Args:
+            confidence: Confidence in the label from ensemble voting (0.0-1.0).
+
+        Returns:
+            A new instance with the confidence field updated.
+        """
+        return self.model_copy(update={"confidence": confidence})
 
 
 class GPTStructured(GPTStructuredRaw):
