@@ -5,7 +5,7 @@ from __future__ import annotations
 import statistics
 from collections.abc import Iterable, Sequence
 from enum import Enum
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from paper.types import Immutable
 from paper.util import metrics, safediv
@@ -40,6 +40,7 @@ class Metrics(Immutable):
     mse: float
     correlation: float | None
     confusion: list[list[int]]
+    confidence: float | None
     mode: TargetMode
 
     def __str__(self) -> str:
@@ -61,6 +62,9 @@ class Metrics(Immutable):
                 f"MSE        : {self.mse:.4f}",
                 f"Correlation: {corr}",
             ])
+
+        if self.confidence is not None:
+            out.append(f"Confidence : {self.confidence:.4f}")
 
         return "\n".join(out)
 
@@ -102,6 +106,7 @@ def format_confusion(
     return "\n".join(matrix_str)
 
 
+@runtime_checkable
 class Evaluated(Protocol):
     """Object with `y_true` and `y_pred` fields."""
 
@@ -116,8 +121,27 @@ class Evaluated(Protocol):
         ...
 
 
+@runtime_checkable
+class EvaluatedWithConfidence(Protocol):
+    """Object with `y_true`, `y_pred` and `confidence` fields."""
+
+    @property
+    def y_true(self) -> int:
+        """Gold label."""
+        ...
+
+    @property
+    def y_pred(self) -> int:
+        """Predicted label."""
+        ...
+
+    @property
+    def confidence(self) -> float | None:
+        """Confidence of the prediction, between 0 and 1, or None if not available."""
+
+
 def calculate_paper_metrics(
-    papers: Sequence[Evaluated],
+    papers: Sequence[Evaluated | EvaluatedWithConfidence],
     average: Literal["binary", "macro", "micro"] | None = None,
 ) -> Metrics:
     """Calculate evaluation metrics.
@@ -132,8 +156,13 @@ def calculate_paper_metrics(
     """
     y_pred = [p.y_pred for p in papers]
     y_true = [p.y_true for p in papers]
+    confidences = [
+        p.confidence
+        for p in papers
+        if isinstance(p, EvaluatedWithConfidence) and p.confidence is not None
+    ]
 
-    return calculate_metrics(y_true, y_pred, average=average)
+    return calculate_metrics(y_true, y_pred, average=average, confidences=confidences)
 
 
 def calculate_negative_paper_metrics(papers: Sequence[Evaluated]) -> Metrics:
@@ -241,8 +270,13 @@ def display_metrics_row(
 
     for prefix, entry in [("P", regular), ("N", negative), ("M", macro)]:
         if entry:
-            header += [f"{prefix}-P", f"{prefix}-R", f"{prefix}-F1"]
-            values += [entry.precision, entry.recall, entry.f1]
+            header += [f"{prefix}-P", f"{prefix}-R", f"{prefix}-F1", f"{prefix}-CO"]
+            values += [
+                entry.precision,
+                entry.recall,
+                entry.f1,
+                entry.confidence or 1,
+            ]
 
     values_txt = [f"{x:.4f}" for x in values]
 
@@ -306,6 +340,7 @@ def calculate_metrics(
     y_pred: Sequence[int],
     mode: TargetMode | None = None,
     average: Literal["binary", "macro", "micro"] | None = None,
+    confidences: Sequence[float] | None = None,
 ) -> Metrics:
     """Calculate classification metrics for multi-class classification.
 
@@ -319,6 +354,8 @@ def calculate_metrics(
             attempt to find the mode by checking the possible values.
         average: What average mode to use for precision/recall/F1. If None, will use
             'binary' when mode is binary and 'macro' for everything else.
+        confidences: Novelty label confidence for each item, if present. If absent, the
+            'confidence' output will be null.
 
     Returns:
         Metrics object containing macro-averaged precision, recall, F1 score, accuracy,
@@ -343,6 +380,11 @@ def calculate_metrics(
         else:
             average = "macro"
 
+    if confidences:
+        confidence = sum(confidences) / len(confidences)
+    else:
+        confidence = 1
+
     return Metrics(
         precision=metrics.precision(y_true, y_pred, average=average),
         recall=metrics.recall(y_true, y_pred, average=average),
@@ -353,4 +395,5 @@ def calculate_metrics(
         correlation=metrics.pearson_correlation(y_true, y_pred),
         confusion=metrics.confusion_matrix(y_true, y_pred, labels=mode.labels()),
         mode=mode,
+        confidence=confidence,
     )

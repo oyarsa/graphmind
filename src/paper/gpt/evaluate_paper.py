@@ -31,6 +31,14 @@ class PaperResult(s2.PaperWithS2Refs):
     ]
     structured_evaluation: GPTStructured | None = None
 
+    @computed_field
+    @property
+    def confidence(self) -> float | None:
+        """Confidence in the prediction from ensemble voting (0.0-1.0)."""
+        if self.structured_evaluation is None:
+            return 1
+        return self.structured_evaluation.confidence
+
     @classmethod
     def from_s2peer(
         cls,

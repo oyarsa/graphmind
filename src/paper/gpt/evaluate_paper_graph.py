@@ -351,7 +351,6 @@ async def evaluate_papers(
     results_items = [r.paper for r in PromptResult.unwrap(results_all)]
 
     logger.info("Metrics\n%s", display_regular_negative_macro_metrics(results_items))
-    logger.info("Average confidence:\n%s", _display_confidences(results_items))
 
     save_data(output_dir / "result.json.zst", results_all)
     save_data(output_dir / "params.json", params)
@@ -363,20 +362,6 @@ async def evaluate_papers(
             len(papers),
             len(results_all),
         )
-
-
-def _display_confidences(results_items: Sequence[PaperResult]) -> str:
-    """Display average confidence for positive, negative and macro-averaged."""
-    categories = [
-        ("Positive", _calculate_average_confidence(results_items, label=1)),
-        ("Negative", _calculate_average_confidence(results_items, label=0)),
-        ("Macro-averaged", _calculate_average_confidence(results_items)),
-    ]
-
-    return "\n".join(
-        f"{name}: " + (f"{conf:.4f}" if conf is not None else "N/A")
-        for name, conf in categories
-    )
 
 
 async def _evaluate_papers(
@@ -800,32 +785,6 @@ def _aggregate_ensemble_evaluations(
     )
 
     return best_evaluation.with_confidence(confidence)
-
-
-def _calculate_average_confidence(
-    items: Sequence[PaperResult], label: int | None = None
-) -> float | None:
-    """Calculate the average confidence from papers with structured evaluations.
-
-    Args:
-        items: Sequence of PaperResult objects potentially containing structured evaluations.
-        label: If specified, only calculate confidence for items with this predicted label.
-            If None, calculate for all items.
-
-    Returns:
-        Average confidence as a float, or None if no valid confidences found.
-    """
-    confidences = [
-        eval_.confidence
-        for item in items
-        if (eval_ := item.structured_evaluation) is not None
-        and eval_.confidence is not None
-        and (label is None or item.y_pred == label)
-    ]
-
-    if not confidences:
-        return None
-    return sum(confidences) / len(confidences)
 
 
 @app.command(help="List available prompts.")
