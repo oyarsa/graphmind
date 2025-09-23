@@ -11,7 +11,7 @@ data := env("DATA", "dev")
 clean := env("CLEAN", "")
 
 # Full data paths
-data_full := root + "/"+data_dir+"/"+data+".json"
+data_full := root + "/"+data_dir+"/"+data+".json.zst"
 
 eval_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_full
 output := root+"/"+output_dir+"/eval/graph/"+data+"/"+model+"/"+demos
@@ -222,7 +222,7 @@ peter-ablation-metrics:
     echo "PETER ablation metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{peter_ablation_output}}/**/metrics.json
 
-rationale_data := root+"/output/eval/4o/graph/full-graph/result.json"
+rationale_data := root+"/output/eval/4o/graph/full-graph/result.json.zst"
 rationale_flags := " -n " + n + " -m " + model +  " --graphs " + rationale_data
 rationale_output := root+"/"+output_dir+"/eval-rationale/{{model}}"
 
@@ -236,7 +236,7 @@ all-metrics:
     echo "Metrics for model: {{model}}, data: {{data}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{root}}/{{output_dir}}/**/metrics.json
 
-data_scimon := root + "/"+data_dir+"/scimon/"+data+".json"
+data_scimon := root + "/"+data_dir+"/scimon/"+data+".json.zst"
 scimon_flags := "--demos " + demos + " -n " + n + " -m " + model + " --ann-graph " + data_scimon
 
 _scimon prompt:
