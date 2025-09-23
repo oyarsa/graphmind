@@ -26,9 +26,6 @@ from typing import Annotated
 
 import numpy as np
 import typer
-from rich.console import Console
-from rich.table import Table
-from rich.text import Text
 from sklearn.feature_extraction.text import (  # pyright: ignore[reportMissingTypeStubs]
     TfidfVectorizer,
 )
@@ -370,47 +367,6 @@ async def evaluate_papers(
             len(papers),
             len(results_all),
         )
-
-    _display_item_probs(results_items)
-
-
-def _display_item_probs(items: Sequence[PaperResult]) -> None:
-    table = Table("Label", "Percentage")
-
-    for item in items:
-        if item.structured_evaluation is None:
-            continue
-
-        prob = item.structured_evaluation.probability or 0
-        label = str(item.y_pred)
-
-        # Create colored percentage text
-        percentage_text = f"{prob:.2%}"
-
-        # Color logic: for label 0, low prob is good (green), high is bad (red)
-        # For label 1, high prob is good (green), low is bad (red)
-        if item.y_pred == 0:
-            if prob <= 0.3:
-                color = "green"
-            elif prob <= 0.5:
-                color = "yellow"
-            elif prob <= 0.7:
-                color = "orange1"
-            else:
-                color = "red"
-        else:  # label 1  # noqa: PLR5501
-            if prob >= 0.7:
-                color = "green"
-            elif prob >= 0.5:
-                color = "yellow"
-            elif prob >= 0.3:
-                color = "orange1"
-            else:
-                color = "red"
-
-        table.add_row(label, Text(percentage_text, style=color))
-
-    Console().print(table)
 
 
 async def _evaluate_papers(
