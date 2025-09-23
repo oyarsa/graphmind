@@ -4,7 +4,7 @@
 **ALWAYS run `just lint` after making any code changes before considering the task
 complete.** This ensures code formatting, type checking, and all tests pass.
 
-**ALWAYS notify the user when you are done, even if you don't need input from them.**
+**ALWAYS notify the user when you are done, even if you don't need input from them. This includes when exiting plan mode.**
 
 ## Environment Variables
 Create a `.env` file from `.env.example` with the following:
