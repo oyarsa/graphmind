@@ -352,6 +352,7 @@ async def evaluate_papers(
     results_items = [r.paper for r in PromptResult.unwrap(results_all)]
 
     logger.info("Metrics\n%s", display_regular_negative_macro_metrics(results_items))
+    logger.info("Calls made: %d", client.calls_made)
 
     save_data(output_dir / "result.json.zst", results_all)
     save_data(output_dir / "params.json", params)

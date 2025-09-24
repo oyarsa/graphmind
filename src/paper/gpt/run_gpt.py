@@ -415,6 +415,7 @@ class LLMClient(ABC):
         self.temperature = temperature
         self.timeout = timeout
         self.max_input_tokens = max_input_tokens
+        self._calls_made = 0
 
         if log_exception is not None:
             self.should_log_exception = log_exception
@@ -552,6 +553,11 @@ class LLMClient(ABC):
         seed: int | None = None,
     ) -> GPTResult[str | None]:
         """Run the GPT query and return plain text output."""
+
+    @property
+    def calls_made(self) -> int:
+        """How many calls were made over the lifetime of this client."""
+        return self._calls_made
 
 
 class OpenAIClient(LLMClient):
@@ -849,6 +855,7 @@ class OpenAIClient(LLMClient):
                     timeout=self.timeout,
                 )
                 await update_usage(response)
+                self._calls_made += 1
                 return response
         except openai.APIError as e:
             logger.warning("API error: %s", e)
@@ -1227,6 +1234,7 @@ class GeminiClient(LLMClient):
                     timeout=self.timeout,
                 )
                 await update_usage(response)
+                self._calls_made += 1
                 return response
         except errors.APIError as e:
             logger.warning("API error: %s", e)
