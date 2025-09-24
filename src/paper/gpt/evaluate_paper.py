@@ -30,14 +30,12 @@ class PaperResult(s2.PaperWithS2Refs):
         str, Field(description="Model rationale for the prediction")
     ]
     structured_evaluation: GPTStructured | None = None
-
-    @computed_field
-    @property
-    def confidence(self) -> float | None:
-        """Confidence in the prediction from ensemble voting (0.0-1.0)."""
-        if self.structured_evaluation is None:
-            return 1
-        return self.structured_evaluation.confidence
+    confidence: Annotated[
+        float | None,
+        Field(
+            description="Confidence in the prediction from ensemble voting (0.0-1.0)."
+        ),
+    ] = None
 
     @classmethod
     def from_s2peer(
@@ -46,8 +44,13 @@ class PaperResult(s2.PaperWithS2Refs):
         y_pred: int,
         rationale_pred: str,
         structured_evaluation: GPTStructured | None = None,
+        confidence: float | None = None,
     ) -> Self:
         """Construct `PaperResult` from the original paper and model predictions."""
+        # Extract confidence from structured_evaluation if available
+        if structured_evaluation is not None:
+            confidence = structured_evaluation.confidence
+
         return cls.model_validate(
             paper.model_dump()
             | {
@@ -56,6 +59,7 @@ class PaperResult(s2.PaperWithS2Refs):
                 "y_pred": y_pred,
                 "rationale_pred": rationale_pred,
                 "structured_evaluation": structured_evaluation,
+                "confidence": confidence,
             }
         )
 
@@ -147,6 +151,31 @@ class GPTFull(Immutable):
     def is_valid(self) -> bool:
         """Check if instance is valid."""
         return self.rationale != "<error>"
+
+    def with_confidence(self, confidence: float | None) -> GPTFullWithConfidence:
+        """Create a GPTFullWithConfidence instance with the given confidence.
+
+        Args:
+            confidence: Confidence in the label from ensemble voting (0.0-1.0).
+
+        Returns:
+            A GPTFullWithConfidence instance with the confidence.
+        """
+        return GPTFullWithConfidence.from_(self, confidence=confidence)
+
+
+class GPTFullWithConfidence(GPTFull):
+    """GPTFull evaluation with confidence from ensemble voting."""
+
+    confidence: Annotated[
+        float | None,
+        Field(description="Confidence in the label from ensemble voting (0.0-1.0)."),
+    ] = None
+
+    @classmethod
+    def from_(cls, full: GPTFull, *, confidence: float | None = None) -> Self:
+        """Create a GPTFullWithConfidence from GPTFull and confidence."""
+        return cls.model_validate(full.model_dump() | {"confidence": confidence})
 
 
 class NoveltyLabel(StrEnum):

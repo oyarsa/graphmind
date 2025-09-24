@@ -40,6 +40,7 @@ from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
     GPTFull,
+    GPTFullWithConfidence,
     GPTStructured,
     GPTStructuredRaw,
     GPTUncertain,
@@ -519,6 +520,40 @@ def _handle_structured_evaluations(
     )
 
 
+def _handle_gptfull_evaluations(
+    paper: PaperWithRelatedSummary,
+    valid_evals: GPTResult[list[GPTUncertain | GPTStructuredRaw | GPTFull]],
+    target_mode: TargetMode,
+) -> GPTResult[PaperResult]:
+    """Handle GPTFull evaluations with ensemble voting.
+
+    Args:
+        paper: The paper being evaluated.
+        valid_evals: Valid evaluation results.
+        target_mode: Target mode for rating adjustment.
+
+    Returns:
+        GPTResult with ensemble PaperResult.
+    """
+    # Filter to only GPTFull evaluations for ensemble
+    gptfull_evaluations = valid_evals.map(
+        lambda evals: [e for e in evals if isinstance(e, GPTFull)]
+    )
+
+    # Aggregate evaluations using majority voting and TF-IDF
+    aggregated_full = gptfull_evaluations.map(_aggregate_gptfull_evaluations)
+    fixed_label = fix_evaluated_rating(aggregated_full.result, target_mode).label
+
+    return aggregated_full.map(
+        lambda f: PaperResult.from_s2peer(
+            paper=paper.paper.paper,
+            y_pred=fixed_label,
+            rationale_pred=f.rationale,
+            confidence=f.confidence,
+        )
+    )
+
+
 async def _extract_graph(
     client: LLMClient,
     eval_prompt: PromptTemplate,
@@ -599,7 +634,7 @@ async def evaluate_paper(
     else:
         eval_type, target_mode = GPTFull, TargetMode.BIN
 
-    if eval_type is not GPTStructuredRaw:
+    if eval_type not in (GPTStructuredRaw, GPTFull):
         n_evaluations = 1
 
     valid_evals = await _run_evaluation_rounds(
@@ -616,9 +651,11 @@ async def evaluate_paper(
     elif eval_type is GPTStructuredRaw:
         # Handle structured evaluations (with ensemble)
         paper_result = _handle_structured_evaluations(paper, valid_evals, target_mode)
+    elif eval_type is GPTFull:
+        # Handle GPTFull evaluations (with ensemble)
+        paper_result = _handle_gptfull_evaluations(paper, valid_evals, target_mode)
     else:
-        # For non-structured evaluations, there will only be one evaluation
-        # (ensemble voting doesn't apply to GPTFull/GPTUncertain)
+        # Single evaluation (GPTUncertain or others)
         paper_result = valid_evals.map(lambda evals: evals[0]).map(
             lambda e: PaperResult.from_s2peer(
                 paper=paper.paper.paper,
@@ -784,6 +821,53 @@ def _aggregate_ensemble_evaluations(
         eval_.rationale for eval_ in winning_evaluations
     ])
     # Find the evaluation that produced the best rationale to use as base
+    best_evaluation = next(
+        eval_ for eval_ in winning_evaluations if eval_.rationale == best_rationale
+    )
+
+    return best_evaluation.with_confidence(confidence)
+
+
+def _aggregate_gptfull_evaluations(
+    evaluations: Sequence[GPTFull],
+) -> GPTFullWithConfidence:
+    """Aggregate multiple GPTFull evaluations using majority voting and rationale selection.
+
+    Args:
+        evaluations: List of valid GPTFull evaluations.
+
+    Returns:
+        GPTFullWithConfidence with majority label, best rationale and confidence.
+
+    Raises:
+        ValueError: If evaluations list is empty.
+    """
+    if not evaluations:
+        raise ValueError("Cannot aggregate empty list of evaluations")
+
+    if len(evaluations) == 1:
+        return evaluations[0].with_confidence(1.0)
+
+    label_counts = Counter(eval_.label for eval_ in evaluations)
+
+    # Determine winning label (ties go to negative/0)
+    if label_counts[1] > label_counts[0]:
+        winning_label = 1
+    else:
+        winning_label = 0
+
+    confidence = label_counts[winning_label] / len(evaluations)
+
+    # Get evaluations with the winning label
+    winning_evaluations = [
+        eval_ for eval_ in evaluations if eval_.label == winning_label
+    ]
+
+    # Select best rationale using TF-IDF
+    best_rationale = _select_best_rationale_tfidf([
+        eval_.rationale for eval_ in winning_evaluations
+    ])
+    # Find the evaluation that produced the best rationale
     best_evaluation = next(
         eval_ for eval_ in winning_evaluations if eval_.rationale == best_rationale
     )
