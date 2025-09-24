@@ -80,7 +80,7 @@ from paper.util import (
     seqcat,
     setup_logging,
 )
-from paper.util.serde import load_data, save_data
+from paper.util.serde import Compress, load_data, save_data
 
 logger = logging.getLogger(__name__)
 
@@ -354,7 +354,11 @@ async def evaluate_papers(
 
     save_data(output_dir / "result.json.zst", results_all)
     save_data(output_dir / "params.json", params)
-    save_data(output_dir / "metrics.json", calculate_paper_metrics(results_items))
+    save_data(
+        output_dir / "metrics.json",
+        calculate_paper_metrics(results_items),
+        compress=Compress.NONE,
+    )
 
     if len(results_all) != len(papers):
         logger.warning(
