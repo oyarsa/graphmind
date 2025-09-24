@@ -612,6 +612,10 @@ async def evaluate_paper(
     if eval_type not in (GPTStructuredRaw, GPTFull):
         n_evaluations = 1
 
+    # We want deterministic results if we're not doing multi-sampling
+    if n_evaluations == 1:
+        eval_temperature = 0
+
     valid_evals = await _run_evaluation_rounds(
         client,
         eval_type,
