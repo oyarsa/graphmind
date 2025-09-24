@@ -22,7 +22,7 @@ import tomllib
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, TypeAlias
 
 import numpy as np
 import typer
@@ -486,7 +486,7 @@ def _handle_no_valid_evaluations(
     )
 
 
-def _handle_structured_evaluations(
+def _handle_ensemble_evaluations(
     paper: PaperWithRelatedSummary,
     valid_evals: GPTResult[list[GPTUncertain | GPTStructuredRaw | GPTFull]],
     target_mode: TargetMode,
@@ -501,9 +501,9 @@ def _handle_structured_evaluations(
     Returns:
         GPTResult with ensemble PaperResult.
     """
-    # Filter to only GPTStructuredRaw evaluations for ensemble
+    # Filter to only valid evaluations for ensemble
     structured_evaluations = valid_evals.map(
-        lambda evals: [e for e in evals if isinstance(e, GPTStructuredRaw)]
+        lambda evals: [e for e in evals if isinstance(e, GPTPreConfidence)]
     )
 
     # Aggregate evaluations using majority voting and TF-IDF
@@ -515,41 +515,8 @@ def _handle_structured_evaluations(
             paper=paper.paper.paper,
             y_pred=fixed_label,
             rationale_pred=s.rationale,
-            structured_evaluation=s,
-        )
-    )
-
-
-def _handle_gptfull_evaluations(
-    paper: PaperWithRelatedSummary,
-    valid_evals: GPTResult[list[GPTUncertain | GPTStructuredRaw | GPTFull]],
-    target_mode: TargetMode,
-) -> GPTResult[PaperResult]:
-    """Handle GPTFull evaluations with ensemble voting.
-
-    Args:
-        paper: The paper being evaluated.
-        valid_evals: Valid evaluation results.
-        target_mode: Target mode for rating adjustment.
-
-    Returns:
-        GPTResult with ensemble PaperResult.
-    """
-    # Filter to only GPTFull evaluations for ensemble
-    gptfull_evaluations = valid_evals.map(
-        lambda evals: [e for e in evals if isinstance(e, GPTFull)]
-    )
-
-    # Aggregate evaluations using majority voting and TF-IDF
-    aggregated_full = gptfull_evaluations.map(_aggregate_gptfull_evaluations)
-    fixed_label = fix_evaluated_rating(aggregated_full.result, target_mode).label
-
-    return aggregated_full.map(
-        lambda f: PaperResult.from_s2peer(
-            paper=paper.paper.paper,
-            y_pred=fixed_label,
-            rationale_pred=f.rationale,
-            confidence=f.confidence,
+            structured_evaluation=s if isinstance(s, GPTStructured) else None,
+            confidence=s.confidence,
         )
     )
 
@@ -648,14 +615,11 @@ async def evaluate_paper(
 
     if not valid_evals.result:
         paper_result = _handle_no_valid_evaluations(paper, valid_evals.cost)
-    elif eval_type is GPTStructuredRaw:
-        # Handle structured evaluations (with ensemble)
-        paper_result = _handle_structured_evaluations(paper, valid_evals, target_mode)
-    elif eval_type is GPTFull:
-        # Handle GPTFull evaluations (with ensemble)
-        paper_result = _handle_gptfull_evaluations(paper, valid_evals, target_mode)
+    elif eval_type in (GPTStructuredRaw, GPTFull):
+        # Handle evaluations with ensemble
+        paper_result = _handle_ensemble_evaluations(paper, valid_evals, target_mode)
     else:
-        # Single evaluation (GPTUncertain or others)
+        # Single evaluation (GPTUncertain)
         paper_result = valid_evals.map(lambda evals: evals[0]).map(
             lambda e: PaperResult.from_s2peer(
                 paper=paper.paper.paper,
@@ -781,63 +745,22 @@ def _longest_by_word_count(items: Sequence[str]) -> str:
     return items[best_idx]
 
 
+# This needs to be a TypeAlias as `type` can't be used for isinstance checks.
+GPTPreConfidence: TypeAlias = GPTFull | GPTStructuredRaw  # noqa: UP040
+GPTWithConfidence: TypeAlias = GPTFullWithConfidence | GPTStructured  # noqa: UP040
+
+
 def _aggregate_ensemble_evaluations(
-    evaluations: Sequence[GPTStructuredRaw],
-) -> GPTStructured:
-    """Aggregate multiple evaluations using majority voting and rationale selection.
-
-    Args:
-        evaluations: List of valid GPTStructuredRaw evaluations.
-
-    Returns:
-        GPTStructured with majority label, best rationale and confidence.
-
-    Raises:
-        ValueError: If evaluations list is empty.
-    """
-    if not evaluations:
-        raise ValueError("Cannot aggregate empty list of evaluations")
-
-    if len(evaluations) == 1:
-        return evaluations[0].with_confidence(1)
-
-    label_counts = Counter(eval_.label for eval_ in evaluations)
-
-    # Determine winning label (ties go to negative/0)
-    if label_counts[1] > label_counts[0]:
-        winning_label = 1
-    else:
-        winning_label = 0
-
-    confidence = label_counts[winning_label] / len(evaluations)
-
-    # Get evaluations with the winning label
-    winning_evaluations = [
-        eval_ for eval_ in evaluations if eval_.label == winning_label
-    ]
-
-    # Select best rationale using TF-IDF
-    best_rationale = _select_best_rationale_tfidf([
-        eval_.rationale for eval_ in winning_evaluations
-    ])
-    # Find the evaluation that produced the best rationale to use as base
-    best_evaluation = next(
-        eval_ for eval_ in winning_evaluations if eval_.rationale == best_rationale
-    )
-
-    return best_evaluation.with_confidence(confidence)
-
-
-def _aggregate_gptfull_evaluations(
-    evaluations: Sequence[GPTFull],
-) -> GPTFullWithConfidence:
+    evaluations: Sequence[GPTPreConfidence],
+) -> GPTWithConfidence:
     """Aggregate multiple GPTFull evaluations using majority voting and rationale selection.
 
     Args:
         evaluations: List of valid GPTFull evaluations.
 
     Returns:
-        GPTFullWithConfidence with majority label, best rationale and confidence.
+        Object with majority label, best rationale and confidence. See `GPTPreConfidence`
+        and `GPTWithConfidence`.
 
     Raises:
         ValueError: If evaluations list is empty.
