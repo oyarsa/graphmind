@@ -80,7 +80,7 @@ def main() -> None:
 
     values = [
         [
-            formats.get(col, "{}").format(row[col]) if col in row else ""
+            formats.get(col, "{}").format(row[col]) if row.get(col) is not None else ""
             for col in headers
         ]
         for row in data

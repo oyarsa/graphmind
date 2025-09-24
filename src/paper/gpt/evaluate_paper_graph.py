@@ -356,7 +356,7 @@ async def evaluate_papers(
     save_data(output_dir / "params.json", params)
     save_data(
         output_dir / "metrics.json",
-        calculate_paper_metrics(results_items),
+        calculate_paper_metrics(results_items, cost=results.cost),
         compress=Compress.NONE,
     )
 

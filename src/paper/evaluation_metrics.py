@@ -42,6 +42,7 @@ class Metrics(Immutable):
     confusion: list[list[int]]
     confidence: float | None
     mode: TargetMode
+    cost: float | None
 
     def __str__(self) -> str:
         """Display metrics (P/R/F1/Acc), one per line, then the confusion matrix.
@@ -143,6 +144,7 @@ class EvaluatedWithConfidence(Protocol):
 def calculate_paper_metrics(
     papers: Sequence[Evaluated | EvaluatedWithConfidence],
     average: Literal["binary", "macro", "micro"] | None = None,
+    cost: float | None = None,
 ) -> Metrics:
     """Calculate evaluation metrics.
 
@@ -151,6 +153,7 @@ def calculate_paper_metrics(
             integer properties.
         average: What average mode to use for precision/recall/F1. If None, will use
             'binary' when mode is binary and 'macro' for everything else.
+        cost: Cost associated with the predictions, if any.
 
     See also `paper.evaluation_metrics.calculate_metrics`.
     """
@@ -162,7 +165,9 @@ def calculate_paper_metrics(
         if isinstance(p, EvaluatedWithConfidence) and p.confidence is not None
     ]
 
-    return calculate_metrics(y_true, y_pred, average=average, confidences=confidences)
+    return calculate_metrics(
+        y_true, y_pred, average=average, confidences=confidences, cost=cost
+    )
 
 
 def calculate_negative_paper_metrics(papers: Sequence[Evaluated]) -> Metrics:
@@ -341,6 +346,7 @@ def calculate_metrics(
     mode: TargetMode | None = None,
     average: Literal["binary", "macro", "micro"] | None = None,
     confidences: Sequence[float] | None = None,
+    cost: float | None = None,
 ) -> Metrics:
     """Calculate classification metrics for multi-class classification.
 
@@ -356,6 +362,7 @@ def calculate_metrics(
             'binary' when mode is binary and 'macro' for everything else.
         confidences: Novelty label confidence for each item, if present. If absent, the
             'confidence' output will be null.
+        cost: Cost associated with the predictions, if any.
 
     Returns:
         Metrics object containing macro-averaged precision, recall, F1 score, accuracy,
@@ -396,4 +403,5 @@ def calculate_metrics(
         confusion=metrics.confusion_matrix(y_true, y_pred, labels=mode.labels()),
         mode=mode,
         confidence=confidence,
+        cost=cost,
     )
