@@ -353,6 +353,7 @@ async def evaluate_papers(
 
     logger.info("Metrics\n%s", display_regular_negative_macro_metrics(results_items))
     logger.info("Calls made: %d", client.calls_made)
+    logger.info("Tokens used: %d", client.tokens_used)
 
     save_data(output_dir / "result.json.zst", results_all)
     save_data(output_dir / "params.json", params)

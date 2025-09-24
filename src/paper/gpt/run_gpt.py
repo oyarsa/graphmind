@@ -416,6 +416,7 @@ class LLMClient(ABC):
         self.timeout = timeout
         self.max_input_tokens = max_input_tokens
         self._calls_made = 0
+        self._tokens_used = 0
 
         if log_exception is not None:
             self.should_log_exception = log_exception
@@ -558,6 +559,11 @@ class LLMClient(ABC):
     def calls_made(self) -> int:
         """How many calls were made over the lifetime of this client."""
         return self._calls_made
+
+    @property
+    def tokens_used(self) -> int:
+        """How many tokens were used over the lifetime of this client."""
+        return self._tokens_used
 
 
 class OpenAIClient(LLMClient):
@@ -856,6 +862,8 @@ class OpenAIClient(LLMClient):
                 )
                 await update_usage(response)
                 self._calls_made += 1
+                if usage := response.usage:
+                    self._tokens_used += usage.total_tokens
                 return response
         except openai.APIError as e:
             logger.warning("API error: %s", e)
@@ -1235,6 +1243,8 @@ class GeminiClient(LLMClient):
                 )
                 await update_usage(response)
                 self._calls_made += 1
+                if (usage := response.usage_metadata) and usage.total_token_count:
+                    self._tokens_used += usage.total_token_count
                 return response
         except errors.APIError as e:
             logger.warning("API error: %s", e)
