@@ -491,7 +491,11 @@ def _handle_ensemble_evaluations(
     valid_evals: GPTResult[list[GPTUncertain | GPTStructuredRaw | GPTFull]],
     target_mode: TargetMode,
 ) -> GPTResult[PaperResult]:
-    """Handle structured evaluations with ensemble voting.
+    """Handle evaluations with ensemble voting.
+
+    Only values of types in `GPTPreConfidence` are used. The other types don't support
+    a `confidence` field, so they are discarded. In practice, only GPTStructuredRaw and
+    GPTFull will be passed to this.
 
     Args:
         paper: The paper being evaluated.
@@ -505,6 +509,8 @@ def _handle_ensemble_evaluations(
     structured_evaluations = valid_evals.map(
         lambda evals: [e for e in evals if isinstance(e, GPTPreConfidence)]
     )
+    if not structured_evaluations.result:
+        raise ValueError("No valid evaluations for ensemble aggregation.")
 
     # Aggregate evaluations using majority voting and TF-IDF
     aggregated_eval = structured_evaluations.map(_aggregate_ensemble_evaluations)
