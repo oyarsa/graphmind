@@ -38,7 +38,9 @@ _t msg:
 
 # Graph evaluation
 _graph prompt:
-    {{eval_cmd}} graph run {{eval_flags}} --output {{output}}/graph/{{prompt}} --eval-prompt {{prompt}}
+    {{eval_cmd}} graph run {{eval_flags}} --output {{output}}/graph/{{prompt}} \
+    --eval-prompt {{prompt}} \
+    --graph-prompt full
 
 # Graph-eval with abstract-only prompt
 [group: 'graph']
