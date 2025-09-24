@@ -12,9 +12,11 @@ from pathlib import Path
 from typing import (
     Any,
     ClassVar,
+    Generic,
     Literal,
     Self,
     TypeGuard,
+    TypeVar,
     cast,
     overload,
     override,
@@ -101,14 +103,17 @@ def _calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     return prompt_tokens / 1e6 * input_cost + completion_tokens / 1e6 * output_cost
 
 
+T_co = TypeVar("T_co", covariant=True)
+
+
 @dataclass(frozen=True, kw_only=True)
-class GPTResult[T]:
+class GPTResult(Generic[T_co]):  # noqa: UP046
     """Result of a GPT request and its full API cost."""
 
-    result: T
+    result: T_co
     cost: float
 
-    def map[U](self, func: Callable[[T], U]) -> GPTResult[U]:
+    def map[U](self, func: Callable[[T_co], U]) -> GPTResult[U]:
         """Apply `func` to inner value and return new result."""
         return GPTResult(result=func(self.result), cost=self.cost)
 
@@ -116,22 +121,22 @@ class GPTResult[T]:
         """Combine two request costs with the second result."""
         return GPTResult(result=other.result, cost=self.cost + other.cost)
 
-    def bind[U](self, func: Callable[[T], GPTResult[U]]) -> GPTResult[U]:
+    def bind[U](self, func: Callable[[T_co], GPTResult[U]]) -> GPTResult[U]:
         """Apply monadic function to inner value and sum the costs."""
         return self.then(func(self.result))
 
     async def abind[U](
-        self, func: Callable[[T], Awaitable[GPTResult[U]]]
+        self, func: Callable[[T_co], Awaitable[GPTResult[U]]]
     ) -> GPTResult[U]:
         """Apply monadic function to inner value and sum the costs (async version)."""
         return self.then(await func(self.result))
 
-    async def amap[U](self, func: Callable[[T], Awaitable[U]]) -> GPTResult[U]:
+    async def amap[U](self, func: Callable[[T_co], Awaitable[U]]) -> GPTResult[U]:
         """Apply `func` to inner value and return new result (async version)."""
         return GPTResult(result=await func(self.result), cost=self.cost)
 
     @staticmethod
-    def unit(value: T) -> GPTResult[T]:
+    def unit[T](value: T) -> GPTResult[T]:
         """New result with cost 0."""
         return GPTResult(result=value, cost=0)
 
@@ -158,7 +163,7 @@ class GPTResult[T]:
 
     @overload
     def lift[U, V](
-        self, other: GPTResult[U], func: Callable[[T, U], V]
+        self, other: GPTResult[U], func: Callable[[T_co, U], V]
     ) -> GPTResult[V]: ...
 
     @overload
@@ -166,7 +171,7 @@ class GPTResult[T]:
         self,
         other1: GPTResult[U1],
         other2: GPTResult[U2],
-        func: Callable[[T, U1, U2], V],
+        func: Callable[[T_co, U1, U2], V],
     ) -> GPTResult[V]: ...
 
     @overload
@@ -175,7 +180,7 @@ class GPTResult[T]:
         other1: GPTResult[U1],
         other2: GPTResult[U2],
         other3: GPTResult[U3],
-        func: Callable[[T, U1, U2, U3], V],
+        func: Callable[[T_co, U1, U2, U3], V],
     ) -> GPTResult[V]: ...
 
     def lift(self, *args: Any, **_: Any) -> GPTResult[Any]:

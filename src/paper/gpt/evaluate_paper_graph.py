@@ -488,7 +488,7 @@ def _handle_no_valid_evaluations(
 
 def _handle_ensemble_evaluations(
     paper: PaperWithRelatedSummary,
-    valid_evals: GPTResult[list[GPTUncertain | GPTStructuredRaw | GPTFull]],
+    valid_evals: GPTResult[Sequence[GPTUncertain | GPTStructuredRaw | GPTFull]],
     target_mode: TargetMode,
 ) -> GPTResult[PaperResult]:
     """Handle evaluations with ensemble voting.
