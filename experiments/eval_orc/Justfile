@@ -193,6 +193,13 @@ _peter-semantic-ablation eval-prompt graph-prompt:
         --graph-prompt {{graph-prompt}} \
         --sources semantic
 
+# Graph with no PETER related papers
+_peter-ablation eval-prompt graph-prompt:
+    {{eval_cmd}} graph run {{eval_flags}} \
+        --output {{peter_ablation_output}}/g_{{graph-prompt}}-e_{{eval-prompt}} \
+        --eval-prompt {{eval-prompt}} \
+        --graph-prompt {{graph-prompt}}
+
 # Full graph with cited-only PETER
 [group: 'peter-ablation']
 peter-cited-full: (_t "Running full graph with cited-only PETER")
@@ -206,12 +213,12 @@ peter-semantic-full: (_t "Running full graph with semantic-only PETER")
 # Full graph with no PETER related papers
 [group: 'peter-ablation']
 peter-norel: (_t "Running full graph with no PETER papers")
-    @just _graph norel-graph
+    @just _peter-ablation norel-graph full
 
 # No graph with PETER related papers
 [group: 'peter-ablation']
-peter-nograph: (_t "Running full graph with no PETER papers")
-    @just _graph-ablation related full
+peter-nograph: (_t "Running no graph with PETER papers")
+    @just _peter-ablation related full
 
 # Run both semantic and cited PETER ablations
 [group: 'peter-ablation']
