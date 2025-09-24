@@ -321,6 +321,7 @@ def main(
         "--output",
         scimon_peer,
     )
+    assert scimon_peer.exists()
 
     title("Extract ACUs S2")
     acu_s2_dir = output_dir / "acu-s2"
@@ -331,7 +332,7 @@ def main(
         "gpt",
         "acus",
         "run",
-        "--input",
+        "--related",
         peer_related,
         "--output",
         acu_s2_dir,
@@ -351,7 +352,7 @@ def main(
         "gpt",
         "acus",
         "run",
-        "--input",
+        "--related",
         peer_with_ref,
         "--output",
         acu_peerread_dir,
@@ -400,6 +401,31 @@ def main(
         0,
     )
     assert acu_query.exists()
+
+    title("Evaluate with graph")
+    eval_graph_dir = output_dir / "eval-graph"
+    eval_graph = eval_graph_dir / "result.json.zst"
+    _checkrun(
+        eval_graph,
+        "paper",
+        "gpt",
+        "eval",
+        "graph",
+        "run",
+        "--papers",
+        petersum,
+        "--output",
+        eval_graph_dir,
+        "--limit",
+        0,
+        "--linearisation",
+        "topo",
+        "--eval-prompt",
+        "full-graph-structured",
+        "--graph-prompt",
+        "excerpts",
+    )
+    assert eval_graph.exists()
 
 
 def _checkrun(path: Path, *cmd: object) -> None:
