@@ -56,7 +56,7 @@ class VectorDatabase:
 
     INDEX_FILE = "index.faiss"
     """File with indexed documents with vector embeddings."""
-    METADATA_FILE = "metadata.json"
+    METADATA_FILE = "metadata.json.zst"
     """File with JSON metadata needed to construct the database."""
 
     encoder: emb.Encoder
