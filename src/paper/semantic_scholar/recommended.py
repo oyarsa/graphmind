@@ -174,9 +174,9 @@ async def download_paper_recomendation(
     print("Unique valid papers (non-empty abstract):", len(papers_unique_valid))
 
     save_data(
-        output_dir / "papers_with_recommendations.json", papers_with_recommendations
+        output_dir / "papers_with_recommendations.json.zst", papers_with_recommendations
     )
-    save_data(output_dir / "papers_recommended.json", papers_unique_valid)
+    save_data(output_dir / "papers_recommended.json.zst", papers_unique_valid)
     save_data(output_dir / "params.json", params)
 
 
