@@ -332,7 +332,7 @@ def main(
         "gpt",
         "acus",
         "run",
-        "--related",
+        "--input",
         peer_related,
         "--output",
         acu_s2_dir,
@@ -352,7 +352,7 @@ def main(
         "gpt",
         "acus",
         "run",
-        "--related",
+        "--input",
         peer_with_ref,
         "--output",
         acu_peerread_dir,
@@ -441,7 +441,12 @@ def _checkrun(path: Path, *cmd: object) -> None:
         return
 
     print(f"{path} does not exist. Running command.")
-    run(*cmd)
+    try:
+        run(*cmd)
+    except Exception:
+        print("Error running command: ")
+        print("\t" + " ".join(map(str, cmd)))
+        raise
 
 
 if __name__ == "__main__":
