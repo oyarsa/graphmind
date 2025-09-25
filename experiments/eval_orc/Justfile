@@ -9,6 +9,7 @@ output_dir := env("OUTPUT", "output/eval_orc")
 data_dir := env("DATA_DIR", "output/split")
 data := env("DATA", "dev")
 clean := env("CLEAN", "")
+n_evaluations := env("NEVAL", "10")
 
 # Full data paths
 data_full := root + "/"+data_dir+"/"+data+".json.zst"
@@ -40,7 +41,8 @@ _t msg:
 _graph prompt:
     {{eval_cmd}} graph run {{eval_flags}} --output {{output}}/graph/{{prompt}} \
     --eval-prompt {{prompt}} \
-    --graph-prompt full
+    --graph-prompt full \
+    --n-evaluations {{n_evaluations}}
 
 # Graph-eval with abstract-only prompt
 [group: 'graph']
