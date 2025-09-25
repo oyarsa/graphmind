@@ -8,6 +8,7 @@ n := env("N", "10")
 output_dir := env("OUTPUT", "output/eval_peer")
 data := env("DATA", "output/peter_c2_s2_sum/result.json")
 clean := env("CLEAN", "")
+n_evaluations := env("NEVAL", "10")
 
 
 # Full data path
@@ -39,7 +40,8 @@ _t msg:
 _graph prompt:
     {{eval_cmd}} graph run {{eval_flags}} --output {{output}}/graph/{{prompt}} \
     --eval-prompt {{prompt}} \
-    --graph-prompt full
+    --graph-prompt full \
+    --n-evaluations {{n_evaluations}}
 
 # Graph-eval with abstract-only prompt
 [group: 'graph']
@@ -82,7 +84,8 @@ fluent_output := root+"/"+output_dir+"/graph-fluent/"+model+"/"+demos
 _graph-fluent prompt:
     {{eval_cmd}} graph run {{eval_flags}} --linearisation fluent \
         --output {{fluent_output}}/{{prompt}} \
-        --eval-prompt {{prompt}}
+        --eval-prompt {{prompt}} \
+        --n-evaluations {{n_evaluations}}
 
 # Graph-eval with full graph prompt
 [group: 'graph-fluent']
@@ -109,7 +112,10 @@ all-fluent-graphs: (_t "Run all fluent main graph versions and show metrics")
 
 # PETER evaluation
 _peter prompt:
-    {{eval_cmd}} peter run {{eval_flags}} --output {{output}}/peter/{{prompt}} --user-prompt {{prompt}}
+    {{eval_cmd}} peter run {{eval_flags}} \
+    --output {{output}}/peter/{{prompt}} \
+    --user-prompt {{prompt}} \
+    --n-evaluations {{n_evaluations}}
 
 # PETER-eval with abstract-only prompt
 [group: 'peter']
@@ -124,7 +130,10 @@ peter-related: (_t "Running graph evaluation - PETER (related) mode")
 # Full evaluation
 [group: 'sans']
 sans: (_t "Running sans evaluation")
-    {{eval_cmd}} sans run {{eval_flags}} --output {{output}}/sans --user-prompt simple-abs
+    {{eval_cmd}} sans run {{eval_flags}} \
+    --output {{output}}/sans \
+    --user-prompt simple-abs \
+    --n-evaluations {{n_evaluations}}
 
 # Compare all implementations of sans evaluation
 cmp-sans: (_t "Comparing sans evaluation")
@@ -156,7 +165,8 @@ _graph-ablation eval-prompt graph-prompt:
     {{eval_cmd}} graph run {{eval_flags}} \
         --output {{ablation_output}}/g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
-        --graph-prompt {{graph-prompt}}
+        --graph-prompt {{graph-prompt}} \
+        --n-evaluations {{n_evaluations}}
 
 # Graph-eval with full graph prompt
 [group: 'graph-ablation']
@@ -202,7 +212,8 @@ _peter-cited-ablation eval-prompt graph-prompt:
         --output {{peter_ablation_output}}/cited-g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
         --graph-prompt {{graph-prompt}} \
-        --sources citations
+        --sources citations \
+        --n-evaluations {{n_evaluations}}
 
 # Semantic-only PETER
 _peter-semantic-ablation eval-prompt graph-prompt:
@@ -210,14 +221,16 @@ _peter-semantic-ablation eval-prompt graph-prompt:
         --output {{peter_ablation_output}}/semantic-g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
         --graph-prompt {{graph-prompt}} \
-        --sources semantic
+        --sources semantic \
+        --n-evaluations {{n_evaluations}}
 
 # Graph with no PETER related papers
 _peter-ablation eval-prompt graph-prompt:
     {{eval_cmd}} graph run {{eval_flags}} \
         --output {{peter_ablation_output}}/g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
-        --graph-prompt {{graph-prompt}}
+        --graph-prompt {{graph-prompt}} \
+        --n-evaluations {{n_evaluations}}
 
 # Full graph with cited-only PETER
 [group: 'peter-ablation']

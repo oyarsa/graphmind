@@ -85,7 +85,8 @@ fluent_output := root+"/"+output_dir+"/graph-fluent/"+data+"/"+model+"/"+demos
 _graph-fluent prompt:
     {{eval_cmd}} graph run {{eval_flags}} --linearisation fluent \
         --output {{fluent_output}}/{{prompt}} \
-        --eval-prompt {{prompt}}
+        --eval-prompt {{prompt}} \
+        --n-evaluations {{n_evaluations}}
 
 # Graph-eval with full graph prompt
 [group: 'graph-fluent']
@@ -129,7 +130,8 @@ _graph-ablation eval-prompt graph-prompt:
     {{eval_cmd}} graph run {{eval_flags}} \
         --output {{ablation_output}}/g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
-        --graph-prompt {{graph-prompt}}
+        --graph-prompt {{graph-prompt}} \
+        --n-evaluations {{n_evaluations}}
 
 # Graph-eval with full graph prompt
 [group: 'graph-ablation']
@@ -187,7 +189,8 @@ _peter-cited-ablation eval-prompt graph-prompt:
         --output {{peter_ablation_output}}/cited-g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
         --graph-prompt {{graph-prompt}} \
-        --sources citations
+        --sources citations \
+        --n-evaluations {{n_evaluations}}
 
 # Semantic-only PETER
 _peter-semantic-ablation eval-prompt graph-prompt:
@@ -195,14 +198,16 @@ _peter-semantic-ablation eval-prompt graph-prompt:
         --output {{peter_ablation_output}}/semantic-g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
         --graph-prompt {{graph-prompt}} \
-        --sources semantic
+        --sources semantic \
+        --n-evaluations {{n_evaluations}}
 
 # Graph with no PETER related papers
 _peter-ablation eval-prompt graph-prompt:
     {{eval_cmd}} graph run {{eval_flags}} \
         --output {{peter_ablation_output}}/g_{{graph-prompt}}-e_{{eval-prompt}} \
         --eval-prompt {{eval-prompt}} \
-        --graph-prompt {{graph-prompt}}
+        --graph-prompt {{graph-prompt}} \
+        --n-evaluations {{n_evaluations}}
 
 # Full graph with cited-only PETER
 [group: 'peter-ablation']
@@ -258,7 +263,10 @@ data_scimon := root + "/"+data_dir+"/scimon/"+data+".json.zst"
 scimon_flags := "--demos " + demos + " -n " + n + " -m " + model + " --ann-graph " + data_scimon
 
 _scimon prompt:
-    {{eval_cmd}} scimon run {{scimon_flags}} --output {{output}}/scimon/scimon-{{prompt}} --user-prompt {{prompt}}
+    {{eval_cmd}} scimon run {{scimon_flags}} \
+    --output {{output}}/scimon/scimon-{{prompt}} \
+    --user-prompt {{prompt}} \
+    --n-evaluations {{n_evaluations}}
 
 # SciMON evaluation
 scimon: (_t "Running SciMON evaluation")
