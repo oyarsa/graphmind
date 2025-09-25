@@ -1,4 +1,4 @@
-"""Interact with the OpenAI API."""
+"""Interact with the LLM APIs. Currently supports OpenAI (including Azure) and Gemini."""
 
 from __future__ import annotations
 
