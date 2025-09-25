@@ -191,7 +191,7 @@ def main(
         "--limit",
         "0",
     )
-    assert context.exists()
+    assert context.exists(), context
 
     title("PeerRead terms")
     peer_terms_dir = output_dir / "peerread-terms"

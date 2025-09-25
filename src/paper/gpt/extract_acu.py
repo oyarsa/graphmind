@@ -237,7 +237,7 @@ async def extract_acu(
     acu_word_lengths = [len(acu.split()) for i in results_items for acu in i.acus]
     logger.info("Words per ACUs:\n%s", describe(acu_word_lengths))
 
-    save_data(output_dir / "result.json", results_all)
+    save_data(output_dir / "result.json.zst", results_all)
     save_data(output_dir / "params.json", params)
 
     if len(results_all) != len(papers):

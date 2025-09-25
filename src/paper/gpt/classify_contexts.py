@@ -197,7 +197,7 @@ async def classify_contexts(
     stats, metrics = show_classified_stats(result.item for result in results_all)
     logger.info("Classification metrics:\n%s\n", stats)
 
-    save_data(output_dir / "results.json", results_all)
+    save_data(output_dir / "results.json.zst", results_all)
     (output_dir / "output.txt").write_text(stats)
     save_data(output_dir / "params.json", params)
     if metrics is not None:

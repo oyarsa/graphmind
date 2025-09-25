@@ -306,8 +306,8 @@ async def annotate_papers(
     logger.info("All results: %d", len(output.result))
     logger.info("Valid results: %d", len(output_valid))
 
-    save_data(output_dir / "results_all.json", output.result)
-    save_data(output_dir / "results_valid.json", output_valid)
+    save_data(output_dir / "results_all.json.zst", output.result)
+    save_data(output_dir / "results_valid.json.zst", output_valid)
     save_data(output_dir / "params.json", params)
     assert len(papers) == len(output.result)
 

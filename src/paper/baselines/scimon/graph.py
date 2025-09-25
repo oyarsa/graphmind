@@ -71,9 +71,9 @@ class Graph:
     """Collection of KG, Semantic and Citations graph that can be queried together."""
 
     CITATION_DEFAULT_K: ClassVar[int] = 5
-    KG_FILENAME: ClassVar[str] = "kg_graph.json"
-    SEMANTIC_FILENAME: ClassVar[str] = "semantic_graph.json"
-    CITATIONS_FILENAME: ClassVar[str] = "citation_graph.json"
+    KG_FILENAME: ClassVar[str] = "kg_graph.json.zst"
+    SEMANTIC_FILENAME: ClassVar[str] = "semantic_graph.json.zst"
+    CITATIONS_FILENAME: ClassVar[str] = "citation_graph.json.zst"
     METADATA_FILENAME: ClassVar[str] = "metadata.json"
 
     kg: kg.Graph
