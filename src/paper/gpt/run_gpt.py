@@ -76,7 +76,12 @@ MODEL_COSTS: Mapping[str, tuple[float, float]] = {
 From https://openai.com/api/pricing/
 """
 
-MODELS_ALLOWED_AZURE = {"gpt-4o", "gpt-4o-mini"}
+MODELS_ALLOWED_AZURE = {
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gpt-4.1-mini",
+    "gpt-5-mini",
+}
 """All allowed model names from the Azure API."""
 AZURE_TIER = 10
 """Separate tier for Azure API."""
@@ -328,6 +333,9 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
             limits = {
                 "gpt-4o-mini": (2_500, 250_000),
                 "gpt-4o": (1_800, 300_000),
+                "gpt-4.1-mini": (1_105, 1_105_000),
+                "gpt-4.1": (250, 250_000),
+                "gpt-5-mini": (250, 250_000),
             }
         else:
             raise ValueError(f"Invalid tier: {tier}. Must be between 1 and 5.")
@@ -681,7 +689,7 @@ class OpenAIClient(LLMClient):
             elif model.startswith("gpt-4o"):
                 model_base = "gpt-4o"
             else:
-                raise ValueError(f"Invalid Azure model: {model}")
+                model_base = model
 
             if model_base not in MODELS_ALLOWED_AZURE:
                 raise ValueError(f"Invalid Azure model: {model}")
