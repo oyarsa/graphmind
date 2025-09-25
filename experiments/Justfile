@@ -13,3 +13,8 @@ eval_orc *args:
 # Reviews
 reviews *args:
     @just -f reviews/Justfile {{args}}
+
+# Evaluation (simple)
+eval_simple *args:
+    @just -f eval_simple/Justfile {{args}}
+
