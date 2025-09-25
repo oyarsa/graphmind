@@ -6,6 +6,7 @@ demos := env("DEMOS", "orc_10")
 model := env("MODEL", "4o-mini")
 n := env("N", "10")
 output_dir := env("OUTPUT", "output/eval_orc")
+name := env("NAME", "eval")
 clean := env("CLEAN", "")
 n_evaluations := env("NEVAL", "10")
 data_graph := root+"/" + env("GRAPH_INPUT", "")
@@ -13,7 +14,7 @@ data_scimon := root+"/" +  env("SCIMON_INPUT", "")
 data_rationale := root+"/" + env("RATIONALE_INPUT", "")
 
 eval_flags := "--demos " + demos + " -n " + n + " -m " + model +  " --papers " + data_graph
-output := root+"/"+output_dir+"/eval/graph/"+model+"/"+demos
+output := root+"/"+output_dir+"/eval/graph/"+name+"/"+model+"/"+demos
 
 _default:
     @echo "Environment variables:"
@@ -28,6 +29,7 @@ _default:
     @echo "    MODEL: '4o' or '4o-mini' (default: '4o-mini')."
     @echo "    N: how many items to use. Use 0 for all (default: 10)."
     @echo "    OUTPUT: where to save the outputs (default: 'output/eval_orc')."
+    @echo "    NAME: name of the subdirectory inside OUTPUT (default: 'eval')."
     @echo "    CLEAN: set to 1 to remove output dir without confirmation, 0 to skip cleaning,"
     @echo "           or leave undefined to prompt for confirmation."
     @echo
@@ -78,7 +80,7 @@ all-graphs: (_t "Run all main graph versions and show metrics")
     @just graph-full
     @just metrics
 
-fluent_output := root+"/"+output_dir+"/graph-fluent/"+model+"/"+demos
+fluent_output := root+"/"+output_dir+"/graph-fluent/"+name+"/"+model+"/"+demos
 
 # Graph evaluation with fluent linearisation
 _graph-fluent prompt:
@@ -122,7 +124,7 @@ metrics:
     echo "Metrics for model: {{model}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{output}}/**/metrics.json
 
-ablation_output := root+"/"+output_dir+"/graph-ablation/"+model+"/"+demos
+ablation_output := root+"/"+output_dir+"/graph-ablation/"+name+"/"+model+"/"+demos
 
 # Graph evaluation - graph component ablation
 _graph-ablation eval-prompt graph-prompt:
@@ -180,7 +182,7 @@ graph-ablation-metrics:
     echo "Ablation metrics for model: {{model}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{ablation_output}}/**/metrics.json
 
-peter_ablation_output := root+"/"+output_dir+"/peter-ablation/"+model+"/"+demos
+peter_ablation_output := root+"/"+output_dir+"/peter-ablation/"+name+"/"+model+"/"+demos
 
 # Cited-only PETER
 _peter-cited-ablation eval-prompt graph-prompt:
@@ -256,7 +258,7 @@ peter-ablation-metrics:
     {{root}}/scripts/experiments/show_eval_results.fish {{peter_ablation_output}}/**/metrics.json
 
 rationale_flags := " -n " + n + " -m " + model +  " --graphs " + data_rationale
-rationale_output := root+"/"+output_dir+"/eval-rationale/{{model}}"
+rationale_output := root+"/"+output_dir+"/eval-rationale/"+name+"/"+model
 
 # Run rationale evaluation on GPT 4o output
 rationale:
