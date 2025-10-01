@@ -173,7 +173,9 @@ def _annotate(
                 else:
                     polarity = None
 
-                new_context = CitationContext(sentence=old.sentence, polarity=polarity)
+                new_context = CitationContext.new(
+                    sentence=old.sentence, polarity=polarity
+                )
                 new_contexts.append(new_context)
 
             new_reference = ReferenceEnriched(

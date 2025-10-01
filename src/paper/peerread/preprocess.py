@@ -297,7 +297,8 @@ def _process_references(paper: dict[str, Any]) -> list[PaperReference]:
             authors=ref.authors,
             year=ref.year,
             contexts=[
-                CitationContext(sentence=context, polarity=None) for context in contexts
+                CitationContext.new(sentence=context, polarity=None)
+                for context in contexts
             ],
         )
         for ref, contexts in references_output.items()

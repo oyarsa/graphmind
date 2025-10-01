@@ -372,7 +372,7 @@ def get_top_k_reference_by_polarity(
             url=paper.url,
             arxiv_id=None,  # Not available in S2ReferenceClassified
             contexts=[
-                pr.CitationContext(sentence=ctx.text, polarity=ctx.gold)
+                pr.CitationContext.new(sentence=ctx.text, polarity=ctx.gold)
                 for ctx in paper.contexts
             ],
         )

@@ -204,7 +204,7 @@ def _process_references(references: list[dict[str, Any]]) -> list[pr.PaperRefere
                 year=ref["year"] or 0,
                 authors=ref["authors"],
                 contexts=[
-                    pr.CitationContext(sentence=sentence, polarity=None)
+                    pr.CitationContext.new(sentence=sentence, polarity=None)
                     for sentence in ref["citation_contexts"]
                 ],
             )

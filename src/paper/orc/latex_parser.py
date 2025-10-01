@@ -245,7 +245,7 @@ def latex_paper_to_peerread(
     references: list[PaperReference] = []
     for ref in latex_paper.references:
         contexts = [
-            CitationContext(sentence=context, polarity=None)
+            CitationContext.new(sentence=context, polarity=None)
             for context in ref.citation_contexts
         ]
 

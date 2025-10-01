@@ -17,4 +17,3 @@ reviews *args:
 # Evaluation (simple)
 eval_simple *args:
     @just -f eval_simple/Justfile {{args}}
-

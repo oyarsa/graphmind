@@ -93,7 +93,7 @@ class Graph(Immutable):
                         url=paper.url,
                         arxiv_id=None,  # arXiv ID not available in S2ReferenceClassified
                         contexts=[
-                            pr.CitationContext(
+                            pr.CitationContext.new(
                                 sentence=ctx.text,
                                 polarity=ctx.prediction,
                             )

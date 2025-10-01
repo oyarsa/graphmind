@@ -8,7 +8,7 @@ from enum import StrEnum
 from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Annotated, Self, override
 
-from pydantic import BaseModel, Field, computed_field, model_validator
+from pydantic import BaseModel, Field, computed_field
 
 from paper.types import Immutable
 from paper.util import fix_spaces_before_punctuation, hashstr
@@ -65,11 +65,10 @@ class CitationContext(BaseModel):
         ),
     ]
 
-    @model_validator(mode="after")
-    def truncate_sentence(self) -> Self:
-        """Truncate the context sentence to 256 characters."""
-        self.sentence = self.sentence[:256]
-        return self
+    @classmethod
+    def new(cls, *, sentence: str, polarity: ContextPolarity | None) -> Self:
+        """Create a new CitationContext, truncating the sentence if needed."""
+        return cls(sentence=sentence[:256], polarity=polarity)
 
 
 class PaperReference(Immutable):
