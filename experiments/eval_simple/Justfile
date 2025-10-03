@@ -320,18 +320,20 @@ main-table-metrics:
     {{root}}/scripts/experiments/show_eval_results.fish {{main_table_output}}/*/metrics.json
 
 # Run main experiments and generate metrics table
-main-table-full: (_t "Running main table experiments")
+main-table-all: (_t "Running main table experiments")
     @echo Output dir: {{main_table_output}}
-    @just scimon
-    @just graph-sans
-    @just graph-full
 
-    @mkdir -p {{main_table_output}}/graph-sans
-    @mkdir -p {{main_table_output}}/graph-full
+    @just scimon
     @mkdir -p {{main_table_output}}/scimon
-    @cp {{output}}/graph/sans/metrics.json {{main_table_output}}/graph-sans/metrics.json
-    @cp {{output}}/graph/full-graph/metrics.json {{main_table_output}}/graph-full/metrics.json
     @cp {{output}}/scimon/scimon-simple/metrics.json {{main_table_output}}/scimon/metrics.json
+
+    @just graph-sans
+    @mkdir -p {{main_table_output}}/graph-sans
+    @cp {{output}}/graph/sans/metrics.json {{main_table_output}}/graph-sans/metrics.json
+
+    @just graph-full
+    @mkdir -p {{main_table_output}}/graph-full
+    @cp {{output}}/graph/full-graph/metrics.json {{main_table_output}}/graph-full/metrics.json
 
     @just main-table-metrics
 
