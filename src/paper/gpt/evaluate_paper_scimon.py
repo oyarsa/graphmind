@@ -10,20 +10,30 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import re
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, TypeAlias
 
+import numpy as np
 import typer
+from sklearn.feature_extraction.text import (  # pyright: ignore[reportMissingTypeStubs]
+    TfidfVectorizer,
+)
 
 from paper.baselines import scimon
 from paper.evaluation_metrics import (
+    TargetMode,
     calculate_paper_metrics,
     display_regular_negative_macro_metrics,
 )
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     GPTFull,
+    GPTFullWithConfidence,
+    GPTStructured,
+    GPTStructuredRaw,
     PaperResult,
     fix_evaluated_rating,
     get_demonstrations,
@@ -115,6 +125,21 @@ def run(
             click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "abstract",
+    n_evaluations: Annotated[
+        int,
+        typer.Option(
+            help="Number of evaluation rounds per paper for ensemble voting.",
+            min=1,
+        ),
+    ] = 10,
+    eval_temperature: Annotated[
+        float,
+        typer.Option(
+            help="Temperature for evaluation rounds. Higher values increase randomness.",
+            min=0.0,
+            max=2.0,
+        ),
+    ] = 0.8,
     batch_size: Annotated[
         int, typer.Option(help="Number of requests per batch.")
     ] = 100,
@@ -132,6 +157,8 @@ def run(
             seed,
             demos,
             demo_prompt,
+            n_evaluations,
+            eval_temperature,
             batch_size,
         )
     )
@@ -154,6 +181,8 @@ async def evaluate_papers(
     seed: int,
     demonstrations_key: str | None,
     demo_prompt_key: str,
+    n_evaluations: int,
+    eval_temperature: float,
     batch_size: int,
 ) -> None:
     """Evaluate a paper's novelty based on SciMON graph-extracted terms.
@@ -184,6 +213,9 @@ async def evaluate_papers(
         demo_prompt_key: Key to the demonstration prompt to use during evaluation to
             build the few-shot prompt. See `EVALUTE_DEMONSTRATION_PROMPTS` for the
             available options or `list_prompts` for more.
+        n_evaluations: Number of evaluation rounds per paper for ensemble voting.
+        eval_temperature: Temperature for evaluation rounds. Higher values increase
+            randomness in the LLM responses.
         batch_size: Size of the batch to use for classification.
 
     Returns:
@@ -236,6 +268,8 @@ async def evaluate_papers(
             papers_remaining.remaining,
             output_intermediate_file,
             demonstrations,
+            n_evaluations,
+            eval_temperature,
             batch_size,
         )
 
@@ -249,7 +283,10 @@ async def evaluate_papers(
 
     save_data(output_dir / "result.json.zst", results_all)
     save_data(output_dir / "params.json", params)
-    save_data(output_dir / "metrics.json", calculate_paper_metrics(results_items))
+    save_data(
+        output_dir / "metrics.json",
+        calculate_paper_metrics(results_items, cost=results.cost),
+    )
 
     if len(results_all) != len(papers):
         logger.warning(
@@ -265,6 +302,8 @@ async def _classify_papers(
     papers: Sequence[scimon.AnnotatedGraphResult],
     output_intermediate_file: Path,
     demonstrations: str,
+    n_evaluations: int,
+    eval_temperature: float,
     batch_size: int,
 ) -> GPTResult[Sequence[PromptResult[PaperResult]]]:
     """Classify Papers into approved/not approved using the paper main text.
@@ -275,6 +314,8 @@ async def _classify_papers(
         papers: Annotated PeerRead papers with their graph data.
         output_intermediate_file: File to write new results after each task is completed.
         demonstrations: Text of demonstrations for few-shot prompting.
+        n_evaluations: Number of evaluation rounds per paper for ensemble voting.
+        eval_temperature: Temperature for evaluation rounds.
         batch_size: Size of request batches.
 
     Returns:
@@ -284,7 +325,9 @@ async def _classify_papers(
     async def evaluate(
         paper: scimon.AnnotatedGraphResult,
     ) -> GPTResult[PromptResult[PaperResult]]:
-        result = await _classify_paper(client, paper, user_prompt, demonstrations)
+        result = await _classify_paper(
+            client, paper, user_prompt, demonstrations, n_evaluations, eval_temperature
+        )
         await append_intermediate_result_async(output_intermediate_file, result.result)
         return result
 
@@ -298,25 +341,261 @@ submitted to a high-quality scientific conference.
 """
 
 
+def _select_best_rationale_tfidf(rationales: Sequence[str]) -> str:
+    """Select the best rationale using a simple TF-IDF sum score.
+
+    Falls back to the longest by word count if TF-IDF isn't available or if all non-empty
+    rationales are identical.
+
+    Args:
+        rationales: Sequence of rationale strings.
+
+    Returns:
+        One rationale (empty string if all inputs are empty). The rationale is returned
+        as-is.
+    """
+    if not rationales:
+        return ""
+
+    # Trim whitespace but keep original indices for returning the original string
+    norm = [r.strip() for r in rationales]
+    non_empty = [i for i, r in enumerate(norm) if r]
+
+    if not non_empty:
+        return ""
+    if len(non_empty) == 1:
+        return rationales[non_empty[0]]
+
+    # If everything is literally the same text, just pick the first
+    if len({norm[i] for i in non_empty}) == 1:
+        return rationales[0]
+
+    try:
+        vec = TfidfVectorizer(
+            lowercase=True,
+            stop_words="english",
+            ngram_range=(1, 2),
+            max_features=1000,
+        )
+        scores = vec.fit_transform(norm)  # type: ignore[misc]
+
+        # If no features (e.g., only stopwords), fall back
+        if scores.shape[1] == 0:  # type: ignore[misc]
+            return _longest_by_word_count(rationales)
+
+        scores = np.asarray(scores.sum(axis=1)).ravel()  # type: ignore[misc]
+        best_idx = int(scores.argmax())
+        return rationales[best_idx]
+    except Exception:
+        return _longest_by_word_count(rationales)
+
+
+def _longest_by_word_count(items: Sequence[str]) -> str:
+    """Pick the item with the highest word count; on ties, last wins."""
+
+    def count_words(s: str) -> int:
+        return len(re.findall(r"\w+", s))
+
+    best_idx = max(range(len(items)), key=lambda i: count_words(items[i]))
+    return items[best_idx]
+
+
+# This needs to be a TypeAlias as `type` can't be used for isinstance checks.
+GPTPreConfidence: TypeAlias = GPTFull | GPTStructuredRaw  # noqa: UP040
+GPTWithConfidence: TypeAlias = GPTFullWithConfidence | GPTStructured  # noqa: UP040
+
+
+def _aggregate_ensemble_evaluations(
+    evaluations: Sequence[GPTPreConfidence],
+) -> GPTWithConfidence:
+    """Aggregate multiple GPTFull evaluations using majority voting and rationale selection.
+
+    Args:
+        evaluations: List of valid GPTFull evaluations.
+
+    Returns:
+        Object with majority label, best rationale and confidence. See `GPTPreConfidence`
+        and `GPTWithConfidence`.
+
+    Raises:
+        ValueError: If evaluations list is empty.
+    """
+    if not evaluations:
+        raise ValueError("Cannot aggregate empty list of evaluations")
+
+    if len(evaluations) == 1:
+        return evaluations[0].with_confidence(1.0)
+
+    label_counts = Counter(eval_.label for eval_ in evaluations)
+
+    # Determine winning label (ties go to negative/0)
+    if label_counts[1] > label_counts[0]:
+        winning_label = 1
+    else:
+        winning_label = 0
+
+    confidence = label_counts[winning_label] / len(evaluations)
+
+    # Get evaluations with the winning label
+    winning_evaluations = [
+        eval_ for eval_ in evaluations if eval_.label == winning_label
+    ]
+
+    # Select best rationale using TF-IDF
+    best_rationale = _select_best_rationale_tfidf([
+        eval_.rationale for eval_ in winning_evaluations
+    ])
+    # Find the evaluation that produced the best rationale
+    best_evaluation = next(
+        eval_ for eval_ in winning_evaluations if eval_.rationale == best_rationale
+    )
+
+    return best_evaluation.with_confidence(confidence)
+
+
+async def _run_evaluation_rounds(
+    client: LLMClient,
+    system_prompt: str,
+    user_prompt: str,
+    n_evaluations: int,
+    eval_temperature: float,
+) -> GPTResult[list[GPTFull]]:
+    """Run N evaluation rounds and return valid evaluations.
+
+    Args:
+        client: LLM client for API calls.
+        system_prompt: System prompt for evaluation.
+        user_prompt: User prompt for evaluation.
+        n_evaluations: Number of evaluation rounds.
+        eval_temperature: Temperature for evaluation rounds.
+
+    Returns:
+        GPTResult containing list of valid evaluations only.
+    """
+    eval_tasks = [
+        client.run(
+            GPTFull,
+            system_prompt,
+            user_prompt,
+            temperature=eval_temperature,
+        )
+        for _ in range(n_evaluations)
+    ]
+
+    all_evals = gpt_sequence(await asyncio.gather(*eval_tasks))
+    return all_evals.map(
+        lambda evals: [eval_ for eval_ in evals if eval_ and eval_.is_valid()]
+    )
+
+
+def _handle_no_valid_evaluations(
+    paper: scimon.AnnotatedGraphResult,
+    cost: float,
+) -> GPTResult[PaperResult]:
+    """Handle the case where no valid evaluations were obtained.
+
+    Args:
+        paper: The paper being evaluated.
+        cost: The cost from the failed evaluation attempts.
+
+    Returns:
+        GPTResult with error PaperResult.
+    """
+    from paper.gpt.model import RATIONALE_ERROR
+
+    logger.warning(f"Paper '{paper.ann.paper.title}': no valid evaluation results")
+    return GPTResult(
+        result=PaperResult.from_s2peer(
+            paper=paper.ann.paper,
+            y_pred=0,
+            rationale_pred=RATIONALE_ERROR,
+            structured_evaluation=None,
+        ),
+        cost=cost,
+    )
+
+
+def _handle_ensemble_evaluations(
+    paper: scimon.AnnotatedGraphResult,
+    valid_evals: GPTResult[Sequence[GPTFull]],
+    target_mode: TargetMode,
+) -> GPTResult[PaperResult]:
+    """Handle evaluations with ensemble voting.
+
+    Args:
+        paper: The paper being evaluated.
+        valid_evals: Valid evaluation results.
+        target_mode: Target mode for rating adjustment.
+
+    Returns:
+        GPTResult with ensemble PaperResult.
+    """
+    # All evaluations are GPTFull, which are valid for ensemble
+    if not valid_evals.result:
+        raise ValueError("No valid evaluations for ensemble aggregation.")
+
+    # Aggregate evaluations using majority voting and TF-IDF
+    aggregated_eval = valid_evals.map(_aggregate_ensemble_evaluations)
+    fixed_label = fix_evaluated_rating(aggregated_eval.result, target_mode).label
+
+    return aggregated_eval.map(
+        lambda s: PaperResult.from_s2peer(
+            paper=paper.ann.paper,
+            y_pred=fixed_label,
+            rationale_pred=s.rationale,
+            structured_evaluation=s if isinstance(s, GPTStructured) else None,
+            confidence=s.confidence,
+        )
+    )
+
+
 async def _classify_paper(
     client: LLMClient,
     paper: scimon.AnnotatedGraphResult,
     user_prompt: PromptTemplate,
     demonstrations: str,
+    n_evaluations: int,
+    eval_temperature: float,
 ) -> GPTResult[PromptResult[PaperResult]]:
+    """Classify a single paper using ensemble evaluation.
+
+    Args:
+        client: LLM client for API calls.
+        paper: Annotated paper with graph results.
+        user_prompt: User prompt template for classification.
+        demonstrations: Text of demonstrations for few-shot prompting.
+        n_evaluations: Number of evaluation rounds per paper for ensemble voting.
+        eval_temperature: Temperature for evaluation rounds.
+
+    Returns:
+        PaperResult with evaluation wrapped in PromptResult and GPTResult.
+    """
     user_prompt_text = format_template(user_prompt, paper, demonstrations)
+    target_mode = TargetMode.BIN
 
-    result = await client.run(GPTFull, _SCIMON_CLASSIFY_SYSTEM_PROMPT, user_prompt_text)
-    classified = fix_evaluated_rating(result.result or GPTFull.error())
+    # We want deterministic results if we're not doing multi-sampling
+    if n_evaluations == 1:
+        eval_temperature = 0
 
-    return GPTResult(
-        result=PromptResult(
-            item=PaperResult.from_s2peer(
-                paper.ann.paper, classified.label, classified.rationale
-            ),
+    valid_evals = await _run_evaluation_rounds(
+        client,
+        _SCIMON_CLASSIFY_SYSTEM_PROMPT,
+        user_prompt_text,
+        n_evaluations,
+        eval_temperature,
+    )
+
+    if not valid_evals.result:
+        paper_result = _handle_no_valid_evaluations(paper, valid_evals.cost)
+    else:
+        # Handle evaluations with ensemble
+        paper_result = _handle_ensemble_evaluations(paper, valid_evals, target_mode)
+
+    return paper_result.map(
+        lambda r: PromptResult(
+            item=r,
             prompt=Prompt(system=_SCIMON_CLASSIFY_SYSTEM_PROMPT, user=user_prompt_text),
-        ),
-        cost=result.cost,
+        )
     )
 
 
