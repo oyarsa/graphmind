@@ -182,7 +182,7 @@ graph-ablation-metrics:
     echo "Ablation metrics for model: {{model}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{ablation_output}}/**/metrics.json
 
-peter_ablation_output := root+"/"+output_dir+"/peter-ablation/"+name+"/"+model+"/"+demos
+peter_ablation_output := root+"/"+output_dir+"/peter-ablation/"+name+"-ablation/"+model+"/"+demos
 
 # Cited-only PETER
 _peter-cited-ablation eval-prompt graph-prompt:
@@ -255,6 +255,7 @@ peter-ablation-all: (_t "Running all PETER ablations")
 peter-ablation-metrics:
     #!/usr/bin/env fish
     echo "PETER ablation metrics for model: {{model}}, demos: {{demos}}"
+    echo "{{peter_ablation_output}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{peter_ablation_output}}/**/metrics.json
 
 rationale_flags := " -n " + n + " -m " + model +  " --graphs " + data_rationale
@@ -270,7 +271,7 @@ all-metrics:
     echo "Metrics for model: {{model}}, demos: {{demos}}"
     {{root}}/scripts/experiments/show_eval_results.fish {{root}}/{{output_dir}}/**/metrics.json
 
-scimon_flags := "--demos " + demos + " -n " + n + " -m " + model + " --ann-graph " + data_scimon
+scimon_flags := "--demos " + demos + " -n " + n + " -m " + model + " --papers " + data_scimon
 
 _scimon prompt:
     {{eval_cmd}} scimon run {{scimon_flags}} \
@@ -309,6 +310,30 @@ _clean-output:
             echo "Skipping directory removal"
         end
     end
+
+main_table_output := root+"/"+output_dir+"/main-table/"+name+"-main/"+model+"/"+demos
+
+# Show metrics for main table experiments
+main-table-metrics:
+    #!/usr/bin/env fish
+    echo "Main table metrics for model: {{model}}, demos: {{demos}}"
+    {{root}}/scripts/experiments/show_eval_results.fish {{main_table_output}}/*/metrics.json
+
+# Run main experiments and generate metrics table
+main-table-full: (_t "Running main table experiments")
+    @echo Output dir: {{main_table_output}}
+    @just scimon
+    @just graph-sans
+    @just graph-full
+
+    @mkdir -p {{main_table_output}}/graph-sans
+    @mkdir -p {{main_table_output}}/graph-full
+    @mkdir -p {{main_table_output}}/scimon
+    @cp {{output}}/graph/sans/metrics.json {{main_table_output}}/graph-sans/metrics.json
+    @cp {{output}}/graph/full-graph/metrics.json {{main_table_output}}/graph-full/metrics.json
+    @cp {{output}}/scimon/scimon-simple/metrics.json {{main_table_output}}/scimon/metrics.json
+
+    @just main-table-metrics
 
 # Run all experiments for paper output
 all-experiments: (_t "Running ALL experiments")
