@@ -186,7 +186,8 @@ def run(
     eval_temperature: Annotated[
         float,
         typer.Option(
-            help="Temperature for evaluation rounds. Higher values increase randomness.",
+            help="Temperature for evaluation rounds. Higher values increase randomness. "
+            "Ignored when n_evaluations=1 (forced to 0 for determinism).",
             min=0.0,
             max=2.0,
         ),
@@ -267,7 +268,7 @@ async def evaluate_papers(
             and classification metrics.
         continue_papers_file: If provided, check for entries in the input data. If they
             are there, we use those results and skip processing them.
-        continue_: If True, ignore `continue_papers` and run everything from scratch.
+        continue_: If True, use `continue_papers` to skip already processed items.
         seed: Random seed used for shuffling and for the GPT call.
         temperature: Temperature for the GPT model.
         demonstrations_key: Key to the demonstrations file for use with few-shot prompting.
@@ -294,7 +295,7 @@ async def evaluate_papers(
     client = LLMClient.new_env(model=model, seed=seed, temperature=temperature)
 
     if "gemini" in model:
-        # Maximum batch size for Geminmi is 25 because there's a hard limit on the number
+        # Maximum batch size for Gemini is 25 because there's a hard limit on the number
         # of concurrent requests. That limit is 50, but we're playing it safe here.
         batch_size = min(batch_size, 25)
 
@@ -608,6 +609,12 @@ async def evaluate_paper(
 
     # We want deterministic results if we're not doing multi-sampling
     if n_evaluations == 1:
+        if eval_temperature != 0:
+            logger.debug(
+                "Overriding eval_temperature from %s to 0 for deterministic single"
+                " evaluation",
+                eval_temperature,
+            )
         eval_temperature = 0
 
     valid_evals = await _run_evaluation_rounds(

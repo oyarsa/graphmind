@@ -166,7 +166,7 @@ async def extract_graphs(
         output_dir: Directory to save the output files: intermediate and final results.
         continue_papers_file: If provided, check for entries in the input data. If they
             are there, we use those results and skip processing them.
-        continue_: If True, ignore `continue_papers` and run everything from scratch.
+        continue_: If True, use `continue_papers` to skip already processed items.
         seed: Random seed used for shuffling and for the GPT call.
         batch_size: Number of items per request batch.
 
