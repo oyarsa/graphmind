@@ -76,6 +76,39 @@ MODEL_COSTS: Mapping[str, tuple[float, float]] = {
 From https://openai.com/api/pricing/
 """
 
+MODEL_SEARCH_COSTS: Mapping[str, Mapping[str, float]] = {
+    "gpt-4o-mini-search-preview-2025-03-11": {
+        "low": 0.025,  # $25 per 1000 searches
+        "medium": 0.025,  # Assuming same as low (exact pricing not specified)
+        "high": 0.025,  # Assuming same as low (exact pricing not specified)
+    },
+    "gpt-4o-search-preview-2025-03-11": {
+        "low": 0.030,  # $30 per 1000 searches
+        "medium": 0.040,  # Estimated midpoint
+        "high": 0.050,  # $50 per 1000 searches
+    },
+    "gemini-2.0-flash-001": {
+        "low": 0.035,  # $35 per 1000 grounded queries
+        "medium": 0.035,  # Same for all context sizes
+        "high": 0.035,  # Same for all context sizes
+    },
+    "gemini-2.5-pro-preview-03-25": {
+        "low": 0.035,  # $35 per 1000 grounded queries
+        "medium": 0.035,  # Same for all context sizes
+        "high": 0.035,  # Same for all context sizes
+    },
+    "gemini-2.5-flash-preview-04-17": {
+        "low": 0.035,  # $35 per 1000 grounded queries
+        "medium": 0.035,  # Same for all context sizes
+        "high": 0.035,  # Same for all context sizes
+    },
+}
+"""Cost in $ per 1000 search/grounding calls, by context size level.
+
+From https://openai.com/api/pricing/ and
+https://ai.google.dev/gemini-api/docs/google-search
+"""
+
 MODELS_ALLOWED_AZURE = {
     "gpt-4o",
     "gpt-4o-mini",
@@ -87,25 +120,47 @@ AZURE_TIER = 10
 """Separate tier for Azure API."""
 
 
-def _calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
-    """Calculate API request based on the model and input/output tokens.
+def _calc_cost(
+    model: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    search_level: Literal["low", "medium", "high"] | None = None,
+    used_search: bool = False,
+) -> float:
+    """Calculate API request cost based on model, tokens, and search usage.
 
     NB: prompt_tokens/completion_tokens is the name given to input/output tokens in the
     usage object from the OpenAI result.
 
     Args:
-        model: OpenAI model key
-        prompt_tokens: the input tokens for the API
-        completion_tokens: the output tokens from the API
+        model: Model identifier key.
+        prompt_tokens: The input tokens for the API.
+        completion_tokens: The output tokens from the API.
+        search_level: The search context size level used ('low', 'medium', 'high').
+            Only relevant if used_search is True.
+        used_search: Whether the request actually used search/grounding. For OpenAI,
+            this is always True when search_level is provided. For Gemini, this depends
+            on whether grounding was actually used (presence of grounding metadata).
 
     Returns:
-        The total cost of the request. If the model is invalid, returns 0.
+        The total cost of the request in dollars. If the model is invalid, returns 0.
     """
     if model not in MODEL_COSTS:
         return 0
 
+    # Calculate token costs
     input_cost, output_cost = MODEL_COSTS[model]
-    return prompt_tokens / 1e6 * input_cost + completion_tokens / 1e6 * output_cost
+    token_cost = (
+        prompt_tokens / 1e6 * input_cost + completion_tokens / 1e6 * output_cost
+    )
+
+    # Calculate search costs if applicable
+    search_cost = 0.0
+    if used_search and search_level is not None and model in MODEL_SEARCH_COSTS:
+        # Search costs are per 1000 calls, so we divide by 1000
+        search_cost = MODEL_SEARCH_COSTS[model][search_level] / 1000
+
+    return token_cost + search_cost
 
 
 T_co = TypeVar("T_co", covariant=True)
@@ -844,7 +899,13 @@ class OpenAIClient(LLMClient):
             return GPTResult(result=None, cost=0)
 
         if usage := completion.usage:
-            cost = _calc_cost(self.model, usage.prompt_tokens, usage.completion_tokens)
+            cost = _calc_cost(
+                self.model,
+                usage.prompt_tokens,
+                usage.completion_tokens,
+                search_level=search_level,
+                used_search=is_search,
+            )
         else:
             cost = 0
 
@@ -1195,11 +1256,18 @@ class GeminiClient(LLMClient):
         if completion is None:
             return GPTResult(result=None, cost=0)
 
+        # Check if grounding was actually used (only charged if grounding metadata present)
+        used_grounding = (
+            is_search and getattr(completion, "grounding_metadata", None) is not None
+        )
+
         if usage := completion.usage_metadata:
             cost = _calc_cost(
                 self.model,
                 usage.prompt_token_count or 0,
                 usage.candidates_token_count or 0,
+                search_level=search_level if search_level else "low",
+                used_search=used_grounding,
             )
         else:
             cost = 0
