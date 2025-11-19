@@ -8,12 +8,12 @@ import os
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import (
     Any,
     ClassVar,
     Generic,
-    Literal,
     Self,
     TypeGuard,
     TypeVar,
@@ -38,6 +38,44 @@ from paper.util.rate_limiter import ChatRateLimiter
 from paper.util.serde import Compress, load_data_jsonl, save_data_jsonl
 
 logger = logging.getLogger(__name__)
+
+
+class SearchLevel(str, Enum):
+    """Search context size levels for web search/grounding in LLM APIs.
+
+    Determines how much search data is retrieved and processed.
+    """
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+    @classmethod
+    def from_str(cls, value: str | SearchLevel | None) -> SearchLevel | None:
+        """Convert string to SearchLevel enum, or return None if value is None.
+
+        Args:
+            value: String representation of search level, or existing SearchLevel.
+
+        Returns:
+            SearchLevel enum value, or None if input is None.
+
+        Raises:
+            ValueError: If the string is not a valid search level.
+        """
+        if value is None:
+            return None
+
+        if isinstance(value, SearchLevel):
+            return value
+
+        try:
+            return cls(value.lower())
+        except ValueError as e:
+            raise ValueError(
+                f"Invalid search level: {value}. Must be one of: low, medium, high"
+            ) from e
+
 
 MODEL_SYNONYMS: Mapping[str, str] = {
     "4o-mini": "gpt-4o-mini-2024-07-18",
@@ -76,31 +114,31 @@ MODEL_COSTS: Mapping[str, tuple[float, float]] = {
 From https://openai.com/api/pricing/
 """
 
-MODEL_SEARCH_COSTS: Mapping[str, Mapping[str, float]] = {
+MODEL_SEARCH_COSTS: Mapping[str, Mapping[SearchLevel, float]] = {
     "gpt-4o-mini-search-preview-2025-03-11": {
-        "low": 0.025,  # $25 per 1000 searches
-        "medium": 0.025,  # Assuming same as low (exact pricing not specified)
-        "high": 0.025,  # Assuming same as low (exact pricing not specified)
+        SearchLevel.LOW: 0.025,  # $25 per 1000 searches
+        SearchLevel.MEDIUM: 0.025,  # Assuming same as low (exact pricing not specified)
+        SearchLevel.HIGH: 0.025,  # Assuming same as low (exact pricing not specified)
     },
     "gpt-4o-search-preview-2025-03-11": {
-        "low": 0.030,  # $30 per 1000 searches
-        "medium": 0.040,  # Estimated midpoint
-        "high": 0.050,  # $50 per 1000 searches
+        SearchLevel.LOW: 0.030,  # $30 per 1000 searches
+        SearchLevel.MEDIUM: 0.040,  # Estimated midpoint
+        SearchLevel.HIGH: 0.050,  # $50 per 1000 searches
     },
     "gemini-2.0-flash-001": {
-        "low": 0.035,  # $35 per 1000 grounded queries
-        "medium": 0.035,  # Same for all context sizes
-        "high": 0.035,  # Same for all context sizes
+        SearchLevel.LOW: 0.035,  # $35 per 1000 grounded queries
+        SearchLevel.MEDIUM: 0.035,  # Same for all context sizes
+        SearchLevel.HIGH: 0.035,  # Same for all context sizes
     },
     "gemini-2.5-pro-preview-03-25": {
-        "low": 0.035,  # $35 per 1000 grounded queries
-        "medium": 0.035,  # Same for all context sizes
-        "high": 0.035,  # Same for all context sizes
+        SearchLevel.LOW: 0.035,  # $35 per 1000 grounded queries
+        SearchLevel.MEDIUM: 0.035,  # Same for all context sizes
+        SearchLevel.HIGH: 0.035,  # Same for all context sizes
     },
     "gemini-2.5-flash-preview-04-17": {
-        "low": 0.035,  # $35 per 1000 grounded queries
-        "medium": 0.035,  # Same for all context sizes
-        "high": 0.035,  # Same for all context sizes
+        SearchLevel.LOW: 0.035,  # $35 per 1000 grounded queries
+        SearchLevel.MEDIUM: 0.035,  # Same for all context sizes
+        SearchLevel.HIGH: 0.035,  # Same for all context sizes
     },
 }
 """Cost in $ per 1000 search/grounding calls, by context size level.
@@ -124,8 +162,8 @@ def _calc_cost(
     model: str,
     prompt_tokens: int,
     completion_tokens: int,
-    search_level: Literal["low", "medium", "high"] | None = None,
     used_search: bool = False,
+    search_level: SearchLevel | None = None,
 ) -> float:
     """Calculate API request cost based on model, tokens, and search usage.
 
@@ -136,11 +174,11 @@ def _calc_cost(
         model: Model identifier key.
         prompt_tokens: The input tokens for the API.
         completion_tokens: The output tokens from the API.
-        search_level: The search context size level used ('low', 'medium', 'high').
-            Only relevant if used_search is True.
         used_search: Whether the request actually used search/grounding. For OpenAI,
             this is always True when search_level is provided. For Gemini, this depends
             on whether grounding was actually used (presence of grounding metadata).
+        search_level: The search context size level used. Only relevant if `used_search`
+            is True.
 
     Returns:
         The total cost of the request in dollars. If the model is invalid, returns 0.
@@ -612,7 +650,7 @@ class LLMClient(ABC):
         system_prompt: str,
         user_prompt: str,
         max_tokens: int | None = None,
-        search_level: Literal["low", "medium", "high"] | None = None,
+        search_level: SearchLevel | None = None,
         temperature: float | None = None,
         seed: int | None = None,
     ) -> GPTResult[str | None]:
@@ -840,7 +878,7 @@ class OpenAIClient(LLMClient):
         system_prompt: str,
         user_prompt: str,
         max_tokens: int | None = None,
-        search_level: Literal["low", "medium", "high"] | None = None,
+        search_level: SearchLevel | None = None,
         temperature: float | None = None,
         seed: int | None = None,
     ) -> GPTResult[str | None]:
@@ -876,7 +914,7 @@ class OpenAIClient(LLMClient):
             (seed if seed is not None else self.seed) if not is_search else NOT_GIVEN
         )
         search_options = (
-            {"search_context_size": search_level} if is_search else NOT_GIVEN
+            {"search_context_size": search_level.value} if is_search else NOT_GIVEN
         )
 
         try:
@@ -1204,7 +1242,7 @@ class GeminiClient(LLMClient):
         system_prompt: str,
         user_prompt: str,
         max_tokens: int | None = None,
-        search_level: Literal["low", "medium", "high"] | None = None,
+        search_level: SearchLevel | None = None,
         temperature: float | None = None,
         seed: int | None = None,
     ) -> GPTResult[str | None]:
@@ -1266,7 +1304,7 @@ class GeminiClient(LLMClient):
                 self.model,
                 usage.prompt_token_count or 0,
                 usage.candidates_token_count or 0,
-                search_level=search_level if search_level else "low",
+                search_level=search_level if search_level else SearchLevel.LOW,
                 used_search=used_grounding,
             )
         else:

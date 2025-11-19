@@ -38,6 +38,7 @@ from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
     GPTResult,
     LLMClient,
+    SearchLevel,
     append_intermediate_result,
     init_remaining_items,
 )
@@ -284,7 +285,9 @@ async def _evaluate_paper(
 ) -> GPTResult[PromptResult[PaperResult]]:
     prompt_text = format_template(eval_prompt, paper.paper)
     system_prompt = eval_prompt.system
-    result_str = await client.plain(system_prompt, prompt_text, search_level="low")
+    result_str = await client.plain(
+        system_prompt, prompt_text, search_level=SearchLevel.LOW
+    )
     result = result_str.map(parse_result)
 
     if not result.result or not result.result.is_valid():

@@ -17,6 +17,7 @@ from paper.gpt.run_gpt import (
     GPTResult,
     LLMClient,
     OpenAIClient,
+    SearchLevel,
     _calc_cost,
     _find_best_match,
     count_tokens,
@@ -536,7 +537,7 @@ class TestLLMClientMethods:
                 result = await client.plain(
                     "You are a helpful assistant",
                     "Search for information about AI",
-                    search_level="medium",
+                    search_level=SearchLevel.MEDIUM,
                 )
 
                 assert result.result == "Search response"
@@ -689,7 +690,7 @@ class TestLLMClientMethods:
                 result = await client.plain(
                     "You are a helpful assistant",
                     "Search for AI information",
-                    search_level="high",
+                    search_level=SearchLevel.HIGH,
                 )
 
                 assert result.result == "Gemini search response"
