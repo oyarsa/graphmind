@@ -92,6 +92,9 @@ MODEL_SYNONYMS: Mapping[str, str] = {
     "gpt-4.1-nano": "gpt-4.1-nano-2025-04-14",
     "gpt-4.1-mini": "gpt-4.1-mini-2025-04-14",
     "gpt-4.1": "gpt-4.1-2025-04-14",
+    "gpt-5-mini": "gpt-5-mini-2025-08-07",
+    "gpt-5": "gpt-5-2025-08-07",
+    "gpt-5.2": "gpt-5.2-2025-12-11",
 }
 """Mapping between short and common model names and their full versioned names."""
 MODELS_ALLOWED: Sequence[str] = sorted(MODEL_SYNONYMS.keys() | MODEL_SYNONYMS.values())
@@ -108,6 +111,9 @@ MODEL_COSTS: Mapping[str, tuple[float, float]] = {
     "gpt-4.1-nano-2025-04-14": (0.10, 0.40),
     "gpt-4.1-mini-2025-04-14": (0.40, 1.60),
     "gpt-4.1-2025-04-14": (2, 8),
+    "gpt-5-mini-2025-08-07": (0.25, 2),
+    "gpt-5-2025-08-07": (1.75, 14),
+    "gpt-5.2-2025-12-11": (1.75, 14),
 }
 """Cost in $ per 1M tokens: (input cost, output cost).
 
@@ -421,6 +427,9 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
                 "gpt-4.1-nano": (30_000, 150_000_000),
                 "gpt-4.1-mini": (30_000, 150_000_000),
                 "gpt-4.1": (10_000, 30_000_000),
+                "gpt-5-mini": (30_000, 180_000_000),
+                "gpt-5": (15_000, 40_000_000),
+                "gpt-5.2": (15_000, 40_000_000),
             }
         elif tier == AZURE_TIER:
             limits = {
@@ -954,6 +963,31 @@ class OpenAIClient(LLMClient):
 
         return GPTResult(result=content, cost=cost)
 
+    @staticmethod
+    def _fix_params_for_gpt5(params: dict[str, Any]) -> dict[str, Any]:
+        """Adjust API params for GPT-5 model restrictions.
+
+        GPT-5 models don't accept:
+        - max_tokens=null (must be omitted)
+        - temperature=0 (only default value 1 is supported)
+        """
+        model = params.get("model", "")
+        if not model.startswith("gpt-5"):
+            return params
+
+        params = params.copy()
+
+        if params.get("max_tokens") is None:
+            params.pop("max_tokens", None)
+
+        if params.get("temperature") == 0:
+            logger.debug(
+                "Model %s only supports temperature=1. Changing to that.", model
+            )
+            params.pop("temperature", None)
+
+        return params
+
     @backoff.on_exception(
         backoff.expo,
         (openai.APIError, asyncio.TimeoutError),
@@ -961,6 +995,8 @@ class OpenAIClient(LLMClient):
         logger=logger,
     )
     async def _call_gpt(self, **chat_params: Any):  # noqa: ANN202
+        chat_params = self._fix_params_for_gpt5(chat_params)
+
         try:
             async with self.rate_limiter.limit(**chat_params) as update_usage:
                 response = await asyncio.wait_for(
@@ -997,6 +1033,8 @@ class OpenAIClient(LLMClient):
         Raises:
             openai.APIError: If there was an API error that should be retried.
         """
+        chat_params = self._fix_params_for_gpt5(chat_params)
+
         try:
             async with self.rate_limiter.limit(**chat_params) as update_usage:
                 # Create the task with proper type annotation
