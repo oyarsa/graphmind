@@ -30,6 +30,11 @@ from paper.gpt.evaluate_paper import (
     fix_evaluated_rating,
     get_demonstrations,
 )
+from paper.gpt.experiment import (
+    build_eval_command,
+    print_experiment_summary,
+    run_experiment,
+)
 from paper.gpt.model import Prompt, PromptResult
 from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
 from paper.gpt.run_gpt import (
@@ -154,6 +159,91 @@ def run(
             batch_size,
         )
     )
+
+
+@app.command(no_args_is_help=True)
+def experiment(
+    papers_file: Annotated[
+        Path,
+        typer.Option(
+            "--papers",
+            help="JSON file containing the annotated PeerRead papers with graph results.",
+        ),
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            help="The path to the output directory where experiment results are saved.",
+        ),
+    ],
+    runs: Annotated[
+        int,
+        typer.Option(help="Number of experiment runs."),
+    ] = 3,
+    model: Annotated[
+        str,
+        typer.Option("--model", "-m", help="The model to use for the extraction."),
+    ] = "gpt-4o-mini",
+    limit_papers: Annotated[
+        int,
+        typer.Option("--limit", "-n", help="The number of papers to process."),
+    ] = 10,
+    user_prompt: Annotated[
+        str,
+        typer.Option(
+            help="The user prompt to use for classification.",
+            click_type=cli.Choice(SCIMON_CLASSIFY_USER_PROMPTS),
+        ),
+    ] = "simple",
+    seed: Annotated[int, typer.Option(help="Random seed used for data shuffling.")] = 0,
+    demos: Annotated[
+        str | None,
+        typer.Option(help="File containing demonstrations to use in few-shot prompt"),
+    ] = None,
+    demo_prompt: Annotated[
+        str,
+        typer.Option(
+            help="User prompt to use for building the few-shot demonstrations.",
+            click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
+        ),
+    ] = "abstract",
+    n_evaluations: Annotated[
+        int,
+        typer.Option(
+            help="Number of evaluation rounds per paper for ensemble voting.",
+            min=1,
+        ),
+    ] = 1,
+    eval_temperature: Annotated[
+        float,
+        typer.Option(
+            help="Temperature for evaluation rounds. Higher values increase randomness.",
+            min=0.0,
+            max=2.0,
+        ),
+    ] = 0.8,
+    batch_size: Annotated[
+        int, typer.Option(help="Number of requests per batch.")
+    ] = 100,
+) -> None:
+    """Run SciMON evaluation experiment multiple times and aggregate metrics."""
+    cmd = build_eval_command(
+        "scimon",
+        papers=papers_file,
+        model=model,
+        limit=limit_papers,
+        seed=seed,
+        n_evaluations=n_evaluations,
+        eval_temperature=eval_temperature,
+        batch_size=batch_size,
+        demos=demos,
+        demo_prompt=demo_prompt,
+        user_prompt=user_prompt,
+    )
+
+    results = run_experiment(cmd, output_dir, runs)
+    print_experiment_summary(results)
 
 
 @app.callback()

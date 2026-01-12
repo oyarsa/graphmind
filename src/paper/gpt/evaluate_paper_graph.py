@@ -40,6 +40,11 @@ from paper.gpt.evaluate_paper import (
     fix_evaluated_rating,
     get_demonstrations,
 )
+from paper.gpt.experiment import (
+    build_eval_command,
+    print_experiment_summary,
+    run_experiment,
+)
 from paper.gpt.extract_graph import GraphResult
 from paper.gpt.graph_types import get_graph_type
 from paper.gpt.model import (
@@ -220,6 +225,129 @@ def run(
             set(sources),
         )
     )
+
+
+@app.command(no_args_is_help=True)
+def experiment(
+    paper_file: Annotated[
+        Path,
+        typer.Option(
+            "--papers",
+            help="JSON file containing the annotated PeerRead papers with summarised"
+            " graph results.",
+        ),
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            help="The path to the output directory where experiment results are saved.",
+        ),
+    ],
+    runs: Annotated[
+        int,
+        typer.Option(help="Number of experiment runs."),
+    ] = 3,
+    model: Annotated[
+        str,
+        typer.Option(
+            "--model", "-m", help="The model to use for both extraction and evaluation."
+        ),
+    ] = "gpt-4o-mini",
+    limit_papers: Annotated[
+        int,
+        typer.Option("--limit", "-n", help="The number of papers to process."),
+    ] = 10,
+    eval_prompt: Annotated[
+        str,
+        typer.Option(
+            help="The user prompt to use for paper evaluation.",
+            click_type=cli.Choice(GRAPH_EVAL_USER_PROMPTS),
+        ),
+    ] = "full-graph-structured",
+    graph_prompt: Annotated[
+        str,
+        typer.Option(
+            help="The user prompt to use for graph extraction.",
+            click_type=cli.Choice(GRAPH_EXTRACT_USER_PROMPTS),
+        ),
+    ] = "excerpts",
+    seed: Annotated[
+        int, typer.Option(help="Random seed used for data shuffling and OpenAI API.")
+    ] = 0,
+    temperature: Annotated[
+        float,
+        typer.Option(
+            help="Temperature for the GPT model. 0 is deterministic, 1 is more random.",
+            min=0.0,
+            max=2.0,
+        ),
+    ] = 0.0,
+    demos: Annotated[
+        str | None,
+        typer.Option(
+            help="Name of file containing demonstrations to use in few-shot prompt.",
+            click_type=cli.Choice(EVALUATE_DEMONSTRATIONS),
+        ),
+    ] = None,
+    demo_prompt: Annotated[
+        str,
+        typer.Option(
+            help="User prompt to use for building the few-shot demonstrations.",
+            click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
+        ),
+    ] = "abstract",
+    linearisation: Annotated[
+        LinearisationMethod,
+        typer.Option(
+            help="How to convert the extracted graph into text for evaluation."
+        ),
+    ] = LinearisationMethod.TOPO,
+    n_evaluations: Annotated[
+        int,
+        typer.Option(
+            help="Number of evaluation rounds per paper for ensemble voting.",
+            min=1,
+        ),
+    ] = 1,
+    eval_temperature: Annotated[
+        float,
+        typer.Option(
+            help="Temperature for evaluation rounds. Higher values increase randomness. "
+            "Ignored when n_evaluations=1 (forced to 0 for determinism).",
+            min=0.0,
+            max=2.0,
+        ),
+    ] = 0.8,
+    batch_size: Annotated[
+        int, typer.Option(help="Number of requests per batch.")
+    ] = 100,
+    sources: Annotated[
+        list[PaperSource],
+        typer.Option(help="What sources to use for related papers."),
+    ] = [PaperSource.CITATIONS, PaperSource.SEMANTIC],  # noqa: B006
+) -> None:
+    """Run graph evaluation experiment multiple times and aggregate metrics."""
+    cmd = build_eval_command(
+        "graph",
+        papers=paper_file,
+        model=model,
+        limit=limit_papers,
+        seed=seed,
+        n_evaluations=n_evaluations,
+        eval_temperature=eval_temperature,
+        batch_size=batch_size,
+        demos=demos,
+        demo_prompt=demo_prompt,
+        eval_prompt=eval_prompt,
+        graph_prompt=graph_prompt,
+        linearisation=linearisation.value,
+        sources=[s.value for s in sources],
+        temperature=temperature,
+    )
+
+    results = run_experiment(cmd, output_dir, runs)
+    print_experiment_summary(results)
 
 
 @app.callback()
