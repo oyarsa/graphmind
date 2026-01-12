@@ -396,11 +396,12 @@ If the paper approval decision is "True", the novelty label should be 1 (novel).
 """
 
 [[prompts]]
-name = "full-graph-uncertain"
-type = "GPTUncertain"
+name = "full-graph-basic"
+type = "GPTFull"
 system = """\
 Given the following target paper, a summary and a selection of related papers separated \
-by whether they're supporting or contrasting the main paper, give it a novelty rating.
+by whether they're supporting or contrasting the main paper, give it a novelty rating \
+on a 1-5 scale.
 """
 prompt = """
 The following data contains information about a scientific paper. It includes the \
@@ -415,15 +416,16 @@ ideas, methods, approach, etc.) and "contrasting" papers (those that go against 
 paper's ideas). Use these related papers to understand the context around the main paper, \
 so you know what other works exist in comparison with the main paper.
 
-Based on this, decide whether the paper is novel. It is novel if brings new ideas or \
-develops new ideas previously unseen. Make sure that the ideas are truly unique. The \
-paper is not novel if anything similar to it has been done before. Be very thorough. \
-When in doubt, tend towards the not novel label.
+Based on this, evaluate the paper's novelty on a 1-5 scale:
+1 = Not novel: Significant portions done before or done better
+2 = Minor improvement on familiar techniques
+3 = Notable extension of prior approaches
+4 = Substantially different from previous research
+5 = Significant new problem, technique, or insight
 
-First, generate the rationale for your novelty label, then give the final novelty label: \
-'not novel', 'novel', or if you're not sure, 'uncertain'.
+Be very thorough. When in doubt, tend towards lower ratings.
 
-If the paper approval decision is "True", the novelty label should be 'novel'.
+First, generate the rationale for your novelty rating, then give the final rating (1-5).
 
 #####
 {demonstrations}
@@ -487,7 +489,12 @@ Provide your evaluation in structured format with:
    - Indicate whether this is a citation-based or semantic-based related paper
 4. Key technical comparisons that influenced your decision
 5. Your final assessment and conclusion about the paper's novelty
-6. A binary label (1 for novel, 0 for not novel)
+6. A novelty rating from 1 to 5:
+   1 = Not novel: Significant portions done before or done better
+   2 = Minor improvement on familiar techniques
+   3 = Notable extension of prior approaches
+   4 = Substantially different from previous research
+   5 = Significant new problem, technique, or insight
 
 IMPORTANT: When creating evidence items, structure them as:
 - text: The evidence text describing the finding
@@ -495,7 +502,7 @@ IMPORTANT: When creating evidence items, structure them as:
 - paper_title: The title of the paper
 - source: Either "citations" or "semantic" to indicate how this paper was found
 
-If the paper approval decision is "True", the novelty label should be 1 (novel).
+If the paper approval decision is "True", the novelty rating should be 4 or 5 (novel).
 
 #####
 {demonstrations}
@@ -518,17 +525,17 @@ Contrasting papers:
 """
 
 [[prompts]]
-# Used to ensure that the main code is capable of processing the label 2.
-name = "debug-uncertain"
-type = "GPTUncertain"
+# Used for debugging purposes - assigns random labels.
+name = "debug-random"
+type = "GPTFull"
 system = """\
-Give a novelty rating for the following paper, and explain your decision.
+Give a novelty rating for the following paper on a 1-5 scale, and explain your decision.
 """
 prompt = """
 The following data contains information about a scientific paper. It includes the \
 paper's title and abstract.
 
-Assign a random label between 0, 1 and 2. Your rationale should be "debug".
+Assign a random label between 1 and 5. Your rationale should be "debug".
 
 #####
 {demonstrations}
@@ -560,10 +567,8 @@ whether the target paper presents novel contributions.
 Each related paper is presented with its ID, title, and relevant information. When referencing \
 evidence from these papers, you MUST include the paper's ID and title.
 
-Based on this information, decide whether the paper is novel. A paper is novel if it brings \
-new ideas or develops approaches previously unseen in the literature. The paper is not novel \
-if similar work has been done before. Be thorough in your assessment and when in doubt, \
-tend towards the not novel label.
+Based on this information, evaluate the paper's novelty on a 1-5 scale. Be thorough in your \
+assessment and when in doubt, tend towards lower ratings.
 
 Provide your evaluation in structured format with:
 1. A brief summary of the paper's main contributions and approach based on the title and abstract
@@ -576,7 +581,12 @@ Provide your evaluation in structured format with:
    - Quote or paraphrase the specific finding that contradicts novelty
    - Indicate that this is a search-based related paper
 4. Your final assessment and conclusion about the paper's novelty
-5. A binary label (1 for novel, 0 for not novel)
+5. A novelty rating from 1 to 5:
+   1 = Not novel: Significant portions done before or done better
+   2 = Minor improvement on familiar techniques
+   3 = Notable extension of prior approaches
+   4 = Substantially different from previous research
+   5 = Significant new problem, technique, or insight
 
 IMPORTANT: When creating evidence items, structure them as:
 - text: The evidence text describing the finding

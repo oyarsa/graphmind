@@ -789,14 +789,15 @@ def evaluate_model_predictions(
     Returns:
         Evaluation results.
     """
+    # Always use INT mode (1-5 ratings)
     if label_mode == "original":
         true_labels_adjusted = [int(label) + 1 for label in true_labels]
         pred_labels_adjusted = [int(label) + 1 for label in pred_labels]
-        target_mode = TargetMode.INT
     else:
-        true_labels_adjusted = [int(label) for label in true_labels]
-        pred_labels_adjusted = [int(label) for label in pred_labels]
-        target_mode = TargetMode.BIN
+        # For binary mode, map 0->1, 1->5 (low/high novelty)
+        true_labels_adjusted = [1 if int(label) == 0 else 5 for label in true_labels]
+        pred_labels_adjusted = [1 if int(label) == 0 else 5 for label in pred_labels]
+    target_mode = TargetMode.INT
 
     logits_list = [[float(x) for x in logit] for logit in logits]
     metrics_result = calculate_metrics(

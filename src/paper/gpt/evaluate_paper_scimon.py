@@ -452,7 +452,7 @@ async def _classify_paper(
         PaperResult with evaluation wrapped in PromptResult and GPTResult.
     """
     user_prompt_text = format_template(user_prompt, paper, demonstrations)
-    target_mode = TargetMode.BIN
+    target_mode = TargetMode.INT
 
     # We want deterministic results if we're not doing multi-sampling
     if n_evaluations == 1:

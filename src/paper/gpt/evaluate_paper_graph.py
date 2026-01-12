@@ -30,14 +30,13 @@ from paper.evaluation_metrics import (
     calculate_paper_metrics,
     display_regular_negative_macro_metrics,
 )
-from paper.gpt.ensemble import GPTPreConfidence, aggregate_ensemble_evaluations
+from paper.gpt.ensemble import aggregate_ensemble_evaluations
 from paper.gpt.evaluate_paper import (
     EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
     GPTFull,
     GPTStructured,
     GPTStructuredRaw,
-    GPTUncertain,
     PaperResult,
     fix_evaluated_rating,
     get_demonstrations,
@@ -423,12 +422,12 @@ async def _evaluate_papers(
 
 async def _run_evaluation_rounds(
     client: LLMClient,
-    eval_type: type[GPTUncertain | GPTStructuredRaw | GPTFull],
+    eval_type: type[GPTStructuredRaw | GPTFull],
     system_prompt: str,
     user_prompt: str,
     n_evaluations: int,
     eval_temperature: float,
-) -> GPTResult[list[GPTUncertain | GPTStructuredRaw | GPTFull]]:
+) -> GPTResult[list[GPTStructuredRaw | GPTFull]]:
     """Run N evaluation rounds and return valid evaluations.
 
     Args:
@@ -485,7 +484,7 @@ def _handle_no_valid_evaluations(
 
 def _handle_ensemble_evaluations(
     paper: PaperWithRelatedSummary,
-    valid_evals: GPTResult[Sequence[GPTUncertain | GPTStructuredRaw | GPTFull]],
+    valid_evals: GPTResult[Sequence[GPTStructuredRaw | GPTFull]],
     target_mode: TargetMode,
 ) -> GPTResult[PaperResult]:
     """Handle evaluations with ensemble voting.
@@ -502,10 +501,8 @@ def _handle_ensemble_evaluations(
     Returns:
         GPTResult with ensemble PaperResult.
     """
-    # Filter to only valid evaluations for ensemble
-    structured_evaluations = valid_evals.map(
-        lambda evals: [e for e in evals if isinstance(e, GPTPreConfidence)]
-    )
+    # All evaluations are already GPTPreConfidence (GPTFull | GPTStructuredRaw)
+    structured_evaluations = valid_evals.map(list)
     if not structured_evaluations.result:
         raise ValueError("No valid evaluations for ensemble aggregation.")
 
@@ -597,15 +594,11 @@ async def evaluate_paper(
         eval_prompt, paper, graph.result, demonstrations, linearisation_method, sources
     )
 
-    if eval_prompt.type_name == "GPTUncertain":
-        eval_type, target_mode = GPTUncertain, TargetMode.UNCERTAIN
-    elif eval_prompt.type_name == "GPTStructured":
-        eval_type, target_mode = GPTStructuredRaw, TargetMode.BIN
+    if eval_prompt.type_name == "GPTStructured":
+        eval_type: type[GPTStructuredRaw | GPTFull] = GPTStructuredRaw
     else:
-        eval_type, target_mode = GPTFull, TargetMode.BIN
-
-    if eval_type not in (GPTStructuredRaw, GPTFull):
-        n_evaluations = 1
+        eval_type = GPTFull
+    target_mode = TargetMode.INT
 
     # We want deterministic results if we're not doing multi-sampling
     if n_evaluations == 1:
@@ -628,18 +621,9 @@ async def evaluate_paper(
 
     if not valid_evals.result:
         paper_result = _handle_no_valid_evaluations(paper, valid_evals.cost)
-    elif eval_type in (GPTStructuredRaw, GPTFull):
+    else:
         # Handle evaluations with ensemble
         paper_result = _handle_ensemble_evaluations(paper, valid_evals, target_mode)
-    else:
-        # Single evaluation (GPTUncertain)
-        paper_result = valid_evals.map(lambda evals: evals[0]).map(
-            lambda e: PaperResult.from_s2peer(
-                paper=paper.paper.paper,
-                y_pred=e.label,
-                rationale_pred=e.rationale,
-            )
-        )
 
     return graph.lift(
         paper_result,

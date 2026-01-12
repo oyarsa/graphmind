@@ -1,13 +1,13 @@
 """Ensemble evaluation functions for aggregating multiple LLM evaluations.
 
-This module provides functions for aggregating multiple evaluation rounds using majority
-voting and rationale selection based on TF-IDF scoring.
+This module provides functions for aggregating multiple evaluation rounds using median
+aggregation and rationale selection based on TF-IDF scoring.
 """
 
 from __future__ import annotations
 
 import re
-from collections import Counter
+import statistics
 from collections.abc import Sequence
 from typing import TypeAlias
 
@@ -90,13 +90,16 @@ def longest_by_word_count(items: Sequence[str]) -> str:
 def aggregate_ensemble_evaluations(
     evaluations: Sequence[GPTPreConfidence],
 ) -> GPTWithConfidence:
-    """Aggregate multiple GPTFull evaluations using majority voting and rationale selection.
+    """Aggregate multiple GPTFull evaluations using median and rationale selection.
+
+    For 1-5 integer ratings, uses the median (rounded) as the aggregated label.
+    Confidence is derived from standard deviation: lower variance = higher confidence.
 
     Args:
         evaluations: List of valid GPTFull evaluations.
 
     Returns:
-        Object with majority label, best rationale and confidence. See `GPTPreConfidence`
+        Object with median label, best rationale and confidence. See `GPTPreConfidence`
         and `GPTWithConfidence`.
 
     Raises:
@@ -108,28 +111,40 @@ def aggregate_ensemble_evaluations(
     if len(evaluations) == 1:
         return evaluations[0].with_confidence(1.0)
 
-    label_counts = Counter(eval_.label for eval_ in evaluations)
+    labels = [eval_.label for eval_ in evaluations]
+    median_label = round(statistics.median(labels))
 
-    # Determine winning label (ties go to negative/0)
-    if label_counts[1] > label_counts[0]:
-        winning_label = 1
+    # Confidence based on standard deviation
+    # Max std dev for 1-5 scale is 2.0 (all 1s and 5s), so normalise by that
+    if len(labels) > 1:
+        std_dev = statistics.stdev(labels)
+        confidence = max(0.0, 1.0 - (std_dev / 2.0))
     else:
-        winning_label = 0
+        confidence = 1.0
 
-    confidence = label_counts[winning_label] / len(evaluations)
+    # Get evaluations closest to the median for rationale selection
+    closest_evaluations = sorted(evaluations, key=lambda e: abs(e.label - median_label))
 
-    # Get evaluations with the winning label
-    winning_evaluations = [
-        eval_ for eval_ in evaluations if eval_.label == winning_label
-    ]
-
-    # Select best rationale using TF-IDF
+    # Select best rationale from evaluations closest to median using TF-IDF
     best_rationale = select_best_rationale_tfidf([
-        eval_.rationale for eval_ in winning_evaluations
+        eval_.rationale for eval_ in closest_evaluations
     ])
+
     # Find the evaluation that produced the best rationale
     best_evaluation = next(
-        eval_ for eval_ in winning_evaluations if eval_.rationale == best_rationale
+        eval_ for eval_ in closest_evaluations if eval_.rationale == best_rationale
     )
 
-    return best_evaluation.with_confidence(confidence)
+    # Create new evaluation with median label and best rationale
+    if isinstance(best_evaluation, GPTStructuredRaw):
+        return GPTStructured.from_(
+            GPTStructuredRaw.model_validate(
+                best_evaluation.model_dump() | {"label": median_label}
+            ),
+            confidence=confidence,
+        )
+    return GPTFullWithConfidence(
+        label=median_label,
+        rationale=best_rationale,
+        confidence=confidence,
+    )

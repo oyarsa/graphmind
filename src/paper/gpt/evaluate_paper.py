@@ -79,8 +79,8 @@ class Demonstration(Immutable):
     @computed_field
     @property
     def label(self) -> int:
-        """Convert rating to binary label."""
-        return int(self.rating >= 3)
+        """Return the rating as the label."""
+        return self.rating
 
 
 def get_demonstrations(demonstrations_key: str | None, prompt_key: str) -> str:
@@ -135,18 +135,29 @@ def format_demonstrations(
 
 
 class GPTFull(Immutable):
-    """Evaluation of whether the paper is novel."""
+    """Evaluation of paper novelty on a 1-5 scale."""
 
     label: Annotated[
         int,
-        Field(description="1 if the paper is novel, or 0 if it's not novel."),
+        Field(
+            description=(
+                "Novelty rating from 1 to 5:\n"
+                "1 = Not novel: Significant portions done before or done better\n"
+                "2 = Minor improvement on familiar techniques\n"
+                "3 = Notable extension of prior approaches\n"
+                "4 = Substantially different from previous research\n"
+                "5 = Significant new problem, technique, or insight"
+            ),
+            ge=1,
+            le=5,
+        ),
     ]
-    rationale: Annotated[str, Field(description="How you reached your novelty label.")]
+    rationale: Annotated[str, Field(description="How you reached your novelty rating.")]
 
     @classmethod
     def error(cls) -> Self:
         """Output value for when there's an error."""
-        return cls(rationale="<error>", label=0)
+        return cls(rationale="<error>", label=1)
 
     def is_valid(self) -> bool:
         """Check if instance is valid."""
@@ -176,48 +187,6 @@ class GPTFullWithConfidence(GPTFull):
     def from_(cls, full: GPTFull, *, confidence: float | None = None) -> Self:
         """Create a GPTFullWithConfidence from GPTFull and confidence."""
         return cls.model_validate(full.model_dump() | {"confidence": confidence})
-
-
-class NoveltyLabel(StrEnum):
-    """Novelty label in text form with 'uncertain' label."""
-
-    NOT_NOVEL = "not novel"
-    NOVEL = "novel"
-    UNCERTAIN = "uncertain"
-
-    def as_label(self) -> int:
-        """Novelty label as integer, as expected by everything else."""
-        match self:
-            case self.NOT_NOVEL:
-                return 0
-            case self.NOVEL:
-                return 1
-            case self.UNCERTAIN:
-                return 2
-
-
-class GPTUncertain(Immutable):
-    """Evaluation of whether the paper is novel. Supports uncertain (2) label."""
-
-    novelty: Annotated[
-        NoveltyLabel,
-        Field(description="'novel', 'not novel', or if you're not sure, 'uncertain'."),
-    ]
-    rationale: Annotated[str, Field(description="How you reached your novelty label.")]
-
-    @property
-    def label(self) -> int:
-        """Novelty as integer label."""
-        return self.novelty.as_label()
-
-    @classmethod
-    def error(cls) -> Self:
-        """Output value for when there's an error."""
-        return cls(rationale="<error>", novelty=NoveltyLabel.NOT_NOVEL)
-
-    def is_valid(self) -> bool:
-        """Check if instance is valid."""
-        return self.rationale != "<error>"
 
 
 class EvidenceItem(Immutable):
@@ -279,7 +248,18 @@ class GPTStructuredRaw(Immutable):
     ]
     label: Annotated[
         int,
-        Field(description="1 if the paper is novel, or 0 if it's not novel."),
+        Field(
+            description=(
+                "Novelty rating from 1 to 5:\n"
+                "1 = Not novel: Significant portions done before or done better\n"
+                "2 = Minor improvement on familiar techniques\n"
+                "3 = Notable extension of prior approaches\n"
+                "4 = Substantially different from previous research\n"
+                "5 = Significant new problem, technique, or insight"
+            ),
+            ge=1,
+            le=5,
+        ),
     ]
 
     @computed_field
@@ -322,7 +302,7 @@ class GPTStructuredRaw(Immutable):
             contradictory_evidence=[],
             key_comparisons=[],
             conclusion="<error>",
-            label=0,
+            label=1,
         )
 
     def is_valid(self) -> bool:
@@ -418,26 +398,31 @@ class EvaluationResult(Protocol):
 
 
 def fix_evaluated_rating(
-    evaluated: EvaluationResult, target_mode: TargetMode = TargetMode.BIN
+    evaluated: EvaluationResult, target_mode: TargetMode = TargetMode.INT
 ) -> GPTFull:
-    """Fix evaluated label if out of range by converting to the specified mode.
+    """Fix evaluated label if out of range by clamping to valid range.
 
-    If the rating is not valid for the mode, treat it as 0.
+    If the rating is not valid for the mode, clamp it to the valid range.
 
     Args:
         evaluated: Evaluation result to be checked.
         target_mode: Mode for label validation and conversion.
 
     Returns:
-        Same input if valid label, or new object with fixed label.
+        Same input if valid label, or new object with clamped label.
     """
     if evaluated.label in target_mode.labels():
         return GPTFull(label=evaluated.label, rationale=evaluated.rationale)
 
+    valid_labels = target_mode.labels()
+    clamped_label = max(min(evaluated.label, max(valid_labels)), min(valid_labels))
     logger.warning(
-        "Invalid label: %d. Converting to %s", evaluated.label, target_mode.labels()
+        "Invalid label: %d. Clamping to %d (valid range: %s)",
+        evaluated.label,
+        clamped_label,
+        valid_labels,
     )
-    return GPTFull(label=0, rationale=evaluated.rationale)
+    return GPTFull(label=clamped_label, rationale=evaluated.rationale)
 
 
 class RatingMode(StrEnum):

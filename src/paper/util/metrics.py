@@ -19,9 +19,13 @@ def pearson_correlation(x: Sequence[float], y: Sequence[float]) -> float | None:
     return float(stats.pearsonr(x, y).correlation)
 
 
-def spearman_correlation(x: Sequence[float], y: Sequence[float]) -> float:
-    """Calculate Spearman correlation coefficient between two sequences."""
+def spearman_correlation(x: Sequence[float], y: Sequence[float]) -> float | None:
+    """Calculate Spearman correlation coefficient between two sequences.
 
+    Returns None if correlation is undefined (e.g., if one sequence has zero variance).
+    """
+    if len(set(y)) == 1 or len(set(x)) == 1:
+        return None
     return float(stats.spearmanr(x, y).statistic)  # type: ignore
 
 
@@ -72,3 +76,30 @@ def confusion_matrix(
     if labels is not None:
         labels = list(labels)
     return skmetrics.confusion_matrix(y_true, y_pred, labels=labels).tolist()
+
+
+def root_mean_squared_error(y_true: Sequence[float], y_pred: Sequence[float]) -> float:
+    """Calculate root mean squared error between true and predicted values."""
+    return float(np.sqrt(mean_squared_error(y_true, y_pred)))
+
+
+def accuracy_within_k(
+    y_true: Sequence[int], y_pred: Sequence[int], k: int = 1
+) -> float:
+    """Calculate accuracy allowing k points of error.
+
+    For ordinal ratings (1-5), this counts predictions as correct if they are
+    within k points of the true value.
+
+    Args:
+        y_true: Ground truth labels.
+        y_pred: Predicted labels.
+        k: Maximum allowed error (default 1).
+
+    Returns:
+        Proportion of predictions within k of the true value.
+    """
+    if len(y_true) == 0:
+        return 0.0
+    correct = sum(abs(true - pred) <= k for true, pred in zip(y_true, y_pred))
+    return correct / len(y_true)

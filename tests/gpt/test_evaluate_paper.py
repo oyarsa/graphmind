@@ -6,105 +6,112 @@ from paper.evaluation_metrics import TargetMode
 from paper.gpt.evaluate_paper import GPTFull, fix_evaluated_rating
 
 
+class MockEval:
+    """Mock evaluation result for testing invalid labels.
+
+    Since GPTFull now validates labels on construction (1-5 only), we need a mock
+    class to test the clamping behaviour for invalid labels.
+    """
+
+    def __init__(self, label: int, rationale: str) -> None:
+        self._label = label
+        self._rationale = rationale
+
+    @property
+    def label(self) -> int:
+        """Return the label."""
+        return self._label
+
+    @property
+    def rationale(self) -> str:
+        """Return the rationale."""
+        return self._rationale
+
+
 class TestFixEvaluatedRating:
     """Test cases for fix_evaluated_rating function."""
 
     @pytest.mark.parametrize(
-        ("label", "target_mode", "expected_label"),
+        ("label", "expected_label"),
         [
-            # Binary mode valid labels
-            (0, TargetMode.BIN, 0),
-            (1, TargetMode.BIN, 1),
-            # Uncertain mode valid labels
-            (0, TargetMode.UNCERTAIN, 0),
-            (1, TargetMode.UNCERTAIN, 1),
-            (2, TargetMode.UNCERTAIN, 2),
-            # Int mode valid labels
-            (1, TargetMode.INT, 1),
-            (2, TargetMode.INT, 2),
-            (3, TargetMode.INT, 3),
-            (4, TargetMode.INT, 4),
-            (5, TargetMode.INT, 5),
+            (1, 1),
+            (2, 2),
+            (3, 3),
+            (4, 4),
+            (5, 5),
         ],
     )
-    def test_valid_labels_preserved(
-        self, label: int, target_mode: TargetMode, expected_label: int
-    ) -> None:
-        """Test that valid labels are preserved for each target mode."""
+    def test_valid_labels_preserved(self, label: int, expected_label: int) -> None:
+        """Test that valid labels (1-5) are preserved."""
         rationale = f"Test rationale {label}"
-        result = GPTFull(label=label, rationale=rationale)
-        fixed = fix_evaluated_rating(result, target_mode)
+        result = MockEval(label=label, rationale=rationale)
+        fixed = fix_evaluated_rating(result)
 
         assert fixed.label == expected_label
         assert fixed.rationale == rationale
         assert isinstance(fixed, GPTFull)
 
     @pytest.mark.parametrize(
-        ("label", "target_mode"),
+        ("label", "expected_clamped"),
         [
-            # Binary mode invalid labels
-            (2, TargetMode.BIN),
-            (3, TargetMode.BIN),
-            (-1, TargetMode.BIN),
-            (10, TargetMode.BIN),
-            # Uncertain mode invalid labels
-            (3, TargetMode.UNCERTAIN),
-            (4, TargetMode.UNCERTAIN),
-            (-1, TargetMode.UNCERTAIN),
-            (10, TargetMode.UNCERTAIN),
-            # Int mode invalid labels
-            (0, TargetMode.INT),
-            (6, TargetMode.INT),
-            (-1, TargetMode.INT),
-            (10, TargetMode.INT),
+            # Clamp to 1-5 range
+            (0, 1),
+            (6, 5),
+            (-1, 1),
+            (10, 5),
         ],
     )
-    def test_invalid_labels_converted_to_zero(
-        self, label: int, target_mode: TargetMode
-    ) -> None:
-        """Test that invalid labels are converted to 0."""
+    def test_invalid_labels_clamped(self, label: int, expected_clamped: int) -> None:
+        """Test that invalid labels are clamped to valid range (1-5)."""
         rationale = f"Test rationale {label}"
-        result = GPTFull(label=label, rationale=rationale)
-        fixed = fix_evaluated_rating(result, target_mode)
+        result = MockEval(label=label, rationale=rationale)
+        fixed = fix_evaluated_rating(result)
 
-        assert fixed.label == 0
+        assert fixed.label == expected_clamped
         assert fixed.rationale == rationale
 
-    def test_default_target_mode_is_binary(self) -> None:
-        """Test that default target mode is BIN."""
-        # Valid for binary
-        result = GPTFull(label=1, rationale="Valid binary")
+    def test_default_target_mode_is_int(self) -> None:
+        """Test that default target mode is INT."""
+        result = MockEval(label=3, rationale="Valid INT")
+        fixed = fix_evaluated_rating(result)
+        assert fixed.label == 3
+        assert fixed.rationale == "Valid INT"
+
+        # Invalid for INT (should clamp to 1)
+        result = MockEval(label=0, rationale="Invalid INT")
         fixed = fix_evaluated_rating(result)
         assert fixed.label == 1
-        assert fixed.rationale == "Valid binary"
-
-        # Invalid for binary (should convert to 0)
-        result = GPTFull(label=3, rationale="Invalid binary")
-        fixed = fix_evaluated_rating(result)
-        assert fixed.label == 0
-        assert fixed.rationale == "Invalid binary"
+        assert fixed.rationale == "Invalid INT"
 
     def test_rationale_preserved_exactly(self) -> None:
         """Test that rationale is preserved exactly, including special characters."""
         special_rationale = "Rationale with\nnewlines\t\tand\t\ttabs and ünicode"
-        result = GPTFull(label=1, rationale=special_rationale)
-        fixed = fix_evaluated_rating(result, TargetMode.BIN)
+        result = MockEval(label=3, rationale=special_rationale)
+        fixed = fix_evaluated_rating(result, TargetMode.INT)
         assert fixed.rationale == special_rationale
 
     def test_empty_rationale(self) -> None:
         """Test handling of empty rationale."""
-        result = GPTFull(label=1, rationale="")
-        fixed = fix_evaluated_rating(result, TargetMode.BIN)
-        assert fixed.label == 1
+        result = MockEval(label=3, rationale="")
+        fixed = fix_evaluated_rating(result, TargetMode.INT)
+        assert fixed.label == 3
         assert not fixed.rationale
 
     @pytest.mark.parametrize(
-        "label",
-        [-1, -10, -100, -(2**31), 1000, 999999, 2**31 - 1],
+        ("label", "expected_clamped"),
+        [
+            (-1, 1),
+            (-10, 1),
+            (-100, 1),
+            (-(2**31), 1),
+            (1000, 5),
+            (999999, 5),
+            (2**31 - 1, 5),
+        ],
     )
-    def test_extreme_invalid_labels(self, label: int) -> None:
+    def test_extreme_invalid_labels(self, label: int, expected_clamped: int) -> None:
         """Test handling of very large and very negative invalid labels."""
-        result = GPTFull(label=label, rationale="Extreme label")
-        fixed = fix_evaluated_rating(result, TargetMode.BIN)
-        assert fixed.label == 0
+        result = MockEval(label=label, rationale="Extreme label")
+        fixed = fix_evaluated_rating(result, TargetMode.INT)
+        assert fixed.label == expected_clamped
         assert fixed.rationale == "Extreme label"

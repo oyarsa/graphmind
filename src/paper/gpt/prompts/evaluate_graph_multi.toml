@@ -33,7 +33,12 @@ Provide your evaluation in structured format with:
    - Quote or paraphrase the specific finding that contradicts novelty
    - Indicate that this is a search-based related paper
 4. Your final assessment and conclusion about the paper's novelty
-5. A binary label (1 for novel, 0 for not novel)
+5. A novelty rating from 1 to 5:
+   1 = Not novel: Significant portions done before or done better
+   2 = Minor improvement on familiar techniques
+   3 = Notable extension of prior approaches
+   4 = Substantially different from previous research
+   5 = Significant new problem, technique, or insight
 
 IMPORTANT: When creating evidence items, structure them as:
 - text: The evidence text describing the finding
@@ -84,7 +89,12 @@ Extract the following information:
 2. Specific evidence from related papers that supports the paper's novelty
 3. Specific evidence from related papers that contradicts the paper's novelty
 4. An overall assessment of the paper's novelty with clear rationale
-5. A binary novelty label (1 for novel, 0 for not novel)
+5. A novelty rating from 1 to 5:
+   1 = Not novel: Significant portions done before or done better
+   2 = Minor improvement on familiar techniques
+   3 = Notable extension of prior approaches
+   4 = Substantially different from previous research
+   5 = Significant new problem, technique, or insight
 
 For each piece of evidence:
 - Include the paper ID and title it comes from

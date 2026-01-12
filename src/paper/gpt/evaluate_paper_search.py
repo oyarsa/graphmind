@@ -322,7 +322,7 @@ def parse_result(text: str | None) -> GPTFull:
 
         Rationale: <text>
 
-        Label: <0 or 1>
+        Label: <1-5>
 
     To make this extra-lenient, we take everything except the label line as the rationale.
 
@@ -333,14 +333,15 @@ def parse_result(text: str | None) -> GPTFull:
         return GPTFull.error()
 
     # Pattern to match various label formats we've seen:
-    # - **Label: 1**
-    # - **Label**: 0
-    # - **Label:** 0
+    # - **Label: 3**
+    # - **Label**: 2
+    # - **Label:** 4
     # - Label: 1
+    # - Rating: 5
     # - etc.
     # The pattern is case-insensitive and handles optional markdown formatting
     # We need to escape the asterisks and handle various combinations
-    label_pattern = r"\*{0,2}label\*{0,2}\s*:\*{0,2}\s*([01])"
+    label_pattern = r"\*{0,2}(?:label|rating)\*{0,2}\s*:\*{0,2}\s*([1-5])"
 
     # Search for the label anywhere in the text
     match = re.search(label_pattern, text, re.IGNORECASE)

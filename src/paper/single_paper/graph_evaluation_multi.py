@@ -108,7 +108,18 @@ class GPTStructuredMulti(Immutable):
     ]
     label: Annotated[
         int,
-        Field(description="1 if the paper is novel, or 0 if it's not novel."),
+        Field(
+            description=(
+                "Novelty rating from 1 to 5:\n"
+                "1 = Not novel: Significant portions done before or done better\n"
+                "2 = Minor improvement on familiar techniques\n"
+                "3 = Notable extension of prior approaches\n"
+                "4 = Substantially different from previous research\n"
+                "5 = Significant new problem, technique, or insight"
+            ),
+            ge=1,
+            le=5,
+        ),
     ]
 
     @computed_field
@@ -151,7 +162,7 @@ class GPTStructuredMulti(Immutable):
             contradictory_evidence=[],
             key_comparisons=[],
             conclusion=RATIONALE_ERROR,
-            label=0,
+            label=1,
         )
 
     def is_valid(self) -> bool:
@@ -511,7 +522,7 @@ class PerspectiveSummary(Immutable):
     @classmethod
     def error(cls) -> Self:
         """Return an error summary placeholder result."""
-        return cls(summary=RATIONALE_ERROR, label=0)
+        return cls(summary=RATIONALE_ERROR, label=1)
 
     def is_valid(self) -> bool:
         """Check if the summary result is valid."""
@@ -667,7 +678,7 @@ class GPTEvalMultiResult(Immutable):
         """Return an error evaluation placeholder result."""
         return cls(
             rationale=RATIONALE_ERROR,
-            label=0,
+            label=1,
             probability=0.0,
             perspectives=[],
             structured=GPTStructuredMulti.error(),
@@ -691,7 +702,7 @@ class GPTEvalMultiResult(Immutable):
             structured=structured,
         )
 
-    def fix_label(self, target_mode: TargetMode = TargetMode.BIN) -> Self:
+    def fix_label(self, target_mode: TargetMode = TargetMode.INT) -> Self:
         """Fix the label to be valid for the given target mode."""
         if self.label in target_mode.labels():
             return self
@@ -699,7 +710,7 @@ class GPTEvalMultiResult(Immutable):
         logger.warning(
             "Invalid label: %d. Converting to %s", self.label, target_mode.labels()
         )
-        return replace_fields(self, label=0)
+        return replace_fields(self, label=1)
 
 
 class GPTEvalPerspective(Immutable):
@@ -722,7 +733,7 @@ class GPTEvalPerspective(Immutable):
     @classmethod
     def error(cls) -> Self:
         """Return an error evaluation placeholder result."""
-        return cls(rationale=RATIONALE_ERROR, label=0, name=RATIONALE_ERROR)
+        return cls(rationale=RATIONALE_ERROR, label=1, name=RATIONALE_ERROR)
 
     def is_valid(self) -> bool:
         """Check if the evaluation result is valid."""
@@ -816,7 +827,7 @@ def construct_graph_result_multi(
     """
     result = PaperResultMulti.from_s2peer(
         paper=paper.paper.paper,
-        evaluation=evaluation.fix_label(TargetMode.BIN),
+        evaluation=evaluation.fix_label(TargetMode.INT),
     )
     return GraphResultMulti.from_annotated(annotated=paper, graph=graph, result=result)
 

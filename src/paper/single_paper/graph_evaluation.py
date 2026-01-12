@@ -152,7 +152,7 @@ def construct_graph_result(
     """
     result = gpt.PaperResult.from_s2peer(
         paper=paper.paper.paper,
-        y_pred=fix_evaluated_rating(evaluation, TargetMode.BIN).label,
+        y_pred=fix_evaluated_rating(evaluation, TargetMode.INT).label,
         rationale_pred=evaluation.rationale,
         structured_evaluation=evaluation,
     )
