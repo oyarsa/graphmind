@@ -54,7 +54,7 @@ class PaperResult(s2.PaperWithS2Refs):
         return cls.model_validate(
             paper.model_dump()
             | {
-                "y_true": paper.label,
+                "y_true": paper.rating,
                 "rationale_true": paper.rationale,
                 "y_pred": y_pred,
                 "rationale_pred": rationale_pred,
