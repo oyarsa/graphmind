@@ -3,7 +3,7 @@ name = "abstract"
 prompt = """
 Title: {title}
 Abstract: {abstract}
-Novelty label: {label}
+Novelty rating: {rating}
 Rationale: {rationale}
 """
 
@@ -16,6 +16,6 @@ Abstract: {abstract}
 Main text:
 {main_text}
 
-Novelty label: {label}
+Novelty rating: {rating}
 Rationale: {rationale}
 """
