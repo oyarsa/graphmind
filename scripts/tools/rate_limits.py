@@ -53,7 +53,15 @@ async def _main() -> None:
     if not api_key:
         sys.exit("Error: OPENAI_API_KEY environment variable not set")
 
-    models = ["gpt-4o", "gpt-4o-mini", "o1-preview", "o1-mini"]
+    models = [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "o1-preview",
+        "o1-mini",
+        "gpt-5",
+        "gpt-5.2",
+        "gpt-5-mini",
+    ]
 
     async with aiohttp.ClientSession() as session:
         tasks = [fetch_rate_limits(session, model, api_key) for model in models]
