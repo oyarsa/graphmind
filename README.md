@@ -11,11 +11,15 @@ environment and dependencies:
 
 ```console
 # Set up virtual environment and install dependencies
-$ uv sync --extra cpu  # For CPU-only PyTorch/SentenceTransformers/etc.
-$ uv sync --extra cuda # For CUDA (x86-64 Linux only).
+$ uv sync --extra cpu --extra baselines  # For CPU-only PyTorch/SentenceTransformers/etc.
+$ uv sync --extra cuda --extra baselines # For CUDA (x86-64 Linux only).
 # Install pre-commit hooks
 $ uv run pre-commit install
 ```
+
+> [!IMPORTANT]
+> For development, you must install the `baselines` extra to ensure all dependencies are
+> available. Without it, `just lint` and other development commands will fail.
 
 See [Development Environment](#development-environment) and
 [CONTRIBUTING](/CONTRIBUTING.md) for more information.
