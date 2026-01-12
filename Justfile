@@ -25,8 +25,12 @@ pre-commit:
 spell:
     uv run codespell
 
+# Run typecheck and tests in parallel
+[parallel]
+_type-test: test type
+
 # Run ruff check, format, spell checker, pre-commit, tests and type checker
-lint: fix fmt spell pre-commit test type
+lint: fix fmt spell pre-commit _type-test
 
 # Check ruff check, tests, spell checker and type checker
 check-all: check test spell type
