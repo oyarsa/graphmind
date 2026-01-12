@@ -184,21 +184,37 @@ Output:
 
 [[prompts]]
 name = "sans"
-type = "GPTFull"
+type = "GPTStructured"
 system = """\
-Give an approval or rejection to a paper submitted to a high-quality scientific \
-conference.\
+Given a paper's title and abstract, provide a structured novelty evaluation. This \
+evaluation uses only the paper's own content without any related papers or graph summary.
 """
 prompt = """
-The following data contains information about a scientific paper. It includes the \
+The following data contains information about a scientific paper. It includes only the \
 paper's title and abstract.
 
-Based on this content, decide whether the paper is novel enough or not. If it is, give \
-it a label of 1. If it isn't, give it a label of 0. This should reflect how much the \
-paper brings and develops new ideas previously unseen in the literature. First, generate \
-the rationale for your novelty rating, then give the final novelty rating.
+Based solely on the title and abstract, evaluate the paper's novelty. Consider:
+- What problem or question is being addressed?
+- What methods or approaches are proposed?
+- How significant do the contributions appear to be?
 
-If the paper approval decision is "True", the novelty label should be 1 (novel).
+You do not have access to related papers, so base your assessment purely on how the \
+paper presents its contributions and how novel the described approach sounds.
+
+Provide your evaluation in structured format with:
+1. A brief summary of the paper's main contributions and approach
+2. What aspects suggest the paper might be novel (leave evidence lists empty since no \
+related papers are available)
+3. What aspects suggest the paper might not be novel (leave evidence lists empty)
+4. Your final assessment and conclusion about the paper's novelty
+5. A novelty rating from 1 to 5:
+   1 = Not novel: Significant portions done before or done better
+   2 = Minor improvement on familiar techniques
+   3 = Notable extension of prior approaches
+   4 = Substantially different from previous research
+   5 = Significant new problem, technique, or insight
+
+Be conservative in your ratings since you don't have related work context.
 
 #####
 {demonstrations}
@@ -206,10 +222,8 @@ If the paper approval decision is "True", the novelty label should be 1 (novel).
 -Data-
 Title: {title}
 Abstract: {abstract}
-Approval decision: {approval}
 
 #####
-Output:
 """
 
 [[prompts]]
