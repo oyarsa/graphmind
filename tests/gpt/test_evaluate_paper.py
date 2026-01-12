@@ -2,7 +2,6 @@
 
 import pytest
 
-from paper.evaluation_metrics import TargetMode
 from paper.gpt.evaluate_paper import GPTFull, fix_evaluated_rating
 
 
@@ -70,30 +69,17 @@ class TestFixEvaluatedRating:
         assert fixed.label == expected_clamped
         assert fixed.rationale == rationale
 
-    def test_default_target_mode_is_int(self) -> None:
-        """Test that default target mode is INT."""
-        result = MockEval(label=3, rationale="Valid INT")
-        fixed = fix_evaluated_rating(result)
-        assert fixed.label == 3
-        assert fixed.rationale == "Valid INT"
-
-        # Invalid for INT (should clamp to 1)
-        result = MockEval(label=0, rationale="Invalid INT")
-        fixed = fix_evaluated_rating(result)
-        assert fixed.label == 1
-        assert fixed.rationale == "Invalid INT"
-
     def test_rationale_preserved_exactly(self) -> None:
         """Test that rationale is preserved exactly, including special characters."""
         special_rationale = "Rationale with\nnewlines\t\tand\t\ttabs and ünicode"
         result = MockEval(label=3, rationale=special_rationale)
-        fixed = fix_evaluated_rating(result, TargetMode.INT)
+        fixed = fix_evaluated_rating(result)
         assert fixed.rationale == special_rationale
 
     def test_empty_rationale(self) -> None:
         """Test handling of empty rationale."""
         result = MockEval(label=3, rationale="")
-        fixed = fix_evaluated_rating(result, TargetMode.INT)
+        fixed = fix_evaluated_rating(result)
         assert fixed.label == 3
         assert not fixed.rationale
 
@@ -112,6 +98,6 @@ class TestFixEvaluatedRating:
     def test_extreme_invalid_labels(self, label: int, expected_clamped: int) -> None:
         """Test handling of very large and very negative invalid labels."""
         result = MockEval(label=label, rationale="Extreme label")
-        fixed = fix_evaluated_rating(result, TargetMode.INT)
+        fixed = fix_evaluated_rating(result)
         assert fixed.label == expected_clamped
         assert fixed.rationale == "Extreme label"

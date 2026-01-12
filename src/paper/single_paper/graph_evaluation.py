@@ -14,7 +14,6 @@ from pydantic import Field
 
 from paper import gpt
 from paper.backend.model import BEST_OF_N
-from paper.evaluation_metrics import TargetMode
 from paper.gpt.evaluate_paper import (
     GPTStructured,
     GPTStructuredRaw,
@@ -152,7 +151,7 @@ def construct_graph_result(
     """
     result = gpt.PaperResult.from_s2peer(
         paper=paper.paper.paper,
-        y_pred=fix_evaluated_rating(evaluation, TargetMode.INT).label,
+        y_pred=fix_evaluated_rating(evaluation).label,
         rationale_pred=evaluation.rationale,
         structured_evaluation=evaluation,
     )

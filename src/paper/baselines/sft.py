@@ -44,7 +44,6 @@ from paper import gpt
 from paper import peerread as pr
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import (
-    TargetMode,
     calculate_metrics,
     display_metrics,
     display_regular_negative_macro_metrics,
@@ -797,12 +796,8 @@ def evaluate_model_predictions(
         # For binary mode, map 0->1, 1->5 (low/high novelty)
         true_labels_adjusted = [1 if int(label) == 0 else 5 for label in true_labels]
         pred_labels_adjusted = [1 if int(label) == 0 else 5 for label in pred_labels]
-    target_mode = TargetMode.INT
-
     logits_list = [[float(x) for x in logit] for logit in logits]
-    metrics_result = calculate_metrics(
-        true_labels_adjusted, pred_labels_adjusted, target_mode
-    )
+    metrics_result = calculate_metrics(true_labels_adjusted, pred_labels_adjusted)
     evaluated_results = [
         PaperEvaluated(y_true=y_true, y_pred=y_pred)
         for y_true, y_pred in zip(true_labels_adjusted, pred_labels_adjusted)

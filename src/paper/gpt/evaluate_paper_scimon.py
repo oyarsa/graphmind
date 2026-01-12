@@ -18,7 +18,6 @@ import typer
 
 from paper.baselines import scimon
 from paper.evaluation_metrics import (
-    TargetMode,
     calculate_paper_metrics,
     display_regular_negative_macro_metrics,
 )
@@ -399,14 +398,12 @@ def _handle_no_valid_evaluations(
 def _handle_ensemble_evaluations(
     paper: scimon.AnnotatedGraphResult,
     valid_evals: GPTResult[Sequence[GPTFull]],
-    target_mode: TargetMode,
 ) -> GPTResult[PaperResult]:
     """Handle evaluations with ensemble voting.
 
     Args:
         paper: The paper being evaluated.
         valid_evals: Valid evaluation results.
-        target_mode: Target mode for rating adjustment.
 
     Returns:
         GPTResult with ensemble PaperResult.
@@ -415,9 +412,9 @@ def _handle_ensemble_evaluations(
     if not valid_evals.result:
         raise ValueError("No valid evaluations for ensemble aggregation.")
 
-    # Aggregate evaluations using majority voting and TF-IDF
+    # Aggregate evaluations using median and TF-IDF
     aggregated_eval = valid_evals.map(aggregate_ensemble_evaluations)
-    fixed_label = fix_evaluated_rating(aggregated_eval.result, target_mode).label
+    fixed_label = fix_evaluated_rating(aggregated_eval.result).label
 
     return aggregated_eval.map(
         lambda s: PaperResult.from_s2peer(
@@ -452,7 +449,6 @@ async def _classify_paper(
         PaperResult with evaluation wrapped in PromptResult and GPTResult.
     """
     user_prompt_text = format_template(user_prompt, paper, demonstrations)
-    target_mode = TargetMode.INT
 
     # We want deterministic results if we're not doing multi-sampling
     if n_evaluations == 1:
@@ -470,7 +466,7 @@ async def _classify_paper(
         paper_result = _handle_no_valid_evaluations(paper, valid_evals.cost)
     else:
         # Handle evaluations with ensemble
-        paper_result = _handle_ensemble_evaluations(paper, valid_evals, target_mode)
+        paper_result = _handle_ensemble_evaluations(paper, valid_evals)
 
     return paper_result.map(
         lambda r: PromptResult(

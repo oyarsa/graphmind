@@ -26,7 +26,6 @@ import typer
 
 from paper import peerread as pr
 from paper.evaluation_metrics import (
-    TargetMode,
     calculate_paper_metrics,
     display_regular_negative_macro_metrics,
 )
@@ -485,7 +484,6 @@ def _handle_no_valid_evaluations(
 def _handle_ensemble_evaluations(
     paper: PaperWithRelatedSummary,
     valid_evals: GPTResult[Sequence[GPTStructuredRaw | GPTFull]],
-    target_mode: TargetMode,
 ) -> GPTResult[PaperResult]:
     """Handle evaluations with ensemble voting.
 
@@ -496,7 +494,6 @@ def _handle_ensemble_evaluations(
     Args:
         paper: The paper being evaluated.
         valid_evals: Valid evaluation results.
-        target_mode: Target mode for rating adjustment.
 
     Returns:
         GPTResult with ensemble PaperResult.
@@ -506,9 +503,9 @@ def _handle_ensemble_evaluations(
     if not structured_evaluations.result:
         raise ValueError("No valid evaluations for ensemble aggregation.")
 
-    # Aggregate evaluations using majority voting and TF-IDF
+    # Aggregate evaluations using median and TF-IDF
     aggregated_eval = structured_evaluations.map(aggregate_ensemble_evaluations)
-    fixed_label = fix_evaluated_rating(aggregated_eval.result, target_mode).label
+    fixed_label = fix_evaluated_rating(aggregated_eval.result).label
 
     return aggregated_eval.map(
         lambda s: PaperResult.from_s2peer(
@@ -598,7 +595,6 @@ async def evaluate_paper(
         eval_type: type[GPTStructuredRaw | GPTFull] = GPTStructuredRaw
     else:
         eval_type = GPTFull
-    target_mode = TargetMode.INT
 
     # We want deterministic results if we're not doing multi-sampling
     if n_evaluations == 1:
@@ -623,7 +619,7 @@ async def evaluate_paper(
         paper_result = _handle_no_valid_evaluations(paper, valid_evals.cost)
     else:
         # Handle evaluations with ensemble
-        paper_result = _handle_ensemble_evaluations(paper, valid_evals, target_mode)
+        paper_result = _handle_ensemble_evaluations(paper, valid_evals)
 
     return graph.lift(
         paper_result,

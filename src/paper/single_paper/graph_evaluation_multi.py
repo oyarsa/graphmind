@@ -21,7 +21,7 @@ from paper import embedding as emb
 from paper import gpt
 from paper import peerread as pr
 from paper import semantic_scholar as s2
-from paper.evaluation_metrics import TargetMode
+from paper.evaluation_metrics import RATING_LABELS
 from paper.gpt.evaluate_paper_graph import (
     GRAPH_EXTRACT_USER_PROMPTS,
     format_graph_template,
@@ -702,14 +702,12 @@ class GPTEvalMultiResult(Immutable):
             structured=structured,
         )
 
-    def fix_label(self, target_mode: TargetMode = TargetMode.INT) -> Self:
-        """Fix the label to be valid for the given target mode."""
-        if self.label in target_mode.labels():
+    def fix_label(self) -> Self:
+        """Fix the label to be valid (1-5 range)."""
+        if self.label in RATING_LABELS:
             return self
 
-        logger.warning(
-            "Invalid label: %d. Converting to %s", self.label, target_mode.labels()
-        )
+        logger.warning("Invalid label: %d. Converting to %s", self.label, RATING_LABELS)
         return replace_fields(self, label=1)
 
 
@@ -827,7 +825,7 @@ def construct_graph_result_multi(
     """
     result = PaperResultMulti.from_s2peer(
         paper=paper.paper.paper,
-        evaluation=evaluation.fix_label(TargetMode.INT),
+        evaluation=evaluation.fix_label(),
     )
     return GraphResultMulti.from_annotated(annotated=paper, graph=graph, result=result)
 

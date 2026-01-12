@@ -12,7 +12,7 @@ from typing import Annotated, Protocol, Self, cast
 from pydantic import Field, computed_field
 
 from paper import semantic_scholar as s2
-from paper.evaluation_metrics import TargetMode
+from paper.evaluation_metrics import RATING_LABELS
 from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.types import Immutable, PaperSource
 from paper.util.serde import load_data
@@ -397,30 +397,24 @@ class EvaluationResult(Protocol):
         ...
 
 
-def fix_evaluated_rating(
-    evaluated: EvaluationResult, target_mode: TargetMode = TargetMode.INT
-) -> GPTFull:
-    """Fix evaluated label if out of range by clamping to valid range.
-
-    If the rating is not valid for the mode, clamp it to the valid range.
+def fix_evaluated_rating(evaluated: EvaluationResult) -> GPTFull:
+    """Fix evaluated label if out of range by clamping to valid range (1-5).
 
     Args:
         evaluated: Evaluation result to be checked.
-        target_mode: Mode for label validation and conversion.
 
     Returns:
         Same input if valid label, or new object with clamped label.
     """
-    if evaluated.label in target_mode.labels():
+    if evaluated.label in RATING_LABELS:
         return GPTFull(label=evaluated.label, rationale=evaluated.rationale)
 
-    valid_labels = target_mode.labels()
-    clamped_label = max(min(evaluated.label, max(valid_labels)), min(valid_labels))
+    clamped_label = max(min(evaluated.label, max(RATING_LABELS)), min(RATING_LABELS))
     logger.warning(
         "Invalid label: %d. Clamping to %d (valid range: %s)",
         evaluated.label,
         clamped_label,
-        valid_labels,
+        RATING_LABELS,
     )
     return GPTFull(label=clamped_label, rationale=evaluated.rationale)
 

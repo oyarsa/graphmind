@@ -4,25 +4,17 @@ from __future__ import annotations
 
 import statistics
 from collections.abc import Iterable, Sequence
-from enum import Enum
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from paper.types import Immutable
 from paper.util import metrics, safediv
 
-
-class TargetMode(Enum):
-    """Target variable mode for evaluation. Uses 1-5 integer ratings."""
-
-    INT = "int"
-
-    def labels(self) -> list[int]:
-        """Labels represented by this mode (1-5 for integer ratings)."""
-        return list(range(1, 6))
+# Valid rating labels for novelty evaluation (1-5 scale)
+RATING_LABELS = list(range(1, 6))
 
 
 class Metrics(Immutable):
-    """Classification and regression metrics."""
+    """Classification and regression metrics for 1-5 ratings."""
 
     precision: float
     recall: float
@@ -36,35 +28,24 @@ class Metrics(Immutable):
     accuracy_within_1: float
     confusion: list[list[int]]
     confidence: float | None
-    mode: TargetMode
     cost: float | None
 
     def __str__(self) -> str:
-        """Display metrics, formatted according to mode.
+        """Display metrics for 1-5 ratings.
 
-        For INT mode (1-5 ratings), emphasises regression metrics (MAE, RMSE,
-        correlations, accuracy within ±1). For BIN mode, shows standard
-        classification metrics.
+        Emphasises regression metrics (MAE, RMSE, correlations, accuracy within ±1).
         """
-        if self.mode is TargetMode.INT:
-            pearson = f"{self.pearson:.4f}" if self.pearson is not None else "N/A"
-            spearman = f"{self.spearman:.4f}" if self.spearman is not None else "N/A"
-            out = [
-                f"MAE            : {self.mae:.4f}",
-                f"RMSE           : {self.rmse:.4f}",
-                f"Accuracy (±1)  : {self.accuracy_within_1:.4f}",
-                f"Pearson        : {pearson}",
-                f"Spearman       : {spearman}",
-                f"Exact Accuracy : {self.accuracy:.4f}",
-                f"Macro F1       : {self.f1:.4f}",
-            ]
-        else:
-            out = [
-                f"Precision  : {self.precision:.4f}",
-                f"Recall     : {self.recall:.4f}",
-                f"F1         : {self.f1:.4f}",
-                f"Accuracy   : {self.accuracy:.4f}",
-            ]
+        pearson = f"{self.pearson:.4f}" if self.pearson is not None else "N/A"
+        spearman = f"{self.spearman:.4f}" if self.spearman is not None else "N/A"
+        out = [
+            f"MAE            : {self.mae:.4f}",
+            f"RMSE           : {self.rmse:.4f}",
+            f"Accuracy (±1)  : {self.accuracy_within_1:.4f}",
+            f"Pearson        : {pearson}",
+            f"Spearman       : {spearman}",
+            f"Exact Accuracy : {self.accuracy:.4f}",
+            f"Macro F1       : {self.f1:.4f}",
+        ]
 
         if self.confidence is not None:
             out.append(f"Confidence : {self.confidence:.4f}")
@@ -73,9 +54,7 @@ class Metrics(Immutable):
 
     def display_confusion(self) -> str:
         """Display confusion matrix between classes."""
-        return (
-            f"Confusion Matrix:\n{format_confusion(self.confusion, self.mode.labels())}"
-        )
+        return f"Confusion Matrix:\n{format_confusion(self.confusion, RATING_LABELS)}"
 
 
 def format_confusion(
@@ -181,14 +160,14 @@ def calculate_negative_paper_metrics(papers: Sequence[Evaluated]) -> Metrics:
     return calculate_paper_metrics(papers)
 
 
-def display_metrics(metrics: Metrics, results: Sequence[Evaluated]) -> str:
+def display_metrics(metrics_obj: Metrics, results: Sequence[Evaluated]) -> str:
     """Display metrics and distribution statistics from the results.
 
     `evaluation_metrics.Metrics` are displayed directly. The distribution statistics are
     shown as the count and percentage of true/false for both gold and prediction.
 
     Args:
-        metrics: Metrics calculated using `evaluation_metrics.calculate_metrics`.
+        metrics_obj: Metrics calculated using `evaluation_metrics.calculate_metrics`.
         results: Paper evaluation results.
 
     Returns:
@@ -196,17 +175,15 @@ def display_metrics(metrics: Metrics, results: Sequence[Evaluated]) -> str:
     """
     output = [
         "Metrics:",
-        str(metrics),
-        metrics.display_confusion(),
+        str(metrics_obj),
+        metrics_obj.display_confusion(),
         "",
-        display_metrics_distribution(results, metrics.mode.labels()),
+        display_metrics_distribution(results),
     ]
     return "\n".join(output)
 
 
-def display_metrics_distribution(
-    results: Sequence[Evaluated], labels: Sequence[int]
-) -> str:
+def display_metrics_distribution(results: Sequence[Evaluated]) -> str:
     """Show distribution of true and predicted labels."""
     y_true = [r.y_true for r in results]
     y_pred = [r.y_pred for r in results]
@@ -215,7 +192,7 @@ def display_metrics_distribution(
 
     for values, section in [(y_true, "Gold"), (y_pred, "Predicted")]:
         output.append(f"\n{section} distribution:")
-        for label in labels:
+        for label in RATING_LABELS:
             count = sum(y == label for y in values)
             output.append(
                 f"  {label}: {count}/{len(values)} ({safediv(count, len(values)):.2%})"
@@ -236,7 +213,6 @@ def display_regular_negative_macro_metrics(items: Sequence[Evaluated]) -> str:
         "",
         regular.display_confusion(),
         "",
-        display_metrics_distribution(items, TargetMode.INT.labels()),
     ]
 
     return "\n".join(out)
@@ -307,31 +283,19 @@ class RatingStats(Immutable):
         ])
 
 
-def _guess_target_mode(y_pred: Sequence[int], y_true: Sequence[int]) -> TargetMode:
-    """Return the target mode (always INT for 1-5 ratings)."""
-    return TargetMode.INT
-
-
 def calculate_metrics(
     y_true: Sequence[int],
     y_pred: Sequence[int],
-    mode: TargetMode | None = None,
     average: Literal["binary", "macro", "micro"] | None = None,
     confidences: Sequence[float] | None = None,
     cost: float | None = None,
 ) -> Metrics:
-    """Calculate classification metrics for multi-class classification.
-
-    The labels can be either in 1-5 or binary (0/1). This is determined by the range of
-    values in the inputs.
+    """Calculate classification metrics for 1-5 integer ratings.
 
     Args:
-        y_true: Ground truth labels (values 1-5 or 0/1)
-        y_pred: Predicted labels (values 1-5 or 0/1)
-        mode: What mode are the labels, either BIN (0/1) or INT (1-5). If absent, we will
-            attempt to find the mode by checking the possible values.
-        average: What average mode to use for precision/recall/F1. If None, will use
-            'binary' when mode is binary and 'macro' for everything else.
+        y_true: Ground truth labels (values 1-5)
+        y_pred: Predicted labels (values 1-5)
+        average: What average mode to use for precision/recall/F1. Defaults to 'macro'.
         confidences: Novelty label confidence for each item, if present. If absent, the
             'confidence' output will be null.
         cost: Cost associated with the predictions, if any.
@@ -349,9 +313,6 @@ def calculate_metrics(
 
     if len(y_true) != len(y_pred):
         raise ValueError("Input sequences must have the same length")
-
-    if mode is None:
-        mode = _guess_target_mode(y_pred, y_true)
 
     if average is None:
         average = "macro"
@@ -374,8 +335,7 @@ def calculate_metrics(
             [float(y) for y in y_true], [float(y) for y in y_pred]
         ),
         accuracy_within_1=metrics.accuracy_within_k(y_true, y_pred, k=1),
-        confusion=metrics.confusion_matrix(y_true, y_pred, labels=mode.labels()),
-        mode=mode,
+        confusion=metrics.confusion_matrix(y_true, y_pred, labels=RATING_LABELS),
         confidence=confidence,
         cost=cost,
     )
