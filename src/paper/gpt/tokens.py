@@ -1,7 +1,8 @@
 """Estimates the number of input tokens for a given dataset.
 
 Supports the following modes:
-- evaluate_paper_full: full text-based paper evaluation
+- abstract: title and abstract-based paper evaluation
+- scimon: SciMON graph-based paper evaluation
 
 Todo:
 - extract_graph: extract entity graph from paper text
@@ -29,15 +30,17 @@ from paper.gpt.evaluate_paper import (
     Demonstration,
     format_demonstrations,
 )
-from paper.gpt.evaluate_paper_sans import SANS_CLASSIFY_USER_PROMPTS as SANS_PROMPTS
-from paper.gpt.evaluate_paper_sans import format_template as format_sans
 from paper.gpt.evaluate_paper_scimon import (
     SCIMON_CLASSIFY_USER_PROMPTS as SCIMON_PROMPTS,
 )
 from paper.gpt.evaluate_paper_scimon import format_template as format_scimon
+from paper.gpt.prompts import PromptTemplate, load_prompts
 from paper.gpt.run_gpt import MODEL_SYNONYMS, MODELS_ALLOWED
 from paper.util import cli, describe, display_params, setup_logging
 from paper.util.serde import load_data
+
+# Prompts for abstract-only evaluation (from evaluate_graph.toml)
+ABSTRACT_PROMPTS = load_prompts("evaluate_graph")
 
 logger = logging.getLogger(__name__)
 
@@ -52,19 +55,34 @@ app = typer.Typer(
 )
 
 
-@app.command(help="Estimate tokens for paper content evaluation", no_args_is_help=True)
-def sans(
+def _format_abstract_template(
+    prompt: PromptTemplate, paper: s2.PaperWithS2Refs, demonstrations: str
+) -> str:
+    """Format abstract-only prompt template with paper data."""
+    return prompt.template.format(
+        title=paper.title,
+        abstract=paper.abstract or "",
+        demonstrations=demonstrations,
+    )
+
+
+@app.command(
+    name="abstract",
+    help="Estimate tokens for title+abstract evaluation",
+    no_args_is_help=True,
+)
+def abstract(
     input_file: Annotated[
-        Path, typer.Argument(help="Input dataset JSON file (peerread_merged.json)")
+        Path, typer.Argument(help="Input dataset JSON file with S2 paper data")
     ],
     user_prompt_key: Annotated[
         str,
         typer.Option(
             "--user",
-            help="Input data prompt.",
-            click_type=cli.Choice(SANS_PROMPTS),
+            help="Input data prompt (e.g., 'sans').",
+            click_type=cli.Choice(ABSTRACT_PROMPTS),
         ),
-    ],
+    ] = "sans",
     demo_prompt_key: Annotated[
         str,
         typer.Option(
@@ -72,7 +90,7 @@ def sans(
             help="Demonstration prompt.",
             click_type=cli.Choice(DEMO_PROMPTS),
         ),
-    ],
+    ] = "abstract",
     demonstrations_file: Annotated[
         Path | None, typer.Option("--demo-file", help="Path to demonstrations file")
     ] = None,
@@ -86,7 +104,7 @@ def sans(
         ),
     ] = None,
 ) -> None:
-    """Estimate tokens for full text-based paper evaluation."""
+    """Estimate tokens for title and abstract-based paper evaluation."""
     logger.info(display_params())
 
     model = MODEL_SYNONYMS.get(model, model)
@@ -94,7 +112,7 @@ def sans(
         raise SystemExit(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
     input_data = load_data(input_file, s2.PaperWithS2Refs)[:limit]
-    input_prompt = SANS_PROMPTS[user_prompt_key]
+    input_prompt = ABSTRACT_PROMPTS[user_prompt_key]
 
     demonstration_data = (
         load_data(demonstrations_file, Demonstration) if demonstrations_file else []
@@ -102,7 +120,10 @@ def sans(
     demonstration_prompt = DEMO_PROMPTS[demo_prompt_key]
     demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
 
-    prompts = [format_sans(input_prompt, paper, demonstrations) for paper in input_data]
+    prompts = [
+        _format_abstract_template(input_prompt, paper, demonstrations)
+        for paper in input_data
+    ]
 
     tokeniser = tiktoken.encoding_for_model(model)
     tokens = [len(tokeniser.encode(prompt)) for prompt in prompts]
