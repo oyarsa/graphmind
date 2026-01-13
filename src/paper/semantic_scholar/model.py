@@ -9,7 +9,7 @@ from typing import Annotated, Self, override
 from pydantic import Field, computed_field, field_validator
 
 from paper import peerread as pr
-from paper.peerread.model import clean_maintext
+from paper.peerread.model import clean_maintext, scale_recommendation
 from paper.types import Immutable
 from paper.util import fuzzy_partial_ratio, hashstr
 from paper.util.serde import Record
@@ -222,17 +222,17 @@ class PaperWithS2Refs(Record):
     @computed_field
     @property
     def rating(self) -> int:
-        """Recommendation rating from main review, scaled to 1-5.
+        """Recommendation rating from main review, scaled to 1-4.
 
         Uses the 'recommendation' field from other_ratings if available,
         otherwise falls back to the originality rating. Recommendation is
-        on a 1-9 scale, so we scale it to 1-5: (rec + 1) // 2.
+        on a 1-9 scale, scaled using non-linear binning via scale_recommendation().
         """
         if self.review is None:
             return self.originality_rating
         rec = self.review.other_ratings.get("recommendation")
         if rec is not None:
-            return (rec + 1) // 2
+            return scale_recommendation(rec)
         return self.originality_rating
 
     @computed_field

@@ -18,6 +18,24 @@ if TYPE_CHECKING:
     from paper.semantic_scholar.model import PaperFromPeerRead
 
 
+def scale_recommendation(rec: int) -> int:
+    """Scale PeerRead recommendation (1-9) to rating (1-4).
+
+    Uses non-linear binning to match ORC's rating distribution:
+    - 1 → 1 (strong reject)
+    - 2-5 → 2 (reject to borderline)
+    - 6-7 → 3 (weak accept)
+    - 8-9 → 4 (accept)
+    """
+    if rec <= 1:
+        return 1
+    if 2 <= rec <= 5:
+        return 2
+    if 6 <= rec <= 7:
+        return 3
+    return 4
+
+
 class PaperSection(Immutable):
     """Section of a PeerRead full paper with its heading and context text."""
 
@@ -163,17 +181,17 @@ class Paper(Record):
     @computed_field
     @property
     def rating(self) -> int:
-        """Recommendation rating from main review, scaled to 1-5.
+        """Recommendation rating from main review, scaled to 1-4.
 
         Uses the 'recommendation' field from other_ratings if available,
         otherwise falls back to the originality rating. Recommendation is
-        on a 1-9 scale, so we scale it to 1-5: (rec + 1) // 2.
+        on a 1-9 scale, scaled using non-linear binning via scale_recommendation().
         """
         if self.review is None:
             return 0
         rec = self.review.other_ratings.get("recommendation")
         if rec is not None:
-            return (rec + 1) // 2
+            return scale_recommendation(rec)
         return self.originality_rating
 
     @computed_field

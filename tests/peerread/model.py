@@ -1,11 +1,14 @@
 """Test PeerRead module, including paper content transformation."""
 
+import pytest
+
 from paper.peerread.model import (
     clean_maintext,
     compress_whitespace,
     normalise_paragraphs,
     remove_line_numbers,
     remove_page_numbers,
+    scale_recommendation,
 )
 
 
@@ -49,3 +52,26 @@ Section with numbers
 (Citation 2020)"""
 
     assert clean_maintext(input_text) == expected
+
+
+@pytest.mark.parametrize(
+    ("recommendation", "expected"),
+    [
+        # Bin 1: strong reject (rec=1)
+        (1, 1),
+        # Bin 2: reject to borderline (rec=2-5)
+        (2, 2),
+        (3, 2),
+        (4, 2),
+        (5, 2),
+        # Bin 3: weak accept (rec=6-7)
+        (6, 3),
+        (7, 3),
+        # Bin 4: accept (rec=8-9)
+        (8, 4),
+        (9, 4),
+    ],
+)
+def test_scale_recommendation(recommendation: int, expected: int) -> None:
+    """Test non-linear binning of PeerRead recommendation (1-9) to rating (1-4)."""
+    assert scale_recommendation(recommendation) == expected
