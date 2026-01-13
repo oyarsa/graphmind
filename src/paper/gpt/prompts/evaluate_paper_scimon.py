@@ -1,31 +1,31 @@
 """Prompts for evaluating paper novelty using SciMON graph-extracted terms."""
 
 from paper.gpt.prompts import PromptTemplate
+from paper.gpt.prompts._shared import EVAL_SCALE
 
 SIMPLE = PromptTemplate(
     name="simple",
-    type_name="",
-    system="",
-    template="""
+    type_name="GPTFull",
+    system="""\
+Given inspiration sentences from related papers, give a novelty rating to a paper \
+submitted to a high-quality scientific conference on a 1-5 scale.""",
+    template=f"""
 The following data contains information about a scientific paper. It includes the \
 paper's title and abstract, and some inspiration sentences from related papers. \
-These sentences are meant to aid you in understand whether the ideas in the paper are \
-novel, as papers without novel ideas should be rejected.
+These sentences are meant to aid you in understanding whether the ideas in the paper \
+are novel.
 
-Based on this content, approve or reject the paper. First, generate the rationale for \
-your decision, then give the final decision. Keep in mind that this paper was submitted \
-to a very high-quality conference, so make sure to only approve papers that are of \
-outstanding quality.
+{EVAL_SCALE}
 
 #####
-{demonstrations}
+{{demonstrations}}
 
 -Data-
-Title: {title}
-Abstract: {abstract}
+Title: {{title}}
+Abstract: {{abstract}}
 
 Associated terms:
-{terms}
+{{terms}}
 
 #####
 Output:

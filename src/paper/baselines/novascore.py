@@ -326,11 +326,27 @@ def _find_best_match(result: SearchResult, threshold: float) -> SearchMatch | No
     return None
 
 
+def _score_to_rating(score: float) -> int:
+    """Map novascore (0.0-1.0) to rating (1-5).
+
+    Uses equal-width bins: 0.0-0.2 → 1, 0.2-0.4 → 2, etc.
+    """
+    if score >= 0.8:
+        return 5
+    if score >= 0.6:
+        return 4
+    if score >= 0.4:
+        return 3
+    if score >= 0.2:
+        return 2
+    return 1
+
+
 class PaperEvaluated(Immutable):
     """Result of evaluating a paper's novelty using the NovaSCORE method.
 
-    This class stores the original paper, its calculated novelty score, and the binary
-    novelty label derived from thresholding the score.
+    This class stores the original paper, its calculated novelty score, and the
+    predicted rating (1-5) derived from the score.
     """
 
     paper: gpt.PaperWithACUs[s2.PaperWithS2Refs]
@@ -338,18 +354,18 @@ class PaperEvaluated(Immutable):
     novascore: float
     """Score derived from the NovaSCORE method (0.0 to 1.0)."""
     novalabel: int
-    """Binary version of the score given a threshold (0 or 1)."""
+    """Predicted rating (1-5) derived from the novascore."""
 
     @computed_field
     @property
     def y_true(self) -> int:
-        """Gold label for novelty (binary)."""
-        return self.paper.paper.label
+        """Gold rating for novelty (1-5)."""
+        return self.paper.paper.rating
 
     @computed_field
     @property
     def y_pred(self) -> int:
-        """Predicted label for novelty (binary)."""
+        """Predicted rating for novelty (1-5)."""
         return self.novalabel
 
 
@@ -400,7 +416,7 @@ def run_evaluation(
             PaperEvaluated(
                 paper=paper,
                 novascore=score,
-                novalabel=int(score >= config.score_threshold),
+                novalabel=_score_to_rating(score),
             )
         )
 

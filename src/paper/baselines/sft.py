@@ -392,7 +392,7 @@ def load_dataset(
 def _fix_rating(rating: int, label_mode: LabelMode) -> int:
     """Fix rating for model compatibility.
 
-    If `label_mode` is `original`, convert 1-4 to 0-3.
+    If `label_mode` is `original`, convert 1-5 to 0-4.
     Else (binary), ratings >= 3 become 1, and the rest 0.
     """
     if label_mode == "original":
