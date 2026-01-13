@@ -82,6 +82,9 @@ uv run paper gpt eval graph run \
 
 Add `--sources citations` or `--sources semantic` for source-filtered experiments.
 
+**IMPORTANT**: When running multiple experiments in parallel, limit to a maximum of 3
+concurrent experiments to avoid API rate limits.
+
 Expected cost: ~$0.90-1.00 per experiment.
 
 ## External Dependencies
