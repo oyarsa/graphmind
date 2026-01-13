@@ -186,7 +186,7 @@ def run(
             help="Number of evaluation rounds per paper for ensemble voting.",
             min=1,
         ),
-    ] = 10,
+    ] = 1,
     eval_temperature: Annotated[
         float,
         typer.Option(
@@ -195,7 +195,7 @@ def run(
             min=0.0,
             max=2.0,
         ),
-    ] = 0.8,
+    ] = 0.0,
     batch_size: Annotated[
         int, typer.Option(help="Number of requests per batch.")
     ] = 100,
@@ -334,7 +334,7 @@ def experiment(
             min=0.0,
             max=2.0,
         ),
-    ] = 0.8,
+    ] = 0.0,
     batch_size: Annotated[
         int, typer.Option(help="Number of requests per batch.")
     ] = 100,
