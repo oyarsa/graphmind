@@ -34,6 +34,56 @@ Create a `.env` file from `.env.example` with the following:
 
 The main command to use to check if the code is correct is `just lint`.
 
+## Validating Prompt Changes
+After modifying prompt templates in `src/paper/gpt/prompts/`, run test experiments with
+`--limit 1` to verify prompts are building correctly before running full experiments:
+
+```bash
+# Test different prompt configurations
+uv run paper gpt eval graph run \
+  --papers output/venus5/split/dev_100_balanced.json.zst \
+  --output /tmp/claude/test_<config_name> \
+  --model gpt-4o-mini --limit 1 \
+  --eval-prompt <prompt_name> \
+  --demos orc_balanced_4 --seed 42 --n-evaluations 1
+```
+
+Common prompts to test:
+- `sans` - Abstract only (baseline, ~1300 tokens)
+- `related` - Related papers without graph (~3800 tokens)
+- `norel-graph` - Graph without related papers
+- `full-graph-structured` - Full pipeline (~30000 tokens)
+
+For ablation experiments with source filtering, add `--sources citations` or
+`--sources semantic`.
+
+## Ablation Experiments
+Standard ablation study configurations for measuring component contributions on the
+ORC 100-item balanced dataset:
+
+| Name           | Eval Prompt             | Sources   | Description                    |
+|----------------|-------------------------|-----------|--------------------------------|
+| Sans           | `sans`                  | N/A       | Abstract only (baseline)       |
+| Related only   | `related`               | both      | Related papers without graph   |
+| Graph only     | `norel-graph`           | N/A       | Graph without related papers   |
+| Citations only | `full-graph-structured` | citations | Full pipeline, citations only  |
+| Semantic only  | `full-graph-structured` | semantic  | Full pipeline, semantic only   |
+| Full           | `full-graph-structured` | both      | Full pipeline (baseline)       |
+
+Base command for running ablation experiments:
+```bash
+uv run paper gpt eval graph run \
+  --papers output/venus5/split/dev_100_balanced.json.zst \
+  --output output/eval_orc/ablation_<name> \
+  --model gpt-4o-mini --limit 100 \
+  --eval-prompt <prompt> \
+  --demos orc_balanced_4 --seed 42 --n-evaluations 1
+```
+
+Add `--sources citations` or `--sources semantic` for source-filtered experiments.
+
+Expected cost: ~$0.90-1.00 per experiment.
+
 ## External Dependencies
 - **pandoc** - Required for LaTeX parsing in ORC dataset processing (install from https://pandoc.org/installing.html)
 - **PyTorch** - ML framework used by baseline models (installed via uv, CUDA support on non-macOS systems)
@@ -76,7 +126,8 @@ Use `uv run paper [subcommand] --help` for detailed options.
 ## Data Formats
 - **JSON files**: Primary data format, with optional compression (`.json.gz`, `.json.zst`)
 - **JSONL**: Used for streaming large datasets
-- **TOML**: Configuration files and prompts (`src/paper/gpt/prompts/*.toml`)
+- **TOML**: Configuration files
+- **Python modules**: Prompt templates (`src/paper/gpt/prompts/*.py`)
 - **Demonstrations**: JSON format in `src/paper/gpt/demonstrations/`
 - **Config**: Baseline configurations in `src/paper/baselines/sft_config/`
 
