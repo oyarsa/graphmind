@@ -70,14 +70,15 @@ ORC 100-item balanced dataset:
 | Semantic only  | `full-graph-structured` | semantic  | Full pipeline, semantic only   |
 | Full           | `full-graph-structured` | both      | Full pipeline (baseline)       |
 
-Base command for running ablation experiments:
+Base command for running ablation experiments (use `experiment` with `--runs 5` for
+stable statistics):
 ```bash
-uv run paper gpt eval graph run \
+uv run paper gpt eval graph experiment \
   --papers output/venus5/split/dev_100_balanced.json.zst \
   --output output/eval_orc/ablation_<name> \
-  --model gpt-4o-mini --limit 100 \
+  --model gpt-4o-mini --limit 100 --runs 5 \
   --eval-prompt <prompt> \
-  --demos orc_balanced_4 --seed 42 --n-evaluations 1
+  --demos orc_balanced_4 --seed 42
 ```
 
 Add `--sources citations` or `--sources semantic` for source-filtered experiments.
@@ -85,7 +86,7 @@ Add `--sources citations` or `--sources semantic` for source-filtered experiment
 **IMPORTANT**: When running multiple experiments in parallel, limit to a maximum of 3
 concurrent experiments to avoid API rate limits.
 
-Expected cost: ~$0.90-1.00 per experiment.
+Expected cost: ~$0.90-1.00 per run × 5 runs = ~$4.50-5.00 per experiment.
 
 ## External Dependencies
 - **pandoc** - Required for LaTeX parsing in ORC dataset processing (install from https://pandoc.org/installing.html)
