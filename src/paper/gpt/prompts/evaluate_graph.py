@@ -3,6 +3,7 @@
 from paper.gpt.prompts import PromptTemplate
 from paper.gpt.prompts._shared import (
     EVAL_SCALE,
+    EVAL_SCALE_BALANCED,
     EVAL_SCALE_STRUCTURED,
     GRAPH_INTRO,
     NOVELTY_5,
@@ -440,6 +441,46 @@ Contrasting papers:
 """,
 )
 
+FULL_GRAPH_BALANCED = PromptTemplate(
+    name="full-graph-balanced",
+    type_name="GPTStructured",
+    system="""\
+Given the following target paper, a summary and a selection of related papers separated \
+by whether they're supporting or contrasting the main paper, provide a structured \
+novelty evaluation.
+""",
+    template=f"""
+The following data contains information about a scientific paper. It includes the \
+main paper's title, a summary of its key points and some related papers.
+
+{GRAPH_INTRO}
+
+{RELATED_INTRO}
+
+{RELATED_WITH_IDS}
+
+{EVAL_SCALE_BALANCED}
+
+#####
+{{demonstrations}}
+
+-Data-
+Title: {{title}}
+Abstract: {{abstract}}
+
+Paper summary:
+{{graph}}
+
+Supporting papers:
+{{positive}}
+
+Contrasting papers:
+{{negative}}
+
+#####
+""",
+)
+
 DEBUG_RANDOM = PromptTemplate(
     name="debug-random",
     type_name="GPTFull",
@@ -535,6 +576,7 @@ GRAPH_EVAL_USER_PROMPTS = {
     "attribution-graph": ATTRIBUTION_GRAPH,
     "full-graph-basic": FULL_GRAPH_BASIC,
     "full-graph-structured": FULL_GRAPH_STRUCTURED,
+    "full-graph-balanced": FULL_GRAPH_BALANCED,
     "debug-random": DEBUG_RANDOM,
     "simple-basic": SIMPLE_BASIC,
 }

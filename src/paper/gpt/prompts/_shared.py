@@ -64,6 +64,26 @@ When in doubt, tend towards the not novel label.
 
 {RATIONALE_STRUCTURED}"""
 
+# Balanced version without conservative bias
+EVAL_SCALE_BALANCED = f"""\
+Evaluate the paper's novelty based on its contributions compared to the related work.
+
+IMPORTANT: The existence of related papers does NOT mean the paper lacks novelty. \
+Related papers provide context, but novelty depends on whether this paper makes \
+meaningful new contributions beyond what exists. A paper can be highly novel even \
+if similar topics have been explored, as long as it offers significant new insights, \
+methods, or perspectives.
+
+Consider:
+- Does the paper introduce new ideas, methods, or perspectives not present in related work?
+- Does it solve problems in a substantially different or better way?
+- Does it open new research directions or provide significant new insights?
+
+Rate the paper fairly based on its actual contributions:
+{NOVELTY_5}
+
+{RATIONALE_STRUCTURED}"""
+
 # Context descriptions
 GRAPH_INTRO = """\
 The paper summary describes the most important information about the paper and its \
