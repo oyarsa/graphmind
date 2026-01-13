@@ -44,6 +44,11 @@ from paper.gpt.experiment import (
     run_experiment,
 )
 from paper.gpt.extract_graph import GraphResult
+from paper.gpt.graph_cache import (
+    compute_cache_key,
+    load_cached_graphs,
+    save_graphs_to_cache,
+)
 from paper.gpt.graph_types import get_graph_type
 from paper.gpt.model import (
     RATIONALE_ERROR,
@@ -74,6 +79,7 @@ from paper.util import (
     cli,
     dotenv,
     get_params,
+    hashstr,
     render_params,
     sample,
     seqcat,
@@ -197,6 +203,19 @@ def run(
         list[PaperSource],
         typer.Option(help="What sources to use for related papers."),
     ] = [PaperSource.CITATIONS, PaperSource.SEMANTIC],  # noqa: B006
+    cache_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Directory for graph extraction cache. Use --no-cache to disable."
+        ),
+    ] = Path("output/.cache/graphs"),
+    no_cache: Annotated[
+        bool,
+        typer.Option(
+            "--no-cache",
+            help="Force graph regeneration, ignoring any existing cache.",
+        ),
+    ] = False,
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers."""
     asyncio.run(
@@ -218,6 +237,8 @@ def run(
             eval_temperature,
             batch_size,
             set(sources),
+            cache_dir,
+            no_cache,
         )
     )
 
@@ -321,6 +342,19 @@ def experiment(
         list[PaperSource],
         typer.Option(help="What sources to use for related papers."),
     ] = [PaperSource.CITATIONS, PaperSource.SEMANTIC],  # noqa: B006
+    cache_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Directory for graph extraction cache. Use --no-cache to disable."
+        ),
+    ] = Path("output/.cache/graphs"),
+    no_cache: Annotated[
+        bool,
+        typer.Option(
+            "--no-cache",
+            help="Force graph regeneration, ignoring any existing cache.",
+        ),
+    ] = False,
 ) -> None:
     """Run graph evaluation experiment multiple times and aggregate metrics."""
     cmd = build_eval_command(
@@ -339,6 +373,8 @@ def experiment(
         linearisation=linearisation.value,
         sources=[s.value for s in sources],
         temperature=temperature,
+        cache_dir=cache_dir,
+        no_cache=no_cache,
     )
 
     results = run_experiment(cmd, output_dir, runs)
@@ -349,6 +385,40 @@ def experiment(
 def main() -> None:
     """Set up logging."""
     setup_logging()
+
+
+def _update_graph_cache(
+    cache_path: Path,
+    cached_graphs: dict[str, Graph],
+    new_graphs: dict[str, Graph],
+    graph_prompt_key: str,
+    model: str,
+    paper_file: Path,
+    seed: int,
+    temperature: float,
+) -> None:
+    """Update the graph cache with newly extracted graphs.
+
+    Args:
+        cache_path: Path to the cache file.
+        cached_graphs: Existing cached graphs.
+        graph_prompt_key: Key of the graph extraction prompt used.
+        model: Model used for graph extraction.
+        new_graphs: Newly extracted graphs to add to the cache.
+        paper_file: Path to the input paper file.
+        seed: Random seed used.
+        temperature: Temperature used for graph extraction.
+    """
+    if new_graphs:
+        all_graphs = cached_graphs | new_graphs
+        cache_params = {
+            "model": model,
+            "temperature": str(temperature),
+            "graph_prompt_key": graph_prompt_key,
+            "seed": str(seed),
+            "input_file": str(paper_file),
+        }
+        save_graphs_to_cache(cache_path, all_graphs, cache_params)
 
 
 async def evaluate_papers(
@@ -369,6 +439,8 @@ async def evaluate_papers(
     eval_temperature: float,
     batch_size: int,
     sources: set[PaperSource],
+    cache_dir: Path,
+    no_cache: bool,
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers.
 
@@ -402,6 +474,8 @@ async def evaluate_papers(
             randomness in the LLM responses.
         batch_size: Number of items per batch.
         sources: What kinds of related paper sources to use.
+        cache_dir: Directory for graph extraction cache.
+        no_cache: If True, ignore cache and regenerate graphs.
 
     Returns:
         None. The output is saved to `output_dir`.
@@ -442,12 +516,26 @@ async def evaluate_papers(
 
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
+    # Graph extraction cache
+    cached_graphs: dict[str, Graph] = {}
+    cache_key = compute_cache_key(
+        model=model,
+        temperature=temperature,
+        graph_prompt_key=graph_prompt_key,
+        seed=seed,
+        input_file=paper_file,
+    )
+    cache_path = cache_dir / cache_key
+
+    if not no_cache and (loaded_graphs := load_cached_graphs(cache_path)):
+        cached_graphs = dict(loaded_graphs)
+
     output_intermediate_file, papers_remaining = init_remaining_items(
         GraphResult, output_dir, continue_papers_file, papers, continue_
     )
 
     with Timer() as timer:
-        results = await _evaluate_papers(
+        results, new_graphs = await _evaluate_papers(
             client,
             eval_prompt,
             graph_prompt,
@@ -459,7 +547,20 @@ async def evaluate_papers(
             eval_temperature,
             batch_size,
             sources,
+            cached_graphs,
         )
+
+    # Save newly extracted graphs to cache
+    _update_graph_cache(
+        cache_path,
+        cached_graphs,
+        new_graphs,
+        graph_prompt_key,
+        model,
+        paper_file,
+        seed,
+        temperature,
+    )
 
     logger.info(f"Time elapsed: {timer.human}")
     logger.info(f"Total cost: ${results.cost:.10f}")
@@ -499,7 +600,8 @@ async def _evaluate_papers(
     eval_temperature: float,
     batch_size: int,
     sources: set[PaperSource],
-) -> GPTResult[Sequence[PromptResult[GraphResult]]]:
+    cached_graphs: dict[str, Graph],
+) -> tuple[GPTResult[Sequence[PromptResult[GraphResult]]], dict[str, Graph]]:
     """Evaluate paper novelty using a paper graph and PETER-related papers.
 
     Args:
@@ -515,15 +617,17 @@ async def _evaluate_papers(
         eval_temperature: Temperature for evaluation rounds.
         batch_size: Number of items per batch.
         sources: What kinds of related paper sources to use.
+        cached_graphs: Dictionary of paper ID to cached Graph objects.
 
     Returns:
-        List of evaluated papers and their prompts wrapped in a GPTResult.
+        Tuple of (evaluation results, newly extracted graphs).
     """
+    new_graphs: dict[str, Graph] = {}
 
     async def evaluate(
         paper: PaperWithRelatedSummary,
     ) -> GPTResult[PromptResult[GraphResult]]:
-        result = await evaluate_paper(
+        result, graph = await evaluate_paper(
             client,
             paper,
             eval_prompt,
@@ -533,13 +637,18 @@ async def _evaluate_papers(
             n_evaluations,
             eval_temperature,
             sources,
+            cached_graphs,
         )
+        # Track newly extracted graphs (not from cache)
+        if graph and not graph.is_empty() and graph.id not in cached_graphs:
+            new_graphs[graph.id] = graph
         await append_intermediate_result_async(output_intermediate_file, result.result)
         return result
 
-    return gpt_sequence(
+    results = gpt_sequence(
         await batch_map_with_progress(evaluate, papers, batch_size, name="papers")
     )
+    return results, new_graphs
 
 
 async def _run_evaluation_rounds(
@@ -646,6 +755,7 @@ async def _extract_graph(
     eval_prompt: PromptTemplate,
     graph_prompt: PromptTemplate,
     paper: PaperWithRelatedSummary,
+    cached_graphs: dict[str, Graph],
 ) -> GPTResult[Graph]:
     """Extract graph from paper if needed by the evaluation prompt.
 
@@ -654,11 +764,18 @@ async def _extract_graph(
         eval_prompt: Evaluation prompt template to check if graph is needed.
         graph_prompt: Graph prompt template for extraction.
         paper: Paper with related papers and summaries.
+        cached_graphs: Dictionary of paper ID to cached Graph objects.
 
     Returns:
         GPTResult containing the extracted graph or empty graph.
     """
     if "graph" in eval_prompt.name:
+        # Check cache first using paper's title+abstract hash
+        paper_id = hashstr(paper.title + paper.abstract)
+        if paper_id in cached_graphs:
+            logger.debug("Using cached graph for '%s'", paper.title[:50])
+            return gpt_unit(cached_graphs[paper_id])
+
         graph_prompt_text = format_graph_template(graph_prompt, paper.paper)
         graph_system_prompt = graph_prompt.system
         graph_result = await client.run(
@@ -689,7 +806,8 @@ async def evaluate_paper(
     n_evaluations: int,
     eval_temperature: float,
     sources: set[PaperSource],
-) -> GPTResult[PromptResult[GraphResult]]:
+    cached_graphs: dict[str, Graph],
+) -> tuple[GPTResult[PromptResult[GraphResult]], Graph]:
     """Evaluate a single paper's novelty using graph extraction and related papers.
 
     Args:
@@ -702,12 +820,15 @@ async def evaluate_paper(
         n_evaluations: Number of evaluation rounds per paper for ensemble voting.
         eval_temperature: Temperature for evaluation rounds.
         sources: Which related paper sources to include.
+        cached_graphs: Dictionary of paper ID to cached Graph objects.
 
     Returns:
-        GraphResult with evaluation wrapped in PromptResult and GPTResult.
+        Tuple of (GraphResult with evaluation wrapped in PromptResult and GPTResult, Graph).
     """
     # Extract graph if needed
-    graph = await _extract_graph(client, eval_prompt, graph_prompt, paper)
+    graph = await _extract_graph(
+        client, eval_prompt, graph_prompt, paper, cached_graphs
+    )
 
     # Prepare evaluation prompt
     eval_prompt_text = format_eval_template(
@@ -744,7 +865,7 @@ async def evaluate_paper(
         # Handle evaluations with ensemble
         paper_result = _handle_ensemble_evaluations(paper, valid_evals)
 
-    return graph.lift(
+    result = graph.lift(
         paper_result,
         lambda g, r: PromptResult(
             item=GraphResult.from_annotated(
@@ -755,6 +876,7 @@ async def evaluate_paper(
             prompt=eval_prompt.with_user(eval_prompt_text),
         ),
     )
+    return result, graph.result
 
 
 def format_graph_template(prompt: PromptTemplate, paper: PeerReadAnnotated) -> str:

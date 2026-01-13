@@ -316,6 +316,8 @@ def build_eval_command(
     linearisation: str | None = None,
     sources: list[str] | None = None,
     temperature: float | None = None,
+    cache_dir: Path | None = None,
+    no_cache: bool = False,
     # Scimon-specific
     user_prompt: str | None = None,
 ) -> list[str]:
@@ -337,6 +339,8 @@ def build_eval_command(
         linearisation: Linearisation method (graph only).
         sources: Related paper sources (graph only).
         temperature: Model temperature (graph only).
+        cache_dir: Directory for graph extraction cache (graph only).
+        no_cache: Force graph regeneration (graph only).
         user_prompt: User prompt (scimon only).
 
     Returns:
@@ -383,6 +387,10 @@ def build_eval_command(
                 cmd.extend(["--sources", source])
         if temperature is not None:
             cmd.extend(["--temperature", str(temperature)])
+        if cache_dir is not None:
+            cmd.extend(["--cache-dir", str(cache_dir)])
+        if no_cache:
+            cmd.append("--no-cache")
 
     elif eval_type == "scimon":
         if user_prompt:
