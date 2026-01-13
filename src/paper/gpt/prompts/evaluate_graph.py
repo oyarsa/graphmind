@@ -404,7 +404,7 @@ FULL_GRAPH_STRUCTURED = PromptTemplate(
     system="""\
 Given the following target paper, a summary and a selection of related papers separated \
 by whether they're supporting or contrasting the main paper, provide a structured \
-novelty evaluation.
+novelty evaluation on a 1-5 scale.
 """,
     template=f"""
 The following data contains information about a scientific paper. It includes the \
