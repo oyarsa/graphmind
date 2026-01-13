@@ -1,9 +1,13 @@
+"""Prompts for extracting atomic content units (ACUs) from papers."""
+
+from paper.gpt.prompts import PromptTemplate
+
 # This is the original prompt from the original paper, but it performs badly with our
 # implementation. This is likely because they were using custom demonstrations but did
 # not provide them, and their code is unavailable at this time.
-[[prompts]]
-name = "simple"
-prompt = """
+SIMPLE = PromptTemplate(
+    name="simple",
+    template="""\
 The following data contains information about a scientific paper. It includes the \
 paper's title and abstract. Based on this, your task is to extract all atomic content \
 units from the paper.
@@ -39,16 +43,17 @@ Example ACUs:
 - Enzon Inc. has about 10.8 million common shares outstanding.
 
 -Data-
-Title: {title}
-Abstract: {abstract}
+Title: {{title}}
+Abstract: {{abstract}}
 
 #####
 Output:
-"""
+""",
+)
 
-[[prompts]]
-name = "sci"
-prompt = """
+SCI = PromptTemplate(
+    name="sci",
+    template="""\
 Extract atomic content units (ACUs) from this scientific paper. An ACU represents a \
 single, indivisible fact or claim from the paper.
 
@@ -125,9 +130,15 @@ novel SGLT2 inhibitor on HbA1c levels.
 - Three patients (4.7%) in the placebo group reported mild gastrointestinal side effects.
 
 -Data-
-Title: {title}
-Abstract: {abstract}
+Title: {{title}}
+Abstract: {{abstract}}
 
 #####
 Output:
-"""
+""",
+)
+
+ACU_EXTRACTION_USER_PROMPTS = {
+    "simple": SIMPLE,
+    "sci": SCI,
+}

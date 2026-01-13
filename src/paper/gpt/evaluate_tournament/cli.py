@@ -36,7 +36,8 @@ from paper.gpt.evaluate_tournament.tournament import (
     tournament_summary,
 )
 from paper.gpt.model import PromptResult
-from paper.gpt.prompts import load_prompts, print_prompts
+from paper.gpt.prompts import print_prompts
+from paper.gpt.prompts.pairwise_comparison import PAIRWISE_COMPARISON_PROMPTS
 from paper.gpt.run_gpt import LLMClient
 from paper.util import (
     Timer,
@@ -49,9 +50,6 @@ from paper.util import (
 from paper.util.serde import save_data
 
 logger = logging.getLogger(__name__)
-
-# Load prompts for pairwise comparison
-PAIRWISE_COMPARISON_PROMPTS = load_prompts("pairwise_comparison")
 
 
 class RankingAlgorithm(StrEnum):

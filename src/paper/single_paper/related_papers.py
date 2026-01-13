@@ -37,10 +37,10 @@ from paper import gpt
 from paper import peerread as pr
 from paper import related_papers as rp
 from paper import semantic_scholar as s2
+from paper.gpt.prompts.summarise_related_peter import PETER_SUMMARISE_USER_PROMPTS
 from paper.gpt.run_gpt import GPTResult, LLMClient, gpt_sequence
 from paper.gpt.summarise_related_peter import (
     PETER_SUMMARISE_SYSTEM_PROMPT,
-    PETER_SUMMARISE_USER_PROMPTS,
     GPTRelatedSummary,
     format_template,
 )

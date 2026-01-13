@@ -1,6 +1,10 @@
-[[prompts]]
-name = "positive"
-prompt = """
+"""Prompts for summarising related papers in PETER-style format."""
+
+from paper.gpt.prompts import PromptTemplate
+
+POSITIVE = PromptTemplate(
+    name="positive",
+    template="""\
 The following data contains information from a **Main Paper** and a **Related Paper**. \
 The Related Paper has a positive relation to the Main Paper. It contains supporting \
 information that strengthens the main paper claims.
@@ -12,21 +16,22 @@ Main Paper. Your summary should be short and concise, comprising a few sentences
 -Data-
 # Main paper
 
-**Title**: {title_main}
-**Abstract**: {abstract_main}
+**Title**: {{title_main}}
+**Abstract**: {{abstract_main}}
 
 # Related paper
 
-**Title**: {title_related}
-**Abstract**: {abstract_related}
+**Title**: {{title_related}}
+**Abstract**: {{abstract_related}}
 
 #####
 Output:
-"""
+""",
+)
 
-[[prompts]]
-name = "negative"
-prompt = """
+NEGATIVE = PromptTemplate(
+    name="negative",
+    template="""\
 The following data contains information from a **Main Paper** and a **Related Paper**. \
 The Related Paper has a negative relation to the Main Paper. It is used to contrast the \
 claims made by the Main Paper.
@@ -39,14 +44,20 @@ only.
 -Data-
 # Main paper
 
-**Title**: {title_main}
-**Abstract**: {abstract_main}
+**Title**: {{title_main}}
+**Abstract**: {{abstract_main}}
 
 # Related paper
 
-**Title**: {title_related}
-**Abstract**: {abstract_related}
+**Title**: {{title_related}}
+**Abstract**: {{abstract_related}}
 
 #####
 Output:
-"""
+""",
+)
+
+PETER_SUMMARISE_USER_PROMPTS = {
+    "positive": POSITIVE,
+    "negative": NEGATIVE,
+}

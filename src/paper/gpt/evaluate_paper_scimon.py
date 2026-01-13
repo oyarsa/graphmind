@@ -23,7 +23,6 @@ from paper.evaluation_metrics import (
 )
 from paper.gpt.ensemble import aggregate_ensemble_evaluations
 from paper.gpt.evaluate_paper import (
-    EVALUATE_DEMONSTRATION_PROMPTS,
     GPTFull,
     GPTStructured,
     PaperResult,
@@ -36,7 +35,9 @@ from paper.gpt.experiment import (
     run_experiment,
 )
 from paper.gpt.model import Prompt, PromptResult
-from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
+from paper.gpt.prompts import PromptTemplate, print_prompts
+from paper.gpt.prompts.eval_demonstrations import EVALUATE_DEMONSTRATION_PROMPTS
+from paper.gpt.prompts.evaluate_paper_scimon import SCIMON_CLASSIFY_USER_PROMPTS
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -60,8 +61,6 @@ from paper.util import (
 from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
-
-SCIMON_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_paper_scimon")
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

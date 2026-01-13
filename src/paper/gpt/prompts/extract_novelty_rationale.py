@@ -1,6 +1,10 @@
-[[prompts]]
-name = "simple"
-prompt = """
+"""Prompts for extracting novelty-related content from reviews."""
+
+from paper.gpt.prompts import PromptTemplate
+
+SIMPLE = PromptTemplate(
+    name="simple",
+    template="""\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and a peer review evaluating the paper for a publication \
 at a conference.
@@ -35,22 +39,23 @@ The following demonstrations show what is considered to be relevant for novelty
 evaluation:
 
 -Demonstrations-
-{demonstrations}
+{{demonstrations}}
 
 -Data-
-Title: {title}
-Abstract: {abstract}
+Title: {{title}}
+Abstract: {{abstract}}
 
 Review:
-{review}
+{{review}}
 
 #####
 Output:
-"""
+""",
+)
 
-[[prompts]]
-name = "basic"
-prompt = """
+BASIC = PromptTemplate(
+    name="basic",
+    template="""\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and a review evaluating the paper for a publication at a \
 conference.
@@ -67,22 +72,23 @@ research it describes?
 Based on this content, summarize the novelty assessment of the paper from the reviewer.
 
 #####
-{demonstrations}
+{{demonstrations}}
 
 -Data-
-Title: {title}
-Abstract: {abstract}
+Title: {{title}}
+Abstract: {{abstract}}
 
 Review:
-{review}
+{{review}}
 
 #####
 Output:
-"""
+""",
+)
 
-[[prompts]]
-name = "overall"
-prompt = """
+OVERALL = PromptTemplate(
+    name="overall",
+    template="""\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and a review evaluating the paper for a publication at a \
 conference.
@@ -95,15 +101,22 @@ These should be the most important points to determine the final rating for the 
 Based on this content, summarize the review.
 
 #####
-{demonstrations}
+{{demonstrations}}
 
 -Data-
-Title: {title}
-Abstract: {abstract}
+Title: {{title}}
+Abstract: {{abstract}}
 
 Review:
-{review}
+{{review}}
 
 #####
 Output:
-"""
+""",
+)
+
+EXTRACT_USER_PROMPTS = {
+    "simple": SIMPLE,
+    "basic": BASIC,
+    "overall": OVERALL,
+}

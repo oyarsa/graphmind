@@ -1,6 +1,10 @@
-[[prompts]]
-name = "simple"
-prompt = """
+"""Prompts for classifying abstract sentences into background and target."""
+
+from paper.gpt.prompts import PromptTemplate
+
+SIMPLE = PromptTemplate(
+    name="simple",
+    template="""\
 Given the paper abstract, your goal is to extract the paper's background context and
 target.
 
@@ -14,11 +18,16 @@ combined for each type. All sentences in the abstract must be either a backgroun
 or a target sentence. No sentence in the abstract should be missing from the output.
 
 #####
-{demonstrations}
+{{demonstrations}}
 -Data-
 
-Abstract: {abstract}
+Abstract: {{abstract}}
 
 #####
 Output:
-"""
+""",
+)
+
+ABS_USER_PROMPTS = {
+    "simple": SIMPLE,
+}

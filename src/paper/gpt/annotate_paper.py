@@ -29,7 +29,10 @@ from paper.gpt.model import (
     Prompt,
     PromptResult,
 )
-from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
+from paper.gpt.prompts import PromptTemplate, print_prompts
+from paper.gpt.prompts.abstract_classification import ABS_USER_PROMPTS
+from paper.gpt.prompts.abstract_demonstrations import ABS_DEMO_PROMPTS
+from paper.gpt.prompts.annotate_terms import TERM_USER_PROMPTS
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -57,14 +60,11 @@ TERM_SYSTEM_PROMPT = """\
 You are a helpful assistant that can read scientific papers and identify the key terms \
 used to describe the problems tackled by the paper and the terms used for the methods.
 """
-TERM_USER_PROMPTS = load_prompts("annotate_terms")
 
 ABS_SYSTEM_PROMPT = """\
 You are a helpful assistant that can read a paper abstract and identify which sentences \
 describe the paper background context, and which describe the paper goals and target.
 """
-ABS_USER_PROMPTS = load_prompts("abstract_classification")
-ABS_DEMO_PROMPTS = load_prompts("abstract_demonstrations")
 
 
 app = typer.Typer(

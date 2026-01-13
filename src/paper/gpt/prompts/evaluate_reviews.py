@@ -1,6 +1,10 @@
-[[prompts]]
-name = "simple"
-prompt = """
+"""Prompts for evaluating reviews to extract novelty ratings."""
+
+from paper.gpt.prompts import PromptTemplate
+
+SIMPLE = PromptTemplate(
+    name="simple",
+    template="""\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and a peer review evalauting the paper for a publication \
 at a conference.
@@ -25,22 +29,23 @@ Based on this content, assign the paper a novelty rating from 1 to 5. First, gen
 a rationale explaining why you gave the rating, then predict the novelty rating.
 
 #####
-{demonstrations}
+{{demonstrations}}
 
 -Data-
-Title: {title}
-Abstract: {abstract}
+Title: {{title}}
+Abstract: {{abstract}}
 
 Review:
-{review}
+{{review}}
 
 #####
 Output:
-"""
+""",
+)
 
-[[prompts]]
-name = "ternary"
-prompt = """
+TERNARY = PromptTemplate(
+    name="ternary",
+    template="""\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and a peer review evalauting the paper for a publication \
 at a conference.
@@ -62,15 +67,21 @@ Based on this content, assign the paper a novelty rating from 1 to 5. First, gen
 a rationale explaining why you gave the rating, then predict the novelty rating.
 
 #####
-{demonstrations}
+{{demonstrations}}
 
 -Data-
-Title: {title}
-Abstract: {abstract}
+Title: {{title}}
+Abstract: {{abstract}}
 
 Review:
-{review}
+{{review}}
 
 #####
 Output:
-"""
+""",
+)
+
+REVIEW_CLASSIFY_USER_PROMPTS = {
+    "simple": SIMPLE,
+    "ternary": TERNARY,
+}

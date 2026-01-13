@@ -26,7 +26,8 @@ from tqdm import tqdm
 from paper import evaluation_metrics, peerread
 from paper import semantic_scholar as s2
 from paper.gpt.model import Prompt, PromptResult
-from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
+from paper.gpt.prompts import PromptTemplate, print_prompts
+from paper.gpt.prompts.classify_contexts import CONTEXT_USER_PROMPTS
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -58,9 +59,6 @@ app = typer.Typer(
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,
 )
-
-
-CONTEXT_USER_PROMPTS = load_prompts("classify_contexts")
 
 
 @app.command(help=__doc__, no_args_is_help=True)

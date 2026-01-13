@@ -1,12 +1,16 @@
-[[prompts]]
-name = "full"
-type = "full"
-system = """\
+"""Prompts for extracting hierarchical graphs from paper contents."""
+
+from paper.gpt.prompts import PromptTemplate
+
+FULL = PromptTemplate(
+    name="full",
+    type_name="full",
+    system="""\
 Given the following scientific paper, extract the important entities from the text and \
 the relationships between them. The goal is to build a faithful and concise representation \
 of the paper that captures the most important elements necessary to evaluate its novelty.
-"""
-prompt = """
+""",
+    template="""
 The following data contains information about a scientific paper. It includes the
 paper's title, abstract, and the main text. The goal is to represent all the relevant
 information from the paper as a graph.
@@ -54,17 +58,18 @@ Main text:
 
 #####
 Output:
-"""
+""",
+)
 
-[[prompts]]
-name = "nomethod"
-type = "nomethods"
-system = """\
+NOMETHOD = PromptTemplate(
+    name="nomethod",
+    type_name="nomethods",
+    system="""\
 Given the following scientific paper, extract the important entities from the text and \
 the relationships between them. The goal is to build a faithful and concise representation \
 of the paper that captures the most important elements necessary to evaluate its novelty.
-"""
-prompt = """
+""",
+    template="""
 The following data contains information about a scientific paper. It includes the
 paper's title, abstract, and the main text. The goal is to represent all the relevant
 information from the paper as a graph.
@@ -106,17 +111,18 @@ Main text:
 
 #####
 Output:
-"""
+""",
+)
 
-[[prompts]]
-name = "noexperiments"
-type = "noexperiments"
-system = """\
+NOEXPERIMENTS = PromptTemplate(
+    name="noexperiments",
+    type_name="noexperiments",
+    system="""\
 Given the following scientific paper, extract the important entities from the text and \
 the relationships between them. The goal is to build a faithful and concise representation \
 of the paper that captures the most important elements necessary to evaluate its novelty.
-"""
-prompt = """
+""",
+    template="""
 The following data contains information about a scientific paper. It includes the
 paper's title, abstract, and the main text. The goal is to represent all the relevant
 information from the paper as a graph.
@@ -158,17 +164,18 @@ Main text:
 
 #####
 Output:
-"""
+""",
+)
 
-[[prompts]]
-name = "nodetail"
-type = "nodetail"
-system = """\
+NODETAIL = PromptTemplate(
+    name="nodetail",
+    type_name="nodetail",
+    system="""\
 Given the following scientific paper, extract the important entities from the text and \
 the relationships between them. The goal is to build a faithful and concise representation \
 of the paper that captures the most important elements necessary to evaluate its novelty.
-"""
-prompt = """
+""",
+    template="""
 The following data contains information about a scientific paper. It includes the
 paper's title, abstract, and the main text. The goal is to represent all the relevant
 information from the paper as a graph.
@@ -216,17 +223,18 @@ Main text:
 
 #####
 Output:
-"""
+""",
+)
 
-[[prompts]]
-name = "excerpts"
-type = "excerpts"
-system = """\
+EXCERPTS = PromptTemplate(
+    name="excerpts",
+    type_name="excerpts",
+    system="""\
 Given the following scientific paper, extract the important entities from the text and \
 the relationships between them. The goal is to build a faithful and concise representation \
 of the paper that captures the most important elements necessary to evaluate its novelty.
-"""
-prompt = """
+""",
+    template="""
 The following data contains information about a scientific paper. It includes the
 paper's title, abstract, and the main text. The goal is to represent all the relevant
 information from the paper as a graph.
@@ -278,4 +286,13 @@ Main text:
 
 #####
 Output:
-"""
+""",
+)
+
+GRAPH_EXTRACT_USER_PROMPTS = {
+    "full": FULL,
+    "nomethod": NOMETHOD,
+    "noexperiments": NOEXPERIMENTS,
+    "nodetail": NODETAIL,
+    "excerpts": EXCERPTS,
+}

@@ -1,10 +1,14 @@
-[[prompts]]
-name = "simple"
-system = """\
+"""Prompts for evaluating papers using web search for related work."""
+
+from paper.gpt.prompts import PromptTemplate
+
+SIMPLE = PromptTemplate(
+    name="simple",
+    system="""\
 Given the following target paper, search the internet for relevant publications, and based \
 on them, give a novelty label.
-"""
-prompt = """
+""",
+    template="""\
 The following data contains information about a scientific paper. It includes the \
 paper's title and abstract.
 
@@ -29,21 +33,22 @@ Rationale: <text>
 
 #####
 -Data-
-Title: {title}
-Abstract: {abstract}
-Approval decision: {approval}
+Title: {{title}}
+Abstract: {{abstract}}
+Approval decision: {{approval}}
 
 #####
 Output:
-"""
+""",
+)
 
-[[prompts]]
-name = "attribution"
-system = """\
+ATTRIBUTION = PromptTemplate(
+    name="attribution",
+    system="""\
 Given the following target paper, search the internet for relevant publications, and based \
 on them, give a novelty label.
-"""
-prompt = """
+""",
+    template="""\
 The following data contains information about a scientific paper. It includes the \
 paper's title and abstract.
 
@@ -73,10 +78,16 @@ Rationale: <text>
 
 #####
 -Data-
-Title: {title}
-Abstract: {abstract}
-Approval decision: {approval}
+Title: {{title}}
+Abstract: {{abstract}}
+Approval decision: {{approval}}
 
 #####
 Output:
-"""
+""",
+)
+
+SEARCH_EVAL_PROMPTS = {
+    "simple": SIMPLE,
+    "attribution": ATTRIBUTION,
+}

@@ -17,7 +17,6 @@ from pydantic import Field
 from paper import peerread as pr
 from paper.evaluation_metrics import Metrics, calculate_metrics
 from paper.gpt.evaluate_paper import (
-    EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
     Demonstration,
     GPTFull,
@@ -31,7 +30,10 @@ from paper.gpt.model import (
     PromptResult,
     ReviewEvaluation,
 )
-from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
+from paper.gpt.prompts import PromptTemplate, print_prompts
+from paper.gpt.prompts.eval_demonstrations import EVALUATE_DEMONSTRATION_PROMPTS
+from paper.gpt.prompts.evaluate_reviews import REVIEW_CLASSIFY_USER_PROMPTS
+from paper.gpt.prompts.extract_novelty_rationale import EXTRACT_USER_PROMPTS
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -55,9 +57,6 @@ from paper.util import (
 from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
-
-REVIEW_CLASSIFY_USER_PROMPTS = load_prompts("evaluate_reviews")
-EXTRACT_USER_PROMPTS = load_prompts("extract_novelty_rationale")
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

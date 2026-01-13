@@ -1,11 +1,15 @@
-"""User prompt for the GPT models in TOML format."""
+"""User prompts for the GPT models.
 
-import tomllib
+Prompts are defined in Python modules within this package. Each module exports
+a dictionary mapping prompt names to PromptTemplate instances.
+"""
+
 from collections.abc import Mapping
 from dataclasses import dataclass
 
 from paper.gpt.model import Prompt
-from paper.util import read_resource
+
+__all__ = ["PromptTemplate", "print_prompts"]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -20,33 +24,16 @@ class PromptTemplate:
 
     name: str
     template: str
-    system: str
-    type_name: str
+    system: str = ""
+    type_name: str = ""
 
     def with_user(self, user_prompt: str) -> Prompt:
         """Create a Prompt instance with the given user prompt text."""
         return Prompt(system=self.system, user=user_prompt)
 
-
-def load_prompts(name: str) -> Mapping[str, PromptTemplate]:
-    """Load prompts from a TOML file in the prompts package.
-
-    Args:
-        name: Name of the TOML file in `paper.gpt.prompts`, without extension.
-
-    Returns:
-        Dictionary mapping prompt names to their text content.
-    """
-    text = read_resource("gpt.prompts", f"{name}.toml")
-    return {
-        p["name"]: PromptTemplate(
-            name=p["name"],
-            template=p["prompt"],
-            system=p.get("system", ""),
-            type_name=p.get("type", ""),
-        )
-        for p in tomllib.loads(text)["prompts"]
-    }
+    def format(self, **kwargs: str) -> str:
+        """Format the template with the given keyword arguments."""
+        return self.template.format(**kwargs)
 
 
 def print_prompts(

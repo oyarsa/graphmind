@@ -21,10 +21,8 @@ from rich.table import Table
 from paper import gpt
 from paper import peerread as pr
 from paper import related_papers as rp
-from paper.gpt.evaluate_paper_graph import (
-    GRAPH_EVAL_USER_PROMPTS,
-    GRAPH_EXTRACT_USER_PROMPTS,
-)
+from paper.gpt.prompts.evaluate_graph import GRAPH_EVAL_USER_PROMPTS
+from paper.gpt.prompts.extract_graph import GRAPH_EXTRACT_USER_PROMPTS
 from paper.types import PaperSource
 from paper.util import cli, metrics
 from paper.util.cmd import run, title

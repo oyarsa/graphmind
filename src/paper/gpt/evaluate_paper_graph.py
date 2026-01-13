@@ -17,7 +17,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-import tomllib
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
@@ -31,7 +30,6 @@ from paper.evaluation_metrics import (
 )
 from paper.gpt.ensemble import aggregate_ensemble_evaluations
 from paper.gpt.evaluate_paper import (
-    EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
     GPTFull,
     GPTStructured,
@@ -56,7 +54,11 @@ from paper.gpt.model import (
     PeerReadAnnotated,
     PromptResult,
 )
-from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
+from paper.gpt.prompts import PromptTemplate, print_prompts
+from paper.gpt.prompts.eval_demonstrations import EVALUATE_DEMONSTRATION_PROMPTS
+from paper.gpt.prompts.evaluate_graph import GRAPH_EVAL_USER_PROMPTS
+from paper.gpt.prompts.extract_graph import GRAPH_EXTRACT_USER_PROMPTS
+from paper.gpt.prompts.primary_areas import PRIMARY_AREAS
 from paper.gpt.run_gpt import (
     GPTResult,
     LLMClient,
@@ -72,7 +74,6 @@ from paper.util import (
     cli,
     dotenv,
     get_params,
-    read_resource,
     render_params,
     sample,
     seqcat,
@@ -81,12 +82,6 @@ from paper.util import (
 from paper.util.serde import Compress, load_data, save_data
 
 logger = logging.getLogger(__name__)
-
-GRAPH_EVAL_USER_PROMPTS = load_prompts("evaluate_graph")
-GRAPH_EXTRACT_USER_PROMPTS = load_prompts("extract_graph")
-PRIMARY_AREAS: Sequence[str] = tomllib.loads(
-    read_resource("gpt.prompts", "primary_areas.toml")
-)["primary_areas"]
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

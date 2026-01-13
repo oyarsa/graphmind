@@ -13,7 +13,6 @@ import asyncio
 import itertools
 import logging
 import random
-import tomllib
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
@@ -30,7 +29,9 @@ from paper.gpt.model import (
     Prompt,
     PromptResult,
 )
-from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
+from paper.gpt.prompts import PromptTemplate, print_prompts
+from paper.gpt.prompts.extract_graph import GRAPH_EXTRACT_USER_PROMPTS
+from paper.gpt.prompts.primary_areas import PRIMARY_AREAS
 from paper.gpt.run_gpt import (
     GPTResult,
     LLMClient,
@@ -42,7 +43,6 @@ from paper.util import (
     dotenv,
     get_params,
     progress,
-    read_resource,
     render_params,
     sample,
     seqcat,
@@ -52,11 +52,6 @@ from paper.util.cli import Choice, die
 from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
-
-GRAPH_EXTRACT_USER_PROMPTS = load_prompts("extract_graph")
-PRIMARY_AREAS: Sequence[str] = tomllib.loads(
-    read_resource("gpt.prompts", "primary_areas.toml")
-)["primary_areas"]
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

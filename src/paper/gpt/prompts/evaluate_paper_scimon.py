@@ -1,6 +1,12 @@
-[[prompts]]
-name = "simple"
-prompt = """
+"""Prompts for evaluating paper novelty using SciMON graph-extracted terms."""
+
+from paper.gpt.prompts import PromptTemplate
+
+SIMPLE = PromptTemplate(
+    name="simple",
+    type_name="",
+    system="",
+    template="""
 The following data contains information about a scientific paper. It includes the \
 paper's title and abstract, and some inspiration sentences from related papers. \
 These sentences are meant to aid you in understand whether the ideas in the paper are \
@@ -23,4 +29,9 @@ Associated terms:
 
 #####
 Output:
-"""
+""",
+)
+
+SCIMON_CLASSIFY_USER_PROMPTS = {
+    "simple": SIMPLE,
+}

@@ -1,11 +1,15 @@
-[[prompts]]
-name = "simple"
-type = "simple"
-system = """\
+"""Prompts for evaluating novelty rationales."""
+
+from paper.gpt.prompts import PromptTemplate
+
+SIMPLE = PromptTemplate(
+    name="simple",
+    type_name="simple",
+    system="""\
 Given the following paper title and abstract and the rationale for a novelty assessment,
 evaluate the rationale.
-"""
-prompt = """
+""",
+    template="""\
 The following data contains information about a scientific paper. It includes the paper
 title and abstract. It also contains a novelty assessment label and the rationale for it.
 Your task is to evaluate the rationale according to the following criteria:
@@ -27,13 +31,18 @@ You must also give an explanation for your ratings.
 
 #####
 -Data-
-Title: {title}
-Abstract: {abstract}
+Title: {{title}}
+Abstract: {{abstract}}
 
-Novelty label: {label}
+Novelty label: {{label}}
 Rationale:
-{rationale}
+{{rationale}}
 
 #####
 Output:
-"""
+""",
+)
+
+RATIONALE_EVAL_PROMPTS = {
+    "simple": SIMPLE,
+}

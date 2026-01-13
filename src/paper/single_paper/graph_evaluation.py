@@ -20,14 +20,14 @@ from paper.gpt.evaluate_paper import (
     fix_evaluated_rating,
 )
 from paper.gpt.evaluate_paper_graph import (
-    GRAPH_EVAL_USER_PROMPTS,
-    GRAPH_EXTRACT_USER_PROMPTS,
     format_eval_template,
     format_graph_template,
     get_demonstrations,
 )
 from paper.gpt.graph_types.excerpts import GPTExcerpt
 from paper.gpt.novelty_utils import get_novelty_probability
+from paper.gpt.prompts.evaluate_graph import GRAPH_EVAL_USER_PROMPTS
+from paper.gpt.prompts.extract_graph import GRAPH_EXTRACT_USER_PROMPTS
 from paper.gpt.run_gpt import GPTResult, LLMClient
 from paper.types import Immutable
 from paper.util import atimer

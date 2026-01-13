@@ -7,15 +7,18 @@ from collections.abc import Sequence
 from enum import StrEnum
 from importlib import resources
 from pathlib import Path
-from typing import Annotated, Protocol, Self, cast
+from typing import TYPE_CHECKING, Annotated, Protocol, Self, cast
 
 from pydantic import Field, computed_field
 
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import RATING_LABELS
-from paper.gpt.prompts import PromptTemplate, load_prompts
+from paper.gpt.prompts.eval_demonstrations import EVALUATE_DEMONSTRATION_PROMPTS
 from paper.types import Immutable, PaperSource
 from paper.util.serde import load_data
+
+if TYPE_CHECKING:
+    from paper.gpt.prompts import PromptTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +65,6 @@ class PaperResult(s2.PaperWithS2Refs):
                 "confidence": confidence,
             }
         )
-
-
-EVALUATE_DEMONSTRATION_PROMPTS = load_prompts("eval_demonstrations")
 
 
 class Demonstration(Immutable):

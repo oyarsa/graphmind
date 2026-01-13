@@ -23,14 +23,15 @@ from paper import peerread as pr
 from paper import semantic_scholar as s2
 from paper.evaluation_metrics import RATING_LABELS
 from paper.gpt.evaluate_paper_graph import (
-    GRAPH_EXTRACT_USER_PROMPTS,
     format_graph_template,
     format_related,
     get_demonstrations,
 )
 from paper.gpt.graph_types.excerpts import GPTExcerpt
 from paper.gpt.model import RATIONALE_ERROR
-from paper.gpt.prompts import load_prompts
+from paper.gpt.prompts.evaluate_graph_multi import GRAPH_EVAL_MULTI_PROMPTS
+from paper.gpt.prompts.extract_graph import GRAPH_EXTRACT_USER_PROMPTS
+from paper.gpt.prompts.summarise_perspectives import PERSPECTIVE_SUMMARY_PROMPTS
 from paper.gpt.run_gpt import GPTResult, LLMClient, gpt_sequence, gpt_unit
 from paper.single_paper.paper_retrieval import get_paper_from_arxiv_id
 from paper.single_paper.pipeline import annotate_paper_pipeline
@@ -44,9 +45,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 type ProgressCallback = Callable[[str], Awaitable[None]]
-
-GRAPH_EVAL_MULTI_USER_PROMPTS = load_prompts("evaluate_graph_multi")
-GRAPH_EVAL_SUMM_USER_PROMPTS = load_prompts("summarise_perspectives")
 
 
 class EvidenceItemMulti(Immutable):
@@ -207,7 +205,7 @@ def get_prompts(
     Raises:
         ValueError: If prompts are invalid.
     """
-    eval_prompt = GRAPH_EVAL_MULTI_USER_PROMPTS[eval_prompt_key]
+    eval_prompt = GRAPH_EVAL_MULTI_PROMPTS[eval_prompt_key]
     if not eval_prompt.system or eval_prompt.type_name != "GPTEvalMulti":
         raise ValueError(f"Eval prompt {eval_prompt.name!r} is not valid.")
 
@@ -215,11 +213,11 @@ def get_prompts(
     if not graph_prompt.system:
         raise ValueError(f"Graph prompt {graph_prompt.name!r} is not valid.")
 
-    summ_prompt = GRAPH_EVAL_SUMM_USER_PROMPTS[summ_prompt_key]
+    summ_prompt = PERSPECTIVE_SUMMARY_PROMPTS[summ_prompt_key]
     if not summ_prompt.system:
         raise ValueError(f"summ prompt {summ_prompt.name!r} is not valid.")
 
-    structured_prompt = GRAPH_EVAL_MULTI_USER_PROMPTS[structured_prompt_key]
+    structured_prompt = GRAPH_EVAL_MULTI_PROMPTS[structured_prompt_key]
     if (
         not structured_prompt.system
         or structured_prompt.type_name != "GPTStructuredMulti"

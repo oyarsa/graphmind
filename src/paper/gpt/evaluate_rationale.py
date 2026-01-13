@@ -32,7 +32,8 @@ from paper import peerread as pr
 from paper.gpt.evaluate_paper import PaperResult
 from paper.gpt.extract_graph import GraphResult
 from paper.gpt.model import PaperWithRelatedSummary, Prompt, PromptResult
-from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
+from paper.gpt.prompts import PromptTemplate, print_prompts
+from paper.gpt.prompts.evaluate_rationale import RATIONALE_EVAL_PROMPTS
 from paper.gpt.run_gpt import (
     GPTResult,
     LLMClient,
@@ -54,9 +55,6 @@ from paper.util import (
 from paper.util.serde import load_data, read_file_bytes, save_data
 
 logger = logging.getLogger(__name__)
-
-
-RATIONALE_EVAL_PROMPTS = load_prompts("evaluate_rationale")
 
 type PaperEvaluationInput = (
     GraphResult | PaperResult | pr.Paper | PaperWithRelatedSummary

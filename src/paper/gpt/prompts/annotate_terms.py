@@ -1,6 +1,11 @@
-[[prompts]]
-name = "multi"
-prompt = """You are a scientific term extractor analyzing research papers. Extract \
+"""Prompts for extracting and annotating scientific terms from abstracts."""
+
+from paper.gpt.prompts import PromptTemplate
+
+MULTI = PromptTemplate(
+    name="multi",
+    template="""\
+You are a scientific term extractor analyzing research papers. Extract \
 terms as they appear in the abstract. Minimize modifications to the terms, unless it is \
 to comply with the rules.
 
@@ -57,8 +62,13 @@ be merged?
 
 #####
 -Data-
-Abstract: {abstract}
+Abstract: {{abstract}}
 
 #####
 Output:
-"""
+""",
+)
+
+TERM_USER_PROMPTS = {
+    "multi": MULTI,
+}

@@ -32,7 +32,8 @@ from paper.gpt.model import (
     Prompt,
     PromptResult,
 )
-from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
+from paper.gpt.prompts import PromptTemplate, print_prompts
+from paper.gpt.prompts.summarise_related_peter import PETER_SUMMARISE_USER_PROMPTS
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -56,8 +57,6 @@ from paper.util import (
 from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
-
-PETER_SUMMARISE_USER_PROMPTS = load_prompts("summarise_related_peter")
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

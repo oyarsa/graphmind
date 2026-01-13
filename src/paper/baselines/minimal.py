@@ -15,10 +15,10 @@ from rich.table import Table
 from paper import peerread as pr
 from paper.evaluation_metrics import Metrics, calculate_paper_metrics
 from paper.gpt.evaluate_paper import (
-    EVALUATE_DEMONSTRATION_PROMPTS,
     EVALUATE_DEMONSTRATIONS,
     get_demonstrations,
 )
+from paper.gpt.prompts.eval_demonstrations import EVALUATE_DEMONSTRATION_PROMPTS
 from paper.gpt.run_gpt import GPTResult, LLMClient
 from paper.types import Immutable
 from paper.util import cli, ensure_envvar, progress, sample

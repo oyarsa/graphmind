@@ -24,23 +24,17 @@ import typer
 from paper import semantic_scholar as s2
 from paper.baselines import scimon
 from paper.gpt.evaluate_paper import (
-    EVALUATE_DEMONSTRATION_PROMPTS as DEMO_PROMPTS,
-)
-from paper.gpt.evaluate_paper import (
     Demonstration,
     format_demonstrations,
 )
-from paper.gpt.evaluate_paper_scimon import (
-    SCIMON_CLASSIFY_USER_PROMPTS as SCIMON_PROMPTS,
-)
 from paper.gpt.evaluate_paper_scimon import format_template as format_scimon
-from paper.gpt.prompts import PromptTemplate, load_prompts
+from paper.gpt.prompts import PromptTemplate
+from paper.gpt.prompts.eval_demonstrations import EVALUATE_DEMONSTRATION_PROMPTS
+from paper.gpt.prompts.evaluate_graph import GRAPH_EVAL_USER_PROMPTS
+from paper.gpt.prompts.evaluate_paper_scimon import SCIMON_CLASSIFY_USER_PROMPTS
 from paper.gpt.run_gpt import MODEL_SYNONYMS, MODELS_ALLOWED
 from paper.util import cli, describe, display_params, setup_logging
 from paper.util.serde import load_data
-
-# Prompts for abstract-only evaluation (from evaluate_graph.toml)
-ABSTRACT_PROMPTS = load_prompts("evaluate_graph")
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +74,7 @@ def abstract(
         typer.Option(
             "--user",
             help="Input data prompt (e.g., 'sans').",
-            click_type=cli.Choice(ABSTRACT_PROMPTS),
+            click_type=cli.Choice(GRAPH_EVAL_USER_PROMPTS),
         ),
     ] = "sans",
     demo_prompt_key: Annotated[
@@ -88,7 +82,7 @@ def abstract(
         typer.Option(
             "--demo-prompt",
             help="Demonstration prompt.",
-            click_type=cli.Choice(DEMO_PROMPTS),
+            click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ] = "abstract",
     demonstrations_file: Annotated[
@@ -112,12 +106,12 @@ def abstract(
         raise SystemExit(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
     input_data = load_data(input_file, s2.PaperWithS2Refs)[:limit]
-    input_prompt = ABSTRACT_PROMPTS[user_prompt_key]
+    input_prompt = GRAPH_EVAL_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
         load_data(demonstrations_file, Demonstration) if demonstrations_file else []
     )
-    demonstration_prompt = DEMO_PROMPTS[demo_prompt_key]
+    demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
     demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
 
     prompts = [
@@ -147,7 +141,7 @@ def scimon_(
         typer.Option(
             "--user",
             help="Input data prompt.",
-            click_type=cli.Choice(SCIMON_PROMPTS),
+            click_type=cli.Choice(SCIMON_CLASSIFY_USER_PROMPTS),
         ),
     ],
     demo_prompt_key: Annotated[
@@ -155,7 +149,7 @@ def scimon_(
         typer.Option(
             "--demo-prompt",
             help="Demonstration prompt.",
-            click_type=cli.Choice(DEMO_PROMPTS),
+            click_type=cli.Choice(EVALUATE_DEMONSTRATION_PROMPTS),
         ),
     ],
     demonstrations_file: Annotated[
@@ -179,12 +173,12 @@ def scimon_(
         raise SystemExit(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
 
     anns = load_data(input_file, scimon.AnnotatedGraphResult)[:limit]
-    input_prompt = SCIMON_PROMPTS[user_prompt_key]
+    input_prompt = SCIMON_CLASSIFY_USER_PROMPTS[user_prompt_key]
 
     demonstration_data = (
         load_data(demonstrations_file, Demonstration) if demonstrations_file else []
     )
-    demonstration_prompt = DEMO_PROMPTS[demo_prompt_key]
+    demonstration_prompt = EVALUATE_DEMONSTRATION_PROMPTS[demo_prompt_key]
     demonstrations = format_demonstrations(demonstration_data, demonstration_prompt)
 
     prompts = [

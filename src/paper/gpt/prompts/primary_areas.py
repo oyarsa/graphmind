@@ -1,4 +1,6 @@
-primary_areas = [
+"""Primary research areas for paper classification."""
+
+PRIMARY_AREAS = [
     "unsupervised, self-supervised, semi-supervised, and supervised representation learning",
     "transfer learning, meta learning, and lifelong learning",
     "reinforcement learning",
@@ -18,5 +20,5 @@ primary_areas = [
     "applications to robotics, autonomy, planning",
     "applications to neuroscience & cognitive science",
     "applications to physical sciences (physics, chemistry, biology, etc.)",
-    "general machine learning (i.e., none of the above)"
+    "general machine learning (i.e., none of the above)",
 ]

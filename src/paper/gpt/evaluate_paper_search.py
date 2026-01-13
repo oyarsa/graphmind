@@ -34,7 +34,8 @@ from paper.gpt.model import (
     Prompt,
     PromptResult,
 )
-from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
+from paper.gpt.prompts import PromptTemplate, print_prompts
+from paper.gpt.prompts.evaluate_search import SEARCH_EVAL_PROMPTS
 from paper.gpt.run_gpt import (
     GPTResult,
     LLMClient,
@@ -57,7 +58,7 @@ from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
 
-SEARCH_EVAL_USER_PROMPTS = load_prompts("evaluate_search")
+SEARCH_EVAL_USER_PROMPTS = SEARCH_EVAL_PROMPTS
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

@@ -1,12 +1,17 @@
-[[prompts]]
-name = "simple"
-type = "GPTEvalMulti"
-system = """\
+"""Prompts for multi-perspective novelty evaluation."""
+
+from paper.gpt.prompts import PromptTemplate
+from paper.gpt.prompts._shared import NOVELTY_5, RELATED_WITH_IDS
+
+SIMPLE = PromptTemplate(
+    name="simple",
+    type_name="GPTEvalMulti",
+    system="""\
 You are an expert reviewer assessing a paper's novelty from multiple perspectives. \
 Your task is to evaluate the paper's novelty from each perspective and provide a \
 rationale for your assessment.
-"""
-prompt = """
+""",
+    template=f"""
 The following data contains information about a paper that needs novelty assessment. It includes \
 the paper's title and abstract, along with related papers discovered through semantic search.
 
@@ -15,12 +20,11 @@ similar research directions or methods) and contrasting papers (those with diffe
 to similar problems). Use these related papers to understand the research landscape and assess \
 whether the target paper presents novel contributions.
 
-Each related paper is presented with its ID, title, and relevant information. When referencing \
-evidence from these papers, you MUST include the paper's ID and title.
+{RELATED_WITH_IDS}
 
 Based on this information, evaluate the paper using the paper novelty from the following \
 perspective:
-{perspective}
+{{perspective}}
 
 Provide your evaluation in structured format with:
 1. A brief summary of the paper's main contributions and approach based on the title and abstract
@@ -34,11 +38,7 @@ Provide your evaluation in structured format with:
    - Indicate that this is a search-based related paper
 4. Your final assessment and conclusion about the paper's novelty
 5. A novelty rating from 1 to 5:
-   1 = Not novel: Significant portions done before or done better
-   2 = Minor improvement on familiar techniques
-   3 = Notable extension of prior approaches
-   4 = Substantially different from previous research
-   5 = Significant new problem, technique, or insight
+{NOVELTY_5}
 
 IMPORTANT: When creating evidence items, structure them as:
 - text: The evidence text describing the finding
@@ -47,37 +47,38 @@ IMPORTANT: When creating evidence items, structure them as:
 - source: "search" to indicate this paper was found through semantic search
 
 #####
-{demonstrations}
+{{demonstrations}}
 
 -Data-
-Title: {title}
+Title: {{title}}
 
-Abstract: {abstract}
+Abstract: {{abstract}}
 
 Graph representation:
-{graph}
+{{graph}}
 
 Structured analysis:
-{structured}
+{{structured}}
 
 Supporting papers:
-{positive}
+{{positive}}
 
 Contrasting papers:
-{negative}
+{{negative}}
 
 #####
-"""
+""",
+)
 
-[[prompts]]
-name = "structured_extraction"
-type = "GPTStructuredMulti"
-system = """\
+STRUCTURED_EXTRACTION = PromptTemplate(
+    name="structured_extraction",
+    type_name="GPTStructuredMulti",
+    system="""\
 You are an expert reviewer analyzing research papers for novelty assessment. \
 Your task is to extract structured information about the paper's contributions, \
 evidence, and novelty assessment based on the provided information.
-"""
-prompt = """
+""",
+    template=f"""
 Analyze the following paper and its related work to extract structured information for novelty assessment.
 
 The paper is presented with its title, abstract, and a graph representation that captures \
@@ -90,11 +91,7 @@ Extract the following information:
 3. Specific evidence from related papers that contradicts the paper's novelty
 4. An overall assessment of the paper's novelty with clear rationale
 5. A novelty rating from 1 to 5:
-   1 = Not novel: Significant portions done before or done better
-   2 = Minor improvement on familiar techniques
-   3 = Notable extension of prior approaches
-   4 = Substantially different from previous research
-   5 = Significant new problem, technique, or insight
+{NOVELTY_5}
 
 For each piece of evidence:
 - Include the paper ID and title it comes from
@@ -102,20 +99,26 @@ For each piece of evidence:
 - Indicate the source type (search-based or citation-based)
 
 #####
-{demonstrations}
+{{demonstrations}}
 
 -Data-
-Title: {title}
+Title: {{title}}
 
-Abstract: {abstract}
+Abstract: {{abstract}}
 
 Graph representation:
-{graph}
+{{graph}}
 
 Supporting papers:
-{positive}
+{{positive}}
 
 Contrasting papers:
-{negative}
+{{negative}}
 #####
-"""
+""",
+)
+
+GRAPH_EVAL_MULTI_PROMPTS = {
+    "simple": SIMPLE,
+    "structured_extraction": STRUCTURED_EXTRACTION,
+}

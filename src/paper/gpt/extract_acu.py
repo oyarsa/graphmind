@@ -26,7 +26,8 @@ from paper.gpt.model import (
     Prompt,
     PromptResult,
 )
-from paper.gpt.prompts import PromptTemplate, load_prompts, print_prompts
+from paper.gpt.prompts import PromptTemplate, print_prompts
+from paper.gpt.prompts.extract_acu import ACU_EXTRACTION_USER_PROMPTS
 from paper.gpt.run_gpt import (
     MODEL_SYNONYMS,
     MODELS_ALLOWED,
@@ -51,9 +52,6 @@ from paper.util import (
 from paper.util.serde import load_data, save_data
 
 logger = logging.getLogger(__name__)
-
-ACU_EXTRACTION_USER_PROMPTS = load_prompts("extract_acu")
-
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
