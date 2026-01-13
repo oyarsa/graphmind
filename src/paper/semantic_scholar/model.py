@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from functools import cached_property
 from typing import Annotated, Self, override
 
 from pydantic import Field, computed_field, field_validator
@@ -186,12 +187,53 @@ class PaperWithS2Refs(Record):
             description="References from the paper with full S2 data and citation contexts."
         ),
     ]
-    rating: Annotated[int, Field(description="Novelty rating")]
+    originality_rating: Annotated[
+        int, Field(alias="rating", description="Stored originality rating")
+    ]
     rationale: Annotated[str, Field(description="Rationale for the novelty rating")]
     year: Annotated[int | None, Field(description="Paper publication year")] = None
     arxiv_id: Annotated[str | None, Field(description="ID of the paper on arXiv")] = (
         None
     )
+
+    @computed_field
+    @cached_property
+    def review(self) -> pr.PaperReview | None:
+        """Get the review with median rating, breaking ties by confidence and rationale."""
+        reviews = self.reviews
+        if not reviews:
+            return None
+
+        sorted_reviews = sorted(reviews, key=lambda x: x.rating)
+        median_idx = len(sorted_reviews) // 2
+        median_rating = sorted_reviews[median_idx].rating
+        median_reviews = [r for r in reviews if r.rating == median_rating]
+
+        if len(median_reviews) == 1:
+            return median_reviews[0]
+
+        if reviews_with_confidence := [
+            r for r in median_reviews if r.confidence is not None
+        ]:
+            return max(reviews_with_confidence, key=lambda x: x.confidence or 0)
+
+        return min(median_reviews, key=lambda x: x.rationale)
+
+    @computed_field
+    @property
+    def rating(self) -> int:
+        """Recommendation rating from main review, scaled to 1-5.
+
+        Uses the 'recommendation' field from other_ratings if available,
+        otherwise falls back to the originality rating. Recommendation is
+        on a 1-9 scale, so we scale it to 1-5: (rec + 1) // 2.
+        """
+        if self.review is None:
+            return self.originality_rating
+        rec = self.review.other_ratings.get("recommendation")
+        if rec is not None:
+            return (rec + 1) // 2
+        return self.originality_rating
 
     @computed_field
     @property
@@ -225,7 +267,7 @@ class PaperWithS2Refs(Record):
             approval=peer.approval,
             conference=peer.conference,
             references=s2_references,
-            rating=peer.rating,
+            originality_rating=peer.originality_rating,
             rationale=peer.rationale,
             year=peer.year,
             arxiv_id=peer.arxiv_id,

@@ -26,11 +26,11 @@ class PaperSection(Immutable):
 
 
 class PaperReview(Immutable):
-    """Peer review of a PeerRead paper with a novelty rating and rationale."""
+    """Peer review of a PeerRead paper with an originality rating and rationale."""
 
     rating: Annotated[
         int,
-        Field(description="Novelty rating given by the reviewer (1 to 5)"),
+        Field(description="Originality rating given by the reviewer (1 to 5)"),
     ]
     confidence: Annotated[int | None, Field(description="Confidence from the reviewer")]
     rationale: Annotated[str, Field(description="Explanation given for the rating")]
@@ -154,11 +154,27 @@ class Paper(Record):
 
     @computed_field
     @property
-    def rating(self) -> int:
-        """Rating from main review (1 to 5), or 0 if no reviews."""
+    def originality_rating(self) -> int:
+        """Original ORIGINALITY rating from main review (1-5 scale)."""
         if self.review is None:
             return 0
         return self.review.rating
+
+    @computed_field
+    @property
+    def rating(self) -> int:
+        """Recommendation rating from main review, scaled to 1-5.
+
+        Uses the 'recommendation' field from other_ratings if available,
+        otherwise falls back to the originality rating. Recommendation is
+        on a 1-9 scale, so we scale it to 1-5: (rec + 1) // 2.
+        """
+        if self.review is None:
+            return 0
+        rec = self.review.other_ratings.get("recommendation")
+        if rec is not None:
+            return (rec + 1) // 2
+        return self.originality_rating
 
     @computed_field
     @property
