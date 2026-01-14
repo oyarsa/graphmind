@@ -228,7 +228,7 @@ def downsample(
     from the sampling.
 
     Example:
-        paper split downsample -i input.json -o balanced.json --key approval \
+        paper tools split downsample -i input.json -o balanced.json --key approval \
             --ratios "60/40" --filter item.paper.rationale
     """
     setup_logging()

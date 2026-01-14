@@ -2,9 +2,8 @@
 
 import typer
 
-from paper import construct_dataset, demo_data, find_type, single_paper, split
+from paper import construct_dataset, single_paper
 from paper.baselines import cli as baselines
-from paper.deps import pipeline_viz
 from paper.gpt import cli as gpt
 from paper.orc import cli as orc
 from paper.peerread import cli as peerread
@@ -26,13 +25,9 @@ app.add_typer(baselines.app, name="baselines")
 app.add_typer(peter.app, name="peter")
 app.add_typer(orc.app, name="orc")
 app.add_typer(s2.app, name="s2")
-app.add_typer(split.app, name="split")
 app.add_typer(tools.app, name="tools")
 
 app.command(no_args_is_help=True, name="construct")(construct_dataset.main)
-app.command(no_args_is_help=True, name="findtype")(find_type.main)
-app.command(no_args_is_help=True, name="demo_data")(demo_data.main)
-app.command(no_args_is_help=False, name="deps")(pipeline_viz.main)
 app.command(no_args_is_help=False, name="single")(single_paper.main)
 
 

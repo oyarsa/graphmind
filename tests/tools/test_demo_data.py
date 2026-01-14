@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from paper.demo_data import _clean_conference, _get_year
+from paper.tools.demo_data import _clean_conference, _get_year
 from paper.types import PaperSectionProtocol
 
 
