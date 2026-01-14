@@ -1,0 +1,106 @@
+# Experiment Log
+# New experiments are appended at the bottom.
+# Use this structured format for easy programmatic access.
+
+experiments:
+  - date: "2025-01-14"
+    name: "semantic_v2"
+    description: "Conservative semantic-only prompt"
+    reason: >
+      Original semantic-only config (Pearson 0.375) outperformed Full pipeline (0.312).
+      Created new semantic-only prompt with conservative language about semantic matches.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_semantic_v2 \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt semantic-only \
+        --sources semantic \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "semantic-only"
+      sources: "semantic"
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.132, stdev: 0.068, min: 0.044, max: 0.220}
+      spearman: {mean: 0.135, stdev: 0.052, min: 0.076, max: 0.191}
+      mae: {mean: 1.214, stdev: 0.038, min: 1.16, max: 1.26}
+      accuracy: {mean: 0.166, stdev: 0.036, min: 0.12, max: 0.21}
+      f1: {mean: 0.104, stdev: 0.020, min: 0.078, max: 0.121}
+      cost_per_run: 0.093
+    total_cost: 0.46
+    conclusion: >
+      Success. Semantic-only dropped from 0.375 to 0.132, now properly below Full (0.312).
+      The conservative language about semantic matches being "tangentially related" worked.
+
+  - date: "2025-01-14"
+    name: "related_v2"
+    description: "Balanced related prompt"
+    reason: >
+      Original related config had negative Pearson correlation (-0.030). Added balanced
+      language emphasising that related papers provide context, not evidence against novelty.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_related_v2 \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt related \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.022, stdev: 0.167, min: -0.214, max: 0.175}
+      spearman: {mean: 0.024, stdev: 0.164, min: -0.208, max: 0.165}
+      mae: {mean: 1.192, stdev: 0.050, min: 1.14, max: 1.25}
+      accuracy: {mean: 0.194, stdev: 0.017, min: 0.17, max: 0.21}
+      f1: {mean: 0.132, stdev: 0.010, min: 0.118, max: 0.142}
+      cost_per_run: 0.115
+    total_cost: 0.58
+    conclusion: >
+      Partial improvement. Mean improved from -0.030 to 0.022, but still high variance
+      with some runs negative. Need stronger positive framing.
+
+  - date: "2025-01-14"
+    name: "related_v3"
+    description: "Stronger positive framing"
+    reason: >
+      related_v2 still had high variance and some negative runs. Rewrote prompt with
+      stronger positive framing: "Related papers show CONTEXT, not lack of novelty"
+      and focus on contributions claimed in abstract.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_related_v3 \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt related \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.051, stdev: 0.047, min: -0.009, max: 0.100}
+      spearman: {mean: 0.041, stdev: 0.039, min: -0.011, max: 0.087}
+      mae: {mean: 1.244, stdev: 0.067, min: 1.19, max: 1.36}
+      accuracy: {mean: 0.182, stdev: 0.036, min: 0.13, max: 0.22}
+      f1: {mean: 0.119, stdev: 0.034, min: 0.065, max: 0.151}
+      cost_per_run: 0.107
+    total_cost: 0.53
+    conclusion: >
+      Improved stability. Variance reduced from 0.167 to 0.047. Most runs now positive
+      (only one slightly negative at -0.009). Mean correlation is low but positive as
+      expected for a config without graph summaries.

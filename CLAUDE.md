@@ -89,6 +89,39 @@ concurrent experiments to avoid API rate limits.
 
 Expected cost: ~$0.90-1.00 per run × 5 runs = ~$4.50-5.00 per experiment.
 
+## Experiment Log
+**ALWAYS log experiments to `EXPERIMENT_LOG.yaml`** when running ablation or prompt
+engineering experiments. This YAML format enables programmatic analysis of experiment
+history. Each entry should include:
+
+```yaml
+- date: "YYYY-MM-DD"
+  name: "experiment_name"
+  description: "Short description"
+  reason: "Why you ran this experiment (1-2 sentences)"
+  command: |
+    Full command used
+  parameters:
+    dataset: "dataset name"
+    model: "model name"
+    eval_prompt: "prompt name"
+    sources: "citations/semantic/null"
+    demos: "demo set"
+    runs: N
+  metrics:
+    pearson: {mean: X, stdev: X, min: X, max: X}
+    spearman: {mean: X, stdev: X, min: X, max: X}
+    mae: {mean: X, stdev: X, min: X, max: X}
+    accuracy: {mean: X, stdev: X, min: X, max: X}
+    f1: {mean: X, stdev: X, min: X, max: X}
+    cost_per_run: X
+  total_cost: X
+  conclusion: "What you learned (1-2 sentences)"
+```
+
+New experiments are appended at the bottom. This allows future sessions to quickly
+review and analyse recent experiments programmatically.
+
 ## External Dependencies
 - **pandoc** - Required for LaTeX parsing in ORC dataset processing (install from https://pandoc.org/installing.html)
 - **PyTorch** - ML framework used by baseline models (installed via uv, CUDA support on non-macOS systems)
