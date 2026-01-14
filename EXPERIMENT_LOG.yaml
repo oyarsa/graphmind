@@ -141,6 +141,78 @@ experiments:
       and confused the model. v3 remains the best so far.
 
   - date: "2025-01-14"
+    name: "norel_v2"
+    description: "Remove conservative bias from NOREL_GRAPH prompt"
+    reason: >
+      Original NOREL_GRAPH prompt explicitly said "Be conservative in your ratings since you
+      don't have related work context." This directly instructs the model to rate lower,
+      causing compression and poor correlation (Pearson 0.020). Removed conservative bias
+      to allow graph summaries to show their true signal.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_norel_v2 \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt norel-graph \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "norel-graph"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.037, stdev: 0.097, min: -0.093, max: 0.171}
+      spearman: {mean: 0.039, stdev: 0.099, min: -0.099, max: 0.173}
+      mae: {mean: 1.794, stdev: 0.032, min: 1.77, max: 1.85}
+      accuracy: {mean: 0.072, stdev: 0.016, min: 0.05, max: 0.09}
+      f1: {mean: 0.040, stdev: 0.010, min: 0.027, max: 0.054}
+      cost_per_run: 0.033
+    total_cost: 0.17
+    conclusion: >
+      Mixed results. Mean improved slightly (0.037 vs 0.020) but variance exploded (0.097
+      vs 0.028). Without related papers, graph-only evaluation remains unstable and weak.
+      The conservative bias was a bug, but removing it revealed high variance rather than
+      strong signal.
+
+  - date: "2025-01-14"
+    name: "norel_v2_peerread"
+    description: "Remove conservative bias from NOREL_GRAPH prompt (PeerRead)"
+    reason: >
+      Same fix as ORC norel_v2, applied to PeerRead dataset. Original NOREL_GRAPH prompt had
+      conservative bias. Removed it to test if graph summaries show better signal.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_peerread/ablation_norel_v2 \
+        --model gpt-4o-mini --limit 68 \
+        --eval-prompt norel-graph \
+        --demos peerread_balanced_5 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "norel-graph"
+      sources: null
+      demos: "peerread_balanced_5"
+      runs: 5
+    metrics:
+      pearson: {mean: -0.088, stdev: 0.067, min: -0.186, max: -0.014}
+      spearman: {mean: -0.072, stdev: 0.076, min: -0.164, max: 0.014}
+      mae: {mean: 1.738, stdev: 0.049, min: 1.71, max: 1.82}
+      accuracy: {mean: 0.068, stdev: 0.025, min: 0.03, max: 0.09}
+      f1: {mean: 0.041, stdev: 0.020, min: 0.014, max: 0.064}
+      cost_per_run: 0.021
+    total_cost: 0.11
+    conclusion: >
+      Regression. All runs negative (Pearson -0.088 vs original 0.080). Removing conservative
+      bias made PeerRead worse, not better. Unlike ORC where the fix revealed high variance,
+      PeerRead shows consistently negative correlation. Graph-only evaluation appears
+      fundamentally problematic on PeerRead without related work context.
+
+  - date: "2025-01-14"
     name: "related_v5"
     description: "Simpler, more direct prompt"
     reason: >

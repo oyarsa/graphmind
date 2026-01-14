@@ -46,7 +46,9 @@ related papers are available)
 5. A novelty rating from 1 to 5:
 {NOVELTY_5}
 
-Be conservative in your ratings since you don't have related work context."""
+Rate the paper based on how novel the described contributions appear. Without related \
+papers, focus on the originality and significance of the methods, findings, and insights \
+described in the paper itself."""
 
 EVAL_SCALE = f"""\
 Based on this, evaluate the paper's novelty on a 1-5 scale:
