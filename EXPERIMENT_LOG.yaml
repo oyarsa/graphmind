@@ -104,3 +104,144 @@ experiments:
       Improved stability. Variance reduced from 0.167 to 0.047. Most runs now positive
       (only one slightly negative at -0.009). Mean correlation is low but positive as
       expected for a config without graph summaries.
+
+  - date: "2025-01-14"
+    name: "related_v4"
+    description: "Incremental contribution focus with high bar for contradiction"
+    reason: >
+      v3 was stable but still low. Tried emphasizing "incremental contribution" and
+      setting a high bar for contradicting novelty - only if a related paper describes
+      the SAME specific contribution.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_related_v4 \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt related \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.012, stdev: 0.143, min: -0.223, max: 0.124}
+      spearman: {mean: 0.009, stdev: 0.146, min: -0.226, max: 0.142}
+      mae: {mean: 1.128, stdev: 0.049, min: 1.08, max: 1.20}
+      accuracy: {mean: 0.230, stdev: 0.029, min: 0.20, max: 0.27}
+      f1: {mean: 0.155, stdev: 0.019, min: 0.134, max: 0.182}
+      cost_per_run: 0.112
+    total_cost: 0.56
+    conclusion: >
+      Regression. Variance increased dramatically (0.143 vs 0.047 in v3) with one very
+      negative run (-0.223). The "default to finding novelty" language was too aggressive
+      and confused the model. v3 remains the best so far.
+
+  - date: "2025-01-14"
+    name: "related_v5"
+    description: "Simpler, more direct prompt"
+    reason: >
+      v4 was too defensive and prescriptive. Tried a cleaner, more straightforward approach:
+      focus on identifying specific contributions and whether related papers already present
+      them, without elaborate guidelines.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_related_v5 \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt related \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.016, stdev: 0.071, min: -0.064, max: 0.130}
+      spearman: {mean: 0.009, stdev: 0.066, min: -0.071, max: 0.112}
+      mae: {mean: 1.278, stdev: 0.018, min: 1.25, max: 1.29}
+      accuracy: {mean: 0.180, stdev: 0.007, min: 0.17, max: 0.19}
+      f1: {mean: 0.108, stdev: 0.015, min: 0.096, max: 0.130}
+      cost_per_run: 0.102
+    total_cost: 0.51
+    conclusion: >
+      Worse than v3. Mean dropped (0.016 vs 0.051) and variance increased (0.071 vs 0.047).
+      The simpler prompt lost stability. v3 remains the best: clearest positive guidance
+      with lowest variance.
+
+  - date: "2025-01-14"
+    name: "related_v6"
+    description: "Focus on abstract claims"
+    reason: >
+      v3-v5 all had issues. Tried emphasizing "focus on what the abstract claims" and
+      "trust the authors' description". Explicit guidance to look for specific claims
+      ("We propose X") and check if related papers describe the same X.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_related_v6 \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt related \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.091, stdev: 0.111, min: -0.017, max: 0.258}
+      spearman: {mean: 0.085, stdev: 0.109, min: -0.025, max: 0.247}
+      mae: {mean: 0.952, stdev: 0.048, min: 0.90, max: 1.02}
+      accuracy: {mean: 0.282, stdev: 0.025, min: 0.25, max: 0.30}
+      f1: {mean: 0.176, stdev: 0.014, min: 0.158, max: 0.195}
+      cost_per_run: 0.105
+    total_cost: 0.53
+    conclusion: >
+      Best so far! Mean improved to 0.091 (vs 0.051 in v3). All metrics improved: MAE
+      0.952 (vs 1.244), accuracy 0.282 (vs 0.182), F1 0.176 (vs 0.119). Variance higher
+      (0.111 vs 0.047) due to one excellent run at 0.258, but most runs positive. The
+      "trust abstract claims" framing worked well.
+
+  - date: "2025-01-14"
+    name: "related_v7"
+    description: "Structured evaluation steps"
+    reason: >
+      v6 had good mean but high variance. Tried adding structured steps: (1) identify
+      claimed contributions, (2) check related papers, (3) remember context, (4) assess
+      overall novelty. Goal was to maintain mean while reducing variance.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_related_v7 \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt related \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.030, stdev: 0.070, min: -0.046, max: 0.109}
+      spearman: {mean: 0.032, stdev: 0.074, min: -0.055, max: 0.104}
+      mae: {mean: 0.928, stdev: 0.038, min: 0.88, max: 0.97}
+      accuracy: {mean: 0.270, stdev: 0.035, min: 0.23, max: 0.32}
+      f1: {mean: 0.155, stdev: 0.021, min: 0.135, max: 0.184}
+      cost_per_run: 0.108
+    total_cost: 0.54
+    conclusion: >
+      Worse than v6. Mean dropped from 0.091 to 0.030. Variance improved (0.070 vs 0.111)
+      but at the cost of mean. The structured steps made the prompt too prescriptive. v6
+      remains the best with its simple "trust abstract claims" approach.

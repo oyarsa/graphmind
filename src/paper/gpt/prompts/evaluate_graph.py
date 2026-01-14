@@ -131,19 +131,30 @@ RELATED = PromptTemplate(
     name="related",
     type_name="GPTStructured",
     system="""\
-Given the following target paper and a selection of related papers separated by whether \
-they're supporting or contrasting the main paper, provide a structured novelty evaluation.
+Evaluate a paper's novelty based on its abstract and related work.
 """,
     template=f"""
-The following data contains information about a scientific paper. It includes the \
-main paper's title and abstract and some related papers. These related papers are \
-separated by "supporting" papers (those that corroborate the paper's ideas, methods, \
-approach, etc.) and "contrasting" papers (those that go against the paper's ideas).
+You are evaluating a scientific paper's novelty based only on its abstract and related papers.
 
-Note: This evaluation does NOT include a graph summary of the main paper - only the \
-abstract and related papers are available.
+The related papers are split into:
+- "Supporting" papers: work that builds on similar ideas or methods
+- "Contrasting" papers: work that takes different approaches to similar problems
 
-Based on this content, evaluate the paper's novelty by comparing it to the related papers.
+Read the abstract carefully to understand what the paper claims to contribute. Then check \
+if any related papers describe the same contribution. Key points:
+
+1. Focus on WHAT THE ABSTRACT CLAIMS as the contribution. Trust the authors' description \
+of what they did.
+
+2. Related papers provide context. Their existence shows this is an active research area, \
+which is normal and expected. They only reduce novelty if they describe essentially the \
+same contribution.
+
+3. Topic similarity ≠ lack of novelty. Many papers study similar topics but make different \
+contributions (e.g., different methods, applications, insights, or problem formulations).
+
+4. Look for the specific claim: "We propose X", "We show Y", "We introduce Z". Does a \
+related paper already propose/show/introduce that same X/Y/Z?
 
 {RATIONALE_STRUCTURED}
 
@@ -153,6 +164,17 @@ Based on this content, evaluate the paper's novelty by comparing it to the relat
 -Data-
 Title: {{title}}
 Abstract: {{abstract}}
+
+Supporting papers:
+{{positive}}
+
+Contrasting papers:
+{{negative}}
+
+#####
+""",
+)
+
 SEMANTIC_ONLY = PromptTemplate(
     name="semantic-only",
     type_name="GPTStructured",
