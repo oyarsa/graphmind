@@ -122,6 +122,28 @@ history. Each entry should include:
 New experiments are appended at the bottom. This allows future sessions to quickly
 review and analyse recent experiments programmatically.
 
+## Ablation Results Summary
+**ALWAYS update `ABLATION_RESULTS.md`** when completing a full set of ablation experiments
+(sans, related, graph-only, citations, semantic, full). This file maintains a history of
+ablation results across time. Format:
+
+1. **Add new results at the TOP** (reverse chronological order)
+2. **Timestamp heading**: Use H2 with underline syntax (`---`)
+   ```markdown
+   YYYY-MM-DD HH:MM (ORC) / HH:MM (PeerRead)
+   ------------------------------------------
+   ```
+3. **Include tables for each dataset**: ORC and PeerRead (use H3 `###`)
+4. **Common Settings section**: Include model config, dataset details with **file hashes**,
+   and key findings
+5. **Keep old results**: Never delete previous entries, they provide historical comparison
+
+To get file hash from experiment output:
+```bash
+cat output/eval_<dataset>/ablation_<config>/run_0/params.json | grep paper_file
+# Extract hash from: "file.json.zst (12345678)"
+```
+
 ## External Dependencies
 - **pandoc** - Required for LaTeX parsing in ORC dataset processing (install from https://pandoc.org/installing.html)
 - **PyTorch** - ML framework used by baseline models (installed via uv, CUDA support on non-macOS systems)
