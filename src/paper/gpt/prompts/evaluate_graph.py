@@ -541,6 +541,42 @@ Contrasting papers:
 """,
 )
 
+# Related-only version using Full's evaluation framework (no graph summary)
+RELATED_STRUCTURED = PromptTemplate(
+    name="related-structured",
+    type_name="GPTStructured",
+    system="""\
+Given the following target paper and a selection of related papers separated by whether \
+they're supporting or contrasting the main paper, provide a structured novelty evaluation.
+""",
+    template=f"""
+The following data contains information about a scientific paper. It includes the \
+main paper's title, abstract and some related papers. Note: No detailed paper summary \
+is available for this evaluation.
+
+{RELATED_INTRO}
+
+{RELATED_WITH_IDS}
+
+{EVAL_SCALE_BALANCED}
+
+#####
+{{demonstrations}}
+
+-Data-
+Title: {{title}}
+Abstract: {{abstract}}
+
+Supporting papers:
+{{positive}}
+
+Contrasting papers:
+{{negative}}
+
+#####
+""",
+)
+
 DEBUG_RANDOM = PromptTemplate(
     name="debug-random",
     type_name="GPTFull",
@@ -629,6 +665,7 @@ GRAPH_EVAL_USER_PROMPTS = {
     "only-graph": ONLY_GRAPH,
     "title-graph": TITLE_GRAPH,
     "related": RELATED,
+    "related-structured": RELATED_STRUCTURED,
     "semantic-only": SEMANTIC_ONLY,
     "sans": SANS,
     "norel-graph": NOREL_GRAPH,
