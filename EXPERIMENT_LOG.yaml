@@ -461,3 +461,76 @@ experiments:
       Without "tend towards not novel" guidance, the model loses calibration with ground
       truth. The conservative language provides important alignment with the dataset's
       novelty distribution.
+
+  - date: "2025-01-14"
+    name: "related_conservative"
+    description: "Related v6 with conservative bias added"
+    reason: >
+      Testing if adding conservative bias (which helps Full so much) also helps Related v6.
+      Added "Be thorough in your evaluation. When in doubt, tend towards lower ratings."
+      to the v6 prompt that achieved 0.091 Pearson.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_related_conservative \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt related \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: -0.005, stdev: 0.103, min: -0.138, max: 0.115}
+      spearman: {mean: -0.005, stdev: 0.111, min: -0.145, max: 0.121}
+      mae: {mean: 0.744, stdev: 0.016, min: 0.72, max: 0.76}
+      accuracy: {mean: 0.338, stdev: 0.013, min: 0.32, max: 0.35}
+      f1: {mean: 0.150, stdev: 0.005, min: 0.144, max: 0.156}
+      cost_per_run: 0.106
+    total_cost: 0.53
+    conclusion: >
+      Catastrophic regression. Pearson dropped from 0.091 to -0.005. Conservative bias that
+      helps Full destroys Related. The Related prompt without graph data interprets
+      "tend towards lower ratings" as evidence that related papers contradict novelty.
+      Without the rich graph context, conservative guidance causes severe underrating.
+
+  - date: "2025-01-14"
+    name: "full_no_demos"
+    description: "Full pipeline without demonstrations"
+    reason: >
+      Ablating the effect of few-shot demonstrations on Full (0.312). Testing whether
+      demonstrations help or hurt performance by running Full without the orc_balanced_4
+      demonstrations.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_full_no_demos \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt full-graph-structured \
+        --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-structured"
+      sources: null
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.377, stdev: 0.034, min: 0.323, max: 0.412}
+      spearman: {mean: 0.383, stdev: 0.042, min: 0.310, max: 0.413}
+      mae: {mean: 0.860, stdev: 0.019, min: 0.84, max: 0.89}
+      accuracy: {mean: 0.344, stdev: 0.019, min: 0.32, max: 0.37}
+      f1: {mean: 0.219, stdev: 0.019, min: 0.186, max: 0.237}
+      cost_per_run: 0.120
+    total_cost: 0.60
+    conclusion: >
+      Surprising improvement! Pearson increased from 0.312 to 0.377 (+0.065). Demonstrations
+      actually hurt Full's performance. Without demonstrations, the model performs better
+      and with lower variance (0.034 vs typical 0.05). The demonstrations may be adding
+      noise or biasing the model's calibration away from optimal. This is a significant
+      finding - Full works better zero-shot!

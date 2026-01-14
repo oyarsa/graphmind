@@ -140,21 +140,21 @@ The related papers are split into:
 - "Supporting" papers: work that builds on similar ideas or methods
 - "Contrasting" papers: work that takes different approaches to similar problems
 
-**Your task:** Determine if the related papers provide clear evidence that this paper's \
-claimed contributions have already been done.
+Read the abstract carefully to understand what the paper claims to contribute. Then check \
+if any related papers describe the same contribution. Key points:
 
-**Important context:** You only have access to abstracts, not full papers. Without full \
-details, you should give the benefit of doubt to the paper's claimed contributions. Only \
-conclude lack of novelty if the related papers explicitly describe doing the same thing.
+1. Focus on WHAT THE ABSTRACT CLAIMS as the contribution. Trust the authors' description \
+of what they did.
 
-**Evaluation steps:**
-1. What does the abstract claim as its specific contributions?
-2. Do any related papers explicitly claim to have done the same thing?
-3. If unclear or ambiguous, favour the paper being novel (you lack information to prove otherwise)
+2. Related papers provide context. Their existence shows this is an active research area, \
+which is normal and expected. They only reduce novelty if they describe essentially the \
+same contribution.
 
-Remember: Most papers in an active research area will have related work. The question is \
-whether this paper's specific contribution has been done before, not whether similar research \
-exists.
+3. Topic similarity ≠ lack of novelty. Many papers study similar topics but make different \
+contributions (e.g., different methods, applications, insights, or problem formulations).
+
+4. Look for the specific claim: "We propose X", "We show Y", "We introduce Z". Does a \
+related paper already propose/show/introduce that same X/Y/Z?
 
 {RATIONALE_STRUCTURED}
 
