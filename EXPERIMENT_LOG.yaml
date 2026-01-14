@@ -317,3 +317,72 @@ experiments:
       Worse than v6. Mean dropped from 0.091 to 0.030. Variance improved (0.070 vs 0.111)
       but at the cost of mean. The structured steps made the prompt too prescriptive. v6
       remains the best with its simple "trust abstract claims" approach.
+
+  - date: "2025-01-14"
+    name: "related_v8"
+    description: "Explicit calibration guidance with examples"
+    reason: >
+      v6 had high variance (0.111). Tried adding explicit calibration guidance with concrete
+      examples of what counts as overlap (same method + same problem vs different combos).
+      Added explicit rating guidance ("3-5 for new contributions, 1-2 only for duplicates").
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_related_v8 \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt related \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.028, stdev: 0.078, min: -0.087, max: 0.090}
+      spearman: {mean: 0.024, stdev: 0.062, min: -0.071, max: 0.084}
+      mae: {mean: 1.294, stdev: 0.030, min: 1.27, max: 1.34}
+      accuracy: {mean: 0.162, stdev: 0.019, min: 0.14, max: 0.18}
+      f1: {mean: 0.099, stdev: 0.012, min: 0.086, max: 0.117}
+      cost_per_run: 0.107
+    total_cost: 0.53
+    conclusion: >
+      Regression. Mean dropped dramatically from 0.091 to 0.028. The explicit calibration
+      with rating guidance was too prescriptive and confused the model. v6 remains best.
+
+  - date: "2025-01-14"
+    name: "related_v9"
+    description: "Benefit of doubt framing"
+    reason: >
+      After 8 iterations, v6 still best but has high variance. Tried "benefit of doubt"
+      approach: since model only has abstracts, explicitly tell it to favour novelty unless
+      clear duplication. Goal was to combine v6's good mean with better stability.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_related_v9 \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt related \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: -0.035, stdev: 0.058, min: -0.097, max: 0.059}
+      spearman: {mean: -0.031, stdev: 0.053, min: -0.094, max: 0.048}
+      mae: {mean: 1.030, stdev: 0.025, min: 1.00, max: 1.06}
+      accuracy: {mean: 0.256, stdev: 0.010, min: 0.24, max: 0.27}
+      f1: {mean: 0.161, stdev: 0.006, min: 0.154, max: 0.168}
+      cost_per_run: 0.105
+    total_cost: 0.52
+    conclusion: >
+      Severe regression. Mean went negative (-0.035), 4 out of 5 runs negative. The "benefit
+      of doubt" framing was too lenient, rating everything as novel. v6 (0.091) remains the
+      best after 9 attempts.
