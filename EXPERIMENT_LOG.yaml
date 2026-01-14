@@ -386,3 +386,78 @@ experiments:
       Severe regression. Mean went negative (-0.035), 4 out of 5 runs negative. The "benefit
       of doubt" framing was too lenient, rating everything as novel. v6 (0.091) remains the
       best after 9 attempts.
+
+  - date: "2025-01-14"
+    name: "related_structured"
+    description: "Related with Full's evaluation framework"
+    reason: >
+      Investigating why Full (0.312) outperforms Related (0.091) by such a wide margin.
+      Hypothesis: is the gap due to missing graph data or different prompt framing?
+      Created related-structured using Full's balanced evaluation framework but without
+      graph summary.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_related_structured \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt related-structured \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related-structured"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.038, stdev: 0.084, min: -0.053, max: 0.134}
+      spearman: {mean: 0.038, stdev: 0.075, min: -0.051, max: 0.127}
+      mae: {mean: 1.026, stdev: 0.018, min: 1.01, max: 1.05}
+      accuracy: {mean: 0.250, stdev: 0.016, min: 0.23, max: 0.27}
+      f1: {mean: 0.159, stdev: 0.012, min: 0.143, max: 0.175}
+      cost_per_run: 0.114
+    total_cost: 0.57
+    conclusion: >
+      Worse than Related v6 (0.038 vs 0.091). Full's evaluation framework without graph
+      data performs worse than the specialized Related v6 prompt. This confirms that the
+      Full vs Related performance gap is due to missing graph data, not prompt design.
+      The Related v6 "focus on abstract claims" framing is better suited for no-graph
+      evaluation than Full's generic framework.
+
+  - date: "2025-01-14"
+    name: "full_balanced"
+    description: "Full pipeline without conservative bias"
+    reason: >
+      Testing whether Full (0.312) can be improved by removing conservative language.
+      Full uses EVAL_SCALE_STRUCTURED which says "When in doubt, tend towards not novel."
+      Tried EVAL_SCALE_BALANCED which removes this bias and encourages fair evaluation.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_full_balanced \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt full-graph-balanced \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-balanced"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: -0.003, stdev: 0.052, min: -0.075, max: 0.060}
+      spearman: {mean: -0.005, stdev: 0.046, min: -0.062, max: 0.062}
+      mae: {mean: 1.268, stdev: 0.023, min: 1.24, max: 1.29}
+      accuracy: {mean: 0.164, stdev: 0.015, min: 0.14, max: 0.18}
+      f1: {mean: 0.094, stdev: 0.014, min: 0.076, max: 0.114}
+      cost_per_run: 0.121
+    total_cost: 0.61
+    conclusion: >
+      Catastrophic regression! Pearson dropped from 0.312 to -0.003 (essentially zero).
+      Counter-intuitively, the conservative bias is ESSENTIAL for Full's performance.
+      Without "tend towards not novel" guidance, the model loses calibration with ground
+      truth. The conservative language provides important alignment with the dataset's
+      novelty distribution.
