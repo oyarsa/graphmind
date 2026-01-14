@@ -191,6 +191,21 @@ Use `uv run paper [subcommand] --help` for detailed options.
 - **Demonstrations**: JSON format in `src/paper/gpt/demonstrations/`
 - **Config**: Baseline configurations in `src/paper/baselines/sft_config/`
 
+### Working with Compressed JSON Files
+To query zstd-compressed JSON files, use:
+```bash
+zstd -dc file.json.zst | jq 'filter'
+```
+
+Example - extracting rationales from experiment results:
+```bash
+# Get first rationale
+zstd -dc output/eval_orc/ablation_full/run_0/result.json.zst | jq '.[0].item.paper.rationale_pred'
+
+# Get multiple rationales with paper info
+zstd -dc output/eval_orc/ablation_full/run_0/result.json.zst | jq -r '.[0:3] | .[] | "Paper: \(.item.paper.title)\nTrue Score: \(.item.paper.originality_rating)\nPredicted: \(.item.paper.y_pred)\n\nRationale:\n\(.item.paper.rationale_pred)\n\n========\n"'
+```
+
 ## Project-Specific Patterns
 - **Imports**: Always use absolute imports from `paper` package
 - **Type-only imports**: Use `if TYPE_CHECKING:` for imports only needed for typing
