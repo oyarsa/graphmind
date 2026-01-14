@@ -3,6 +3,9 @@
 Usage:
     uv run paper tools explog stats
     uv run paper tools explog stats --since 2025-01-14
+    uv run paper tools explog stats --type ablation
+    uv run paper tools explog summary
+    uv run paper tools explog summary --since 2025-01-14
     uv run paper tools explog update
     uv run paper tools explog update --output output/eval_orc
 """
@@ -22,6 +25,10 @@ from paper.types import Immutable
 
 app = typer.Typer(
     help="Experiment log management tool",
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
     no_args_is_help=True,
 )
 console = Console()
@@ -165,6 +172,12 @@ def stats(
     until: Annotated[
         str | None, typer.Option(help="Show experiments up to this date (YYYY-MM-DD)")
     ] = None,
+    exp_type: Annotated[
+        str | None,
+        typer.Option(
+            "--type", help="Filter by type (ablation, prompt_engineering, baseline)"
+        ),
+    ] = None,
 ) -> None:
     """Show experiment statistics by day."""
     since_date = parse_date(since)
@@ -177,16 +190,22 @@ def stats(
         experiments = tuple(e for e in experiments if e.date >= since_date)
     if until_date:
         experiments = tuple(e for e in experiments if e.date <= until_date)
+    if exp_type:
+        experiments = tuple(e for e in experiments if e.type == exp_type)
 
     if not experiments:
-        console.print("[yellow]No experiments found in the specified date range.[/]")
+        console.print("[yellow]No experiments found matching the filters.[/]")
         return
 
     by_date: dict[date, list[ExperimentRecord]] = defaultdict(list)
     for exp in experiments:
         by_date[exp.date].append(exp)
 
-    table = Table(title="Experiment Statistics by Day")
+    title = "Experiment Statistics by Day"
+    if exp_type:
+        title += f" (type: {exp_type})"
+
+    table = Table(title=title)
     table.add_column("Date", style="cyan")
     table.add_column("Experiments", justify="right", style="green")
     table.add_column("Cost", justify="right", style="yellow")
@@ -203,6 +222,74 @@ def stats(
 
         total_count += day_count
         total_cost += day_cost
+
+    table.add_section()
+    table.add_row(
+        "[bold]Total[/]", f"[bold]{total_count}[/]", f"[bold]${total_cost:.2f}[/]"
+    )
+
+    console.print(table)
+
+
+@app.command()
+def summary(
+    log_path: Annotated[
+        Path, typer.Option("--log", help="Path to experiment log YAML")
+    ] = DEFAULT_LOG_PATH,
+    since: Annotated[
+        str | None, typer.Option(help="Show experiments from this date (YYYY-MM-DD)")
+    ] = None,
+    until: Annotated[
+        str | None, typer.Option(help="Show experiments up to this date (YYYY-MM-DD)")
+    ] = None,
+) -> None:
+    """Show experiment summary by type."""
+    since_date = parse_date(since)
+    until_date = parse_date(until)
+
+    log = load_experiment_log(log_path)
+
+    experiments = log.experiments
+    if since_date:
+        experiments = tuple(e for e in experiments if e.date >= since_date)
+    if until_date:
+        experiments = tuple(e for e in experiments if e.date <= until_date)
+
+    if not experiments:
+        console.print("[yellow]No experiments found matching the filters.[/]")
+        return
+
+    by_type: dict[str, list[ExperimentRecord]] = defaultdict(list)
+    for exp in experiments:
+        exp_type = exp.type or "unknown"
+        by_type[exp_type].append(exp)
+
+    title = "Experiment Summary by Type"
+    if since_date or until_date:
+        date_range: list[str] = []
+        if since_date:
+            date_range.append(f"from {since_date}")
+        if until_date:
+            date_range.append(f"to {until_date}")
+        title += f" ({', '.join(date_range)})"
+
+    table = Table(title=title)
+    table.add_column("Type", style="cyan")
+    table.add_column("Count", justify="right", style="green")
+    table.add_column("Cost", justify="right", style="yellow")
+
+    total_count = 0
+    total_cost = 0.0
+
+    for exp_type in sorted(by_type.keys()):
+        type_experiments = by_type[exp_type]
+        type_count = len(type_experiments)
+        type_cost = sum(e.total_cost for e in type_experiments)
+
+        table.add_row(exp_type, str(type_count), f"${type_cost:.2f}")
+
+        total_count += type_count
+        total_cost += type_cost
 
     table.add_section()
     table.add_row(
