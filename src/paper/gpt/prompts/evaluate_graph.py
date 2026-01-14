@@ -153,6 +153,44 @@ Based on this content, evaluate the paper's novelty by comparing it to the relat
 -Data-
 Title: {{title}}
 Abstract: {{abstract}}
+SEMANTIC_ONLY = PromptTemplate(
+    name="semantic-only",
+    type_name="GPTStructured",
+    system="""\
+Given the following target paper, a summary and semantically similar papers, provide \
+a structured novelty evaluation on a 1-5 scale.
+""",
+    template=f"""
+The following data contains information about a scientific paper. It includes the \
+main paper's title, a summary of its key points and semantically similar papers found \
+through search.
+
+{GRAPH_INTRO}
+
+The related papers were found through semantic similarity search. Note that semantic \
+search may return papers that are only tangentially related or share surface-level \
+similarities without being directly comparable work. Be cautious about using semantic \
+matches as strong evidence against novelty - focus on whether the papers actually \
+address the same core problem with the same approach.
+
+{RELATED_WITH_IDS}
+
+Evaluate the paper's novelty, but be aware that semantic similarity does not imply \
+lack of novelty. A paper can be highly novel even if semantically similar papers exist, \
+as long as its core contributions are meaningfully different.
+
+{RATIONALE_STRUCTURED}
+
+#####
+{{demonstrations}}
+
+-Data-
+Title: {{title}}
+Abstract: {{abstract}}
+Approval decision: {{approval}}
+
+Paper summary:
+{{graph}}
 
 Supporting papers:
 {{positive}}
@@ -569,6 +607,7 @@ GRAPH_EVAL_USER_PROMPTS = {
     "only-graph": ONLY_GRAPH,
     "title-graph": TITLE_GRAPH,
     "related": RELATED,
+    "semantic-only": SEMANTIC_ONLY,
     "sans": SANS,
     "norel-graph": NOREL_GRAPH,
     "full-graph-positive": FULL_GRAPH_POSITIVE,

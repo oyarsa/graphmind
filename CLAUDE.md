@@ -52,6 +52,7 @@ Common prompts to test:
 - `sans` - Abstract only (baseline, ~1300 tokens)
 - `related` - Related papers without graph (~3800 tokens)
 - `norel-graph` - Graph without related papers
+- `semantic-only` - Graph + semantic papers only (conservative about semantic matches)
 - `full-graph-structured` - Full pipeline (~30000 tokens)
 
 For ablation experiments with source filtering, add `--sources citations` or
@@ -67,7 +68,7 @@ ORC 100-item balanced dataset:
 | Related only   | `related`               | both      | Related papers without graph   |
 | Graph only     | `norel-graph`           | N/A       | Graph without related papers   |
 | Citations only | `full-graph-structured` | citations | Full pipeline, citations only  |
-| Semantic only  | `full-graph-structured` | semantic  | Full pipeline, semantic only   |
+| Semantic only  | `semantic-only`         | semantic  | Graph + semantic (conservative)|
 | Full           | `full-graph-structured` | both      | Full pipeline (baseline)       |
 
 Base command for running ablation experiments (use `experiment` with `--runs 5` for
