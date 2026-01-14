@@ -3,6 +3,391 @@
 # Use this structured format for easy programmatic access.
 
 experiments:
+  # === BASELINE ABLATION EXPERIMENTS (Jan 13) ===
+  # Initial ablation experiments with demonstrations, run before logging was implemented
+
+  - date: "2025-01-13"
+    name: "sans_orc"
+    description: "Abstract only baseline (ORC)"
+    reason: >
+      Initial baseline - abstract only, no related papers or graph.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_sans \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt sans \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "sans"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.048, stdev: 0.023, min: 0.020, max: 0.080}
+      spearman: {mean: 0.050, stdev: 0.027, min: 0.020, max: 0.090}
+      mae: {mean: 1.226, stdev: 0.035, min: 1.180, max: 1.270}
+      accuracy: {mean: 0.186, stdev: 0.027, min: 0.150, max: 0.220}
+      f1: {mean: 0.102, stdev: 0.015, min: 0.080, max: 0.120}
+      cost_per_run: 0.028
+    total_cost: 0.14
+    conclusion: >
+      Weak baseline. Abstract-only evaluation shows near-zero correlation with ground truth.
+
+  - date: "2025-01-13"
+    name: "related_orc"
+    description: "Related papers without graph (ORC)"
+    reason: >
+      Testing value of related papers without knowledge graph summaries.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_related \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt related \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: -0.030, stdev: 0.044, min: -0.090, max: 0.030}
+      spearman: {mean: -0.036, stdev: 0.049, min: -0.100, max: 0.030}
+      mae: {mean: 1.034, stdev: 0.033, min: 0.990, max: 1.080}
+      accuracy: {mean: 0.248, stdev: 0.026, min: 0.210, max: 0.280}
+      f1: {mean: 0.153, stdev: 0.013, min: 0.140, max: 0.170}
+      cost_per_run: 0.119
+    total_cost: 0.60
+    conclusion: >
+      Negative correlation. Related papers alone hurt performance - model interprets
+      related work as evidence against novelty without proper context.
+
+  - date: "2025-01-13"
+    name: "norel_orc"
+    description: "Graph only without related papers (ORC)"
+    reason: >
+      Testing value of knowledge graph summaries without related papers.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_norel \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt norel-graph \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "norel-graph"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.020, stdev: 0.028, min: -0.010, max: 0.060}
+      spearman: {mean: 0.013, stdev: 0.023, min: -0.020, max: 0.050}
+      mae: {mean: 1.178, stdev: 0.028, min: 1.140, max: 1.210}
+      accuracy: {mean: 0.218, stdev: 0.026, min: 0.180, max: 0.250}
+      f1: {mean: 0.120, stdev: 0.014, min: 0.100, max: 0.140}
+      cost_per_run: 0.033
+    total_cost: 0.17
+    conclusion: >
+      Near-zero correlation. Graph summaries alone provide minimal signal.
+
+  - date: "2025-01-13"
+    name: "citations_orc"
+    description: "Full pipeline with citations only (ORC)"
+    reason: >
+      Testing contribution of citation-based related papers.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_citations \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt full-graph-structured \
+        --sources citations \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-structured"
+      sources: "citations"
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.224, stdev: 0.032, min: 0.180, max: 0.270}
+      spearman: {mean: 0.239, stdev: 0.035, min: 0.190, max: 0.290}
+      mae: {mean: 1.136, stdev: 0.063, min: 1.050, max: 1.220}
+      accuracy: {mean: 0.218, stdev: 0.026, min: 0.180, max: 0.250}
+      f1: {mean: 0.123, stdev: 0.025, min: 0.090, max: 0.160}
+      cost_per_run: 0.086
+    total_cost: 0.43
+    conclusion: >
+      Moderate correlation. Citations provide useful but incomplete signal.
+
+  - date: "2025-01-13"
+    name: "semantic_orc"
+    description: "Full pipeline with semantic papers only (ORC)"
+    reason: >
+      Testing contribution of semantically similar papers.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_semantic \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt full-graph-structured \
+        --sources semantic \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-structured"
+      sources: "semantic"
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.375, stdev: 0.045, min: 0.310, max: 0.430}
+      spearman: {mean: 0.383, stdev: 0.034, min: 0.330, max: 0.420}
+      mae: {mean: 0.814, stdev: 0.018, min: 0.790, max: 0.840}
+      accuracy: {mean: 0.298, stdev: 0.015, min: 0.280, max: 0.320}
+      f1: {mean: 0.153, stdev: 0.012, min: 0.140, max: 0.170}
+      cost_per_run: 0.099
+    total_cost: 0.50
+    conclusion: >
+      Best single source! Semantic papers provide stronger signal than citations.
+      Unexpectedly outperforms the full pipeline.
+
+  - date: "2025-01-13"
+    name: "full_orc"
+    description: "Full pipeline with both sources (ORC)"
+    reason: >
+      Testing full pipeline combining both citation and semantic sources.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_full \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt full-graph-structured \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-structured"
+      sources: null
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.312, stdev: 0.058, min: 0.230, max: 0.390}
+      spearman: {mean: 0.337, stdev: 0.077, min: 0.230, max: 0.430}
+      mae: {mean: 0.862, stdev: 0.018, min: 0.840, max: 0.890}
+      accuracy: {mean: 0.290, stdev: 0.016, min: 0.270, max: 0.310}
+      f1: {mean: 0.150, stdev: 0.014, min: 0.130, max: 0.170}
+      cost_per_run: 0.116
+    total_cost: 0.58
+    conclusion: >
+      Underperforms semantic-only! Full pipeline (0.312) is worse than semantic-only
+      (0.375). This unexpected finding suggests citations add noise.
+
+  - date: "2025-01-13"
+    name: "sans_peerread"
+    description: "Abstract only baseline (PeerRead)"
+    reason: >
+      Initial baseline - abstract only, no related papers or graph.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_peerread/ablation_sans \
+        --model gpt-4o-mini --limit 68 \
+        --eval-prompt sans \
+        --demos peerread_balanced_5 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "sans"
+      sources: null
+      demos: "peerread_balanced_5"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.139, stdev: 0.074, min: 0.040, max: 0.230}
+      spearman: {mean: 0.125, stdev: 0.074, min: 0.030, max: 0.210}
+      mae: {mean: 1.250, stdev: 0.055, min: 1.180, max: 1.330}
+      accuracy: {mean: 0.159, stdev: 0.012, min: 0.140, max: 0.170}
+      f1: {mean: 0.121, stdev: 0.009, min: 0.110, max: 0.130}
+      cost_per_run: 0.019
+    total_cost: 0.10
+    conclusion: >
+      Moderate baseline. Better than ORC's abstract-only (0.139 vs 0.048).
+
+  - date: "2025-01-13"
+    name: "related_peerread"
+    description: "Related papers without graph (PeerRead)"
+    reason: >
+      Testing value of related papers without knowledge graph summaries.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_peerread/ablation_related \
+        --model gpt-4o-mini --limit 68 \
+        --eval-prompt related \
+        --demos peerread_balanced_5 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "related"
+      sources: null
+      demos: "peerread_balanced_5"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.071, stdev: 0.138, min: -0.110, max: 0.250}
+      spearman: {mean: 0.091, stdev: 0.149, min: -0.100, max: 0.280}
+      mae: {mean: 1.079, stdev: 0.044, min: 1.020, max: 1.140}
+      accuracy: {mean: 0.162, stdev: 0.021, min: 0.130, max: 0.190}
+      f1: {mean: 0.108, stdev: 0.014, min: 0.090, max: 0.130}
+      cost_per_run: 0.048
+    total_cost: 0.24
+    conclusion: >
+      High variance. Some runs positive, some negative. Less stable than ORC Related.
+
+  - date: "2025-01-13"
+    name: "norel_peerread"
+    description: "Graph only without related papers (PeerRead)"
+    reason: >
+      Testing value of knowledge graph summaries without related papers.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_peerread/ablation_norel_graph \
+        --model gpt-4o-mini --limit 68 \
+        --eval-prompt norel-graph \
+        --demos peerread_balanced_5 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "norel-graph"
+      sources: null
+      demos: "peerread_balanced_5"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.080, stdev: 0.109, min: -0.050, max: 0.230}
+      spearman: {mean: 0.098, stdev: 0.088, min: 0.000, max: 0.210}
+      mae: {mean: 1.215, stdev: 0.047, min: 1.150, max: 1.280}
+      accuracy: {mean: 0.138, stdev: 0.022, min: 0.110, max: 0.170}
+      f1: {mean: 0.084, stdev: 0.011, min: 0.070, max: 0.100}
+      cost_per_run: 0.071
+    total_cost: 0.36
+    conclusion: >
+      Weak and variable. Graph-only shows high variance on PeerRead.
+
+  - date: "2025-01-13"
+    name: "citations_peerread"
+    description: "Full pipeline with citations only (PeerRead)"
+    reason: >
+      Testing contribution of citation-based related papers.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_peerread/ablation_citations \
+        --model gpt-4o-mini --limit 68 \
+        --eval-prompt full-graph-structured \
+        --sources citations \
+        --demos peerread_balanced_5 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-structured"
+      sources: "citations"
+      demos: "peerread_balanced_5"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.339, stdev: 0.054, min: 0.270, max: 0.410}
+      spearman: {mean: 0.394, stdev: 0.057, min: 0.320, max: 0.470}
+      mae: {mean: 1.503, stdev: 0.064, min: 1.420, max: 1.590}
+      accuracy: {mean: 0.068, stdev: 0.022, min: 0.040, max: 0.100}
+      f1: {mean: 0.060, stdev: 0.022, min: 0.030, max: 0.090}
+      cost_per_run: 0.038
+    total_cost: 0.19
+    conclusion: >
+      Good correlation. Citations work better on PeerRead than ORC (0.339 vs 0.224).
+
+  - date: "2025-01-13"
+    name: "semantic_peerread"
+    description: "Full pipeline with semantic papers only (PeerRead)"
+    reason: >
+      Testing contribution of semantically similar papers.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_peerread/ablation_semantic \
+        --model gpt-4o-mini --limit 68 \
+        --eval-prompt full-graph-structured \
+        --sources semantic \
+        --demos peerread_balanced_5 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-structured"
+      sources: "semantic"
+      demos: "peerread_balanced_5"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.373, stdev: 0.048, min: 0.310, max: 0.440}
+      spearman: {mean: 0.368, stdev: 0.057, min: 0.290, max: 0.440}
+      mae: {mean: 0.932, stdev: 0.030, min: 0.890, max: 0.970}
+      accuracy: {mean: 0.176, stdev: 0.023, min: 0.150, max: 0.210}
+      f1: {mean: 0.099, stdev: 0.028, min: 0.060, max: 0.140}
+      cost_per_run: 0.042
+    total_cost: 0.21
+    conclusion: >
+      Strong correlation. Similar to citations on PeerRead (0.373 vs 0.339).
+
+  - date: "2025-01-13"
+    name: "full_peerread"
+    description: "Full pipeline with both sources (PeerRead)"
+    reason: >
+      Testing full pipeline combining both citation and semantic sources.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_peerread/ablation_full \
+        --model gpt-4o-mini --limit 68 \
+        --eval-prompt full-graph-structured \
+        --demos peerread_balanced_5 --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-structured"
+      sources: null
+      demos: "peerread_balanced_5"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.449, stdev: 0.089, min: 0.340, max: 0.570}
+      spearman: {mean: 0.435, stdev: 0.092, min: 0.310, max: 0.560}
+      mae: {mean: 1.112, stdev: 0.074, min: 1.010, max: 1.210}
+      accuracy: {mean: 0.115, stdev: 0.019, min: 0.090, max: 0.140}
+      f1: {mean: 0.066, stdev: 0.012, min: 0.050, max: 0.080}
+      cost_per_run: 0.053
+    total_cost: 0.27
+    conclusion: >
+      Best on PeerRead! Unlike ORC, combining sources improves correlation (0.449).
+
+  # === PROMPT ENGINEERING EXPERIMENTS (Jan 14) ===
+  # Experiments to improve configurations showing unexpected behaviour
+
   - date: "2025-01-14"
     name: "semantic_v2"
     description: "Conservative semantic-only prompt"

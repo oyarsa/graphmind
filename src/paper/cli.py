@@ -10,6 +10,7 @@ from paper.orc import cli as orc
 from paper.peerread import cli as peerread
 from paper.peter import cli as peter
 from paper.semantic_scholar import cli as s2
+from paper.tools import cli as tools
 from paper.util import VERSION
 
 app = typer.Typer(
@@ -26,6 +27,7 @@ app.add_typer(peter.app, name="peter")
 app.add_typer(orc.app, name="orc")
 app.add_typer(s2.app, name="s2")
 app.add_typer(split.app, name="split")
+app.add_typer(tools.app, name="tools")
 
 app.command(no_args_is_help=True, name="construct")(construct_dataset.main)
 app.command(no_args_is_help=True, name="findtype")(find_type.main)
