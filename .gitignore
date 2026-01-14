@@ -169,5 +169,7 @@ tmp
 .aider*
 *.sqlite*
 archive/
-docs/
+docs/*
+!docs/EXPERIMENTS.md
+!docs/BASELINES.md
 !frontend/public/data
