@@ -22,11 +22,17 @@ This file contains summary tables comparing different configurations across data
 
 #### Configuration Details (ORC)
 - **Sans**: `eval-prompt=sans`, no related papers, no graph
+  - Output: `output/eval_orc/ablation_sans/`
 - **Related**: `eval-prompt=related` (v6 with "focus on abstract claims"), related papers from both sources
+  - Output: `output/eval_orc/ablation_related_v6/`
 - **Graph Only**: `eval-prompt=norel-graph`, graph summary without related papers
+  - Output: `output/eval_orc/ablation_norel/`
 - **Citations**: `eval-prompt=full-graph-structured`, `sources=citations`
+  - Output: `output/eval_orc/ablation_citations/`
 - **Semantic**: `eval-prompt=semantic-only` (v2 conservative), `sources=semantic`
+  - Output: `output/eval_orc/ablation_semantic_v2/`
 - **Full**: `eval-prompt=full-graph-structured`, `sources=both`
+  - Output: `output/eval_orc/ablation_full/`
 
 #### ORC Prompt Improvements
 - **Related v6**: Improved from -0.030 (original) to 0.091 by emphasizing "focus on what the abstract claims"
@@ -45,11 +51,17 @@ This file contains summary tables comparing different configurations across data
 
 #### Configuration Details (PeerRead)
 - **Sans**: `eval-prompt=sans`, no related papers, no graph
+  - Output: `output/eval_peerread/ablation_sans/`
 - **Related**: `eval-prompt=related`, related papers from both sources
+  - Output: `output/eval_peerread/ablation_related/`
 - **Graph Only**: `eval-prompt=norel-graph`, graph summary without related papers
+  - Output: `output/eval_peerread/ablation_norel/`
 - **Citations**: `eval-prompt=full-graph-structured`, `sources=citations`
+  - Output: `output/eval_peerread/ablation_citations/`
 - **Semantic**: `eval-prompt=full-graph-structured`, `sources=semantic`
+  - Output: `output/eval_peerread/ablation_semantic/`
 - **Full**: `eval-prompt=full-graph-structured`, `sources=both`
+  - Output: `output/eval_peerread/ablation_full/`
 
 ### Common Settings
 

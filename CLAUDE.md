@@ -134,9 +134,11 @@ ablation results across time. Format:
    ------------------------------------------
    ```
 3. **Include tables for each dataset**: ORC and PeerRead (use H3 `###`)
-4. **Common Settings section**: Include model config, dataset details with **file hashes**,
+4. **Configuration Details section**: List each configuration with its settings AND output
+   directory path (e.g., `Output: output/eval_orc/ablation_sans/`)
+5. **Common Settings section**: Include model config, dataset details with **file hashes**,
    and key findings
-5. **Keep old results**: Never delete previous entries, they provide historical comparison
+6. **Keep old results**: Never delete previous entries, they provide historical comparison
 
 To get file hash from experiment output:
 ```bash
