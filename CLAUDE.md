@@ -123,9 +123,11 @@ New experiments are appended at the bottom. This allows future sessions to quick
 review and analyse recent experiments programmatically.
 
 ## Ablation Results Summary
-**ALWAYS update `ABLATION_RESULTS.md`** when completing a full set of ablation experiments
-(sans, related, graph-only, citations, semantic, full). This file maintains a history of
-ablation results across time. Format:
+**ALWAYS update `MAJOR_RESULTS.md`** when completing a full set of major experiments,
+such as ablation (sans, related, graph-only, citations, semantic, full) or baseline
+comparisons (Llama Basic, NovaScore, Scimon GPT, Basic GPT, Full GPT), where Basic means
+abstract-only/sans. This file maintains a history of ablation results across time.
+Format:
 
 1. **Add new results at the TOP** (reverse chronological order)
 2. **Timestamp heading**: Use H2 with underline syntax (`---`)
