@@ -34,7 +34,7 @@ class MetricStats(Immutable):
     """Statistics for a single metric across runs."""
 
     mean: float
-    stdev: float
+    stdev: float | None  # None for single-run experiments (e.g., baselines)
     min: float
     max: float
 
@@ -55,10 +55,14 @@ class ExperimentParameters(Immutable):
 
     dataset: str
     model: str
-    eval_prompt: str
-    sources: str | None
-    demos: str | None
     runs: int
+    # GPT experiment fields
+    eval_prompt: str | None = None
+    sources: str | None = None
+    demos: str | None = None
+    # Baseline experiment fields
+    method: str | None = None
+    sim_threshold: float | None = None
 
 
 class ExperimentRecord(Immutable):
@@ -73,6 +77,7 @@ class ExperimentRecord(Immutable):
     metrics: ExperimentMetrics
     total_cost: float
     conclusion: str
+    type: str | None = None  # ablation, prompt_engineering, or baseline
 
 
 class ExperimentLog(Immutable):

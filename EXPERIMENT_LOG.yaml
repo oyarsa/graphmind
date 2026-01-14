@@ -8,6 +8,7 @@ experiments:
 
   - date: "2025-01-13"
     name: "sans_orc"
+    type: ablation
     description: "Abstract only baseline (ORC)"
     reason: >
       Initial baseline - abstract only, no related papers or graph.
@@ -39,6 +40,7 @@ experiments:
 
   - date: "2025-01-13"
     name: "related_orc"
+    type: ablation
     description: "Related papers without graph (ORC)"
     reason: >
       Testing value of related papers without knowledge graph summaries.
@@ -71,6 +73,7 @@ experiments:
 
   - date: "2025-01-13"
     name: "norel_orc"
+    type: ablation
     description: "Graph only without related papers (ORC)"
     reason: >
       Testing value of knowledge graph summaries without related papers.
@@ -102,6 +105,7 @@ experiments:
 
   - date: "2025-01-13"
     name: "citations_orc"
+    type: ablation
     description: "Full pipeline with citations only (ORC)"
     reason: >
       Testing contribution of citation-based related papers.
@@ -134,6 +138,7 @@ experiments:
 
   - date: "2025-01-13"
     name: "semantic_orc"
+    type: ablation
     description: "Full pipeline with semantic papers only (ORC)"
     reason: >
       Testing contribution of semantically similar papers.
@@ -167,6 +172,7 @@ experiments:
 
   - date: "2025-01-13"
     name: "full_orc"
+    type: ablation
     description: "Full pipeline with both sources (ORC)"
     reason: >
       Testing full pipeline combining both citation and semantic sources.
@@ -199,6 +205,7 @@ experiments:
 
   - date: "2025-01-13"
     name: "sans_peerread"
+    type: ablation
     description: "Abstract only baseline (PeerRead)"
     reason: >
       Initial baseline - abstract only, no related papers or graph.
@@ -230,6 +237,7 @@ experiments:
 
   - date: "2025-01-13"
     name: "related_peerread"
+    type: ablation
     description: "Related papers without graph (PeerRead)"
     reason: >
       Testing value of related papers without knowledge graph summaries.
@@ -261,6 +269,7 @@ experiments:
 
   - date: "2025-01-13"
     name: "norel_peerread"
+    type: ablation
     description: "Graph only without related papers (PeerRead)"
     reason: >
       Testing value of knowledge graph summaries without related papers.
@@ -292,6 +301,7 @@ experiments:
 
   - date: "2025-01-13"
     name: "citations_peerread"
+    type: ablation
     description: "Full pipeline with citations only (PeerRead)"
     reason: >
       Testing contribution of citation-based related papers.
@@ -324,6 +334,7 @@ experiments:
 
   - date: "2025-01-13"
     name: "semantic_peerread"
+    type: ablation
     description: "Full pipeline with semantic papers only (PeerRead)"
     reason: >
       Testing contribution of semantically similar papers.
@@ -356,6 +367,7 @@ experiments:
 
   - date: "2025-01-13"
     name: "full_peerread"
+    type: ablation
     description: "Full pipeline with both sources (PeerRead)"
     reason: >
       Testing full pipeline combining both citation and semantic sources.
@@ -390,6 +402,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "semantic_v2"
+    type: prompt_engineering
     description: "Conservative semantic-only prompt"
     reason: >
       Original semantic-only config (Pearson 0.375) outperformed Full pipeline (0.312).
@@ -424,6 +437,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "related_v2"
+    type: prompt_engineering
     description: "Balanced related prompt"
     reason: >
       Original related config had negative Pearson correlation (-0.030). Added balanced
@@ -457,6 +471,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "related_v3"
+    type: prompt_engineering
     description: "Stronger positive framing"
     reason: >
       related_v2 still had high variance and some negative runs. Rewrote prompt with
@@ -492,6 +507,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "related_v4"
+    type: prompt_engineering
     description: "Incremental contribution focus with high bar for contradiction"
     reason: >
       v3 was stable but still low. Tried emphasizing "incremental contribution" and
@@ -527,6 +543,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "norel_v2"
+    type: prompt_engineering
     description: "Remove conservative bias from NOREL_GRAPH prompt"
     reason: >
       Original NOREL_GRAPH prompt explicitly said "Be conservative in your ratings since you
@@ -564,6 +581,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "norel_v2_peerread"
+    type: prompt_engineering
     description: "Remove conservative bias from NOREL_GRAPH prompt (PeerRead)"
     reason: >
       Same fix as ORC norel_v2, applied to PeerRead dataset. Original NOREL_GRAPH prompt had
@@ -599,6 +617,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "related_v5"
+    type: prompt_engineering
     description: "Simpler, more direct prompt"
     reason: >
       v4 was too defensive and prescriptive. Tried a cleaner, more straightforward approach:
@@ -634,6 +653,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "related_v6"
+    type: prompt_engineering
     description: "Focus on abstract claims"
     reason: >
       v3-v5 all had issues. Tried emphasizing "focus on what the abstract claims" and
@@ -670,6 +690,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "related_v7"
+    type: prompt_engineering
     description: "Structured evaluation steps"
     reason: >
       v6 had good mean but high variance. Tried adding structured steps: (1) identify
@@ -705,6 +726,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "related_v8"
+    type: prompt_engineering
     description: "Explicit calibration guidance with examples"
     reason: >
       v6 had high variance (0.111). Tried adding explicit calibration guidance with concrete
@@ -739,6 +761,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "related_v9"
+    type: prompt_engineering
     description: "Benefit of doubt framing"
     reason: >
       After 8 iterations, v6 still best but has high variance. Tried "benefit of doubt"
@@ -774,6 +797,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "related_structured"
+    type: prompt_engineering
     description: "Related with Full's evaluation framework"
     reason: >
       Investigating why Full (0.312) outperforms Related (0.091) by such a wide margin.
@@ -812,6 +836,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "full_balanced"
+    type: prompt_engineering
     description: "Full pipeline without conservative bias"
     reason: >
       Testing whether Full (0.312) can be improved by removing conservative language.
@@ -849,6 +874,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "related_conservative"
+    type: prompt_engineering
     description: "Related v6 with conservative bias added"
     reason: >
       Testing if adding conservative bias (which helps Full so much) also helps Related v6.
@@ -885,6 +911,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "full_no_demos"
+    type: ablation
     description: "Full pipeline without demonstrations"
     reason: >
       Ablating the effect of few-shot demonstrations on Full (0.312). Testing whether
@@ -925,6 +952,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "sans_no_demos_orc"
+    type: ablation
     description: "Sans without demonstrations (ORC)"
     reason: >
       Testing whether demonstrations help or hurt Sans performance on ORC.
@@ -956,6 +984,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "related_no_demos_orc"
+    type: ablation
     description: "Related without demonstrations (ORC)"
     reason: >
       Testing whether demonstrations help or hurt Related v6 performance on ORC.
@@ -988,6 +1017,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "norel_no_demos_orc"
+    type: ablation
     description: "Graph Only without demonstrations (ORC)"
     reason: >
       Testing whether demonstrations help or hurt Graph Only performance on ORC.
@@ -1020,6 +1050,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "citations_no_demos_orc"
+    type: ablation
     description: "Citations Only without demonstrations (ORC)"
     reason: >
       Testing whether demonstrations help or hurt Citations performance on ORC.
@@ -1054,6 +1085,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "semantic_no_demos_orc"
+    type: ablation
     description: "Semantic Only without demonstrations (ORC)"
     reason: >
       Testing whether demonstrations help or hurt Semantic performance on ORC.
@@ -1086,6 +1118,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "sans_no_demos_peerread"
+    type: ablation
     description: "Sans without demonstrations (PeerRead)"
     reason: >
       Testing whether demonstrations help or hurt Sans performance on PeerRead.
@@ -1118,6 +1151,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "related_no_demos_peerread"
+    type: ablation
     description: "Related without demonstrations (PeerRead)"
     reason: >
       Testing whether demonstrations help or hurt Related performance on PeerRead.
@@ -1150,6 +1184,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "norel_no_demos_peerread"
+    type: ablation
     description: "Graph Only without demonstrations (PeerRead)"
     reason: >
       Testing whether demonstrations help or hurt Graph Only performance on PeerRead.
@@ -1183,6 +1218,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "citations_no_demos_peerread"
+    type: ablation
     description: "Citations Only without demonstrations (PeerRead)"
     reason: >
       Testing whether demonstrations help or hurt Citations performance on PeerRead.
@@ -1216,6 +1252,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "semantic_no_demos_peerread"
+    type: ablation
     description: "Semantic Only without demonstrations (PeerRead)"
     reason: >
       Testing whether demonstrations help or hurt Semantic performance on PeerRead.
@@ -1250,6 +1287,7 @@ experiments:
 
   - date: "2025-01-14"
     name: "full_no_demos_peerread"
+    type: ablation
     description: "Full pipeline without demonstrations (PeerRead)"
     reason: >
       Testing whether demonstrations help or hurt Full performance on PeerRead.
