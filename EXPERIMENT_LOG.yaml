@@ -1280,3 +1280,143 @@ experiments:
       Demos HURT on PeerRead Full! With demos: 0.449 → without: 0.538 (+0.089).
       Consistent with ORC findings - Full performs better without demonstrations.
       Best overall configuration on PeerRead at 0.538 Pearson.
+
+  # === BASELINE EXPERIMENTS (Jan 14) ===
+  # Comparison baselines: Novascore (ACU-based) and Scimon GPT (graph-based retrieval)
+
+  - date: "2025-01-14"
+    name: "novascore_orc"
+    type: baseline
+    description: "Novascore baseline (ORC)"
+    reason: >
+      Evaluating Novascore (Ai et al. 2024) as a baseline. Initial threshold 0.8 gave
+      negative correlation; tuned to 0.6 after hyperparameter search.
+    command: |
+      # Query with low threshold to capture all potential matches
+      uv run paper baselines nova query \
+        --db output/venus5/output/acu-db \
+        --input output/venus5/output/acu-peerread/result.json.zst \
+        --output output/baselines/orc_acu_query_t05 \
+        --threshold 0.5 --limit 100
+
+      # Evaluate with tuned threshold
+      uv run paper baselines nova evaluate \
+        --results output/baselines/orc_acu_query_t05/result.jsonl \
+        --output output/baselines/novascore_orc_t060 \
+        --limit 0 --sim-threshold 0.60 --save
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "all-MiniLM-L6-v2 (sentence embeddings)"
+      method: "novascore"
+      sim_threshold: 0.60
+      runs: 1
+    metrics:
+      pearson: {mean: 0.189, stdev: null, min: 0.189, max: 0.189}
+      spearman: {mean: 0.194, stdev: null, min: 0.194, max: 0.194}
+      mae: {mean: 0.830, stdev: null, min: 0.830, max: 0.830}
+      accuracy: {mean: 0.340, stdev: null, min: 0.340, max: 0.340}
+      f1: {mean: 0.201, stdev: null, min: 0.201, max: 0.201}
+      cost_per_run: 0.0
+    total_cost: 0.0
+    conclusion: >
+      After threshold tuning, Novascore achieves Pearson 0.189 on ORC. Default threshold
+      0.8 was too strict (87% of ACUs had no matches), causing negative correlation.
+      Threshold 0.6 provides better calibration. Deterministic method, no LLM cost.
+
+  - date: "2025-01-14"
+    name: "novascore_peerread"
+    type: baseline
+    description: "Novascore baseline (PeerRead)"
+    reason: >
+      Evaluating Novascore on PeerRead. Optimal threshold differs from ORC (0.70 vs 0.60).
+    command: |
+      uv run paper baselines nova query \
+        --db output/new_peerread/acu-db \
+        --input output/new_peerread/acu-peerread/result.json.zst \
+        --output output/baselines/peerread_acu_query_t05 \
+        --threshold 0.5 --limit 70
+
+      uv run paper baselines nova evaluate \
+        --results output/baselines/peerread_acu_query_t05/result.jsonl \
+        --output output/baselines/novascore_peerread_t070 \
+        --limit 0 --sim-threshold 0.70 --save
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "all-MiniLM-L6-v2 (sentence embeddings)"
+      method: "novascore"
+      sim_threshold: 0.70
+      runs: 1
+    metrics:
+      pearson: {mean: 0.227, stdev: null, min: 0.227, max: 0.227}
+      spearman: {mean: 0.301, stdev: null, min: 0.301, max: 0.301}
+      mae: {mean: 2.214, stdev: null, min: 2.214, max: 2.214}
+      accuracy: {mean: 0.043, stdev: null, min: 0.043, max: 0.043}
+      f1: {mean: 0.149, stdev: null, min: 0.149, max: 0.149}
+      cost_per_run: 0.0
+    total_cost: 0.0
+    conclusion: >
+      Novascore achieves Pearson 0.227 and Spearman 0.301 on PeerRead with threshold 0.70.
+      Higher threshold needed than ORC, suggesting different similarity distributions.
+      High MAE (2.214) due to score-to-rating mapping mismatch with ground truth distribution.
+
+  - date: "2025-01-14"
+    name: "scimon_orc"
+    type: baseline
+    description: "Scimon GPT baseline (ORC)"
+    reason: >
+      Evaluating Scimon (Lu et al. 2024) GPT variant as a baseline. Uses knowledge graph,
+      citation graph, and semantic similarity to retrieve "inspiration" terms for evaluation.
+    command: |
+      uv run paper gpt eval scimon experiment \
+        --papers output/baselines/orc_scimon_100.json.zst \
+        --output output/baselines/scimon_orc \
+        --model gpt-4o-mini --limit 100 --runs 5 \
+        --demos orc_balanced_4 --seed 42
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      method: "scimon"
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.160, stdev: 0.037, min: 0.118, max: 0.188}
+      spearman: {mean: 0.137, stdev: 0.062, min: 0.066, max: 0.180}
+      mae: {mean: 1.248, stdev: 0.025, min: 1.225, max: 1.275}
+      accuracy: {mean: 0.190, stdev: 0.015, min: 0.176, max: 0.206}
+      f1: {mean: 0.101, stdev: 0.012, min: 0.090, max: 0.114}
+      cost_per_run: 0.022
+    total_cost: 0.066
+    conclusion: >
+      Scimon GPT achieves Pearson 0.160 on ORC. Lower than Novascore (0.189) despite using
+      LLM. The retrieved "inspiration" terms may not provide enough context for accurate
+      novelty assessment. Only 3/5 runs successful due to import error in some runs.
+
+  - date: "2025-01-14"
+    name: "scimon_peerread"
+    type: baseline
+    description: "Scimon GPT baseline (PeerRead)"
+    reason: >
+      Evaluating Scimon GPT on PeerRead. No demos used to match PeerRead ablation config.
+    command: |
+      uv run paper gpt eval scimon experiment \
+        --papers output/baselines/peerread_scimon_70.json.zst \
+        --output output/baselines/scimon_peerread \
+        --model gpt-4o-mini --limit 70 --runs 5 \
+        --seed 42
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      method: "scimon"
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.080, stdev: 0.027, min: 0.053, max: 0.117}
+      spearman: {mean: 0.116, stdev: 0.035, min: 0.079, max: 0.163}
+      mae: {mean: 1.054, stdev: 0.007, min: 1.043, max: 1.057}
+      accuracy: {mean: 0.143, stdev: 0.012, min: 0.129, max: 0.157}
+      f1: {mean: 0.096, stdev: 0.006, min: 0.088, max: 0.104}
+      cost_per_run: 0.013
+    total_cost: 0.053
+    conclusion: >
+      Scimon GPT achieves Pearson 0.080 on PeerRead, significantly lower than Novascore
+      (0.227). The inspiration-based approach struggles on this dataset. 4/5 runs successful.
