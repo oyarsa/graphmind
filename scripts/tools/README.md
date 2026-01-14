@@ -4,5 +4,7 @@
   removing the Minimum Weight Feedback Arc Set.
 - [`diff_prompt.py`](diff_prompt.py): Diff between two prompt texts
   (`gpt.prompts.PromptTemplate`).
+- [`extract_rationales.py`](extract_rationales.py): Extract sample rationales from
+  experiment result files, separated by predicted rating ranges (1-2 vs 3+).
 - [`json_find_key.py`](json_find_key.py): Search JSON files for objects with matching
   keys.
