@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import string
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated
@@ -515,6 +516,7 @@ async def evaluate_papers(
         )
 
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
+    save_prompt_templates(output_dir, eval_prompt, demonstrations_key, demo_prompt_key)
 
     # Graph extraction cache
     cached_graphs: dict[str, Graph] = {}
@@ -922,6 +924,64 @@ def format_related(related: Iterable[PaperRelatedSummarised]) -> str:
     return "\n\n".join(
         f"Title: {paper.title}\nSummary: {paper.summary}\n" for paper in related
     )
+
+
+def render_prompt_template(prompt: PromptTemplate, demonstrations: str = "") -> str:
+    """Render prompt template with placeholder values for paper-specific fields.
+
+    This creates a complete prompt text with all template fragments substituted
+    but paper-specific data replaced with placeholders. Useful for comparing
+    prompts across experiments.
+    """
+    # Get all template variable names
+    template_vars = [
+        fname for _, fname, _, _ in string.Formatter().parse(prompt.template) if fname
+    ]
+
+    # Create placeholder values for each variable
+    # Demonstrations get special treatment; everything else becomes [VARIABLE_NAME]
+    placeholders = {
+        var: demonstrations if var == "demonstrations" else f"[{var.upper()}]"
+        for var in template_vars
+    }
+
+    return prompt.template.format(**placeholders)
+
+
+def save_prompt_templates(
+    output_dir: Path,
+    prompt: PromptTemplate,
+    demonstrations_key: str | None,
+    demo_prompt_key: str,
+) -> None:
+    """Save rendered prompt templates to output directory.
+
+    Saves two versions:
+    - prompt_template.txt: Template without demonstrations
+    - prompt_template_with_demos.txt: Template with demonstrations included
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Get demonstrations
+    demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
+
+    # Render without demonstrations
+    template_without_demos = render_prompt_template(
+        prompt, demonstrations="[DEMONSTRATIONS]"
+    )
+    (output_dir / "prompt_template.txt").write_text(
+        f"System Prompt:\n{prompt.system}\n\n"
+        f"User Prompt Template:\n{template_without_demos}\n"
+    )
+
+    # Render with demonstrations
+    template_with_demos = render_prompt_template(prompt, demonstrations=demonstrations)
+    (output_dir / "prompt_template_with_demos.txt").write_text(
+        f"System Prompt:\n{prompt.system}\n\n"
+        f"User Prompt Template:\n{template_with_demos}\n"
+    )
+
+    logger.debug(f"Saved prompt templates to {output_dir / 'prompt_template*.txt'}")
 
 
 @app.command(help="List available prompts.")
