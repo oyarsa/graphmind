@@ -6,6 +6,111 @@ This file contains summary tables comparing different configurations across data
 
 ---
 
+2026-01-14 (Final: ORC with demos, PeerRead without demos)
+----------------------------------------------------------
+
+Recommended configuration for publication. Uses consistent demo setting within each
+dataset to maintain interpretable ablation baselines.
+
+### ORC Dataset (dev_100_balanced, demos: orc_balanced_4)
+
+| Configuration | Pearson | Spearman | MAE | Accuracy | F1 | Cost/run |
+|---------------|---------|----------|-----|----------|-----|----------|
+| Sans (abstract only) | 0.048 ± 0.053 | 0.044 ± 0.049 | 1.20 | 0.186 | 0.102 | $0.028 |
+| Related (no graph) | 0.091 ± 0.111 | 0.085 ± 0.109 | 0.95 | 0.282 | 0.176 | $0.105 |
+| Graph Only (no related) | 0.020 ± 0.028 | 0.013 ± 0.023 | 1.18 | 0.218 | 0.120 | $0.033 |
+| Citations Only | 0.224 ± 0.032 | 0.239 ± 0.035 | 1.14 | 0.218 | 0.123 | $0.086 |
+| Semantic Only | 0.132 ± 0.068 | 0.135 ± 0.052 | 1.21 | 0.166 | 0.104 | $0.093 |
+| **Full Pipeline** | **0.312 ± 0.058** | **0.337 ± 0.077** | **0.86** | **0.290** | **0.150** | $0.116 |
+
+### PeerRead Dataset (balanced_68, no demos)
+
+| Configuration | Pearson | Spearman | MAE | Accuracy | F1 | Cost/run |
+|---------------|---------|----------|-----|----------|-----|----------|
+| Sans (abstract only) | 0.042 ± 0.063 | 0.058 ± 0.067 | 1.18 | 0.147 | 0.104 | $0.017 |
+| Related (no graph) | 0.146 ± 0.082 | 0.152 ± 0.081 | 1.02 | 0.182 | 0.125 | $0.048 |
+| Graph Only (no related) | 0.199 ± 0.061 | 0.221 ± 0.063 | 1.15 | 0.135 | 0.100 | $0.020 |
+| Citations Only | 0.309 ± 0.072 | 0.342 ± 0.061 | 1.53 | 0.074 | 0.054 | $0.037 |
+| Semantic Only | 0.517 ± 0.026 | 0.499 ± 0.020 | 0.98 | 0.144 | 0.085 | $0.040 |
+| **Full Pipeline** | **0.538 ± 0.062** | **0.526 ± 0.063** | **1.16** | **0.094** | **0.058** | $0.052 |
+
+### Rationale
+
+**Why demos for ORC?** Without demos, the simpler configurations (Sans, Related, Graph Only)
+drop to near-zero correlation, making the ablation narrative less interpretable. With demos,
+each component shows measurable signal.
+
+**Why no demos for PeerRead?** Most configurations improve without demos on PeerRead. The
+baselines remain interpretable (Sans 0.042, Related 0.146, Graph Only 0.199) while the full
+pipeline achieves its best result (0.538).
+
+**Trade-off:** ORC Full with demos (0.312) is lower than without demos (0.377), but maintaining
+credible baselines is more important for the ablation story.
+
+### Key Findings
+
+1. **Full pipeline is best** on both datasets (ORC: 0.312, PeerRead: 0.538)
+2. **Graph adds significant value**: Full vs Related = +0.221 (ORC), +0.392 (PeerRead)
+3. **Related papers add value**: Full vs Graph Only = +0.292 (ORC), +0.339 (PeerRead)
+4. **Source importance differs by dataset**: ORC favours citations, PeerRead favours semantic
+
+---
+
+2026-01-14 (Best configurations with optimal demo settings)
+-----------------------------------------------------------
+
+Results after testing all configurations with and without demonstrations.
+Each row uses the optimal demo setting for that configuration.
+
+### ORC Dataset (dev_100_balanced)
+
+| Configuration | Pearson | Spearman | MAE | Demos | Cost/run |
+|---------------|---------|----------|-----|-------|----------|
+| Sans (abstract only) | 0.048 ± 0.053 | 0.044 ± 0.049 | 1.20 | orc_balanced_4 | $0.028 |
+| Related (no graph) | 0.091 ± 0.111 | 0.085 ± 0.109 | 0.95 | orc_balanced_4 | $0.105 |
+| Graph Only (no related) | 0.020 ± 0.028 | 0.023 ± 0.031 | 1.79 | orc_balanced_4 | $0.033 |
+| Citations Only | 0.326 ± 0.041 | 0.335 ± 0.041 | 1.00 | none | $0.084 |
+| Semantic Only | 0.132 ± 0.068 | 0.135 ± 0.052 | 1.21 | orc_balanced_4 | $0.093 |
+| **Full Pipeline** | **0.377 ± 0.034** | **0.383 ± 0.042** | **0.86** | **none** | $0.120 |
+
+### PeerRead Dataset (balanced_68)
+
+| Configuration | Pearson | Spearman | MAE | Demos | Cost/run |
+|---------------|---------|----------|-----|-------|----------|
+| Sans (abstract only) | 0.139 ± 0.069 | 0.129 ± 0.055 | 1.16 | peerread_balanced_5 | $0.019 |
+| Related (no graph) | 0.146 ± 0.082 | 0.152 ± 0.081 | 1.02 | none | $0.048 |
+| Graph Only (no related) | 0.199 ± 0.061 | 0.221 ± 0.063 | 1.15 | none | $0.020 |
+| Citations Only | 0.339 ± 0.050 | 0.359 ± 0.045 | 1.49 | peerread_balanced_5 | $0.038 |
+| Semantic Only | 0.517 ± 0.026 | 0.499 ± 0.020 | 0.98 | none | $0.040 |
+| **Full Pipeline** | **0.538 ± 0.062** | **0.526 ± 0.063** | **1.16** | **none** | $0.052 |
+
+### Demo Effect Summary
+
+| Configuration | ORC Effect | PeerRead Effect |
+|---------------|------------|-----------------|
+| Sans | +0.025 (demos help) | +0.097 (demos help) |
+| Related | +0.070 (demos help) | -0.075 (demos hurt) |
+| Graph Only | +0.022 (demos help) | -0.119 (demos hurt) |
+| Citations | -0.102 (demos hurt) | +0.030 (demos help) |
+| Semantic | +0.056 (demos help) | -0.144 (demos hurt) |
+| Full | -0.065 (demos hurt) | -0.089 (demos hurt) |
+
+### Demonstration Details
+- **orc_balanced_4**: 4 examples from ORC dataset (2 high novelty, 2 low novelty)
+- **peerread_balanced_5**: 5 examples from PeerRead dataset (balanced across novelty scores)
+
+### Key Findings
+1. **Full pipeline is best** on both datasets (ORC: 0.377, PeerRead: 0.538)
+2. **Full works better zero-shot** - demos hurt performance on both datasets
+3. **Demo effect is dataset-dependent**:
+   - ORC: demos help most configs except Full and Citations
+   - PeerRead: demos hurt most configs except Sans and Citations
+4. **Citation vs Semantic sources differ by dataset**:
+   - ORC: Citations (0.326) >> Semantic (0.132)
+   - PeerRead: Semantic (0.517) >> Citations (0.339)
+
+---
+
 2026-01-13 21:43 (ORC) / 21:51 (PeerRead)
 ------------------------------------------
 

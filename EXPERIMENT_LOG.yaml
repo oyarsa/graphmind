@@ -534,3 +534,364 @@ experiments:
       and with lower variance (0.034 vs typical 0.05). The demonstrations may be adding
       noise or biasing the model's calibration away from optimal. This is a significant
       finding - Full works better zero-shot!
+
+  # === NO-DEMOS ABLATION EXPERIMENTS ===
+  # Testing the effect of removing demonstrations across all configurations
+
+  - date: "2025-01-14"
+    name: "sans_no_demos_orc"
+    description: "Sans without demonstrations (ORC)"
+    reason: >
+      Testing whether demonstrations help or hurt Sans performance on ORC.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_sans_no_demos \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt sans \
+        --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "sans"
+      sources: null
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.023, stdev: 0.040, min: -0.032, max: 0.065}
+      spearman: {mean: 0.008, stdev: 0.047, min: -0.042, max: 0.055}
+      mae: {mean: 1.134, stdev: 0.029, min: 1.10, max: 1.17}
+      accuracy: {mean: 0.242, stdev: 0.033, min: 0.21, max: 0.29}
+      f1: {mean: 0.137, stdev: 0.020, min: 0.114, max: 0.158}
+      cost_per_run: 0.027
+    total_cost: 0.13
+    conclusion: >
+      Demos help slightly on ORC Sans. With demos: 0.048 → without: 0.023 (-0.025).
+
+  - date: "2025-01-14"
+    name: "related_no_demos_orc"
+    description: "Related without demonstrations (ORC)"
+    reason: >
+      Testing whether demonstrations help or hurt Related v6 performance on ORC.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_related_no_demos \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt related \
+        --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related"
+      sources: null
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.021, stdev: 0.039, min: -0.028, max: 0.070}
+      spearman: {mean: 0.008, stdev: 0.028, min: -0.026, max: 0.049}
+      mae: {mean: 0.934, stdev: 0.042, min: 0.89, max: 1.00}
+      accuracy: {mean: 0.298, stdev: 0.045, min: 0.23, max: 0.35}
+      f1: {mean: 0.179, stdev: 0.031, min: 0.136, max: 0.215}
+      cost_per_run: 0.111
+    total_cost: 0.55
+    conclusion: >
+      Demos help significantly on ORC Related! With demos: 0.091 → without: 0.021 (-0.070).
+      The demonstrations provide critical calibration guidance for related-papers evaluation.
+
+  - date: "2025-01-14"
+    name: "norel_no_demos_orc"
+    description: "Graph Only without demonstrations (ORC)"
+    reason: >
+      Testing whether demonstrations help or hurt Graph Only performance on ORC.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_norel_no_demos \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt norel-graph \
+        --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "norel-graph"
+      sources: null
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: -0.002, stdev: 0.094, min: -0.158, max: 0.074}
+      spearman: {mean: 0.002, stdev: 0.090, min: -0.152, max: 0.074}
+      mae: {mean: 1.128, stdev: 0.040, min: 1.09, max: 1.18}
+      accuracy: {mean: 0.214, stdev: 0.015, min: 0.20, max: 0.23}
+      f1: {mean: 0.120, stdev: 0.015, min: 0.104, max: 0.143}
+      cost_per_run: 0.031
+    total_cost: 0.16
+    conclusion: >
+      Demos help slightly on ORC Graph Only. With demos: 0.020 → without: -0.002 (-0.022).
+      Both configurations show high variance; graph-only evaluation remains unreliable.
+
+  - date: "2025-01-14"
+    name: "citations_no_demos_orc"
+    description: "Citations Only without demonstrations (ORC)"
+    reason: >
+      Testing whether demonstrations help or hurt Citations performance on ORC.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_citations_no_demos \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt full-graph-structured \
+        --sources citations \
+        --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-structured"
+      sources: "citations"
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.326, stdev: 0.041, min: 0.287, max: 0.386}
+      spearman: {mean: 0.335, stdev: 0.041, min: 0.296, max: 0.389}
+      mae: {mean: 1.002, stdev: 0.076, min: 0.92, max: 1.10}
+      accuracy: {mean: 0.310, stdev: 0.060, min: 0.23, max: 0.38}
+      f1: {mean: 0.208, stdev: 0.035, min: 0.160, max: 0.251}
+      cost_per_run: 0.084
+    total_cost: 0.42
+    conclusion: >
+      Demos HURT on ORC Citations! With demos: 0.224 → without: 0.326 (+0.102).
+      Significant improvement without demonstrations - they may be biasing away
+      from optimal calibration for citation-based evaluation.
+
+  - date: "2025-01-14"
+    name: "semantic_no_demos_orc"
+    description: "Semantic Only without demonstrations (ORC)"
+    reason: >
+      Testing whether demonstrations help or hurt Semantic performance on ORC.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_orc/ablation_semantic_no_demos \
+        --model gpt-4o-mini --limit 100 \
+        --eval-prompt full-graph-structured \
+        --sources semantic \
+        --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-structured"
+      sources: "semantic"
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.076, stdev: 0.052, min: -0.012, max: 0.124}
+      spearman: {mean: 0.084, stdev: 0.053, min: -0.009, max: 0.120}
+      mae: {mean: 1.214, stdev: 0.047, min: 1.14, max: 1.27}
+      accuracy: {mean: 0.164, stdev: 0.025, min: 0.14, max: 0.20}
+      f1: {mean: 0.106, stdev: 0.023, min: 0.079, max: 0.134}
+      cost_per_run: 0.092
+    total_cost: 0.46
+    conclusion: >
+      Demos help on ORC Semantic. With demos: 0.132 → without: 0.076 (-0.056).
+
+  - date: "2025-01-14"
+    name: "sans_no_demos_peerread"
+    description: "Sans without demonstrations (PeerRead)"
+    reason: >
+      Testing whether demonstrations help or hurt Sans performance on PeerRead.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_peerread/ablation_sans_no_demos \
+        --model gpt-4o-mini --limit 68 \
+        --eval-prompt sans \
+        --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "sans"
+      sources: null
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.042, stdev: 0.063, min: -0.026, max: 0.132}
+      spearman: {mean: 0.058, stdev: 0.067, min: -0.008, max: 0.131}
+      mae: {mean: 1.182, stdev: 0.042, min: 1.15, max: 1.25}
+      accuracy: {mean: 0.147, stdev: 0.036, min: 0.088, max: 0.176}
+      f1: {mean: 0.104, stdev: 0.026, min: 0.065, max: 0.128}
+      cost_per_run: 0.017
+    total_cost: 0.09
+    conclusion: >
+      Demos help on PeerRead Sans. With demos: 0.139 → without: 0.042 (-0.097).
+      Significant drop without demonstrations.
+
+  - date: "2025-01-14"
+    name: "related_no_demos_peerread"
+    description: "Related without demonstrations (PeerRead)"
+    reason: >
+      Testing whether demonstrations help or hurt Related performance on PeerRead.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_peerread/ablation_related_no_demos \
+        --model gpt-4o-mini --limit 68 \
+        --eval-prompt related \
+        --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "related"
+      sources: null
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.146, stdev: 0.082, min: 0.013, max: 0.232}
+      spearman: {mean: 0.152, stdev: 0.081, min: 0.021, max: 0.243}
+      mae: {mean: 1.021, stdev: 0.044, min: 0.97, max: 1.09}
+      accuracy: {mean: 0.182, stdev: 0.017, min: 0.16, max: 0.21}
+      f1: {mean: 0.125, stdev: 0.014, min: 0.107, max: 0.142}
+      cost_per_run: 0.048
+    total_cost: 0.24
+    conclusion: >
+      Demos HURT on PeerRead Related! With demos: 0.071 → without: 0.146 (+0.075).
+      Opposite effect from ORC - PeerRead benefits from removing demonstrations.
+
+  - date: "2025-01-14"
+    name: "norel_no_demos_peerread"
+    description: "Graph Only without demonstrations (PeerRead)"
+    reason: >
+      Testing whether demonstrations help or hurt Graph Only performance on PeerRead.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_peerread/ablation_norel_no_demos \
+        --model gpt-4o-mini --limit 68 \
+        --eval-prompt norel-graph \
+        --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "norel-graph"
+      sources: null
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.199, stdev: 0.061, min: 0.124, max: 0.289}
+      spearman: {mean: 0.221, stdev: 0.063, min: 0.140, max: 0.297}
+      mae: {mean: 1.147, stdev: 0.054, min: 1.06, max: 1.19}
+      accuracy: {mean: 0.135, stdev: 0.024, min: 0.103, max: 0.162}
+      f1: {mean: 0.100, stdev: 0.018, min: 0.077, max: 0.120}
+      cost_per_run: 0.020
+    total_cost: 0.10
+    conclusion: >
+      Demos HURT on PeerRead Graph Only! With demos: 0.080 → without: 0.199 (+0.119).
+      Strong improvement without demonstrations. Unlike ORC, PeerRead graph evaluation
+      works much better zero-shot.
+
+  - date: "2025-01-14"
+    name: "citations_no_demos_peerread"
+    description: "Citations Only without demonstrations (PeerRead)"
+    reason: >
+      Testing whether demonstrations help or hurt Citations performance on PeerRead.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_peerread/ablation_citations_no_demos \
+        --model gpt-4o-mini --limit 68 \
+        --eval-prompt full-graph-structured \
+        --sources citations \
+        --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-structured"
+      sources: "citations"
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.309, stdev: 0.072, min: 0.232, max: 0.417}
+      spearman: {mean: 0.342, stdev: 0.061, min: 0.280, max: 0.430}
+      mae: {mean: 1.526, stdev: 0.060, min: 1.43, max: 1.57}
+      accuracy: {mean: 0.074, stdev: 0.015, min: 0.06, max: 0.09}
+      f1: {mean: 0.054, stdev: 0.010, min: 0.043, max: 0.064}
+      cost_per_run: 0.037
+    total_cost: 0.18
+    conclusion: >
+      Demos help slightly on PeerRead Citations. With demos: 0.339 → without: 0.309 (-0.030).
+      Unlike ORC where demos hurt citations, PeerRead shows marginal benefit from demos.
+
+  - date: "2025-01-14"
+    name: "semantic_no_demos_peerread"
+    description: "Semantic Only without demonstrations (PeerRead)"
+    reason: >
+      Testing whether demonstrations help or hurt Semantic performance on PeerRead.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_peerread/ablation_semantic_no_demos \
+        --model gpt-4o-mini --limit 68 \
+        --eval-prompt full-graph-structured \
+        --sources semantic \
+        --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-structured"
+      sources: "semantic"
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.517, stdev: 0.026, min: 0.489, max: 0.556}
+      spearman: {mean: 0.499, stdev: 0.020, min: 0.485, max: 0.532}
+      mae: {mean: 0.982, stdev: 0.032, min: 0.94, max: 1.03}
+      accuracy: {mean: 0.144, stdev: 0.012, min: 0.13, max: 0.16}
+      f1: {mean: 0.085, stdev: 0.010, min: 0.073, max: 0.100}
+      cost_per_run: 0.040
+    total_cost: 0.20
+    conclusion: >
+      Demos HURT significantly on PeerRead Semantic! With demos: 0.373 → without: 0.517 (+0.144).
+      Massive improvement without demonstrations. This is the best-performing configuration
+      on PeerRead after Full.
+
+  - date: "2025-01-14"
+    name: "full_no_demos_peerread"
+    description: "Full pipeline without demonstrations (PeerRead)"
+    reason: >
+      Testing whether demonstrations help or hurt Full performance on PeerRead.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_peerread/ablation_full_no_demos \
+        --model gpt-4o-mini --limit 68 \
+        --eval-prompt full-graph-structured \
+        --seed 42 --n-evaluations 1 \
+        --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-structured"
+      sources: null
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.538, stdev: 0.062, min: 0.464, max: 0.606}
+      spearman: {mean: 0.526, stdev: 0.063, min: 0.432, max: 0.596}
+      mae: {mean: 1.156, stdev: 0.037, min: 1.10, max: 1.19}
+      accuracy: {mean: 0.094, stdev: 0.017, min: 0.07, max: 0.12}
+      f1: {mean: 0.058, stdev: 0.005, min: 0.051, max: 0.063}
+      cost_per_run: 0.052
+    total_cost: 0.26
+    conclusion: >
+      Demos HURT on PeerRead Full! With demos: 0.449 → without: 0.538 (+0.089).
+      Consistent with ORC findings - Full performs better without demonstrations.
+      Best overall configuration on PeerRead at 0.538 Pearson.
