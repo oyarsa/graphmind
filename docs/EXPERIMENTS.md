@@ -110,3 +110,87 @@ To get file hash from experiment output:
 cat output/eval_<dataset>/ablation_<config>/run_0/params.json | grep paper_file
 # Extract hash from: "file.json.zst (12345678)"
 ```
+
+## Remote Jobs with fleche
+
+`fleche` is a utility for running jobs on remote Slurm clusters via SSH. Configuration
+is in `fleche.toml`.
+
+### Quick Start
+
+```bash
+# Validate configuration
+fleche check
+
+# Preview what would be submitted (recommended first)
+fleche run <job> --dry-run
+
+# Submit a job
+fleche run <job>
+
+# Submit and watch output in real-time
+fleche run <job> --follow
+```
+
+### Available Jobs
+
+| Job | Description | Command |
+|-----|-------------|---------|
+| `gpu_check` | Test GPU availability | `fleche run gpu_check` |
+| `train` | Train Llama SFT model | `fleche run train --env DATASET=orc` |
+| `infer` | Run inference | `fleche run infer --env DATASET=orc` |
+
+### Running Llama Experiments
+
+**Train on ORC:**
+```bash
+fleche run train --env DATASET=orc --env CONFIG=llama_basic
+```
+
+**Train on PeerRead:**
+```bash
+fleche run train --env DATASET=peerread --env CONFIG=llama_basic
+```
+
+**Run inference after training:**
+```bash
+fleche run infer --env DATASET=orc --env CONFIG=llama_basic
+```
+
+### Monitoring and Results
+
+```bash
+# Check job status
+fleche status
+
+# List all jobs
+fleche list
+
+# View logs (stdout)
+fleche logs <job-id>
+
+# View logs (stderr)
+fleche logs <job-id> --stderr
+
+# Stream logs in real-time
+fleche logs <job-id> --follow
+
+# Download results after completion
+fleche sync <job-id>
+
+# Cancel a running job
+fleche cancel <job-id>
+```
+
+### File Sync
+
+- Project code syncs automatically (respects `.gitignore`)
+- Input data (`output/baselines/llama_data/`) syncs to shared cache
+- After completion, use `fleche sync <job-id>` to pull outputs
+
+### Tips
+
+- Use `--dry-run` to preview the sbatch script before submitting
+- Ctrl+C during `--follow` disconnects but doesn't cancel the job
+- Job IDs look like `train-20260114-153042-847-x7k2`
+- Run `fleche guide` for full documentation

@@ -71,3 +71,26 @@ Config files in `src/paper/baselines/sft_config/`:
 - `llama_graph.toml` - Graph mode (max_length=2000)
 
 Key settings: LoRA r=8, alpha=16, batch_size=16, lr=1e-4, epochs=1, 4-bit quantisation.
+
+## Remote Execution with fleche
+
+For running on a Slurm cluster, use `fleche` (see `fleche.toml` for configuration):
+
+```bash
+# Train on ORC
+fleche run train --env DATASET=orc --env CONFIG=llama_basic
+
+# Train on PeerRead
+fleche run train --env DATASET=peerread --env CONFIG=llama_basic
+
+# Run inference after training
+fleche run infer --env DATASET=orc --env CONFIG=llama_basic
+fleche run infer --env DATASET=peerread --env CONFIG=llama_basic
+
+# Monitor and download results
+fleche status
+fleche logs <job-id> --follow
+fleche sync <job-id>
+```
+
+See `docs/EXPERIMENTS.md` for more fleche commands.
