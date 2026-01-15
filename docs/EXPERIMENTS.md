@@ -136,7 +136,7 @@ fleche run <job> --follow
 
 | Job | Description | Command |
 |-----|-------------|---------|
-| `gpu_check` | Test GPU availability | `fleche run gpu_check` |
+| `cuda_check` | Test CUDA/GPU availability | `fleche run cuda_check` |
 | `train` | Train Llama SFT model | `fleche run train --env DATASET=orc` |
 | `infer` | Run inference | `fleche run infer --env DATASET=orc` |
 
@@ -166,13 +166,17 @@ fleche status
 # List all jobs
 fleche list
 
-# View logs (stdout)
+# View logs (shows both stdout and stderr by default)
 fleche logs <job-id>
 
-# View logs (stderr)
+# Show only the last N lines
+fleche logs <job-id> -n 50
+
+# Show only stdout or stderr
+fleche logs <job-id> --stdout
 fleche logs <job-id> --stderr
 
-# Stream logs in real-time
+# Stream logs in real-time (Ctrl+C to disconnect, job keeps running)
 fleche logs <job-id> --follow
 
 # Download results after completion
