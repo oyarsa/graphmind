@@ -3,10 +3,12 @@ name = "graphmind"
 
 [remote]
 host = "create"
-base_path = "~/fleche"
+base_path = "/scratch/users/k21220155/fleche"
 
 [env]
-HF_HOME = "/scratch/prj/inf_llmcache/scratch_tmp/hf_cache/"
+PATH = "/users/k21220155/.cargo/bin:${PATH}"
+HF_HOME = "/scratch/users/k21220155/hf_cache/"
+UV_CACHE_DIR = "/scratch/users/k21220155/uv_cache/"
 PYTHONUNBUFFERED = "1"
 
 [slurm]
@@ -14,26 +16,27 @@ partition = "interruptible_gpu"
 constraint = "(a100|a40|a30|v100|rtx3090)"
 gpus = 1
 
-# Quick GPU check
-[jobs.gpu_check]
+# Quick CUDA check
+[jobs.cuda_check]
 command = """
 echo "Hello from $HOSTNAME"
 nvidia-smi
 nvidia-debugdump -l
+
+uv run --extra cuda --extra baselines \
+    python -c 'import torch as T; print(T.cuda.is_available(), T.cuda.device_count())'
 """
 
 # Training: fleche run train --env DATASET=orc --env CONFIG=llama_basic
 [jobs.train]
 command = """
 echo "Hello from $HOSTNAME"
-nvidia-smi
-nvidia-debugdump -l
 
-uv run --no-dev \
+uv run --extra cuda --extra baselines \
     paper baselines sft train \
     --train output/baselines/llama_data/${DATASET}_train.json.zst \
     --dev output/baselines/llama_data/${DATASET}_dev.json.zst \
-    -test output/baselines/llama_data/${DATASET}_test.json.zst \
+    --test output/baselines/llama_data/${DATASET}_test.json.zst \
     --output output/baselines/llama_${DATASET}_${CONFIG} \
     --config src/paper/baselines/sft_config/${CONFIG}.toml
 """
@@ -48,10 +51,8 @@ env = {
 [jobs.infer]
 command = """
 echo "Hello from $HOSTNAME"
-nvidia-smi
-nvidia-debugdump -l
 
-uv run --no-dev \
+uv run --extra cuda --extra baselines \
     paper baselines sft infer \
     --model output/baselines/llama_${DATASET}_${CONFIG}/final_model \
     --input output/baselines/llama_data/${DATASET}_test.json.zst \
