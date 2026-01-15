@@ -174,3 +174,4 @@ docs/*
 !docs/BASELINES.md
 !frontend/public/data
 .sprite
+.fleche

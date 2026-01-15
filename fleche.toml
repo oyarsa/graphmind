@@ -1,0 +1,65 @@
+[project]
+name = "graphmind"
+
+[remote]
+host = "create"
+base_path = "~/fleche"
+
+[env]
+HF_HOME = "/scratch/prj/inf_llmcache/scratch_tmp/hf_cache/"
+PYTHONUNBUFFERED = "1"
+
+[slurm]
+partition = "interruptible_gpu"
+constraint = "(a100|a40|a30|v100|rtx3090)"
+gpus = 1
+
+# Quick GPU check
+[jobs.gpu_check]
+command = """
+echo "Hello from $HOSTNAME"
+nvidia-smi
+nvidia-debugdump -l
+"""
+
+# Training: fleche run train --env DATASET=orc --env CONFIG=llama_basic
+[jobs.train]
+command = """
+echo "Hello from $HOSTNAME"
+nvidia-smi
+nvidia-debugdump -l
+
+uv run --no-dev \
+    paper baselines sft train \
+    --train output/baselines/llama_data/${DATASET}_train.json.zst \
+    --dev output/baselines/llama_data/${DATASET}_dev.json.zst \
+    -test output/baselines/llama_data/${DATASET}_test.json.zst \
+    --output output/baselines/llama_${DATASET}_${CONFIG} \
+    --config src/paper/baselines/sft_config/${CONFIG}.toml
+"""
+inputs = ["output/baselines/llama_data/"]
+outputs = ["output/baselines/"]
+env = {
+    DATASET = "orc",
+    CONFIG = "llama_basic",
+}
+
+# Inference: fleche run infer --env DATASET=orc --env CONFIG=llama_basic
+[jobs.infer]
+command = """
+echo "Hello from $HOSTNAME"
+nvidia-smi
+nvidia-debugdump -l
+
+uv run --no-dev \
+    paper baselines sft infer \
+    --model output/baselines/llama_${DATASET}_${CONFIG}/final_model \
+    --input output/baselines/llama_data/${DATASET}_test.json.zst \
+    --output output/baselines/llama_${DATASET}_${CONFIG}_infer
+"""
+inputs = ["output/baselines/llama_data/"]
+outputs = ["output/baselines/"]
+env = {
+    DATASET = "orc",
+    CONFIG = "llama_basic",
+}
