@@ -38,7 +38,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "codespell>=2.4.1",
-    "cosy",
     "icecream>=2.1.3",
     "ipython>=8.27.0",
     "jupyterlab>=4.2.5",
@@ -50,11 +49,6 @@ dev = [
     "pytest-cov>=6.1.1",
     "ruff>=0.12.7,<0.13",
 ]
-
-[tool.uv.sources.cosy]
-git = "https://github.com/oyarsa/x.git"
-subdirectory = "cosy"
-tag = "cosy-0.4.0"
 
 [project.scripts]
 paper = "paper.cli:app"
