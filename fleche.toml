@@ -9,6 +9,7 @@ base_path = "/scratch/users/k21220155/fleche"
 PATH = "/users/k21220155/.cargo/bin:${PATH}"
 HF_HOME = "/scratch/users/k21220155/hf_cache/"
 UV_CACHE_DIR = "/scratch/users/k21220155/uv_cache/"
+UV_PROJECT_ENVIRONMENT = "/scratch/users/k21220155/fleche/graphmind/.venv"
 PYTHONUNBUFFERED = "1"
 
 [slurm]
