@@ -55,6 +55,7 @@ env = {
 }
 
 # Inference: fleche run infer --env DATASET=orc --env CONFIG=llama_basic
+# Add --env NUM_EXAMPLES=5 to limit dataset size for testing
 [jobs.infer]
 command = """
 echo "Hello from $HOSTNAME"
@@ -63,7 +64,8 @@ uv run --extra cuda --extra baselines \
     paper baselines sft infer \
     --model output/baselines/llama_${DATASET}_${CONFIG}/final_model \
     --input output/baselines/llama_data/${DATASET}_test.json.zst \
-    --output output/baselines/llama_${DATASET}_${CONFIG}_infer
+    --output output/baselines/llama_${DATASET}_${CONFIG}_infer \
+    ${NUM_EXAMPLES:+--num-examples $NUM_EXAMPLES}
 """
 inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/"]
