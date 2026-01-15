@@ -77,20 +77,23 @@ Key settings: LoRA r=8, alpha=16, batch_size=16, lr=1e-4, epochs=1, 4-bit quanti
 For running on a Slurm cluster, use `fleche` (see `fleche.toml` for configuration):
 
 ```bash
-# Train on ORC
+# Train on ORC (streams output by default)
 fleche run train --env DATASET=orc --env CONFIG=llama_basic
 
 # Train on PeerRead
 fleche run train --env DATASET=peerread --env CONFIG=llama_basic
 
-# Run inference after training
+# Run inference after training (uses model from shared workspace)
 fleche run infer --env DATASET=orc --env CONFIG=llama_basic
 fleche run infer --env DATASET=peerread --env CONFIG=llama_basic
 
 # Monitor and download results
 fleche status
-fleche logs <job-id> --follow
-fleche sync <job-id>
+fleche logs --follow
+fleche download
 ```
+
+Jobs share a workspace, so the trained model is automatically available to inference
+without re-uploading.
 
 See `docs/EXPERIMENTS.md` for more fleche commands.

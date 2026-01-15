@@ -125,11 +125,11 @@ fleche check
 # Preview what would be submitted (recommended first)
 fleche run <job> --dry-run
 
-# Submit a job
+# Submit a job (streams output by default)
 fleche run <job>
 
-# Submit and watch output in real-time
-fleche run <job> --follow
+# Submit without streaming (returns immediately)
+fleche run <job> --bg
 ```
 
 ### Available Jobs
@@ -157,44 +157,61 @@ fleche run train --env DATASET=peerread --env CONFIG=llama_basic
 fleche run infer --env DATASET=orc --env CONFIG=llama_basic
 ```
 
+Jobs share a workspace, so the trained model from `train` is automatically available
+to `infer` without needing to download and re-upload.
+
 ### Monitoring and Results
 
 ```bash
 # Check job status
 fleche status
 
-# List all jobs
-fleche list
+# View logs (defaults to most recent job)
+fleche logs
 
-# View logs (shows both stdout and stderr by default)
+# View logs for specific job
 fleche logs <job-id>
 
 # Show only the last N lines
-fleche logs <job-id> -n 50
+fleche logs -n 50
 
 # Show only stdout or stderr
-fleche logs <job-id> --stdout
-fleche logs <job-id> --stderr
+fleche logs --stdout
+fleche logs --stderr
 
 # Stream logs in real-time (Ctrl+C to disconnect, job keeps running)
-fleche logs <job-id> --follow
+fleche logs --follow
 
-# Download results after completion
-fleche sync <job-id>
+# Download results after completion (defaults to most recent job)
+fleche download
 
-# Cancel a running job
-fleche cancel <job-id>
+# Cancel a running job (defaults to most recent active)
+fleche cancel
+
+# Cancel all running/pending jobs
+fleche cancel --all
+```
+
+### Quick Commands Without Slurm
+
+For quick tests or non-GPU work, use `exec` to bypass the Slurm queue:
+
+```bash
+fleche exec "ls -la"
+fleche exec "python test.py"
 ```
 
 ### File Sync
 
-- Project code syncs automatically (respects `.gitignore`)
-- Input data (`output/baselines/llama_data/`) syncs to shared cache
-- After completion, use `fleche sync <job-id>` to pull outputs
+- Project code syncs automatically to shared workspace (respects `.gitignore`)
+- Input data specified in `inputs` is copied to workspace
+- Jobs share workspace, so outputs from one job are available to subsequent jobs
+- Use `fleche download` to pull outputs to local machine
 
 ### Tips
 
 - Use `--dry-run` to preview the sbatch script before submitting
-- Ctrl+C during `--follow` disconnects but doesn't cancel the job
+- Ctrl+C during streaming disconnects but doesn't cancel the job
 - Job IDs look like `train-20260114-153042-847-x7k2`
+- Use `fleche exec` for quick tests without Slurm queue wait
 - Run `fleche guide` for full documentation
