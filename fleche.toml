@@ -33,6 +33,7 @@ if torch.cuda.is_available():
 """
 
 # Training: fleche run train --env DATASET=orc --env CONFIG=llama_basic
+# Add --env NUM_EXAMPLES=5 to limit dataset size for testing
 [jobs.train]
 command = """
 echo "Hello from $HOSTNAME"
@@ -43,7 +44,8 @@ uv run --extra cuda --extra baselines \
     --dev output/baselines/llama_data/${DATASET}_dev.json.zst \
     --test output/baselines/llama_data/${DATASET}_test.json.zst \
     --output output/baselines/llama_${DATASET}_${CONFIG} \
-    --config src/paper/baselines/sft_config/${CONFIG}.toml
+    --config src/paper/baselines/sft_config/${CONFIG}.toml \
+    ${NUM_EXAMPLES:+--num-examples $NUM_EXAMPLES}
 """
 inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/"]
