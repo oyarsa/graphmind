@@ -144,21 +144,49 @@ fleche run <job> --bg
 
 **Train on ORC:**
 ```bash
-fleche run train --env DATASET=orc --env CONFIG=llama_basic
+fleche run train --env DATASET=orc --env CONFIG=llama_basic \
+  --tag dataset=orc --tag config=llama_basic
 ```
 
 **Train on PeerRead:**
 ```bash
-fleche run train --env DATASET=peerread --env CONFIG=llama_basic
+fleche run train --env DATASET=peerread --env CONFIG=llama_peerread \
+  --tag dataset=peerread --tag config=llama_peerread
 ```
 
 **Run inference after training:**
 ```bash
-fleche run infer --env DATASET=orc --env CONFIG=llama_basic
+fleche run infer --env DATASET=orc --env CONFIG=llama_basic \
+  --tag dataset=orc --tag type=inference
 ```
 
 Jobs share a workspace, so the trained model from `train` is automatically available
 to `infer` without needing to download and re-upload.
+
+### Tagging Jobs
+
+Use tags to organise and filter experiments:
+
+```bash
+# Add tags when submitting
+fleche run train --env DATASET=orc --tag experiment=ablation --tag model=llama
+
+# Filter status by tag
+fleche status --tag experiment=ablation
+fleche status --tag dataset=orc --filter running
+
+# View logs from most recent job with specific tag
+fleche logs --tag experiment=ablation
+
+# Download outputs from most recent job with tag
+fleche download --tag config=llama_basic
+
+# Cancel all jobs with a specific tag
+fleche cancel --all --tag experiment=test
+
+# Clean old jobs with a specific tag
+fleche clean --all --tag experiment=test
+```
 
 ### Monitoring and Results
 

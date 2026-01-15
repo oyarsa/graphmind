@@ -49,10 +49,7 @@ uv run --extra cuda --extra baselines \
 """
 inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/"]
-env = {
-    DATASET = "orc",
-    CONFIG = "llama_basic",
-}
+env = { DATASET = "orc", CONFIG = "llama_basic" }
 
 # Inference: fleche run infer --env DATASET=orc --env CONFIG=llama_basic
 # Add --env NUM_EXAMPLES=5 to limit dataset size for testing
@@ -69,7 +66,4 @@ uv run --extra cuda --extra baselines \
 """
 inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/"]
-env = {
-    DATASET = "orc",
-    CONFIG = "llama_basic",
-}
+env = { DATASET = "orc", CONFIG = "llama_basic" }

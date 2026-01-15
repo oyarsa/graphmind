@@ -15,7 +15,7 @@ Comparison of baseline methods against GraphMind GPT on both datasets.
 
 | Method | Pearson | Spearman | MAE | Accuracy | F1 | Cost/run |
 |--------|---------|----------|-----|----------|-----|----------|
-| Llama Basic | - | - | - | - | - | - |
+| Llama Basic | -0.039 | -0.052 | 0.750 | 0.420 | 0.264 | ~$0.00 |
 | Novascore | 0.189 | 0.194 | 0.830 | 0.340 | 0.201 | $0.00 |
 | Scimon GPT | 0.160 ± 0.037 | 0.137 ± 0.062 | 1.248 ± 0.025 | 0.190 ± 0.015 | 0.101 ± 0.012 | $0.022 |
 | Basic GPT (Sans) | 0.048 ± 0.023 | 0.050 ± 0.027 | 1.226 ± 0.035 | 0.186 ± 0.027 | 0.102 ± 0.015 | $0.028 |
@@ -25,15 +25,17 @@ Comparison of baseline methods against GraphMind GPT on both datasets.
 
 | Method | Pearson | Spearman | MAE | Accuracy | F1 | Cost/run |
 |--------|---------|----------|-----|----------|-----|----------|
-| Llama Basic | - | - | - | - | - | - |
+| Llama Basic | **0.647** | **0.807** | **0.271** | **0.771** | 0.360 | ~$0.00 |
 | Novascore | 0.227 | 0.301 | 2.214 | 0.043 | 0.149 | $0.00 |
 | Scimon GPT | 0.080 ± 0.027 | 0.116 ± 0.035 | 1.054 ± 0.007 | 0.143 ± 0.012 | 0.096 ± 0.006 | $0.013 |
 | Basic GPT (Sans) | 0.139 ± 0.074 | 0.125 ± 0.074 | 1.250 ± 0.055 | 0.159 ± 0.012 | 0.121 ± 0.009 | $0.017 |
-| **GraphMind GPT (Full)** | **0.449 ± 0.089** | **0.435 ± 0.092** | **1.112 ± 0.074** | **0.115 ± 0.019** | **0.066 ± 0.012** | $0.052 |
+| GraphMind GPT (Full) | 0.449 ± 0.089 | 0.435 ± 0.092 | 1.112 ± 0.074 | 0.115 ± 0.019 | 0.066 ± 0.012 | $0.052 |
 
 ### Notes
 
-- **Llama Basic**: Cannot be run on this machine (requires GPU)
+- **Llama Basic**: Llama-3.1-8B-Instruct fine-tuned with LoRA on abstract-only input.
+  ORC used 5-epoch config (best), PeerRead used 10-epoch config (best).
+  Output: `output/baselines/llama_orc_llama_5ep_infer/`, `output/baselines/llama_peerread_llama_10ep_infer/`
 - **Novascore**: Tuned similarity thresholds (0.60 for ORC, 0.70 for PeerRead). Single
   deterministic run, no stdev. Output: `output/baselines/novascore_orc_t060/`,
   `output/baselines/novascore_peerread_t070/`
@@ -43,12 +45,16 @@ Comparison of baseline methods against GraphMind GPT on both datasets.
 
 ### Key Findings
 
-1. **GraphMind GPT significantly outperforms all baselines** on both datasets
-2. **Novascore** performs better than Scimon GPT after threshold tuning (default 0.8 was too high)
-3. **Basic GPT (Sans)** is comparable to or better than retrieval-based baselines, showing
+1. **Performance varies by dataset**: GraphMind GPT is best on ORC, while Llama Basic dominates
+   PeerRead (Pearson 0.647 vs 0.449)
+2. **Llama Basic shows extreme dataset sensitivity**: Near-zero correlation on ORC (-0.039), but
+   excellent on PeerRead (0.647). This may be due to PeerRead's simpler rating distribution and
+   smaller but more consistent training data.
+3. **Novascore** performs better than Scimon GPT after threshold tuning (default 0.8 was too high)
+4. **Basic GPT (Sans)** is comparable to or better than retrieval-based baselines on ORC, showing
    that LLM judgement alone provides meaningful signal
-4. **Cost-performance trade-off**: Novascore is free but weaker; GraphMind costs ~$0.05-0.12/paper
-   but achieves much better correlation
+5. **Cost-performance trade-off**: Llama/Novascore are essentially free at inference; GraphMind
+   costs ~$0.05-0.12/paper but achieves best correlation on ORC
 
 ---
 
