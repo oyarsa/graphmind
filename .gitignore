@@ -173,3 +173,4 @@ docs/*
 !docs/EXPERIMENTS.md
 !docs/BASELINES.md
 !frontend/public/data
+.sprite
