@@ -20,11 +20,15 @@ gpus = 1
 [jobs.cuda_check]
 command = """
 echo "Hello from $HOSTNAME"
-nvidia-smi
-nvidia-debugdump -l
 
-uv run --extra cuda --extra baselines \
-    python -c 'import torch as T; print(T.cuda.is_available(), T.cuda.device_count())'
+uv run --extra cuda --extra baselines python -c '
+import torch
+print(f"CUDA available: {torch.cuda.is_available()}")
+print(f"Device count: {torch.cuda.device_count()}")
+if torch.cuda.is_available():
+    print(f"Device name: {torch.cuda.get_device_name(0)}")
+    print(f"CUDA version: {torch.version.cuda}")
+'
 """
 
 # Training: fleche run train --env DATASET=orc --env CONFIG=llama_basic
