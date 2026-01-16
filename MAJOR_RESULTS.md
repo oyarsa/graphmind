@@ -15,8 +15,8 @@ Comparison of baseline methods against GraphMind GPT on both datasets.
 
 | Method | Pearson | Spearman | MAE | Accuracy | F1 | Cost/run |
 |--------|---------|----------|-----|----------|-----|----------|
-| Llama Basic | 0.198 | 0.194 | 0.690 | 0.440 | 0.293 | ~$0.00 |
-| Novascore | 0.189 | 0.194 | 0.830 | 0.340 | 0.201 | $0.00 |
+| Llama Basic | 0.159 ± 0.088 | 0.162 ± 0.092 | 0.650 ± 0.073 | 0.448 ± 0.048 | 0.274 ± 0.034 | ~$0.00 |
+| Novascore | 0.189 ± 0.000 | 0.194 ± 0.000 | 0.830 ± 0.000 | 0.340 ± 0.000 | 0.201 ± 0.000 | $0.00 |
 | Scimon GPT | 0.160 ± 0.037 | 0.137 ± 0.062 | 1.248 ± 0.025 | 0.190 ± 0.015 | 0.101 ± 0.012 | $0.022 |
 | Basic GPT (Sans) | 0.048 ± 0.023 | 0.050 ± 0.027 | 1.226 ± 0.035 | 0.186 ± 0.027 | 0.102 ± 0.015 | $0.028 |
 | **GraphMind GPT (Full)** | **0.312 ± 0.058** | **0.337 ± 0.077** | **0.862 ± 0.018** | **0.290 ± 0.016** | **0.150 ± 0.014** | $0.116 |
@@ -25,36 +25,33 @@ Comparison of baseline methods against GraphMind GPT on both datasets.
 
 | Method | Pearson | Spearman | MAE | Accuracy | F1 | Cost/run |
 |--------|---------|----------|-----|----------|-----|----------|
-| Llama Basic | 0.143 | 0.098 | 0.486 | 0.614 | 0.241 | ~$0.00 |
-| Novascore | 0.227 | 0.301 | 2.214 | 0.043 | 0.149 | $0.00 |
+| Llama Basic | 0.137 ± 0.216 | 0.167 ± 0.213 | 0.497 ± 0.084 | 0.611 ± 0.058 | 0.247 ± 0.053 | ~$0.00 |
+| Novascore | 0.227 ± 0.000 | 0.301 ± 0.000 | 2.214 ± 0.000 | 0.043 ± 0.000 | 0.149 ± 0.000 | $0.00 |
 | Scimon GPT | 0.080 ± 0.027 | 0.116 ± 0.035 | 1.054 ± 0.007 | 0.143 ± 0.012 | 0.096 ± 0.006 | $0.013 |
 | Basic GPT (Sans) | 0.139 ± 0.074 | 0.125 ± 0.074 | 1.250 ± 0.055 | 0.159 ± 0.012 | 0.121 ± 0.009 | $0.017 |
 | **GraphMind GPT (Full)** | **0.449 ± 0.089** | **0.435 ± 0.092** | **1.112 ± 0.074** | 0.115 ± 0.019 | 0.066 ± 0.012 | $0.052 |
 
 ### Notes
 
-- **Llama Basic**: Llama-3.1-8B-Instruct fine-tuned with LoRA on abstract-only input.
+- **Llama Basic**: Llama-3.1-8B-Instruct fine-tuned with LoRA on abstract-only input. 5 runs.
   ORC: 6 epochs, lr=2e-4. PeerRead: 4 epochs, lr=2e-4.
-  Output: `output/baselines/llama_orc_llama_orc/`, `output/baselines/llama_peerread_llama_peerread/`
-- **Novascore**: Tuned similarity thresholds (0.60 for ORC, 0.70 for PeerRead). Single
-  deterministic run, no stdev. Output: `output/baselines/novascore_orc_t060/`,
-  `output/baselines/novascore_peerread_t070/`
+- **Novascore**: Tuned similarity thresholds (0.60 for ORC, 0.70 for PeerRead). Deterministic
+  (±0.000). Output: `output/baselines/novascore_orc_t060/`, `output/baselines/novascore_peerread_t070/`
 - **Scimon GPT**: 5 runs using gpt-4o-mini. ORC: 3/5 successful, PeerRead: 4/5 successful.
   Output: `output/baselines/scimon_orc/`, `output/baselines/scimon_peerread/`
 - **GPT methods**: 5 runs using gpt-4o-mini with demos (ORC) / no demos (PeerRead).
 
 ### Key Findings
 
-1. **Performance varies by dataset**: GraphMind GPT is best on ORC, while Llama Basic dominates
-   PeerRead (Pearson 0.647 vs 0.449)
-2. **Llama Basic shows extreme dataset sensitivity**: Near-zero correlation on ORC (-0.039), but
-   excellent on PeerRead (0.647). This may be due to PeerRead's simpler rating distribution and
-   smaller but more consistent training data.
+1. **GraphMind GPT achieves best performance**: Pearson 0.312 on ORC and 0.449 on PeerRead,
+   outperforming all baselines.
+2. **Llama Basic shows high variance**: Pearson 0.159 ± 0.088 on ORC and 0.137 ± 0.216 on PeerRead.
+   The high variance on PeerRead indicates training instability.
 3. **Novascore** performs better than Scimon GPT after threshold tuning (default 0.8 was too high)
-4. **Basic GPT (Sans)** is comparable to or better than retrieval-based baselines on ORC, showing
-   that LLM judgement alone provides meaningful signal
+4. **Basic GPT (Sans)** is comparable to retrieval-based baselines on ORC, showing that LLM
+   judgement alone provides meaningful signal
 5. **Cost-performance trade-off**: Llama/Novascore are essentially free at inference; GraphMind
-   costs ~$0.05-0.12/paper but achieves best correlation on ORC
+   costs ~$0.05-0.12/paper but achieves best correlation
 
 ---
 
