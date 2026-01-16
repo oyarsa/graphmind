@@ -37,6 +37,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from transformers.data.data_collator import DataCollatorWithPadding
 from transformers.modeling_utils import PreTrainedModel
 from transformers.trainer import Trainer
+from transformers.trainer_utils import set_seed
 from transformers.training_args import TrainingArguments
 from transformers.utils.quantization_config import BitsAndBytesConfig
 
@@ -222,6 +223,9 @@ def train(
     )
     logger.debug("Loading datasets: done")
 
+    logger.debug("Setting seed for reproducibility")
+    set_seed(seed)
+
     logger.debug("Setting up model: start")
     model, tokeniser = setup_model_and_tokeniser(config)
     logger.debug("Setting up model: done")
@@ -247,6 +251,7 @@ def train(
         dev_dataset_tokenised,
         output_dir,
         config,
+        seed,
     )
     logger.debug("Training model: end")
 
@@ -612,6 +617,7 @@ def train_model(
     dev_dataset: Dataset,
     output_dir: Path,
     config: AppConfig,
+    seed: int,
 ) -> Trainer:
     """Train the model using HuggingFace Trainer.
 
@@ -626,6 +632,7 @@ def train_model(
         dev_dataset: Development dataset for validation during training
         output_dir: Directory to save training outputs
         config: Application configuration
+        seed: Random seed for reproducibility
 
     Returns:
         The trained Trainer object for evaluation.
@@ -650,6 +657,8 @@ def train_model(
         report_to="none",
         metric_for_best_model="accuracy",
         greater_is_better=True,
+        seed=seed,
+        data_seed=seed,
     )
 
     trainer = Trainer(
