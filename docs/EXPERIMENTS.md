@@ -194,6 +194,15 @@ fleche clean --all --tag experiment=test
 # Check job status
 fleche status
 
+# Show last N jobs
+fleche status -n 20
+
+# Filter by status (running, pending, completed, failed, cancelled)
+fleche status --filter running
+
+# List all unique tags
+fleche tags
+
 # View logs (defaults to most recent job)
 fleche logs
 
@@ -212,6 +221,9 @@ fleche logs --follow
 
 # Download results after completion (defaults to most recent job)
 fleche download
+
+# Re-run a previous job with same settings
+fleche rerun <job-id>
 
 # Cancel a running job (defaults to most recent active)
 fleche cancel
