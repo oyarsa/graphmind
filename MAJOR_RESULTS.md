@@ -15,7 +15,7 @@ Comparison of baseline methods against GraphMind GPT on both datasets.
 
 | Method | Pearson | Spearman | MAE | Accuracy | F1 | Cost/run |
 |--------|---------|----------|-----|----------|-----|----------|
-| Llama Basic | -0.039 | -0.052 | 0.750 | 0.420 | 0.264 | ~$0.00 |
+| Llama Basic | 0.198 | 0.194 | 0.690 | 0.440 | 0.293 | ~$0.00 |
 | Novascore | 0.189 | 0.194 | 0.830 | 0.340 | 0.201 | $0.00 |
 | Scimon GPT | 0.160 ± 0.037 | 0.137 ± 0.062 | 1.248 ± 0.025 | 0.190 ± 0.015 | 0.101 ± 0.012 | $0.022 |
 | Basic GPT (Sans) | 0.048 ± 0.023 | 0.050 ± 0.027 | 1.226 ± 0.035 | 0.186 ± 0.027 | 0.102 ± 0.015 | $0.028 |
@@ -25,17 +25,17 @@ Comparison of baseline methods against GraphMind GPT on both datasets.
 
 | Method | Pearson | Spearman | MAE | Accuracy | F1 | Cost/run |
 |--------|---------|----------|-----|----------|-----|----------|
-| Llama Basic | **0.647** | **0.807** | **0.271** | **0.771** | 0.360 | ~$0.00 |
+| Llama Basic | 0.143 | 0.098 | 0.486 | 0.614 | 0.241 | ~$0.00 |
 | Novascore | 0.227 | 0.301 | 2.214 | 0.043 | 0.149 | $0.00 |
 | Scimon GPT | 0.080 ± 0.027 | 0.116 ± 0.035 | 1.054 ± 0.007 | 0.143 ± 0.012 | 0.096 ± 0.006 | $0.013 |
 | Basic GPT (Sans) | 0.139 ± 0.074 | 0.125 ± 0.074 | 1.250 ± 0.055 | 0.159 ± 0.012 | 0.121 ± 0.009 | $0.017 |
-| GraphMind GPT (Full) | 0.449 ± 0.089 | 0.435 ± 0.092 | 1.112 ± 0.074 | 0.115 ± 0.019 | 0.066 ± 0.012 | $0.052 |
+| **GraphMind GPT (Full)** | **0.449 ± 0.089** | **0.435 ± 0.092** | **1.112 ± 0.074** | 0.115 ± 0.019 | 0.066 ± 0.012 | $0.052 |
 
 ### Notes
 
 - **Llama Basic**: Llama-3.1-8B-Instruct fine-tuned with LoRA on abstract-only input.
-  ORC used 5-epoch config (best), PeerRead used 10-epoch config (best).
-  Output: `output/baselines/llama_orc_llama_5ep_infer/`, `output/baselines/llama_peerread_llama_10ep_infer/`
+  ORC: 6 epochs, lr=2e-4. PeerRead: 4 epochs, lr=2e-4.
+  Output: `output/baselines/llama_orc_llama_orc/`, `output/baselines/llama_peerread_llama_peerread/`
 - **Novascore**: Tuned similarity thresholds (0.60 for ORC, 0.70 for PeerRead). Single
   deterministic run, no stdev. Output: `output/baselines/novascore_orc_t060/`,
   `output/baselines/novascore_peerread_t070/`
