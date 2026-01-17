@@ -752,7 +752,7 @@ def _handle_ensemble_evaluations(
     )
 
 
-async def _extract_graph(
+async def extract_graph(
     client: LLMClient,
     eval_prompt: PromptTemplate,
     graph_prompt: PromptTemplate,
@@ -828,9 +828,7 @@ async def evaluate_paper(
         Tuple of (GraphResult with evaluation wrapped in PromptResult and GPTResult, Graph).
     """
     # Extract graph if needed
-    graph = await _extract_graph(
-        client, eval_prompt, graph_prompt, paper, cached_graphs
-    )
+    graph = await extract_graph(client, eval_prompt, graph_prompt, paper, cached_graphs)
 
     # Prepare evaluation prompt
     eval_prompt_text = format_eval_template(

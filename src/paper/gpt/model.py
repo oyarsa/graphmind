@@ -859,6 +859,36 @@ class PaperRelatedSummarised(Record):
         )
 
 
+class PaperWithGraphContext(Record, PaperProxy[PeerReadAnnotated]):
+    """Paper with pre-computed graph and related paper text for SFT training.
+
+    This type extends PaperWithRelatedSummary by pre-computing the graph linearisation
+    and formatted related papers, avoiding runtime processing during training.
+    """
+
+    paper: PeerReadAnnotated
+    related: Sequence[PaperRelatedSummarised]
+
+    # Pre-computed text fields
+    graph_text: str
+    """Linearised graph (TOPO or FLUENT format)."""
+    positive_related: str
+    """Formatted positive (supporting) related papers."""
+    negative_related: str
+    """Formatted negative (contrasting) related papers."""
+
+    # Metadata for reproducibility
+    linearisation_method: str
+    """Method used to linearise the graph (e.g., 'topo', 'fluent')."""
+    sources: Sequence[str]
+    """Sources used for related papers (e.g., ['citations', 'semantic'])."""
+
+    @property
+    def id(self) -> str:
+        """Identify by the underlying paper's ID."""
+        return self.paper.id
+
+
 type PaperACUInput = s2.Paper | s2.PaperWithS2Refs
 """Type of input paper, either from S2 or PeerRead/ORC."""
 
