@@ -27,10 +27,11 @@ from peft.tuners.lora import LoraConfig as PeftLoraConfig
 from peft.utils.other import prepare_model_for_kbit_training
 from peft.utils.peft_types import TaskType
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers.data.data_collator import DataCollatorForLanguageModeling
+from transformers.trainer import Trainer
 from transformers.trainer_utils import set_seed
+from transformers.training_args import TrainingArguments
 from transformers.utils.quantization_config import BitsAndBytesConfig
-from trl.trainer.sft_config import SFTConfig
-from trl.trainer.sft_trainer import SFTTrainer
 
 from paper import gpt
 from paper.evaluation_metrics import (
@@ -231,6 +232,28 @@ def cuda_available() -> bool:
     return torch.cuda.is_available()
 
 
+def bf16_supported() -> bool:
+    """Check if bf16 is supported on the current GPU.
+
+    BF16 requires Ampere (sm_80+) or newer architecture.
+    V100 (sm_70) only supports fp16.
+    """
+    if not cuda_available():
+        return False
+    # Check compute capability - bf16 needs 8.0+ (Ampere)
+    major, minor = torch.cuda.get_device_capability()
+    device_name = torch.cuda.get_device_name()
+    supported = major >= 8
+    logger.info(
+        "GPU: %s, compute capability: %d.%d, bf16 supported: %s",
+        device_name,
+        major,
+        minor,
+        supported,
+    )
+    return supported
+
+
 def setup_model_and_tokeniser(
     config: AppConfig, path: Path | None = None
 ) -> tuple[PreTrainedModel, PreTrainedTokenizer]:
@@ -263,7 +286,7 @@ def setup_model_and_tokeniser(
             quantization_config=quantisation_config,
         )
     except ValueError:
-        logger.info("Using basic configuration (no fp16, single device).")
+        logger.info("Using basic configuration (no mixed precision, single device).")
         model = AutoModelForCausalLM.from_pretrained(model_name)
 
     tokeniser = AutoTokenizer.from_pretrained(
@@ -300,6 +323,32 @@ def configure_lora(model: PreTrainedModel, config: AppConfig) -> PreTrainedModel
 # =============================================================================
 
 
+def tokenise_dataset(
+    dataset: Dataset, tokeniser: PreTrainedTokenizer, max_length: int
+) -> Dataset:
+    """Tokenise dataset for causal LM training.
+
+    For causal LM, labels are the same as input_ids (shifted internally by the model).
+    """
+
+    def tokenise(examples: dict[str, list]) -> dict[str, Any]:
+        tokenised = tokeniser(
+            examples["text"],
+            padding="max_length",
+            truncation=True,
+            max_length=max_length,
+        )
+        # For causal LM, labels = input_ids (model handles shifting)
+        input_ids = tokenised["input_ids"]
+        return {
+            "input_ids": input_ids,
+            "attention_mask": tokenised["attention_mask"],
+            "labels": input_ids,  # Same as input_ids, model shifts internally
+        }
+
+    return dataset.map(tokenise, batched=True, remove_columns=["text"])
+
+
 def train_model(
     model: PreTrainedModel,
     tokeniser: PreTrainedTokenizer,
@@ -308,22 +357,23 @@ def train_model(
     output_dir: Path,
     config: AppConfig,
     seed: int,
-) -> SFTTrainer:
-    """Train the model using trl's SFTTrainer.
+) -> Trainer:
+    """Train the model using standard HuggingFace Trainer.
 
     Args:
         model: The model to train
         tokeniser: Tokeniser for data processing
-        train_dataset: Dataset for training
+        train_dataset: Dataset for training (already tokenised)
         dev_dataset: Development dataset for validation during training
         output_dir: Directory to save training outputs
         config: Application configuration
         seed: Random seed for reproducibility
 
     Returns:
-        The trained SFTTrainer object.
+        The trained Trainer object.
     """
-    sft_config = SFTConfig(
+    # Use same mixed precision settings as sft.py
+    training_args = TrainingArguments(
         output_dir=str(output_dir),
         num_train_epochs=config.training.num_epochs,
         per_device_train_batch_size=config.training.batch_size,
@@ -336,21 +386,24 @@ def train_model(
         eval_strategy=config.training.eval_strategy(),
         eval_steps=config.training.eval_steps,
         learning_rate=config.training.learning_rate,
-        bf16=cuda_available(),
+        fp16=cuda_available(),
         report_to="none",
         seed=seed,
         data_seed=seed,
-        max_length=config.training.max_length,
-        dataset_text_field="text",
-        packing=False,
     )
 
-    trainer = SFTTrainer(
+    # Data collator handles padding for language modeling
+    data_collator = DataCollatorForLanguageModeling(
+        tokenizer=tokeniser,
+        mlm=False,  # Causal LM, not masked LM
+    )
+
+    trainer = Trainer(
         model=model,
-        args=sft_config,
+        args=training_args,
         train_dataset=train_dataset,
         eval_dataset=dev_dataset,
-        processing_class=tokeniser,
+        data_collator=data_collator,
     )
     trainer.train()
 
@@ -643,12 +696,21 @@ def train(
 
     output_dir.mkdir(exist_ok=True, parents=True)
 
+    logger.debug("Tokenising datasets: start")
+    train_dataset_tok = tokenise_dataset(
+        train_dataset, tokeniser, config.training.max_length
+    )
+    dev_dataset_tok = tokenise_dataset(
+        dev_dataset, tokeniser, config.training.max_length
+    )
+    logger.debug("Tokenising datasets: done")
+
     logger.debug("Training model: start")
     trainer = train_model(
         model,
         tokeniser,
-        train_dataset,
-        dev_dataset,
+        train_dataset_tok,
+        dev_dataset_tok,
         output_dir,
         config,
         seed,
