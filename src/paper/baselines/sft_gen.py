@@ -247,7 +247,7 @@ def setup_model_and_tokeniser(
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             device_map="auto",
-            torch_dtype=torch.float16 if cuda_available() else None,
+            dtype=torch.float16 if cuda_available() else None,
             quantization_config=quantisation_config,
         )
     except ValueError:

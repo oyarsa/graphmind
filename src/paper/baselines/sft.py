@@ -463,7 +463,7 @@ def setup_model_and_tokeniser(
             model_name,
             num_labels=config.model.num_labels,
             device_map="auto",
-            torch_dtype=torch.float16 if cuda_available() else None,
+            dtype=torch.float16 if cuda_available() else None,
             quantization_config=quantisation_config,
         )
     except ValueError:
