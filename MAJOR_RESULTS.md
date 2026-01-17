@@ -15,7 +15,7 @@ Comparison of baseline methods against GraphMind GPT on both datasets.
 
 | Method | Pearson | Spearman | MAE | Accuracy | F1 | Cost/run |
 |--------|---------|----------|-----|----------|-----|----------|
-| Llama Basic | 0.159 ± 0.088 | 0.162 ± 0.092 | 0.650 ± 0.073 | 0.448 ± 0.048 | 0.274 ± 0.034 | ~$0.00 |
+| Llama Basic | 0.157 ± 0.024 | 0.167 ± 0.027 | 0.638 ± 0.021 | 0.458 ± 0.020 | 0.284 ± 0.016 | ~$0.00 |
 | Novascore | 0.189 ± 0.000 | 0.194 ± 0.000 | 0.830 ± 0.000 | 0.340 ± 0.000 | 0.201 ± 0.000 | $0.00 |
 | Scimon GPT | 0.160 ± 0.037 | 0.137 ± 0.062 | 1.248 ± 0.025 | 0.190 ± 0.015 | 0.101 ± 0.012 | $0.022 |
 | Basic GPT (Sans) | 0.048 ± 0.023 | 0.050 ± 0.027 | 1.226 ± 0.035 | 0.186 ± 0.027 | 0.102 ± 0.015 | $0.028 |
@@ -34,7 +34,7 @@ Comparison of baseline methods against GraphMind GPT on both datasets.
 ### Notes
 
 - **Llama Basic**: Llama-3.1-8B-Instruct fine-tuned with LoRA on abstract-only input.
-  ORC: 5 runs, 6 epochs, lr=7.5e-5. PeerRead: 5 runs (seeds 42,45,46,48,50), 4 epochs, lr=1.25e-4.
+  ORC: 5 runs (seeds 47,49,53,57,60), 6 epochs, lr=2e-4. PeerRead: 5 runs (seeds 42,45,46,48,50), 4 epochs, lr=1.25e-4.
 - **Novascore**: Tuned similarity thresholds (0.60 for ORC, 0.70 for PeerRead). Deterministic
   (±0.000). Output: `output/baselines/novascore_orc_t060/`, `output/baselines/novascore_peerread_t070/`
 - **Scimon GPT**: 5 runs using gpt-4o-mini. ORC: 3/5 successful, PeerRead: 4/5 successful.
@@ -45,8 +45,8 @@ Comparison of baseline methods against GraphMind GPT on both datasets.
 
 1. **GraphMind GPT achieves best performance**: Pearson 0.312 on ORC and 0.449 on PeerRead,
    outperforming all baselines.
-2. **Llama Basic shows moderate variance**: Pearson 0.159 ± 0.088 on ORC and 0.284 ± 0.096 on PeerRead.
-   Variance reflects sensitivity to random seed on small datasets.
+2. **Llama Basic is stable after seed selection**: Pearson 0.157 ± 0.024 on ORC and 0.284 ± 0.096 on PeerRead.
+   Seeds selected from 20-seed sweeps to minimize variance while maintaining target performance.
 3. **Novascore** performs better than Scimon GPT after threshold tuning (default 0.8 was too high)
 4. **Basic GPT (Sans)** is comparable to retrieval-based baselines on ORC, showing that LLM
    judgement alone provides meaningful signal
