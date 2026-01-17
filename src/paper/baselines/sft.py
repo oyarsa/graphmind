@@ -224,7 +224,7 @@ def train(
     logger.debug("Loading datasets: done")
 
     logger.debug("Setting seed for reproducibility")
-    set_seed(seed)
+    set_seed(seed, deterministic=True)
 
     logger.debug("Setting up model: start")
     model, tokeniser = setup_model_and_tokeniser(config)
