@@ -1,0 +1,29 @@
+# Generative SFT config for PeerRead - trains model to generate rationale + rating
+# This differs from classification-based sft.py by producing text output.
+
+[model]
+name = "meta-llama/Llama-3.1-8B-Instruct"
+quantisation_enabled = true
+label_mode = "original"  # Use original 1-5 ratings
+
+[lora]
+r = 8
+alpha = 16
+dropout = 0.1
+target_modules = ["q_proj", "k_proj", "v_proj"]
+
+[training]
+batch_size = 4  # Smaller batch size due to longer sequences
+learning_rate = 1e-4
+num_epochs = 3
+warmup_steps = 50
+weight_decay = 0.01
+max_length = 1024  # Longer to accommodate rationale generation
+logging_steps = 10
+max_new_tokens = 256
+
+[generation]
+max_new_tokens = 256
+temperature = 0.1  # Low temperature for more deterministic output
+do_sample = true
+top_p = 0.9

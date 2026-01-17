@@ -68,3 +68,40 @@ uv run --extra cuda --extra baselines \
 inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/"]
 env = { DATASET = "orc", CONFIG = "llama_basic" }
+
+# Generative SFT Training: fleche run train_gen --env DATASET=peerread --env CONFIG=llama_peerread_gen
+# Add --env NUM_EXAMPLES=5 to limit dataset size for testing
+[jobs.train_gen]
+command = """
+echo "Hello from $HOSTNAME"
+
+uv run --extra cuda --extra baselines \
+    paper baselines sft-gen train \
+    --train output/baselines/llama_data/${DATASET}_train.json.zst \
+    --dev output/baselines/llama_data/${DATASET}_dev.json.zst \
+    --test output/baselines/llama_data/${DATASET}_test.json.zst \
+    --output output/baselines/llama_gen_${DATASET}_${CONFIG}${SEED:+_seed${SEED}} \
+    --config src/paper/baselines/sft_config/${CONFIG}.toml \
+    ${NUM_EXAMPLES:+--num-examples $NUM_EXAMPLES} \
+    ${SEED:+--seed $SEED}
+"""
+inputs = ["output/baselines/llama_data/"]
+outputs = ["output/baselines/"]
+env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }
+
+# Generative SFT Inference: fleche run infer_gen --env DATASET=peerread --env CONFIG=llama_peerread_gen
+# Add --env NUM_EXAMPLES=5 to limit dataset size for testing
+[jobs.infer_gen]
+command = """
+echo "Hello from $HOSTNAME"
+
+uv run --extra cuda --extra baselines \
+    paper baselines sft-gen infer \
+    --model output/baselines/llama_gen_${DATASET}_${CONFIG}/final_model \
+    --input output/baselines/llama_data/${DATASET}_test.json.zst \
+    --output output/baselines/llama_gen_${DATASET}_${CONFIG}_infer \
+    ${NUM_EXAMPLES:+--num-examples $NUM_EXAMPLES}
+"""
+inputs = ["output/baselines/llama_data/"]
+outputs = ["output/baselines/"]
+env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }

@@ -34,5 +34,12 @@ try:
 except ImportError:
     pass
 
+try:
+    from paper.baselines import sft_gen
+
+    app.add_typer(sft_gen.app, name="sft-gen")
+except ImportError:
+    pass
+
 if __name__ == "__main__":
     app()
