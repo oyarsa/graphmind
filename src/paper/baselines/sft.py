@@ -10,9 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
-import platform
 import random
-import warnings
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal, cast
@@ -30,6 +28,7 @@ from peft.utils.other import prepare_model_for_kbit_training
 from peft.utils.peft_types import TaskType
 from pydantic import BaseModel, Field
 
+from paper.baselines.sft_utils import LoraConfig, cuda_available, suppress_hf_warnings
 from paper.types import Immutable
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -61,18 +60,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class LoraConfig(Immutable):
-    """Configuration for LoRA fine-tuning."""
-
-    r: Annotated[int, Field(description="LoRA attention dimension")]
-    alpha: Annotated[int, Field(description="LoRA alpha parameter")]
-    dropout: Annotated[float, Field(description="Dropout probability for LoRA layers")]
-    target_modules: Annotated[list[str], Field(description="Target modules for LoRA")]
-
-
-# Using Literal instead of Enum because the latter bugs out with tomlw when writing
-# the configuration file.
-type LabelMode = Literal["original", "binary"]
 type InputMode = Literal["basic", "graph"]
 
 
@@ -84,9 +71,6 @@ class ModelConfig(Immutable):
     quantisation_enabled: Annotated[
         bool, Field(description="Whether to use quantisation. Ignored on macOS")
     ]
-    label_mode: Annotated[
-        LabelMode, Field(description="What label mode to use (binary/original).")
-    ] = "original"
     input_mode: Annotated[
         InputMode,
         Field(description="What input to use for the model (minimal vs full graph)"),
@@ -212,15 +196,9 @@ def train(
         num_test = num_examples
 
     logger.debug("Loading datasets: start")
-    train_dataset = load_dataset(
-        train_file, num_train, config.model.label_mode, config.model.input_mode, rng
-    )
-    dev_dataset = load_dataset(
-        dev_file, num_dev, config.model.label_mode, config.model.input_mode, rng
-    )
-    test_dataset = load_dataset(
-        test_file, num_test, config.model.label_mode, config.model.input_mode, rng
-    )
+    train_dataset = load_dataset(train_file, num_train, config.model.input_mode, rng)
+    dev_dataset = load_dataset(dev_file, num_dev, config.model.input_mode, rng)
+    test_dataset = load_dataset(test_file, num_test, config.model.input_mode, rng)
     logger.debug("Loading datasets: done")
 
     logger.debug("Setting seed for reproducibility")
@@ -260,9 +238,7 @@ def train(
     logger.debug("Saving model: end")
 
     logger.debug("Evaluating: start")
-    evaluated = evaluate_model(
-        trainer, test_dataset_tokenised, output_dir, config.model.label_mode
-    )
+    evaluated = evaluate_model(trainer, test_dataset_tokenised, output_dir)
     logger.info("\n%s", display_regular_negative_macro_metrics(evaluated))
     logger.info(gpu_mem)
     logger.debug("Evaluating: end")
@@ -336,9 +312,7 @@ def infer(
 
     model, tokeniser = setup_model_and_tokeniser(config, model_path)
 
-    dataset = load_dataset(
-        input_file, num_examples, config.model.label_mode, config.model.input_mode, rng
-    )
+    dataset = load_dataset(input_file, num_examples, config.model.input_mode, rng)
     dataset_tokenised = tokenise_dataset(dataset, tokeniser, config)
 
     data_collator = DataCollatorWithPadding(tokenizer=tokeniser)
@@ -356,24 +330,14 @@ def infer(
     )
 
     logger.info(f"\nRunning inference on {len(dataset)} examples...")
-    evaluated = evaluate_model(
-        trainer, dataset_tokenised, output_dir, config.model.label_mode
-    )
+    evaluated = evaluate_model(trainer, dataset_tokenised, output_dir)
     logger.info("\n%s", display_regular_negative_macro_metrics(evaluated))
     logger.info(gpu_mem)
-
-
-def suppress_hf_warnings() -> None:
-    """Suppress some annoyihng and unnecessary huggingface warnings."""
-    warnings.filterwarnings(
-        "ignore", message=".*use_reentrant parameter should be passed explicitly.*"
-    )
 
 
 def load_dataset(
     file: Path,
     n: int | None,
-    label_mode: LabelMode,
     model_input: InputMode,
     rng: random.Random,
 ) -> Dataset:
@@ -383,10 +347,10 @@ def load_dataset(
     """
 
     def load[T: BaseModel](
-        type_: type[T], preprocess: Callable[[list[T], LabelMode], Dataset]
+        type_: type[T], preprocess: Callable[[list[T]], Dataset]
     ) -> Dataset:
         data = gpt.PromptResult.unwrap(load_data(file, gpt.PromptResult[type_]))
-        return preprocess(sample(data, n, rng), label_mode)
+        return preprocess(sample(data, n, rng))
 
     if model_input == "basic":
         return load(gpt.PaperWithRelatedSummary, preprocess_dataset_basic)
@@ -394,28 +358,19 @@ def load_dataset(
         return load(gpt.ExtractedGraph, preprocess_dataset_graph)
 
 
-def _fix_rating(rating: int, label_mode: LabelMode) -> int:
-    """Fix rating for model compatibility.
-
-    If `label_mode` is `original`, convert 1-5 to 0-4.
-    Else (binary), ratings >= 3 become 1, and the rest 0.
-    """
-    if label_mode == "original":
-        return rating - 1
-
-    return int(rating >= 3)
+def _fix_rating(rating: int) -> int:
+    """Convert 1-5 rating to 0-4 for classification."""
+    return rating - 1
 
 
-def preprocess_dataset_basic(
-    dataset: list[gpt.PaperWithRelatedSummary], label_mode: LabelMode
-) -> Dataset:
+def preprocess_dataset_basic(dataset: list[gpt.PaperWithRelatedSummary]) -> Dataset:
     """Convert raw dataset into HuggingFace dataset format and prepare for training.
 
-    Converts the label to the appropriate mode and builds the input prompt from the
-    paper title and abstract.
+    Converts the label to 0-4 range and builds the input prompt from the paper title
+    and abstract.
     """
     texts = [_format_basic_template(item.paper.paper) for item in dataset]
-    labels = [_fix_rating(item.paper.paper.rating, label_mode) for item in dataset]
+    labels = [_fix_rating(item.paper.paper.rating) for item in dataset]
 
     return Dataset.from_dict({"text": texts, "label": labels})
 
@@ -425,16 +380,14 @@ def _format_basic_template(paper: s2.PaperWithS2Refs) -> str:
     return f"Title: {paper.title}\nAbstract: {paper.abstract}"
 
 
-def preprocess_dataset_graph(
-    dataset: list[gpt.ExtractedGraph], label_mode: LabelMode
-) -> Dataset:
+def preprocess_dataset_graph(dataset: list[gpt.ExtractedGraph]) -> Dataset:
     """Convert raw dataset into HuggingFace dataset format and prepare for training.
 
-    Converts the label to the appropriate mode and builds the input prompt from the
-    paper graph and related papers.
+    Converts the label to 0-4 range and builds the input prompt from the paper graph
+    and related papers.
     """
     texts = [_format_graph_template(item) for item in dataset]
-    labels = [_fix_rating(item.paper.rating, label_mode) for item in dataset]
+    labels = [_fix_rating(item.paper.rating) for item in dataset]
 
     return Dataset.from_dict({"text": texts, "label": labels})
 
@@ -527,14 +480,6 @@ def setup_model_and_tokeniser(
     model.config.pad_token_id = tokeniser.pad_token_id
 
     return model, tokeniser
-
-
-def cuda_available() -> bool:
-    """Check if we're on Linux and CUDA is available."""
-    if platform.system() == "Darwin":
-        return False
-
-    return torch.cuda.is_available()
 
 
 class GPUMemoryTracker:
@@ -743,7 +688,6 @@ def evaluate_model(
     trainer: Trainer,
     test_dataset_tokenised: Dataset,
     output_dir: Path,
-    label_mode: LabelMode,
 ) -> list[PaperEvaluated]:
     """Run comprehensive evaluation on the test dataset.
 
@@ -754,7 +698,6 @@ def evaluate_model(
         trainer: The trained Trainer object.
         test_dataset_tokenised: Tokenised dataset for model prediction.
         output_dir: Directory to save evaluation results.
-        label_mode: Type of label from the data.
     """
     logger.info("\nRunning evaluation on test set...")
 
@@ -769,7 +712,6 @@ def evaluate_model(
         pred_labels=predicted_classes,
         logits=logits,  # pyright: ignore
         output_dir=output_dir,
-        label_mode=label_mode,
     )
 
 
@@ -778,7 +720,6 @@ def evaluate_model_predictions(
     pred_labels: Sequence[int],
     logits: Sequence[Sequence[float] | npt.NDArray[np.float64]],
     output_dir: Path,
-    label_mode: LabelMode,
 ) -> list[PaperEvaluated]:
     """Evaluate model predictions and save results to `output_dir`.
 
@@ -791,20 +732,13 @@ def evaluate_model_predictions(
         pred_labels: Predicted class indices.
         logits: Raw logits from the model.
         output_dir: Directory to save evaluation results.
-        label_mode: The kind of label (original or binary). If it's original, we'll
-            convert the 0-4 labels to 1-5 to match the original data.
 
     Returns:
         Evaluation results.
     """
-    # Always use INT mode (1-5 ratings)
-    if label_mode == "original":
-        true_labels_adjusted = [int(label) + 1 for label in true_labels]
-        pred_labels_adjusted = [int(label) + 1 for label in pred_labels]
-    else:
-        # For binary mode, map 0->1, 1->5 (low/high novelty)
-        true_labels_adjusted = [1 if int(label) == 0 else 5 for label in true_labels]
-        pred_labels_adjusted = [1 if int(label) == 0 else 5 for label in pred_labels]
+    # Convert 0-4 labels back to 1-5 to match the original data
+    true_labels_adjusted = [int(label) + 1 for label in true_labels]
+    pred_labels_adjusted = [int(label) + 1 for label in pred_labels]
     logits_list = [[float(x) for x in logit] for logit in logits]
     metrics_result = calculate_metrics(true_labels_adjusted, pred_labels_adjusted)
     evaluated_results = [

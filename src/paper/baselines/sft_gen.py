@@ -11,12 +11,10 @@ Output: Review rationale + Rating (1-5)
 from __future__ import annotations
 
 import logging
-import platform
 import random
 import re
-import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
 import toml
 import torch
@@ -34,6 +32,7 @@ from transformers.training_args import TrainingArguments
 from transformers.utils.quantization_config import BitsAndBytesConfig
 
 from paper import gpt
+from paper.baselines.sft_utils import LoraConfig, cuda_available, suppress_hf_warnings
 from paper.evaluation_metrics import (
     calculate_metrics,
     display_metrics,
@@ -55,18 +54,6 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 
-class LoraConfig(Immutable):
-    """Configuration for LoRA fine-tuning."""
-
-    r: Annotated[int, Annotated[str, "LoRA attention dimension"]]
-    alpha: Annotated[int, Annotated[str, "LoRA alpha parameter"]]
-    dropout: Annotated[float, Annotated[str, "Dropout probability for LoRA layers"]]
-    target_modules: Annotated[list[str], Annotated[str, "Target modules for LoRA"]]
-
-
-type LabelMode = Literal["original", "binary"]
-
-
 class ModelConfig(Immutable):
     """Configuration for model settings."""
 
@@ -74,9 +61,6 @@ class ModelConfig(Immutable):
     quantisation_enabled: Annotated[
         bool, Annotated[str, "Whether to use quantisation. Ignored on macOS"]
     ]
-    label_mode: Annotated[
-        LabelMode, Annotated[str, "What label mode to use (binary/original)."]
-    ] = "original"
 
 
 class TrainingConfig(Immutable):
@@ -177,9 +161,7 @@ def format_training_example(
     return FULL_TEMPLATE.format(input=input_text, output=output_text)
 
 
-def preprocess_dataset(
-    dataset: list[gpt.PaperWithRelatedSummary], label_mode: LabelMode
-) -> Dataset:
+def preprocess_dataset(dataset: list[gpt.PaperWithRelatedSummary]) -> Dataset:
     """Convert raw dataset into HuggingFace dataset format for generative training.
 
     Each example contains the full text (input + output) for causal LM training.
@@ -189,7 +171,7 @@ def preprocess_dataset(
 
     for item in dataset:
         paper = item.paper.paper
-        rating = _fix_rating(paper.originality_rating, label_mode)
+        rating = paper.originality_rating
         rationale = paper.rationale
 
         # Skip items without rationale
@@ -209,27 +191,9 @@ def preprocess_dataset(
     return Dataset.from_dict({"text": texts, "label": labels})
 
 
-def _fix_rating(rating: int, label_mode: LabelMode) -> int:
-    """Keep rating as-is for generation (1-5 scale).
-
-    Unlike classification which uses 0-indexed labels, we keep the original
-    1-5 scale for text generation since it's more interpretable.
-    """
-    if label_mode == "binary":
-        return 5 if rating >= 3 else 1
-    return rating
-
-
 # =============================================================================
 # Model setup
 # =============================================================================
-
-
-def cuda_available() -> bool:
-    """Check if we're on Linux and CUDA is available."""
-    if platform.system() == "Darwin":
-        return False
-    return torch.cuda.is_available()
 
 
 def bf16_supported() -> bool:
@@ -433,7 +397,7 @@ def save_model(
 RATING_PATTERN = re.compile(r"Rating:\s*(\d)", re.IGNORECASE)
 
 
-def parse_rating(text: str, label_mode: LabelMode) -> int | None:
+def parse_rating(text: str) -> int | None:
     """Extract rating from generated text.
 
     Returns None if no valid rating found.
@@ -441,9 +405,7 @@ def parse_rating(text: str, label_mode: LabelMode) -> int | None:
     match = RATING_PATTERN.search(text)
     if match:
         rating = int(match.group(1))
-        # Clamp to valid range
-        if label_mode == "binary":
-            return 5 if rating >= 3 else 1
+        # Clamp to valid range (1-5)
         return max(1, min(5, rating))
     return None
 
@@ -489,7 +451,7 @@ def evaluate_model(
     # Generate for each example
     for i, item in enumerate(original_data):
         paper = item.paper.paper
-        true_rating = _fix_rating(paper.originality_rating, config.model.label_mode)
+        true_rating = paper.originality_rating
 
         # Format input (without the output part)
         input_text = format_input(paper.title, paper.abstract)
@@ -514,7 +476,7 @@ def evaluate_model(
         generated_output = generated[len(input_text) :].strip()
 
         # Parse rating from generated text
-        pred_rating = parse_rating(generated_output, config.model.label_mode)
+        pred_rating = parse_rating(generated_output)
         if pred_rating is None:
             logger.warning(
                 "Could not parse rating from generated text for paper %d: %s",
@@ -522,7 +484,7 @@ def evaluate_model(
                 generated_output[:100],
             )
             # Default to middle rating if parsing fails
-            pred_rating = 3 if config.model.label_mode == "original" else 1
+            pred_rating = 3
 
         true_labels.append(true_rating)
         pred_labels.append(pred_rating)
@@ -576,7 +538,6 @@ def read_config(file: Path) -> AppConfig:
 def load_dataset_from_file(
     file: Path,
     n: int | None,
-    label_mode: LabelMode,
     rng: random.Random,
 ) -> tuple[Dataset, list[gpt.PaperWithRelatedSummary]]:
     """Load JSON file and prepare dataset for generative training.
@@ -587,15 +548,8 @@ def load_dataset_from_file(
         load_data(file, gpt.PromptResult[gpt.PaperWithRelatedSummary])
     )
     sampled = sample(data, n, rng)
-    dataset = preprocess_dataset(sampled, label_mode)
+    dataset = preprocess_dataset(sampled)
     return dataset, sampled
-
-
-def suppress_hf_warnings() -> None:
-    """Suppress some annoying and unnecessary HuggingFace warnings."""
-    warnings.filterwarnings(
-        "ignore", message=".*use_reentrant parameter should be passed explicitly.*"
-    )
 
 
 @app.command(no_args_is_help=True)
@@ -671,15 +625,9 @@ def train(
         num_test = num_examples
 
     logger.debug("Loading datasets: start")
-    train_dataset, _ = load_dataset_from_file(
-        train_file, num_train, config.model.label_mode, rng
-    )
-    dev_dataset, _ = load_dataset_from_file(
-        dev_file, num_dev, config.model.label_mode, rng
-    )
-    test_dataset, test_data = load_dataset_from_file(
-        test_file, num_test, config.model.label_mode, rng
-    )
+    train_dataset, _ = load_dataset_from_file(train_file, num_train, rng)
+    dev_dataset, _ = load_dataset_from_file(dev_file, num_dev, rng)
+    test_dataset, test_data = load_dataset_from_file(test_file, num_test, rng)
     logger.debug("Loading datasets: done")
 
     logger.debug("Setting seed for reproducibility")
@@ -792,9 +740,7 @@ def infer(
 
     model, tokeniser = setup_model_and_tokeniser(config, model_path)
 
-    dataset, original_data = load_dataset_from_file(
-        input_file, num_examples, config.model.label_mode, rng
-    )
+    dataset, original_data = load_dataset_from_file(input_file, num_examples, rng)
 
     logger.info("Running inference on %d examples...", len(original_data))
     evaluated = evaluate_model(
