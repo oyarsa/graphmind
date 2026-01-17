@@ -33,6 +33,17 @@
 - **Experiments**: `docs/EXPERIMENTS.md` - ablation configs, experiment log format, prompt validation
 - **Baselines**: `docs/BASELINES.md` - SFT/Llama fine-tuning setup
 
+## Fleche (Remote Job Submission)
+- `fleche run <job> --bg` - Run job in background (use `--notify` for alerts)
+- `fleche run <job> --env VAR=value` - Set environment variables
+- `fleche run <job> --tag key=value` - Tag jobs for filtering
+- `fleche status -n 20` - Show last 20 jobs (`--tag k=v` by tags, `--name '*pattern*'` by job name glob)
+- `fleche logs <job-id>` - View job logs (supports short ID suffix matching)
+- `fleche wait <job-id>` - Wait for job to finish (add `--notify` for alerts)
+- `fleche rerun <job-id>` - Re-run a previous job with same settings
+- `fleche ping` - Check cluster health
+- Jobs defined in `fleche.toml`: `train`, `infer`, `train_gen`, `infer_gen`
+
 ## Environment
 Create `.env` from `.env.example` with `OPENAI_API_KEY` and optionally `SEMANTIC_SCHOLAR_API_KEY`.
 
