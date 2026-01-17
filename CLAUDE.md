@@ -3,7 +3,11 @@
 ## Workflow Rules
 - **ALWAYS run `just lint`** after code changes before considering the task complete
 - **ALWAYS notify the user** when done, even without needing input
-- **Log experiments** to `EXPERIMENT_LOG.yaml` and update `MAJOR_RESULTS.md` for major results (see `docs/EXPERIMENTS.md` for format)
+- **Log ALL experiments** to `EXPERIMENT_LOG.yaml` including:
+  - GPT ablation experiments
+  - Llama/SFT baseline experiments (record config, seeds, learning rate, epochs)
+  - Any other baseline experiments (Novascore, Scimon, etc.)
+- Update `MAJOR_RESULTS.md` for major results (see `docs/EXPERIMENTS.md` for format)
 
 ## Commands
 - `just lint` - Main check: fix, fmt, spell, pre-commit, test, type
