@@ -129,15 +129,15 @@ INPUT_TEMPLATE = """\
 Title: {title}
 Abstract: {abstract}
 
-Based on the paper above, provide a review focusing on novelty and originality, \
-then give a rating from 1-5 (1=not novel, 5=highly novel).
+Based on the paper above, give a rating from 1-5 (1=not novel, 5=highly novel), \
+then provide a brief explanation of your rating.
 
-Review:"""
+"""
 
 OUTPUT_TEMPLATE = """\
-{rationale}
+Rating: {rating}
 
-Rating: {rating}"""
+{rationale}"""
 
 FULL_TEMPLATE = """\
 {input}{output}"""

@@ -50,7 +50,7 @@ from paper.util import (
 )
 from paper.util.serde import load_data, save_data
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("paper.baselines.sft_gen_preprocess")
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},

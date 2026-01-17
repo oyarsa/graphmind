@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from transformers.modeling_utils import PreTrainedModel
     from transformers.tokenization_utils import PreTrainedTokenizer
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("paper.baselines.sft_gen_graph")
 
 
 # =============================================================================
@@ -138,15 +138,15 @@ Abstract: {abstract}
 ## Contrasting Related Work
 {negative}
 
-Based on the paper and context above, provide a review focusing on novelty and originality, \
-then give a rating from 1-5 (1=not novel, 5=highly novel).
+Based on the paper and context above, give a rating from 1-5 (1=not novel, 5=highly novel), \
+then provide a brief explanation of your rating.
 
-Review:"""
+"""
 
 OUTPUT_TEMPLATE = """\
-{rationale}
+Rating: {rating}
 
-Rating: {rating}"""
+{rationale}"""
 
 FULL_TEMPLATE = """\
 {input}{output}"""
