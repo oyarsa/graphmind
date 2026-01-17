@@ -35,15 +35,37 @@
 
 ## Fleche (Remote Job Submission)
 - **Check `fleche.toml` first** for available jobs (`train`, `infer`, `train_gen`, `infer_gen`)
+- Most commands default to most recent job if no job-id given
+- Short ID suffix works (e.g., `x7k2` instead of full `train-20260115-153042-847-x7k2`)
+- Config supports `${VAR}` substitution from env vars, `.env` file, and `${PROJECT}` built-in
+
+**Running jobs:**
+- `fleche run <job>` - Submit and stream output (Ctrl+C disconnects, job keeps running)
 - `fleche run <job> --bg` - Run in background (`--notify` for alerts)
 - `fleche run <job> --env VAR=value --tag key=value` - Set env vars and tags
+- `fleche run <job> --command "nvidia-smi"` - Override command (keeps job's Slurm config)
+- `fleche run <job> --dry-run` - Preview sbatch script without submitting
+- `fleche exec <cmd>` - Run directly via SSH, no Slurm (quick tests)
+- `fleche rerun <job-id>` - Re-run previous job with same settings
+
+**Monitoring:**
 - `fleche status -n 20` - Show last 20 jobs
-  - `--filter running` - Filter by STATUS (running/pending/completed/failed/cancelled)
-  - `--tag key=value` - Filter by TAG
+  - `--filter running` - Filter by status (running/pending/completed/failed/cancelled)
+  - `--tag key=value` - Filter by tag
   - `--name 'pattern'` - Filter by job ID regex (substring match, use `^`/`$` to anchor)
-- `fleche logs <job-id>` - View logs (short ID suffix like `x7k2` works)
-- `fleche wait <job-id>` - Wait for completion (`--notify` for alerts)
-- `fleche rerun <job-id>` - Re-run previous job
+- `fleche logs [job-id]` - View logs (`--raw` to strip ANSI, `--follow` to stream)
+  - `-n 50` - Show only last N lines
+  - `--stdout` / `--stderr` - Show only one stream
+- `fleche wait [job-id]` - Wait for completion (`--notify` for alerts)
+- `fleche ping` - Check Slurm cluster health
+- `fleche check` - Validate config after editing
+
+**Results:**
+- `fleche download [job-id]` - Download output files (`--partial` while job running)
+- `fleche tags` - List unique tags across all jobs
+
+**Cleanup:**
+- `fleche cancel [job-id]` - Cancel job (`--all` for all active, `--tag` to filter)
 - `fleche clean --older-than 2h -y` - Clean old jobs periodically
 
 ## Environment
