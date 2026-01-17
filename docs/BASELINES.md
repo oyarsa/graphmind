@@ -36,24 +36,28 @@ pipeline. Currently only test sets have graph data.
 
 ## Running Experiments
 
-**ORC Basic:**
+Use `--seed` for reproducible training (recommended for final results):
+
+**ORC (tuned config):**
 ```bash
 uv run paper baselines sft train \
   --train output/baselines/llama_data/orc_train.json.zst \
   --dev output/baselines/llama_data/orc_dev.json.zst \
   --test output/baselines/llama_data/orc_test.json.zst \
-  --output output/baselines/llama_orc_basic \
-  --config src/paper/baselines/sft_config/llama_basic.toml
+  --output output/baselines/llama_orc \
+  --config src/paper/baselines/sft_config/llama_orc.toml \
+  --seed 42
 ```
 
-**PeerRead Basic:**
+**PeerRead (tuned config):**
 ```bash
 uv run paper baselines sft train \
   --train output/baselines/llama_data/peerread_train.json.zst \
   --dev output/baselines/llama_data/peerread_dev.json.zst \
   --test output/baselines/llama_data/peerread_test.json.zst \
-  --output output/baselines/llama_peerread_basic \
-  --config src/paper/baselines/sft_config/llama_basic.toml
+  --output output/baselines/llama_peerread \
+  --config src/paper/baselines/sft_config/llama_peerread.toml \
+  --seed 42
 ```
 
 ## Output Structure
@@ -70,22 +74,24 @@ Config files in `src/paper/baselines/sft_config/`:
 - `llama_basic.toml` - Basic mode (max_length=512)
 - `llama_graph.toml` - Graph mode (max_length=2000)
 
-Key settings: LoRA r=8, alpha=16, batch_size=16, lr=1e-4, epochs=1, 4-bit quantisation.
+Key settings: LoRA r=8, alpha=16, batch_size=16, 4-bit quantisation.
+- `llama_orc.toml`: lr=5e-5, epochs=6 (tuned for positive Pearson ~0.08)
+- `llama_peerread.toml`: lr=1.5e-4, epochs=4 (tuned for positive Pearson ~0.38)
 
 ## Remote Execution with fleche
 
 For running on a Slurm cluster, use `fleche` (see `fleche.toml` for configuration):
 
 ```bash
-# Train on ORC (streams output by default)
-fleche run train --env DATASET=orc --env CONFIG=llama_basic
+# Train on ORC with tuned config (streams output by default)
+fleche run train --env DATASET=orc --env CONFIG=llama_orc --env SEED=42
 
-# Train on PeerRead
-fleche run train --env DATASET=peerread --env CONFIG=llama_basic
+# Train on PeerRead with tuned config
+fleche run train --env DATASET=peerread --env CONFIG=llama_peerread --env SEED=42
 
 # Run inference after training (uses model from shared workspace)
-fleche run infer --env DATASET=orc --env CONFIG=llama_basic
-fleche run infer --env DATASET=peerread --env CONFIG=llama_basic
+fleche run infer --env DATASET=orc --env CONFIG=llama_orc
+fleche run infer --env DATASET=peerread --env CONFIG=llama_peerread
 
 # Monitor and download results
 fleche status

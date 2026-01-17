@@ -199,6 +199,7 @@ fleche status -n 20
 
 # Filter by status (running, pending, completed, failed, cancelled)
 fleche status --filter running
+fleche status --filter failed --filter completed  # multiple filters
 
 # List all unique tags
 fleche tags
