@@ -37,3 +37,41 @@ Create `.env` from `.env.example` with `OPENAI_API_KEY` and optionally `SEMANTIC
 - Query compressed files: `zstd -dc file.json.zst | jq 'filter'`
 - Prompts: `src/paper/gpt/prompts/`
 - Demos: `src/paper/gpt/demonstrations/`
+
+## Experiment Setup (for Claude)
+
+When the user asks to "initialise the repo for experiments" (with `cpu` or `cuda`), follow these steps:
+
+1. **Install dependencies** (cpu and cuda extras are mutually exclusive):
+   ```bash
+   uv sync --extra baselines --extra cuda   # For GPU hosts
+   uv sync --extra baselines --extra cpu    # For CPU-only hosts
+   ```
+
+2. **Check for experiment data** - verify these paths exist:
+   - `output/venus5/split/dev_100_balanced.json.zst` (ORC test data)
+   - `output/new_peerread/peter_summarised/balanced_68.json.zst` (PeerRead test data)
+   - `output/baselines/llama_data/` (Llama train/dev/test)
+   - `output/baselines/orc_acu_query_t05/` (Novascore ORC queries)
+   - `output/baselines/peerread_acu_query_t05/` (Novascore PeerRead queries)
+
+3. **If data is missing**, tell the user:
+   > The experiment data (~44 MB tarball) is not included in the repo.
+   > Please obtain `experiment_data.tar.gz` and extract it in the repo root:
+   > ```bash
+   > tar -xzf experiment_data.tar.gz
+   > ```
+   > To create this tarball from a host that has the data: `bash tmp/create_data_tarball.sh`
+
+4. **Create `.env`** from `.env.example` with `OPENAI_API_KEY` (required for GPT experiments)
+
+5. **Verify setup**:
+   ```bash
+   just lint                    # Should pass
+   uv run paper --help          # Should show CLI help
+   ```
+
+6. **For CUDA hosts**, verify GPU access:
+   ```bash
+   uv run python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
+   ```
