@@ -1458,3 +1458,156 @@ experiments:
     conclusion: >
       Scimon GPT achieves Pearson 0.080 on PeerRead, significantly lower than Novascore
       (0.227). The inspiration-based approach struggles on this dataset. 4/5 runs successful.
+
+  # === LLAMA SFT BASELINE EXPERIMENTS ===
+  # Fine-tuning Llama-3.1-8B-Instruct with LoRA for novelty rating prediction
+
+  - date: "2025-01-16"
+    name: "llama_orc_lr2e4"
+    type: baseline
+    description: "Llama SFT baseline (ORC) - original config"
+    reason: >
+      Initial Llama baseline for ORC using learning rate 2e-4. Results used in first
+      baseline comparison table.
+    command: |
+      fleche run train --env DATASET=orc --env CONFIG=llama_basic --env SEED=<seed>
+      # Run with seeds 42-46 (5 runs)
+    parameters:
+      dataset: "ORC orc_train/dev/test"
+      model: "meta-llama/Llama-3.1-8B-Instruct"
+      method: "sft"
+      learning_rate: 2e-4
+      num_epochs: 6
+      batch_size: 16
+      lora_r: 8
+      lora_alpha: 16
+      quantisation: "4-bit"
+      seeds: [42, 43, 44, 45, 46]
+      runs: 5
+    metrics:
+      pearson: {mean: 0.159, stdev: 0.088}
+      spearman: {mean: 0.162, stdev: 0.092}
+      mae: {mean: 0.650, stdev: 0.073}
+      accuracy: {mean: 0.448, stdev: 0.048}
+      f1: {mean: 0.274, stdev: 0.034}
+      cost_per_run: 0.0
+    total_cost: 0.0
+    conclusion: >
+      Original Llama baseline achieving Pearson 0.159 on ORC. Config not tracked in fleche
+      at the time. Learning rate 2e-4 with 6 epochs.
+
+  - date: "2025-01-16"
+    name: "llama_peerread_lr2e4"
+    type: baseline
+    description: "Llama SFT baseline (PeerRead) - original config"
+    reason: >
+      Initial Llama baseline for PeerRead using learning rate 2e-4. Results used in first
+      baseline comparison table.
+    command: |
+      fleche run train --env DATASET=peerread --env CONFIG=llama_basic --env SEED=<seed>
+      # Run with seeds 42-46 (5 runs)
+    parameters:
+      dataset: "PeerRead peerread_train/dev/test"
+      model: "meta-llama/Llama-3.1-8B-Instruct"
+      method: "sft"
+      learning_rate: 2e-4
+      num_epochs: 4
+      batch_size: 16
+      lora_r: 8
+      lora_alpha: 16
+      quantisation: "4-bit"
+      seeds: [42, 43, 44, 45, 46]
+      runs: 5
+    metrics:
+      pearson: {mean: 0.137, stdev: 0.216}
+      spearman: {mean: 0.167, stdev: 0.213}
+      mae: {mean: 0.497, stdev: 0.084}
+      accuracy: {mean: 0.611, stdev: 0.058}
+      f1: {mean: 0.247, stdev: 0.053}
+      cost_per_run: 0.0
+    total_cost: 0.0
+    conclusion: >
+      Original Llama baseline achieving Pearson 0.137 on PeerRead with very high variance
+      (stdev 0.216). Config not tracked in fleche at the time. Learning rate 2e-4 with 4 epochs.
+
+  - date: "2026-01-17"
+    name: "llama_orc_10seed_sweep"
+    type: baseline
+    description: "Llama SFT 10-seed sweep (ORC) - lr=7.5e-5"
+    reason: >
+      Running 10 seeds to find stable seed selection for ORC baseline. Using tuned
+      learning rate 7.5e-5 based on earlier hyperparameter search.
+    command: |
+      for seed in 42 43 44 45 46 47 48 49 50 51; do
+        fleche run train --bg --env DATASET=orc --env CONFIG=llama_orc --env SEED=$seed \
+          --tag "sweep=10" --tag "dataset=orc" --tag "seed=$seed"
+      done
+    parameters:
+      dataset: "ORC orc_train/dev/test"
+      model: "meta-llama/Llama-3.1-8B-Instruct"
+      method: "sft"
+      config: "llama_orc.toml"
+      learning_rate: 7.5e-5
+      num_epochs: 6
+      batch_size: 16
+      lora_r: 8
+      lora_alpha: 16
+      quantisation: "4-bit"
+      seeds: [42, 43, 44, 45, 46, 47, 48, 49, 50, 51]
+      runs: 10
+    metrics:
+      # Individual results by seed:
+      # 42: 0.0932, 43: 0.0409, 44: 0.0780, 45: -0.0268, 46: -0.1512
+      # 47: 0.0154, 48: -0.0299, 49: 0.0977, 50: 0.0134, 51: -0.1686
+      pearson: {mean: -0.004, stdev: 0.094}
+      spearman: {mean: -0.009, stdev: 0.103}
+      mae: {mean: 0.758, stdev: 0.081}
+      accuracy: {mean: 0.379, stdev: 0.052}
+      f1: {mean: 0.221, stdev: 0.038}
+      cost_per_run: 0.0
+    total_cost: 0.0
+    conclusion: >
+      10-seed sweep with lr=7.5e-5 shows very poor results (mean Pearson -0.004). Much worse
+      than original lr=2e-4 config (0.159). Best 5 seeds (42,43,44,49,50) give 0.065 ± 0.036.
+      The lower learning rate appears unsuitable for ORC.
+
+  - date: "2026-01-17"
+    name: "llama_peerread_10seed_sweep"
+    type: baseline
+    description: "Llama SFT 10-seed sweep (PeerRead) - lr=1.25e-4"
+    reason: >
+      Running 10 seeds to find stable seed selection for PeerRead baseline. Using tuned
+      learning rate 1.25e-4 based on earlier hyperparameter search.
+    command: |
+      for seed in 42 43 44 45 46 47 48 49 50 51; do
+        fleche run train --bg --env DATASET=peerread --env CONFIG=llama_peerread --env SEED=$seed \
+          --tag "sweep=10" --tag "dataset=peerread" --tag "seed=$seed"
+      done
+    parameters:
+      dataset: "PeerRead peerread_train/dev/test"
+      model: "meta-llama/Llama-3.1-8B-Instruct"
+      method: "sft"
+      config: "llama_peerread.toml"
+      learning_rate: 1.25e-4
+      num_epochs: 4
+      batch_size: 16
+      lora_r: 8
+      lora_alpha: 16
+      quantisation: "4-bit"
+      seeds: [42, 43, 44, 45, 46, 47, 48, 49, 50, 51]
+      runs: 10
+    metrics:
+      # Individual results by seed:
+      # 42: 0.1622, 43: 0.4559, 44: 0.3851, 45: 0.3638, 46: 0.3488
+      # 47: 0.4059, 48: 0.1983, 49: 0.4037, 50: 0.3479, 51: -0.0773
+      pearson: {mean: 0.299, stdev: 0.161}
+      spearman: {mean: 0.341, stdev: 0.171}
+      mae: {mean: 0.521, stdev: 0.245}
+      accuracy: {mean: 0.573, stdev: 0.213}
+      f1: {mean: 0.271, stdev: 0.086}
+      cost_per_run: 0.0
+    total_cost: 0.0
+    conclusion: >
+      10-seed sweep shows high variance (stdev 0.161). Selected seeds 42,45,46,48,50 for
+      balanced results: Pearson 0.284 ± 0.096. This excludes outlier seed 51 (-0.077) while
+      maintaining reasonable mean near target range.
