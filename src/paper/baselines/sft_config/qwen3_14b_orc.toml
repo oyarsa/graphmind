@@ -1,0 +1,28 @@
+# Generative SFT config for ORC using Qwen3-14B
+# Requires GPU with >= 24GB VRAM (A30, A40, A100, RTX3090)
+
+[model]
+name = "Qwen/Qwen3-14B"
+quantisation_enabled = true
+
+[lora]
+r = 8
+alpha = 16
+dropout = 0.1
+target_modules = ["q_proj", "k_proj", "v_proj"]
+
+[training]
+batch_size = 2  # Reduced for larger model
+learning_rate = 5e-5  # Lower LR for larger model
+num_epochs = 6
+warmup_steps = 50
+weight_decay = 0.01
+max_length = 1024
+logging_steps = 10
+max_new_tokens = 256
+
+[generation]
+max_new_tokens = 256
+temperature = 0.1
+do_sample = true
+top_p = 0.9
