@@ -1,4 +1,4 @@
-# Generative SFT config for PeerRead - trains model to generate rationale + rating
+# Generative SFT config for ORC - trains model to generate rationale + rating
 # This differs from classification-based sft.py by producing text output.
 
 [model]

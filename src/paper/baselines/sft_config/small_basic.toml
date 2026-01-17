@@ -2,7 +2,6 @@
 name = "allenai/longformer-base-4096"
 num_labels = 5
 quantisation_enabled = true
-label_mode = "original"
 input_mode = "basic"
 
 [training]
