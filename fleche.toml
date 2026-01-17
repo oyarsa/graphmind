@@ -106,3 +106,40 @@ uv run --extra cuda --extra baselines \
 inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/"]
 env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }
+
+# Graph-enriched Generative SFT Training: fleche run train_gen_graph --env DATASET=peerread --env CONFIG=llama_peerread_gen
+# Requires preprocessed data with graph context (run sft_gen_preprocess locally first)
+# Add --env NUM_EXAMPLES=5 to limit dataset size for testing
+[jobs.train_gen_graph]
+command = """
+echo "Hello from $HOSTNAME"
+
+uv run --extra cuda --extra baselines \
+    python -m paper.baselines.sft_gen_graph train \
+    --train output/baselines/llama_data/${DATASET}_train_graph_enriched.json.zst \
+    --dev output/baselines/llama_data/${DATASET}_dev_graph_enriched.json.zst \
+    --test output/baselines/llama_data/${DATASET}_test_graph_enriched.json.zst \
+    --output output/baselines/llama_gen_graph_${DATASET}_${CONFIG}${SEED:+_seed${SEED}} \
+    --config src/paper/baselines/sft_config/${CONFIG}.toml \
+    ${NUM_EXAMPLES:+--num-examples $NUM_EXAMPLES} \
+    ${SEED:+--seed $SEED}
+"""
+inputs = ["output/baselines/llama_data/"]
+outputs = ["output/baselines/"]
+env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }
+
+# Graph-enriched Generative SFT Inference: fleche run infer_gen_graph --env DATASET=peerread --env CONFIG=llama_peerread_gen
+[jobs.infer_gen_graph]
+command = """
+echo "Hello from $HOSTNAME"
+
+uv run --extra cuda --extra baselines \
+    python -m paper.baselines.sft_gen_graph infer \
+    --model output/baselines/llama_gen_graph_${DATASET}_${CONFIG}/final_model \
+    --input output/baselines/llama_data/${DATASET}_test_graph_enriched.json.zst \
+    --output output/baselines/llama_gen_graph_${DATASET}_${CONFIG}_infer \
+    ${NUM_EXAMPLES:+--num-examples $NUM_EXAMPLES}
+"""
+inputs = ["output/baselines/llama_data/"]
+outputs = ["output/baselines/"]
+env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }
