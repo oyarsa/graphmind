@@ -3,13 +3,13 @@ name = "graphmind"
 
 [remote]
 host = "create"
-base_path = "/scratch/users/k21220155/fleche"
+base_path = "/scratch/users/${SSH_USER}/fleche"
 
 [env]
-PATH = "/users/k21220155/.cargo/bin:${PATH}"
+PATH = "/users/${SSH_USER}/.cargo/bin:${PATH}"
 HF_HOME = "/scratch/prj/inf_llmcache/scratch_tmp/hf_cache/"
-UV_CACHE_DIR = "/scratch/users/k21220155/uv_cache/"
-UV_PROJECT_ENVIRONMENT = "/scratch/users/k21220155/fleche/graphmind/.venv"
+UV_CACHE_DIR = "/scratch/users/${SSH_USER}/uv_cache/"
+UV_PROJECT_ENVIRONMENT = "/scratch/users/${SSH_USER}/fleche/${PROJECT}/.venv"
 PYTHONUNBUFFERED = "1"
 
 [slurm]

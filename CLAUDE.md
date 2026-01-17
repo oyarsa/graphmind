@@ -67,6 +67,7 @@
 **Cleanup:**
 - `fleche cancel [job-id]` - Cancel job (`--all` for all active, `--tag` to filter)
 - `fleche clean --older-than 2h -y` - Clean old jobs periodically
+- `fleche clean --workspace` - Also delete shared workspace (use with caution)
 
 ## Environment
 Create `.env` from `.env.example` with `OPENAI_API_KEY` and optionally `SEMANTIC_SCHOLAR_API_KEY`.
