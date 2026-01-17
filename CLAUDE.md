@@ -34,15 +34,17 @@
 - **Baselines**: `docs/BASELINES.md` - SFT/Llama fine-tuning setup
 
 ## Fleche (Remote Job Submission)
-- `fleche run <job> --bg` - Run job in background (use `--notify` for alerts)
-- `fleche run <job> --env VAR=value` - Set environment variables
-- `fleche run <job> --tag key=value` - Tag jobs for filtering
-- `fleche status -n 20` - Show last 20 jobs (`--tag k=v` by tags, `--name '*pattern*'` by job name glob)
-- `fleche logs <job-id>` - View job logs (supports short ID suffix matching)
-- `fleche wait <job-id>` - Wait for job to finish (add `--notify` for alerts)
-- `fleche rerun <job-id>` - Re-run a previous job with same settings
-- `fleche ping` - Check cluster health
-- Jobs defined in `fleche.toml`: `train`, `infer`, `train_gen`, `infer_gen`
+- **Check `fleche.toml` first** for available jobs (`train`, `infer`, `train_gen`, `infer_gen`)
+- `fleche run <job> --bg` - Run in background (`--notify` for alerts)
+- `fleche run <job> --env VAR=value --tag key=value` - Set env vars and tags
+- `fleche status -n 20` - Show last 20 jobs
+  - `--filter running` - Filter by STATUS (running/pending/completed/failed/cancelled)
+  - `--tag key=value` - Filter by TAG
+  - `--name 'pattern'` - Filter by job ID regex (substring match, use `^`/`$` to anchor)
+- `fleche logs <job-id>` - View logs (short ID suffix like `x7k2` works)
+- `fleche wait <job-id>` - Wait for completion (`--notify` for alerts)
+- `fleche rerun <job-id>` - Re-run previous job
+- `fleche clean --older-than 2h -y` - Clean old jobs periodically
 
 ## Environment
 Create `.env` from `.env.example` with `OPENAI_API_KEY` and optionally `SEMANTIC_SCHOLAR_API_KEY`.

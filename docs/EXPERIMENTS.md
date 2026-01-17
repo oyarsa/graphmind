@@ -201,6 +201,11 @@ fleche status -n 20
 fleche status --filter running
 fleche status --filter failed --filter completed  # multiple filters
 
+# Filter by job ID (regex, substring match by default)
+fleche status --name 'cyft'          # match job with suffix "cyft"
+fleche status --name '032109'        # match jobs from that timestamp
+fleche status --name '^train-'       # match "train-" but not "train_gen-"
+
 # List all unique tags
 fleche tags
 
@@ -226,11 +231,31 @@ fleche download
 # Re-run a previous job with same settings
 fleche rerun <job-id>
 
+# Wait for a job to complete (useful in scripts)
+fleche wait <job-id>
+fleche wait <job-id> --notify  # send terminal alert when done
+
+# Check cluster health
+fleche ping
+
 # Cancel a running job (defaults to most recent active)
 fleche cancel
 
 # Cancel all running/pending jobs
 fleche cancel --all
+```
+
+### Maintenance
+
+```bash
+# Clean old completed/failed jobs periodically to keep history tidy
+fleche clean --older-than 2h -y
+
+# Clean all completed jobs with a specific tag
+fleche clean --all --tag experiment=test
+
+# Clean a specific job
+fleche clean <job-id>
 ```
 
 ### Quick Commands Without Slurm
@@ -253,6 +278,8 @@ fleche exec "python test.py"
 
 - Use `--dry-run` to preview the sbatch script before submitting
 - Ctrl+C during streaming disconnects but doesn't cancel the job
-- Job IDs look like `train-20260114-153042-847-x7k2`
+- Job IDs look like `train-20260114-153042-847-x7k2` (short suffix `x7k2` works too)
 - Use `fleche exec` for quick tests without Slurm queue wait
 - Run `fleche guide` for full documentation
+- **`--filter` vs `--tag` vs `--name`**: `--filter` is for job STATUS, `--tag` is for your custom tags, `--name` is regex on job ID
+- Clean old jobs periodically with `fleche clean --older-than 2h -y`
