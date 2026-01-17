@@ -33,6 +33,7 @@ dependencies = [
     "psycopg[binary,pool]>=3.2.9",
     "psutil>=6.1.0",
     "scikit-learn>=1.7.0",
+    "trl>=0.27.0",
 ]
 
 [dependency-groups]
