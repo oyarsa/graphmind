@@ -16,6 +16,7 @@ PYTHONUNBUFFERED = "1"
 partition = "interruptible_gpu"
 constraint = "(a100|a40|a30|v100|rtx3090)"
 gpus = 1
+exclude = "erc-hpc-comp054"  # MIG-partitioned A100 with only 4.75GB slices
 
 # Quick CUDA check
 [jobs.cuda_check]
