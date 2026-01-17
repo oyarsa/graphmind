@@ -103,3 +103,73 @@ Jobs share a workspace, so the trained model is automatically available to infer
 without re-uploading.
 
 See `docs/EXPERIMENTS.md` for more fleche commands.
+
+---
+
+# Generative SFT Baseline (sft_gen)
+
+Fine-tune Llama 3.1-8B-Instruct using LoRA for **text generation** instead of
+classification. The model generates a rationale (from peer review) followed by a
+rating prediction (1-5).
+
+## Difference from Classification SFT
+
+| Aspect | sft (classification) | sft_gen (generative) |
+|--------|---------------------|---------------------|
+| Model | AutoModelForSequenceClassification | AutoModelForCausalLM |
+| Output | Class logits (0-4) | Generated text with rating |
+| Training | Cross-entropy on labels | Causal LM loss on full text |
+| Inference | argmax of logits | Parse rating from generated text |
+
+## Running Experiments
+
+**PeerRead:**
+```bash
+uv run paper baselines sft-gen train \
+  --train output/baselines/llama_data/peerread_train.json.zst \
+  --dev output/baselines/llama_data/peerread_dev.json.zst \
+  --test output/baselines/llama_data/peerread_test.json.zst \
+  --output output/baselines/llama_gen_peerread \
+  --config src/paper/baselines/sft_config/llama_peerread_gen.toml \
+  --seed 42
+```
+
+**ORC:**
+```bash
+uv run paper baselines sft-gen train \
+  --train output/baselines/llama_data/orc_train.json.zst \
+  --dev output/baselines/llama_data/orc_dev.json.zst \
+  --test output/baselines/llama_data/orc_test.json.zst \
+  --output output/baselines/llama_gen_orc \
+  --config src/paper/baselines/sft_config/llama_orc_gen.toml \
+  --seed 42
+```
+
+## Remote Execution with fleche
+
+```bash
+# Train generative model
+fleche run train_gen --env DATASET=peerread --env SEED=42
+fleche run train_gen --env DATASET=orc --env CONFIG=llama_orc_gen --env SEED=42
+
+# Run inference
+fleche run infer_gen --env DATASET=peerread
+fleche run infer_gen --env DATASET=orc --env CONFIG=llama_orc_gen
+```
+
+## Output Structure
+
+Same as classification SFT, plus:
+- `evaluation_results.json.zst` - Per-sample results with generated text
+
+## Configuration
+
+Config files in `src/paper/baselines/sft_config/`:
+- `llama_peerread_gen.toml` - PeerRead generative config
+- `llama_orc_gen.toml` - ORC generative config
+
+Key differences from classification configs:
+- `max_length=1024` (longer to accommodate rationale)
+- `max_new_tokens=256` (for generation)
+- `temperature=0.1` (low for deterministic output)
+- No `num_labels` field (not classification)
