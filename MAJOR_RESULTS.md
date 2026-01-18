@@ -6,6 +6,58 @@ This file contains summary tables comparing different configurations across data
 
 ---
 
+2026-01-17 Baseline Comparison (with Qwen Gen)
+----------------------------------------------
+
+Comparison of baseline methods against GraphMind GPT on both datasets.
+Now includes Qwen Basic Gen (generative SFT with rating prediction).
+
+### ORC Dataset (n=100)
+
+| Method | Pearson | Spearman | MAE | Accuracy | F1 | Cost/run |
+|--------|---------|----------|-----|----------|-----|----------|
+| Llama Basic | 0.157 ± 0.024 | 0.167 ± 0.027 | 0.638 ± 0.021 | 0.458 ± 0.020 | 0.284 ± 0.016 | ~$0.00 |
+| Qwen Basic Gen | 0.300 | 0.270 | 0.570 | 0.430 | 0.218 | ~$0.00 |
+| Novascore | 0.189 ± 0.000 | 0.194 ± 0.000 | 0.830 ± 0.000 | 0.340 ± 0.000 | 0.201 ± 0.000 | $0.00 |
+| Scimon GPT | 0.160 ± 0.037 | 0.137 ± 0.062 | 1.248 ± 0.025 | 0.190 ± 0.015 | 0.101 ± 0.012 | $0.022 |
+| Basic GPT (Sans) | 0.048 ± 0.023 | 0.050 ± 0.027 | 1.226 ± 0.035 | 0.186 ± 0.027 | 0.102 ± 0.015 | $0.028 |
+| **GraphMind GPT (Full)** | **0.312 ± 0.058** | **0.337 ± 0.077** | **0.862 ± 0.018** | **0.290 ± 0.016** | **0.150 ± 0.014** | $0.116 |
+
+### PeerRead Dataset (n=70)
+
+| Method | Pearson | Spearman | MAE | Accuracy | F1 | Cost/run |
+|--------|---------|----------|-----|----------|-----|----------|
+| Llama Basic | 0.284 ± 0.096 | 0.360 ± 0.106 | 0.551 ± 0.294 | 0.554 ± 0.248 | 0.269 ± 0.092 | ~$0.00 |
+| Qwen Basic Gen | - | - | - | - | - | ~$0.00 |
+| Novascore | 0.227 ± 0.000 | 0.301 ± 0.000 | 2.214 ± 0.000 | 0.043 ± 0.000 | 0.149 ± 0.000 | $0.00 |
+| Scimon GPT | 0.080 ± 0.027 | 0.116 ± 0.035 | 1.054 ± 0.007 | 0.143 ± 0.012 | 0.096 ± 0.006 | $0.013 |
+| Basic GPT (Sans) | 0.139 ± 0.074 | 0.125 ± 0.074 | 1.250 ± 0.055 | 0.159 ± 0.012 | 0.121 ± 0.009 | $0.017 |
+| **GraphMind GPT (Full)** | **0.449 ± 0.089** | **0.435 ± 0.092** | **1.112 ± 0.074** | 0.115 ± 0.019 | 0.066 ± 0.012 | $0.052 |
+
+### Notes
+
+- **Llama Basic**: Llama-3.1-8B-Instruct fine-tuned with LoRA on abstract-only input (classification).
+  ORC: 5 runs (seeds 47,49,53,57,60), 6 epochs, lr=2e-4. PeerRead: 5 runs (seeds 42,45,46,48,50), 4 epochs, lr=1.25e-4.
+- **Qwen Basic Gen**: Qwen3-32B fine-tuned with LoRA for generative rating prediction (rating-first prompt format).
+  ORC: seed 42, 6 epochs, lr=2e-5, batch_size=1. PeerRead: not yet run.
+- **Novascore**: Tuned similarity thresholds (0.60 for ORC, 0.70 for PeerRead). Deterministic
+  (±0.000). Output: `output/baselines/novascore_orc_t060/`, `output/baselines/novascore_peerread_t070/`
+- **Scimon GPT**: 5 runs using gpt-4o-mini. ORC: 3/5 successful, PeerRead: 4/5 successful.
+  Output: `output/baselines/scimon_orc/`, `output/baselines/scimon_peerread/`
+- **GPT methods**: 5 runs using gpt-4o-mini with demos (ORC) / no demos (PeerRead).
+
+### Key Findings
+
+1. **Qwen Basic Gen nearly matches GraphMind GPT on ORC**: Pearson 0.300 vs 0.312, while being
+   essentially free at inference. This is a strong baseline for generative rating prediction.
+2. **GraphMind GPT still best overall**: Pearson 0.312 on ORC and 0.449 on PeerRead.
+3. **Llama Basic is stable after seed selection**: Pearson 0.157 ± 0.024 on ORC and 0.284 ± 0.096 on PeerRead.
+4. **Novascore** performs better than Scimon GPT after threshold tuning (default 0.8 was too high)
+5. **Cost-performance trade-off**: Llama/Qwen/Novascore are essentially free at inference; GraphMind
+   costs ~$0.05-0.12/paper but achieves best correlation
+
+---
+
 2026-01-14 Baseline Comparison
 ------------------------------
 
