@@ -63,6 +63,9 @@
 
 **Results:**
 - `fleche download [job-id]` - Download output files (`--partial` while job running)
+  - `--filter "*.json"` - Download only specific file types (repeatable)
+  - `--filter "!checkpoints/**"` - Exclude files/directories with `!` prefix
+  - Example: `fleche download --filter "*.json" --filter "*.json.zst" --filter "*.log" --filter "!checkpoint*/**"` - Download outputs only, skip model weights
 - `fleche tags` - List unique tags across all jobs
 
 **Cleanup:**
