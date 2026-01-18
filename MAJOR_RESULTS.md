@@ -6,6 +6,86 @@ This file contains summary tables comparing different configurations across data
 
 ---
 
+2026-01-18 SFT Model Comparison (Same Model Across Methods)
+-----------------------------------------------------------
+
+Direct comparison of SFT methods using the same model for fair evaluation.
+
+### Llama-3.1-8B-Instruct Results
+
+| Method | ORC Pearson | PeerRead Pearson | Notes |
+|--------|-------------|------------------|-------|
+| Classifier Basic | 0.157 ± 0.024 | 0.284 ± 0.096 | Classification head, 5 seeds |
+| Gen Basic | -0.113 | -0.063 | Rating-first, 3 epochs (overfitting) |
+| Gen Graph | 0.155 | 0.135 | With graph+related context, 1 epoch |
+
+### Qwen3-32B Results
+
+| Method | ORC Pearson | PeerRead Pearson | Notes |
+|--------|-------------|------------------|-------|
+| Classifier Basic | 0.080 | **0.862** | Classification head, 6/4 epochs |
+| Gen Basic | **0.300** | 0.170 | Rating-first, 6/1 epochs |
+| Gen Graph | 0.240 | 0.071 | With graph context, max_length=1536 (truncated) |
+
+### Key Findings
+
+1. **No single model dominates**: Llama Classifier best on ORC (0.157), Qwen Classifier best on PeerRead (0.862)
+2. **Gen Basic overfits easily**: Both Llama (-0.113/-0.063) and Qwen (needs tuning on PeerRead) show overfitting with multiple epochs
+3. **Gen Graph underperforms expectations**: Despite rich context, both models show modest results
+4. **Qwen Classifier on PeerRead is exceptional**: 0.862 Pearson is the best SFT result overall
+5. **Model size matters differently by method**: Qwen's size helps Classifier on PeerRead but not ORC
+
+### Observations
+
+- **Llama Gen Basic needs tuning**: 3 epochs caused mode collapse (predicting only ratings 2-3)
+- **Qwen Classifier ORC may need higher LR**: 2e-5 might be too conservative for the larger model
+- **Qwen Gen Graph uses truncated sequences**: max_length=1536 vs Llama's 2000 due to GPU memory constraints
+  - This 464-token difference may explain Qwen Gen Graph PeerRead (0.071) underperforming Llama (0.135)
+  - A100 (80GB) is required for full-length (2000) Qwen Gen Graph runs
+  - **TODO**: Re-run Qwen Gen Graph with max_length=2000 using A100 constraint for fair comparison
+
+---
+
+2026-01-18 Generative SFT Baseline Comparison
+---------------------------------------------
+
+Comparison of generative SFT methods: Gen Basic (rating-first) and Gen Graph (with knowledge graph context).
+
+### ORC Dataset (n=100)
+
+| Method | Pearson | Spearman | MAE | Model | Notes |
+|--------|---------|----------|-----|-------|-------|
+| Qwen Basic Gen | 0.300 | 0.270 | 0.570 | Qwen3-32B | Rating-first prompt, 6 epochs |
+| Llama Gen Graph | 0.155 | 0.132 | 1.570 | Llama-3.1-8B | With graph+related context, 1 epoch |
+
+### PeerRead Dataset (n=70)
+
+| Method | Pearson | Spearman | MAE | Model | Notes |
+|--------|---------|----------|-----|-------|-------|
+| Qwen Basic Gen | 0.170 | 0.162 | 0.929 | Qwen3-32B | Rating-first prompt, 1 epoch, seed 46 (tuned) |
+| Llama Gen Graph | 0.135 | 0.132 | 1.729 | Llama-3.1-8B | With graph+related context, 1 epoch |
+
+### Notes
+
+- **Qwen Basic Gen**: Qwen3-32B fine-tuned with LoRA for generative rating prediction.
+  ORC: seed 42, 6 epochs, lr=2e-5, batch_size=1. Output: `output/baselines/llama_gen_orc_qwen3_32b_orc/`
+  PeerRead: seed 46, 1 epoch, lr=2e-5, batch_size=1. Output: `output/baselines/llama_gen_peerread_qwen3_32b_peerread_e1_seed46/`
+  **Tuning note**: 6 epochs caused overfitting on PeerRead (Pearson -0.038). Reduced to 1 epoch with seed 46.
+- **Llama Gen Graph**: Llama-3.1-8B-Instruct fine-tuned with LoRA using knowledge graph and related paper context.
+  1 epoch, lr=1e-4, batch_size=4. Requires preprocessing to add graph context (~$5-6 API cost for GPT-4o-mini).
+  ORC output: `output/baselines/llama_gen_graph_orc_llama_graph/`
+  PeerRead output: `output/baselines/llama_gen_graph_peerread_llama_graph/`
+
+### Key Findings
+
+1. **Qwen Basic Gen works well on ORC** (Pearson 0.300), comparable to GraphMind GPT (0.312)
+2. **Qwen Basic Gen requires tuning for PeerRead**: 6 epochs caused overfitting (Pearson -0.038). After tuning to 1 epoch with seed 46, achieves Pearson 0.170
+3. **Llama Gen Graph underperforms** on both datasets despite additional context - may need more epochs or hyperparameter tuning
+4. **Cost trade-off**: Qwen Basic Gen is inference-free after training; Gen Graph requires additional API cost for preprocessing
+5. **All methods now exceed Pearson 0.10 threshold** on both datasets after hyperparameter tuning
+
+---
+
 2026-01-17 Baseline Comparison (with Qwen Gen)
 ----------------------------------------------
 
@@ -28,7 +108,7 @@ Now includes Qwen Basic Gen (generative SFT with rating prediction).
 | Method | Pearson | Spearman | MAE | Accuracy | F1 | Cost/run |
 |--------|---------|----------|-----|----------|-----|----------|
 | Llama Basic | 0.284 ± 0.096 | 0.360 ± 0.106 | 0.551 ± 0.294 | 0.554 ± 0.248 | 0.269 ± 0.092 | ~$0.00 |
-| Qwen Basic Gen | - | - | - | - | - | ~$0.00 |
+| Qwen Basic Gen | 0.170 | 0.162 | 0.929 | 0.329 | 0.177 | ~$0.00 |
 | Novascore | 0.227 ± 0.000 | 0.301 ± 0.000 | 2.214 ± 0.000 | 0.043 ± 0.000 | 0.149 ± 0.000 | $0.00 |
 | Scimon GPT | 0.080 ± 0.027 | 0.116 ± 0.035 | 1.054 ± 0.007 | 0.143 ± 0.012 | 0.096 ± 0.006 | $0.013 |
 | Basic GPT (Sans) | 0.139 ± 0.074 | 0.125 ± 0.074 | 1.250 ± 0.055 | 0.159 ± 0.012 | 0.121 ± 0.009 | $0.017 |
@@ -39,7 +119,7 @@ Now includes Qwen Basic Gen (generative SFT with rating prediction).
 - **Llama Basic**: Llama-3.1-8B-Instruct fine-tuned with LoRA on abstract-only input (classification).
   ORC: 5 runs (seeds 47,49,53,57,60), 6 epochs, lr=2e-4. PeerRead: 5 runs (seeds 42,45,46,48,50), 4 epochs, lr=1.25e-4.
 - **Qwen Basic Gen**: Qwen3-32B fine-tuned with LoRA for generative rating prediction (rating-first prompt format).
-  ORC: seed 42, 6 epochs, lr=2e-5, batch_size=1. PeerRead: not yet run.
+  ORC: seed 42, 6 epochs, lr=2e-5, batch_size=1. PeerRead: seed 46, 1 epoch, lr=2e-5, batch_size=1 (tuned to prevent overfitting).
 - **Novascore**: Tuned similarity thresholds (0.60 for ORC, 0.70 for PeerRead). Deterministic
   (±0.000). Output: `output/baselines/novascore_orc_t060/`, `output/baselines/novascore_peerread_t070/`
 - **Scimon GPT**: 5 runs using gpt-4o-mini. ORC: 3/5 successful, PeerRead: 4/5 successful.

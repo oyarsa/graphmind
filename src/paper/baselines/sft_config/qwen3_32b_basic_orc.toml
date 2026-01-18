@@ -1,0 +1,23 @@
+# Qwen3-32B Classifier for ORC
+# Requires A100 GPU (40GB+ VRAM)
+
+[model]
+name = "Qwen/Qwen3-32B"
+num_labels = 5
+quantisation_enabled = true
+input_mode = "basic"
+
+[lora]
+r = 8
+alpha = 16
+dropout = 0.1
+target_modules = ["q_proj", "k_proj", "v_proj"]
+
+[training]
+batch_size = 1  # Minimal for large model
+learning_rate = 2e-5  # Lower LR for larger model
+num_epochs = 6  # Match Llama Basic ORC config
+warmup_steps = 50
+weight_decay = 0.01
+max_length = 512
+logging_steps = 10

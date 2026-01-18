@@ -1,0 +1,23 @@
+# Qwen3-32B Classifier for PeerRead
+# Requires A100 GPU (40GB+ VRAM)
+
+[model]
+name = "Qwen/Qwen3-32B"
+num_labels = 5
+quantisation_enabled = true
+input_mode = "basic"
+
+[lora]
+r = 8
+alpha = 16
+dropout = 0.1
+target_modules = ["q_proj", "k_proj", "v_proj"]
+
+[training]
+batch_size = 1  # Minimal for large model
+learning_rate = 1.25e-4  # Match Llama Basic PeerRead config
+num_epochs = 4  # Match Llama Basic PeerRead config
+warmup_steps = 50
+weight_decay = 0.01
+max_length = 512
+logging_steps = 10
