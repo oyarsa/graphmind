@@ -46,6 +46,7 @@
 - `fleche run <job> --command "nvidia-smi"` - Override command (keeps job's Slurm config)
 - `fleche run <job> --dry-run` - Preview sbatch script without submitting
 - `fleche exec <cmd>` - Run directly via SSH, no Slurm (quick tests)
+- `fleche run "command" --gpus 1 --time 1:00:00` - Adhoc Slurm command (no job definition)
 - `fleche rerun <job-id>` - Re-run previous job with same settings
 
 **Monitoring:**
