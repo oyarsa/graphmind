@@ -1753,3 +1753,47 @@ experiments:
       improvement over Qwen3-14B (0.17) and Llama-8B (0.12). This is the best
       SFT-gen baseline result on ORC so far. The larger model capacity significantly
       helps with the rating prediction task.
+
+  - date: "2026-01-19"
+    name: "qwen3_32b_gen_graph_5seeds"
+    type: baseline
+    description: "Qwen3-32B Gen Graph with 5 seeds (lr=1e-4) on ORC and PeerRead"
+    reason: >
+      Running 5 seeds (42-46) for Qwen Gen Graph to calculate error bars.
+      Previous single-seed results showed high variance, needed proper statistical
+      characterisation. Using tuned config with lr=1e-4 and max_length=2000.
+    command: |
+      # PeerRead seeds (parallel)
+      fleche run train_gen_graph --env DATASET=peerread --env CONFIG=qwen3_32b_graph_a100_lr1e4 \
+        --env SEED=42 --tag "experiment=qwen_gen_graph_seeds" --constraint a100 --bg
+      fleche run train_gen_graph --env DATASET=peerread --env CONFIG=qwen3_32b_graph_a100_lr1e4 \
+        --env SEED=43 --tag "experiment=qwen_gen_graph_seeds" --constraint a100 --bg
+      # ... (seeds 44, 45, 46 for PeerRead and 43-46 for ORC)
+    parameters:
+      dataset: "ORC and PeerRead"
+      model: "Qwen/Qwen3-32B"
+      method: "sft-gen-graph"
+      config: "qwen3_32b_graph_a100_lr1e4.toml"
+      learning_rate: 1e-4
+      num_epochs: 1
+      batch_size: 1
+      lora_r: 8
+      lora_alpha: 16
+      quantisation: "4-bit"
+      max_length: 2000
+      max_new_tokens: 256
+      seeds: [42, 43, 44, 45, 46]
+      gpu: "A100 80GB"
+    metrics:
+      orc:
+        pearson: {mean: 0.171, stdev: 0.063}
+        seeds_results: [0.092, 0.200, 0.200, 0.121, 0.244]
+      peerread:
+        pearson: {mean: 0.129, stdev: 0.045}
+        seeds_results: [0.152, 0.093, 0.071, 0.152, 0.178]
+    total_cost: 0.0
+    conclusion: >
+      High variance across seeds is evident. ORC has larger variance (0.063) than
+      PeerRead (0.045). Results are comparable to Llama Gen Graph (ORC: 0.155,
+      PeerRead: 0.135) but neither model clearly dominates. The 32B model size
+      does not provide consistent improvement over Llama-8B for this task.

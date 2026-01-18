@@ -25,7 +25,7 @@ Direct comparison of SFT methods using the same model for fair evaluation.
 |--------|-------------|------------------|-------|
 | Classifier Basic | 0.080 | **0.862** | Classification head, 6/4 epochs |
 | Gen Basic | **0.300** | 0.170 | Rating-first, 6/1 epochs |
-| Gen Graph | 0.240 | 0.071 | With graph context, max_length=1536 (truncated) |
+| Gen Graph | 0.171 ± 0.063 | 0.129 ± 0.045 | With graph context, A100, lr=1e-4, 5 seeds |
 
 ### Key Findings
 
@@ -39,10 +39,15 @@ Direct comparison of SFT methods using the same model for fair evaluation.
 
 - **Llama Gen Basic needs tuning**: 3 epochs caused mode collapse (predicting only ratings 2-3)
 - **Qwen Classifier ORC may need higher LR**: 2e-5 might be too conservative for the larger model
-- **Qwen Gen Graph uses truncated sequences**: max_length=1536 vs Llama's 2000 due to GPU memory constraints
-  - This 464-token difference may explain Qwen Gen Graph PeerRead (0.071) underperforming Llama (0.135)
-  - A100 (80GB) is required for full-length (2000) Qwen Gen Graph runs
-  - **TODO**: Re-run Qwen Gen Graph with max_length=2000 using A100 constraint for fair comparison
+- **Qwen Gen Graph tuning and 5-seed results**:
+  - Initial (lr=2e-5, max_length=1536): PeerRead Pearson 0.071
+  - Fixed max_length=2000: PeerRead Pearson 0.096 (+35%)
+  - Fixed lr=1e-4: PeerRead Pearson 0.152 (+58% vs initial)
+  - **5-seed results (lr=1e-4, max_length=2000)**:
+    - ORC: 0.171 ± 0.063 (seeds 42-46: 0.092, 0.200, 0.200, 0.121, 0.244)
+    - PeerRead: 0.129 ± 0.045 (seeds 42-46: 0.152, 0.093, 0.071, 0.152, 0.178)
+  - Key insight: High variance across seeds; ORC more variable than PeerRead
+  - A100 (80GB) required for full-length Qwen Gen Graph runs
 
 ---
 
