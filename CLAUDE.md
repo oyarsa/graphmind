@@ -45,7 +45,9 @@
 - `fleche run <job> --env VAR=value --tag key=value` - Set env vars and tags
 - `fleche run <job> --command "nvidia-smi"` - Override command (keeps job's Slurm config)
 - `fleche run <job> --dry-run` - Preview sbatch script without submitting
+- `fleche run <job> --host local` - Run locally instead of on remote Slurm cluster
 - `fleche exec <cmd>` - Run directly via SSH, no Slurm (quick tests)
+- `fleche exec <cmd> --host local` - Run command locally without SSH
 - `fleche run "command" --gpus 1 --time 1:00:00` - Adhoc Slurm command (no job definition)
 - `fleche rerun <job-id>` - Re-run previous job with same settings
 
