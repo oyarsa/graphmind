@@ -1,9 +1,11 @@
-# Generative SFT config for ORC - 6 epochs (tuned)
-# Based on PeerRead tuning results
+# Llama Gen Graph - generative SFT with knowledge graph context
+# Includes graph summary and related papers in the prompt.
 
 [model]
 name = "meta-llama/Llama-3.1-8B-Instruct"
+num_labels = 5
 quantisation_enabled = true
+input_mode = "graph"
 
 [lora]
 r = 8
@@ -12,17 +14,10 @@ dropout = 0.1
 target_modules = ["q_proj", "k_proj", "v_proj"]
 
 [training]
-batch_size = 4
+batch_size = 4  # Smaller batch size due to longer sequences
 learning_rate = 1e-4
-num_epochs = 6
+num_epochs = 1
 warmup_steps = 50
 weight_decay = 0.01
-max_length = 1024
+max_length = 2000
 logging_steps = 10
-max_new_tokens = 256
-
-[generation]
-max_new_tokens = 256
-temperature = 0.1
-do_sample = true
-top_p = 0.9

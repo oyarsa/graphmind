@@ -1,5 +1,5 @@
-# Generative SFT config for PeerRead - trains model to generate rationale + rating
-# This differs from classification-based sft.py by producing text output.
+# Llama Gen Basic - generative SFT with rating-first prompt format
+# Trains model to generate rationale + rating from abstract only.
 
 [model]
 name = "meta-llama/Llama-3.1-8B-Instruct"

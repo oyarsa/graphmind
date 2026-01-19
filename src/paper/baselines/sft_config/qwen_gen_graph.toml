@@ -1,4 +1,4 @@
-# Generative SFT config for Qwen3-32B with graph context - full-length (A100 required)
+# Generative SFT config for Qwen3-32B with graph context - higher LR tuning
 # Requires A100 80GB GPU - use fleche run train_gen_graph --constraint a100
 
 [model]
@@ -13,12 +13,12 @@ dropout = 0.1
 target_modules = ["q_proj", "k_proj", "v_proj"]
 
 [training]
-batch_size = 1  # Minimal batch size for large model with long sequences
-learning_rate = 2e-5  # Lower LR for larger model
-num_epochs = 1  # Match Llama Gen Graph
+batch_size = 1
+learning_rate = 1e-4  # Match Llama Gen Graph LR (was 2e-5)
+num_epochs = 1
 warmup_steps = 50
 weight_decay = 0.01
-max_length = 2000  # Match Llama Gen Graph config for fair comparison
+max_length = 2000
 logging_steps = 10
 max_new_tokens = 256
 
