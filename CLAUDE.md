@@ -34,7 +34,9 @@
 - **Baselines**: `docs/BASELINES.md` - SFT/Llama fine-tuning setup
 
 ## Fleche (Remote Job Submission)
-- **Check `fleche.toml` first** for available jobs (`train`, `infer`, `train_gen`, `infer_gen`)
+- **Check `fleche.toml` first** for available jobs
+- Remote Slurm jobs: `train`, `infer`, `train_gen`, `infer_gen`, `train_gen_graph`, `infer_gen_graph`
+- Local GPT jobs: `gpt_orc`, `gpt_peerread`, `gpt_orc_test`, `gpt_peerread_test`
 - Most commands default to most recent job if no job-id given
 - Short ID suffix works (e.g., `x7k2` instead of full `train-20260115-153042-847-x7k2`)
 - Config supports `${VAR}` substitution from env vars, `.env` file, and `${PROJECT}` built-in
@@ -75,6 +77,14 @@
 - `fleche cancel [job-id]` - Cancel job (`--all` for all active, `--tag` to filter)
 - `fleche clean --older-than 2h -y` - Clean old jobs periodically
 - `fleche clean --workspace` - Also delete shared workspace (use with caution)
+
+**GPT experiments (local):**
+- `fleche run gpt_orc --env PROMPT=sans` - Run ORC ablation with specific prompt
+- `fleche run gpt_peerread --env PROMPT=full-graph-structured` - Run PeerRead ablation
+- `fleche run gpt_orc_test --env PROMPT=sans` - Quick test (1 paper, 1 run)
+- Prompts: `sans`, `related`, `norel-graph`, `semantic-only`, `full-graph-structured`
+- Add `--env SOURCES=citations` or `--env SOURCES=semantic` for source filtering
+- Add `--env RUNS=1` for single run, `--env LIMIT=10` to limit papers
 
 ## Environment
 Create `.env` from `.env.example` with `OPENAI_API_KEY` and optionally `SEMANTIC_SCHOLAR_API_KEY`.

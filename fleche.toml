@@ -143,3 +143,79 @@ uv run --extra cuda --extra baselines \
 inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/llama_gen_graph_${DATASET}_${CONFIG}_infer/"]
 env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }
+
+# ==============================================================================
+# GPT Ablation Experiments (run locally)
+# ==============================================================================
+# Standard prompts: sans, related, norel-graph, semantic-only, full-graph-structured
+# Add --env SOURCES=citations or --env SOURCES=semantic for source filtering
+# Add --env RUNS=1 for quick test, --env LIMIT=10 to limit papers
+
+# GPT ORC: fleche run gpt_orc --env PROMPT=sans
+[jobs.gpt_orc]
+host = "local"
+command = """
+uv run paper gpt eval graph experiment \
+    --papers output/venus5/split/dev_100_balanced.json.zst \
+    --output output/eval_orc/ablation_${PROMPT}${SOURCES:+_${SOURCES}} \
+    --model ${MODEL} \
+    --limit ${LIMIT} \
+    --runs ${RUNS} \
+    --eval-prompt ${PROMPT} \
+    --demos orc_balanced_4 \
+    --seed 42 \
+    ${SOURCES:+--sources ${SOURCES}}
+"""
+env = { PROMPT = "full-graph-structured", MODEL = "gpt-4o-mini", RUNS = "5", LIMIT = "100" }
+
+# GPT PeerRead: fleche run gpt_peerread --env PROMPT=sans
+[jobs.gpt_peerread]
+host = "local"
+command = """
+uv run paper gpt eval graph experiment \
+    --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+    --output output/eval_peerread/ablation_${PROMPT}${SOURCES:+_${SOURCES}} \
+    --model ${MODEL} \
+    --limit ${LIMIT} \
+    --runs ${RUNS} \
+    --eval-prompt ${PROMPT} \
+    --demos peerread_balanced_4 \
+    --seed 42 \
+    ${SOURCES:+--sources ${SOURCES}}
+"""
+env = { PROMPT = "full-graph-structured", MODEL = "gpt-4o-mini", RUNS = "5", LIMIT = "68" }
+
+# Quick test jobs (single paper, single run)
+# GPT ORC Test: fleche run gpt_orc_test --env PROMPT=sans
+[jobs.gpt_orc_test]
+host = "local"
+command = """
+uv run paper gpt eval graph run \
+    --papers output/venus5/split/dev_100_balanced.json.zst \
+    --output /tmp/gpt_test_orc_${PROMPT} \
+    --model ${MODEL} \
+    --limit 1 \
+    --eval-prompt ${PROMPT} \
+    --demos orc_balanced_4 \
+    --seed 42 \
+    --n-evaluations 1 \
+    ${SOURCES:+--sources ${SOURCES}}
+"""
+env = { PROMPT = "full-graph-structured", MODEL = "gpt-4o-mini" }
+
+# GPT PeerRead Test: fleche run gpt_peerread_test --env PROMPT=sans
+[jobs.gpt_peerread_test]
+host = "local"
+command = """
+uv run paper gpt eval graph run \
+    --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+    --output /tmp/gpt_test_peerread_${PROMPT} \
+    --model ${MODEL} \
+    --limit 1 \
+    --eval-prompt ${PROMPT} \
+    --demos peerread_balanced_4 \
+    --seed 42 \
+    --n-evaluations 1 \
+    ${SOURCES:+--sources ${SOURCES}}
+"""
+env = { PROMPT = "full-graph-structured", MODEL = "gpt-4o-mini" }

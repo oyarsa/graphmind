@@ -6,12 +6,14 @@ After modifying prompt templates in `src/paper/gpt/prompts/`, run test experimen
 `--limit 1` to verify prompts are building correctly before running full experiments:
 
 ```bash
-uv run paper gpt eval graph run \
-  --papers output/venus5/split/dev_100_balanced.json.zst \
-  --output /tmp/claude/test_<config_name> \
-  --model gpt-4o-mini --limit 1 \
-  --eval-prompt <prompt_name> \
-  --demos orc_balanced_4 --seed 42 --n-evaluations 1
+# Quick test via fleche (1 paper, 1 run)
+fleche run gpt_orc_test --env PROMPT=<prompt_name>
+fleche run gpt_peerread_test --env PROMPT=<prompt_name>
+```
+
+For custom options not covered by fleche, use the underlying command:
+```bash
+uv run paper gpt eval graph run --help
 ```
 
 Common prompts to test:
@@ -38,18 +40,21 @@ ORC 100-item balanced dataset:
 | Semantic only  | `semantic-only`         | semantic  | Graph + semantic (conservative)|
 | Full           | `full-graph-structured` | both      | Full pipeline (baseline)       |
 
-Base command for running ablation experiments (use `experiment` with `--runs 5` for
-stable statistics):
+Run ablation experiments via fleche (5 runs by default):
 ```bash
-uv run paper gpt eval graph experiment \
-  --papers output/venus5/split/dev_100_balanced.json.zst \
-  --output output/eval_orc/ablation_<name> \
-  --model gpt-4o-mini --limit 100 --runs 5 \
-  --eval-prompt <prompt> \
-  --demos orc_balanced_4 --seed 42
+# ORC dataset (100 papers)
+fleche run gpt_orc --env PROMPT=sans
+fleche run gpt_orc --env PROMPT=full-graph-structured --env SOURCES=citations
+
+# PeerRead dataset (68 papers)
+fleche run gpt_peerread --env PROMPT=sans
+fleche run gpt_peerread --env PROMPT=semantic-only --env SOURCES=semantic
 ```
 
-Add `--sources citations` or `--sources semantic` for source-filtered experiments.
+For custom options not covered by fleche, use the underlying command:
+```bash
+uv run paper gpt eval graph experiment --help
+```
 
 **IMPORTANT**: When running multiple experiments in parallel, limit to a maximum of 3
 concurrent experiments to avoid API rate limits.
