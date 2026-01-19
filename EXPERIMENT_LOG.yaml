@@ -1797,3 +1797,47 @@ experiments:
       PeerRead (0.045). Results are comparable to Llama Gen Graph (ORC: 0.155,
       PeerRead: 0.135) but neither model clearly dominates. The 32B model size
       does not provide consistent improvement over Llama-8B for this task.
+
+  - date: "2026-01-19"
+    name: "llama_gen_graph_6k_v2_orc"
+    type: baseline
+    description: "Llama-8B Gen Graph with extended context (6000 tokens) and lower LR"
+    reason: >
+      Investigating whether truncation of contrasting papers causes poor Gen Graph
+      performance. Token analysis showed avg input ~4,150 tokens with max_length=2000
+      causing 100% truncation - contrasting papers completely cut off. First attempt
+      (grjy) with lr=1e-4/1 epoch caused mode collapse. This v2 uses lower LR and
+      more epochs to help model learn the longer sequences.
+    command: |
+      fleche run train_gen_graph --env DATASET=orc --env CONFIG=llama_graph_6k_v2 \
+        --tag "experiment=llama_graph_6k_v2" --tag "lr=5e-5" --tag "epochs=3"
+    parameters:
+      dataset: "ORC"
+      model: "meta-llama/Llama-3.1-8B-Instruct"
+      method: "sft-gen-graph"
+      config: "llama_graph_6k_v2.toml"
+      learning_rate: 5e-5  # Lower than original 1e-4
+      num_epochs: 3  # More epochs than original 1
+      batch_size: 1
+      lora_r: 8
+      lora_alpha: 16
+      quantisation: "4-bit"
+      max_length: 6000  # Extended from 2000 to include contrasting papers
+      max_new_tokens: 256
+      seed: 42
+      gpu: "A100 80GB"
+      job_id: "q2do"
+    metrics:
+      orc:
+        pearson: 0.114
+        spearman: 0.123
+        mae: 0.610
+        exact_accuracy: 0.430
+    total_cost: 0.0
+    conclusion: >
+      Mode collapse is fixed (vs grjy which had all predictions=3, Pearson N/A).
+      However, extended context (0.114) performs slightly worse than truncated
+      baseline (0.155). The model produces a mix of 2s and 3s but doesn't leverage
+      the contrasting papers effectively. Longer sequences may be harder to learn
+      even with lower LR and more epochs. This suggests truncation isn't the main
+      bottleneck for Gen Graph performance.

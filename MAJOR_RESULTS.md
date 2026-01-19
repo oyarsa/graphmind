@@ -6,6 +6,81 @@ This file contains summary tables comparing different configurations across data
 
 ---
 
+2026-01-19 Final Baseline Summary
+---------------------------------
+
+Best result for each baseline method across all configurations.
+
+### ORC Dataset (n=100)
+
+| Method | Pearson | Notes |
+|--------|---------|-------|
+| **GraphMind GPT (Full)** | **0.312 ± 0.058** | gpt-4o-mini, with demos |
+| Qwen Gen Basic | 0.300 | 32B, 6 epochs |
+| Novascore | 0.189 | threshold=0.60 |
+| Qwen Gen Graph | 0.171 ± 0.063 | 32B, 5 seeds |
+| Scimon GPT | 0.160 ± 0.037 | gpt-4o-mini |
+| Llama Gen Graph | 0.155 | 8B, truncated context |
+| GPT Basic (Sans) | 0.048 ± 0.023 | gpt-4o-mini |
+
+### PeerRead Dataset (n=68-70)
+
+| Method | Pearson | Notes |
+|--------|---------|-------|
+| **GraphMind GPT (Full)** | **0.538 ± 0.062** | gpt-4o-mini, no demos |
+| Novascore | 0.227 | threshold=0.70 |
+| Qwen Gen Basic | 0.170 | 32B, 1 epoch |
+| GPT Basic (Sans) | 0.139 ± 0.074 | gpt-4o-mini |
+| Llama Gen Graph | 0.135 | 8B |
+| Qwen Gen Graph | 0.129 ± 0.045 | 32B, 5 seeds |
+| Scimon GPT | 0.080 ± 0.027 | gpt-4o-mini |
+
+### Key Takeaways
+
+1. **GraphMind GPT wins on both datasets** (ORC: 0.312, PeerRead: 0.538)
+2. **Qwen Gen Basic nearly matches GraphMind on ORC** (0.300 vs 0.312)
+3. **Gen Graph underperforms Gen Basic** consistently across both models and datasets
+4. **SFT baselines are competitive** with GPT methods at zero inference cost
+
+---
+
+2026-01-19 Gen Graph Extended Context Investigation
+---------------------------------------------------
+
+Investigated whether truncation of contrasting papers causes poor Gen Graph performance.
+
+### Token Analysis
+
+Gen Graph inputs average ~4,150 tokens with max ~5,550 tokens. With max_length=2000:
+- **100% of inputs are truncated**
+- Contrasting papers (35% of input, ~1,457 tokens) are **completely cut off**
+- Supporting papers only partially included (~65%)
+
+For comparison, Gen Basic inputs average only ~376 tokens (ORC) / ~264 tokens (PeerRead).
+
+### Extended Context Experiments (Llama-8B, ORC)
+
+| Config | max_length | LR | Epochs | Pearson | Notes |
+|--------|------------|------|--------|---------|-------|
+| Baseline | 2000 | 1e-4 | 1 | 0.155 | Contrasting papers truncated |
+| 6k v1 (grjy) | 6000 | 1e-4 | 1 | N/A | Mode collapse (all predictions=3) |
+| 6k v2 (q2do) | 6000 | 5e-5 | 3 | 0.114 | Fixed mode collapse, but worse than baseline |
+
+### Key Finding
+
+**Truncation is NOT the main bottleneck for Gen Graph performance.**
+
+Extended context (0.114) performs *worse* than truncated baseline (0.155), despite now including
+the contrasting papers. This suggests either:
+1. Longer sequences are harder for the model to learn effectively
+2. Contrasting paper information isn't useful for the rating task
+3. The model cannot effectively leverage the additional context
+
+This aligns with the broader pattern: **Gen Basic consistently outperforms Gen Graph** across
+both Llama and Qwen (Qwen Basic 0.30 vs Qwen Graph 0.17 on ORC).
+
+---
+
 2026-01-18 SFT Model Comparison (Same Model Across Methods)
 -----------------------------------------------------------
 
