@@ -2,7 +2,7 @@
 
 import typer
 
-from paper.tools import demo_data, exp_log, find_type, pipeline_viz, split
+from paper.tools import demo_data, exp_log, export_csv, find_type, pipeline_viz, split
 
 app = typer.Typer(
     help="Miscellaneous tools",
@@ -15,3 +15,4 @@ app.add_typer(split.app, name="split")
 app.command(no_args_is_help=True, name="findtype")(find_type.main)
 app.command(no_args_is_help=True, name="demodata")(demo_data.main)
 app.command(no_args_is_help=False, name="deps")(pipeline_viz.main)
+app.command(no_args_is_help=True, name="export-csv")(export_csv.export_gpt_to_csv)
