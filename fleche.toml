@@ -50,7 +50,7 @@ uv run --extra cuda --extra baselines \
     ${SEED:+--seed $SEED}
 """
 inputs = ["output/baselines/llama_data/"]
-outputs = ["output/baselines/"]
+outputs = ["output/baselines/llama_${DATASET}_${CONFIG}${SEED:+_seed${SEED}}/"]
 env = { DATASET = "orc", CONFIG = "llama_basic" }
 
 # Inference: fleche run infer --env DATASET=orc --env CONFIG=llama_basic
@@ -67,7 +67,7 @@ uv run --extra cuda --extra baselines \
     ${NUM_EXAMPLES:+--num-examples $NUM_EXAMPLES}
 """
 inputs = ["output/baselines/llama_data/"]
-outputs = ["output/baselines/"]
+outputs = ["output/baselines/llama_${DATASET}_${CONFIG}_infer/"]
 env = { DATASET = "orc", CONFIG = "llama_basic" }
 
 # Generative SFT Training: fleche run train_gen --env DATASET=peerread --env CONFIG=llama_peerread_gen
@@ -87,7 +87,7 @@ uv run --extra cuda --extra baselines \
     ${SEED:+--seed $SEED}
 """
 inputs = ["output/baselines/llama_data/"]
-outputs = ["output/baselines/"]
+outputs = ["output/baselines/llama_gen_${DATASET}_${CONFIG}${SEED:+_seed${SEED}}/"]
 env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }
 
 # Generative SFT Inference: fleche run infer_gen --env DATASET=peerread --env CONFIG=llama_peerread_gen
@@ -104,7 +104,7 @@ uv run --extra cuda --extra baselines \
     ${NUM_EXAMPLES:+--num-examples $NUM_EXAMPLES}
 """
 inputs = ["output/baselines/llama_data/"]
-outputs = ["output/baselines/"]
+outputs = ["output/baselines/llama_gen_${DATASET}_${CONFIG}_infer/"]
 env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }
 
 # Graph-enriched Generative SFT Training: fleche run train_gen_graph --env DATASET=peerread --env CONFIG=llama_peerread_gen
@@ -125,7 +125,7 @@ uv run --extra cuda --extra baselines \
     ${SEED:+--seed $SEED}
 """
 inputs = ["output/baselines/llama_data/"]
-outputs = ["output/baselines/"]
+outputs = ["output/baselines/llama_gen_graph_${DATASET}_${CONFIG}${SEED:+_seed${SEED}}/"]
 env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }
 
 # Graph-enriched Generative SFT Inference: fleche run infer_gen_graph --env DATASET=peerread --env CONFIG=llama_peerread_gen
@@ -141,5 +141,5 @@ uv run --extra cuda --extra baselines \
     ${NUM_EXAMPLES:+--num-examples $NUM_EXAMPLES}
 """
 inputs = ["output/baselines/llama_data/"]
-outputs = ["output/baselines/"]
+outputs = ["output/baselines/llama_gen_graph_${DATASET}_${CONFIG}_infer/"]
 env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }
