@@ -33,7 +33,7 @@ if torch.cuda.is_available():
 '
 """
 
-# Training: fleche run train --env DATASET=orc --env CONFIG=llama_basic
+# Training: fleche run train --env DATASET=orc --env CONFIG=llama_cls
 # Add --env NUM_EXAMPLES=5 to limit dataset size for testing
 [jobs.train]
 command = """
@@ -51,9 +51,9 @@ uv run --extra cuda --extra baselines \
 """
 inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/llama_${DATASET}_${CONFIG}${SEED:+_seed${SEED}}/"]
-env = { DATASET = "orc", CONFIG = "llama_basic" }
+env = { DATASET = "orc", CONFIG = "llama_cls" }
 
-# Inference: fleche run infer --env DATASET=orc --env CONFIG=llama_basic
+# Inference: fleche run infer --env DATASET=orc --env CONFIG=llama_cls
 # Add --env NUM_EXAMPLES=5 to limit dataset size for testing
 [jobs.infer]
 command = """
@@ -68,9 +68,9 @@ uv run --extra cuda --extra baselines \
 """
 inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/llama_${DATASET}_${CONFIG}_infer/"]
-env = { DATASET = "orc", CONFIG = "llama_basic" }
+env = { DATASET = "orc", CONFIG = "llama_cls" }
 
-# Generative SFT Training: fleche run train_gen --env DATASET=peerread --env CONFIG=llama_peerread_gen
+# Generative SFT Training: fleche run train_gen --env DATASET=orc --env CONFIG=llama_gen_basic
 # Add --env NUM_EXAMPLES=5 to limit dataset size for testing
 [jobs.train_gen]
 command = """
@@ -88,9 +88,9 @@ uv run --extra cuda --extra baselines \
 """
 inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/llama_gen_${DATASET}_${CONFIG}${SEED:+_seed${SEED}}/"]
-env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }
+env = { DATASET = "orc", CONFIG = "llama_gen_basic" }
 
-# Generative SFT Inference: fleche run infer_gen --env DATASET=peerread --env CONFIG=llama_peerread_gen
+# Generative SFT Inference: fleche run infer_gen --env DATASET=orc --env CONFIG=llama_gen_basic
 # Add --env NUM_EXAMPLES=5 to limit dataset size for testing
 [jobs.infer_gen]
 command = """
@@ -105,9 +105,9 @@ uv run --extra cuda --extra baselines \
 """
 inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/llama_gen_${DATASET}_${CONFIG}_infer/"]
-env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }
+env = { DATASET = "orc", CONFIG = "llama_gen_basic" }
 
-# Graph-enriched Generative SFT Training: fleche run train_gen_graph --env DATASET=peerread --env CONFIG=llama_peerread_gen
+# Graph-enriched Generative SFT Training: fleche run train_gen_graph --env DATASET=orc --env CONFIG=llama_gen_graph
 # Requires preprocessed data with graph context (run sft_gen_preprocess locally first)
 # Add --env NUM_EXAMPLES=5 to limit dataset size for testing
 [jobs.train_gen_graph]
@@ -126,9 +126,9 @@ uv run --extra cuda --extra baselines \
 """
 inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/llama_gen_graph_${DATASET}_${CONFIG}${SEED:+_seed${SEED}}/"]
-env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }
+env = { DATASET = "orc", CONFIG = "llama_gen_graph" }
 
-# Graph-enriched Generative SFT Inference: fleche run infer_gen_graph --env DATASET=peerread --env CONFIG=llama_peerread_gen
+# Graph-enriched Generative SFT Inference: fleche run infer_gen_graph --env DATASET=orc --env CONFIG=llama_gen_graph
 [jobs.infer_gen_graph]
 command = """
 echo "Hello from $HOSTNAME"
@@ -142,7 +142,7 @@ uv run --extra cuda --extra baselines \
 """
 inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/llama_gen_graph_${DATASET}_${CONFIG}_infer/"]
-env = { DATASET = "peerread", CONFIG = "llama_peerread_gen" }
+env = { DATASET = "orc", CONFIG = "llama_gen_graph" }
 
 # ==============================================================================
 # GPT Ablation Experiments (run locally)
