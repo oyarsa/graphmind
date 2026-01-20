@@ -45,9 +45,12 @@
 - `fleche run <job>` - Submit and stream output (Ctrl+C disconnects, job keeps running)
 - `fleche run <job> --bg` - Run in background (`--notify` for alerts)
 - `fleche run <job> --env VAR=value --tag key=value` - Set env vars and tags
+- `fleche run <job> --note "description"` - Add note to document experiment
 - `fleche run <job> --command "nvidia-smi"` - Override command (keeps job's Slurm config)
 - `fleche run <job> --dry-run` - Preview sbatch script without submitting
 - `fleche run <job> --host local` - Run locally instead of on remote Slurm cluster
+- `fleche run <job> --after <job-id>` - Run after another job completes (dependency)
+- `fleche run <job> --retry 3` - Auto-retry on failure with exponential backoff
 - `fleche exec <cmd>` - Run directly via SSH, no Slurm (quick tests)
 - `fleche exec <cmd> --host local` - Run command locally without SSH
 - `fleche run "command" --gpus 1 --time 1:00:00` - Adhoc Slurm command (no job definition)
@@ -58,10 +61,15 @@
   - `--filter running` - Filter by status (running/pending/completed/failed/cancelled)
   - `--tag key=value` - Filter by tag
   - `--name 'pattern'` - Filter by job ID regex (substring match, use `^`/`$` to anchor)
+  - `--archived` - Show only archived jobs
+  - `--all-jobs` - Show all jobs including archived
 - `fleche logs [job-id]` - View logs (`--raw` to strip ANSI, `--follow` to stream)
   - `-n 50` - Show only last N lines
   - `--stdout` / `--stderr` - Show only one stream
+  - `--note 'pattern'` - Filter by note content (case-insensitive regex)
 - `fleche wait [job-id]` - Wait for completion (`--notify` for alerts)
+- `fleche stats [job-id]` - Show resource usage (elapsed time, CPU time, max memory)
+- `fleche note <job-id> [text]` - View or set job note
 - `fleche ping` - Check Slurm cluster health
 - `fleche check` - Validate config after editing
 
@@ -77,6 +85,8 @@
 - `fleche cancel [job-id]` - Cancel job (`--all` for all active, `--tag` to filter)
 - `fleche clean --older-than 2h -y` - Clean old jobs periodically
 - `fleche clean --workspace` - Also delete shared workspace (use with caution)
+- `fleche clean --archive <job-id>` - Archive job (hide without deleting)
+- `fleche clean --unarchive <job-id>` - Restore archived job
 
 **GPT experiments (local):**
 - `fleche run gpt_orc --env PROMPT=sans` - Run ORC ablation with specific prompt
