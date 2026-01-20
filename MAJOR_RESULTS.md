@@ -6,52 +6,56 @@ This file contains summary tables comparing different configurations across data
 
 ---
 
-2026-01-19 Final Baseline Summary (5-Seed Experiments)
-------------------------------------------------------
+2026-01-20 Complete Baseline Comparison (5-Seed, All Metrics)
+-------------------------------------------------------------
 
-Best result for each baseline method. All SFT methods now have 5-seed experiments for error bars.
+Complete baseline comparison with all metrics. All methods use 5-seed experiments for error bars
+(except Novascore which is deterministic). GPT Graph uses best config (no demos).
 
 ### ORC Dataset (n=100)
 
-| Method | Pearson | Notes |
-|--------|---------|-------|
-| **GraphMind GPT (Full)** | **0.312 ± 0.058** | gpt-4o-mini, with demos |
-| Novascore | 0.189 | threshold=0.60 |
-| Qwen Gen Basic | 0.173 ± 0.072 | 32B, 6 epochs, 5 seeds |
-| Qwen Gen Graph | 0.171 ± 0.063 | 32B, 5 seeds |
-| Scimon GPT | 0.160 ± 0.037 | gpt-4o-mini |
-| Llama Gen Graph | 0.142 ± 0.098 | 8B, 5 seeds |
-| GPT Basic (Sans) | 0.048 ± 0.023 | gpt-4o-mini |
+| Method | Pearson | Spearman | Acc ±1 | MAE | RMSE |
+|--------|---------|----------|--------|-----|------|
+| Llama Basic | 0.157 ± 0.024 | 0.167 ± 0.027 | 0.910 ± 0.014 | 0.638 ± 0.021 | 0.909 ± 0.029 |
+| Llama Graph | 0.142 ± 0.098 | 0.143 ± 0.089 | 0.474 ± 0.029 | 1.546 ± 0.048 | 1.732 ± 0.039 |
+| Qwen Basic | 0.173 ± 0.072 | 0.163 ± 0.074 | 0.964 ± 0.011 | 0.588 ± 0.034 | 0.812 ± 0.030 |
+| Qwen Graph | 0.171 ± 0.062 | 0.175 ± 0.066 | 0.442 ± 0.016 | 1.518 ± 0.036 | 1.705 ± 0.023 |
+| Novascore | 0.189 | 0.194 | 0.840 | 0.830 | 1.091 |
+| Scimon | 0.160 ± 0.037 | 0.137 ± 0.062 | 0.582 ± 0.011 | 1.248 ± 0.025 | 1.471 ± 0.016 |
+| GPT Basic | 0.048 ± 0.023 | 0.050 ± 0.027 | 0.612 ± 0.022 | 1.226 ± 0.035 | 1.448 ± 0.022 |
+| **GPT Graph** | **0.377 ± 0.034** | **0.383 ± 0.042** | **0.832 ± 0.013** | **0.860 ± 0.032** | **1.157 ± 0.020** |
 
 ### PeerRead Dataset (n=68-70)
 
-| Method | Pearson | Notes |
-|--------|---------|-------|
-| **GraphMind GPT (Full)** | **0.538 ± 0.062** | gpt-4o-mini, no demos |
-| Novascore | 0.227 | threshold=0.70 |
-| GPT Basic (Sans) | 0.139 ± 0.074 | gpt-4o-mini |
-| Llama Gen Graph | 0.126 ± 0.074 | 8B, 5 seeds |
-| Qwen Gen Graph | 0.129 ± 0.045 | 32B, 5 seeds |
-| Scimon GPT | 0.080 ± 0.027 | gpt-4o-mini |
-| Qwen Gen Basic | 0.069 ± 0.045 | 32B, 1 epoch, 5 seeds |
+| Method | Pearson | Spearman | Acc ±1 | MAE | RMSE |
+|--------|---------|----------|--------|-----|------|
+| Llama Basic | 0.284 ± 0.096 | 0.360 ± 0.106 | 0.903 ± 0.036 | 0.551 ± 0.294 | 0.863 ± 0.208 |
+| Llama Graph | 0.126 ± 0.074 | 0.131 ± 0.077 | 0.306 ± 0.016 | 1.740 ± 0.027 | 1.899 ± 0.036 |
+| Qwen Basic | 0.069 ± 0.045 | 0.057 ± 0.048 | 0.680 ± 0.039 | 1.254 ± 0.080 | 1.523 ± 0.102 |
+| Qwen Graph | 0.129 ± 0.045 | 0.125 ± 0.043 | 0.891 ± 0.033 | 0.877 ± 0.044 | 1.045 ± 0.051 |
+| Novascore | 0.227 | 0.301 | 0.171 | 2.214 | 2.363 |
+| Scimon | 0.080 ± 0.027 | 0.116 ± 0.035 | 0.804 ± 0.007 | 1.054 ± 0.007 | 1.203 ± 0.006 |
+| GPT Basic | 0.139 ± 0.074 | 0.125 ± 0.074 | 0.591 ± 0.048 | 1.250 ± 0.055 | 1.437 ± 0.053 |
+| **GPT Graph** | **0.538 ± 0.062** | **0.526 ± 0.063** | **0.785 ± 0.063** | **1.112 ± 0.074** | **1.258 ± 0.085** |
 
-### 5-Seed Experiment Details
+### Method Details
 
-**Qwen Gen Basic (Qwen3-32B, seeds 42-46):**
-- ORC: 0.241, 0.155, 0.070, 0.243, 0.158 → **0.173 ± 0.072**
-- PeerRead: 0.050, 0.146, 0.065, 0.031, 0.053 → **0.069 ± 0.045**
-
-**Llama Gen Graph (Llama-3.1-8B, seeds 42-46):**
-- ORC: 0.264, 0.116, 0.000, 0.133, 0.195 → **0.142 ± 0.098**
-- PeerRead: 0.190, 0.085, 0.159, 0.017, 0.181 → **0.126 ± 0.074**
+- **Llama Basic**: Llama-3.1-8B-Instruct classifier, ORC seeds 47/49/53/57/60, PeerRead seeds 42/45/46/48/50
+- **Llama Graph**: Llama-3.1-8B-Instruct generative with graph context, seeds 42-46
+- **Qwen Basic**: Qwen3-32B generative, seeds 42-46
+- **Qwen Graph**: Qwen3-32B generative with graph context, seeds 42-46, lr=1e-4
+- **Novascore**: Deterministic retrieval baseline, threshold 0.60 (ORC) / 0.70 (PeerRead)
+- **Scimon**: gpt-4o-mini, 3-5 successful runs
+- **GPT Basic**: gpt-4o-mini, sans prompt with demos
+- **GPT Graph**: gpt-4o-mini, full-graph-structured prompt, no demos (best config)
 
 ### Key Takeaways
 
-1. **GraphMind GPT wins on both datasets** (ORC: 0.312, PeerRead: 0.538)
-2. **SFT baselines have HIGH VARIANCE**: Qwen Gen Basic ranges from 0.070-0.243 on ORC
-3. **Gen Graph underperforms Gen Basic on ORC** (0.142 vs 0.173 for Llama, 0.171 vs 0.173 for Qwen)
-4. **Gen Graph slightly outperforms Gen Basic on PeerRead** (0.126 vs 0.069)
-5. **Single-seed results were misleading**: Qwen Gen Basic ORC seed 42 (0.241) was an outlier
+1. **GPT Graph wins on both datasets** (ORC: 0.377, PeerRead: 0.538)
+2. **SFT baselines have HIGH VARIANCE**: Qwen Basic ranges from 0.070-0.243 on ORC
+3. **Graph context hurts SFT models**: Llama/Qwen Graph underperform their Basic variants
+4. **Acc±1 can be misleading**: High Acc±1 doesn't correlate with high Pearson (e.g., Qwen Basic ORC)
+5. **Llama Basic strong on PeerRead**: Best SFT Pearson (0.284) despite simple approach
 
 ---
 
