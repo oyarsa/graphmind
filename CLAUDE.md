@@ -7,6 +7,12 @@
   - GPT ablation experiments
   - Llama/SFT baseline experiments (record config, seeds, learning rate, epochs)
   - Any other baseline experiments (Novascore, Scimon, etc.)
+- **Record ALL metrics** from `paper.evaluation_metrics.Metrics` in the log:
+  - `pearson`, `spearman` - correlation metrics
+  - `mae`, `mse`, `rmse` - error metrics
+  - `accuracy`, `acc_pm1` (accuracy_within_1) - accuracy metrics
+  - `f1`, `precision`, `recall` - classification metrics
+  - `cost_per_run` - if applicable
 - Update `MAJOR_RESULTS.md` for major results (see `docs/EXPERIMENTS.md` for format)
 
 ## Commands
