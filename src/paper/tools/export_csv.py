@@ -122,6 +122,44 @@ def _format_authors(authors: list[str]) -> str:
     return f"{authors[0]}, {authors[1]}, ... ({len(authors)} authors)"
 
 
+def _truncate_evidence_sections(rationale: str, max_papers: int = 5) -> str:
+    """Truncate supporting/contradictory evidence sections to max_papers each.
+
+    Looks for bullet point lists (lines starting with -) within evidence sections
+    and keeps only the first max_papers items in each section.
+    """
+    import re
+
+    lines = rationale.split("\n")
+    result_lines: list[str] = []
+    in_evidence_section = False
+    bullet_count = 0
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Detect section headers (Supporting Evidence, Contradictory Evidence, etc.)
+        if re.match(
+            r"^\*?\*?(supporting|contradictory|related)\s", stripped, re.IGNORECASE
+        ):
+            in_evidence_section = True
+            bullet_count = 0
+            result_lines.append(line)
+        elif stripped.startswith("-") and in_evidence_section:
+            bullet_count += 1
+            if bullet_count <= max_papers:
+                result_lines.append(line)
+        elif stripped and not stripped.startswith("-"):
+            # Non-bullet, non-empty line - might be a new section
+            in_evidence_section = False
+            bullet_count = 0
+            result_lines.append(line)
+        else:
+            result_lines.append(line)
+
+    return "\n".join(result_lines)
+
+
 def export_gpt_to_csv(
     input_file: Annotated[
         Path,
@@ -183,14 +221,16 @@ def export_gpt_to_csv(
         title = paper["title"]
         authors = paper.get("authors", [])
         arxiv_id = arxiv_ids.get(_normalise_title(title), "")
+        predicted_rationale = _truncate_evidence_sections(paper["rationale_pred"])
 
         row = {
-            "paper_name_authors": f"{title} — {_format_authors(authors)}",
+            "title": title,
+            "authors": _format_authors(authors),
             "pdf_link": f"https://arxiv.org/pdf/{arxiv_id}.pdf" if arxiv_id else "",
             "abstract": paper["abstract"],
             "ground_truth_review": paper.get("rationale", ""),
             "ground_truth_rating": paper["rating"],
-            "predicted_rationale": paper["rationale_pred"],
+            "predicted_rationale": predicted_rationale,
             "predicted_rating": paper["y_pred"],
             "claims": _format_entities_as_bullets(graph["entities"], "claim"),
             "methods": _format_entities_as_bullets(graph["entities"], "method"),
@@ -200,7 +240,8 @@ def export_gpt_to_csv(
 
     # Write CSV
     fieldnames = [
-        "paper_name_authors",
+        "title",
+        "authors",
         "pdf_link",
         "abstract",
         "ground_truth_review",
