@@ -59,6 +59,54 @@ Complete baseline comparison with all metrics. All methods use 5-seed experiment
 
 ---
 
+2026-01-20 GPT Ablation Study (All Metrics)
+-------------------------------------------
+
+Component ablation for GPT-based method. Sans and Full use same configs as baseline table
+(Sans with demos, Full no demos). Intermediate configs use demos for ORC, no demos for PeerRead.
+All 5 runs with gpt-4o-mini.
+
+### ORC Dataset
+
+| Configuration | Pearson | Spearman | Acc ±1 | MAE | RMSE |
+|---------------|---------|----------|--------|-----|------|
+| Sans (abstract only) | 0.048 ± 0.023 | 0.050 ± 0.027 | 0.612 ± 0.022 | 1.226 ± 0.035 | 1.448 ± 0.022 |
+| Related (no graph) | 0.091 ± 0.111 | 0.085 ± 0.109 | 0.778 ± 0.026 | 0.952 ± 0.048 | 1.201 ± 0.046 |
+| Graph Only (no related) | 0.020 ± 0.028 | 0.013 ± 0.023 | 0.632 ± 0.018 | 1.178 ± 0.028 | 1.423 ± 0.016 |
+| Citations Only | 0.224 ± 0.032 | 0.239 ± 0.035 | 0.730 ± 0.040 | 1.136 ± 0.063 | 1.425 ± 0.055 |
+| Semantic Only | 0.132 ± 0.068 | 0.135 ± 0.052 | 0.634 ± 0.009 | 1.214 ± 0.038 | 1.415 ± 0.018 |
+| **Full Pipeline** | **0.377 ± 0.034** | **0.383 ± 0.042** | **0.832 ± 0.013** | **0.860 ± 0.032** | **1.157 ± 0.020** |
+
+### PeerRead Dataset
+
+| Configuration | Pearson | Spearman | Acc ±1 | MAE | RMSE |
+|---------------|---------|----------|--------|-----|------|
+| Sans (abstract only) | 0.139 ± 0.074 | 0.125 ± 0.074 | 0.591 ± 0.048 | 1.250 ± 0.055 | 1.437 ± 0.053 |
+| Related (no graph) | 0.146 ± 0.082 | 0.152 ± 0.081 | 0.797 ± 0.037 | 1.021 ± 0.044 | 1.194 ± 0.047 |
+| Graph Only (no related) | 0.199 ± 0.061 | 0.221 ± 0.063 | 0.718 ± 0.043 | 1.147 ± 0.054 | 1.307 ± 0.053 |
+| Citations Only | 0.309 ± 0.072 | 0.342 ± 0.061 | 0.526 ± 0.024 | 1.526 ± 0.060 | 1.725 ± 0.064 |
+| Semantic Only | 0.517 ± 0.026 | 0.499 ± 0.020 | 0.876 ± 0.027 | 0.982 ± 0.032 | 1.113 ± 0.045 |
+| **Full Pipeline** | **0.538 ± 0.062** | **0.526 ± 0.063** | **0.785 ± 0.063** | **1.112 ± 0.074** | **1.258 ± 0.085** |
+
+### Configuration Details
+
+- **Sans**: Abstract only, no graph or related papers (with demos)
+- **Related**: Related papers from both sources, no graph summary
+- **Graph Only**: Graph summary only, no related papers
+- **Citations**: Graph + citation-based related papers only
+- **Semantic**: Graph + semantic similarity related papers only
+- **Full**: Graph + both citation and semantic related papers (no demos)
+
+### Key Findings
+
+1. **Full pipeline best on both datasets** (ORC: 0.377, PeerRead: 0.538)
+2. **Graph adds value**: Full vs Related = +0.286 (ORC), +0.392 (PeerRead)
+3. **Related papers add value**: Full vs Graph Only = +0.357 (ORC), +0.339 (PeerRead)
+4. **Source importance differs**: ORC favours citations (0.224), PeerRead favours semantic (0.517)
+5. **Semantic dominates PeerRead**: Semantic alone (0.517) nearly matches Full (0.538)
+
+---
+
 2026-01-19 Gen Graph Extended Context Investigation
 ---------------------------------------------------
 
