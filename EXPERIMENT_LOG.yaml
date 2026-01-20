@@ -1841,3 +1841,103 @@ experiments:
       the contrasting papers effectively. Longer sequences may be harder to learn
       even with lower LR and more epochs. This suggests truncation isn't the main
       bottleneck for Gen Graph performance.
+
+  - date: "2026-01-19"
+    name: "qwen_gen_basic_5seeds"
+    type: baseline
+    description: "Qwen3-32B Gen Basic with 5 seeds for error bars"
+    reason: >
+      Previous single-seed results (ORC seed 42: 0.300, PeerRead seed 46: 0.170)
+      may have been outliers. Running 5 seeds to get proper error bars for the
+      final baseline comparison.
+    command: |
+      # ORC seeds (6 epochs)
+      for seed in 42 43 44 45 46; do
+        fleche run train_gen --env DATASET=orc --env CONFIG=qwen_gen_basic_orc \
+          --env SEED=$seed --tag "experiment=qwen_gen_basic_5seeds_intgpu"
+      done
+      # PeerRead seeds (1 epoch)
+      for seed in 42 43 44 45 46; do
+        fleche run train_gen --env DATASET=peerread --env CONFIG=qwen_gen_basic_peerread \
+          --env SEED=$seed --tag "experiment=qwen_gen_basic_5seeds_intgpu"
+      done
+    parameters:
+      dataset: "ORC and PeerRead"
+      model: "Qwen/Qwen3-32B"
+      method: "sft-gen"
+      config_orc: "qwen_gen_basic_orc.toml"
+      config_peerread: "qwen_gen_basic_peerread.toml"
+      learning_rate: 1.25e-4
+      num_epochs_orc: 6
+      num_epochs_peerread: 1
+      batch_size: 1
+      lora_r: 8
+      lora_alpha: 16
+      quantisation: "4-bit"
+      max_length: 512
+      max_new_tokens: 256
+      seeds: [42, 43, 44, 45, 46]
+      gpu: "A100/A40"
+      partition: "interruptible_gpu"
+    metrics:
+      orc:
+        pearson: {mean: 0.173, stdev: 0.072}
+        seeds_results: [0.241, 0.155, 0.070, 0.243, 0.158]
+        job_ids: ["8oeb", "ekbt", "9oyn", "c7ic", "jg1o"]
+      peerread:
+        pearson: {mean: 0.069, stdev: 0.045}
+        seeds_results: [0.050, 0.146, 0.065, 0.031, 0.053]
+        job_ids: ["aper", "ljd5", "l0qz", "ymgk", "va1o"]
+    total_cost: 0.0
+    conclusion: >
+      5-seed experiments reveal HIGH VARIANCE in SFT baselines. ORC seed 42 (0.241)
+      was an outlier - the 5-seed average (0.173) is much lower than the single-seed
+      result (0.300). PeerRead also shows high variance (0.031-0.146). This confirms
+      the importance of multi-seed experiments for reliable baseline comparison.
+      Qwen Gen Basic is now ranked lower than Novascore on ORC (0.173 vs 0.189).
+
+  - date: "2026-01-19"
+    name: "llama_gen_graph_5seeds"
+    type: baseline
+    description: "Llama-8B Gen Graph with 5 seeds for error bars"
+    reason: >
+      Previous single-seed results (ORC: 0.155, PeerRead: 0.135) needed error bars
+      to understand variance. Running 5 seeds (42-46) on both datasets.
+    command: |
+      # ORC and PeerRead seeds
+      for seed in 42 43 44 45 46; do
+        fleche run train_gen_graph --env DATASET=orc --env CONFIG=llama_gen_graph \
+          --env SEED=$seed --tag "experiment=llama_gen_graph_5seeds_intgpu"
+        fleche run train_gen_graph --env DATASET=peerread --env CONFIG=llama_gen_graph \
+          --env SEED=$seed --tag "experiment=llama_gen_graph_5seeds_intgpu"
+      done
+    parameters:
+      dataset: "ORC and PeerRead"
+      model: "meta-llama/Llama-3.1-8B-Instruct"
+      method: "sft-gen-graph"
+      config: "llama_gen_graph.toml"
+      learning_rate: 1e-4
+      num_epochs: 1
+      batch_size: 4
+      lora_r: 8
+      lora_alpha: 16
+      quantisation: "4-bit"
+      max_length: 2000
+      max_new_tokens: 256
+      seeds: [42, 43, 44, 45, 46]
+      gpu: "A100/A40/RTX3090"
+      partition: "interruptible_gpu"
+    metrics:
+      orc:
+        pearson: {mean: 0.142, stdev: 0.098}
+        seeds_results: [0.264, 0.116, 0.000, 0.133, 0.195]
+      peerread:
+        pearson: {mean: 0.126, stdev: 0.074}
+        seeds_results: [0.190, 0.085, 0.159, 0.017, 0.181]
+    total_cost: 0.0
+    conclusion: >
+      Llama Gen Graph shows very high variance, especially on ORC (stdev 0.098).
+      Seed 44 on ORC had Pearson 0.000 (complete failure). The 5-seed average
+      (ORC: 0.142, PeerRead: 0.126) is slightly lower than the original single-seed
+      results. Gen Graph continues to underperform Gen Basic on ORC but the gap
+      narrows with proper error bars (0.142 vs 0.173).
