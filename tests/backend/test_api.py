@@ -1,6 +1,7 @@
 """Tests for general API functionality."""
 
 import datetime as dt
+import os
 from collections.abc import Generator
 
 import pytest
@@ -9,6 +10,9 @@ from fastapi.testclient import TestClient
 from paper.backend.api import app
 from paper.backend.dependencies import ENABLE_NETWORK
 from paper.backend.model import HealthCheck
+
+if not os.getenv("OPENAI_API_KEY"):
+    pytest.skip("OPENAI_API_KEY environment variable not set", allow_module_level=True)
 
 
 @pytest.fixture
