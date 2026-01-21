@@ -210,6 +210,19 @@
       const [showInstructions, setShowInstructions] = useState(false);
       const [showRatings, setShowRatings] = useState(false);
 
+      // Warn before leaving if papers are loaded
+      useEffect(() => {
+        const handleBeforeUnload = (e) => {
+          if (papers.length > 0) {
+            e.preventDefault();
+            e.returnValue = '';
+          }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+      }, [papers.length]);
+
       const currentPaper = papers[currentIndex];
 
       // Load CSV file
