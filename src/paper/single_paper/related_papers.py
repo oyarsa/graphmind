@@ -47,6 +47,7 @@ from paper.gpt.summarise_related_peter import (
 
 if TYPE_CHECKING:
     from paper.gpt.classify_contexts import S2ReferenceClassified
+    from paper.gpt.openai_encoder import OpenAIEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -110,12 +111,12 @@ def _extract_paper_metadata(paper: s2.Paper | s2.PaperWithS2Refs) -> PaperMetada
             )
 
 
-def get_related_papers(
+async def get_related_papers(
     paper_annotated: gpt.PeerReadAnnotated,
     paper_with_contexts: gpt.PaperWithContextClassfied,
     recommended_papers: Sequence[gpt.PaperAnnotated],
     num_related: int,
-    encoder: emb.Encoder,
+    encoder: OpenAIEncoder,
     *,
     filter_by_date: bool = False,
 ) -> list[rp.PaperRelated]:
@@ -150,20 +151,22 @@ def get_related_papers(
         citation-based and semantic similarity-based papers
     """
     logger.debug("Encoding main paper")
-    main_title_emb = encoder.encode(paper_annotated.title)
-    main_background_emb = encoder.encode(paper_annotated.background)
-    main_target_emb = encoder.encode(paper_annotated.target)
+    main_title_emb, main_background_emb, main_target_emb = await asyncio.gather(
+        encoder.encode(paper_annotated.title),
+        encoder.encode(paper_annotated.background),
+        encoder.encode(paper_annotated.target),
+    )
 
     # Valid references with non-empty abstracts
     references = [
         r for r in paper_with_contexts.references if not is_empty_string(r.abstract)
     ]
     logger.debug("Getting top K references - positive")
-    references_positive_related = get_top_k_reference_by_polarity(
+    references_positive_related = await get_top_k_reference_by_polarity(
         encoder, main_title_emb, references, num_related, pr.ContextPolarity.POSITIVE
     )
     logger.debug("Getting top K references - negative")
-    references_negative_related = get_top_k_reference_by_polarity(
+    references_negative_related = await get_top_k_reference_by_polarity(
         encoder, main_title_emb, references, num_related, pr.ContextPolarity.NEGATIVE
     )
 
@@ -198,7 +201,7 @@ def get_related_papers(
             logger.debug("Date filtering unavailable because of missing year")
 
     logger.debug("Getting top K semantic - background")
-    background_related = get_top_k_semantic(
+    background_related = await get_top_k_semantic(
         encoder,
         num_related,
         main_background_emb,
@@ -208,7 +211,7 @@ def get_related_papers(
     )
 
     logger.debug("Getting top K semantic - target")
-    target_related = get_top_k_semantic(
+    target_related = await get_top_k_semantic(
         encoder,
         num_related,
         main_target_emb,
@@ -263,8 +266,8 @@ def deduplicated(
     return list(query_result.deduplicated().related)
 
 
-def get_top_k_semantic(
-    encoder: emb.Encoder,
+async def get_top_k_semantic(
+    encoder: OpenAIEncoder,
     k: int,
     main_emb: emb.Vector,
     papers: Sequence[gpt.PaperAnnotated],
@@ -288,7 +291,7 @@ def get_top_k_semantic(
     Returns:
         List of K most similar papers as PaperRelated objects with similarity scores.
     """
-    sem_emb = encoder.encode_multi(items)
+    sem_emb = await encoder.encode_multi(items)
     sims = emb.similarities(main_emb, sem_emb)
     top_k = [(papers[i], float(sims[i])) for i in emb.top_k_indices(sims, k)]
 
@@ -319,8 +322,8 @@ def get_top_k_semantic(
     return related_papers
 
 
-def get_top_k_reference_by_polarity(
-    encoder: emb.Encoder,
+async def get_top_k_reference_by_polarity(
+    encoder: OpenAIEncoder,
     title_emb: emb.Vector,
     references: Sequence[S2ReferenceClassified],
     k: int,
@@ -348,7 +351,7 @@ def get_top_k_reference_by_polarity(
         logger.debug("No papers with polarity %s found.", polarity)
         return []
 
-    titles_emb = encoder.encode_multi([r.title for r in references_pol])
+    titles_emb = await encoder.encode_multi([r.title for r in references_pol])
     sims = emb.similarities(title_emb, titles_emb)
     top_k = [(references_pol[i], float(sims[i])) for i in emb.top_k_indices(sims, k)]
 

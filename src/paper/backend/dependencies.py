@@ -7,8 +7,8 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, Request
 
-from paper import embedding as emb
 from paper.backend.db import DatabaseManager
+from paper.gpt.openai_encoder import OpenAIEncoder
 from paper.gpt.run_gpt import LLMClient
 from paper.util import dotenv, rate_limiter
 
@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     dotenv.load_dotenv()
     app.state.limiter = rate_limiter.get_limiter(use_semaphore=False)
     app.state.llm_registry = LLMClientRegistry()
-    app.state.encoder = emb.Encoder(device="cpu")
+    app.state.encoder = OpenAIEncoder()
 
     db: DatabaseManager | None = None
     try:
@@ -123,16 +123,16 @@ def get_db(request: Request) -> DatabaseManager:
 DbDep = Annotated[DatabaseManager, Depends(get_db)]
 
 
-def get_encoder(request: Request) -> emb.Encoder:
+def get_encoder(request: Request) -> OpenAIEncoder:
     """Dependency injection for the embedding encoder.
 
     Args:
         request: FastAPI request object containing application state.
 
     Returns:
-        Encoder instance from application state.
+        OpenAIEncoder instance from application state.
     """
     return request.app.state.encoder
 
 
-EncoderDep = Annotated[emb.Encoder, Depends(get_encoder)]
+EncoderDep = Annotated[OpenAIEncoder, Depends(get_encoder)]

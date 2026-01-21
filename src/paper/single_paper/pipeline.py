@@ -11,7 +11,6 @@ import logging
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from paper import embedding as emb
 from paper import gpt
 from paper import peerread as pr
 from paper.embedding import DEFAULT_SENTENCE_MODEL as DEFAULT_SENTENCE_MODEL
@@ -42,6 +41,7 @@ from paper.util import atimer, ensure_envvar
 from paper.util.cli import die
 
 if TYPE_CHECKING:
+    from paper.gpt.openai_encoder import OpenAIEncoder
     from paper.util.rate_limiter import Limiter
 
 logger = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ async def annotate_paper_pipeline(
     limiter: Limiter,
     s2_api_key: str,
     client: LLMClient,
-    encoder: emb.Encoder,
+    encoder: OpenAIEncoder,
     *,
     top_k_refs: int = 20,
     num_recommendations: int = 30,
@@ -117,7 +117,7 @@ async def annotate_paper_pipeline(
     logger.debug("Fetching S2 data for recommendations and references in parallel")
     paper_with_s2_refs, recommended_papers = await asyncio.gather(
         atimer(
-            enhance_with_s2_references(paper, top_k_refs, encoder, s2_api_key, limiter),
+            enhance_with_s2_references(paper, top_k_refs, encoder, s2_api_key, limiter),  # type: ignore[arg-type]
             3,
         ),
         atimer(
@@ -165,8 +165,7 @@ async def annotate_paper_pipeline(
 
     logger.debug("Getting related papers using direct approach")
     related_papers = await atimer(
-        asyncio.to_thread(
-            get_related_papers,
+        get_related_papers(
             paper_annotated.result,
             paper_with_classified_contexts.result,
             recommended_annotated.result,
@@ -225,7 +224,7 @@ async def process_paper_from_query(
     num_recommendations: int,
     num_related: int,
     llm_model: str,
-    encoder: emb.Encoder,
+    encoder: OpenAIEncoder,
     seed: int,
     limiter: Limiter,
     eval_prompt_key: str,
@@ -330,7 +329,7 @@ async def process_paper_from_selection(
     num_recommendations: int,
     num_related: int,
     limiter: Limiter,
-    encoder: emb.Encoder,
+    encoder: OpenAIEncoder,
     eval_prompt_key: str,
     graph_prompt_key: str,
     demonstrations_key: str,

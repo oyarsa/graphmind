@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Annotated, Self
 
 from pydantic import Field, computed_field
 
-from paper import embedding as emb
 from paper import gpt
 from paper import peerread as pr
 from paper import semantic_scholar as s2
@@ -40,6 +39,7 @@ from paper.util import atimer, ensure_envvar
 from paper.util.serde import replace_fields
 
 if TYPE_CHECKING:
+    from paper.gpt.openai_encoder import OpenAIEncoder
     from paper.util.rate_limiter import Limiter
 
 logger = logging.getLogger(__name__)
@@ -848,7 +848,7 @@ async def process_paper_from_selection_multi(
     num_recommendations: int,
     num_related: int,
     limiter: Limiter,
-    encoder: emb.Encoder,
+    encoder: OpenAIEncoder,
     eval_prompt_key: str,
     graph_prompt_key: str,
     summ_prompt_key: str,

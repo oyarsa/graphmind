@@ -21,10 +21,10 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from paper import embedding as emb
 from paper import gpt
 from paper import peerread as pr
 from paper import related_papers as rp
+from paper.gpt.openai_encoder import OpenAIEncoder
 from paper.orc.arxiv_api import ArxivResult, arxiv_id_from_url
 from paper.orc.download import parse_arxiv_latex
 from paper.orc.latex_parser import SentenceSplitter
@@ -165,7 +165,7 @@ async def process_paper(
         num_related: Number of related papers to return for each type
             (citations/semantic, positive/negative).
         llm_model: GPT/Gemini model to use for all LLM API calls.
-        encoder_model: Embedding encoder model for semantic similarity computations.
+        encoder_model: OpenAI embedding model for semantic similarity computations.
         seed: Random seed for GPT API calls to ensure reproducibility.
         detail: Show detailed paper information.
         eval_prompt: User prompt for paper evaluation.
@@ -181,11 +181,11 @@ async def process_paper(
         RuntimeError: If LaTeX parsing fails or other processing errors occur.
 
     Requires:
-        SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
+        SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY environment variables.
     """
 
     limiter = get_limiter(1, 1)  # 1 request per second
-    encoder = emb.Encoder(encoder_model)
+    encoder = OpenAIEncoder(model=encoder_model)
 
     result = await atimer(
         process_paper_from_query(
@@ -250,8 +250,8 @@ def main(
         str, typer.Option(help="GPT/Gemini model to use for API calls")
     ] = "gpt-4o-mini",
     encoder_model: Annotated[
-        str, typer.Option(help="Embedding encoder model")
-    ] = emb.DEFAULT_SENTENCE_MODEL,
+        str, typer.Option(help="OpenAI embedding model for similarity")
+    ] = "text-embedding-3-small",
     seed: Annotated[int, typer.Option(help="Random seed for GPT API calls")] = 0,
     detail: Annotated[
         bool, typer.Option(help="Show detailed paper information.")

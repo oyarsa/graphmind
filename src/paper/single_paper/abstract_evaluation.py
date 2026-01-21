@@ -37,10 +37,10 @@ from paper.single_paper.related_papers import get_top_k_semantic
 from paper.util import ensure_envvar
 
 if TYPE_CHECKING:
-    from paper import embedding as emb
     from paper import related_papers as rp
     from paper import semantic_scholar as s2
     from paper.gpt.model import PaperRelatedSummarised
+    from paper.gpt.openai_encoder import OpenAIEncoder
     from paper.gpt.prompts import PromptTemplate
     from paper.gpt.run_gpt import LLMClient
     from paper.single_paper.paper_retrieval import ProgressCallback
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 async def abstract_evaluation(
     client: LLMClient,
     limiter: Limiter,
-    encoder: emb.Encoder,
+    encoder: OpenAIEncoder,
     num_recommendations: int,
     num_semantic: int,
     title: str,
@@ -126,8 +126,7 @@ async def abstract_evaluation(
     target = main_annotated.result.target
 
     await callback("Retrieving semantic papers")
-    semantic = await asyncio.to_thread(
-        retrieve_semantic_papers,
+    semantic = await retrieve_semantic_papers(
         encoder,
         background,
         target,
@@ -227,8 +226,8 @@ async def extract_background_target_related(
     )
 
 
-def retrieve_semantic_papers(
-    encoder: emb.Encoder,
+async def retrieve_semantic_papers(
+    encoder: OpenAIEncoder,
     background: str,
     target: str,
     related: Sequence[gpt.PaperAnnotated],
@@ -247,11 +246,13 @@ def retrieve_semantic_papers(
     Returns:
         List of semantic related papers, combining background and target results.
     """
-    main_background_emb = encoder.encode(background)
-    main_target_emb = encoder.encode(target)
+    main_background_emb, main_target_emb = await asyncio.gather(
+        encoder.encode(background),
+        encoder.encode(target),
+    )
 
     logger.debug("Getting top K semantic - background - from %d papers", len(related))
-    background_related = get_top_k_semantic(
+    background_related = await get_top_k_semantic(
         encoder,
         k,
         main_background_emb,
@@ -261,7 +262,7 @@ def retrieve_semantic_papers(
     )
 
     logger.debug("Getting top K semantic - target - from %d papers", len(related))
-    target_related = get_top_k_semantic(
+    target_related = await get_top_k_semantic(
         encoder,
         k,
         main_target_emb,
