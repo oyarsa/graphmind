@@ -9,9 +9,21 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://unpkg.com/papaparse@5/papaparse.min.js"></script>
+  <script src="https://unpkg.com/marked@14/marked.min.js"></script>
   <style>
     .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
     .collapsible-content.open { max-height: 2000px; }
+    /* Markdown styles for instructions */
+    .instructions-content h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; color: #111827; }
+    .instructions-content h3 { font-size: 1.1rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; color: #1f2937; }
+    .instructions-content p { margin-bottom: 0.75rem; line-height: 1.6; }
+    .instructions-content ul, .instructions-content ol { margin-left: 1.5rem; margin-bottom: 0.75rem; }
+    .instructions-content li { margin-bottom: 0.25rem; }
+    .instructions-content strong { font-weight: 600; }
+    .instructions-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    .instructions-content th, .instructions-content td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; }
+    .instructions-content th { background-color: #f3f4f6; font-weight: 600; }
+    .instructions-content tr:nth-child(even) { background-color: #f9fafb; }
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -111,23 +123,52 @@
 
     // Instructions Modal
     function InstructionsModal({ onClose }) {
+      const [mode, setMode] = useState('blind'); // 'blind' or 'context'
+      const [content, setContent] = useState('Loading instructions...');
+
+      useEffect(() => {
+        const filename = mode === 'blind' ? 'instructions_blind.md' : 'instructions.md';
+        fetch(filename)
+          .then(res => res.text())
+          .then(md => {
+            const html = marked.parse(md);
+            setContent(html);
+          })
+          .catch(err => {
+            console.error('Failed to load instructions:', err);
+            setContent('<p>Failed to load instructions. Please refresh the page.</p>');
+          });
+      }, [mode]);
+
       return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Annotation Instructions</h2>
-              <div className="prose prose-sm text-gray-700 space-y-4">
-                <p>
-                  [Placeholder instructions - to be filled in later]
-                </p>
-                <p>
-                  For each paper, you will review the predicted rationale and mark which extracted
-                  elements (claims, methods, experiments) were correctly identified.
-                </p>
-                <p>
-                  You will also rate the overall quality of the predicted rationale on a 5-point scale.
-                </p>
+              {/* Mode toggle */}
+              <div className="flex items-center justify-center gap-3 mb-6 pb-4 border-b">
+                <span className={`text-sm ${mode === 'blind' ? 'font-medium text-gray-900' : 'text-gray-500'}`}>
+                  Blind
+                </span>
+                <button
+                  onClick={() => setMode(mode === 'blind' ? 'context' : 'blind')}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${
+                    mode === 'context' ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                      mode === 'context' ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+                <span className={`text-sm ${mode === 'context' ? 'font-medium text-gray-900' : 'text-gray-500'}`}>
+                  With Context
+                </span>
               </div>
+              <div
+                className="instructions-content text-gray-700"
+                dangerouslySetInnerHTML={{ __html: content }}
+              />
               <div className="mt-6 flex justify-end">
                 <button
                   onClick={onClose}
@@ -149,6 +190,7 @@
       const [annotations, setAnnotations] = useState({});
       const [fileName, setFileName] = useState('');
       const [showInstructions, setShowInstructions] = useState(false);
+      const [showRatings, setShowRatings] = useState(false);
 
       const currentPaper = papers[currentIndex];
 
@@ -277,6 +319,16 @@
                 {doneCount} done
               </span>
               <button
+                onClick={() => setShowRatings(!showRatings)}
+                className={`px-3 py-2 rounded-lg transition text-sm font-medium ${
+                  showRatings
+                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {showRatings ? 'Hide Ratings' : 'Show Ratings'}
+              </button>
+              <button
                 onClick={() => setShowInstructions(true)}
                 className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm font-medium"
               >
@@ -355,13 +407,13 @@
               </p>
             </Collapsible>
 
-            <Collapsible title={`Ground Truth Review (rating: ${currentPaper.ground_truth_rating || '?'})`} badge="Reference Only">
+            <Collapsible title={`Ground Truth Review${showRatings ? ` (rating: ${currentPaper.ground_truth_rating || '?'})` : ''}`} badge="Reference Only">
               <p className="text-sm text-gray-700 whitespace-pre-wrap">
                 {currentPaper.ground_truth_review || 'No ground truth review'}
               </p>
             </Collapsible>
 
-            <Collapsible title={`Predicted Rationale (rating: ${currentPaper.predicted_rating || '?'})`} defaultOpen={true}>
+            <Collapsible title={`Predicted Rationale${showRatings ? ` (rating: ${currentPaper.predicted_rating || '?'})` : ''}`} defaultOpen={true}>
               <p className="text-sm text-gray-700 whitespace-pre-wrap">
                 {currentPaper.predicted_rationale || 'No predicted rationale'}
               </p>
