@@ -22,19 +22,13 @@ import {
   renderLatex,
   getArxivUrl,
   formatConferenceName,
-  createSideBySideComparison,
   createExpandableEvidenceItem,
   getScoreColor,
   createHierarchicalGraph,
 } from "./helpers";
 import { addFooter } from "../footer";
 
-function createRelatedPaperCard(
-  paper: RelatedPaper,
-  index: number,
-  mainPaperBackground?: string | null,
-  mainPaperTarget?: string | null,
-): string {
+function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
   const { scorePercent } = getScoreDisplay(paper.score);
   const relationship = getRelationshipStyle(paper);
 
@@ -202,30 +196,40 @@ function createRelatedPaperCard(
       }
 
       ${
-        paper.source === "semantic" &&
-        paper.polarity === "positive" &&
-        (paper.target || mainPaperTarget)
-          ? createSideBySideComparison(
-              "Main Paper",
-              mainPaperTarget ?? null,
-              "Related Paper",
-              paper.target ?? null,
-              "target",
-            )
+        paper.source === "semantic" && paper.polarity === "positive" && paper.target
+          ? `
+      <div class="mb-4">
+        <div class="mb-3 flex items-center gap-2">
+          <div class="h-4 w-1 rounded-full bg-orange-500"></div>
+          <h5 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                     dark:text-gray-100">
+            Target
+          </h5>
+        </div>
+        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          ${renderLatex(paper.target)}
+        </p>
+      </div>
+      `
           : ""
       }
 
       ${
-        paper.source === "semantic" &&
-        paper.polarity === "negative" &&
-        (paper.background || mainPaperBackground)
-          ? createSideBySideComparison(
-              "Main Paper",
-              mainPaperBackground ?? null,
-              "Related Paper",
-              paper.background ?? null,
-              "background",
-            )
+        paper.source === "semantic" && paper.polarity === "negative" && paper.background
+          ? `
+      <div class="mb-4">
+        <div class="mb-3 flex items-center gap-2">
+          <div class="h-4 w-1 rounded-full bg-green-500"></div>
+          <h5 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                     dark:text-gray-100">
+            Background
+          </h5>
+        </div>
+        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          ${renderLatex(paper.background)}
+        </p>
+      </div>
+      `
           : ""
       }
     </div>
@@ -272,10 +276,25 @@ function createStructuredEvaluationDisplay(
   evaluation: StructuredEval,
   graphResult: GraphResult | null,
   activeFilters: Set<string>,
-  mainPaperBackground?: string | null,
-  mainPaperTarget?: string | null,
 ): string {
   // Note: renderEvidence function moved to createExpandableEvidenceItem helper
+
+  // Calculate rating display if probability is available
+  let ratingBadge = "";
+  if (evaluation.probability != null) {
+    const probability = evaluation.probability;
+    const rating = Math.min(5, Math.max(1, Math.ceil(probability * 5)));
+    const ratingDisplay = `${rating}/5`;
+    const ratingColor =
+      rating <= 2
+        ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-300 dark:border-red-700"
+        : rating === 3
+          ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700"
+          : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-300 dark:border-green-700";
+    ratingBadge = `<span class="px-2 py-0.5 text-xs font-medium rounded-md border ${ratingColor}">
+      Novelty: ${ratingDisplay}
+    </span>`;
+  }
 
   return `
     <div class="space-y-4">
@@ -288,11 +307,65 @@ function createStructuredEvaluationDisplay(
                      dark:text-gray-100">
             Result
           </h4>
+          ${ratingBadge}
         </div>
         <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
           ${renderLatex(evaluation.conclusion)}
         </p>
       </div>
+
+      <!-- Paper Summary -->
+      ${
+        evaluation.paper_summary
+          ? `
+      <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
+                  dark:border-gray-700 dark:bg-gray-800/50">
+        <div class="mb-2 flex items-center gap-2">
+          <div class="h-4 w-1 rounded-full bg-blue-500"></div>
+          <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                     dark:text-gray-100">
+            Paper Summary
+          </h4>
+        </div>
+        <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          ${renderLatex(evaluation.paper_summary)}
+        </p>
+      </div>
+      `
+          : ""
+      }
+
+      <!-- Key Comparisons -->
+      ${
+        evaluation.key_comparisons.length > 0
+          ? `
+      <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
+                  dark:border-gray-700 dark:bg-gray-800/50">
+        <div class="mb-2 flex items-center gap-2">
+          <div class="h-4 w-1 rounded-full bg-indigo-500"></div>
+          <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                     dark:text-gray-100">
+            Key Comparisons
+          </h4>
+        </div>
+        <ul class="space-y-2">
+          ${evaluation.key_comparisons
+            .map(
+              comparison => `
+            <li class="flex items-start gap-2">
+              <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-500"></span>
+              <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                ${renderLatex(comparison)}
+              </span>
+            </li>
+          `,
+            )
+            .join("")}
+        </ul>
+      </div>
+      `
+          : ""
+      }
 
       <!-- Supporting Evidence -->
       ${
@@ -328,8 +401,6 @@ function createStructuredEvaluationDisplay(
                   `supporting-${index}`,
                   relatedPaper,
                   relatedPaperIndex,
-                  mainPaperBackground ?? null,
-                  mainPaperTarget ?? null,
                   "bg-green-500",
                 );
               })
@@ -374,8 +445,6 @@ function createStructuredEvaluationDisplay(
                   `contradictory-${index}`,
                   relatedPaper,
                   relatedPaperIndex,
-                  mainPaperBackground ?? null,
-                  mainPaperTarget ?? null,
                   "bg-red-500",
                 );
               })
@@ -404,11 +473,7 @@ function createHierarchicalGraphWrapper(graph: Graph): void {
 /**
  * Setup filtering functionality for related papers
  */
-function setupRelatedPapersFiltering(
-  relatedPapers: RelatedPaper[],
-  mainPaperBackground?: string | null,
-  mainPaperTarget?: string | null,
-): void {
+function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
   const filtersContainer = document.getElementById("related-papers-filters");
   const filterChips = document.querySelectorAll(".filter-chip");
   const showAllButton = document.getElementById(
@@ -547,12 +612,7 @@ function setupRelatedPapersFiltering(
       }
 
       updateChipStates();
-      renderFilteredRelatedPapers(
-        relatedPapers,
-        activeFilters,
-        mainPaperBackground,
-        mainPaperTarget,
-      );
+      renderFilteredRelatedPapers(relatedPapers, activeFilters);
     });
   });
 
@@ -567,12 +627,7 @@ function setupRelatedPapersFiltering(
       if (counts.contrasting > 0) activeFilters.add("contrasting");
 
       updateChipStates();
-      renderFilteredRelatedPapers(
-        relatedPapers,
-        activeFilters,
-        mainPaperBackground,
-        mainPaperTarget,
-      );
+      renderFilteredRelatedPapers(relatedPapers, activeFilters);
     });
   }
 
@@ -582,12 +637,7 @@ function setupRelatedPapersFiltering(
       activeFilters.clear();
 
       updateChipStates();
-      renderFilteredRelatedPapers(
-        relatedPapers,
-        activeFilters,
-        mainPaperBackground,
-        mainPaperTarget,
-      );
+      renderFilteredRelatedPapers(relatedPapers, activeFilters);
     });
   }
 
@@ -602,8 +652,6 @@ function setupRelatedPapersFiltering(
 function renderFilteredRelatedPapers(
   relatedPapers: RelatedPaper[],
   activeFilters: Set<string>,
-  mainPaperBackground?: string | null,
-  mainPaperTarget?: string | null,
 ): void {
   const relatedPapersContainer = document.getElementById("related-papers-content");
   if (!relatedPapersContainer) return;
@@ -625,9 +673,7 @@ function renderFilteredRelatedPapers(
 
   // Render filtered papers
   relatedPapersContainer.innerHTML = filteredPapers
-    .map((relatedPaper, index) =>
-      createRelatedPaperCard(relatedPaper, index, mainPaperBackground, mainPaperTarget),
-    )
+    .map((relatedPaper, index) => createRelatedPaperCard(relatedPaper, index))
     .join("");
 
   // Add click event listeners for expansion
@@ -988,12 +1034,16 @@ function loadPaperDetail(): void {
       // Check if structured evaluation has probability
       if (paper.structured_evaluation?.probability != null) {
         const probability = paper.structured_evaluation.probability;
-        const probabilityPercent = Math.round(probability * 100);
-        const novelText = `${probabilityPercent}%`;
+        // Convert probability (0-1) to rating (1-5)
+        const rating = Math.min(5, Math.max(1, Math.ceil(probability * 5)));
+        const novelText = `${rating}/5`;
+        // Color based on rating: 1-2 = red, 3 = yellow, 4-5 = green
         const novelClass =
-          probability >= 0.5
-            ? "text-green-600 dark:text-green-400 font-semibold"
-            : "text-red-600 dark:text-red-400 font-semibold";
+          rating <= 2
+            ? "text-red-600 dark:text-red-400 font-semibold"
+            : rating === 3
+              ? "text-yellow-600 dark:text-yellow-400 font-semibold"
+              : "text-green-600 dark:text-green-400 font-semibold";
 
         ratingEl.textContent = novelText;
         ratingEl.className = novelClass;
@@ -1088,8 +1138,6 @@ function loadPaperDetail(): void {
           paper.structured_evaluation,
           graphResult,
           defaultActiveFilters,
-          graphResult.background,
-          graphResult.target,
         );
         setupSectionToggle("structured-evaluation");
       } else {
@@ -1109,18 +1157,12 @@ function loadPaperDetail(): void {
     if (relatedPapersContentContainer) {
       if (graphResult.related.length > 0) {
         // Setup filtering functionality
-        setupRelatedPapersFiltering(
-          graphResult.related,
-          graphResult.background,
-          graphResult.target,
-        );
+        setupRelatedPapersFiltering(graphResult.related);
 
         // Initial render with all papers visible
         renderFilteredRelatedPapers(
           graphResult.related,
           new Set(["background", "target", "supporting", "contrasting"]),
-          graphResult.background,
-          graphResult.target,
         );
       } else {
         relatedPapersContentContainer.innerHTML = `

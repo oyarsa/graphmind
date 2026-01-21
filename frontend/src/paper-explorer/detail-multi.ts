@@ -160,8 +160,6 @@ function displayMultiPerspectiveEvaluation(evaluation: MultiEvaluationResult): v
 function createStructuredAnalysisDisplay(
   structured: StructuredEval,
   graphResult: GraphResultMulti | null,
-  mainPaperBackground?: string | null,
-  mainPaperTarget?: string | null,
 ): string {
   /**
    * Helper function to find the index of a related paper by title in the currently filtered papers
@@ -248,8 +246,6 @@ function createStructuredAnalysisDisplay(
                   `supporting-multi-${index}`,
                   relatedPaper,
                   relatedPaperIndex,
-                  mainPaperBackground ?? null,
-                  mainPaperTarget ?? null,
                   "bg-green-500",
                 );
               })
@@ -290,8 +286,6 @@ function createStructuredAnalysisDisplay(
                   `contradictory-multi-${index}`,
                   relatedPaper,
                   relatedPaperIndex,
-                  mainPaperBackground ?? null,
-                  mainPaperTarget ?? null,
                   "bg-red-500",
                 );
               })
@@ -573,8 +567,6 @@ function loadAndDisplayPaper(): Promise<void> {
           structuredAnalysisContainer.innerHTML = createStructuredAnalysisDisplay(
             graphResult.paper.evaluation.structured,
             graphResult,
-            graphResult.background,
-            graphResult.target,
           );
           setupSectionToggle("structured-analysis");
         } else {
