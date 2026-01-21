@@ -130,7 +130,7 @@ export const StructuredEvalSchema = z.object({
   key_comparisons: z.array(z.string()).optional().default([]),
   /** Final assessment of the paper's novelty based on the evidence */
   conclusion: z.string(),
-  /** 1 if the paper is novel, or 0 if it's not novel */
+  /** Novelty rating from 1 (not novel) to 5 (highly novel) */
   label: z.int(),
   /** Probability that the paper is novel. */
   probability: z.number().nullish(),
@@ -441,16 +441,12 @@ export const AbstractEvaluationResponseSchema = z.object({
   id: z.string(),
   /** Search keywords extracted from the title and abstract. */
   keywords: z.array(z.string()),
-  /** Background extracted from the abstract. */
-  background: z.string(),
-  /** Target extracted from the abstract. */
-  target: z.string(),
-  /** Binary novelty score (1=novel, 0=not novel). */
+  /** Novelty rating from 1 (not novel) to 5 (highly novel). */
   label: z.int(),
-  /** Percentage chance of the paper being novel. */
-  probability: z.number().nullish(),
   /** Summary of paper contributions. */
   paper_summary: z.string(),
+  /** Key technical comparisons that influenced the novelty decision. */
+  key_comparisons: z.array(z.string()),
   /** Evidence supporting novelty. */
   supporting_evidence: z.array(EvidenceItemSchema),
   /** Evidence contradicting novelty. */
