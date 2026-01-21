@@ -30,16 +30,14 @@ def load_dotenv(
     Variables from closer files override those from more distant files.
     .env.local files take precedence over .env files at the same level.
 
-    Variables loaded are applied to os.environ.
+    Variables loaded are applied to os.environ. If no matching files are found,
+    this function silently returns without modifying the environment.
 
     Args:
         filename: Name of the file to search for (default: ".env").
         interpolate: Whether to perform variable interpolation (default: True).
         override: If True, new values override existing os.environ during interpolation
             (default: False).
-
-    Raises:
-        FileNotFoundError: if no matching file is found.
     """
     start_path = Path.cwd()
     project_root = _find_project_root(start_path)
@@ -48,10 +46,7 @@ def load_dotenv(
         # Multi-file approach: collect and merge files from CWD to project root
         dotenv_files = _collect_dotenv_files(start_path, project_root, filename)
         if not dotenv_files:
-            raise FileNotFoundError(
-                f"Could not find any {filename!r} or {filename!r}.local files "
-                f"from {str(start_path)!r} up to project root {str(project_root)!r}."
-            )
+            return  # No .env files found, nothing to load
         values = _merge_dotenv_values(
             dotenv_files=dotenv_files,
             encoding="utf-8",
@@ -60,7 +55,9 @@ def load_dotenv(
         )
     else:
         # Fallback: single-file approach
-        dotenv_path = _find_dotenv(filename)
+        dotenv_path = _try_find_dotenv(filename)
+        if dotenv_path is None:
+            return  # No .env file found, nothing to load
         values = _dotenv_values(
             dotenv_path=dotenv_path,
             encoding="utf-8",
@@ -76,14 +73,11 @@ def load_dotenv(
             os.environ[k] = v
 
 
-def _find_dotenv(filename: str) -> Path:
+def _try_find_dotenv(filename: str) -> Path | None:
     """Search upward from CWD for `filename`.
 
-    Raises:
-        FileNotFoundError: if not found.
-
     Returns:
-        Absolute path to the file.
+        Absolute path to the file, or None if not found.
     """
     start = Path.cwd()
 
@@ -92,9 +86,7 @@ def _find_dotenv(filename: str) -> Path:
         if check_path.is_file():
             return check_path
 
-    raise FileNotFoundError(
-        f"Could not find {filename!r} starting at {str(start)!r} and walking up the tree."
-    )
+    return None
 
 
 def _find_project_root(start_path: Path) -> Path | None:
