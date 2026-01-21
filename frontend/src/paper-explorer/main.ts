@@ -1457,14 +1457,14 @@ class PaperExplorer {
       "rounded-lg border border-gray-300 bg-gray-50/50 p-4 transition-all " +
       "duration-200 hover:border-teal-500/50 dark:border-gray-700 dark:bg-gray-800/50";
 
-    const probabilityPercent = evaluation.probability
-      ? Math.round(evaluation.probability * 100)
-      : null;
-    const noveltyText = evaluation.label === 1 ? "Novel" : "Not Novel";
+    const rating = evaluation.label;
+    const ratingDisplay = `${rating}/5`;
     const noveltyColor =
-      evaluation.label === 1
-        ? "text-green-600 dark:text-green-400"
-        : "text-red-600 dark:text-red-400";
+      rating <= 2
+        ? "text-red-600 dark:text-red-400"
+        : rating === 3
+          ? "text-yellow-600 dark:text-yellow-400"
+          : "text-green-600 dark:text-green-400";
 
     card.innerHTML = `
       <div class="cursor-pointer" onclick="window.location.href='/graphmind/pages/abstract-detail.html?id=${evaluation.id}'">
@@ -1477,17 +1477,8 @@ class PaperExplorer {
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="text-xs font-medium ${noveltyColor}">
-              ${noveltyText}
+              Novelty: ${ratingDisplay}
             </span>
-            ${
-              probabilityPercent !== null
-                ? `
-              <span class="text-xs text-gray-500 dark:text-gray-500">
-                (${probabilityPercent}%)
-              </span>
-            `
-                : ""
-            }
           </div>
           <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
             <span>${evaluation.keywords.length} keywords</span>

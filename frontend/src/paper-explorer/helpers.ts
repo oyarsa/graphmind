@@ -365,8 +365,6 @@ export function createExpandableEvidenceItem(
   evidenceIndex: string,
   relatedPaper: RelatedPaperForEvidence | null,
   relatedPaperIndex: number | null,
-  mainPaperBackground: string | null,
-  mainPaperTarget: string | null,
   bulletColor: string,
 ): string {
   // Handle string evidence
@@ -439,7 +437,7 @@ export function createExpandableEvidenceItem(
             hasExpandableContent
               ? `
             <div class="evidence-details hidden mt-3 pl-4 border-l-2 border-gray-200 dark:border-gray-700" id="evidence-details-${evidenceIndex}">
-              ${createEvidenceComparisonContent(relatedPaper, mainPaperBackground, mainPaperTarget)}
+              ${createEvidenceComparisonContent(relatedPaper)}
             </div>
           `
               : ""
@@ -465,33 +463,37 @@ export function createExpandableEvidenceItem(
  */
 function createEvidenceComparisonContent(
   relatedPaper: RelatedPaperForEvidence,
-  mainPaperBackground: string | null,
-  mainPaperTarget: string | null,
 ): string {
   if (relatedPaper.source === "semantic") {
-    // For semantic papers, show background/target comparison
-    if (
-      relatedPaper.polarity === "negative" &&
-      (relatedPaper.background ?? mainPaperBackground)
-    ) {
-      return createSideBySideComparison(
-        "Main Paper",
-        mainPaperBackground,
-        "Related Paper",
-        relatedPaper.background ?? null,
-        "background",
-      );
-    } else if (
-      relatedPaper.polarity === "positive" &&
-      (relatedPaper.target ?? mainPaperTarget)
-    ) {
-      return createSideBySideComparison(
-        "Main Paper",
-        mainPaperTarget,
-        "Related Paper",
-        relatedPaper.target ?? null,
-        "target",
-      );
+    // For semantic papers, show the related paper's background/target text
+    if (relatedPaper.polarity === "negative" && relatedPaper.background) {
+      return `
+        <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-3
+                    dark:border-gray-700 dark:bg-gray-800/50">
+          <div class="mb-2 flex items-center gap-2">
+            <h5 class="text-xs font-semibold text-gray-900 uppercase dark:text-gray-100">
+              Background
+            </h5>
+          </div>
+          <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+            ${renderLatex(relatedPaper.background)}
+          </p>
+        </div>
+      `;
+    } else if (relatedPaper.polarity === "positive" && relatedPaper.target) {
+      return `
+        <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-3
+                    dark:border-gray-700 dark:bg-gray-800/50">
+          <div class="mb-2 flex items-center gap-2">
+            <h5 class="text-xs font-semibold text-gray-900 uppercase dark:text-gray-100">
+              Target
+            </h5>
+          </div>
+          <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+            ${renderLatex(relatedPaper.target)}
+          </p>
+        </div>
+      `;
     }
   } else if (relatedPaper.contexts) {
     // For citation papers, show citation contexts
