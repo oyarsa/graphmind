@@ -16,7 +16,6 @@ import {
   renderLatex,
   getRelationshipStyle,
   setupSectionToggle,
-  createSideBySideComparison,
   formatScientificCitation,
   getScoreDisplay,
   getScoreColor,
@@ -111,7 +110,7 @@ function displayAbstractEvaluation(evaluation: AbstractEvaluationResponse): void
   displayNoveltyAssessment(evaluation);
 
   // Related Papers
-  displayRelatedPapers(evaluation.related, evaluation);
+  displayRelatedPapers(evaluation.related);
 }
 
 /**
@@ -152,13 +151,17 @@ function displayNoveltyAssessment(evaluation: AbstractEvaluationResponse): void 
   if (!evidenceContainer) return;
 
   // Create the structured evaluation display similar to regular detail page
-  // Calculate novelty for the badge
-  const probability = evaluation.probability ?? (evaluation.label === 1 ? 1 : 0);
-  const probabilityPercent = Math.round(probability * 100);
-  const isNovel = probability >= 0.5;
-  const noveltyBadgeColor = isNovel
-    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-300 dark:border-green-700"
-    : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-300 dark:border-red-700";
+  // Get rating (1-5) and determine color based on rating
+  const rating = evaluation.label;
+  const ratingDisplay = `${rating}/5`;
+
+  // Color based on rating: 1-2 = red, 3 = yellow, 4-5 = green
+  const noveltyBadgeColor =
+    rating <= 2
+      ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-300 dark:border-red-700"
+      : rating === 3
+        ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700"
+        : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-300 dark:border-green-700";
 
   let evidenceHtml = `
     <div class="space-y-4">
@@ -172,7 +175,7 @@ function displayNoveltyAssessment(evaluation: AbstractEvaluationResponse): void 
             Result
           </h4>
           <span class="px-2 py-0.5 text-xs font-medium rounded-md border ${noveltyBadgeColor}">
-            Novelty: ${probabilityPercent}%
+            Novelty: ${ratingDisplay}
           </span>
         </div>
         <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
@@ -196,6 +199,36 @@ function displayNoveltyAssessment(evaluation: AbstractEvaluationResponse): void 
       </div>
   `;
 
+  // Key Comparisons (if available)
+  if (evaluation.key_comparisons.length > 0) {
+    evidenceHtml += `
+      <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4
+                  dark:border-gray-700 dark:bg-gray-800/50">
+        <div class="mb-2 flex items-center gap-2">
+          <div class="h-4 w-1 rounded-full bg-indigo-500"></div>
+          <h4 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                     dark:text-gray-100">
+            Key Comparisons
+          </h4>
+        </div>
+        <ul class="space-y-2">
+          ${evaluation.key_comparisons
+            .map(
+              comparison => `
+            <li class="flex items-start gap-2">
+              <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-500"></span>
+              <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                ${renderLatex(comparison)}
+              </span>
+            </li>
+          `,
+            )
+            .join("")}
+        </ul>
+      </div>
+    `;
+  }
+
   // Supporting Evidence
   if (evaluation.supporting_evidence.length > 0) {
     evidenceHtml += `
@@ -216,7 +249,6 @@ function displayNoveltyAssessment(evaluation: AbstractEvaluationResponse): void 
                 `supporting-${index}`,
                 "bg-green-500",
                 evaluation.related,
-                evaluation,
               ),
             )
             .join("")}
@@ -245,7 +277,6 @@ function displayNoveltyAssessment(evaluation: AbstractEvaluationResponse): void 
                 `contradictory-${index}`,
                 "bg-red-500",
                 evaluation.related,
-                evaluation,
               ),
             )
             .join("")}
@@ -273,7 +304,6 @@ function createEvidenceItem(
   itemId: string,
   bulletColor: string,
   relatedPapers: RelatedPaper[],
-  evaluation: AbstractEvaluationResponse,
 ): string {
   // Handle string evidence
   if (typeof evidence === "string") {
@@ -344,7 +374,7 @@ function createEvidenceItem(
                class="evidence-details hidden mt-3 pl-4 border-l-2 border-gray-200
                       dark:border-gray-700"
           >
-            ${createEvidenceComparisonContent(relatedPaper, evaluation)}
+            ${createEvidenceComparisonContent(relatedPaper)}
           </div>
         `
             : ""
@@ -357,28 +387,37 @@ function createEvidenceItem(
 /**
  * Create comparison content for evidence details based on paper type
  */
-function createEvidenceComparisonContent(
-  relatedPaper: RelatedPaper,
-  evaluation: AbstractEvaluationResponse,
-): string {
+function createEvidenceComparisonContent(relatedPaper: RelatedPaper): string {
   if (relatedPaper.source === "semantic") {
-    // For semantic papers, show background/target comparison
+    // For semantic papers, show the related paper's background/target text
     if (relatedPaper.polarity === "negative" && relatedPaper.background) {
-      return createSideBySideComparison(
-        "Main Paper",
-        evaluation.background,
-        "Related Paper",
-        relatedPaper.background,
-        "background",
-      );
+      return `
+        <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-3
+                    dark:border-gray-700 dark:bg-gray-800/50">
+          <div class="mb-2 flex items-center gap-2">
+            <h5 class="text-xs font-semibold text-gray-900 uppercase dark:text-gray-100">
+              Background
+            </h5>
+          </div>
+          <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+            ${renderLatex(relatedPaper.background)}
+          </p>
+        </div>
+      `;
     } else if (relatedPaper.polarity === "positive" && relatedPaper.target) {
-      return createSideBySideComparison(
-        "Main Paper",
-        evaluation.target,
-        "Related Paper",
-        relatedPaper.target,
-        "target",
-      );
+      return `
+        <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-3
+                    dark:border-gray-700 dark:bg-gray-800/50">
+          <div class="mb-2 flex items-center gap-2">
+            <h5 class="text-xs font-semibold text-gray-900 uppercase dark:text-gray-100">
+              Target
+            </h5>
+          </div>
+          <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+            ${renderLatex(relatedPaper.target)}
+          </p>
+        </div>
+      `;
     }
   }
 
@@ -393,10 +432,7 @@ function createEvidenceComparisonContent(
 /**
  * Display related papers found during evaluation
  */
-function displayRelatedPapers(
-  relatedPapers: RelatedPaper[],
-  evaluation: AbstractEvaluationResponse,
-): void {
+function displayRelatedPapers(relatedPapers: RelatedPaper[]): void {
   const countEl = document.getElementById("related-papers-count");
   const contentEl = document.getElementById("related-papers-content");
 
@@ -416,25 +452,19 @@ function displayRelatedPapers(
   }
 
   // Setup filtering functionality
-  setupRelatedPapersFiltering(relatedPapers, evaluation);
+  setupRelatedPapersFiltering(relatedPapers);
 
   // Initial render with all papers visible
   renderFilteredRelatedPapers(
     relatedPapers,
     new Set(["background", "target", "supporting", "contrasting"]),
-    evaluation,
   );
 }
 
 /**
  * Create a card for a related paper
  */
-function createRelatedPaperCard(
-  paper: RelatedPaper,
-  index: number,
-  mainPaperBackground: string | null,
-  mainPaperTarget: string | null,
-): string {
+function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
   const { scorePercent } = getScoreDisplay(paper.score);
   const relationship = getRelationshipStyle(paper);
 
@@ -558,17 +588,20 @@ function createRelatedPaperCard(
           </p>
         </div>
 
-        <!-- Text Comparisons for semantic papers -->
+        <!-- Text content for semantic papers -->
         ${
           paper.source === "semantic" && paper.polarity === "positive" && paper.target
             ? `<div class="mb-4">
-                 ${createSideBySideComparison(
-                   "Main Paper",
-                   mainPaperTarget,
-                   "Related Paper",
-                   paper.target,
-                   "target",
-                 )}
+                 <div class="mb-3 flex items-center gap-2">
+                   <div class="h-4 w-1 rounded-full bg-orange-500"></div>
+                   <h5 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                              dark:text-gray-100">
+                     Target
+                   </h5>
+                 </div>
+                 <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                   ${renderLatex(paper.target)}
+                 </p>
                </div>`
             : ""
         }
@@ -577,13 +610,16 @@ function createRelatedPaperCard(
           paper.polarity === "negative" &&
           paper.background
             ? `<div class="mb-4">
-                 ${createSideBySideComparison(
-                   "Main Paper",
-                   mainPaperBackground,
-                   "Related Paper",
-                   paper.background,
-                   "background",
-                 )}
+                 <div class="mb-3 flex items-center gap-2">
+                   <div class="h-4 w-1 rounded-full bg-green-500"></div>
+                   <h5 class="text-sm font-semibold tracking-wide text-gray-900 uppercase
+                              dark:text-gray-100">
+                     Background
+                   </h5>
+                 </div>
+                 <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                   ${renderLatex(paper.background)}
+                 </p>
                </div>`
             : ""
         }
@@ -595,10 +631,7 @@ function createRelatedPaperCard(
 /**
  * Setup filtering functionality for related papers
  */
-function setupRelatedPapersFiltering(
-  relatedPapers: RelatedPaper[],
-  evaluation: AbstractEvaluationResponse,
-): void {
+function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
   const filtersContainer = document.getElementById("related-papers-filters");
   const filterChips = document.querySelectorAll(".filter-chip");
   const showAllButton = document.getElementById(
@@ -737,7 +770,7 @@ function setupRelatedPapersFiltering(
       }
 
       updateChipStates();
-      renderFilteredRelatedPapers(relatedPapers, activeFilters, evaluation);
+      renderFilteredRelatedPapers(relatedPapers, activeFilters);
     });
   });
 
@@ -752,7 +785,7 @@ function setupRelatedPapersFiltering(
       if (counts.contrasting > 0) activeFilters.add("contrasting");
 
       updateChipStates();
-      renderFilteredRelatedPapers(relatedPapers, activeFilters, evaluation);
+      renderFilteredRelatedPapers(relatedPapers, activeFilters);
     });
   }
 
@@ -762,7 +795,7 @@ function setupRelatedPapersFiltering(
       activeFilters.clear();
 
       updateChipStates();
-      renderFilteredRelatedPapers(relatedPapers, activeFilters, evaluation);
+      renderFilteredRelatedPapers(relatedPapers, activeFilters);
     });
   }
 
@@ -777,7 +810,6 @@ function setupRelatedPapersFiltering(
 function renderFilteredRelatedPapers(
   relatedPapers: RelatedPaper[],
   activeFilters: Set<string>,
-  evaluation: AbstractEvaluationResponse,
 ): void {
   const relatedPapersContainer = document.getElementById("related-papers-content");
   if (!relatedPapersContainer) return;
@@ -799,9 +831,7 @@ function renderFilteredRelatedPapers(
 
   // Render filtered papers
   relatedPapersContainer.innerHTML = filteredPapers
-    .map((paper, index) =>
-      createRelatedPaperCard(paper, index, evaluation.background, evaluation.target),
-    )
+    .map((paper, index) => createRelatedPaperCard(paper, index))
     .join("");
 
   // Add click handlers for expanding papers
