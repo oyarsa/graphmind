@@ -122,6 +122,21 @@ def _format_authors(authors: list[str]) -> str:
     return f"{authors[0]}, {authors[1]}, ... ({len(authors)} authors)"
 
 
+def _has_valid_graph(graph: dict[str, Any]) -> bool:
+    """Check if graph has at least one entity."""
+    entities = graph.get("entities", [])
+    return len(entities) > 0
+
+
+def _has_valid_rationales(paper: dict[str, Any]) -> bool:
+    """Check if paper has non-empty ground truth and predicted rationales."""
+    ground_truth = paper.get("rationale", "")
+    predicted = paper.get("rationale_pred", "")
+    return bool(
+        ground_truth and ground_truth.strip() and predicted and predicted.strip()
+    )
+
+
 def _truncate_evidence_sections(rationale: str, max_papers: int = 5) -> str:
     """Truncate supporting/contradictory evidence sections to max_papers each.
 
@@ -202,6 +217,18 @@ def export_gpt_to_csv(
     logger.info(f"Loading GPT graph results from {input_file}")
     gpt_data = load_data(input_file, PromptResult[dict[str, Any]])
     logger.info(f"Loaded {len(gpt_data)} papers")
+
+    # Filter out papers with invalid graphs or rationales
+    valid_data = [
+        item
+        for item in gpt_data
+        if _has_valid_graph(item.item["graph"])
+        and _has_valid_rationales(item.item["paper"])
+    ]
+    skipped = len(gpt_data) - len(valid_data)
+    if skipped > 0:
+        logger.info(f"Skipped {skipped} papers with invalid graphs or rationales")
+    gpt_data = valid_data
 
     # Extract titles and look up arxiv IDs
     titles = [item.item["paper"]["title"] for item in gpt_data]
