@@ -1,0 +1,14 @@
+.collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+.collapsible-content.open { max-height: 2000px; }
+
+/* Markdown styles for instructions */
+.instructions-content h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; color: #111827; }
+.instructions-content h3 { font-size: 1.1rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; color: #1f2937; }
+.instructions-content p { margin-bottom: 0.75rem; line-height: 1.6; }
+.instructions-content ul, .instructions-content ol { margin-left: 1.5rem; margin-bottom: 0.75rem; }
+.instructions-content li { margin-bottom: 0.25rem; }
+.instructions-content strong { font-weight: 600; }
+.instructions-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+.instructions-content th, .instructions-content td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; }
+.instructions-content th { background-color: #f3f4f6; font-weight: 600; }
+.instructions-content tr:nth-child(even) { background-color: #f9fafb; }
