@@ -223,15 +223,17 @@ class GPTStructuredRaw(Immutable):
     supporting_evidence: Annotated[
         Sequence[EvidenceItem],
         Field(
+            max_length=5,
             description="List of evidence from related papers that support the paper's"
-            " novelty."
+            " novelty.",
         ),
     ]
     contradictory_evidence: Annotated[
         Sequence[EvidenceItem],
         Field(
+            max_length=5,
             description="List of evidence from related papers that contradict the"
-            " paper's novelty."
+            " paper's novelty.",
         ),
     ]
     key_comparisons: Annotated[

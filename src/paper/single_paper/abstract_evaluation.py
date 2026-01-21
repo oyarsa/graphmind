@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated
 
 from pydantic import BaseModel, Field
@@ -12,7 +13,6 @@ from pydantic import BaseModel, Field
 from paper import gpt
 from paper import peerread as pr
 from paper.backend.model import (
-    BEST_OF_N,
     DEMO_PROMPT,
     DEMOS,
     AbstractEvaluationResponse,
@@ -22,9 +22,8 @@ from paper.gpt.annotate_paper import (
     ABS_USER_PROMPTS,
     GPTAbstractClassify,
 )
-from paper.gpt.evaluate_paper import GPTStructured, GPTStructuredRaw, get_demonstrations
+from paper.gpt.evaluate_paper import GPTStructuredRaw, get_demonstrations
 from paper.gpt.evaluate_paper_graph import GRAPH_EVAL_USER_PROMPTS, format_related
-from paper.gpt.novelty_utils import get_novelty_probability
 from paper.gpt.run_gpt import GPTResult, gpt_sequence, gpt_unit
 from paper.gpt.summarise_related_peter import (
     PETER_SUMMARISE_SYSTEM_PROMPT,
@@ -64,6 +63,7 @@ async def abstract_evaluation(
     abstract_prompt_key: str = "simple",
     positive_prompt_key: str = "positive",
     negative_prompt_key: str = "negative",
+    year: int | None = None,
 ) -> AbstractEvaluationResponse:
     """Abstractly evaluate a paper from its title and abstract.
 
@@ -80,13 +80,14 @@ async def abstract_evaluation(
         title: Paper title.
         abstract: Paper abstract.
         callback: Callback to call to report progress.
-        use_keywords: Whether to extract keywords from the abstract using an LLM to
-            augment the recommendation search.
         abstract_prompt_key: Key for abstract classification prompt template.
         positive_prompt_key: Prompt key for positive relationships.
         negative_prompt_key: Prompt key for negative relationships.
         demonstrations_key: Key for demonstration examples.
         demo_prompt_key: Key for demonstration prompt template.
+        year: Publication year of the main paper. If None, defaults to the current year.
+            Related papers will be filtered to only include those published before this
+            year.
 
     Returns:
         Abstract evaluation result.
@@ -132,6 +133,7 @@ async def abstract_evaluation(
         target,
         recommended_annotated.result,
         num_semantic,
+        year=year,
     )
 
     await callback("Summarising related papers")
@@ -158,13 +160,11 @@ async def abstract_evaluation(
         title=title,
         abstract=abstract,
         keywords=keywords.result,
-        background=background,
-        target=target,
         label=evaluation.result.label,
-        probability=evaluation.result.probability,
         paper_summary=evaluation.result.paper_summary,
         supporting_evidence=evaluation.result.supporting_evidence,
         contradictory_evidence=evaluation.result.contradictory_evidence,
+        key_comparisons=evaluation.result.key_comparisons,
         conclusion=evaluation.result.conclusion,
         total_cost=total_cost,
         related=summaries.result,
@@ -232,6 +232,8 @@ async def retrieve_semantic_papers(
     target: str,
     related: Sequence[gpt.PaperAnnotated],
     k: int,
+    *,
+    year: int | None = None,
 ) -> list[rp.PaperRelated]:
     """Retrieve semantic related papers based on the background and target.
 
@@ -242,10 +244,26 @@ async def retrieve_semantic_papers(
         related: Sequence of related papers to search within.
         k: Number of top K semantic related papers to retrieve, for each type. 2*K in
             total.
+        year: Publication year of the main paper. If None, defaults to the current year.
+            Related papers will be filtered to only include those published before this
+            year.
 
     Returns:
         List of semantic related papers, combining background and target results.
     """
+    # Filter by year: only include papers published before the main paper's year
+    filter_year = year if year is not None else datetime.now(tz=UTC).year
+    filtered_related = [
+        r for r in related if r.paper.year and r.paper.year < filter_year
+    ]
+    logger.debug(
+        "Year filtering (< %d): %d -> %d papers",
+        filter_year,
+        len(related),
+        len(filtered_related),
+    )
+    related = filtered_related
+
     main_background_emb, main_target_emb = await asyncio.gather(
         encoder.encode(background),
         encoder.encode(target),
@@ -356,7 +374,7 @@ async def evaluate_abstract_paper(
     related: Sequence[PaperRelatedSummarised],
     client: LLMClient,
     demonstrations: str,
-) -> GPTResult[GPTStructured]:
+) -> GPTResult[GPTStructuredRaw]:
     """Evaluate a paper's novelty using the extracted graph.
 
     Args:
@@ -379,9 +397,7 @@ async def evaluate_abstract_paper(
     if result.result is None:
         logger.warning(f"Paper '{title}': invalid evaluation result")
 
-    eval = result.fix(GPTStructuredRaw.error)
-    prob = await get_novelty_probability(client, eval, best_of_n=BEST_OF_N)
-    return eval.lift(prob, lambda s, p: s.with_prob(p))
+    return result.fix(GPTStructuredRaw.error)
 
 
 def format_eval_template(

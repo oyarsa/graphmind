@@ -213,6 +213,14 @@ async def evaluate_abstract(
             description="How many related papers to retrieve, per type.", ge=5, le=10
         ),
     ] = 5,
+    year: Annotated[
+        int | None,
+        Query(
+            description="Publication year of the main paper. If not provided, defaults"
+            " to the current year. Related papers will be filtered to only include"
+            " those published before this year."
+        ),
+    ] = None,
 ) -> StreamingResponse:
     """Evaluate paper novelty using only title and abstract with real-time progress.
 
@@ -244,6 +252,7 @@ async def evaluate_abstract(
             title=title,
             abstract=abstract,
             num_semantic=related,
+            year=year,
         )
 
     return sse.create_streaming_response(

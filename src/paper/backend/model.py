@@ -191,20 +191,16 @@ class AbstractEvaluationResponse(Model):
     title: Annotated[str, Field(description="Paper title.")]
     abstract: Annotated[str, Field(description="Paper abstract.")]
     keywords: Annotated[Sequence[str], Field(description="Extracted keywords.")]
-    background: Annotated[
-        str, Field(description="Extracted background from the abstract.")
-    ]
-    target: Annotated[str, Field(description="Extracted target from the abstract.")]
-    label: Annotated[int, Field(description="Binary novelty score.")]
-    probability: Annotated[
-        float | None, Field(description="Percentage chance of the paper being novel")
-    ]
+    label: Annotated[int, Field(description="Novelty score from 1 to 5.")]
     paper_summary: Annotated[str, Field(description="Summary of paper contributions.")]
     supporting_evidence: Annotated[
-        Sequence[EvidenceItem], Field(description="Evidence supporting novelty")
+        Sequence[EvidenceItem], Field(description="Evidence supporting novelty.")
     ]
     contradictory_evidence: Annotated[
-        Sequence[EvidenceItem], Field(description="Evidence contradicting novelty")
+        Sequence[EvidenceItem], Field(description="Evidence contradicting novelty.")
+    ]
+    key_comparisons: Annotated[
+        Sequence[str], Field(description="Key technical comparisons.")
     ]
     conclusion: Annotated[str, Field(description="Final assessment.")]
     total_cost: Annotated[float, Field(description="Total GPT cost.")]

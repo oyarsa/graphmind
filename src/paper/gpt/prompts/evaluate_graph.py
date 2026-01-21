@@ -624,16 +624,17 @@ assessment and when in doubt, tend towards lower ratings.
 
 Provide your evaluation in structured format with:
 1. A brief summary of the paper's main contributions and approach based on the title and abstract
-2. Specific evidence from related papers that supports the paper's novelty
+2. Specific evidence from related papers that supports the paper's novelty (up to 5 items)
    - For each piece of evidence, include the paper ID and title it comes from
    - Quote or paraphrase the specific finding that supports novelty
    - Indicate that this is a search-based related paper
-3. Specific evidence from related papers that contradicts the paper's novelty
+3. Specific evidence from related papers that contradicts the paper's novelty (up to 5 items)
    - For each piece of evidence, include the paper ID and title it comes from
    - Quote or paraphrase the specific finding that contradicts novelty
    - Indicate that this is a search-based related paper
-4. Your final assessment and conclusion about the paper's novelty
-5. A novelty rating from 1 to 5:
+4. Key technical comparisons that influenced your decision
+5. Your final assessment and conclusion about the paper's novelty
+6. A novelty rating from 1 to 5:
 {NOVELTY_5}
 
 IMPORTANT: When creating evidence items, structure them as:
