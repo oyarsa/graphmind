@@ -21,6 +21,27 @@
 - `just e2e` - E2E tests (with --runslow)
 - `uv run paper [subcommand] --help` - CLI help
 
+## API Server
+
+**Start the server:**
+```bash
+just api-dev
+```
+Server runs at http://127.0.0.1:8000 with docs at http://127.0.0.1:8000/docs
+
+**Test evaluate-abstract endpoint with CURL:**
+```bash
+curl -s -N "http://127.0.0.1:8000/mind/evaluate-abstract?title=Your%20Paper%20Title&abstract=Your%20paper%20abstract%20text%20here"
+```
+
+The endpoint uses SSE (Server-Sent Events) and streams progress updates followed by the final result. Key response fields:
+- `label`: Novelty score (1-5 integer)
+- `paper_summary`: Summary of contributions
+- `supporting_evidence`: Up to 5 evidence items supporting novelty
+- `contradictory_evidence`: Up to 5 evidence items contradicting novelty
+- `key_comparisons`: Key technical comparisons
+- `conclusion`: Final assessment
+
 ## Code Style
 - Python 3.12+ with strict typing (no exceptions)
 - Functional programming with dataclasses over OOP
