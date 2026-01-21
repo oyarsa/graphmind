@@ -175,3 +175,4 @@ docs/*
 !frontend/public/data
 .sprite
 .fleche
+.playwright-mcp/
