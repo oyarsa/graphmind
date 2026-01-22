@@ -172,6 +172,7 @@ archive/
 docs/*
 !docs/EXPERIMENTS.md
 !docs/BASELINES.md
+!docs/SURVEY_INSTRUCTIONS.md
 !frontend/public/data
 .sprite
 .fleche
