@@ -748,6 +748,11 @@ function setupRelatedPaperLinkHandlers(): void {
 }
 
 async function initializeDetailMultiPage(): Promise<void> {
+  // Multi-perspective feature is currently disabled - redirect to main search
+  // To re-enable: remove this redirect and uncomment the toggle in search.html
+  window.location.href = "/pages/search.html";
+  return;
+
   await waitForDOM();
 
   if (isMobileDevice()) {

@@ -265,12 +265,15 @@ async def evaluate_abstract(
 
 
 # See `evaluation_options` for why this exists.
+# Multi-perspective endpoint is currently disabled.
+# To re-enable: remove the HTTPException raises below and uncomment the toggle
+# in frontend/pages/search.html
 @router.options(
     "/evaluate-multi", summary="Evaluate Multi-Perspective Schema Reference"
 )
 async def evaluation_multi_options() -> single_paper.EvaluationResultMulti:
     """This shows the schema of objects streamed by GET /evaluate-multi."""
-    raise HTTPException(501, "Use GET method for the actual SSE stream")
+    raise HTTPException(503, "Multi-perspective evaluation is temporarily disabled")
 
 
 @router.get("/evaluate-multi", summary="Evaluate multi-perspectives (SSE)")
@@ -319,6 +322,10 @@ async def evaluate_multi(
 
     See OPTIONS /mind/evaluate for the result schema.
     """
+    # Multi-perspective endpoint is currently disabled
+    # To re-enable: remove this raise and uncomment the toggle in search.html
+    raise HTTPException(503, "Multi-perspective evaluation is temporarily disabled")
+
     client = llm_registry.get_client(llm_model)
     arxiv_id = urllib.parse.unquote_plus(id)
 
