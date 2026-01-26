@@ -1,20 +1,12 @@
 name: Fly Deploy
 on:
-  workflow_run:
-    workflows: ["Python Build"]
-    branches:
-      - master
-    types:
-      - completed
+  workflow_dispatch:
 
 jobs:
   deploy:
     name: Deploy app
     runs-on: ubuntu-latest
     concurrency: deploy-group
-    # Temporarily disabled - to re-enable, replace "if: false" with:
-    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    if: false
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
