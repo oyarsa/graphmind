@@ -76,6 +76,52 @@ lint-all:
     just lint
     cd frontend && just lint
 
+# Deploy backend to Fly.io (manual trigger)
+deploy-backend:
+    gh workflow run "Fly Deploy"
+    @echo "Backend deployment triggered. Watch with: gh run watch"
+
+# Deploy frontend to GitHub Pages (manual trigger)
+deploy-frontend:
+    gh workflow run "Deploy to GitHub Pages"
+    @echo "Frontend deployment triggered. Watch with: gh run watch"
+
+# Deploy both backend and frontend, then watch progress
+deploy:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    workflow_status() {
+        gh run list --workflow="$1" --limit=1 --json status --jq '.[0].status'
+    }
+
+    echo "Triggering deployments..."
+    gh workflow run "Fly Deploy"
+    gh workflow run "Deploy to GitHub Pages"
+
+    echo "Waiting for workflows to start..."
+    sleep 3
+    echo ""
+    echo "Watching runs (Ctrl+C to stop watching, deployments will continue)..."
+
+    # Watch runs until both complete
+    while true; do
+        fly_status=$(workflow_status "Fly Deploy")
+        pages_status=$(workflow_status "Deploy to GitHub Pages")
+
+        echo "Backend (Fly): $fly_status | Frontend (Pages): $pages_status"
+
+        if [[ "$fly_status" != "in_progress" && "$fly_status" != "queued" && \
+              "$pages_status" != "in_progress" && "$pages_status" != "queued" ]]; then
+            echo ""
+            echo "Both deployments finished!"
+            gh run list --workflow="Fly Deploy" --limit=1
+            gh run list --workflow="Deploy to GitHub Pages" --limit=1
+            break
+        fi
+        sleep 5
+    done
+
 # Bump version for both backend and frontend (ensures they're synchronized)
 version bump="major":
     #!/usr/bin/env bash
