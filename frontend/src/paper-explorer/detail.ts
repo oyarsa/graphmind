@@ -15,7 +15,6 @@ import {
   StructuredEval,
 } from "./model";
 import {
-  createPaperTermsDisplay,
   getRelationshipStyle,
   getScoreDisplay,
   setupSectionToggle,
@@ -1104,22 +1103,6 @@ function loadPaperDetail(): void {
       }
     }
 
-    // Handle paper terms
-    const paperTermsContainer = document.getElementById("paper-terms");
-    if (paperTermsContainer) {
-      // Extract primary area from graph entities
-      const primaryAreaEntity = graphResult.graph.entities.find(
-        e => e.type === "primary_area",
-      );
-      const primaryAreaText = primaryAreaEntity?.label ?? null;
-
-      paperTermsContainer.innerHTML = createPaperTermsDisplay(
-        graphResult.background ?? null,
-        graphResult.target ?? null,
-        primaryAreaText,
-      );
-    }
-
     // Handle structured evaluation
     const structuredEvalContainer = document.getElementById("structured-evaluation");
     const structuredEvalSection = document.querySelector(
@@ -1146,7 +1129,6 @@ function loadPaperDetail(): void {
       }
     }
 
-    setupSectionToggle("paper-terms");
     setupSectionToggle("paper-graph");
     createHierarchicalGraphWrapper(graphResult.graph);
 
