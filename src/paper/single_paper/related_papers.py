@@ -180,13 +180,14 @@ async def get_related_papers(
         len(filtered_recommended_papers),
     )
     # Filter recommended papers by publication date if requested
+    # Use <= to include papers from the same year (avoids filtering all recent work)
     if filter_by_date and paper_annotated.paper.year:
         logger.debug("Filtering by publication date")
         main_year = paper_annotated.paper.year
         filtered_by_date_recommended_papers = [
             paper
             for paper in filtered_recommended_papers
-            if paper.paper.year and paper.paper.year < main_year
+            if paper.paper.year and paper.paper.year <= main_year
         ]
         logger.debug(
             "Date filtering: %d -> %d papers",
@@ -291,6 +292,10 @@ async def get_top_k_semantic(
     Returns:
         List of K most similar papers as PaperRelated objects with similarity scores.
     """
+    if not papers:
+        logger.debug("No papers available for semantic search.")
+        return []
+
     sem_emb = await encoder.encode_multi(items)
     sims = emb.similarities(main_emb, sem_emb)
     top_k = [(papers[i], float(sims[i])) for i in emb.top_k_indices(sims, k)]

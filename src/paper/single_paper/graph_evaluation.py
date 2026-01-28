@@ -7,7 +7,7 @@ their novelty using GPT-based analysis.
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Annotated, Self
 
 from pydantic import Field
@@ -15,6 +15,7 @@ from pydantic import Field
 from paper import gpt
 from paper.backend.model import BEST_OF_N
 from paper.gpt.evaluate_paper import (
+    EvidenceItem,
     GPTStructured,
     GPTStructuredRaw,
     fix_evaluated_rating,
@@ -29,8 +30,9 @@ from paper.gpt.novelty_utils import get_novelty_probability
 from paper.gpt.prompts.evaluate_graph import GRAPH_EVAL_USER_PROMPTS
 from paper.gpt.prompts.extract_graph import GRAPH_EXTRACT_USER_PROMPTS
 from paper.gpt.run_gpt import GPTResult, LLMClient
-from paper.types import Immutable
+from paper.types import Immutable, PaperSource
 from paper.util import atimer
+from paper.util.serde import replace_fields
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +106,17 @@ async def extract_graph_from_paper(
     return graph
 
 
+def _distribute_evidence(
+    evidence: Sequence[EvidenceItem],
+) -> tuple[EvidenceItem, ...]:
+    """Distribute evidence: up to 3 semantic, fill rest with citations (max 5 total)."""
+    semantic = [e for e in evidence if e.source == PaperSource.SEMANTIC]
+    citations = [e for e in evidence if e.source == PaperSource.CITATIONS]
+    sem_count = min(len(semantic), 3)
+    cit_count = min(len(citations), 5 - sem_count)
+    return tuple(semantic[:sem_count] + citations[:cit_count])
+
+
 async def evaluate_paper_graph_novelty(
     paper: gpt.PaperWithRelatedSummary,
     graph: gpt.Graph,
@@ -133,7 +146,14 @@ async def evaluate_paper_graph_novelty(
         logger.warning(f"Paper '{paper.title}': invalid evaluation result")
 
     prob = await get_novelty_probability(client, eval, best_of_n=BEST_OF_N)
-    return eval.lift(prob, lambda e, p: e.with_prob(p))
+    distributed = eval.map(
+        lambda e: replace_fields(
+            e,
+            supporting_evidence=_distribute_evidence(e.supporting_evidence),
+            contradictory_evidence=_distribute_evidence(e.contradictory_evidence),
+        )
+    )
+    return distributed.lift(prob, lambda e, p: e.with_prob(p))
 
 
 def construct_graph_result(

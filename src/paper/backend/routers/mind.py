@@ -139,7 +139,7 @@ async def evaluate(
             description="Filter recommended papers to only include those published"
             " before the main paper."
         ),
-    ] = False,
+    ] = True,
 ) -> StreamingResponse:
     """Perform comprehensive paper analysis and evaluation with real-time progress.
 
@@ -305,7 +305,7 @@ async def evaluate_multi(
             description="Filter recommended papers to only include those published"
             " before the main paper."
         ),
-    ] = False,
+    ] = True,
 ) -> StreamingResponse:
     """Perform comprehensive paper analysis and evaluation with real-time progress.
 

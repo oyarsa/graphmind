@@ -16,13 +16,13 @@ Main Paper. Your summary should be short and concise, comprising a few sentences
 -Data-
 # Main paper
 
-**Title**: {{title_main}}
-**Abstract**: {{abstract_main}}
+**Title**: {title_main}
+**Abstract**: {abstract_main}
 
 # Related paper
 
-**Title**: {{title_related}}
-**Abstract**: {{abstract_related}}
+**Title**: {title_related}
+**Abstract**: {abstract_related}
 
 #####
 Output:
@@ -44,13 +44,13 @@ only.
 -Data-
 # Main paper
 
-**Title**: {{title_main}}
-**Abstract**: {{abstract_main}}
+**Title**: {title_main}
+**Abstract**: {abstract_main}
 
 # Related paper
 
-**Title**: {{title_related}}
-**Abstract**: {{abstract_related}}
+**Title**: {title_related}
+**Abstract**: {abstract_related}
 
 #####
 Output:

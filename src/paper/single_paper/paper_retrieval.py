@@ -405,10 +405,11 @@ async def fetch_s2_recommendations(
         )
         return []
 
+    # Query both pools and union results to get recent papers + older CS papers
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(request_timeout), headers={"x-api-key": api_key}
     ) as session:
-        return await fetch_paper_recommendations(
+        recent_task = fetch_paper_recommendations(
             session,
             paper.title,
             paper_id,
@@ -417,3 +418,22 @@ async def fetch_s2_recommendations(
             limiter,
             from_="recent",
         )
+        all_cs_task = fetch_paper_recommendations(
+            session,
+            paper.title,
+            paper_id,
+            S2_FIELDS_BASE,
+            num_recommendations,
+            limiter,
+            from_="all-cs",
+        )
+        recent_papers, all_cs_papers = await asyncio.gather(recent_task, all_cs_task)
+
+    # Deduplicate by paper_id, preferring recent pool order
+    seen: set[str] = set()
+    combined: list[s2.Paper] = []
+    for rec_paper in recent_papers + all_cs_papers:
+        if rec_paper.paper_id not in seen:
+            seen.add(rec_paper.paper_id)
+            combined.append(rec_paper)
+    return combined

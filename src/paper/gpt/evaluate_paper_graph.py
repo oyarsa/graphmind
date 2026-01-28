@@ -918,9 +918,10 @@ def format_eval_template(
 
 
 def format_related(related: Iterable[PaperRelatedSummarised]) -> str:
-    """Build prompt from related papers titles and summaries."""
+    """Build prompt from related papers IDs, titles, sources, and summaries."""
     return "\n\n".join(
-        f"Title: {paper.title}\nSummary: {paper.summary}\n" for paper in related
+        f"ID: {paper.paper_id}\nTitle: {paper.title}\nSource: {paper.source.value}\nSummary: {paper.summary}\n"
+        for paper in related
     )
 
 

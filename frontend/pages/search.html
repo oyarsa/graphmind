@@ -81,17 +81,17 @@
             <div class="flex rounded-lg bg-gray-200/50 p-1 dark:bg-gray-800/50">
               <button
                 id="json-tab"
-                class="tab-button active cursor-pointer rounded-md bg-white px-4 py-2
-                  text-sm font-semibold text-teal-600 shadow-sm transition-all
-                  duration-200 dark:bg-gray-700 dark:text-teal-400"
+                class="tab-button cursor-pointer rounded-md px-4 py-2 text-sm
+                  font-semibold text-gray-600 transition-all duration-200
+                  hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
               >
                 Library
               </button>
               <button
                 id="arxiv-tab"
-                class="tab-button cursor-pointer rounded-md px-4 py-2 text-sm
-                  font-semibold text-gray-600 transition-all duration-200
-                  hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                class="tab-button active cursor-pointer rounded-md bg-white px-4 py-2
+                  text-sm font-semibold text-teal-600 shadow-sm transition-all
+                  duration-200 dark:bg-gray-700 dark:text-teal-400"
               >
                 arXiv
               </button>
@@ -126,7 +126,7 @@
         </div>
 
         <!-- JSON Tab Content -->
-        <div id="json-content" class="tab-content">
+        <div id="json-content" class="tab-content hidden">
           <div id="json-search-container" class="mb-6">
             <div class="relative">
               <input
@@ -185,7 +185,7 @@
         </div>
 
         <!-- arXiv Tab Content -->
-        <div id="arxiv-content" class="tab-content hidden">
+        <div id="arxiv-content" class="tab-content">
           <!-- Evaluation Mode Toggle (disabled - to re-enable, uncomment below) -->
           <!--
           <div class="mb-4 flex justify-center">
@@ -783,7 +783,7 @@
             </div>
             <p class="mt-1 text-xs text-gray-500">
               Only include recommended papers published before the main paper (default:
-              disabled)
+              enabled)
             </p>
           </div>
         </form>
