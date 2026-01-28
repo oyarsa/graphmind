@@ -33,12 +33,12 @@ from paper.semantic_scholar.info import (
     fetch_paper_data,
     fetch_paper_info,
     fetch_papers_from_s2,
-    get_top_k_titles,
 )
 from paper.semantic_scholar.recommended import fetch_paper_recommendations
 from paper.util import atimer
 
 if TYPE_CHECKING:
+    from paper.gpt.openai_encoder import OpenAIEncoder
     from paper.util.rate_limiter import Limiter
 
 logger = logging.getLogger(__name__)
@@ -329,12 +329,32 @@ async def _filter_paper_result(result: arxiv.Result) -> bool:
         return False
 
 
+async def get_top_k_titles_async(
+    encoder: OpenAIEncoder, paper: pr.Paper, k: int
+) -> list[str]:
+    """Get top `k` reference titles from `paper` using async encoder.
+
+    References are sorted by cosine similarity between the reference and main paper
+    titles.
+    """
+    if not paper.references:
+        return []
+
+    ref_titles = [r.title for r in paper.references]
+
+    references_emb = await encoder.batch_encode(ref_titles)
+    title_emb = await encoder.encode(paper.title)
+    sim = emb.similarities(title_emb, references_emb)
+
+    return [ref_titles[idx] for idx in emb.top_k_indices(sim, k)]
+
+
 async def enhance_with_s2_references(
-    paper: pr.Paper, top_k: int, encoder: emb.Encoder, api_key: str, limiter: Limiter
+    paper: pr.Paper, top_k: int, encoder: OpenAIEncoder, api_key: str, limiter: Limiter
 ) -> s2.PaperWithS2Refs:
     """Enhance paper with S2 reference information for top-k similar references."""
     # Get top-k reference titles by semantic similarity
-    top_ref_titles = get_top_k_titles(encoder, paper, top_k)
+    top_ref_titles = await get_top_k_titles_async(encoder, paper, top_k)
 
     if not top_ref_titles:
         logger.warning("No references found for paper: %s", paper.title)

@@ -117,7 +117,7 @@ async def annotate_paper_pipeline(
     logger.debug("Fetching S2 data for recommendations and references in parallel")
     paper_with_s2_refs, recommended_papers = await asyncio.gather(
         atimer(
-            enhance_with_s2_references(paper, top_k_refs, encoder, s2_api_key, limiter),  # type: ignore[arg-type]
+            enhance_with_s2_references(paper, top_k_refs, encoder, s2_api_key, limiter),
             3,
         ),
         atimer(
