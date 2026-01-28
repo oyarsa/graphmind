@@ -11,6 +11,7 @@ import openai
 from paper import embedding as emb
 from paper.util import ensure_envvar
 from paper.util import progress as prog
+from paper.util.rate_limiter import ChatRateLimiter
 
 EMBEDDING_DIMENSIONS: dict[str, int] = {
     "text-embedding-3-small": 1536,
@@ -18,17 +19,70 @@ EMBEDDING_DIMENSIONS: dict[str, int] = {
     "text-embedding-ada-002": 1536,
 }
 
+# Rate limits for embedding models: (requests_per_minute, tokens_per_minute)
+# From OpenAI API headers for tier 5
+EMBEDDING_RATE_LIMITS: dict[str, tuple[int, int]] = {
+    "text-embedding-3-small": (10_000, 10_000_000),
+    "text-embedding-3-large": (10_000, 10_000_000),
+    "text-embedding-ada-002": (10_000, 10_000_000),
+}
+
+
+def _get_embedding_rate_limiter(model: str) -> ChatRateLimiter:
+    """Get the rate limiter for an embedding model.
+
+    Args:
+        model: Embedding model name.
+
+    Returns:
+        Rate limiter configured for the model's limits.
+
+    Raises:
+        ValueError: If the model is not supported.
+    """
+    if model not in EMBEDDING_RATE_LIMITS:
+        raise ValueError(
+            f"Unknown embedding model: {model}. Known: {list(EMBEDDING_RATE_LIMITS)}"
+        )
+
+    request_limit, token_limit = EMBEDDING_RATE_LIMITS[model]
+    return ChatRateLimiter(request_limit=request_limit, token_limit=token_limit)
+
 
 class OpenAIEncoder:
     """Async OpenAI-based text encoder."""
 
     def __init__(self, model: str = "text-embedding-3-small") -> None:
+        """Create an OpenAI embedding encoder.
+
+        Args:
+            model: Embedding model to use. Must be one of the known models.
+
+        Raises:
+            ValueError: If the model is not supported.
+        """
         if model not in EMBEDDING_DIMENSIONS:
             raise ValueError(
                 f"Unknown model: {model}. Known: {list(EMBEDDING_DIMENSIONS)}"
             )
         self._client = openai.AsyncOpenAI(api_key=ensure_envvar("OPENAI_API_KEY"))
         self._model = model
+        self._rate_limiter = _get_embedding_rate_limiter(model)
+
+    @classmethod
+    def from_env(cls, model: str = "text-embedding-3-small") -> "OpenAIEncoder":
+        """Create encoder from environment variables.
+
+        Args:
+            model: Embedding model to use.
+
+        Returns:
+            Configured OpenAIEncoder instance.
+
+        Requires:
+            OPENAI_API_KEY environment variable.
+        """
+        return cls(model=model)
 
     @property
     def dimensions(self) -> int:
@@ -45,7 +99,14 @@ class OpenAIEncoder:
         Returns:
             Embedding vector as a numpy array.
         """
-        response = await self._client.embeddings.create(input=[text], model=self._model)
+        async with self._rate_limiter.limit(
+            contents=text, max_tokens=0
+        ) as update_usage:
+            response = await self._client.embeddings.create(
+                input=[text], model=self._model
+            )
+            if usage := response.usage:
+                await update_usage(usage.total_tokens)
         return np.array(response.data[0].embedding, dtype=np.float32)
 
     @backoff.on_exception(backoff.expo, openai.RateLimitError, max_tries=5)
@@ -58,9 +119,16 @@ class OpenAIEncoder:
         Returns:
             Embedding matrix where each row is an embedding vector.
         """
-        response = await self._client.embeddings.create(
-            input=list(texts), model=self._model
-        )
+        # Join texts for token estimation (separator doesn't affect count much)
+        combined = "\n".join(texts)
+        async with self._rate_limiter.limit(
+            contents=combined, max_tokens=0
+        ) as update_usage:
+            response = await self._client.embeddings.create(
+                input=list(texts), model=self._model
+            )
+            if usage := response.usage:
+                await update_usage(usage.total_tokens)
         return np.array([d.embedding for d in response.data], dtype=np.float32)
 
     async def batch_encode(

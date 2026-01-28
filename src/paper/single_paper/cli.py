@@ -184,7 +184,7 @@ async def process_paper(
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY environment variables.
     """
 
-    limiter = get_limiter(1, 1)  # 1 request per second
+    limiter = get_limiter(1, 1)  # 1 request per second for Semantic Scholar
     encoder = OpenAIEncoder(model=encoder_model)
 
     result = await atimer(
