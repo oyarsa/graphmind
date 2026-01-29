@@ -44,6 +44,7 @@ from paper.gpt.summarise_related_peter import (
     GPTRelatedSummary,
     format_template,
 )
+from paper.single_paper.summary_cleaning import clean_summary
 
 if TYPE_CHECKING:
     from paper.gpt.classify_contexts import S2ReferenceClassified
@@ -462,6 +463,6 @@ async def generate_summary_single(
     )
     return result.map(
         lambda r: gpt.PaperRelatedSummarised.from_related(
-            related_paper, r.summary if r else "<error>"
+            related_paper, clean_summary(r.summary) if r else "<error>"
         )
     )

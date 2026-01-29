@@ -33,6 +33,7 @@ from paper.gpt.summarise_related_peter import (
 )
 from paper.single_paper.abstract_search import search_related_papers
 from paper.single_paper.related_papers import get_top_k_semantic
+from paper.single_paper.summary_cleaning import clean_summary
 from paper.util import ensure_envvar
 
 if TYPE_CHECKING:
@@ -61,8 +62,8 @@ async def abstract_evaluation(
     demonstrations_key: str = DEMOS,
     demo_prompt_key: str = DEMO_PROMPT,
     abstract_prompt_key: str = "simple",
-    positive_prompt_key: str = "positive",
-    negative_prompt_key: str = "negative",
+    positive_prompt_key: str = "positive-v2",
+    negative_prompt_key: str = "negative-v2",
     year: int | None = None,
 ) -> AbstractEvaluationResponse:
     """Abstractly evaluate a paper from its title and abstract.
@@ -510,6 +511,6 @@ async def generate_summary_single(
     )
     return result.map(
         lambda r: gpt.PaperRelatedSummarised.from_related(
-            related_paper, r.summary if r else "<error>"
+            related_paper, clean_summary(r.summary) if r else "<error>"
         )
     )
