@@ -521,7 +521,7 @@ function createEvidenceComparisonContent(
                   : ""
               }
               <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 flex-1">
-                ${renderLatex(context.sentence)}
+                ${renderLatex(stripLatexCitations(context.sentence))}
               </span>
             </div>
           `,
@@ -533,6 +533,32 @@ function createEvidenceComparisonContent(
   }
 
   return "";
+}
+
+/**
+ * Strips raw LaTeX citation commands from text.
+ *
+ * Removes commands like ~\citep{...}, \cite{...}, \citep{...}, \citet{...}
+ * which appear in raw citation contexts extracted from LaTeX sources.
+ *
+ * @param text - Text potentially containing LaTeX citation commands
+ * @returns Cleaned text with citation commands removed
+ */
+export function stripLatexCitations(text: string): string {
+  if (!text) return "";
+
+  // Remove ~\citep{...}, ~\cite{...}, \citep{...}, \cite{...}, \citet{...}, etc.
+  // Also handles multiple citations like \citep{ref1,ref2,ref3}
+  return (
+    text
+      // Remove tilde before cite commands (non-breaking space in LaTeX)
+      .replace(/~\\cite[pt]?\{[^}]*\}/g, "")
+      // Remove standalone cite commands
+      .replace(/\\cite[pt]?\{[^}]*\}/g, "")
+      // Clean up any double spaces left behind
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 /**

@@ -106,14 +106,58 @@ async def extract_graph_from_paper(
     return graph
 
 
+def calculate_evidence_distribution(
+    total_semantic: int,
+    total_citations: int,
+) -> tuple[int, int]:
+    """Calculate how many semantic and citation evidence items to include.
+
+    Priority:
+    1. Take up to 3 semantic papers
+    2. Take up to 2 citation papers
+    3. If total < 5, fill with whichever source has more remaining
+
+    Args:
+        total_semantic: Total number of semantic evidence items available.
+        total_citations: Total number of citation evidence items available.
+
+    Returns:
+        Tuple of (semantic_count, citation_count) to include.
+    """
+    # Start with preferred distribution: up to 3 semantic, up to 2 citations
+    sem_count = min(total_semantic, 3)
+    cit_count = min(total_citations, 2)
+
+    # Fill remaining slots (up to 5 total) with whichever source has more left
+    remaining_needed = 5 - sem_count - cit_count
+    if remaining_needed > 0:
+        remaining_sem = total_semantic - sem_count
+        remaining_cit = total_citations - cit_count
+        if remaining_sem > remaining_cit:
+            sem_count += min(remaining_sem, remaining_needed)
+        else:
+            cit_count += min(remaining_cit, remaining_needed)
+
+    return sem_count, cit_count
+
+
 def _distribute_evidence(
     evidence: Sequence[EvidenceItem],
 ) -> tuple[EvidenceItem, ...]:
-    """Distribute evidence: up to 3 semantic, fill rest with citations (max 5 total)."""
+    """Distribute evidence: prefer 3 semantic + 2 citations, fill to max 5.
+
+    Priority:
+    1. Take up to 3 semantic papers
+    2. Take up to 2 citation papers
+    3. If total < 5, fill with whichever source has more remaining
+    """
     semantic = [e for e in evidence if e.source == PaperSource.SEMANTIC]
     citations = [e for e in evidence if e.source == PaperSource.CITATIONS]
-    sem_count = min(len(semantic), 3)
-    cit_count = min(len(citations), 5 - sem_count)
+
+    sem_count, cit_count = calculate_evidence_distribution(
+        len(semantic), len(citations)
+    )
+
     return tuple(semantic[:sem_count] + citations[:cit_count])
 
 

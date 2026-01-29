@@ -19,6 +19,7 @@ import {
   getScoreDisplay,
   setupSectionToggle,
   renderLatex,
+  stripLatexCitations,
   getArxivUrl,
   formatConferenceName,
   createExpandableEvidenceItem,
@@ -182,7 +183,7 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
                   : ""
               }
               <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 flex-1">
-                ${renderLatex(context.sentence)}
+                ${renderLatex(stripLatexCitations(context.sentence))}
               </span>
             </div>
           `,
@@ -250,30 +251,60 @@ function normalizeTitle(title: string): string {
     .trim();
 }
 
+/**
+ * Filter related papers to only include those that appear in the evidence lists.
+ *
+ * This ensures the Related Papers section only shows papers that are actually
+ * referenced in the supporting or contradictory evidence sections.
+ */
+function filterToEvidencePapers(
+  relatedPapers: RelatedPaper[],
+  evaluation: StructuredEval | null | undefined,
+): RelatedPaper[] {
+  if (!evaluation) return relatedPapers;
+
+  // Collect all paper titles from evidence lists
+  const evidenceTitles = new Set<string>();
+
+  for (const evidence of evaluation.supporting_evidence) {
+    if (typeof evidence === "object" && evidence.paper_title) {
+      evidenceTitles.add(normalizeTitle(evidence.paper_title));
+    }
+  }
+
+  for (const evidence of evaluation.contradictory_evidence) {
+    if (typeof evidence === "object" && evidence.paper_title) {
+      evidenceTitles.add(normalizeTitle(evidence.paper_title));
+    }
+  }
+
+  // Filter related papers to only those in evidence
+  return relatedPapers.filter(paper => evidenceTitles.has(normalizeTitle(paper.title)));
+}
+
 function findRelatedPaperIndex(
   paperTitle: string,
   relatedPapers: RelatedPaper[],
   activeFilters: Set<string>,
 ): number | null {
-  // Filter papers based on their relationship type (same logic as renderFilteredRelatedPapers)
-  const filteredPapers = relatedPapers.filter(paper => {
-    const relationship = getRelationshipStyle(paper);
-    return activeFilters.has(relationship.type);
-  });
-
   // Normalize the search title for comparison
   const normalizedSearchTitle = normalizeTitle(paperTitle);
 
-  // Find the index in the filtered array using normalized title matching
-  const index = filteredPapers.findIndex(
-    paper => normalizeTitle(paper.title) === normalizedSearchTitle,
-  );
+  // Find the index in the ORIGINAL array (not filtered) using normalized title matching
+  // Only match papers that pass the active filters to ensure we can link to visible papers
+  const index = relatedPapers.findIndex(paper => {
+    const relationship = getRelationshipStyle(paper);
+    return (
+      activeFilters.has(relationship.type) &&
+      normalizeTitle(paper.title) === normalizedSearchTitle
+    );
+  });
   return index >= 0 ? index : null;
 }
 
 function createStructuredEvaluationDisplay(
   evaluation: StructuredEval,
-  graphResult: GraphResult | null,
+  evidencePapers: RelatedPaper[],
   activeFilters: Set<string>,
 ): string {
   // Note: renderEvidence function moved to createExpandableEvidenceItem helper
@@ -383,17 +414,15 @@ function createStructuredEvaluationDisplay(
             ${evaluation.supporting_evidence
               .map((evidence, index) => {
                 const relatedPaperIndex =
-                  typeof evidence === "object" && evidence.paper_title && graphResult
+                  typeof evidence === "object" && evidence.paper_title
                     ? findRelatedPaperIndex(
                         evidence.paper_title,
-                        graphResult.related,
+                        evidencePapers,
                         activeFilters,
                       )
                     : null;
                 const relatedPaper =
-                  relatedPaperIndex !== null && graphResult
-                    ? graphResult.related[relatedPaperIndex]
-                    : null;
+                  relatedPaperIndex !== null ? evidencePapers[relatedPaperIndex] : null;
 
                 return createExpandableEvidenceItem(
                   evidence,
@@ -427,17 +456,15 @@ function createStructuredEvaluationDisplay(
             ${evaluation.contradictory_evidence
               .map((evidence, index) => {
                 const relatedPaperIndex =
-                  typeof evidence === "object" && evidence.paper_title && graphResult
+                  typeof evidence === "object" && evidence.paper_title
                     ? findRelatedPaperIndex(
                         evidence.paper_title,
-                        graphResult.related,
+                        evidencePapers,
                         activeFilters,
                       )
                     : null;
                 const relatedPaper =
-                  relatedPaperIndex !== null && graphResult
-                    ? graphResult.related[relatedPaperIndex]
-                    : null;
+                  relatedPaperIndex !== null ? evidencePapers[relatedPaperIndex] : null;
 
                 return createExpandableEvidenceItem(
                   evidence,
@@ -1103,6 +1130,21 @@ function loadPaperDetail(): void {
       }
     }
 
+    // Filter related papers to only those that appear in evidence lists
+    // This ensures consistency between evidence section and Related Papers section
+    const evidencePapers = filterToEvidencePapers(
+      graphResult.related,
+      paper.structured_evaluation,
+    );
+
+    // Use default active filters (all types visible by default)
+    const defaultActiveFilters = new Set([
+      "background",
+      "target",
+      "supporting",
+      "contrasting",
+    ]);
+
     // Handle structured evaluation
     const structuredEvalContainer = document.getElementById("structured-evaluation");
     const structuredEvalSection = document.querySelector(
@@ -1110,16 +1152,9 @@ function loadPaperDetail(): void {
     );
     if (structuredEvalContainer && structuredEvalSection) {
       if (paper.structured_evaluation) {
-        // Use default active filters (all types visible by default)
-        const defaultActiveFilters = new Set([
-          "background",
-          "target",
-          "supporting",
-          "contrasting",
-        ]);
         structuredEvalContainer.innerHTML = createStructuredEvaluationDisplay(
           paper.structured_evaluation,
-          graphResult,
+          evidencePapers,
           defaultActiveFilters,
         );
         setupSectionToggle("structured-evaluation");
@@ -1132,20 +1167,17 @@ function loadPaperDetail(): void {
     setupSectionToggle("paper-graph");
     createHierarchicalGraphWrapper(graphResult.graph);
 
-    // Handle related papers
+    // Handle related papers - only show papers that appear in evidence lists
     const relatedPapersContentContainer = document.getElementById(
       "related-papers-content",
     );
     if (relatedPapersContentContainer) {
-      if (graphResult.related.length > 0) {
+      if (evidencePapers.length > 0) {
         // Setup filtering functionality
-        setupRelatedPapersFiltering(graphResult.related);
+        setupRelatedPapersFiltering(evidencePapers);
 
         // Initial render with all papers visible
-        renderFilteredRelatedPapers(
-          graphResult.related,
-          new Set(["background", "target", "supporting", "contrasting"]),
-        );
+        renderFilteredRelatedPapers(evidencePapers, defaultActiveFilters);
       } else {
         relatedPapersContentContainer.innerHTML = `
           <div class="text-gray-600 dark:text-gray-500 text-sm">

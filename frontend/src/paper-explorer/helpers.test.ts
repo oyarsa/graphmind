@@ -5,6 +5,7 @@ import {
   getScoreDisplay,
   formatTypeName,
   formatPaperCitation,
+  stripLatexCitations,
 } from "./helpers";
 import { RelatedPaper } from "./model";
 
@@ -294,5 +295,55 @@ describe("formatPaperCitation", () => {
 
     const result = formatPaperCitation(paper);
     expect(result).toBe("This is exactly 20c");
+  });
+});
+
+describe("stripLatexCitations", () => {
+  it("should return empty string for empty input", () => {
+    expect(stripLatexCitations("")).toBe("");
+  });
+
+  it("should remove ~\\citep{} commands", () => {
+    const input = "This is some text~\\citep{ref2020} with a citation.";
+    expect(stripLatexCitations(input)).toBe("This is some text with a citation.");
+  });
+
+  it("should remove \\citep{} commands without tilde", () => {
+    const input = "This is some text\\citep{ref2020} with a citation.";
+    expect(stripLatexCitations(input)).toBe("This is some text with a citation.");
+  });
+
+  it("should remove ~\\cite{} commands", () => {
+    const input = "As shown in~\\cite{smith2021}, the results are clear.";
+    expect(stripLatexCitations(input)).toBe("As shown in, the results are clear.");
+  });
+
+  it("should remove \\citet{} commands", () => {
+    const input = "According to \\citet{jones2022}, this works.";
+    // Space before comma is preserved (from the original text)
+    expect(stripLatexCitations(input)).toBe("According to , this works.");
+  });
+
+  it("should handle multiple citations", () => {
+    const input = "Some text~\\citep{ref1} and more~\\cite{ref2} with \\citet{ref3}.";
+    // Space before period is preserved (from the original text)
+    expect(stripLatexCitations(input)).toBe("Some text and more with .");
+  });
+
+  it("should handle citations with multiple references", () => {
+    const input = "This is cited~\\citep{DBLP:conf/emnlp/QiZWZYLHLB23,DBLP:ref2}.";
+    expect(stripLatexCitations(input)).toBe("This is cited.");
+  });
+
+  it("should preserve text without citations", () => {
+    const input = "This is plain text without any citations.";
+    expect(stripLatexCitations(input)).toBe(
+      "This is plain text without any citations.",
+    );
+  });
+
+  it("should clean up double spaces after removal", () => {
+    const input = "Text  ~\\citep{ref}  with  spaces.";
+    expect(stripLatexCitations(input)).toBe("Text with spaces.");
   });
 });
