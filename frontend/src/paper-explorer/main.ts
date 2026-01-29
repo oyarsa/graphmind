@@ -33,6 +33,46 @@ interface CachedPaperSearchItem extends Omit<PaperSearchItem, "arxiv_id"> {
   _cachedPaperId?: string;
 }
 
+// Settings interface for evaluation parameters
+interface EvaluationSettings {
+  llm_model: "gpt-4o" | "gpt-4o-mini" | "gemini-2.0-flash";
+  k_refs: number;
+  recommendations: number;
+  related: number;
+  filter_by_date: boolean;
+}
+
+const DEFAULT_SETTINGS: EvaluationSettings = {
+  llm_model: "gpt-4o-mini",
+  k_refs: 20,
+  recommendations: 30,
+  related: 5,
+  filter_by_date: true,
+};
+
+const SETTINGS_STORAGE_KEY = "paper-explorer-evaluation-settings";
+
+function loadSettings(): EvaluationSettings {
+  try {
+    const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as Partial<EvaluationSettings>;
+      return { ...DEFAULT_SETTINGS, ...parsed };
+    }
+  } catch (e) {
+    console.warn("Failed to load settings:", e);
+  }
+  return { ...DEFAULT_SETTINGS };
+}
+
+function saveSettings(settings: EvaluationSettings): void {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch (e) {
+    console.warn("Failed to save settings:", e);
+  }
+}
+
 class PaperExplorer {
   private allPapers: GraphResult[] = [];
   private filteredPapers: GraphResult[] = [];
@@ -1010,17 +1050,22 @@ class PaperExplorer {
 
   private setupEvaluationModal(): void {
     const modal = document.getElementById("evaluation-settings-modal");
-    const form = document.getElementById("evaluation-settings-form");
     const cancelButton = document.getElementById("cancel-evaluation");
+    const startButton = document.getElementById("start-evaluation");
     const paperTitleEl = document.getElementById("evaluation-paper-title");
 
-    if (!modal || !form || !cancelButton || !paperTitleEl) {
+    if (!modal || !cancelButton || !startButton || !paperTitleEl) {
       console.warn("Evaluation modal elements not found");
       return;
     }
 
     // Handle cancel button
     cancelButton.addEventListener("click", () => this.hideEvaluationSettingsModal());
+
+    // Handle start button
+    startButton.addEventListener("click", () => {
+      void this.handleEvaluationSubmit();
+    });
 
     // Handle clicking outside modal
     modal.addEventListener("click", e => {
@@ -1029,17 +1074,127 @@ class PaperExplorer {
       }
     });
 
-    // Handle form submission
-    form.addEventListener("submit", e => {
-      e.preventDefault();
-      void this.handleEvaluationSubmit();
-    });
-
     // Handle Escape key
     document.addEventListener("keydown", e => {
       if (e.key === "Escape" && !modal.classList.contains("hidden")) {
         this.hideEvaluationSettingsModal();
       }
+    });
+
+    // Setup settings modal
+    this.setupSettingsModal();
+  }
+
+  private setupSettingsModal(): void {
+    const settingsButton = document.getElementById("settings-button");
+    const settingsModal = document.getElementById("settings-modal");
+    const closeButton = document.getElementById("settings-modal-close");
+    const saveButton = document.getElementById("settings-save");
+    const resetButton = document.getElementById("settings-reset");
+
+    if (
+      !settingsButton ||
+      !settingsModal ||
+      !closeButton ||
+      !saveButton ||
+      !resetButton
+    ) {
+      console.warn("Settings modal elements not found");
+      return;
+    }
+
+    // Load and apply saved settings to form
+    const applySettingsToForm = (settings: EvaluationSettings) => {
+      const llmModel = document.getElementById(
+        "settings-llm-model",
+      ) as HTMLSelectElement | null;
+      const kRefs = document.getElementById(
+        "settings-k-refs",
+      ) as HTMLInputElement | null;
+      const recommendations = document.getElementById(
+        "settings-recommendations",
+      ) as HTMLInputElement | null;
+      const related = document.getElementById(
+        "settings-related",
+      ) as HTMLInputElement | null;
+      const filterByDate = document.getElementById(
+        "settings-filter-by-date",
+      ) as HTMLInputElement | null;
+
+      if (llmModel) llmModel.value = settings.llm_model;
+      if (kRefs) kRefs.value = settings.k_refs.toString();
+      if (recommendations) recommendations.value = settings.recommendations.toString();
+      if (related) related.value = settings.related.toString();
+      if (filterByDate) filterByDate.checked = settings.filter_by_date;
+    };
+
+    // Get settings from form
+    const getSettingsFromForm = (): EvaluationSettings => {
+      const llmModel = document.getElementById(
+        "settings-llm-model",
+      ) as HTMLSelectElement | null;
+      const kRefs = document.getElementById(
+        "settings-k-refs",
+      ) as HTMLInputElement | null;
+      const recommendations = document.getElementById(
+        "settings-recommendations",
+      ) as HTMLInputElement | null;
+      const related = document.getElementById(
+        "settings-related",
+      ) as HTMLInputElement | null;
+      const filterByDate = document.getElementById(
+        "settings-filter-by-date",
+      ) as HTMLInputElement | null;
+
+      return {
+        llm_model: (llmModel?.value ??
+          "gpt-4o-mini") as EvaluationSettings["llm_model"],
+        k_refs: parseInt(kRefs?.value ?? "20", 10),
+        recommendations: parseInt(recommendations?.value ?? "30", 10),
+        related: parseInt(related?.value ?? "5", 10),
+        filter_by_date: filterByDate?.checked ?? true,
+      };
+    };
+
+    const hideSettingsModal = () => {
+      settingsModal.classList.add("hidden");
+      settingsModal.classList.remove("flex");
+    };
+
+    // Open settings modal
+    settingsButton.addEventListener("click", () => {
+      applySettingsToForm(loadSettings());
+      settingsModal.classList.remove("hidden");
+      settingsModal.classList.add("flex");
+    });
+
+    // Close settings modal
+    closeButton.addEventListener("click", hideSettingsModal);
+
+    // Handle clicking outside modal
+    settingsModal.addEventListener("click", e => {
+      if (e.target === settingsModal) {
+        hideSettingsModal();
+      }
+    });
+
+    // Handle Escape key
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape" && !settingsModal.classList.contains("hidden")) {
+        hideSettingsModal();
+      }
+    });
+
+    // Save settings
+    saveButton.addEventListener("click", () => {
+      const settings = getSettingsFromForm();
+      saveSettings(settings);
+      hideSettingsModal();
+    });
+
+    // Reset to defaults
+    resetButton.addEventListener("click", () => {
+      applySettingsToForm(DEFAULT_SETTINGS);
     });
   }
 
@@ -1112,25 +1267,6 @@ class PaperExplorer {
     // Update modal title with paper info
     paperTitleEl.textContent = item.title;
 
-    // Reset form values to defaults
-    const kRefsInput = document.getElementById("k_refs") as HTMLInputElement | null;
-    const recommendationsInput = document.getElementById(
-      "recommendations",
-    ) as HTMLInputElement | null;
-    const relatedInput = document.getElementById("related") as HTMLInputElement | null;
-    const llmModelSelect = document.getElementById(
-      "llm_model",
-    ) as HTMLSelectElement | null;
-    const filterByDateCheckbox = document.getElementById(
-      "filter_by_date",
-    ) as HTMLInputElement | null;
-
-    if (kRefsInput) kRefsInput.value = "20";
-    if (recommendationsInput) recommendationsInput.value = "30";
-    if (relatedInput) relatedInput.value = "5";
-    if (llmModelSelect) llmModelSelect.value = "gpt-4o-mini";
-    if (filterByDateCheckbox) filterByDateCheckbox.checked = true;
-
     // Show modal
     modal.classList.remove("hidden");
     modal.classList.add("flex");
@@ -1160,52 +1296,20 @@ class PaperExplorer {
       return;
     }
 
-    // Get form values
-    const kRefsInput = document.getElementById("k_refs");
-    const recommendationsInput = document.getElementById("recommendations");
-    const relatedInput = document.getElementById("related");
-    const llmModelSelect = document.getElementById("llm_model");
-    const filterByDateCheckbox = document.getElementById("filter_by_date");
+    // Load saved settings
+    const settings = loadSettings();
 
-    if (
-      !kRefsInput ||
-      !recommendationsInput ||
-      !relatedInput ||
-      !llmModelSelect ||
-      !filterByDateCheckbox
-    ) {
-      console.error("Form elements not found");
-      return;
-    }
-
-    // Parse and validate form values
+    // Build params from stored settings
     const params = {
       id: this.lastSelectedArxivItem.arxiv_id,
       title: this.lastSelectedArxivItem.title,
-      k_refs: parseInt((kRefsInput as HTMLInputElement).value, 10),
-      recommendations: parseInt((recommendationsInput as HTMLInputElement).value, 10),
-      related: parseInt((relatedInput as HTMLInputElement).value, 10),
-      llm_model: (llmModelSelect as HTMLSelectElement).value as
-        | "gpt-4o"
-        | "gpt-4o-mini"
-        | "gemini-2.0-flash",
-      filter_by_date: (filterByDateCheckbox as HTMLInputElement).checked,
+      k_refs: settings.k_refs,
+      recommendations: settings.recommendations,
+      related: settings.related,
+      llm_model: settings.llm_model,
+      filter_by_date: settings.filter_by_date,
       seed: 0,
     };
-
-    // Validate parameters
-    if (params.k_refs < 10 || params.k_refs > 50) {
-      alert("References to analyse must be between 10 and 50");
-      return;
-    }
-    if (params.recommendations < 5 || params.recommendations > 50) {
-      alert("Recommended papers must be between 5 and 50");
-      return;
-    }
-    if (params.related < 5 || params.related > 10) {
-      alert("Related papers per type must be between 5 and 10");
-      return;
-    }
 
     // Hide settings modal and show progress modal
     this.hideEvaluationSettingsModal();
