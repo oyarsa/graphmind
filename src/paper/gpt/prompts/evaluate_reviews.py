@@ -4,7 +4,7 @@ from paper.gpt.prompts import PromptTemplate
 
 SIMPLE = PromptTemplate(
     name="simple",
-    template="""\
+    template=f"""\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and a peer review evalauting the paper for a publication \
 at a conference.
@@ -45,7 +45,7 @@ Output:
 
 TERNARY = PromptTemplate(
     name="ternary",
-    template="""\
+    template=f"""\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and a peer review evalauting the paper for a publication \
 at a conference.

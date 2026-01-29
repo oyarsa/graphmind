@@ -4,7 +4,7 @@ from paper.gpt.prompts import PromptTemplate
 
 SIMPLE = PromptTemplate(
     name="simple",
-    template="""\
+    template=f"""\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and a peer review evaluating the paper for a publication \
 at a conference.
@@ -55,7 +55,7 @@ Output:
 
 BASIC = PromptTemplate(
     name="basic",
-    template="""\
+    template=f"""\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and a review evaluating the paper for a publication at a \
 conference.
@@ -88,7 +88,7 @@ Output:
 
 OVERALL = PromptTemplate(
     name="overall",
-    template="""\
+    template=f"""\
 The following data contains information about a scientific paper. It includes the \
 paper's title, abstract, and a review evaluating the paper for a publication at a \
 conference.

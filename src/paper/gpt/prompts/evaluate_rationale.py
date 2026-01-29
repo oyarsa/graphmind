@@ -9,7 +9,7 @@ SIMPLE = PromptTemplate(
 Given the following paper title and abstract and the rationale for a novelty assessment,
 evaluate the rationale.
 """,
-    template="""\
+    template=f"""\
 The following data contains information about a scientific paper. It includes the paper
 title and abstract. It also contains a novelty assessment label and the rationale for it.
 Your task is to evaluate the rationale according to the following criteria:

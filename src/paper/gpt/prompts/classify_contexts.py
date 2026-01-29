@@ -4,7 +4,7 @@ from paper.gpt.prompts import PromptTemplate
 
 SENTENCE = PromptTemplate(
     name="sentence",
-    template="""\
+    template=f"""\
 You are given a citation context from a scientific paper that mentions. Your task is to \
 determine the polarity of the citation context as 'positive' or 'negative'.
 
@@ -21,7 +21,7 @@ Output:
 
 SIMPLE = PromptTemplate(
     name="simple",
-    template="""\
+    template=f"""\
 You are given a main paper and a reference with a citation context. Your task is to \
 determine the polarity of the citation context as 'positive' or 'negative', given the \
 main paper's title, the reference's title, and the citation context where the main \
@@ -42,7 +42,7 @@ Output:
 
 FULL = PromptTemplate(
     name="full",
-    template="""\
+    template=f"""\
 You are given a main paper and a reference with a citation context. Your task is to
 determine the polarity of the citation context as 'positive' or 'negative', given the
 main paper's title and abstract, the reference's title and abstract, and the citation

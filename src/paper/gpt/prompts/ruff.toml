@@ -1,0 +1,6 @@
+# Disable warning about f-strings without placeholders.
+# These templates use f-strings for consistency with other prompts,
+# even when they don't interpolate constants. The double braces {{var}}
+# become {var} after f-string evaluation, ready for .format() later.
+[lint]
+ignore = ["F541"]

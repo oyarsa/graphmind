@@ -9,7 +9,7 @@ STANDARD = PromptTemplate(
 You are evaluating and comparing two different rationales (labeled A and B) for the same scientific paper.
 Your job is to determine which rationale is better according to a specific evaluation metric.
 """,
-    template="""\
+    template=f"""\
 # Paper Information
 Title: {{title}}
 Abstract: {{abstract}}

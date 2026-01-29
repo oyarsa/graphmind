@@ -8,7 +8,7 @@ SIMPLE = PromptTemplate(
 Given the following target paper, search the internet for relevant publications, and based \
 on them, give a novelty label.
 """,
-    template="""\
+    template=f"""\
 The following data contains information about a scientific paper. It includes the \
 paper's title and abstract.
 
@@ -48,7 +48,7 @@ ATTRIBUTION = PromptTemplate(
 Given the following target paper, search the internet for relevant publications, and based \
 on them, give a novelty label.
 """,
-    template="""\
+    template=f"""\
 The following data contains information about a scientific paper. It includes the \
 paper's title and abstract.
 

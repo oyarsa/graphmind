@@ -4,7 +4,7 @@ from paper.gpt.prompts import PromptTemplate
 
 SIMPLE = PromptTemplate(
     name="simple",
-    template="""\
+    template=f"""\
 -Abstract:
 {{abstract}}
 

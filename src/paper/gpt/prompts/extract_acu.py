@@ -7,7 +7,7 @@ from paper.gpt.prompts import PromptTemplate
 # not provide them, and their code is unavailable at this time.
 SIMPLE = PromptTemplate(
     name="simple",
-    template="""\
+    template=f"""\
 The following data contains information about a scientific paper. It includes the \
 paper's title and abstract. Based on this, your task is to extract all atomic content \
 units from the paper.
@@ -53,7 +53,7 @@ Output:
 
 SCI = PromptTemplate(
     name="sci",
-    template="""\
+    template=f"""\
 Extract atomic content units (ACUs) from this scientific paper. An ACU represents a \
 single, indivisible fact or claim from the paper.
 

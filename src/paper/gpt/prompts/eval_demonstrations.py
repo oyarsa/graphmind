@@ -4,7 +4,7 @@ from paper.gpt.prompts import PromptTemplate
 
 ABSTRACT = PromptTemplate(
     name="abstract",
-    template="""\
+    template=f"""\
 Title: {{title}}
 Abstract: {{abstract}}
 Novelty rating: {{rating}}
@@ -14,7 +14,7 @@ Rationale: {{rationale}}
 
 MAINTEXT = PromptTemplate(
     name="maintext",
-    template="""\
+    template=f"""\
 Title: {{title}}
 Abstract: {{abstract}}
 

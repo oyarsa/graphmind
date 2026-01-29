@@ -4,7 +4,7 @@ from paper.gpt.prompts import PromptTemplate
 
 SIMPLE = PromptTemplate(
     name="simple",
-    template="""\
+    template=f"""\
 Given the paper abstract, your goal is to extract the paper's background context and
 target.
 

@@ -4,7 +4,7 @@ from paper.gpt.prompts import PromptTemplate
 
 MULTI = PromptTemplate(
     name="multi",
-    template="""\
+    template=f"""\
 You are a scientific term extractor analyzing research papers. Extract \
 terms as they appear in the abstract. Minimize modifications to the terms, unless it is \
 to comply with the rules.
