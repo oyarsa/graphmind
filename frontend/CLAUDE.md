@@ -121,6 +121,59 @@ The application consists of two primary interfaces accessible from a central hom
   don't know how to do something, ask and I'll help you.
 - When creating commits for the frontend, prefix all messages with `frontend: {msg}`
 
+## End-to-End Testing with Playwright
+
+Use the Playwright MCP to test the frontend end-to-end.
+
+**Setup:**
+
+1. Create `.env` with required variables:
+
+   ```bash
+   VITE_API_URL=http://localhost:8000
+   VITE_XP_DATA_PATH=data/test-data.json
+   ```
+
+2. Start both servers (in background):
+   ```bash
+   just api-dev &                    # Backend on :8000 (from repo root)
+   just dev &                        # Frontend on :5173
+   ```
+
+**Test flow using Playwright MCP:**
+
+1. Navigate to `http://localhost:5173/graphmind/`
+2. Click "arXiv" tab
+3. Search for a paper (e.g., "Weak Reward Model")
+4. Click the paper card to open evaluation settings
+5. Select LLM model (e.g., "gpt-4o-mini")
+6. Click "Start Evaluation"
+7. Wait for progress modal to complete (~2-3 minutes)
+8. Verify the detail page shows:
+   - Novelty score (1-5)
+   - Paper Structure Graph
+   - Supporting and contradictory evidence
+   - Related papers
+
+**Key Playwright MCP tools:**
+
+- `browser_navigate` - Go to URL
+- `browser_click` - Click elements by ref
+- `browser_type` - Type in inputs (use `submit: true` to press Enter)
+- `browser_select_option` - Select dropdown options
+- `browser_snapshot` - Get page state (accessibility tree)
+- `browser_take_screenshot` - Capture visual state
+- `browser_console_messages` - Check for errors
+- `browser_wait_for` - Wait for time or text
+
+**Cleanup after testing:**
+
+```bash
+lsof -ti:8000 | xargs -r kill -9    # Kill backend
+lsof -ti:5173 | xargs -r kill -9    # Kill frontend
+rm .env                              # Remove test config
+```
+
 ## Memories
 
 - Don't ask to run a server since it's an interactive thing that you can't really use. Just ask the user to run it.
