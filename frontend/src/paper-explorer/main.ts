@@ -1128,7 +1128,7 @@ class PaperExplorer {
     if (kRefsInput) kRefsInput.value = "20";
     if (recommendationsInput) recommendationsInput.value = "30";
     if (relatedInput) relatedInput.value = "5";
-    if (llmModelSelect) llmModelSelect.value = "gemini-2.0-flash";
+    if (llmModelSelect) llmModelSelect.value = "gpt-4o-mini";
     if (filterByDateCheckbox) filterByDateCheckbox.checked = true;
 
     // Show modal
@@ -1202,8 +1202,8 @@ class PaperExplorer {
       alert("Recommended papers must be between 5 and 50");
       return;
     }
-    if (params.related < 1 || params.related > 10) {
-      alert("Related papers per type must be between 1 and 10");
+    if (params.related < 5 || params.related > 10) {
+      alert("Related papers per type must be between 5 and 10");
       return;
     }
 
@@ -1361,8 +1361,8 @@ class PaperExplorer {
       title,
       abstract,
       recommendations: parseInt(recommendationsElement.value) || 20,
-      related: parseInt(relatedElement.value) || 3,
-      llm_model: llmModelElement.value || "gemini-2.0-flash",
+      related: parseInt(relatedElement.value) || 5,
+      llm_model: llmModelElement.value || "gpt-4o-mini",
     };
 
     await this.evaluateAbstract(params);
