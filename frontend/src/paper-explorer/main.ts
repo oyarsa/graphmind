@@ -1110,7 +1110,7 @@ class PaperExplorer {
     this.lastSelectedArxivItem = item;
 
     // Update modal title with paper info
-    paperTitleEl.textContent = `Configure evaluation for: ${item.title}`;
+    paperTitleEl.textContent = item.title;
 
     // Reset form values to defaults
     const kRefsInput = document.getElementById("k_refs") as HTMLInputElement | null;

@@ -326,8 +326,8 @@ export interface AbstractEvaluationParams {
   title: string;
   abstract: string;
   recommendations?: number;
-  llm_model?: string;
   related?: number;
+  llm_model?: string;
 }
 
 /**

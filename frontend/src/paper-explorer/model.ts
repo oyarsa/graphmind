@@ -395,8 +395,8 @@ export const EvaluationParamsSchema = z.object({
   /** Number of references to analyse */
   k_refs: z.number().min(10).max(50).optional().default(20),
   /** Number of recommended papers to retrieve */
-  recommendations: z.number().min(20).max(50).optional().default(20),
-  /** Number of related papers per type */
+  recommendations: z.number().min(20).max(50).optional().default(30),
+  /** Number of related papers per type (evidence capped at 5, but more = better LLM context) */
   related: z.number().min(5).max(10).optional().default(5),
   /** LLM model to use */
   llm_model: z
