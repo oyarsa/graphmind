@@ -96,7 +96,7 @@ export function createPaperTermsDisplay(
             </h4>
           </div>
           <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${primaryArea}
+            ${stripLatexCitations(primaryArea)}
           </p>
         </div>`;
     }
@@ -113,7 +113,7 @@ export function createPaperTermsDisplay(
             </h4>
           </div>
           <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${background}
+            ${stripLatexCitations(background)}
           </p>
         </div>`;
     }
@@ -130,7 +130,7 @@ export function createPaperTermsDisplay(
             </h4>
           </div>
           <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${target}
+            ${stripLatexCitations(target)}
           </p>
         </div>`;
     }
@@ -306,7 +306,7 @@ export function createSideBySideComparison(
             ${leftTitle}
           </h6>
           <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${leftContent ? renderLatex(leftContent) : '<span class="text-gray-500 dark:text-gray-500 italic">No data available</span>'}
+            ${leftContent ? renderLatex(stripLatexCitations(leftContent)) : '<span class="text-gray-500 dark:text-gray-500 italic">No data available</span>'}
           </div>
         </div>
 
@@ -316,7 +316,7 @@ export function createSideBySideComparison(
             ${rightTitle}
           </h6>
           <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${rightContent ? renderLatex(rightContent) : '<span class="text-gray-500 dark:text-gray-500 italic">No data available</span>'}
+            ${rightContent ? renderLatex(stripLatexCitations(rightContent)) : '<span class="text-gray-500 dark:text-gray-500 italic">No data available</span>'}
           </div>
         </div>
       </div>
@@ -476,7 +476,7 @@ function createEvidenceComparisonContent(
             </h5>
           </div>
           <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${renderLatex(relatedPaper.background)}
+            ${renderLatex(stripLatexCitations(relatedPaper.background))}
           </p>
         </div>
       `;
@@ -490,7 +490,7 @@ function createEvidenceComparisonContent(
             </h5>
           </div>
           <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${renderLatex(relatedPaper.target)}
+            ${renderLatex(stripLatexCitations(relatedPaper.target))}
           </p>
         </div>
       `;
@@ -536,25 +536,38 @@ function createEvidenceComparisonContent(
 }
 
 /**
- * Strips raw LaTeX citation commands from text.
+ * Strips raw LaTeX commands from text for display.
  *
- * Removes commands like ~\citep{...}, \cite{...}, \citep{...}, \citet{...}
- * which appear in raw citation contexts extracted from LaTeX sources.
+ * Removes:
+ * - Citation commands: ~\citep{...}, \cite{...}, \citep{...}, \citet{...}, etc.
+ * - Malformed citations with space: ~\ cite{...}, \ citep{...}
+ * - Footnotes: \footnote{...}, ~\ footnote{...}
+ * - Other LaTeX commands: \textbf{...}, \emph{...}, etc.
+ * - Standalone tildes (non-breaking space in LaTeX)
  *
- * @param text - Text potentially containing LaTeX citation commands
- * @returns Cleaned text with citation commands removed
+ * @param text - Text potentially containing LaTeX commands
+ * @returns Cleaned text suitable for display
  */
 export function stripLatexCitations(text: string): string {
   if (!text) return "";
 
-  // Remove ~\citep{...}, ~\cite{...}, \citep{...}, \cite{...}, \citet{...}, etc.
-  // Also handles multiple citations like \citep{ref1,ref2,ref3}
   return (
     text
-      // Remove tilde before cite commands (non-breaking space in LaTeX)
-      .replace(/~\\cite[pt]?\{[^}]*\}/g, "")
-      // Remove standalone cite commands
-      .replace(/\\cite[pt]?\{[^}]*\}/g, "")
+      // Remove footnotes (including malformed with space after backslash)
+      .replace(/~?\s*\\\s*footnote\s*\{[^}]*\}/gi, "")
+      // Remove citation commands (including malformed with space after backslash)
+      // Handles: ~\citep{...}, \cite{...}, \ cite{...}, ~\ citep{...}, etc.
+      .replace(/~?\s*\\\s*cite[pt]?\s*\{[^}]*\}/gi, "")
+      .replace(/~?\s*\\\s*citealp\s*\{[^}]*\}/gi, "")
+      .replace(/~?\s*\\\s*citealt\s*\{[^}]*\}/gi, "")
+      .replace(/~?\s*\\\s*citeauthor\s*\{[^}]*\}/gi, "")
+      .replace(/~?\s*\\\s*citeyear\s*\{[^}]*\}/gi, "")
+      .replace(/~?\s*\\\s*parencite\s*\{[^}]*\}/gi, "")
+      .replace(/~?\s*\\\s*textcite\s*\{[^}]*\}/gi, "")
+      // Remove other common LaTeX commands with arguments
+      .replace(/\\\s*[a-zA-Z]+\s*(\[[^\]]*\])?\s*\{[^}]*\}/g, "")
+      // Remove standalone tildes (non-breaking space)
+      .replace(/~/g, " ")
       // Clean up any double spaces left behind
       .replace(/\s+/g, " ")
       .trim()

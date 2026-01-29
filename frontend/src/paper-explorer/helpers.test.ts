@@ -320,14 +320,12 @@ describe("stripLatexCitations", () => {
 
   it("should remove \\citet{} commands", () => {
     const input = "According to \\citet{jones2022}, this works.";
-    // Space before comma is preserved (from the original text)
-    expect(stripLatexCitations(input)).toBe("According to , this works.");
+    expect(stripLatexCitations(input)).toBe("According to, this works.");
   });
 
   it("should handle multiple citations", () => {
     const input = "Some text~\\citep{ref1} and more~\\cite{ref2} with \\citet{ref3}.";
-    // Space before period is preserved (from the original text)
-    expect(stripLatexCitations(input)).toBe("Some text and more with .");
+    expect(stripLatexCitations(input)).toBe("Some text and more with.");
   });
 
   it("should handle citations with multiple references", () => {
@@ -345,5 +343,70 @@ describe("stripLatexCitations", () => {
   it("should clean up double spaces after removal", () => {
     const input = "Text  ~\\citep{ref}  with  spaces.";
     expect(stripLatexCitations(input)).toBe("Text with spaces.");
+  });
+
+  // Tests for malformed LaTeX (space after backslash)
+  it("should remove malformed citations with space after backslash", () => {
+    const input = "compared to the baseline, PAIE~\\ cite{PAIE}.";
+    expect(stripLatexCitations(input)).toBe("compared to the baseline, PAIE.");
+  });
+
+  it("should remove malformed citep with space after backslash", () => {
+    const input = "as shown~\\ citep{ref2020} in the paper.";
+    expect(stripLatexCitations(input)).toBe("as shown in the paper.");
+  });
+
+  // Tests for footnotes
+  it("should remove \\footnote{} commands", () => {
+    const input = "This is important\\footnote{See appendix for details}.";
+    expect(stripLatexCitations(input)).toBe("This is important.");
+  });
+
+  it("should remove ~\\footnote{} commands with tilde", () => {
+    const input = "SLMs~\\footnote{All code is available at https://github.com}.";
+    expect(stripLatexCitations(input)).toBe("SLMs.");
+  });
+
+  it("should remove malformed footnotes with space after backslash", () => {
+    const input = "performance~\\ footnote{All code is available}.";
+    expect(stripLatexCitations(input)).toBe("performance.");
+  });
+
+  // Tests for other LaTeX commands
+  it("should remove \\textbf{} commands", () => {
+    const input = "This is \\textbf{bold} text.";
+    expect(stripLatexCitations(input)).toBe("This is text.");
+  });
+
+  it("should remove \\emph{} commands", () => {
+    const input = "This is \\emph{emphasised} text.";
+    expect(stripLatexCitations(input)).toBe("This is text.");
+  });
+
+  // Tests for standalone tildes
+  it("should replace standalone tildes with spaces", () => {
+    const input = "Figure~1 shows the results.";
+    expect(stripLatexCitations(input)).toBe("Figure 1 shows the results.");
+  });
+
+  // Real-world examples from the user
+  it("should handle real example with malformed cite and footnote", () => {
+    const input =
+      "The CsEAE model achieved improvements of 2.1% compared to PAIE~\\ cite{PAIE}. " +
+      "For LLMs, performance is comparable to SLMs~\\ footnote{Code at github.com}.";
+    expect(stripLatexCitations(input)).toBe(
+      "The CsEAE model achieved improvements of 2.1% compared to PAIE. " +
+        "For LLMs, performance is comparable to SLMs.",
+    );
+  });
+
+  it("should handle real citation context example", () => {
+    const input =
+      "Reinforcement Learning through Human Feedback (PPO) has seen " +
+      "applications for instruction tuning~\\citep{Castricato2022,Shulev2024}";
+    expect(stripLatexCitations(input)).toBe(
+      "Reinforcement Learning through Human Feedback (PPO) has seen " +
+        "applications for instruction tuning",
+    );
   });
 });
