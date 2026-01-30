@@ -6,13 +6,14 @@
  * - Paper evaluation via API
  * - Detail page rendering with correct data
  *
- * Each test evaluates a paper and runs multiple checks, collecting all failures
- * before reporting them together.
+ * Tests are grouped by paper to minimize API calls - each paper is evaluated
+ * only once and subsequent tests reuse the cached evaluation via shared
+ * browser context.
  *
  * Run with: just e2e (requires backend on :8000 and frontend on :5173)
  */
 
-import { test, expect, Page } from "@playwright/test";
+import { test as base, expect, Page, BrowserContext } from "@playwright/test";
 
 // Paper definitions (arXiv ID, title, expected year)
 const ATTENTION_PAPER = {
@@ -26,6 +27,42 @@ const SLEEPER_AGENTS_PAPER = {
   title: "Sleeper Agents: Training Deceptive LLMs",
   expectedYear: 2024,
 };
+
+// =============================================================================
+// Custom test fixture that shares browser context within serial test groups
+// =============================================================================
+
+// Worker-scoped fixtures persist across all tests in the same worker
+interface WorkerFixtures {
+  sharedContext: BrowserContext;
+  sharedPage: Page;
+}
+
+const test = base.extend<object, WorkerFixtures>({
+  // Create a shared browser context that persists across tests in the same worker
+  sharedContext: [
+    async ({ browser }, use) => {
+      const context = await browser.newContext();
+      await use(context);
+      await context.close();
+    },
+    { scope: "worker" },
+  ],
+
+  // Create a page from the shared context - also worker-scoped
+  sharedPage: [
+    async ({ sharedContext }, use) => {
+      const page = await sharedContext.newPage();
+      await use(page);
+      // Don't close the page - let context closure handle it
+    },
+    { scope: "worker" },
+  ],
+});
+
+// =============================================================================
+// Helper classes and functions
+// =============================================================================
 
 interface CheckResult {
   name: string;
@@ -162,9 +199,44 @@ async function clearLocalStorage(page: Page): Promise<void> {
 }
 
 /**
- * Search for a paper by title in the arXiv tab.
+ * Close help modal if shown.
  */
-async function searchPaper(page: Page, title: string): Promise<void> {
+async function closeHelpModal(page: Page): Promise<void> {
+  const helpModal = page.locator("#help-modal.flex");
+  if (await helpModal.isVisible()) {
+    await page.locator("#help-modal-close").click();
+    await page.waitForTimeout(300);
+  }
+}
+
+/**
+ * Navigate to search page and optionally clear cache.
+ */
+async function goToSearchPage(
+  page: Page,
+  options: { clearCache?: boolean } = {},
+): Promise<void> {
+  await page.goto("pages/search.html");
+  await page.waitForLoadState("networkidle");
+
+  if (options.clearCache) {
+    await clearLocalStorage(page);
+  }
+
+  await closeHelpModal(page);
+}
+
+/**
+ * Search for a paper by title in the arXiv tab with retry logic for rate limiting.
+ */
+async function searchPaper(
+  page: Page,
+  title: string,
+  options: { maxRetries?: number; retryDelayMs?: number } = {},
+): Promise<void> {
+  const maxRetries = options.maxRetries ?? 3;
+  const retryDelayMs = options.retryDelayMs ?? 5000; // 5 seconds for backend rate limit
+
   // Ensure we're on the arXiv tab
   const arxivTab = page.locator("#arxiv-tab");
   if (!(await arxivTab.getAttribute("class"))?.includes("active")) {
@@ -172,15 +244,44 @@ async function searchPaper(page: Page, title: string): Promise<void> {
     await page.waitForTimeout(500);
   }
 
-  // Search for the paper
-  const searchInput = page.locator("#arxiv-search-input");
-  await searchInput.fill(title);
-  await page.locator("#arxiv-search-button").click();
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    // Clear any previous search
+    const searchInput = page.locator("#arxiv-search-input");
+    await searchInput.fill(title);
+    await page.locator("#arxiv-search-button").click();
 
-  // Wait for results
-  await page.waitForSelector("#arxiv-papers-container:not(.hidden)", {
-    timeout: 30000,
-  });
+    // Wait for either results or error
+    try {
+      // Wait for results container to become visible
+      await page.waitForSelector("#arxiv-papers-container:not(.hidden)", {
+        timeout: 30000,
+      });
+      return; // Success
+    } catch {
+      // Check if rate limited - error is shown in #arxiv-error-message
+      const errorEl = page.locator("#arxiv-error-message");
+      const errorText = (await errorEl.isVisible())
+        ? await errorEl.textContent()
+        : null;
+      const isRateLimited =
+        (errorText?.includes("Too many requests") ?? false) ||
+        (errorText?.includes("Please wait") ?? false);
+
+      if (isRateLimited && attempt < maxRetries) {
+        const jitter = Math.random() * 2000; // 0-2 second random jitter
+        const waitTime = retryDelayMs + jitter;
+        console.log(
+          `Rate limited on attempt ${attempt + 1}/${maxRetries + 1}, waiting ${(waitTime / 1000).toFixed(1)}s...`,
+        );
+        await page.waitForTimeout(waitTime);
+        continue;
+      }
+
+      throw new Error(
+        `Search failed after ${attempt + 1} attempts. Last error: ${errorText?.slice(0, 200)}`,
+      );
+    }
+  }
 }
 
 /**
@@ -220,6 +321,35 @@ async function waitForEvaluationComplete(page: Page): Promise<void> {
   });
 
   // Wait for content to load
+  await page.waitForSelector("#paper-content:not(.hidden)", { timeout: 10000 });
+}
+
+/**
+ * Full flow: search, click, evaluate, wait for completion.
+ */
+async function evaluatePaper(
+  page: Page,
+  paper: { title: string; arxivId: string },
+): Promise<void> {
+  await searchPaper(page, paper.title);
+  await clickPaperCard(page, paper.arxivId);
+  await startEvaluation(page);
+  await waitForEvaluationComplete(page);
+}
+
+/**
+ * Navigate to a cached paper's detail page (no evaluation modal).
+ */
+async function goToCachedPaperDetail(
+  page: Page,
+  paper: { title: string; arxivId: string },
+): Promise<void> {
+  await goToSearchPage(page);
+  await searchPaper(page, paper.title);
+  await clickPaperCard(page, paper.arxivId);
+
+  // Should navigate directly to detail (cached) - no modal
+  await page.waitForURL("**/detail.html**", { timeout: 10000 });
   await page.waitForSelector("#paper-content:not(.hidden)", { timeout: 10000 });
 }
 
@@ -391,21 +521,16 @@ async function extractCachedPaperData(
   }, paperId);
 }
 
-test.describe("Paper Evaluation E2E Tests", () => {
+// =============================================================================
+// Test Groups
+// =============================================================================
+
+/**
+ * Basic tests that don't require paper evaluation.
+ */
+test.describe("Basic Search Tests", () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to the search page
-    await page.goto("pages/search.html");
-    await page.waitForLoadState("networkidle");
-
-    // Clear any existing cache
-    await clearLocalStorage(page);
-
-    // Close help modal if shown
-    const helpModal = page.locator("#help-modal.flex");
-    if (await helpModal.isVisible()) {
-      await page.locator("#help-modal-close").click();
-      await page.waitForTimeout(300);
-    }
+    await goToSearchPage(page, { clearCache: true });
   });
 
   test("search page loads correctly", async ({ page }) => {
@@ -432,15 +557,19 @@ test.describe("Paper Evaluation E2E Tests", () => {
     const resultCount = page.locator("#arxiv-result-count");
     await expect(resultCount).toContainText("Found");
   });
+});
 
-  test("Attention paper evaluation and detail page", async ({ page }) => {
+/**
+ * Tests for the Attention paper - evaluate once, then run all related tests.
+ * Uses sharedPage fixture to share browser context (and localStorage) across tests.
+ */
+test.describe.serial("Attention Paper Tests", () => {
+  test("evaluate and verify detail page", async ({ sharedPage: page }) => {
+    // Clear cache and evaluate the paper
+    await goToSearchPage(page, { clearCache: true });
+    await evaluatePaper(page, ATTENTION_PAPER);
+
     const checker = new EvaluationChecker(ATTENTION_PAPER.title);
-
-    // Search and evaluate
-    await searchPaper(page, ATTENTION_PAPER.title);
-    await clickPaperCard(page, ATTENTION_PAPER.arxivId);
-    await startEvaluation(page);
-    await waitForEvaluationComplete(page);
 
     // Extract page data
     const pageData = await extractDetailPageData(page);
@@ -518,14 +647,99 @@ test.describe("Paper Evaluation E2E Tests", () => {
     checker.assertAllPassed();
   });
 
-  test("Sleeper Agents paper evaluation and detail page", async ({ page }) => {
-    const checker = new EvaluationChecker(SLEEPER_AGENTS_PAPER.title);
+  test("detail page sections are collapsible", async ({ sharedPage: page }) => {
+    // Navigate to cached paper detail page
+    await goToCachedPaperDetail(page, ATTENTION_PAPER);
 
-    // Search and evaluate
-    await searchPaper(page, SLEEPER_AGENTS_PAPER.title);
-    await clickPaperCard(page, SLEEPER_AGENTS_PAPER.arxivId);
-    await startEvaluation(page);
-    await waitForEvaluationComplete(page);
+    // Check that sections exist and can be toggled
+    const graphHeader = page.locator("#paper-graph-header");
+    const graphContent = page.locator("#paper-graph");
+
+    await expect(graphHeader).toBeVisible();
+    await expect(graphContent).toBeVisible();
+
+    // Click to collapse (graph starts expanded)
+    await graphHeader.click();
+    await page.waitForTimeout(300);
+    await expect(graphContent).toBeHidden();
+
+    // Click to expand again
+    await graphHeader.click();
+    await page.waitForTimeout(300);
+    await expect(graphContent).toBeVisible();
+  });
+
+  test("related papers can be filtered", async ({ sharedPage: page }) => {
+    // Navigate to cached paper detail page
+    await goToCachedPaperDetail(page, ATTENTION_PAPER);
+
+    // Expand related papers section if collapsed
+    const relatedHeader = page.locator("#related-papers-header");
+    const relatedContent = page.locator("#related-papers");
+
+    if (await relatedContent.isHidden()) {
+      await relatedHeader.click();
+      await page.waitForTimeout(300);
+    }
+
+    // Check filter chips exist
+    const filterChips = page.locator(".filter-chip");
+    const chipCount = await filterChips.count();
+    expect(chipCount).toBeGreaterThan(0);
+
+    // Click hide all and verify papers are hidden
+    await page.locator("#filter-hide-all").click();
+    await page.waitForTimeout(300);
+
+    const relatedCards = page.locator('[id^="related-card-"]');
+    const cardCount = await relatedCards.count();
+    expect(cardCount).toBe(0);
+
+    // Click show all and verify papers appear
+    await page.locator("#filter-show-all").click();
+    await page.waitForTimeout(300);
+
+    const cardCountAfter = await relatedCards.count();
+    expect(cardCountAfter).toBeGreaterThan(0);
+  });
+
+  test("cached paper navigates directly to detail", async ({ sharedPage: page }) => {
+    // Navigate back to search
+    await goToSearchPage(page);
+
+    // Wait for cached papers to appear
+    await page.waitForSelector("#arxiv-papers-container:not(.hidden)", {
+      timeout: 5000,
+    });
+
+    // Click on the cached paper (should be visible without searching)
+    const cachedCard = page.locator(
+      `#arxiv-papers-container > div:has(a[href*="${ATTENTION_PAPER.arxivId}"])`,
+    );
+
+    if (await cachedCard.isVisible()) {
+      await cachedCard.click();
+
+      // Should navigate directly to detail without showing modal
+      await page.waitForURL("**/detail.html**", { timeout: 5000 });
+
+      // Verify content loads
+      await expect(page.locator("#paper-content:not(.hidden)")).toBeVisible();
+    }
+  });
+});
+
+/**
+ * Tests for the Sleeper Agents paper - evaluate once, then run all related tests.
+ * Uses sharedPage fixture to share browser context (and localStorage) across tests.
+ */
+test.describe.serial("Sleeper Agents Paper Tests", () => {
+  test("evaluate and verify detail page", async ({ sharedPage: page }) => {
+    // Clear cache and evaluate the paper
+    await goToSearchPage(page, { clearCache: true });
+    await evaluatePaper(page, SLEEPER_AGENTS_PAPER);
+
+    const checker = new EvaluationChecker(SLEEPER_AGENTS_PAPER.title);
 
     // Extract page data
     const pageData = await extractDetailPageData(page);
@@ -584,12 +798,9 @@ test.describe("Paper Evaluation E2E Tests", () => {
     checker.assertAllPassed();
   });
 
-  test("detail page sections are collapsible", async ({ page }) => {
-    // Search and evaluate a paper first
-    await searchPaper(page, ATTENTION_PAPER.title);
-    await clickPaperCard(page, ATTENTION_PAPER.arxivId);
-    await startEvaluation(page);
-    await waitForEvaluationComplete(page);
+  test("detail page sections are collapsible", async ({ sharedPage: page }) => {
+    // Navigate to cached paper detail page
+    await goToCachedPaperDetail(page, SLEEPER_AGENTS_PAPER);
 
     // Check that sections exist and can be toggled
     const graphHeader = page.locator("#paper-graph-header");
@@ -609,12 +820,9 @@ test.describe("Paper Evaluation E2E Tests", () => {
     await expect(graphContent).toBeVisible();
   });
 
-  test("related papers can be filtered", async ({ page }) => {
-    // Search and evaluate a paper first
-    await searchPaper(page, ATTENTION_PAPER.title);
-    await clickPaperCard(page, ATTENTION_PAPER.arxivId);
-    await startEvaluation(page);
-    await waitForEvaluationComplete(page);
+  test("related papers can be filtered", async ({ sharedPage: page }) => {
+    // Navigate to cached paper detail page
+    await goToCachedPaperDetail(page, SLEEPER_AGENTS_PAPER);
 
     // Expand related papers section if collapsed
     const relatedHeader = page.locator("#related-papers-header");
@@ -646,26 +854,19 @@ test.describe("Paper Evaluation E2E Tests", () => {
     expect(cardCountAfter).toBeGreaterThan(0);
   });
 
-  test("cached paper navigates directly to detail", async ({ page }) => {
-    // First evaluate a paper to cache it
-    await searchPaper(page, ATTENTION_PAPER.title);
-    await clickPaperCard(page, ATTENTION_PAPER.arxivId);
-    await startEvaluation(page);
-    await waitForEvaluationComplete(page);
-
+  test("cached paper navigates directly to detail", async ({ sharedPage: page }) => {
     // Navigate back to search
-    await page.goto("pages/search.html");
-    await page.waitForLoadState("networkidle");
-
-    // Click on the cached paper (should be visible without searching)
-    const cachedCard = page.locator(
-      `#arxiv-papers-container > div:has(a[href*="${ATTENTION_PAPER.arxivId}"])`,
-    );
+    await goToSearchPage(page);
 
     // Wait for cached papers to appear
     await page.waitForSelector("#arxiv-papers-container:not(.hidden)", {
       timeout: 5000,
     });
+
+    // Click on the cached paper (should be visible without searching)
+    const cachedCard = page.locator(
+      `#arxiv-papers-container > div:has(a[href*="${SLEEPER_AGENTS_PAPER.arxivId}"])`,
+    );
 
     if (await cachedCard.isVisible()) {
       await cachedCard.click();

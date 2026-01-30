@@ -19,7 +19,6 @@ import {
   getScoreDisplay,
   setupSectionToggle,
   renderLatex,
-  stripLatexCitations,
   getArxivUrl,
   formatConferenceName,
   createExpandableEvidenceItem,
@@ -183,7 +182,7 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
                   : ""
               }
               <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 flex-1">
-                ${renderLatex(stripLatexCitations(context.sentence))}
+                ${renderLatex(context.sentence)}
               </span>
             </div>
           `,

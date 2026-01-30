@@ -306,7 +306,7 @@ export function createSideBySideComparison(
             ${leftTitle}
           </h6>
           <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${leftContent ? renderLatex(stripLatexCitations(leftContent)) : '<span class="text-gray-500 dark:text-gray-500 italic">No data available</span>'}
+            ${leftContent ? renderLatex(leftContent) : '<span class="text-gray-500 dark:text-gray-500 italic">No data available</span>'}
           </div>
         </div>
 
@@ -316,7 +316,7 @@ export function createSideBySideComparison(
             ${rightTitle}
           </h6>
           <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${rightContent ? renderLatex(stripLatexCitations(rightContent)) : '<span class="text-gray-500 dark:text-gray-500 italic">No data available</span>'}
+            ${rightContent ? renderLatex(rightContent) : '<span class="text-gray-500 dark:text-gray-500 italic">No data available</span>'}
           </div>
         </div>
       </div>
@@ -373,7 +373,7 @@ export function createExpandableEvidenceItem(
       <li class="flex items-start gap-2">
         <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
         <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-          ${renderLatex(stripLatexCitations(evidence))}
+          ${renderLatex(evidence)}
         </span>
       </li>
     `;
@@ -416,7 +416,7 @@ export function createExpandableEvidenceItem(
         <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
         <div class="flex-1">
           <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            <span class="font-medium">${paperTitleElement}</span> ${renderLatex(stripLatexCitations(evidence.text))}
+            <span class="font-medium">${paperTitleElement}</span> ${renderLatex(evidence.text)}
             ${
               hasExpandableContent
                 ? `
@@ -452,7 +452,7 @@ export function createExpandableEvidenceItem(
     <li class="flex items-start gap-2">
       <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
       <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-        ${renderLatex(stripLatexCitations(evidence.text))}
+        ${renderLatex(evidence.text)}
       </span>
     </li>
   `;
@@ -476,7 +476,7 @@ function createEvidenceComparisonContent(
             </h5>
           </div>
           <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${renderLatex(stripLatexCitations(relatedPaper.background))}
+            ${renderLatex(relatedPaper.background)}
           </p>
         </div>
       `;
@@ -490,7 +490,7 @@ function createEvidenceComparisonContent(
             </h5>
           </div>
           <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${renderLatex(stripLatexCitations(relatedPaper.target))}
+            ${renderLatex(relatedPaper.target)}
           </p>
         </div>
       `;
@@ -521,7 +521,7 @@ function createEvidenceComparisonContent(
                   : ""
               }
               <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 flex-1">
-                ${renderLatex(stripLatexCitations(context.sentence))}
+                ${renderLatex(context.sentence)}
               </span>
             </div>
           `,
@@ -555,15 +555,11 @@ export function stripLatexCitations(text: string): string {
     text
       // Remove footnotes (including malformed with space after backslash)
       .replace(/~?\s*\\\s*footnote\s*\{[^}]*\}/gi, "")
-      // Remove citation commands (including malformed with space after backslash)
+      // Remove citation commands - match with or without closing brace
       // Handles: ~\citep{...}, \cite{...}, \ cite{...}, ~\ citep{...}, etc.
-      .replace(/~?\s*\\\s*cite[pt]?\s*\{[^}]*\}/gi, "")
-      .replace(/~?\s*\\\s*citealp\s*\{[^}]*\}/gi, "")
-      .replace(/~?\s*\\\s*citealt\s*\{[^}]*\}/gi, "")
-      .replace(/~?\s*\\\s*citeauthor\s*\{[^}]*\}/gi, "")
-      .replace(/~?\s*\\\s*citeyear\s*\{[^}]*\}/gi, "")
-      .replace(/~?\s*\\\s*parencite\s*\{[^}]*\}/gi, "")
-      .replace(/~?\s*\\\s*textcite\s*\{[^}]*\}/gi, "")
+      .replace(/~?\s*\\\s*cite[a-z]*\s*\{[^}]*\}?/gi, "")
+      .replace(/~?\s*\\\s*parencite\s*\{[^}]*\}?/gi, "")
+      .replace(/~?\s*\\\s*textcite\s*\{[^}]*\}?/gi, "")
       // Remove other common LaTeX commands with arguments
       .replace(/\\\s*[a-zA-Z]+\s*(\[[^\]]*\])?\s*\{[^}]*\}/g, "")
       // Remove standalone tildes (non-breaking space)
@@ -583,6 +579,9 @@ export function stripLatexCitations(text: string): string {
  */
 export function renderLatex(text: string): string {
   if (!text) return "";
+
+  // Always strip LaTeX citations first - they should never appear in rendered text
+  text = stripLatexCitations(text);
 
   const escapeHtml = (str: string): string => {
     const div = document.createElement("div");
