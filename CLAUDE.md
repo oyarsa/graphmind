@@ -2,6 +2,8 @@
 
 ## Workflow Rules
 - **ALWAYS run `just lint`** after code changes before considering the task complete
+- **Run backend e2e tests** (`uv run pytest -m backend --runslow`) after major backend/API changes before declaring done
+- If you find yourself manually testing behaviours (curl, `call_sse.py`, etc.), consider adding tests in `tests/e2e/test_backend_evaluation.py`
 - **ALWAYS notify the user** when done, even without needing input
 - **Log ALL experiments** to `EXPERIMENT_LOG.yaml` including:
   - GPT ablation experiments
@@ -19,6 +21,7 @@
 - `just lint` - Main check: fix, fmt, spell, pre-commit, test, type
 - `just test` - Unit tests only
 - `just e2e` - E2E tests (with --runslow)
+- `uv run pytest -m backend --runslow` - Backend API e2e tests only
 - `uv run paper [subcommand] --help` - CLI help
 
 ## API Server

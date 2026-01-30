@@ -19,6 +19,9 @@ from fastapi.testclient import TestClient
 
 from paper.backend.api import app
 
+# Mark all tests in this module as backend tests
+pytestmark = [pytest.mark.backend, pytest.mark.slow]
+
 # Skip if API key not set
 if not os.getenv("OPENAI_API_KEY"):
     pytest.skip("OPENAI_API_KEY environment variable not set", allow_module_level=True)
@@ -224,7 +227,6 @@ def sleeper_agents_response(
     return paper_responses[SLEEPER_AGENTS_PAPER[0]]
 
 
-@pytest.mark.slow
 def test_attention_paper_evaluation(attention_response: dict[str, Any]) -> None:
     """Test evaluation of 'Attention Is All You Need' (2017).
 
@@ -289,7 +291,6 @@ def test_attention_paper_evaluation(attention_response: dict[str, Any]) -> None:
     checker.assert_all_passed()
 
 
-@pytest.mark.slow
 def test_recent_paper_evaluation(sleeper_agents_response: dict[str, Any]) -> None:
     """Test evaluation of a more recent paper.
 
@@ -336,7 +337,6 @@ def test_recent_paper_evaluation(sleeper_agents_response: dict[str, Any]) -> Non
     checker.assert_all_passed()
 
 
-@pytest.mark.slow
 def test_evidence_source_distribution(attention_response: dict[str, Any]) -> None:
     """Test that evidence comes from both semantic and citation sources.
 
@@ -399,7 +399,6 @@ def test_evidence_source_distribution(attention_response: dict[str, Any]) -> Non
     checker.assert_all_passed()
 
 
-@pytest.mark.slow
 def test_summary_quality(attention_response: dict[str, Any]) -> None:
     """Test that summaries don't start with 'The Related Paper...' pattern.
 
