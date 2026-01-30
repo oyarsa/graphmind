@@ -10,6 +10,7 @@ before reporting them together. Paper responses are cached to minimize API calls
 import json
 import os
 import re
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -23,6 +24,7 @@ if not os.getenv("OPENAI_API_KEY"):
     pytest.skip("OPENAI_API_KEY environment variable not set", allow_module_level=True)
 
 EVALUATE_ENDPOINT = "/mind/evaluate"
+MAX_CONCURRENT_REQUESTS = 5
 
 # Paper definitions
 ATTENTION_PAPER = ("1706.03762", "Attention Is All You Need")
@@ -193,9 +195,17 @@ def paper_responses() -> dict[str, dict[str, Any]]:
     papers = [ATTENTION_PAPER, SLEEPER_AGENTS_PAPER]
     results: dict[str, dict[str, Any]] = {}
 
-    with TestClient(app) as client:
-        for arxiv_id, title in papers:
-            results[arxiv_id] = fetch_evaluation(client, arxiv_id, title)
+    with (
+        TestClient(app) as client,
+        ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS) as executor,
+    ):
+        futures: dict[Future[dict[str, Any]], str] = {
+            executor.submit(fetch_evaluation, client, arxiv_id, title): arxiv_id
+            for arxiv_id, title in papers
+        }
+        for future in as_completed(futures):
+            arxiv_id = futures[future]
+            results[arxiv_id] = future.result()
 
     return results
 
