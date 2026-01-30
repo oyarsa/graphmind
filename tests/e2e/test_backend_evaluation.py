@@ -4,13 +4,12 @@ These tests use FastAPI's TestClient to run the app in-process and verify the re
 structure and data quality. They are marked as slow and require --runslow to run.
 
 Each test makes one request and runs multiple checks, collecting all failures
-before reporting them together.
+before reporting them together. Paper responses are cached to minimize API calls.
 """
 
 import json
 import os
 import re
-from collections.abc import Generator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -24,6 +23,10 @@ if not os.getenv("OPENAI_API_KEY"):
     pytest.skip("OPENAI_API_KEY environment variable not set", allow_module_level=True)
 
 EVALUATE_ENDPOINT = "/mind/evaluate"
+
+# Paper definitions
+ATTENTION_PAPER = ("1706.03762", "Attention Is All You Need")
+SLEEPER_AGENTS_PAPER = ("2401.02954", "Sleeper Agents: Training Deceptive LLMs")
 
 
 @dataclass
@@ -127,13 +130,9 @@ class EvaluationChecker:
         message = f"journal names as titles: {violations}" if not passed else ""
         self.checks.append(CheckResult(name=name, passed=passed, message=message))
 
-    def get_failures(self) -> list[CheckResult]:
-        """Return list of failed checks."""
-        return [c for c in self.checks if not c.passed]
-
     def assert_all_passed(self) -> None:
         """Assert all checks passed, reporting all failures."""
-        failures = self.get_failures()
+        failures = [c for c in self.checks if not c.passed]
         if failures:
             failure_msgs = [f"  - {f.name}: {f.message}" for f in failures]
             msg = f"Paper {self.paper_id}: {len(failures)} check(s) failed:\n"
@@ -189,14 +188,34 @@ def fetch_evaluation(
 
 
 @pytest.fixture(scope="module")
-def test_client() -> Generator[TestClient, None, None]:
-    """Create a TestClient for the FastAPI app."""
+def paper_responses() -> dict[str, dict[str, Any]]:
+    """Fetch all paper evaluations once and cache the responses."""
+    papers = [ATTENTION_PAPER, SLEEPER_AGENTS_PAPER]
+    results: dict[str, dict[str, Any]] = {}
+
     with TestClient(app) as client:
-        yield client
+        for arxiv_id, title in papers:
+            results[arxiv_id] = fetch_evaluation(client, arxiv_id, title)
+
+    return results
+
+
+@pytest.fixture
+def attention_response(paper_responses: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Get cached response for 'Attention Is All You Need'."""
+    return paper_responses[ATTENTION_PAPER[0]]
+
+
+@pytest.fixture
+def sleeper_agents_response(
+    paper_responses: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Get cached response for 'Sleeper Agents'."""
+    return paper_responses[SLEEPER_AGENTS_PAPER[0]]
 
 
 @pytest.mark.slow
-def test_attention_paper_evaluation(test_client: TestClient) -> None:
+def test_attention_paper_evaluation(attention_response: dict[str, Any]) -> None:
     """Test evaluation of 'Attention Is All You Need' (2017).
 
     This is a well-known older paper, good for testing:
@@ -204,10 +223,8 @@ def test_attention_paper_evaluation(test_client: TestClient) -> None:
     - Title extraction from BibTeX references
     - Evidence distribution
     """
-    arxiv_id = "1706.03762"
-    title = "Attention Is All You Need"
-
-    response = fetch_evaluation(test_client, arxiv_id, title)
+    arxiv_id = ATTENTION_PAPER[0]
+    response = attention_response
     checker = EvaluationChecker(paper_id=arxiv_id, response_data=response)
 
     # Get nested data - structure is response["result"]["result"]["paper"]
@@ -263,17 +280,14 @@ def test_attention_paper_evaluation(test_client: TestClient) -> None:
 
 
 @pytest.mark.slow
-def test_recent_paper_evaluation(test_client: TestClient) -> None:
+def test_recent_paper_evaluation(sleeper_agents_response: dict[str, Any]) -> None:
     """Test evaluation of a more recent paper.
 
     Tests that recent papers also work and have proper structure.
     Using a 2024 paper to test that date filtering allows recent related papers.
     """
-    # A 2024 paper about LLMs
-    arxiv_id = "2401.02954"
-    title = "Sleeper Agents: Training Deceptive LLMs"
-
-    response = fetch_evaluation(test_client, arxiv_id, title)
+    arxiv_id = SLEEPER_AGENTS_PAPER[0]
+    response = sleeper_agents_response
     checker = EvaluationChecker(paper_id=arxiv_id, response_data=response)
 
     outer_result = response.get("result", {})
@@ -313,16 +327,14 @@ def test_recent_paper_evaluation(test_client: TestClient) -> None:
 
 
 @pytest.mark.slow
-def test_evidence_source_distribution(test_client: TestClient) -> None:
+def test_evidence_source_distribution(attention_response: dict[str, Any]) -> None:
     """Test that evidence comes from both semantic and citation sources.
 
     The expected distribution is up to 3 semantic + up to 2 citations per type,
     with backfill if one source has fewer results.
     """
-    arxiv_id = "1706.03762"
-    title = "Attention Is All You Need"
-
-    response = fetch_evaluation(test_client, arxiv_id, title)
+    arxiv_id = ATTENTION_PAPER[0]
+    response = attention_response
     checker = EvaluationChecker(paper_id=arxiv_id, response_data=response)
 
     outer_result = response.get("result", {})
@@ -378,15 +390,13 @@ def test_evidence_source_distribution(test_client: TestClient) -> None:
 
 
 @pytest.mark.slow
-def test_summary_quality(test_client: TestClient) -> None:
+def test_summary_quality(attention_response: dict[str, Any]) -> None:
     """Test that summaries don't start with 'The Related Paper...' pattern.
 
     This was a bug where summaries would echo the prompt terminology.
     """
-    arxiv_id = "1706.03762"
-    title = "Attention Is All You Need"
-
-    response = fetch_evaluation(test_client, arxiv_id, title)
+    arxiv_id = ATTENTION_PAPER[0]
+    response = attention_response
     checker = EvaluationChecker(paper_id=arxiv_id, response_data=response)
 
     outer_result = response.get("result", {})
