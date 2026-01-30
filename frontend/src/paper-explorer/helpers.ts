@@ -373,7 +373,7 @@ export function createExpandableEvidenceItem(
       <li class="flex items-start gap-2">
         <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
         <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-          ${renderLatex(evidence)}
+          ${renderLatex(stripLatexCitations(evidence))}
         </span>
       </li>
     `;
@@ -416,7 +416,7 @@ export function createExpandableEvidenceItem(
         <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
         <div class="flex-1">
           <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            <span class="font-medium">${paperTitleElement}</span> ${renderLatex(evidence.text)}
+            <span class="font-medium">${paperTitleElement}</span> ${renderLatex(stripLatexCitations(evidence.text))}
             ${
               hasExpandableContent
                 ? `
@@ -452,7 +452,7 @@ export function createExpandableEvidenceItem(
     <li class="flex items-start gap-2">
       <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
       <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-        ${renderLatex(evidence.text)}
+        ${renderLatex(stripLatexCitations(evidence.text))}
       </span>
     </li>
   `;
