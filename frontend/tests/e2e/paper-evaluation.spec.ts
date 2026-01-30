@@ -670,40 +670,6 @@ test.describe.serial("Attention Paper Tests", () => {
     await expect(graphContent).toBeVisible();
   });
 
-  test("related papers can be filtered", async ({ sharedPage: page }) => {
-    // Navigate to cached paper detail page
-    await goToCachedPaperDetail(page, ATTENTION_PAPER);
-
-    // Expand related papers section if collapsed
-    const relatedHeader = page.locator("#related-papers-header");
-    const relatedContent = page.locator("#related-papers");
-
-    if (await relatedContent.isHidden()) {
-      await relatedHeader.click();
-      await page.waitForTimeout(300);
-    }
-
-    // Check filter chips exist
-    const filterChips = page.locator(".filter-chip");
-    const chipCount = await filterChips.count();
-    expect(chipCount).toBeGreaterThan(0);
-
-    // Click hide all and verify papers are hidden
-    await page.locator("#filter-hide-all").click();
-    await page.waitForTimeout(300);
-
-    const relatedCards = page.locator('[id^="related-card-"]');
-    const cardCount = await relatedCards.count();
-    expect(cardCount).toBe(0);
-
-    // Click show all and verify papers appear
-    await page.locator("#filter-show-all").click();
-    await page.waitForTimeout(300);
-
-    const cardCountAfter = await relatedCards.count();
-    expect(cardCountAfter).toBeGreaterThan(0);
-  });
-
   test("cached paper navigates directly to detail", async ({ sharedPage: page }) => {
     // Navigate back to search
     await goToSearchPage(page);
@@ -819,40 +785,6 @@ test.describe.serial("Sleeper Agents Paper Tests", () => {
     await graphHeader.click();
     await page.waitForTimeout(300);
     await expect(graphContent).toBeVisible();
-  });
-
-  test("related papers can be filtered", async ({ sharedPage: page }) => {
-    // Navigate to cached paper detail page
-    await goToCachedPaperDetail(page, SLEEPER_AGENTS_PAPER);
-
-    // Expand related papers section if collapsed
-    const relatedHeader = page.locator("#related-papers-header");
-    const relatedContent = page.locator("#related-papers");
-
-    if (await relatedContent.isHidden()) {
-      await relatedHeader.click();
-      await page.waitForTimeout(300);
-    }
-
-    // Check filter chips exist
-    const filterChips = page.locator(".filter-chip");
-    const chipCount = await filterChips.count();
-    expect(chipCount).toBeGreaterThan(0);
-
-    // Click hide all and verify papers are hidden
-    await page.locator("#filter-hide-all").click();
-    await page.waitForTimeout(300);
-
-    const relatedCards = page.locator('[id^="related-card-"]');
-    const cardCount = await relatedCards.count();
-    expect(cardCount).toBe(0);
-
-    // Click show all and verify papers appear
-    await page.locator("#filter-show-all").click();
-    await page.waitForTimeout(300);
-
-    const cardCountAfter = await relatedCards.count();
-    expect(cardCountAfter).toBeGreaterThan(0);
   });
 
   test("cached paper navigates directly to detail", async ({ sharedPage: page }) => {

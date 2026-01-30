@@ -49,7 +49,7 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
           <!-- Relationship Type Badge -->
           <span
             class="${relationship.style} ${relationship.color} px-3 py-1 text-sm
-                   font-medium whitespace-nowrap"
+                   font-medium whitespace-nowrap inline-flex items-center gap-1"
           >
             ${relationship.icon} ${relationship.label}
           </span>
@@ -284,27 +284,20 @@ function filterToEvidencePapers(
 function findRelatedPaperIndex(
   paperTitle: string,
   relatedPapers: RelatedPaper[],
-  activeFilters: Set<string>,
 ): number | null {
   // Normalize the search title for comparison
   const normalizedSearchTitle = normalizeTitle(paperTitle);
 
-  // Find the index in the ORIGINAL array (not filtered) using normalized title matching
-  // Only match papers that pass the active filters to ensure we can link to visible papers
-  const index = relatedPapers.findIndex(paper => {
-    const relationship = getRelationshipStyle(paper);
-    return (
-      activeFilters.has(relationship.type) &&
-      normalizeTitle(paper.title) === normalizedSearchTitle
-    );
-  });
+  // Find the index using normalized title matching
+  const index = relatedPapers.findIndex(
+    paper => normalizeTitle(paper.title) === normalizedSearchTitle,
+  );
   return index >= 0 ? index : null;
 }
 
 function createStructuredEvaluationDisplay(
   evaluation: StructuredEval,
   evidencePapers: RelatedPaper[],
-  activeFilters: Set<string>,
 ): string {
   // Note: renderEvidence function moved to createExpandableEvidenceItem helper
 
@@ -414,11 +407,7 @@ function createStructuredEvaluationDisplay(
               .map((evidence, index) => {
                 const relatedPaperIndex =
                   typeof evidence === "object" && evidence.paper_title
-                    ? findRelatedPaperIndex(
-                        evidence.paper_title,
-                        evidencePapers,
-                        activeFilters,
-                      )
+                    ? findRelatedPaperIndex(evidence.paper_title, evidencePapers)
                     : null;
                 const relatedPaper =
                   relatedPaperIndex !== null ? evidencePapers[relatedPaperIndex] : null;
@@ -456,11 +445,7 @@ function createStructuredEvaluationDisplay(
               .map((evidence, index) => {
                 const relatedPaperIndex =
                   typeof evidence === "object" && evidence.paper_title
-                    ? findRelatedPaperIndex(
-                        evidence.paper_title,
-                        evidencePapers,
-                        activeFilters,
-                      )
+                    ? findRelatedPaperIndex(evidence.paper_title, evidencePapers)
                     : null;
                 const relatedPaper =
                   relatedPaperIndex !== null ? evidencePapers[relatedPaperIndex] : null;
@@ -496,213 +481,28 @@ function createHierarchicalGraphWrapper(graph: Graph): void {
 }
 
 /**
- * Setup filtering functionality for related papers
+ * Render related papers
  */
-function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
-  const filtersContainer = document.getElementById("related-papers-filters");
-  const filterChips = document.querySelectorAll(".filter-chip");
-  const showAllButton = document.getElementById(
-    "filter-show-all",
-  ) as HTMLButtonElement | null;
-  const hideAllButton = document.getElementById(
-    "filter-hide-all",
-  ) as HTMLButtonElement | null;
-
-  if (!filtersContainer) return;
-
-  // Calculate counts for each relationship type
-  const countRelation = (src: string, pol: string) =>
-    relatedPapers.filter(p => p.source === src && p.polarity === pol).length;
-  const counts = {
-    background: countRelation("semantic", "negative"),
-    target: countRelation("semantic", "positive"),
-    supporting: countRelation("citations", "positive"),
-    contrasting: countRelation("citations", "negative"),
-  };
-
-  // Track active filters
-  const activeFilters = new Set(["background", "target", "supporting", "contrasting"]);
-
-  // Update filter chip counts and visibility
-  const updateFilterCounts = () => {
-    const chips = [
-      { id: "#filter-background", count: counts.background },
-      { id: "#filter-target", count: counts.target },
-      { id: "#filter-supporting", count: counts.supporting },
-      { id: "#filter-contrasting", count: counts.contrasting },
-    ];
-
-    chips.forEach(({ id, count }) => {
-      const chip = document.querySelector(id);
-      const countElement = document.querySelector(`${id} .filter-count`);
-
-      if (countElement) {
-        countElement.textContent = count.toString();
-      }
-
-      // Hide chips with zero count
-      if (chip) {
-        if (count === 0) {
-          chip.classList.add("hidden");
-          // Remove from active filters if it has no papers
-          const type = chip.getAttribute("data-type");
-          if (type) {
-            activeFilters.delete(type);
-          }
-        } else {
-          chip.classList.remove("hidden");
-        }
-      }
-    });
-  };
-
-  // Update chip visual state
-  const updateChipStates = () => {
-    filterChips.forEach(chip => {
-      const type = chip.getAttribute("data-type");
-      if (type && activeFilters.has(type)) {
-        // Active state - keep current colors but add border emphasis
-        chip.classList.remove("opacity-50");
-        chip.classList.add("ring-2", "ring-offset-1");
-        if (type === "background") {
-          chip.classList.add("ring-green-400", "dark:ring-green-600");
-        } else if (type === "target") {
-          chip.classList.add("ring-orange-400", "dark:ring-orange-600");
-        } else if (type === "supporting") {
-          chip.classList.add("ring-emerald-400", "dark:ring-emerald-600");
-        } else if (type === "contrasting") {
-          chip.classList.add("ring-red-400", "dark:ring-red-600");
-        }
-      } else {
-        // Inactive state - dim and remove ring
-        chip.classList.add("opacity-50");
-        chip.classList.remove(
-          "ring-2",
-          "ring-offset-1",
-          "ring-green-400",
-          "ring-orange-400",
-          "ring-emerald-400",
-          "ring-red-400",
-          "dark:ring-green-600",
-          "dark:ring-orange-600",
-          "dark:ring-emerald-600",
-          "dark:ring-red-600",
-        );
-      }
-    });
-
-    // Update Show All/Hide All button states
-    // Only consider filter types that have papers available
-    const availableFilterTypes = [
-      counts.background > 0 ? "background" : null,
-      counts.target > 0 ? "target" : null,
-      counts.supporting > 0 ? "supporting" : null,
-      counts.contrasting > 0 ? "contrasting" : null,
-    ].filter(type => type !== null);
-
-    const allFiltersActive =
-      availableFilterTypes.length > 0 &&
-      availableFilterTypes.every(type => activeFilters.has(type));
-    const noFiltersActive = activeFilters.size === 0;
-
-    if (showAllButton) {
-      showAllButton.disabled = allFiltersActive;
-      if (allFiltersActive) {
-        showAllButton.classList.add("opacity-50", "cursor-not-allowed");
-      } else {
-        showAllButton.classList.remove("opacity-50", "cursor-not-allowed");
-      }
-    }
-
-    if (hideAllButton) {
-      hideAllButton.disabled = noFiltersActive;
-      if (noFiltersActive) {
-        hideAllButton.classList.add("opacity-50", "cursor-not-allowed");
-      } else {
-        hideAllButton.classList.remove("opacity-50", "cursor-not-allowed");
-      }
-    }
-  };
-
-  // Add click handlers for filter chips
-  filterChips.forEach(chip => {
-    chip.addEventListener("click", () => {
-      const type = chip.getAttribute("data-type");
-      if (!type) return;
-
-      if (activeFilters.has(type)) {
-        activeFilters.delete(type);
-      } else {
-        activeFilters.add(type);
-      }
-
-      updateChipStates();
-      renderFilteredRelatedPapers(relatedPapers, activeFilters);
-    });
-  });
-
-  // Add click handler for show all button
-  if (showAllButton) {
-    showAllButton.addEventListener("click", () => {
-      activeFilters.clear();
-      // Only add filters that have papers available
-      if (counts.background > 0) activeFilters.add("background");
-      if (counts.target > 0) activeFilters.add("target");
-      if (counts.supporting > 0) activeFilters.add("supporting");
-      if (counts.contrasting > 0) activeFilters.add("contrasting");
-
-      updateChipStates();
-      renderFilteredRelatedPapers(relatedPapers, activeFilters);
-    });
-  }
-
-  // Add click handler for hide all button
-  if (hideAllButton) {
-    hideAllButton.addEventListener("click", () => {
-      activeFilters.clear();
-
-      updateChipStates();
-      renderFilteredRelatedPapers(relatedPapers, activeFilters);
-    });
-  }
-
-  // Initial setup - update counts first, then chip states
-  updateFilterCounts();
-  updateChipStates();
-}
-
-/**
- * Render related papers based on active filters
- */
-function renderFilteredRelatedPapers(
-  relatedPapers: RelatedPaper[],
-  activeFilters: Set<string>,
-): void {
+function renderRelatedPapers(relatedPapers: RelatedPaper[]): void {
   const relatedPapersContainer = document.getElementById("related-papers-content");
   if (!relatedPapersContainer) return;
 
-  // Filter papers based on their relationship type
-  const filteredPapers = relatedPapers.filter(paper => {
-    const relationship = getRelationshipStyle(paper);
-    return activeFilters.has(relationship.type);
-  });
-
-  if (filteredPapers.length === 0) {
+  if (relatedPapers.length === 0) {
     relatedPapersContainer.innerHTML = `
       <div class="text-gray-600 dark:text-gray-500 text-sm text-center py-4">
-        No related papers match the selected filters.
+        No related papers available.
       </div>
     `;
     return;
   }
 
-  // Render filtered papers
-  relatedPapersContainer.innerHTML = filteredPapers
+  // Render all papers
+  relatedPapersContainer.innerHTML = relatedPapers
     .map((relatedPaper, index) => createRelatedPaperCard(relatedPaper, index))
     .join("");
 
   // Add click event listeners for expansion
-  filteredPapers.forEach((_, index) => {
+  relatedPapers.forEach((_, index) => {
     const cardHeader = document.querySelector(`#related-card-${index} .card-header`);
     const expandedContent = document.getElementById(`expanded-content-${index}`);
     const goBackBtn = cardHeader?.querySelector(".go-back-btn");
@@ -846,14 +646,6 @@ function setupRelatedPaperLinkHandlers(): void {
     const target = event.target as HTMLElement;
     if (target.classList.contains("related-paper-link")) {
       event.preventDefault();
-
-      // First, enable all paper types to ensure the target paper is visible
-      const showAllButton = document.getElementById(
-        "filter-show-all",
-      ) as HTMLButtonElement | null;
-      if (showAllButton) {
-        showAllButton.click();
-      }
 
       const paperIndex = target.dataset.paperIndex;
       if (paperIndex) {
@@ -1002,58 +794,23 @@ function loadPaperDetail(): void {
     if (yearEl) yearEl.textContent = paper.year.toString();
     if (conferenceEl) conferenceEl.textContent = formatConferenceName(paper.conference);
     if (abstractEl) abstractEl.innerHTML = renderLatex(paper.abstract);
-    if (approvalEl) {
-      const approvalText =
-        paper.approval === null ? "?" : paper.approval ? "Approved" : "Rejected";
-      const approvalClass =
-        paper.approval === null
-          ? "text-gray-600 dark:text-gray-400 font-semibold cursor-help inline-flex items-center justify-center w-5 h-5 border border-gray-400 dark:border-gray-500 rounded-full text-xs"
-          : paper.approval
-            ? "text-green-600 dark:text-green-400 font-semibold"
-            : "text-red-600 dark:text-red-400 font-semibold";
-
-      approvalEl.textContent = approvalText;
-      approvalEl.className = approvalClass;
-
-      // Only add tooltip and immediate hover for null approval
+    // Handle Decision field - hide entire container when approval is null
+    const decisionContainer = document.getElementById("decision-container");
+    if (approvalEl && decisionContainer) {
       if (paper.approval === null) {
-        // Remove any existing event listeners to avoid duplicates
-        approvalEl.onmouseenter = null;
-        approvalEl.onmouseleave = null;
-
-        // Create immediate tooltip effect
-        let tooltipDiv: HTMLElement | null = null;
-
-        approvalEl.onmouseenter = () => {
-          // Create custom tooltip for immediate display
-          tooltipDiv = document.createElement("div");
-          tooltipDiv.textContent =
-            "Approval decision is not available for arXiv papers";
-          tooltipDiv.className =
-            "absolute z-50 bg-gray-900 text-white text-xs rounded px-2 py-1 pointer-events-none whitespace-nowrap";
-          tooltipDiv.style.bottom = "100%";
-          tooltipDiv.style.left = "50%";
-          tooltipDiv.style.transform = "translateX(-50%)";
-          tooltipDiv.style.marginBottom = "4px";
-
-          approvalEl.style.position = "relative";
-          approvalEl.appendChild(tooltipDiv);
-        };
-
-        approvalEl.onmouseleave = () => {
-          if (tooltipDiv) {
-            tooltipDiv.remove();
-            tooltipDiv = null;
-          }
-        };
+        // Hide the entire Decision container for arXiv papers
+        decisionContainer.classList.add("hidden");
       } else {
-        // Clear everything for defined approval values
-        approvalEl.onmouseenter = null;
-        approvalEl.onmouseleave = null;
-      }
+        // Show the container and populate with approval status
+        decisionContainer.classList.remove("hidden");
+        const approvalText = paper.approval ? "Approved" : "Rejected";
+        const approvalClass = paper.approval
+          ? "text-green-600 dark:text-green-400 font-semibold"
+          : "text-red-600 dark:text-red-400 font-semibold";
 
-      // Always clear the title attribute to prevent native tooltip
-      approvalEl.title = "";
+        approvalEl.textContent = approvalText;
+        approvalEl.className = approvalClass;
+      }
     }
     if (ratingEl) {
       // Check if structured evaluation has probability
@@ -1136,14 +893,6 @@ function loadPaperDetail(): void {
       paper.structured_evaluation,
     );
 
-    // Use default active filters (all types visible by default)
-    const defaultActiveFilters = new Set([
-      "background",
-      "target",
-      "supporting",
-      "contrasting",
-    ]);
-
     // Handle structured evaluation
     const structuredEvalContainer = document.getElementById("structured-evaluation");
     const structuredEvalSection = document.querySelector(
@@ -1154,7 +903,6 @@ function loadPaperDetail(): void {
         structuredEvalContainer.innerHTML = createStructuredEvaluationDisplay(
           paper.structured_evaluation,
           evidencePapers,
-          defaultActiveFilters,
         );
         setupSectionToggle("structured-evaluation");
       } else {
@@ -1172,11 +920,7 @@ function loadPaperDetail(): void {
     );
     if (relatedPapersContentContainer) {
       if (evidencePapers.length > 0) {
-        // Setup filtering functionality
-        setupRelatedPapersFiltering(evidencePapers);
-
-        // Initial render with all papers visible
-        renderFilteredRelatedPapers(evidencePapers, defaultActiveFilters);
+        renderRelatedPapers(evidencePapers);
       } else {
         relatedPapersContentContainer.innerHTML = `
           <div class="text-gray-600 dark:text-gray-500 text-sm">

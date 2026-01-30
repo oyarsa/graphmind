@@ -141,42 +141,38 @@ export function createPaperTermsDisplay(
   return html;
 }
 
+/** SVG icon for semantic (two connected circles) relationships */
+export const SEMANTIC_ICON = `<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor" stroke="currentColor">
+  <circle cx="4.5" cy="8" r="2.5" stroke="none"/>
+  <circle cx="11.5" cy="8" r="2.5" stroke="none"/>
+  <line x1="7" y1="8" x2="9" y2="8" fill="none" stroke-width="1.5"/>
+</svg>`;
+
+/** SVG icon for citation (link) relationships */
+export const CITATION_ICON = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
+</svg>`;
+
 /**
- * Determine relationship type and styling for a related paper
+ * Determine relationship type and styling for a related paper.
+ * Returns only 2 types: semantic (atom icon) or citation (link icon).
  */
 export function getRelationshipStyle(paper: RelatedPaper) {
-  if (paper.source === "semantic" && paper.polarity === "positive") {
+  if (paper.source === "semantic") {
     return {
-      type: "target",
-      label: "Target",
-      icon: "🧠",
-      color: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-      style: "rounded-full", // Rounded for semantic
-    };
-  } else if (paper.source === "semantic" && paper.polarity === "negative") {
-    return {
-      type: "background",
-      label: "Background",
-      icon: "🧠",
-      color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-      style: "rounded-full", // Rounded for semantic
-    };
-  } else if (paper.source === "citations" && paper.polarity === "positive") {
-    return {
-      type: "supporting",
-      label: "Supporting",
-      icon: "🔗",
-      color:
-        "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
-      style: "rounded-md", // Square for citations
+      type: "semantic",
+      label: "Semantic",
+      icon: SEMANTIC_ICON,
+      color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+      style: "rounded-md",
     };
   } else {
     return {
-      type: "contrasting",
-      label: "Contrasting",
-      icon: "🔗",
-      color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-      style: "rounded-md", // Square for citations
+      type: "citation",
+      label: "Citation",
+      icon: CITATION_ICON,
+      color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+      style: "rounded-md",
     };
   }
 }
@@ -367,7 +363,12 @@ export function createExpandableEvidenceItem(
   relatedPaperIndex: number | null,
   bulletColor: string,
 ): string {
-  // Handle string evidence
+  // Determine the icon based on source type
+  const source =
+    relatedPaper?.source ?? (typeof evidence === "object" ? evidence.source : null);
+  const sourceIcon = source === "semantic" ? SEMANTIC_ICON : CITATION_ICON;
+
+  // Handle string evidence (no source info, use bullet)
   if (typeof evidence === "string") {
     return `
       <li class="flex items-start gap-2">
@@ -393,12 +394,12 @@ export function createExpandableEvidenceItem(
     const paperTitleElement =
       relatedPaperIndex !== null
         ? `<a href="#related-papers"
-             class="related-paper-link hover:underline cursor-pointer text-blue-800 dark:text-blue-200"
+             class="related-paper-link underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer"
              data-paper-index="${relatedPaperIndex}">
-             ${renderLatex(displayText)}:</a>`
+             ${renderLatex(displayText)}</a>:`
         : `<a href="#related-papers"
-             class="related-paper-link hover:underline cursor-pointer text-blue-800 dark:text-blue-200">
-             ${renderLatex(displayText)}:</a>`;
+             class="related-paper-link underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer">
+             ${renderLatex(displayText)}</a>:`;
 
     const hasSemanticContent =
       relatedPaper?.source === "semantic" &&
@@ -413,7 +414,7 @@ export function createExpandableEvidenceItem(
 
     return `
       <li class="flex items-start gap-2">
-        <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
+        <span class="mt-1.5 flex-shrink-0 text-gray-500 dark:text-gray-400">${sourceIcon}</span>
         <div class="flex-1">
           <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
             <span class="font-medium">${paperTitleElement}</span> ${renderLatex(evidence.text)}
@@ -447,10 +448,13 @@ export function createExpandableEvidenceItem(
     `;
   }
 
-  // Fallback for evidence with just text
+  // Fallback for evidence with just text (use icon if source available, otherwise bullet)
+  const fallbackIcon = source
+    ? sourceIcon
+    : `<span class="block h-1.5 w-1.5 rounded-full ${bulletColor}"></span>`;
   return `
     <li class="flex items-start gap-2">
-      <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
+      <span class="mt-1.5 flex-shrink-0 text-gray-500 dark:text-gray-400">${fallbackIcon}</span>
       <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
         ${renderLatex(evidence.text)}
       </span>

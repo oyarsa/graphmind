@@ -54,8 +54,8 @@ function createRelatedPaperCard(
           ${paper.authors?.join(", ") ?? "Unknown authors"} • ${paper.year ?? "Unknown year"}
         </p>
         <div class="mb-3 flex flex-wrap items-center gap-2">
-          <div class="${relationship.color} rounded-md px-2 py-1">
-            <span class="text-xs font-medium">${relationship.icon} ${relationship.label}</span>
+          <div class="${relationship.color} rounded-md px-2 py-1 inline-flex items-center gap-1">
+            <span class="text-xs font-medium inline-flex items-center gap-1">${relationship.icon} ${relationship.label}</span>
           </div>
           <div class="text-xs text-gray-600 dark:text-gray-400">
             ${scorePercent}% similarity

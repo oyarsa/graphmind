@@ -486,7 +486,7 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
             <!-- Relationship Type Badge -->
             <span
               class="${relationship.style} ${relationship.color} px-3 py-1 text-sm
-                     font-medium whitespace-nowrap"
+                     font-medium whitespace-nowrap inline-flex items-center gap-1"
             >
               ${relationship.icon} ${relationship.label}
             </span>

@@ -60,7 +60,7 @@ describe("createPaperTermsDisplay", () => {
 });
 
 describe("getRelationshipStyle", () => {
-  it("should return target style for semantic positive", () => {
+  it("should return semantic style for semantic positive", () => {
     const paper = createTestRelatedPaper({
       paper_id: "1",
       title: "Test",
@@ -73,14 +73,15 @@ describe("getRelationshipStyle", () => {
 
     const result = getRelationshipStyle(paper);
 
-    expect(result.type).toBe("target");
-    expect(result.label).toBe("Target");
-    expect(result.icon).toBe("🧠");
-    expect(result.style).toBe("rounded-full");
-    expect(result.color).toContain("bg-orange-100");
+    expect(result.type).toBe("semantic");
+    expect(result.label).toBe("Semantic");
+    expect(result.icon).toContain("svg");
+    expect(result.icon).toContain("circle"); // semantic icon has circles
+    expect(result.style).toBe("rounded-md");
+    expect(result.color).toContain("bg-gray-100");
   });
 
-  it("should return background style for semantic negative", () => {
+  it("should return semantic style for semantic negative", () => {
     const paper = createTestRelatedPaper({
       paper_id: "1",
       title: "Test",
@@ -93,14 +94,14 @@ describe("getRelationshipStyle", () => {
 
     const result = getRelationshipStyle(paper);
 
-    expect(result.type).toBe("background");
-    expect(result.label).toBe("Background");
-    expect(result.icon).toBe("🧠");
-    expect(result.style).toBe("rounded-full");
-    expect(result.color).toContain("bg-green-100");
+    expect(result.type).toBe("semantic");
+    expect(result.label).toBe("Semantic");
+    expect(result.icon).toContain("svg");
+    expect(result.style).toBe("rounded-md");
+    expect(result.color).toContain("bg-gray-100");
   });
 
-  it("should return supporting style for citations positive", () => {
+  it("should return citation style for citations positive", () => {
     const paper = createTestRelatedPaper({
       paper_id: "1",
       title: "Test",
@@ -113,14 +114,15 @@ describe("getRelationshipStyle", () => {
 
     const result = getRelationshipStyle(paper);
 
-    expect(result.type).toBe("supporting");
-    expect(result.label).toBe("Supporting");
-    expect(result.icon).toBe("🔗");
+    expect(result.type).toBe("citation");
+    expect(result.label).toBe("Citation");
+    expect(result.icon).toContain("svg");
+    expect(result.icon).toContain("path"); // link icon has path
     expect(result.style).toBe("rounded-md");
-    expect(result.color).toContain("bg-emerald-100");
+    expect(result.color).toContain("bg-gray-100");
   });
 
-  it("should return contrasting style for citations negative", () => {
+  it("should return citation style for citations negative", () => {
     const paper = createTestRelatedPaper({
       paper_id: "1",
       title: "Test",
@@ -133,14 +135,14 @@ describe("getRelationshipStyle", () => {
 
     const result = getRelationshipStyle(paper);
 
-    expect(result.type).toBe("contrasting");
-    expect(result.label).toBe("Contrasting");
-    expect(result.icon).toBe("🔗");
+    expect(result.type).toBe("citation");
+    expect(result.label).toBe("Citation");
+    expect(result.icon).toContain("svg");
     expect(result.style).toBe("rounded-md");
-    expect(result.color).toContain("bg-red-100");
+    expect(result.color).toContain("bg-gray-100");
   });
 
-  it("should default to contrasting for unknown combinations", () => {
+  it("should default to citation for unknown source", () => {
     const paper = createTestRelatedPaper({
       paper_id: "1",
       title: "Test",
@@ -153,8 +155,8 @@ describe("getRelationshipStyle", () => {
 
     const result = getRelationshipStyle(paper);
 
-    expect(result.type).toBe("contrasting");
-    expect(result.label).toBe("Contrasting");
+    expect(result.type).toBe("citation");
+    expect(result.label).toBe("Citation");
   });
 });
 
