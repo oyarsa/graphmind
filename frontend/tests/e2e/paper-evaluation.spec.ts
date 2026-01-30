@@ -234,7 +234,7 @@ async function searchPaper(
   title: string,
   options: { maxRetries?: number; retryDelayMs?: number } = {},
 ): Promise<void> {
-  const maxRetries = options.maxRetries ?? 3;
+  const maxRetries = options.maxRetries ?? 5;
   const retryDelayMs = options.retryDelayMs ?? 5000; // 5 seconds for backend rate limit
 
   // Ensure we're on the arXiv tab
@@ -243,6 +243,8 @@ async function searchPaper(
     await arxivTab.click();
     await page.waitForTimeout(500);
   }
+
+  let lastError: string | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     // Clear any previous search
@@ -254,34 +256,33 @@ async function searchPaper(
     try {
       // Wait for results container to become visible
       await page.waitForSelector("#arxiv-papers-container:not(.hidden)", {
-        timeout: 30000,
+        timeout: 60000, // 60 seconds
       });
       return; // Success
     } catch {
-      // Check if rate limited - error is shown in #arxiv-error-message
+      // Check for error message
       const errorEl = page.locator("#arxiv-error-message");
       const errorText = (await errorEl.isVisible())
         ? await errorEl.textContent()
         : null;
-      const isRateLimited =
-        (errorText?.includes("Too many requests") ?? false) ||
-        (errorText?.includes("Please wait") ?? false);
+      lastError = errorText ?? "timeout";
 
-      if (isRateLimited && attempt < maxRetries) {
+      // Retry on any failure, not just rate limiting
+      if (attempt < maxRetries) {
         const jitter = Math.random() * 2000; // 0-2 second random jitter
         const waitTime = retryDelayMs + jitter;
         console.log(
-          `Rate limited on attempt ${attempt + 1}/${maxRetries + 1}, waiting ${(waitTime / 1000).toFixed(1)}s...`,
+          `Search attempt ${attempt + 1}/${maxRetries + 1} failed (${lastError}), waiting ${(waitTime / 1000).toFixed(1)}s...`,
         );
         await page.waitForTimeout(waitTime);
         continue;
       }
-
-      throw new Error(
-        `Search failed after ${attempt + 1} attempts. Last error: ${errorText?.slice(0, 200)}`,
-      );
     }
   }
+
+  throw new Error(
+    `Search failed after ${maxRetries + 1} attempts. Last error: ${lastError?.slice(0, 200)}`,
+  );
 }
 
 /**
@@ -317,7 +318,7 @@ async function waitForEvaluationComplete(page: Page): Promise<void> {
 
   // Wait for navigation to detail page (evaluation complete)
   await page.waitForURL("**/detail.html**", {
-    timeout: 4 * 60 * 1000, // 4 minutes for evaluation
+    timeout: 6 * 60 * 1000, // 6 minutes for evaluation
   });
 
   // Wait for content to load
