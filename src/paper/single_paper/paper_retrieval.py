@@ -243,7 +243,7 @@ async def fetch_s2_paper_info(
 
 def _normalise_title(title: str) -> str:
     """Remove non-alpha characters from title."""
-    return "".join(c for c in title if c.isalpha() or c.isspace()).strip()
+    return "".join(c for c in title if c.isalpha()).casefold()
 
 
 async def search_arxiv_papers(
