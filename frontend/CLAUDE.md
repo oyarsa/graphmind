@@ -8,6 +8,9 @@ repository.
 **ALWAYS run `just lint` after making any code changes before considering the task
 complete.** This ensures code formatting, type checking, and all tests pass.
 
+**Run `just e2e` after major frontend/API changes** to run the end-to-end Playwright tests.
+The servers are started automatically by Playwright.
+
 **ALWAYS notify the user when you are done, even if you don't need input from them.**
 
 ## Development Commands
@@ -123,7 +126,45 @@ The application consists of two primary interfaces accessible from a central hom
 
 ## End-to-End Testing with Playwright
 
-Use the Playwright MCP to test the frontend end-to-end.
+### Automated E2E Tests
+
+The `tests/e2e/` directory contains automated Playwright tests that verify the full
+evaluation flow. Tests run in parallel (up to 5 papers concurrently) for speed.
+
+**Setup (first time only):**
+
+```bash
+npm install                         # Install dependencies including Playwright
+just e2e-install                    # Install Playwright browsers
+```
+
+**Running the tests:**
+
+```bash
+just e2e                          # Run all e2e tests (headless)
+just e2e-headed                   # Run with browser visible (for debugging)
+```
+
+Servers are started automatically by Playwright's `webServer` config. If you already have
+the servers running, they will be reused (set `reuseExistingServer: false` in
+`playwright.config.ts` to force fresh servers).
+
+**What the tests check:**
+
+- Search page loads correctly
+- arXiv search returns results
+- Paper evaluation completes successfully
+- Detail page shows correct data (year, novelty score, evidence, graph)
+- Evidence has no raw LaTeX commands or bad summary patterns
+- Evidence distribution (max 5 per type, semantic capped at 3)
+- Date filtering (related papers not from the future)
+- Sections are collapsible
+- Related papers filtering works
+- Cached papers navigate directly to detail
+
+### Manual Testing with Playwright MCP
+
+Use the Playwright MCP tools for interactive/exploratory testing.
 
 **Setup:**
 

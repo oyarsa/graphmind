@@ -6,9 +6,12 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "test": "vitest"
+    "test": "vitest",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed"
   },
   "devDependencies": {
+    "@playwright/test": "^1.41.0",
     "@eslint/js": "^9.27.0",
     "@tailwindcss/vite": "^4.1.8",
     "@types/node": "^25.0.9",

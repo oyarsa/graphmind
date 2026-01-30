@@ -32,3 +32,6 @@ dist-ssr
 # Large data files
 *.large.json
 tmp/
+
+playwright-report/
+test-results/

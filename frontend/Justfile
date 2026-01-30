@@ -42,3 +42,15 @@ build:
 # Preview the built project
 preview: build
     npx vite preview --host
+
+# Run e2e tests with Playwright (requires backend on :8000 and frontend on :5173)
+e2e:
+    npx playwright test
+
+# Run e2e tests with browser visible (for debugging)
+e2e-headed:
+    npx playwright test --headed
+
+# Install Playwright browsers
+e2e-install:
+    npx playwright install
