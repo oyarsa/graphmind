@@ -31,7 +31,7 @@ MAX_CONCURRENT_REQUESTS = 5
 
 # Paper definitions
 ATTENTION_PAPER = ("1706.03762", "Attention Is All You Need")
-SLEEPER_AGENTS_PAPER = ("2401.02954", "Sleeper Agents: Training Deceptive LLMs")
+SLEEPER_AGENTS_PAPER = ("2401.05566", "Sleeper Agents: Training Deceptive LLMs")
 
 
 @dataclass
