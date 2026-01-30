@@ -101,6 +101,9 @@ class PaperReference(Immutable):
         Sequence[CitationContext],
         Field(description="Citation context with optional polarity evaluation"),
     ]
+    citation_key: Annotated[
+        str, Field(description="BibTeX citation key (e.g., 'vaswani2017attention')")
+    ] = ""
 
 
 class Paper(Record):

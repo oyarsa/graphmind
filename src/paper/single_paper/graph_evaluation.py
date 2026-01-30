@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Sequence
-from typing import Annotated, Self
+from typing import TYPE_CHECKING, Annotated, Self
+
+if TYPE_CHECKING:
+    from paper.semantic_scholar.model import S2Reference
 
 from pydantic import Field
 
@@ -21,8 +24,8 @@ from paper.gpt.evaluate_paper import (
     fix_evaluated_rating,
 )
 from paper.gpt.evaluate_paper_graph import (
+    PRIMARY_AREAS,
     format_eval_template,
-    format_graph_template,
     get_demonstrations,
 )
 from paper.gpt.graph_types.excerpts import GPTExcerpt
@@ -37,6 +40,88 @@ from paper.util.serde import replace_fields
 logger = logging.getLogger(__name__)
 
 type ProgressCallback = Callable[[str], Awaitable[None]]
+
+DEFAULT_UNKNOWN_AUTHORS = "Unknown authors"
+
+
+def format_author_names(
+    names: Sequence[str],
+    *,
+    max_display: int = 2,
+    default: str = DEFAULT_UNKNOWN_AUTHORS,
+) -> str:
+    """Format a list of author names for display.
+
+    Args:
+        names: List of author name strings.
+        max_display: Maximum number of authors to show before using "et al."
+        default: String to return if no names are provided.
+
+    Returns:
+        Formatted author string like "Alice, Bob" or "Alice et al."
+    """
+    if not names:
+        return default
+
+    if len(names) <= max_display:
+        return ", ".join(names)
+
+    return f"{names[0]} et al."
+
+
+def format_bibliography(references: Sequence[S2Reference]) -> str:
+    """Format paper references as a bibliography section for GPT context.
+
+    Creates a mapping from citation keys to paper metadata so GPT can naturally
+    expand LaTeX citations to human-readable format (e.g., "Smith et al., 2023").
+
+    Args:
+        references: S2 references with citation keys.
+
+    Returns:
+        Formatted bibliography text, or empty string if no keys available.
+    """
+    lines: list[str] = []
+    for ref in references:
+        if not ref.citation_key:
+            continue
+
+        author_names = [a.name for a in ref.authors if a.name] if ref.authors else []
+        authors_str = format_author_names(author_names)
+
+        year_str = str(ref.year) if ref.year else "n.d."
+        lines.append(f"[{ref.citation_key}] {ref.title}. {authors_str}, {year_str}.")
+
+    return "\n".join(lines)
+
+
+def format_graph_template_with_bibliography(
+    prompt: gpt.PromptTemplate, paper: gpt.PeerReadAnnotated
+) -> str:
+    """Format graph extraction template with bibliography context.
+
+    Extends the main text with a bibliography section so GPT can resolve
+    citation keys to actual paper names and authors.
+
+    Args:
+        prompt: Graph extraction prompt template.
+        paper: Annotated paper data.
+
+    Returns:
+        Formatted prompt string with bibliography included.
+    """
+    main_text = paper.paper.main_text
+
+    # Add bibliography if references have citation keys
+    if bibliography := format_bibliography(paper.paper.references):
+        main_text = f"{main_text}\n\nBibliography:\n{bibliography}"
+
+    return prompt.template.format(
+        title=paper.title,
+        abstract=paper.abstract,
+        main_text=main_text,
+        primary_areas=", ".join(PRIMARY_AREAS),
+    )
 
 
 class EvaluationResult(Immutable):
@@ -88,14 +173,14 @@ async def extract_graph_from_paper(
         paper: Annotated paper data.
         client: LLM client for GPT API calls.
         graph_prompt: Graph extraction prompt template.
-        title: Paper title.
-        abstract: Paper abstract.
 
     Returns:
         Extracted graph wrapped in GPTResult.
     """
     result = await client.run(
-        GPTExcerpt, graph_prompt.system, format_graph_template(graph_prompt, paper)
+        GPTExcerpt,
+        graph_prompt.system,
+        format_graph_template_with_bibliography(graph_prompt, paper),
     )
     graph = result.map(
         lambda r: r.to_graph(paper.title, paper.abstract) if r else gpt.Graph.empty()

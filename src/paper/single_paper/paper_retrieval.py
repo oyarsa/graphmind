@@ -372,7 +372,9 @@ async def enhance_with_s2_references(
     }
 
     s2_references = [
-        s2.S2Reference.from_(s2_paper, contexts=ref.contexts)
+        s2.S2Reference.from_(
+            s2_paper, contexts=ref.contexts, citation_key=ref.citation_key
+        )
         for ref in paper.references
         if (s2_paper := s2_papers_from_query.get(s2.clean_title(ref.title)))
     ]

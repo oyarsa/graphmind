@@ -216,6 +216,7 @@ class Reference:
     title: str
     year: str | None
     authors: list[str]
+    citation_key: str = ""
     citation_contexts: list[str] = dc.field(default_factory=list[str])
 
 
@@ -263,6 +264,7 @@ def latex_paper_to_peerread(
                 year=year,
                 authors=ref.authors,
                 contexts=contexts,
+                citation_key=ref.citation_key,
             )
         )
 
@@ -404,6 +406,7 @@ def process_latex(
                 title=ref.title,
                 year=ref.year,
                 authors=ref.authors,
+                citation_key=citation_key,
                 citation_contexts=contexts,
             )
         else:
@@ -413,6 +416,7 @@ def process_latex(
                 title="Unknown Reference",
                 year=None,
                 authors=[],
+                citation_key=citation_key,
                 citation_contexts=contexts,
             )
 
@@ -707,6 +711,7 @@ def _extract_bibliography_from_bibfiles(
                 title=title,
                 year=year,
                 authors=authors,
+                citation_key=citation_key,
             )
 
     return references
@@ -809,6 +814,7 @@ def _extract_bibliography_from_bibitems(latex_content: str) -> dict[str, Referen
             title=title,
             year=year,
             authors=authors,
+            citation_key=citation_key,
         )
 
     return references

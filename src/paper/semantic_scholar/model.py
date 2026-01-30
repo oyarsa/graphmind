@@ -153,13 +153,20 @@ class S2Reference(PaperFromPeerRead):
     """S2 paper as a reference with the original contexts."""
 
     contexts: Sequence[pr.CitationContext]
+    citation_key: str = ""
 
     @classmethod
     def from_(
-        cls, paper: PaperFromPeerRead, *, contexts: Sequence[pr.CitationContext]
+        cls,
+        paper: PaperFromPeerRead,
+        *,
+        contexts: Sequence[pr.CitationContext],
+        citation_key: str = "",
     ) -> Self:
         """Create new instance by copying data from S2Paper, in addition to the contexts."""
-        return cls.model_validate(paper.model_dump() | {"contexts": contexts})
+        return cls.model_validate(
+            paper.model_dump() | {"contexts": contexts, "citation_key": citation_key}
+        )
 
 
 class PaperWithS2Refs(Record):
