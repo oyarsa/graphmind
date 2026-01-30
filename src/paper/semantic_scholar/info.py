@@ -149,6 +149,29 @@ async def fetch_paper_data(
         return None
 
 
+MIN_TITLE_MATCH_RATIO = 80
+
+
+def is_valid_title_match(
+    searched_title: str, returned_title: str, min_ratio: int = MIN_TITLE_MATCH_RATIO
+) -> bool:
+    """Check if a returned title is a valid match for the searched title.
+
+    Uses fuzzy matching to determine if the S2 API returned the correct paper.
+    S2 sometimes returns completely different papers when the exact title isn't found.
+
+    Args:
+        searched_title: The title we searched for.
+        returned_title: The title returned by S2.
+        min_ratio: Minimum fuzzy match ratio (0-100) to consider valid. Default 80.
+
+    Returns:
+        True if the titles match sufficiently, False otherwise.
+    """
+    ratio = title_ratio(searched_title, returned_title)
+    return ratio >= min_ratio
+
+
 async def fetch_paper_info(
     session: aiohttp.ClientSession,
     api_key: str,
@@ -158,17 +181,31 @@ async def fetch_paper_info(
 ) -> PaperFromPeerRead | None:
     """Fetch paper information for a given title. Takes only the best title match.
 
-    The title match is done by the S2 API, not us. It's usually pretty good.
+    The title match is done by the S2 API, then validated by us using fuzzy matching.
+    If the returned title doesn't match the searched title (ratio < 80*), returns None.
+
+    * See `MIN_TITLE_MATCH_RATIO`.
     """
     raw_data = await fetch_paper_data(session, api_key, paper_title, fields, limiter)
     if raw_data is None:
         return None
 
     try:
-        return PaperFromPeerRead.model_validate(raw_data)
+        paper = PaperFromPeerRead.model_validate(raw_data)
     except ValidationError as e:
         logger.debug("Validation error: %s.", e)
         return None
+
+    # Validate title match - S2 sometimes returns completely different papers
+    if not is_valid_title_match(paper.title_peer, paper.title):
+        logger.debug(
+            "Title mismatch: searched '%s', got '%s'",
+            paper_title,
+            paper.title,
+        )
+        return None
+
+    return paper
 
 
 async def fetch_papers_from_s2(

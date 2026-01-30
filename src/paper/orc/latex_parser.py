@@ -712,28 +712,61 @@ def _extract_bibliography_from_bibfiles(
     return references
 
 
+# Compiled regex patterns for bibitem parsing
+_RE_BIBENV = re.compile(
+    r"\\begin\{thebibliography\}.*?\\end\{thebibliography\}", re.DOTALL
+)
+_RE_BIBITEM = re.compile(
+    r"\\bibitem(?:\[[^\]]*\])?\{([^}]+)\}(.*?)(?=\\bibitem|\n\n|\\end\{thebibliography\}|$)",
+    re.DOTALL,
+)
+_RE_YEAR = re.compile(r"(?:\()?\b(\d{4})\b(?:\))?")
+_RE_NEWBLOCK_TITLE = re.compile(r"\\newblock\s+([^{\\]+?)\.(?:\s|\\newblock|$)")
+_RE_JOURNAL_LIKE = re.compile(r"^(arXiv|CoRR|Proc|In\s|pages?\s|\d{4})", re.IGNORECASE)
+_RE_TRAILING_YEAR = re.compile(r",?\s*\d{4}$")
+_RE_LATEX_COMMANDS = re.compile(r"\\[a-z]+(\[[^\]]*\])?(\{[^}]*\})?")
+_RE_AND_SEPARATOR = re.compile(r" and ", re.IGNORECASE)
+
+
+def extract_title_from_bibitem_entry(entry_text: str) -> str:
+    r"""Extract paper title from a bibitem entry text.
+
+    Extracts title from \newblock pattern common in BibTeX-generated bibitems.
+    The title is expected after the first \newblock, ending with a period.
+
+    Args:
+        entry_text: The raw text content of a bibitem entry (after the citation key).
+
+    Returns:
+        Extracted title, or "Unknown Title" if no title could be found.
+    """
+    # Extract title after \newblock (common in bibtex-generated bibitems)
+    # e.g., "\newblock Layer normalization."
+    newblock_match = _RE_NEWBLOCK_TITLE.search(entry_text)
+    if newblock_match:
+        candidate = newblock_match.group(1).strip()
+        # Filter out journal-like patterns (year, arXiv, CoRR, Proc, etc.)
+        if candidate and not _RE_JOURNAL_LIKE.match(candidate):
+            # Clean up: collapse whitespace, remove trailing year
+            cleaned = " ".join(candidate.split())
+            return _RE_TRAILING_YEAR.sub("", cleaned)
+
+    return "Unknown Title"
+
+
 def _extract_bibliography_from_bibitems(latex_content: str) -> dict[str, Reference]:
     r"""Extract bibliography entries from \\bibitem commands in the LaTeX content."""
     references: dict[str, Reference] = {}
 
     # Find the bibliography environment
-    bibenv_pattern = re.compile(
-        r"\\begin\{thebibliography\}.*?\\end\{thebibliography\}", re.DOTALL
-    )
-    bibenv_match = bibenv_pattern.search(latex_content)
+    bibenv_match = _RE_BIBENV.search(latex_content)
 
     if not bibenv_match:
         return references
 
     bibenv_content = bibenv_match.group(0)
 
-    # Extract bibitem entries
-    bibitem_pattern = re.compile(
-        r"\\bibitem(?:\[[^\]]*\])?\{([^}]+)\}(.*?)(?=\\bibitem|\n\n|\\end\{thebibliography\}|$)",
-        re.DOTALL,
-    )
-
-    for match in bibitem_pattern.finditer(bibenv_content):
+    for match in _RE_BIBITEM.finditer(bibenv_content):
         citation_key = match.group(1).strip()
         entry_text = match.group(2).strip()
 
@@ -742,28 +775,12 @@ def _extract_bibliography_from_bibitems(latex_content: str) -> dict[str, Referen
 
         # Extract year (look for 4 consecutive digits, possibly in parentheses)
         year = None
-        year_match = re.search(r"(?:\()?\b(\d{4})\b(?:\))?", entry_text)
+        year_match = _RE_YEAR.search(entry_text)
         if year_match:
             year = year_match.group(1)
 
-        # Extract title (common patterns in bibliography entries)
-        title = "Unknown Title"
-        title_patterns = [
-            r'"([^"]+)"',  # "Title"
-            r"``([^']+)''",  # ``Title''
-            r"``([^']+)\"",  # ``Title"
-            r"\"([^']+)''",  # "Title''
-            r"\{\\em ([^}]+)\}",  # {\em Title}
-            r"\{\\it ([^}]+)\}",  # {\it Title}
-            r"\\textit\{([^}]+)\}",  # \textit{Title}
-            r"\\emph\{([^}]+)\}",  # \emph{Title}
-        ]
-
-        for pattern in title_patterns:
-            title_match = re.search(pattern, entry_text)
-            if title_match:
-                title = title_match.group(1).strip()
-                break
+        # Extract title using the pure function
+        title = extract_title_from_bibitem_entry(entry_text)
 
         # Extract authors (heuristic)
         authors: list[str] = []
@@ -776,14 +793,12 @@ def _extract_bibliography_from_bibitems(latex_content: str) -> dict[str, Referen
             author_text = entry_text.split(year)[0]
 
         # Look for patterns like "Author1, Author2, and Author3"
-        author_text = re.sub(
-            r"\\[a-z]+(\[[^\]]*\])?(\{[^}]*\})?", "", author_text
-        )  # Remove LaTeX commands
+        author_text = _RE_LATEX_COMMANDS.sub("", author_text)  # Remove LaTeX commands
         author_text = author_text.split(".")[0]  # Authors often end with a period
 
         # Split by common separators
         if " and " in author_text.lower():
-            parts = re.split(r" and ", author_text, flags=re.IGNORECASE)
+            parts = _RE_AND_SEPARATOR.split(author_text)
             authors = [p.strip() for p in parts if p.strip()]
         else:
             # If no "and", try splitting by commas
