@@ -31,6 +31,7 @@ from thefuzz import fuzz  # type: ignore
 from tqdm import tqdm
 
 from paper.util import cli, progress
+from paper.util.request_context import get_request_id
 
 if TYPE_CHECKING:
     from paper.util.typing import TSeq
@@ -129,6 +130,16 @@ def setup_logging() -> None:
     _setup_logging("__main__")  # This one's for when a script is called directly
 
 
+class RequestIdFilter(logging.Filter):
+    """Filter that adds request_id to log records."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Add request_id attribute to log record."""
+        request_id = get_request_id()
+        record.request_id = f"({request_id}) " if request_id else ""
+        return True
+
+
 class ColoredFormatter(logging.Formatter):
     """Custom logging formatter to add colors to log levels."""
 
@@ -171,11 +182,12 @@ def _setup_logging(logger_name: str) -> None:
     handler = logging.StreamHandler(sys.stderr)
 
     # Define the log format and date format
-    fmt = "%(log_color)s%(asctime)s | %(levelname)s | %(name)s:%(lineno)d | %(message)s%(reset)s"
+    fmt = "%(log_color)s%(asctime)s | %(levelname)s | %(name)s:%(lineno)d | %(request_id)s%(message)s%(reset)s"
     datefmt = "%Y-%m-%d %H:%M:%S"
 
-    # Set the custom formatter
+    # Set the custom formatter and filter
     handler.setFormatter(ColoredFormatter(fmt=fmt, datefmt=datefmt))
+    handler.addFilter(RequestIdFilter())
     logger.addHandler(handler)
 
 
