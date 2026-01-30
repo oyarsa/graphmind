@@ -31,7 +31,7 @@ from thefuzz import fuzz  # type: ignore
 from tqdm import tqdm
 
 from paper.util import cli, progress
-from paper.util.request_context import get_request_id
+from paper.util.request_context import get_request_context
 
 if TYPE_CHECKING:
     from paper.util.typing import TSeq
@@ -130,13 +130,14 @@ def setup_logging() -> None:
     _setup_logging("__main__")  # This one's for when a script is called directly
 
 
-class RequestIdFilter(logging.Filter):
-    """Filter that adds request_id to log records."""
+class RequestContextFilter(logging.Filter):
+    """Filter that adds request context to error log records."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        """Add request_id attribute to log record."""
-        request_id = get_request_id()
-        record.request_id = f"({request_id}) " if request_id else ""
+        """Add request_context attribute to log record (only for ERROR and above)."""
+        record.request_id = ""
+        if record.levelno >= logging.ERROR and (ctx := get_request_context()):
+            record.request_id = f"({ctx.format()}) "
         return True
 
 
@@ -187,7 +188,7 @@ def _setup_logging(logger_name: str) -> None:
 
     # Set the custom formatter and filter
     handler.setFormatter(ColoredFormatter(fmt=fmt, datefmt=datefmt))
-    handler.addFilter(RequestIdFilter())
+    handler.addFilter(RequestContextFilter())
     logger.addHandler(handler)
 
 

@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from paper import single_paper
 from paper.backend.rate_limiter import RateLimiter
 from paper.util import atimer
-from paper.util.request_context import set_request_id
+from paper.util.request_context import set_request_context
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ def create_streaming_response[T: BaseModel](
         return _new_streaming_response(_rate_limit_error_stream())
 
     request_id = _generate_request_id()
-    set_request_id(request_id)
+    set_request_context(request_id)
 
     async def generate_events() -> AsyncGenerator[str, None]:
         """Generate Server-Sent Events for progress updates and final result.
