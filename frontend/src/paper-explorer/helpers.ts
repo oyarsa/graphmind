@@ -143,6 +143,7 @@ export function createPaperTermsDisplay(
 
 /** SVG icon for semantic (two connected circles) relationships */
 export const SEMANTIC_ICON = `<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor" stroke="currentColor">
+  <title>Semantic: Found via meaning similarity</title>
   <circle cx="4.5" cy="8" r="2.5" stroke="none"/>
   <circle cx="11.5" cy="8" r="2.5" stroke="none"/>
   <line x1="7" y1="8" x2="9" y2="8" fill="none" stroke-width="1.5"/>
@@ -150,6 +151,7 @@ export const SEMANTIC_ICON = `<svg class="w-4 h-4" viewBox="0 0 16 16" fill="cur
 
 /** SVG icon for citation (link) relationships */
 export const CITATION_ICON = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+  <title>Citation: Found via reference links</title>
   <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
 </svg>`;
 
