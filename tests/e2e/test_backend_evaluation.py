@@ -1,6 +1,6 @@
 """End-to-end tests for the backend evaluation API.
 
-These tests query the actual backend with real papers and verify the response
+These tests use FastAPI's TestClient to run the app in-process and verify the response
 structure and data quality. They are marked as slow and require --runslow to run.
 
 Each test makes one request and runs multiple checks, collecting all failures
@@ -14,16 +14,16 @@ from collections.abc import Generator
 from dataclasses import dataclass, field
 from typing import Any
 
-import httpx
 import pytest
+from fastapi.testclient import TestClient
+
+from paper.backend.api import app
 
 # Skip if API key not set
 if not os.getenv("OPENAI_API_KEY"):
     pytest.skip("OPENAI_API_KEY environment variable not set", allow_module_level=True)
 
-BASE_URL = "http://127.0.0.1:8000"
 EVALUATE_ENDPOINT = "/mind/evaluate"
-DEFAULT_TIMEOUT = 120.0  # 2 minutes for evaluation
 
 
 @dataclass
@@ -142,7 +142,7 @@ class EvaluationChecker:
 
 
 def fetch_evaluation(
-    client: httpx.Client,
+    client: TestClient,
     arxiv_id: str,
     title: str,
     *,
@@ -189,14 +189,14 @@ def fetch_evaluation(
 
 
 @pytest.fixture(scope="module")
-def http_client() -> Generator[httpx.Client, None, None]:
-    """Create an HTTP client for the tests."""
-    with httpx.Client(base_url=BASE_URL, timeout=DEFAULT_TIMEOUT) as client:
+def test_client() -> Generator[TestClient, None, None]:
+    """Create a TestClient for the FastAPI app."""
+    with TestClient(app) as client:
         yield client
 
 
 @pytest.mark.slow
-def test_attention_paper_evaluation(http_client: httpx.Client) -> None:
+def test_attention_paper_evaluation(test_client: TestClient) -> None:
     """Test evaluation of 'Attention Is All You Need' (2017).
 
     This is a well-known older paper, good for testing:
@@ -207,7 +207,7 @@ def test_attention_paper_evaluation(http_client: httpx.Client) -> None:
     arxiv_id = "1706.03762"
     title = "Attention Is All You Need"
 
-    response = fetch_evaluation(http_client, arxiv_id, title)
+    response = fetch_evaluation(test_client, arxiv_id, title)
     checker = EvaluationChecker(paper_id=arxiv_id, response_data=response)
 
     # Get nested data - structure is response["result"]["result"]["paper"]
@@ -263,7 +263,7 @@ def test_attention_paper_evaluation(http_client: httpx.Client) -> None:
 
 
 @pytest.mark.slow
-def test_recent_paper_evaluation(http_client: httpx.Client) -> None:
+def test_recent_paper_evaluation(test_client: TestClient) -> None:
     """Test evaluation of a more recent paper.
 
     Tests that recent papers also work and have proper structure.
@@ -273,7 +273,7 @@ def test_recent_paper_evaluation(http_client: httpx.Client) -> None:
     arxiv_id = "2401.02954"
     title = "Sleeper Agents: Training Deceptive LLMs"
 
-    response = fetch_evaluation(http_client, arxiv_id, title)
+    response = fetch_evaluation(test_client, arxiv_id, title)
     checker = EvaluationChecker(paper_id=arxiv_id, response_data=response)
 
     outer_result = response.get("result", {})
@@ -313,7 +313,7 @@ def test_recent_paper_evaluation(http_client: httpx.Client) -> None:
 
 
 @pytest.mark.slow
-def test_evidence_source_distribution(http_client: httpx.Client) -> None:
+def test_evidence_source_distribution(test_client: TestClient) -> None:
     """Test that evidence comes from both semantic and citation sources.
 
     The expected distribution is up to 3 semantic + up to 2 citations per type,
@@ -322,7 +322,7 @@ def test_evidence_source_distribution(http_client: httpx.Client) -> None:
     arxiv_id = "1706.03762"
     title = "Attention Is All You Need"
 
-    response = fetch_evaluation(http_client, arxiv_id, title)
+    response = fetch_evaluation(test_client, arxiv_id, title)
     checker = EvaluationChecker(paper_id=arxiv_id, response_data=response)
 
     outer_result = response.get("result", {})
@@ -378,7 +378,7 @@ def test_evidence_source_distribution(http_client: httpx.Client) -> None:
 
 
 @pytest.mark.slow
-def test_summary_quality(http_client: httpx.Client) -> None:
+def test_summary_quality(test_client: TestClient) -> None:
     """Test that summaries don't start with 'The Related Paper...' pattern.
 
     This was a bug where summaries would echo the prompt terminology.
@@ -386,7 +386,7 @@ def test_summary_quality(http_client: httpx.Client) -> None:
     arxiv_id = "1706.03762"
     title = "Attention Is All You Need"
 
-    response = fetch_evaluation(http_client, arxiv_id, title)
+    response = fetch_evaluation(test_client, arxiv_id, title)
     checker = EvaluationChecker(paper_id=arxiv_id, response_data=response)
 
     outer_result = response.get("result", {})
