@@ -125,6 +125,9 @@ cat /tmp/out.json | jq '.result.result.paper.structured_evaluation | {label, sup
 - `fleche note <job-id> [text]` - View or set job note
 - `fleche ping` - Check Slurm cluster health
 - `fleche check` - Validate config after editing
+- `fleche check --remote` - Validate config against remote server (SSH, Slurm, disk space)
+- `fleche doctor` - Comprehensive troubleshooting diagnostics
+- `fleche compare <a> <b>` - Compare two job configurations side-by-side
 
 **Results:**
 - `fleche download [job-id]` - Download output files (`--partial` while job running)
