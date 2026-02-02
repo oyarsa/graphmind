@@ -2001,3 +2001,155 @@ experiments:
       (ORC: 0.142, PeerRead: 0.126) is slightly lower than the original single-seed
       results. Gen Graph continues to underperform Gen Basic on ORC but the gap
       narrows with proper error bars (0.142 vs 0.173).
+
+  # === SEARCH-GROUNDED BASELINES (Feb 2) ===
+  # Web search-based novelty evaluation using GPT-4o-mini-search and Gemini-2.0-flash
+
+  - date: "2026-02-02"
+    name: "gpt_search_orc"
+    type: baseline
+    description: "GPT-4o-mini-search on ORC (5 seeds)"
+    reason: >
+      Testing web search-grounded LLM as a baseline. Uses GPT-4o-mini with built-in
+      web search to find related papers dynamically, without pre-built knowledge graph.
+    command: |
+      uv run python -m paper.gpt.evaluate_paper_search run \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/baselines/search/gpt-4o-mini-search_orc_seed{42-46} \
+        --model gpt-4o-mini-search --limit 100 --eval-prompt simple \
+        --seed {42,43,44,45,46}
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini-search"
+      method: "search-grounded"
+      eval_prompt: "simple"
+      demos: null
+      seeds: [42, 43, 44, 45, 46]
+    metrics:
+      pearson: {mean: -0.077, stdev: 0.100, min: -0.216, max: 0.064}
+      spearman: {mean: -0.073, stdev: 0.114, min: -0.229, max: 0.092}
+      mae: {mean: 1.512, stdev: 0.029, min: 1.480, max: 1.560}
+      mse: {mean: 3.176, stdev: 0.122, min: 2.990, max: 3.290}
+      rmse: {mean: 1.782, stdev: 0.034, min: 1.729, max: 1.814}
+      accuracy: {mean: 0.130, stdev: 0.047, min: 0.070, max: 0.180}
+      acc_pm1: {mean: 0.542, stdev: 0.022, min: 0.520, max: 0.570}
+      f1: {mean: 0.082, stdev: 0.031, min: 0.045, max: 0.117}
+      precision: {mean: 0.106, stdev: 0.070, min: 0.044, max: 0.221}
+      recall: {mean: 0.098, stdev: 0.047, min: 0.049, max: 0.167}
+      cost_per_run: 0.05
+    total_cost: 0.25
+    conclusion: >
+      GPT search performs poorly with NEGATIVE correlation (-0.077). The model tends
+      to predict high ratings (4-5) regardless of actual novelty. Web search grounding
+      does not help GPT-4o-mini-search distinguish novel from non-novel papers.
+
+  - date: "2026-02-02"
+    name: "gpt_search_peerread"
+    type: baseline
+    description: "GPT-4o-mini-search on PeerRead (5 seeds)"
+    reason: >
+      Testing web search-grounded LLM as a baseline on PeerRead dataset.
+    command: |
+      uv run python -m paper.gpt.evaluate_paper_search run \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/baselines/search/gpt-4o-mini-search_peerread_seed{42-46} \
+        --model gpt-4o-mini-search --limit 68 --eval-prompt simple \
+        --seed {42,43,44,45,46}
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini-search"
+      method: "search-grounded"
+      eval_prompt: "simple"
+      demos: null
+      seeds: [42, 43, 44, 45, 46]
+    metrics:
+      pearson: {mean: -0.049, stdev: 0.075, min: -0.131, max: 0.063}
+      spearman: {mean: -0.013, stdev: 0.084, min: -0.084, max: 0.124}
+      mae: {mean: 1.485, stdev: 0.010, min: 1.471, max: 1.500}
+      mse: {mean: 3.115, stdev: 0.111, min: 3.029, max: 3.250}
+      rmse: {mean: 1.765, stdev: 0.031, min: 1.741, max: 1.803}
+      accuracy: {mean: 0.156, stdev: 0.017, min: 0.132, max: 0.176}
+      acc_pm1: {mean: 0.532, stdev: 0.035, min: 0.500, max: 0.588}
+      f1: {mean: 0.111, stdev: 0.015, min: 0.096, max: 0.135}
+      precision: {mean: 0.182, stdev: 0.037, min: 0.143, max: 0.240}
+      recall: {mean: 0.162, stdev: 0.011, min: 0.147, max: 0.178}
+      cost_per_run: 0.04
+    total_cost: 0.20
+    conclusion: >
+      GPT search also shows near-zero/negative correlation on PeerRead (-0.049).
+      Similar pattern to ORC: web search grounding does not help distinguish novelty.
+
+  - date: "2026-02-02"
+    name: "gemini_search_orc"
+    type: baseline
+    description: "Gemini-2.0-flash search on ORC (5 seeds)"
+    reason: >
+      Testing Gemini-2.0-flash with web search grounding as a baseline. Gemini uses
+      Google Search integration for finding related papers.
+    command: |
+      uv run python -m paper.gpt.evaluate_paper_search run \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/baselines/search/gemini-2_0-flash_orc_seed{42-46} \
+        --model gemini-2.0-flash --limit 100 --eval-prompt simple \
+        --seed {42,43,44,45,46}
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gemini-2.0-flash"
+      method: "search-grounded"
+      eval_prompt: "simple"
+      demos: null
+      seeds: [42, 43, 44, 45, 46]
+    metrics:
+      pearson: {mean: 0.114, stdev: 0.085, min: -0.013, max: 0.191}
+      spearman: {mean: 0.117, stdev: 0.074, min: 0.021, max: 0.192}
+      mae: {mean: 0.792, stdev: 0.046, min: 0.750, max: 0.860}
+      mse: {mean: 1.036, stdev: 0.088, min: 0.950, max: 1.160}
+      rmse: {mean: 1.017, stdev: 0.043, min: 0.975, max: 1.077}
+      accuracy: {mean: 0.320, stdev: 0.043, min: 0.270, max: 0.380}
+      acc_pm1: {mean: 0.898, stdev: 0.026, min: 0.870, max: 0.930}
+      f1: {mean: 0.180, stdev: 0.035, min: 0.138, max: 0.226}
+      precision: {mean: 0.137, stdev: 0.028, min: 0.103, max: 0.173}
+      recall: {mean: 0.266, stdev: 0.049, min: 0.207, max: 0.332}
+      cost_per_run: 0.006
+    total_cost: 0.03
+    conclusion: >
+      Gemini search performs modestly (Pearson 0.114), better than GPT search but
+      far below GPT Graph (0.377). Predictions cluster around rating 3, showing
+      the model is conservative. Google Search grounding provides some signal.
+
+  - date: "2026-02-02"
+    name: "gemini_search_peerread"
+    type: baseline
+    description: "Gemini-2.0-flash search on PeerRead (5 seeds)"
+    reason: >
+      Testing Gemini-2.0-flash with web search grounding on PeerRead dataset.
+    command: |
+      uv run python -m paper.gpt.evaluate_paper_search run \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/baselines/search/gemini-2_0-flash_peerread_seed{42-46} \
+        --model gemini-2.0-flash --limit 68 --eval-prompt simple \
+        --seed {42,43,44,45,46}
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gemini-2.0-flash"
+      method: "search-grounded"
+      eval_prompt: "simple"
+      demos: null
+      seeds: [42, 43, 44, 45, 46]
+    metrics:
+      pearson: {mean: 0.139, stdev: 0.113, min: 0.013, max: 0.262}
+      spearman: {mean: 0.131, stdev: 0.111, min: -0.031, max: 0.236}
+      mae: {mean: 0.791, stdev: 0.028, min: 0.750, max: 0.824}
+      mse: {mean: 0.856, stdev: 0.065, min: 0.750, max: 0.912}
+      rmse: {mean: 0.925, stdev: 0.036, min: 0.866, max: 0.955}
+      accuracy: {mean: 0.241, stdev: 0.022, min: 0.206, max: 0.265}
+      acc_pm1: {mean: 0.968, stdev: 0.022, min: 0.941, max: 1.000}
+      f1: {mean: 0.131, stdev: 0.033, min: 0.086, max: 0.162}
+      precision: {mean: 0.159, stdev: 0.076, min: 0.056, max: 0.252}
+      recall: {mean: 0.245, stdev: 0.035, min: 0.194, max: 0.283}
+      cost_per_run: 0.008
+    total_cost: 0.04
+    conclusion: >
+      Gemini search performs modestly on PeerRead (Pearson 0.139), similar to ORC.
+      Better than GPT search (-0.049) but far below GPT Graph (0.538). High Acc±1
+      (0.968) reflects conservative predictions clustering around the mean.
