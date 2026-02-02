@@ -105,6 +105,12 @@ def run(
             click_type=Choice(SEARCH_EVAL_USER_PROMPTS),
         ),
     ] = "simple",
+    search_level: Annotated[
+        str,
+        typer.Option(
+            help="Search context size: low, medium, or high. Higher = more search context.",
+        ),
+    ] = "low",
     continue_papers: Annotated[
         Path | None, typer.Option(help="Path to file with data from a previous run.")
     ] = None,
@@ -123,12 +129,17 @@ def run(
     ] = 100,
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers."""
+    search_level_enum = SearchLevel.from_str(search_level)
+    if search_level_enum is None:
+        die(f"Invalid search level: {search_level}. Must be one of: low, medium, high")
+
     asyncio.run(
         evaluate_papers(
             model,
             paper_file,
             limit_papers,
             eval_prompt,
+            search_level_enum,
             output_dir,
             continue_papers,
             continue_,
@@ -149,6 +160,7 @@ async def evaluate_papers(
     paper_file: Path,
     limit_papers: int | None,
     eval_prompt_key: str,
+    search_level: SearchLevel,
     output_dir: Path,
     continue_papers_file: Path | None,
     continue_: bool,
@@ -167,6 +179,7 @@ async def evaluate_papers(
         eval_prompt_key: Key to the user prompt to use for paper evaluation. See
             `GRAPH_EVAL_USER_PROMPTS` for available options or the `prompts` command
             for more information.
+        search_level: Search context size (low, medium, high).
         output_dir: Directory to save the output files: intermediate and final results,
             and classification metrics.
         continue_papers_file: If provided, check for entries in the input data. If they
@@ -213,6 +226,7 @@ async def evaluate_papers(
         results = await _evaluate_papers(
             client,
             eval_prompt,
+            search_level,
             papers_remaining.remaining,
             output_intermediate_file,
             batch_size,
@@ -242,6 +256,7 @@ async def evaluate_papers(
 async def _evaluate_papers(
     client: LLMClient,
     eval_prompt: PromptTemplate,
+    search_level: SearchLevel,
     papers: Sequence[PaperWithRelatedSummary],
     output_intermediate_file: Path,
     batch_size: int,
@@ -251,6 +266,7 @@ async def _evaluate_papers(
     Args:
         client: OpenAI client to use GPT.
         eval_prompt: Prompt template for novelty evaluation.
+        search_level: Search context size (low, medium, high).
         papers: Annotated PeerRead papers with their summarised graph data.
         output_intermediate_file: File to write new results after paper is evaluated.
         batch_size: Number of items per batch.
@@ -265,7 +281,10 @@ async def _evaluate_papers(
         total=len(papers), desc="Evaluating papers", position=0, leave=True
     ) as pbar_papers:
         for batch in itertools.batched(papers, batch_size):
-            tasks = [_evaluate_paper(client, paper, eval_prompt) for paper in batch]
+            tasks = [
+                _evaluate_paper(client, paper, eval_prompt, search_level)
+                for paper in batch
+            ]
 
             for task in progress.as_completed(
                 tasks, desc="Evaluating batch", position=1, leave=False
@@ -282,12 +301,15 @@ async def _evaluate_papers(
 
 
 async def _evaluate_paper(
-    client: LLMClient, paper: PaperWithRelatedSummary, eval_prompt: PromptTemplate
+    client: LLMClient,
+    paper: PaperWithRelatedSummary,
+    eval_prompt: PromptTemplate,
+    search_level: SearchLevel,
 ) -> GPTResult[PromptResult[PaperResult]]:
     prompt_text = format_template(eval_prompt, paper.paper)
     system_prompt = eval_prompt.system
     result_str = await client.plain(
-        system_prompt, prompt_text, search_level=SearchLevel.LOW
+        system_prompt, prompt_text, search_level=search_level
     )
     result = result_str.map(parse_result)
 
