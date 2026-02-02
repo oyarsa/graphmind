@@ -69,6 +69,7 @@ cat /tmp/out.json | jq '.result.result.paper.structured_evaluation | {label, sup
 - `result.result.paper.structured_evaluation.conclusion` - Final assessment
 
 ## Code Style
+- **All files must be shorter than 1000 non-empty lines** (blank lines don't count). If a file exceeds this limit, split it into smaller, well-organized modules.
 - Python 3.12+ with strict typing (no exceptions)
 - Functional programming with dataclasses over OOP
 - British English everywhere

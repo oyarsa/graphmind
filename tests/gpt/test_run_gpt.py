@@ -405,7 +405,7 @@ class TestLLMClientMethods:
             message="test response", value=42
         )
 
-        with patch("paper.gpt.run_gpt.AsyncOpenAI") as mock_openai:
+        with patch("paper.gpt.clients.openai.AsyncOpenAI") as mock_openai:
             mock_client = AsyncMock()
             mock_openai.return_value = mock_client
             mock_client.beta.chat.completions.parse = AsyncMock(
@@ -439,7 +439,7 @@ class TestLLMClientMethods:
     @pytest.mark.asyncio
     async def test_openai_run_api_error(self) -> None:
         """Test OpenAI client run method with API error."""
-        with patch("paper.gpt.run_gpt.AsyncOpenAI") as mock_openai:
+        with patch("paper.gpt.clients.openai.AsyncOpenAI") as mock_openai:
             mock_client = AsyncMock()
             mock_openai.return_value = mock_client
             mock_client.beta.chat.completions.parse = AsyncMock(
@@ -477,7 +477,7 @@ class TestLLMClientMethods:
         mock_completion.choices = [MagicMock()]
         mock_completion.choices[0].message.content = "Plain text response"
 
-        with patch("paper.gpt.run_gpt.AsyncOpenAI") as mock_openai:
+        with patch("paper.gpt.clients.openai.AsyncOpenAI") as mock_openai:
             mock_client = AsyncMock()
             mock_openai.return_value = mock_client
             mock_client.chat.completions.create = AsyncMock(
@@ -514,7 +514,7 @@ class TestLLMClientMethods:
         mock_completion.choices = [MagicMock()]
         mock_completion.choices[0].message.content = "Search response"
 
-        with patch("paper.gpt.run_gpt.AsyncOpenAI") as mock_openai:
+        with patch("paper.gpt.clients.openai.AsyncOpenAI") as mock_openai:
             mock_client = AsyncMock()
             mock_openai.return_value = mock_client
             mock_client.chat.completions.create = AsyncMock(
@@ -551,7 +551,7 @@ class TestLLMClientMethods:
         mock_response.usage_metadata.candidates_token_count = 50
         mock_response.parsed = LLMTestModel(message="gemini response", value=24)
 
-        with patch("paper.gpt.run_gpt.genai.Client") as mock_genai:
+        with patch("paper.gpt.clients.gemini.genai.Client") as mock_genai:
             mock_client = AsyncMock()
             mock_genai.return_value = mock_client
             mock_client.aio.models.generate_content = AsyncMock(
@@ -590,7 +590,7 @@ class TestLLMClientMethods:
         mock_response.usage_metadata.candidates_token_count = 50
         mock_response.parsed = "not a valid model instance"
 
-        with patch("paper.gpt.run_gpt.genai.Client") as mock_genai:
+        with patch("paper.gpt.clients.gemini.genai.Client") as mock_genai:
             mock_client = AsyncMock()
             mock_genai.return_value = mock_client
             mock_client.aio.models.generate_content = AsyncMock(
@@ -629,7 +629,7 @@ class TestLLMClientMethods:
         mock_response.candidates[0].content.parts = [MagicMock()]
         mock_response.candidates[0].content.parts[0].text = "Gemini plain response"
 
-        with patch("paper.gpt.run_gpt.genai.Client") as mock_genai:
+        with patch("paper.gpt.clients.gemini.genai.Client") as mock_genai:
             mock_client = AsyncMock()
             mock_genai.return_value = mock_client
             mock_client.aio.models.generate_content = AsyncMock(
@@ -667,7 +667,7 @@ class TestLLMClientMethods:
         mock_response.candidates[0].content.parts = [MagicMock()]
         mock_response.candidates[0].content.parts[0].text = "Gemini search response"
 
-        with patch("paper.gpt.run_gpt.genai.Client") as mock_genai:
+        with patch("paper.gpt.clients.gemini.genai.Client") as mock_genai:
             mock_client = AsyncMock()
             mock_genai.return_value = mock_client
             mock_client.aio.models.generate_content = AsyncMock(
