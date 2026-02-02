@@ -8,13 +8,7 @@ import {
   showMobileMessage,
   cleanKeyword,
 } from "../util";
-import {
-  GraphResult,
-  PaperSearchResults,
-  PaperSearchItem,
-  AbstractEvaluationResponse,
-  GraphResultMulti,
-} from "./model";
+import { GraphResult, PaperSearchResults, PaperSearchItem } from "./model";
 import { renderLatex, getArxivUrl, formatConferenceName } from "./helpers";
 import {
   JsonPaperDataset,
@@ -25,59 +19,45 @@ import {
   AbstractEvaluationParams,
 } from "./services";
 import { addFooter } from "../footer";
-
-// Extended interface for cached papers
-interface CachedPaperSearchItem extends Omit<PaperSearchItem, "arxiv_id"> {
-  arxiv_id?: string; // Make optional for cached papers
-  _isCached?: boolean;
-  _cachedPaperId?: string;
-}
-
-// Settings interface for evaluation parameters
-interface EvaluationSettings {
-  llm_model: "gpt-4o" | "gpt-4o-mini" | "gemini-2.0-flash";
-  k_refs: number;
-  recommendations: number;
-  related: number;
-  filter_by_date: boolean;
-}
-
-const DEFAULT_SETTINGS: EvaluationSettings = {
-  llm_model: "gpt-4o-mini",
-  k_refs: 20,
-  recommendations: 30,
-  related: 5,
-  filter_by_date: true,
-};
-
-const SETTINGS_STORAGE_KEY = "paper-explorer-evaluation-settings";
-
-function loadSettings(): EvaluationSettings {
-  try {
-    const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as Partial<EvaluationSettings>;
-      return { ...DEFAULT_SETTINGS, ...parsed };
-    }
-  } catch (e) {
-    console.warn("Failed to load settings:", e);
-  }
-  return { ...DEFAULT_SETTINGS };
-}
-
-function saveSettings(settings: EvaluationSettings): void {
-  try {
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-  } catch (e) {
-    console.warn("Failed to save settings:", e);
-  }
-}
+import { loadSettings } from "./settings";
+import {
+  showEvaluationModal,
+  updateEvaluationProgress,
+  showEvaluationError,
+  hideEvaluationModal,
+  showEvaluationSettingsModal,
+  hideEvaluationSettingsModal,
+  setupSettingsModal,
+  setupHelpModal,
+  requestNotificationPermission,
+  showCompletionNotification,
+} from "./modals";
+import {
+  type ArxivMode,
+  type CachedPaperSearchItem,
+  getCachedPapers,
+  convertCachedPapersToSearchResults,
+  getCacheKeys,
+  clearCache,
+  findCachedPaperByArxivId,
+  storePaperInCache,
+} from "./cache";
+import {
+  setupAbstractTab,
+  loadPreviousAbstractEvaluations,
+  showAbstractEvaluationModal,
+  updateAbstractEvaluationProgress,
+  hideAbstractEvaluationModal,
+  showAbstractError,
+  showAbstractCompletionNotification,
+  cacheAbstractEvaluation,
+} from "./abstract";
 
 class PaperExplorer {
   private allPapers: GraphResult[] = [];
   private filteredPapers: GraphResult[] = [];
   private lastSelectedArxivItem: PaperSearchItem | null = null;
-  private currentArxivMode: "default" | "multi" = "default";
+  private currentArxivMode: ArxivMode = "default";
 
   constructor(
     private jsonDataset: JsonPaperDataset,
@@ -96,9 +76,9 @@ class PaperExplorer {
       this.setupEvaluationModal();
     }
     if (this.abstractEvaluator) {
-      this.setupAbstractTab();
+      setupAbstractTab(this.abstractEvaluator, params => this.evaluateAbstract(params));
     }
-    this.setupHelpModal();
+    setupHelpModal();
     await this.loadPapers();
   }
 
@@ -115,7 +95,6 @@ class PaperExplorer {
       this.allPapers = validatedData;
       this.filteredPapers = [...this.allPapers];
 
-      // Store papers in localStorage for detail page access
       localStorage.setItem("papers-dataset", JSON.stringify(validatedData));
 
       this.displayPapers(this.filteredPapers);
@@ -168,11 +147,10 @@ class PaperExplorer {
         " dark:border-gray-700 p-6 transition-all duration-200 hover:border-teal-500/50" +
         " hover:-translate-y-1 no-underline";
 
-      // Extract keywords from graph entities
       const keywords = graphResult.graph.entities
         .filter(e => e.type === "keyword")
         .map(e => cleanKeyword(e.label))
-        .slice(0, 5); // Limit to 5 keywords
+        .slice(0, 5);
 
       paperLink.innerHTML = `
         <div class="mb-3">
@@ -239,7 +217,6 @@ class PaperExplorer {
 
     const lowerQuery = query.toLowerCase();
 
-    // Filter and score papers
     const scoredPapers = papers
       .map(paper => {
         const titleMatches = this.countSubstringMatches(
@@ -312,19 +289,8 @@ class PaperExplorer {
     const jsonTab = document.getElementById("json-tab");
     const arxivTab = document.getElementById("arxiv-tab");
     const abstractTab = document.getElementById("abstract-tab");
-    const jsonContent = document.getElementById("json-content");
-    const arxivContent = document.getElementById("arxiv-content");
-    const abstractContent = document.getElementById("abstract-content");
 
-    if (
-      !jsonTab ||
-      !arxivTab ||
-      !abstractTab ||
-      !jsonContent ||
-      !arxivContent ||
-      !abstractContent
-    )
-      return;
+    if (!jsonTab || !arxivTab || !abstractTab) return;
 
     jsonTab.addEventListener("click", () => this.switchTab("json"));
     arxivTab.addEventListener("click", () => this.switchTab("arxiv"));
@@ -332,8 +298,6 @@ class PaperExplorer {
   }
 
   private switchTab(tab: "json" | "arxiv" | "abstract"): void {
-    // this.currentTab = tab;
-
     const jsonTab = document.getElementById("json-tab");
     const arxivTab = document.getElementById("arxiv-tab");
     const abstractTab = document.getElementById("abstract-tab");
@@ -351,7 +315,6 @@ class PaperExplorer {
     )
       return;
 
-    // Define active and inactive classes
     const activeClasses =
       "tab-button active cursor-pointer rounded-md bg-white px-4 py-2 text-sm font-semibold" +
       " text-teal-600 shadow-sm transition-all duration-200 dark:bg-gray-700 dark:text-teal-400";
@@ -359,17 +322,14 @@ class PaperExplorer {
       "tab-button cursor-pointer rounded-md px-4 py-2 text-sm font-semibold text-gray-600" +
       " transition-all duration-200 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200";
 
-    // Reset all tabs to inactive
     jsonTab.className = inactiveClasses;
     arxivTab.className = inactiveClasses;
     abstractTab.className = inactiveClasses;
 
-    // Hide all content
     jsonContent.classList.add("hidden");
     arxivContent.classList.add("hidden");
     abstractContent.classList.add("hidden");
 
-    // Activate the selected tab and show its content
     if (tab === "json") {
       jsonTab.className = activeClasses;
       jsonContent.classList.remove("hidden");
@@ -377,11 +337,9 @@ class PaperExplorer {
       arxivTab.className = activeClasses;
       arxivContent.classList.remove("hidden");
     } else {
-      // tab === "abstract"
       abstractTab.className = activeClasses;
       abstractContent.classList.remove("hidden");
-      // Load previous evaluations when switching to abstract tab
-      this.loadPreviousAbstractEvaluations();
+      loadPreviousAbstractEvaluations();
     }
   }
 
@@ -404,7 +362,7 @@ class PaperExplorer {
       return;
     }
 
-    const updateToggleStyle = (mode: "default" | "multi") => {
+    const updateToggleStyle = (mode: ArxivMode) => {
       const activeClasses =
         "arxiv-mode-label cursor-pointer rounded-md px-4 py-2 text-sm font-semibold " +
         "bg-white text-teal-600 shadow-sm dark:bg-gray-700 dark:text-teal-400";
@@ -421,11 +379,10 @@ class PaperExplorer {
       }
     };
 
-    const switchMode = (mode: "default" | "multi") => {
+    const switchMode = (mode: ArxivMode) => {
       this.currentArxivMode = mode;
       updateToggleStyle(mode);
 
-      // Update mode description
       const modeDescription = document.getElementById("arxiv-mode-description");
       if (modeDescription) {
         if (mode === "multi") {
@@ -437,7 +394,6 @@ class PaperExplorer {
         }
       }
 
-      // Clear search and refresh cached papers display
       const searchInput = document.getElementById(
         "arxiv-search-input",
       ) as HTMLInputElement | null;
@@ -447,14 +403,12 @@ class PaperExplorer {
 
       this.displayCachedPapersIfEmpty();
 
-      // Update result count display
       const resultCount = document.getElementById("arxiv-result-count");
       if (resultCount) {
         resultCount.textContent = "";
       }
     };
 
-    // Set up event listeners
     defaultRadio.addEventListener("change", () => {
       if (defaultRadio.checked) {
         switchMode("default");
@@ -467,7 +421,6 @@ class PaperExplorer {
       }
     });
 
-    // Initialize with default mode
     defaultRadio.checked = true;
     multiRadio.checked = false;
     updateToggleStyle("default");
@@ -591,122 +544,43 @@ class PaperExplorer {
       clearElement.style.display = query ? "block" : "none";
     };
 
-    // Handle form submission
     formElement.addEventListener("submit", event => {
       event.preventDefault();
       performSearch();
     });
 
-    // Handle input changes (only for clear button visibility)
     inputElement.addEventListener("input", updateClearButton);
 
-    // Handle clear button click
     clearElement.addEventListener("click", () => {
       inputElement.value = "";
       clearElement.style.display = "none";
       inputElement.focus();
-
-      // Show cached papers when search is cleared
       this.displayCachedPapersIfEmpty();
     });
 
-    // Initial update
     updateClearButton();
-
-    // Show cached papers initially when search is empty
     this.displayCachedPapersIfEmpty();
   }
 
-  /**
-   * Get all cached papers from localStorage for the current mode
-   */
-  private getCachedPapers(): (GraphResult | GraphResultMulti)[] {
-    if (this.currentArxivMode === "multi") {
-      return this.getCachedPapersMulti();
-    } else {
-      return this.getCachedPapersDefault();
-    }
-  }
-
-  /**
-   * Get all cached default papers from localStorage
-   */
-  private getCachedPapersDefault(): GraphResult[] {
-    const cacheKeys = Object.keys(localStorage).filter(
-      key => key.startsWith("paper-cache-") && !key.includes("paper-cache-multi-"),
-    );
-
-    const cachedPapers: GraphResult[] = [];
-
-    for (const key of cacheKeys) {
-      try {
-        const cachedData = localStorage.getItem(key);
-        if (cachedData) {
-          const graphResult = JSON.parse(cachedData) as GraphResult;
-          cachedPapers.push(graphResult);
-        }
-      } catch (error) {
-        console.warn(`Failed to parse cached paper ${key}:`, error);
-      }
-    }
-
-    // Sort by title for consistent display
-    return cachedPapers.sort((a, b) => a.paper.title.localeCompare(b.paper.title));
-  }
-
-  /**
-   * Get all cached multi-perspective papers from localStorage
-   */
-  private getCachedPapersMulti(): GraphResultMulti[] {
-    const cacheKeys = Object.keys(localStorage).filter(key =>
-      key.startsWith("paper-cache-multi-"),
-    );
-
-    const cachedPapers: GraphResultMulti[] = [];
-
-    for (const key of cacheKeys) {
-      try {
-        const cachedData = localStorage.getItem(key);
-        if (cachedData) {
-          const graphResult = JSON.parse(cachedData) as GraphResultMulti;
-          cachedPapers.push(graphResult);
-        }
-      } catch (error) {
-        console.warn(`Failed to parse cached multi paper ${key}:`, error);
-      }
-    }
-
-    // Sort by title for consistent display
-    return cachedPapers.sort((a, b) => a.paper.title.localeCompare(b.paper.title));
-  }
-
-  /**
-   * Display cached papers as cards if search is empty
-   */
   private displayCachedPapersIfEmpty(): void {
     const searchInput = document.getElementById("arxiv-search-input");
     if (!searchInput || (searchInput as HTMLInputElement).value.trim()) return;
 
-    const cachedPapers = this.getCachedPapers();
+    const cachedPapers = getCachedPapers(this.currentArxivMode);
     const papersContainer = document.getElementById("arxiv-papers-container");
     const resultCount = document.getElementById("arxiv-result-count");
 
     if (cachedPapers.length > 0) {
-      // Make container visible
       if (papersContainer) papersContainer.classList.remove("hidden");
-
-      // Convert cached papers to PaperSearchResults format to reuse existing display logic
-      const searchResults = this.convertCachedPapersToSearchResults(cachedPapers);
+      const searchResults = convertCachedPapersToSearchResults(cachedPapers);
       this.displayArxivPapers(searchResults as PaperSearchResults);
 
-      // Update result count for cached papers
       if (resultCount) {
         resultCount.textContent =
           `${cachedPapers.length}` +
           ` previous evaluation${cachedPapers.length === 1 ? "" : "s"}`;
       }
     } else {
-      // No cached papers - clear the display
       if (papersContainer) {
         papersContainer.innerHTML = "";
         papersContainer.classList.add("hidden");
@@ -717,39 +591,10 @@ class PaperExplorer {
     }
   }
 
-  /**
-   * Convert cached GraphResult objects to PaperSearchResults format
-   */
-  private convertCachedPapersToSearchResults(
-    cachedPapers: GraphResult[],
-  ): Omit<PaperSearchResults, "items"> & { items: CachedPaperSearchItem[] } {
-    const items: CachedPaperSearchItem[] = cachedPapers.map(graphResult => {
-      const paper = graphResult.paper;
-      return {
-        title: paper.title,
-        abstract: paper.abstract,
-        authors: paper.authors,
-        year: paper.year,
-        ...(paper.arxiv_id && { arxiv_id: paper.arxiv_id }),
-        // Add a flag to identify cached papers for different click behavior
-        _isCached: true,
-        _cachedPaperId: paper.id,
-      };
-    });
-
-    return {
-      query: "cached",
-      total: items.length,
-      items: items,
-    };
-  }
-
   private handleArxivPaperSelection(item: PaperSearchItem): void {
-    // Handle cached papers differently
     const cachedItem = item as CachedPaperSearchItem;
     if (cachedItem._isCached && cachedItem._cachedPaperId) {
       const encodedId = encodeURIComponent(cachedItem._cachedPaperId);
-      // Navigate to appropriate detail page based on mode
       const detailPage =
         this.currentArxivMode === "multi"
           ? "/graphmind/pages/detail-multi.html"
@@ -763,206 +608,24 @@ class PaperExplorer {
       return;
     }
 
-    // Store the selected item for potential retry
     this.lastSelectedArxivItem = item;
 
-    // Check if paper is already cached first
     const modeText =
       this.currentArxivMode === "multi" ? "multi-perspective" : "default";
     console.log(`[Cache] Checking ${modeText} cache for arXiv paper: ${item.arxiv_id}`);
 
-    // Check if paper is already cached for current mode
-    const cacheKeys = Object.keys(localStorage).filter(key => {
-      if (this.currentArxivMode === "multi") {
-        return key.startsWith("paper-cache-multi-");
-      } else {
-        return key.startsWith("paper-cache-") && !key.includes("paper-cache-multi-");
-      }
-    });
-    console.log(
-      `[Cache] Found ${cacheKeys.length} cached ${modeText} papers in localStorage`,
-    );
-
-    for (const key of cacheKeys) {
-      try {
-        const cachedData = localStorage.getItem(key);
-        if (cachedData) {
-          const graphResult = JSON.parse(cachedData) as GraphResult | GraphResultMulti;
-          console.log(
-            `[Cache] Checking ${key}: arxiv_id=${graphResult.paper.arxiv_id}`,
-          );
-
-          if (graphResult.paper.arxiv_id === item.arxiv_id) {
-            // Paper found in cache, navigate directly
-            console.log(
-              `[Cache] HIT! Found ${modeText} paper ${item.arxiv_id} in cache with key ${key}`,
-            );
-            const encodedId = encodeURIComponent(graphResult.paper.id);
-            // Navigate to appropriate detail page based on mode
-            const detailPage =
-              this.currentArxivMode === "multi"
-                ? "/graphmind/pages/detail-multi.html"
-                : "/graphmind/pages/detail.html";
-            window.location.href = `${detailPage}?id=${encodedId}`;
-            return;
-          }
-        }
-      } catch (e) {
-        // Invalid cache entry, continue checking
-        console.warn(`[Cache] Invalid cache entry ${key}:`, e);
-      }
+    const cachedPaper = findCachedPaperByArxivId(item.arxiv_id, this.currentArxivMode);
+    if (cachedPaper) {
+      const encodedId = encodeURIComponent(cachedPaper.paper.id);
+      const detailPage =
+        this.currentArxivMode === "multi"
+          ? "/graphmind/pages/detail-multi.html"
+          : "/graphmind/pages/detail.html";
+      window.location.href = `${detailPage}?id=${encodedId}`;
+      return;
     }
 
-    // Paper not in cache, show evaluation settings modal
-    console.log(`[Cache] MISS! Paper ${item.arxiv_id} not found in cache`);
-
-    this.showEvaluationSettingsModal(item);
-  }
-
-  private showEvaluationModal(title: string): void {
-    // Remove any existing modal
-    this.hideEvaluationModal();
-
-    const modal = document.createElement("div");
-    modal.id = "evaluation-modal";
-    modal.className =
-      "fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm";
-
-    modal.innerHTML = `
-      <div class="mx-4 w-96 rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
-        <div class="text-center">
-          <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-            Evaluating Paper
-          </h3>
-          <p class="mb-4 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-            ${renderLatex(title)}
-          </p>
-
-          <!-- Progress Bar -->
-          <div class="mb-4 w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
-            <div id="progress-bar" class="bg-teal-600 h-2 rounded-full transition-all duration-300"
-                 style="width: 0%">
-            </div>
-          </div>
-
-          <!-- Progress Text -->
-          <div class="mb-2 h-12 flex items-center justify-center px-2">
-            <p id="progress-text" class="text-sm text-gray-700 dark:text-gray-300 text-center leading-tight">
-              Starting evaluation...
-            </p>
-          </div>
-
-          <!-- Progress Percentage -->
-          <p id="progress-percentage" class="text-xs text-gray-500 dark:text-gray-500">
-            0%
-          </p>
-
-          <!-- Cancel Button -->
-          <button id="cancel-arxiv-evaluation"
-                  class="mt-4 px-4 py-2 text-sm bg-gray-500 hover:bg-gray-600 text-white
-                         rounded-lg transition-colors">
-            Cancel
-          </button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Add cancel button handler
-    const cancelButton = document.getElementById("cancel-arxiv-evaluation");
-    if (cancelButton) {
-      cancelButton.addEventListener("click", () => {
-        if (this.paperEvaluator) {
-          this.paperEvaluator.stopEvaluation();
-        }
-        this.hideEvaluationModal();
-      });
-    }
-  }
-
-  private updateEvaluationProgress(message: string, progress: number): void {
-    const progressBar = document.getElementById("progress-bar");
-    const progressText = document.getElementById("progress-text");
-    const progressPercentage = document.getElementById("progress-percentage");
-
-    if (progressBar) {
-      progressBar.style.width = `${progress}%`;
-    }
-    if (progressText) {
-      progressText.textContent = message;
-    }
-    if (progressPercentage) {
-      progressPercentage.textContent = `${Math.round(progress)}%`;
-    }
-  }
-
-  private showEvaluationError(errorMessage: string): void {
-    const modal = document.getElementById("evaluation-modal");
-    if (!modal) return;
-
-    const modalContent = modal.querySelector("div");
-    if (!modalContent) return;
-
-    modalContent.innerHTML = `
-      <div class="text-center">
-        <div class="mb-4">
-          <div class="mx-auto h-12 w-12 rounded-full bg-red-100 dark:bg-red-900 flex
-                      items-center justify-center">
-            <svg class="h-6 w-6 text-red-600 dark:text-red-400" fill="none"
-                 viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.962-.833-2.732 0L4.082 18.5c-.77.833.192 2.5 1.732 2.5z"
-              />
-            </svg>
-          </div>
-        </div>
-        <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-          Evaluation Failed
-        </h3>
-        <p class="mb-6 text-sm text-gray-600 dark:text-gray-400">
-          ${errorMessage}
-        </p>
-
-        <div class="flex gap-3 justify-center">
-          <button id="retry-evaluation"
-                  class="px-4 py-2 text-sm bg-teal-600 hover:bg-teal-700 text-white
-                         rounded-lg transition-colors">
-            Try Again
-          </button>
-          <button id="dismiss-error"
-                  class="px-4 py-2 text-sm bg-gray-500 hover:bg-gray-600 text-white
-                         rounded-lg transition-colors">
-            Dismiss
-          </button>
-        </div>
-      </div>
-    `;
-
-    // Add event listeners for the buttons
-    const retryButton = document.getElementById("retry-evaluation");
-    const dismissButton = document.getElementById("dismiss-error");
-
-    if (retryButton) {
-      retryButton.addEventListener("click", () => {
-        this.hideEvaluationModal();
-        // Restart the evaluation with the same item
-        if (this.lastSelectedArxivItem) {
-          this.handleArxivPaperSelection(this.lastSelectedArxivItem);
-        }
-      });
-    }
-
-    if (dismissButton) {
-      dismissButton.addEventListener("click", () => this.hideEvaluationModal());
-    }
-  }
-
-  private hideEvaluationModal(): void {
-    const modal = document.getElementById("evaluation-modal");
-    if (modal) {
-      modal.remove();
-    }
+    showEvaluationSettingsModal(item.title);
   }
 
   private setupClearCacheButton(): void {
@@ -970,14 +633,7 @@ class PaperExplorer {
     if (!clearButton) return;
 
     clearButton.addEventListener("click", () => {
-      // Find cache keys for current mode
-      const cacheKeys = Object.keys(localStorage).filter(key => {
-        if (this.currentArxivMode === "multi") {
-          return key.startsWith("paper-cache-multi-");
-        } else {
-          return key.startsWith("paper-cache-") && !key.includes("paper-cache-multi-");
-        }
-      });
+      const cacheKeys = getCacheKeys(this.currentArxivMode);
 
       if (cacheKeys.length === 0) {
         const modeText =
@@ -993,59 +649,13 @@ class PaperExplorer {
           `Clear ${cacheKeys.length} previous ${modeText} results? This cannot be undone.`,
         )
       ) {
-        // Remove cache keys for current mode only
-        cacheKeys.forEach(key => localStorage.removeItem(key));
-
-        // Refresh the cached papers display if currently showing
+        clearCache(this.currentArxivMode);
         const searchInput = document.getElementById("arxiv-search-input");
         if (searchInput && !(searchInput as HTMLInputElement).value.trim()) {
           this.displayCachedPapersIfEmpty();
         }
       }
     });
-  }
-
-  private async requestNotificationPermission(): Promise<void> {
-    if (!("Notification" in window)) {
-      console.log("This browser does not support notifications");
-      return;
-    }
-
-    if (Notification.permission === "default") {
-      try {
-        await Notification.requestPermission();
-      } catch (error) {
-        console.warn("Failed to request notification permission:", error);
-      }
-    }
-  }
-
-  private showCompletionNotification(paperTitle: string): void {
-    if (!("Notification" in window) || Notification.permission !== "granted") {
-      return;
-    }
-
-    try {
-      const titleTrunc = `${paperTitle.substring(0, 100)}${paperTitle.length > 100 ? "..." : ""}`;
-      const notification = new Notification("Paper Evaluation Complete", {
-        body: `Finished evaluating: ${titleTrunc}`,
-        icon: "/favicon.ico",
-        tag: "paper-evaluation-complete",
-        requireInteraction: false,
-        silent: false,
-      });
-
-      // Auto-close notification after 5 seconds
-      setTimeout(() => notification.close(), 5000);
-
-      // Handle notification click
-      notification.onclick = () => {
-        window.focus();
-        notification.close();
-      };
-    } catch (error) {
-      console.warn("Failed to show notification:", error);
-    }
   }
 
   private setupEvaluationModal(): void {
@@ -1059,225 +669,25 @@ class PaperExplorer {
       return;
     }
 
-    // Handle cancel button
-    cancelButton.addEventListener("click", () => this.hideEvaluationSettingsModal());
+    cancelButton.addEventListener("click", () => hideEvaluationSettingsModal());
 
-    // Handle start button
     startButton.addEventListener("click", () => {
       void this.handleEvaluationSubmit();
     });
 
-    // Handle clicking outside modal
     modal.addEventListener("click", e => {
       if (e.target === modal) {
-        this.hideEvaluationSettingsModal();
+        hideEvaluationSettingsModal();
       }
     });
 
-    // Handle Escape key
     document.addEventListener("keydown", e => {
       if (e.key === "Escape" && !modal.classList.contains("hidden")) {
-        this.hideEvaluationSettingsModal();
+        hideEvaluationSettingsModal();
       }
     });
 
-    // Setup settings modal
-    this.setupSettingsModal();
-  }
-
-  private setupSettingsModal(): void {
-    const settingsButton = document.getElementById("settings-button");
-    const settingsModal = document.getElementById("settings-modal");
-    const closeButton = document.getElementById("settings-modal-close");
-    const saveButton = document.getElementById("settings-save");
-    const resetButton = document.getElementById("settings-reset");
-
-    if (
-      !settingsButton ||
-      !settingsModal ||
-      !closeButton ||
-      !saveButton ||
-      !resetButton
-    ) {
-      console.warn("Settings modal elements not found");
-      return;
-    }
-
-    // Load and apply saved settings to form
-    const applySettingsToForm = (settings: EvaluationSettings) => {
-      const llmModel = document.getElementById(
-        "settings-llm-model",
-      ) as HTMLSelectElement | null;
-      const kRefs = document.getElementById(
-        "settings-k-refs",
-      ) as HTMLInputElement | null;
-      const recommendations = document.getElementById(
-        "settings-recommendations",
-      ) as HTMLInputElement | null;
-      const related = document.getElementById(
-        "settings-related",
-      ) as HTMLInputElement | null;
-      const filterByDate = document.getElementById(
-        "settings-filter-by-date",
-      ) as HTMLInputElement | null;
-
-      if (llmModel) llmModel.value = settings.llm_model;
-      if (kRefs) kRefs.value = settings.k_refs.toString();
-      if (recommendations) recommendations.value = settings.recommendations.toString();
-      if (related) related.value = settings.related.toString();
-      if (filterByDate) filterByDate.checked = settings.filter_by_date;
-    };
-
-    // Get settings from form
-    const getSettingsFromForm = (): EvaluationSettings => {
-      const llmModel = document.getElementById(
-        "settings-llm-model",
-      ) as HTMLSelectElement | null;
-      const kRefs = document.getElementById(
-        "settings-k-refs",
-      ) as HTMLInputElement | null;
-      const recommendations = document.getElementById(
-        "settings-recommendations",
-      ) as HTMLInputElement | null;
-      const related = document.getElementById(
-        "settings-related",
-      ) as HTMLInputElement | null;
-      const filterByDate = document.getElementById(
-        "settings-filter-by-date",
-      ) as HTMLInputElement | null;
-
-      return {
-        llm_model: (llmModel?.value ??
-          "gpt-4o-mini") as EvaluationSettings["llm_model"],
-        k_refs: parseInt(kRefs?.value ?? "20", 10),
-        recommendations: parseInt(recommendations?.value ?? "30", 10),
-        related: parseInt(related?.value ?? "5", 10),
-        filter_by_date: filterByDate?.checked ?? true,
-      };
-    };
-
-    const hideSettingsModal = () => {
-      settingsModal.classList.add("hidden");
-      settingsModal.classList.remove("flex");
-    };
-
-    // Open settings modal
-    settingsButton.addEventListener("click", () => {
-      applySettingsToForm(loadSettings());
-      settingsModal.classList.remove("hidden");
-      settingsModal.classList.add("flex");
-    });
-
-    // Close settings modal
-    closeButton.addEventListener("click", hideSettingsModal);
-
-    // Handle clicking outside modal
-    settingsModal.addEventListener("click", e => {
-      if (e.target === settingsModal) {
-        hideSettingsModal();
-      }
-    });
-
-    // Handle Escape key
-    document.addEventListener("keydown", e => {
-      if (e.key === "Escape" && !settingsModal.classList.contains("hidden")) {
-        hideSettingsModal();
-      }
-    });
-
-    // Save settings
-    saveButton.addEventListener("click", () => {
-      const settings = getSettingsFromForm();
-      saveSettings(settings);
-      hideSettingsModal();
-    });
-
-    // Reset to defaults
-    resetButton.addEventListener("click", () => {
-      applySettingsToForm(DEFAULT_SETTINGS);
-    });
-  }
-
-  private setupHelpModal(): void {
-    const helpButton = document.getElementById("help-button");
-    const helpModal = document.getElementById("help-modal");
-    const helpModalClose = document.getElementById("help-modal-close");
-
-    if (!helpButton || !helpModal || !helpModalClose) {
-      console.warn("Help modal elements not found");
-      return;
-    }
-
-    // Check if user has seen the help modal before
-    const hasSeenHelp = localStorage.getItem("paper-explorer-help-seen");
-    if (!hasSeenHelp) {
-      // Show modal for first-time users
-      helpModal.classList.remove("hidden");
-      helpModal.classList.add("flex");
-    }
-
-    // Handle help button click
-    helpButton.addEventListener("click", () => {
-      helpModal.classList.remove("hidden");
-      helpModal.classList.add("flex");
-    });
-
-    // Handle close button click
-    helpModalClose.addEventListener("click", () => {
-      this.hideHelpModal();
-    });
-
-    // Handle clicking outside modal
-    helpModal.addEventListener("click", e => {
-      if (e.target === helpModal) {
-        this.hideHelpModal();
-      }
-    });
-
-    // Handle Escape key
-    document.addEventListener("keydown", e => {
-      if (e.key === "Escape" && !helpModal.classList.contains("hidden")) {
-        this.hideHelpModal();
-      }
-    });
-  }
-
-  private hideHelpModal(): void {
-    const helpModal = document.getElementById("help-modal");
-    if (helpModal) {
-      helpModal.classList.add("hidden");
-      helpModal.classList.remove("flex");
-      // Mark as seen
-      localStorage.setItem("paper-explorer-help-seen", "true");
-    }
-  }
-
-  private showEvaluationSettingsModal(item: PaperSearchItem): void {
-    const modal = document.getElementById("evaluation-settings-modal");
-    const paperTitleEl = document.getElementById("evaluation-paper-title");
-
-    if (!modal || !paperTitleEl) {
-      console.error("Evaluation settings modal elements not found");
-      return;
-    }
-
-    // Store the item for later use
-    this.lastSelectedArxivItem = item;
-
-    // Update modal title with paper info
-    paperTitleEl.textContent = item.title;
-
-    // Show modal
-    modal.classList.remove("hidden");
-    modal.classList.add("flex");
-  }
-
-  private hideEvaluationSettingsModal(): void {
-    const modal = document.getElementById("evaluation-settings-modal");
-    if (modal) {
-      modal.classList.add("hidden");
-      modal.classList.remove("flex");
-    }
+    setupSettingsModal();
   }
 
   private async handleEvaluationSubmit(): Promise<void> {
@@ -1286,7 +696,6 @@ class PaperExplorer {
       return;
     }
 
-    // Check if appropriate evaluator is available for current mode
     const currentEvaluator =
       this.currentArxivMode === "multi"
         ? this.paperEvaluatorMulti
@@ -1296,10 +705,8 @@ class PaperExplorer {
       return;
     }
 
-    // Load saved settings
     const settings = loadSettings();
 
-    // Build params from stored settings
     const params = {
       id: this.lastSelectedArxivItem.arxiv_id,
       title: this.lastSelectedArxivItem.title,
@@ -1311,58 +718,68 @@ class PaperExplorer {
       seed: 0,
     };
 
-    // Hide settings modal and show progress modal
-    this.hideEvaluationSettingsModal();
+    hideEvaluationSettingsModal();
+    await requestNotificationPermission();
+    showEvaluationModal(params.title);
 
-    // Request notification permission
-    await this.requestNotificationPermission();
-
-    // Show progress modal
-    this.showEvaluationModal(params.title);
+    const cancelButton = document.getElementById("cancel-arxiv-evaluation");
+    if (cancelButton) {
+      cancelButton.addEventListener("click", () => {
+        if (this.paperEvaluator) {
+          this.paperEvaluator.stopEvaluation();
+        }
+        hideEvaluationModal();
+      });
+    }
 
     try {
-      // Set up progress callbacks
       currentEvaluator.onConnected = (message: string) => {
         console.log("Connected:", message);
-        this.updateEvaluationProgress(message, 0);
+        updateEvaluationProgress(message, 0);
       };
 
       currentEvaluator.onProgress = (message: string, progress: number) => {
         console.log(`Progress: ${message} (${progress.toFixed(1)}%)`);
-        this.updateEvaluationProgress(message, progress);
+        updateEvaluationProgress(message, progress);
       };
 
       currentEvaluator.onError = (error: string) => {
         console.error("Evaluation error:", error);
-        this.showEvaluationError(error);
+        showEvaluationError(
+          error,
+          () => {
+            hideEvaluationModal();
+            if (this.lastSelectedArxivItem) {
+              this.handleArxivPaperSelection(this.lastSelectedArxivItem);
+            }
+          },
+          () => hideEvaluationModal(),
+        );
       };
 
       currentEvaluator.onConnectionError = (event: Event) => {
         console.error("Connection error:", event);
-        this.showEvaluationError("Connection lost. Please try again.");
+        showEvaluationError(
+          "Connection lost. Please try again.",
+          () => {
+            hideEvaluationModal();
+            if (this.lastSelectedArxivItem) {
+              this.handleArxivPaperSelection(this.lastSelectedArxivItem);
+            }
+          },
+          () => hideEvaluationModal(),
+        );
       };
 
-      // Start evaluation with custom parameters
       const evalResult = await currentEvaluator.startEvaluation(params);
 
-      // Update progress to 100% on completion
-      this.updateEvaluationProgress("Evaluation complete", 100);
+      updateEvaluationProgress("Evaluation complete", 100);
 
-      // Store the result in localStorage cache with appropriate key
       const paperId = evalResult.result.paper.id;
-      const cacheKey =
-        this.currentArxivMode === "multi"
-          ? `paper-cache-multi-${paperId}`
-          : `paper-cache-${paperId}`;
-      console.log(
-        `[Cache] Storing ${this.currentArxivMode} paper ${params.id} in cache with key ${cacheKey}`,
-      );
-      localStorage.setItem(cacheKey, JSON.stringify(evalResult.result));
+      storePaperInCache(paperId, evalResult.result, this.currentArxivMode);
 
-      // Show completion notification
-      this.showCompletionNotification(params.title);
+      showCompletionNotification(params.title);
 
-      // Navigate to appropriate detail page based on mode
       const encodedId = encodeURIComponent(paperId);
       const detailPage =
         this.currentArxivMode === "multi"
@@ -1370,483 +787,81 @@ class PaperExplorer {
           : "/graphmind/pages/detail.html";
       window.location.href = `${detailPage}?id=${encodedId}`;
     } catch (error) {
-      // Check if error is due to user cancellation
       if (error instanceof Error && error.message.includes("cancelled by user")) {
         console.log("Evaluation cancelled by user");
-        // Modal is already hidden by cancel button handler, no need to show error
         return;
       }
 
       console.error("Error evaluating paper:", error);
-      this.showEvaluationError("Failed to evaluate paper. Please try again.");
-    }
-  }
-
-  // TODO: The following abstract tab methods duplicate significant logic from arXiv tab methods.
-  // Consider refactoring to share common functionality in a future iteration.
-
-  /**
-   * Setup Abstract tab functionality including form submission and cache management
-   */
-  private setupAbstractTab(): void {
-    this.setupAbstractForm();
-    this.setupAbstractClearCache();
-    this.loadPreviousAbstractEvaluations();
-  }
-
-  /**
-   * Setup the abstract evaluation form submission
-   */
-  private setupAbstractForm(): void {
-    const form = document.getElementById(
-      "abstract-evaluation-form",
-    ) as HTMLFormElement | null;
-    if (!form) return;
-
-    form.addEventListener("submit", e => {
-      e.preventDefault();
-
-      const titleElement = document.getElementById(
-        "abstract-title",
-      ) as HTMLTextAreaElement | null;
-      const abstractElement = document.getElementById(
-        "abstract-text",
-      ) as HTMLTextAreaElement | null;
-      const recommendationsElement = document.getElementById(
-        "abstract-recommendations",
-      ) as HTMLInputElement | null;
-      const relatedElement = document.getElementById(
-        "abstract-related",
-      ) as HTMLInputElement | null;
-      const llmModelElement = document.getElementById(
-        "abstract-llm-model",
-      ) as HTMLSelectElement | null;
-
-      if (
-        !titleElement ||
-        !abstractElement ||
-        !recommendationsElement ||
-        !relatedElement ||
-        !llmModelElement
-      ) {
-        console.error("Required form elements not found");
-        return;
-      }
-
-      void this.handleAbstractFormSubmission(
-        titleElement,
-        abstractElement,
-        recommendationsElement,
-        relatedElement,
-        llmModelElement,
-      );
-    });
-  }
-
-  /**
-   * Handle abstract form submission
-   */
-  private async handleAbstractFormSubmission(
-    titleElement: HTMLTextAreaElement,
-    abstractElement: HTMLTextAreaElement,
-    recommendationsElement: HTMLInputElement,
-    relatedElement: HTMLInputElement,
-    llmModelElement: HTMLSelectElement,
-  ): Promise<void> {
-    const title = titleElement.value.trim();
-    const abstract = abstractElement.value.trim();
-
-    if (!title || !abstract) {
-      this.showAbstractError("Please provide both title and abstract.");
-      return;
-    }
-
-    const params: AbstractEvaluationParams = {
-      title,
-      abstract,
-      recommendations: parseInt(recommendationsElement.value) || 20,
-      related: parseInt(relatedElement.value) || 5,
-      llm_model: llmModelElement.value || "gpt-4o-mini",
-    };
-
-    await this.evaluateAbstract(params);
-  }
-
-  /**
-   * Setup clear cache button for abstract evaluations
-   */
-  private setupAbstractClearCache(): void {
-    const clearButton = document.getElementById("clear-abstract-cache");
-    if (!clearButton) return;
-
-    clearButton.addEventListener("click", () => {
-      // Ask for confirmation
-      if (
-        !confirm("Are you sure you want to clear all previous abstract evaluations?")
-      ) {
-        return;
-      }
-
-      // Remove all abstract evaluation cache entries
-      const keys = Object.keys(localStorage);
-      const abstractKeys = keys.filter(key =>
-        key.startsWith("abstract-evaluation-cache-"),
-      );
-
-      abstractKeys.forEach(key => localStorage.removeItem(key));
-      localStorage.removeItem("abstract-evaluations-list");
-
-      this.loadPreviousAbstractEvaluations();
-    });
-  }
-
-  /**
-   * Load and display previous abstract evaluations
-   */
-  private loadPreviousAbstractEvaluations(): void {
-    const container = document.getElementById("abstract-results-container");
-    const noResults = document.getElementById("abstract-no-results");
-
-    if (!container || !noResults) return;
-
-    // Get list of evaluation IDs from localStorage
-    const evaluationsList = localStorage.getItem("abstract-evaluations-list");
-    const evaluationIds: string[] = evaluationsList
-      ? (JSON.parse(evaluationsList) as string[])
-      : [];
-
-    container.innerHTML = "";
-
-    if (evaluationIds.length === 0) {
-      container.classList.add("hidden");
-      noResults.classList.remove("hidden");
-      return;
-    }
-
-    noResults.classList.add("hidden");
-    container.classList.remove("hidden");
-
-    // Load and display each evaluation
-    const evaluations: AbstractEvaluationResponse[] = [];
-
-    for (const id of evaluationIds) {
-      try {
-        const cached = localStorage.getItem(`abstract-evaluation-cache-${id}`);
-        if (cached) {
-          const evaluation = JSON.parse(cached) as AbstractEvaluationResponse;
-          evaluations.push(evaluation);
-        }
-      } catch (error) {
-        console.warn(`Failed to load cached evaluation ${id}:`, error);
-      }
-    }
-
-    // Sort by most recent (assuming IDs are chronological)
-    evaluations.sort((a, b) => b.id.localeCompare(a.id));
-
-    evaluations.forEach(evaluation => {
-      const card = this.createAbstractEvaluationCard(evaluation);
-      container.appendChild(card);
-    });
-  }
-
-  /**
-   * Create a card element for displaying an abstract evaluation result
-   */
-  private createAbstractEvaluationCard(
-    evaluation: AbstractEvaluationResponse,
-  ): HTMLElement {
-    const card = document.createElement("div");
-    card.className =
-      "rounded-lg border border-gray-300 bg-gray-50/50 p-4 transition-all " +
-      "duration-200 hover:border-teal-500/50 dark:border-gray-700 dark:bg-gray-800/50";
-
-    const rating = evaluation.label;
-    const ratingDisplay = `${rating}/5`;
-    const noveltyColor =
-      rating <= 2
-        ? "text-red-600 dark:text-red-400"
-        : rating === 3
-          ? "text-yellow-600 dark:text-yellow-400"
-          : "text-green-600 dark:text-green-400";
-
-    card.innerHTML = `
-      <div class="cursor-pointer" onclick="window.location.href='/graphmind/pages/abstract-detail.html?id=${evaluation.id}'">
-        <h4 class="mb-2 line-clamp-2 font-semibold text-gray-900 dark:text-gray-100">
-          ${renderLatex(evaluation.title)}
-        </h4>
-        <p class="mb-3 line-clamp-3 text-sm text-gray-600 dark:text-gray-400">
-          ${evaluation.abstract.substring(0, 150)}${evaluation.abstract.length > 150 ? "..." : ""}
-        </p>
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-medium ${noveltyColor}">
-              Novelty: ${ratingDisplay}
-            </span>
-          </div>
-          <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
-            <span>${evaluation.keywords.length} keywords</span>
-            <span>•</span>
-            <span>${evaluation.related.length} related</span>
-          </div>
-        </div>
-        <div class="mt-2 flex flex-wrap gap-1">
-          ${evaluation.keywords
-            .slice(0, 3)
-            .map(
-              keyword => `
-            <span class="inline-block rounded-md bg-teal-100/70 px-2 py-0.5 text-xs text-teal-800
-                   dark:bg-teal-900/30 dark:text-teal-300">
-              ${cleanKeyword(keyword)}
-            </span>
-          `,
-            )
-            .join("")}
-          ${
-            evaluation.keywords.length > 3
-              ? `
-            <span class="text-xs text-gray-500 dark:text-gray-500">
-              +${evaluation.keywords.length - 3} more
-            </span>
-          `
-              : ""
+      showEvaluationError(
+        "Failed to evaluate paper. Please try again.",
+        () => {
+          hideEvaluationModal();
+          if (this.lastSelectedArxivItem) {
+            this.handleArxivPaperSelection(this.lastSelectedArxivItem);
           }
-        </div>
-      </div>
-    `;
-
-    return card;
+        },
+        () => hideEvaluationModal(),
+      );
+    }
   }
 
-  /**
-   * Evaluate an abstract using the abstract evaluation service
-   */
   private async evaluateAbstract(params: AbstractEvaluationParams): Promise<void> {
     if (!this.abstractEvaluator) {
-      this.showAbstractError("Abstract evaluation service not available.");
+      showAbstractError("Abstract evaluation service not available.");
       return;
     }
 
     try {
-      // Show progress modal
-      this.showAbstractEvaluationModal(params.title);
+      showAbstractEvaluationModal(params.title);
 
-      // Setup progress callbacks
       this.abstractEvaluator.onConnected = message => {
-        this.updateAbstractEvaluationProgress(message, 0);
+        updateAbstractEvaluationProgress(message, 0);
       };
 
       this.abstractEvaluator.onProgress = (message, progress) => {
-        this.updateAbstractEvaluationProgress(message, progress);
+        updateAbstractEvaluationProgress(message, progress);
       };
 
       this.abstractEvaluator.onError = error => {
-        this.hideAbstractEvaluationModal();
-        this.showAbstractError(`Evaluation failed: ${error}`);
+        hideAbstractEvaluationModal();
+        showAbstractError(`Evaluation failed: ${error}`);
       };
 
       this.abstractEvaluator.onConnectionError = () => {
-        this.hideAbstractEvaluationModal();
-        this.showAbstractError("Connection lost during evaluation. Please try again.");
+        hideAbstractEvaluationModal();
+        showAbstractError("Connection lost during evaluation. Please try again.");
       };
 
-      // Start evaluation
-      const result = await this.abstractEvaluator.startEvaluation(params);
-
-      // Update progress to 100% on completion
-      this.updateAbstractEvaluationProgress("Evaluation complete", 100);
-
-      // Hide progress modal
-      this.hideAbstractEvaluationModal();
-
-      // Cache the result
-      localStorage.setItem(
-        `abstract-evaluation-cache-${result.id}`,
-        JSON.stringify(result),
-      );
-
-      // Update the evaluations list
-      const currentList = localStorage.getItem("abstract-evaluations-list");
-      const evaluationIds: string[] = currentList
-        ? (JSON.parse(currentList) as string[])
-        : [];
-      if (!evaluationIds.includes(result.id)) {
-        evaluationIds.push(result.id);
-        localStorage.setItem(
-          "abstract-evaluations-list",
-          JSON.stringify(evaluationIds),
-        );
+      const cancelButton = document.getElementById("cancel-abstract-evaluation");
+      if (cancelButton) {
+        cancelButton.addEventListener("click", () => {
+          if (this.abstractEvaluator) {
+            this.abstractEvaluator.stopEvaluation();
+          }
+          hideAbstractEvaluationModal();
+        });
       }
 
-      // Show completion notification
-      this.showAbstractCompletionNotification(params.title);
+      const result = await this.abstractEvaluator.startEvaluation(params);
 
-      // Navigate to abstract detail page
+      updateAbstractEvaluationProgress("Evaluation complete", 100);
+      hideAbstractEvaluationModal();
+
+      cacheAbstractEvaluation(result);
+      showAbstractCompletionNotification(params.title);
+
       window.location.href = `/graphmind/pages/abstract-detail.html?id=${result.id}`;
     } catch (error) {
-      // Check if error is due to user cancellation
       if (error instanceof Error && error.message.includes("cancelled by user")) {
         console.log("Abstract evaluation cancelled by user");
-        // Modal is already hidden by cancel button handler, no need to show error
         return;
       }
 
-      this.hideAbstractEvaluationModal();
+      hideAbstractEvaluationModal();
       console.error("Error evaluating abstract:", error);
-      this.showAbstractError("Failed to evaluate abstract. Please try again.");
+      showAbstractError("Failed to evaluate abstract. Please try again.");
     }
-  }
-
-  /**
-   * Show progress modal for abstract evaluation
-   */
-  private showAbstractEvaluationModal(title: string): void {
-    // Remove any existing modal
-    this.hideAbstractEvaluationModal();
-
-    const modal = document.createElement("div");
-    modal.id = "abstract-evaluation-modal";
-    modal.className =
-      "fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm";
-
-    modal.innerHTML = `
-      <div class="mx-4 w-96 rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
-        <div class="text-center">
-          <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-            Evaluating Abstract
-          </h3>
-          <p class="mb-4 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-            ${renderLatex(title)}
-          </p>
-
-          <!-- Progress Bar -->
-          <div class="mb-4 w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
-            <div id="abstract-progress-bar" class="bg-teal-600 h-2 rounded-full transition-all duration-300"
-                 style="width: 0%">
-            </div>
-          </div>
-
-          <!-- Progress Text -->
-          <div class="mb-2 h-12 flex items-center justify-center px-2">
-            <p id="abstract-progress-text" class="text-sm text-gray-700 dark:text-gray-300 text-center leading-tight">
-              Starting evaluation...
-            </p>
-          </div>
-
-          <!-- Progress Percentage -->
-          <p id="abstract-progress-percentage" class="text-xs text-gray-500 dark:text-gray-500">
-            0%
-          </p>
-
-          <!-- Cancel Button -->
-          <button id="cancel-abstract-evaluation"
-                  class="mt-4 px-4 py-2 text-sm bg-gray-500 hover:bg-gray-600 text-white
-                         rounded-lg transition-colors">
-            Cancel
-          </button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Add cancel button handler
-    const cancelButton = document.getElementById("cancel-abstract-evaluation");
-    if (cancelButton) {
-      cancelButton.addEventListener("click", () => {
-        if (this.abstractEvaluator) {
-          this.abstractEvaluator.stopEvaluation();
-        }
-        this.hideAbstractEvaluationModal();
-      });
-    }
-  }
-
-  /**
-   * Update progress in the abstract evaluation modal
-   */
-  private updateAbstractEvaluationProgress(message: string, progress: number): void {
-    const progressBar = document.getElementById("abstract-progress-bar");
-    const progressText = document.getElementById("abstract-progress-text");
-    const progressPercentage = document.getElementById("abstract-progress-percentage");
-
-    if (progressBar) {
-      progressBar.style.width = `${progress}%`;
-    }
-
-    if (progressText) {
-      progressText.textContent = message;
-    }
-
-    if (progressPercentage) {
-      progressPercentage.textContent = `${Math.round(progress)}%`;
-    }
-  }
-
-  /**
-   * Hide the abstract evaluation modal
-   */
-  private hideAbstractEvaluationModal(): void {
-    const modal = document.getElementById("abstract-evaluation-modal");
-    if (modal) {
-      modal.remove();
-    }
-  }
-
-  /**
-   * Show error message in abstract tab
-   */
-  private showAbstractError(message: string, isError = true): void {
-    const errorEl = document.getElementById("abstract-error");
-    const errorMessage = document.getElementById("abstract-error-message");
-
-    if (errorEl && errorMessage) {
-      const prefix = isError ? "Error: " : "";
-      errorMessage.innerHTML = `<strong>${prefix}</strong>${message}`;
-      if (isError) {
-        errorEl.className =
-          "rounded-lg border border-red-500 bg-red-100/50 p-4 " +
-          "text-red-700 dark:bg-red-900/20 dark:text-red-300";
-      } else {
-        errorEl.className =
-          "rounded-lg border border-green-500 bg-green-100/50 p-4 " +
-          "text-green-700 dark:bg-green-900/20 dark:text-green-300";
-      }
-      errorEl.classList.remove("hidden");
-    }
-  }
-
-  /**
-   * Show completion notification for abstract evaluation
-   */
-  private showAbstractCompletionNotification(title: string): void {
-    // Create notification element
-    const notification = document.createElement("div");
-    notification.className =
-      "fixed top-4 right-4 z-50 rounded-lg bg-green-600 p-4 text-white shadow-lg dark:bg-green-700";
-
-    notification.innerHTML = `
-      <div class="flex items-center gap-3">
-        <svg class="h-5 w-5 text-green-200" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-        </svg>
-        <div>
-          <p class="font-medium">Abstract Evaluation Complete!</p>
-          <p class="text-sm text-green-200 line-clamp-1">
-            ${title.length > 50 ? title.substring(0, 50) + "..." : title}
-          </p>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(notification);
-
-    // Remove after 4 seconds
-    setTimeout(() => {
-      if (document.body.contains(notification)) {
-        notification.remove();
-      }
-    }, 4000);
   }
 }
 
@@ -1861,7 +876,6 @@ async function initialiseApp(): Promise<void> {
     return;
   }
 
-  // Get environment variables
   const jsonPath = import.meta.env.VITE_XP_DATA_PATH as string | undefined;
   const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
 
@@ -1870,7 +884,6 @@ async function initialiseApp(): Promise<void> {
   }
   console.debug(`API URL: ${apiUrl}`);
 
-  // Create services
   const jsonDataset = new JsonPaperDataset(jsonPath);
   const arxivService = apiUrl ? new ArxivPaperService(apiUrl) : null;
   const paperEvaluator = apiUrl ? new PaperEvaluator(apiUrl) : null;
@@ -1886,7 +899,6 @@ async function initialiseApp(): Promise<void> {
   );
   await retryWithBackoff(() => explorer.initialize());
 
-  // Add footer
   addFooter();
 }
 
