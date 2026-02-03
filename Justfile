@@ -152,4 +152,4 @@ bump bump:
 
     # Commit the version bump
     cd ..
-    jj commit
+    jj commit --editor --message "Bump to $new_version"
