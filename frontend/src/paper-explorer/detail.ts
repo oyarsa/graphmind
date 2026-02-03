@@ -573,9 +573,29 @@ function scrollToEvaluationSection(): void {
 }
 
 /**
+ * Expand the Related Papers section if it's collapsed.
+ * Returns true if the section was expanded, false if it was already expanded.
+ */
+function ensureRelatedPapersSectionExpanded(): boolean {
+  const content = document.getElementById("related-papers");
+  const chevron = document.getElementById("related-papers-chevron");
+
+  if (content?.classList.contains("hidden")) {
+    // Section is collapsed, expand it
+    content.classList.remove("hidden");
+    chevron?.classList.add("rotate-180");
+    return true;
+  }
+  return false;
+}
+
+/**
  * Function to expand a related paper card by index and scroll to it
  */
 function expandRelatedPaper(index: number): void {
+  // First ensure the Related Papers section is expanded
+  const wasCollapsed = ensureRelatedPapersSectionExpanded();
+
   const card = document.getElementById(`related-card-${index}`);
   const expandedContent = document.getElementById(`expanded-content-${index}`);
   const goBackBtn = card?.querySelector(".go-back-btn") as HTMLElement | null;
@@ -590,8 +610,15 @@ function expandRelatedPaper(index: number): void {
       updateGoBackButtonVisibility(goBackBtn, true);
     }
 
-    // Scroll to the card with some offset for better visibility
-    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    // If the section was just expanded, wait for layout to settle before scrolling
+    if (wasCollapsed) {
+      requestAnimationFrame(() => {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    } else {
+      // Scroll to the card with some offset for better visibility
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   }
 }
 
@@ -653,10 +680,20 @@ function setupRelatedPaperLinkHandlers(): void {
         const index = parseInt(paperIndex, 10);
         expandRelatedPaper(index);
       } else {
-        // Just scroll to Related Papers section if no specific paper
+        // Expand section if collapsed, then scroll to Related Papers section
+        const wasCollapsed = ensureRelatedPapersSectionExpanded();
         const relatedPapersHeader = document.getElementById("related-papers-header");
         if (relatedPapersHeader) {
-          relatedPapersHeader.scrollIntoView({ behavior: "smooth", block: "start" });
+          if (wasCollapsed) {
+            requestAnimationFrame(() => {
+              relatedPapersHeader.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            });
+          } else {
+            relatedPapersHeader.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
         }
       }
     }
@@ -944,6 +981,26 @@ function loadPaperDetail(): void {
 }
 
 /**
+ * Reset all collapsible sections to their default expanded state.
+ * This is called when the page is restored from bfcache to ensure
+ * sections don't retain their collapsed state from previous visits.
+ */
+function resetSectionStates(): void {
+  const sections = ["paper-graph", "structured-evaluation", "related-papers"];
+
+  for (const baseId of sections) {
+    const content = document.getElementById(baseId);
+    const chevron = document.getElementById(`${baseId}-chevron`);
+
+    if (content && chevron) {
+      // Expand section (default state)
+      content.classList.remove("hidden");
+      chevron.classList.add("rotate-180");
+    }
+  }
+}
+
+/**
  * Initialise the Paper Detail application.
  */
 async function initialiseApp(): Promise<void> {
@@ -959,6 +1016,13 @@ async function initialiseApp(): Promise<void> {
 
   // Setup event delegation for evidence expansion
   setupEvidenceExpansionHandlers();
+
+  // Handle bfcache restoration - reset sections to expanded state
+  window.addEventListener("pageshow", event => {
+    if (event.persisted) {
+      resetSectionStates();
+    }
+  });
 
   await retryWithBackoff(() => {
     loadPaperDetail();

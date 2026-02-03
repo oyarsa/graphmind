@@ -1019,6 +1019,33 @@ function setupNoveltyAssessmentToggle(): void {
 }
 
 /**
+ * Reset all collapsible sections to their default expanded state.
+ * This is called when the page is restored from bfcache to ensure
+ * sections don't retain their collapsed state from previous visits.
+ */
+function resetSectionStates(): void {
+  // Standard sections using setupSectionToggle
+  const standardSections = ["keywords", "related-papers"];
+  for (const baseId of standardSections) {
+    const content = document.getElementById(baseId);
+    const chevron = document.getElementById(`${baseId}-chevron`);
+
+    if (content && chevron) {
+      content.classList.remove("hidden");
+      chevron.classList.add("rotate-180");
+    }
+  }
+
+  // Novelty Assessment section (uses different structure)
+  const evidenceContent = document.getElementById("evidence-content");
+  const evalChevron = document.getElementById("structured-evaluation-chevron");
+  if (evidenceContent && evalChevron) {
+    evidenceContent.classList.remove("hidden");
+    evalChevron.style.transform = "rotate(180deg)";
+  }
+}
+
+/**
  * Initialize the Abstract Detail application.
  */
 async function initializeApp(): Promise<void> {
@@ -1028,6 +1055,13 @@ async function initializeApp(): Promise<void> {
     showMobileMessage();
     return;
   }
+
+  // Handle bfcache restoration - reset sections to expanded state
+  window.addEventListener("pageshow", event => {
+    if (event.persisted) {
+      resetSectionStates();
+    }
+  });
 
   await retryWithBackoff(() => {
     loadAbstractDetail();
