@@ -8,6 +8,7 @@ from paper.gpt.prompts._shared import (
     GRAPH_INTRO,
     NOVELTY_5,
     RATIONALE_NO_RELATED,
+    RATIONALE_NO_RELATED_BALANCED,
     RATIONALE_STRUCTURED,
     RELATED_INTRO,
     RELATED_WITH_IDS,
@@ -244,6 +245,39 @@ You do not have access to related papers, so base your assessment purely on how 
 paper presents its contributions and how novel the described approach sounds.
 
 {RATIONALE_NO_RELATED}
+
+#####
+{{demonstrations}}
+
+-Data-
+Title: {{title}}
+Abstract: {{abstract}}
+
+#####
+""",
+)
+
+# Balanced version of sans without conservative bias - for models that predict too conservatively
+SANS_BALANCED = PromptTemplate(
+    name="sans-balanced",
+    type_name="GPTStructured",
+    system="""\
+Given a paper's title and abstract, provide a structured novelty evaluation. This \
+evaluation uses only the paper's own content without any related papers or graph summary.
+""",
+    template=f"""
+The following data contains information about a scientific paper. It includes only the \
+paper's title and abstract.
+
+Based solely on the title and abstract, evaluate the paper's novelty. Consider:
+- What problem or question is being addressed?
+- What methods or approaches are proposed?
+- How significant do the contributions appear to be?
+
+You do not have access to related papers, so base your assessment purely on how the \
+paper presents its contributions and how novel the described approach sounds.
+
+{RATIONALE_NO_RELATED_BALANCED}
 
 #####
 {{demonstrations}}
@@ -669,6 +703,7 @@ GRAPH_EVAL_USER_PROMPTS = {
     "related-structured": RELATED_STRUCTURED,
     "semantic-only": SEMANTIC_ONLY,
     "sans": SANS,
+    "sans-balanced": SANS_BALANCED,
     "norel-graph": NOREL_GRAPH,
     "full-graph-positive": FULL_GRAPH_POSITIVE,
     "full-graph-negative": FULL_GRAPH_NEGATIVE,

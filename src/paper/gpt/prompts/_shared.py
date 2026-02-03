@@ -48,6 +48,22 @@ related papers are available)
 
 Be conservative in your ratings since you don't have related work context."""
 
+# Balanced version without conservative bias for abstract-only evaluation
+RATIONALE_NO_RELATED_BALANCED = f"""\
+Provide your evaluation in structured format with:
+1. A brief summary of the paper's main contributions and approach
+2. What aspects suggest the paper might be novel (leave evidence lists empty since no \
+related papers are available)
+3. What aspects suggest the paper might not be novel (leave evidence lists empty)
+4. Your final assessment and conclusion about the paper's novelty
+5. A novelty rating from 1 to 5:
+{NOVELTY_5}
+
+Rate the paper fairly based on its actual contributions. Use the full 1-5 scale:
+- Rate 1-2 only if the paper clearly describes incremental or derivative work
+- Rate 4-5 if the paper describes genuinely new ideas, methods, or insights
+- Rate 3 for papers with moderate novelty or when uncertain"""
+
 EVAL_SCALE = f"""\
 Based on this, evaluate the paper's novelty on a 1-5 scale:
 {NOVELTY_5}
