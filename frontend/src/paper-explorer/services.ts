@@ -220,6 +220,9 @@ export class PaperEvaluator {
           const data = SSEEventDataSchema.parse(
             JSON.parse(messageEvent.data as string),
           );
+          if (data.details) {
+            console.error("Evaluation error details:", data.details);
+          }
           const errorMessage = data.message ?? "Unknown error occurred";
           this.onError?.(errorMessage);
           this.cleanup();
@@ -241,6 +244,9 @@ export class PaperEvaluator {
             const data = SSEEventDataSchema.parse(
               JSON.parse(messageEvent.data as string),
             );
+            if (data.details) {
+              console.error("Evaluation error details:", data.details);
+            }
             const errorMessage = data.message ?? "Unknown error occurred";
             this.onError?.(errorMessage);
             this.cleanup();
@@ -451,6 +457,9 @@ export class AbstractPaperEvaluator {
           const data = SSEEventDataSchema.parse(
             JSON.parse(messageEvent.data as string),
           );
+          if (data.details) {
+            console.error("Evaluation error details:", data.details);
+          }
           const errorMessage = data.message ?? "Unknown error occurred";
           this.onError?.(errorMessage);
           this.cleanup();
@@ -472,6 +481,9 @@ export class AbstractPaperEvaluator {
             const data = SSEEventDataSchema.parse(
               JSON.parse(messageEvent.data as string),
             );
+            if (data.details) {
+              console.error("Evaluation error details:", data.details);
+            }
             const errorMessage = data.message ?? "Unknown error occurred";
             this.onError?.(errorMessage);
             this.cleanup();
@@ -664,6 +676,9 @@ export class PaperEvaluatorMulti {
           const data = SSEEventDataMultiSchema.parse(
             JSON.parse(messageEvent.data as string),
           );
+          if (data.details) {
+            console.error("Evaluation error details:", data.details);
+          }
           const errorMessage = data.message ?? "Unknown error occurred";
           this.onError?.(errorMessage);
           this.cleanup();
@@ -685,6 +700,9 @@ export class PaperEvaluatorMulti {
             const data = SSEEventDataMultiSchema.parse(
               JSON.parse(messageEvent.data as string),
             );
+            if (data.details) {
+              console.error("Evaluation error details:", data.details);
+            }
             const errorMessage = data.message ?? "Unknown error occurred";
             this.onError?.(errorMessage);
             this.cleanup();

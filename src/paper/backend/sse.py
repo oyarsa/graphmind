@@ -139,9 +139,12 @@ def create_streaming_response[T: BaseModel](
                 user_message = _user_friendly_error(exc)
                 yield _sse_event(
                     "error",
-                    {"message": f"{user_message} (ref: {request_id})"},
+                    {
+                        "message": f"{user_message} (ref: {request_id})",
+                        "details": str(exc),
+                    },
                 )
-                logger.error(f"Evaluation failed: {exc}")
+                logger.error(f"({request_id}) Evaluation failed: {exc}")
                 return
             else:
                 result = task.result()

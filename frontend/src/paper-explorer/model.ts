@@ -415,6 +415,8 @@ export const EvaluationParamsSchema = z.object({
 export const SSEEventDataSchema = z.object({
   /** Optional message for progress/error events */
   message: z.string().optional(),
+  /** Optional technical details for error events (logged to console) */
+  details: z.string().optional(),
   /** Result data for complete events (EvalResult already contains cost field) */
   result: EvalResultSchema.optional(),
 });
@@ -425,6 +427,8 @@ export const SSEEventDataSchema = z.object({
 export const SSEEventDataMultiSchema = z.object({
   /** Optional message for progress/error events */
   message: z.string().optional(),
+  /** Optional technical details for error events (logged to console) */
+  details: z.string().optional(),
   /** Result data for complete events (EvalResultMulti already contains cost field) */
   result: EvalResultMultiSchema.optional(),
 });
@@ -465,6 +469,8 @@ export const AbstractEvaluationResponseSchema = z.object({
 export const AbstractSSEEventDataSchema = z.object({
   /** Optional message for progress/error events */
   message: z.string().optional(),
+  /** Optional technical details for error events (logged to console) */
+  details: z.string().optional(),
   /** Result data for complete events (AbstractEvaluationResponse) */
   result: AbstractEvaluationResponseSchema.optional(),
 });
