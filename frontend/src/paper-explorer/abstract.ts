@@ -313,12 +313,12 @@ export function showAbstractError(message: string, isError = true): void {
   const errorMessage = document.getElementById("abstract-error-message");
 
   if (errorEl && errorMessage) {
-    const prefix = isError ? "Error: " : "";
-    errorMessage.innerHTML = `<strong>${prefix}</strong>${message}`;
+    errorMessage.textContent = message;
     if (isError) {
+      // Amber for temporary/retryable errors and validation issues
       errorEl.className =
-        "rounded-lg border border-red-500 bg-red-100/50 p-4 " +
-        "text-red-700 dark:bg-red-900/20 dark:text-red-300";
+        "rounded-lg border border-amber-500 bg-amber-100/50 p-4 " +
+        "text-amber-700 dark:bg-amber-900/20 dark:text-amber-300";
     } else {
       errorEl.className =
         "rounded-lg border border-green-500 bg-green-100/50 p-4 " +
