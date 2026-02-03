@@ -70,9 +70,15 @@ async def search(
     Performs live search against the arXiv API to find relevant papers.
     Only returns papers that have LaTeX content available.
     """
-    search_results = await atimer(
-        single_paper.search_arxiv_papers_filtered(q, limit, check_latex=True)
-    )
+    try:
+        search_results = await atimer(
+            single_paper.search_arxiv_papers_filtered(q, limit, check_latex=True)
+        )
+    except single_paper.ArxivRateLimitError as e:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests to arXiv. Please wait a moment and try again.",
+        ) from e
 
     if search_results is None:
         raise HTTPException(status_code=503, detail="arXiv API error")

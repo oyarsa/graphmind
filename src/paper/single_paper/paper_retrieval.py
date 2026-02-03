@@ -45,6 +45,11 @@ logger = logging.getLogger(__name__)
 
 type ProgressCallback = Callable[[str], Awaitable[None]]
 
+
+class ArxivRateLimitError(Exception):
+    """Raised when arXiv API returns a rate limit error (HTTP 429)."""
+
+
 # Base S2 fields common to all queries
 S2_FIELDS_BASE = [
     "paperId",
@@ -259,11 +264,19 @@ async def search_arxiv_papers(
         None: API error occurred.
         Empty list: successful query but no results found.
         Non-empty list: successful query with results.
+
+    Raises:
+        ArxivRateLimitError: If arXiv returns HTTP 429 (rate limited).
     """
     client = arxiv.Client()
 
     try:
         return list(await asyncio.to_thread(arxiv_search, client, query, max_results))
+    except arxiv.HTTPError as e:
+        if e.status == 429:
+            logger.warning("arXiv rate limit hit: %s", e)
+            raise ArxivRateLimitError("arXiv rate limit exceeded") from e
+        logger.warning("HTTP error searching arXiv: %s", e)
     except Exception as e:
         logger.warning("Error searching arXiv: %s", e)
 

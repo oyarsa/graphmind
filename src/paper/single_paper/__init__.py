@@ -22,6 +22,7 @@ from paper.single_paper.graph_evaluation_multi import (
     process_paper_from_selection_multi,
 )
 from paper.single_paper.paper_retrieval import (
+    ArxivRateLimitError,
     arxiv_id_from_url,
     fetch_s2_paper_info,
     search_arxiv_papers,
@@ -31,6 +32,7 @@ from paper.single_paper.pipeline import process_paper_from_selection
 
 __all__ = (
     "DEFAULT_SENTENCE_MODEL",
+    "ArxivRateLimitError",
     "EvaluationResult",
     "EvaluationResultMulti",
     "ProgressCallback",
