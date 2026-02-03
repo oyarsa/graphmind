@@ -10,7 +10,6 @@ from typing import Self, cast
 
 import numpy as np
 import numpy.typing as npt
-import torch
 from tqdm import tqdm
 
 from paper.types import Immutable, Matrix, Vector
@@ -145,6 +144,8 @@ class MatrixData(Immutable):
 
 def _get_best_device() -> str | None:
     """Use "CUDA" if available, then "MPS" (Apple Silicon), or whatever is the default."""
+    import torch
+
     if torch.cuda.is_available():
         return "cuda"
     if torch.backends.mps.is_available():
