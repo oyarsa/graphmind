@@ -76,15 +76,21 @@ lint-all:
     just lint
     cd frontend && just lint
 
+# Run a GitHub workflow and watch its progress
+_deploy-workflow workflow:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    gh workflow run "{{workflow}}"
+    echo "Waiting for workflow to start..."
+    sleep 3
+    run_id=$(gh run list --workflow "{{workflow}}" --limit 1 --json databaseId --jq '.[0].databaseId')
+    gh run watch "$run_id"
+
 # Deploy backend to Fly.io (manual trigger)
-deploy-backend:
-    gh workflow run "Fly Deploy"
-    @echo "Backend deployment triggered. Watch with: gh run watch"
+deploy-backend: (_deploy-workflow "Fly Deploy")
 
 # Deploy frontend to GitHub Pages (manual trigger)
-deploy-frontend:
-    gh workflow run "Deploy to GitHub Pages"
-    @echo "Frontend deployment triggered. Watch with: gh run watch"
+deploy-frontend: (_deploy-workflow "Deploy to GitHub Pages")
 
 # Deploy both backend and frontend, then watch progress
 deploy:
