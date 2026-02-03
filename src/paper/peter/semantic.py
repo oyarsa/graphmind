@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Self
 
 from paper import embedding as emb
 from paper import semantic_scholar as s2
-from paper.types import Immutable
+from paper.types import Immutable, Matrix
 from paper.util.serde import Record
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ class _Components:
 
     nodes: Sequence[str]
     """Sentence nodes."""
-    embeddings: emb.Matrix
+    embeddings: Matrix
     """Pre-computed embeddings for nodes. Same order as `nodes`."""
     node_to_paper: Mapping[str, _PaperRelated]
     """Mapping from node to its original paper."""

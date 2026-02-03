@@ -49,6 +49,7 @@ from paper.single_paper.summary_cleaning import clean_summary
 if TYPE_CHECKING:
     from paper.gpt.classify_contexts import S2ReferenceClassified
     from paper.gpt.openai_encoder import OpenAIEncoder
+    from paper.types import Vector
 
 logger = logging.getLogger(__name__)
 
@@ -271,7 +272,7 @@ def deduplicated(
 async def get_top_k_semantic(
     encoder: OpenAIEncoder,
     k: int,
-    main_emb: emb.Vector,
+    main_emb: Vector,
     papers: Sequence[gpt.PaperAnnotated],
     items: Sequence[str],
     polarity: pr.ContextPolarity,
@@ -341,7 +342,7 @@ async def get_top_k_semantic(
 
 async def get_top_k_reference_by_polarity(
     encoder: OpenAIEncoder,
-    title_emb: emb.Vector,
+    title_emb: Vector,
     references: Sequence[S2ReferenceClassified],
     k: int,
     polarity: pr.ContextPolarity,

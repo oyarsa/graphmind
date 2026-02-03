@@ -13,10 +13,7 @@ import numpy.typing as npt
 import torch
 from tqdm import tqdm
 
-from paper.types import Immutable
-
-type Vector = npt.NDArray[np.float32]
-type Matrix = npt.NDArray[np.float32]
+from paper.types import Immutable, Matrix, Vector
 
 logger = logging.getLogger(__name__)
 

@@ -21,7 +21,7 @@ import typer
 
 from paper import embedding as emb
 from paper import gpt
-from paper.types import Immutable
+from paper.types import Immutable, Matrix
 from paper.util import setup_logging
 from paper.util.serde import load_data, save_data
 
@@ -77,7 +77,7 @@ class Graph:
 
     _nodes: Sequence[str]
     """Nodes are relation heads after processing."""
-    _embeddings: emb.Matrix
+    _embeddings: Matrix
     """Nodes converted to vectors. Each row corresponds to an element in `_nodes`."""
     _head_to_tails: Mapping[str, Sequence[str]]
     """Mapping of processed text (relation head) to list of normal text (tails)."""
@@ -88,7 +88,7 @@ class Graph:
         self,
         *,
         nodes: Sequence[str],
-        embeddings: emb.Matrix,
+        embeddings: Matrix,
         head_to_tails: Mapping[str, Sequence[str]],
         encoder: emb.Encoder,
     ) -> None:

@@ -4,7 +4,13 @@ from collections.abc import Sequence
 from enum import StrEnum
 from typing import Protocol
 
+import numpy as np
+import numpy.typing as npt
 from pydantic import BaseModel, ConfigDict
+
+# Embedding type aliases (kept here to avoid importing torch in lightweight modules)
+type Vector = npt.NDArray[np.float32]
+type Matrix = npt.NDArray[np.float32]
 
 
 class PaperSource(StrEnum):

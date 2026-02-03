@@ -8,7 +8,7 @@ import backoff
 import numpy as np
 import openai
 
-from paper import embedding as emb
+from paper.types import Matrix, Vector
 from paper.util import ensure_envvar
 from paper.util import progress as prog
 from paper.util.rate_limiter import ChatRateLimiter
@@ -90,7 +90,7 @@ class OpenAIEncoder:
         return EMBEDDING_DIMENSIONS[self._model]
 
     @backoff.on_exception(backoff.expo, openai.RateLimitError, max_tries=5)
-    async def encode(self, text: str) -> emb.Vector:
+    async def encode(self, text: str) -> Vector:
         """Encode a single text string as a vector.
 
         Args:
@@ -110,7 +110,7 @@ class OpenAIEncoder:
         return np.array(response.data[0].embedding, dtype=np.float32)
 
     @backoff.on_exception(backoff.expo, openai.RateLimitError, max_tries=5)
-    async def encode_multi(self, texts: Sequence[str]) -> emb.Matrix:
+    async def encode_multi(self, texts: Sequence[str]) -> Matrix:
         """Encode multiple texts as a matrix.
 
         Args:
@@ -133,7 +133,7 @@ class OpenAIEncoder:
 
     async def batch_encode(
         self, texts: Sequence[str], batch_size: int = 128, *, progress: bool = False
-    ) -> emb.Matrix:
+    ) -> Matrix:
         """Split `texts` into batches and encode each separately.
 
         Args:

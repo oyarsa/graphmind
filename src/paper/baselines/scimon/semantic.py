@@ -15,7 +15,7 @@ import typer
 
 from paper import embedding as emb
 from paper import gpt
-from paper.types import Immutable
+from paper.types import Immutable, Matrix
 from paper.util import setup_logging
 from paper.util.serde import load_data, save_data
 
@@ -80,14 +80,14 @@ class Graph:
     """Mapping of nodes to the paper target terms (relation tails)."""
     _encoder: emb.Encoder
     """Encoder used to convert text nodes to vectors."""
-    _embeddings: emb.Matrix
+    _embeddings: Matrix
     """Nodes converted to vectors. Each row corresponds to an element in `_nodes`."""
 
     def __init__(
         self,
         *,
         nodes: Sequence[str],
-        embeddings: emb.Matrix,
+        embeddings: Matrix,
         node_to_targets: Mapping[str, Sequence[str]],
         encoder: emb.Encoder,
     ) -> None:
