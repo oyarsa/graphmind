@@ -10,8 +10,9 @@ from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from enum import Enum
 from typing import Any
 
+import openai
 import rich
-from fastapi import HTTPException, Request
+from fastapi import Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -21,6 +22,34 @@ from paper.util import atimer
 from paper.util.request_context import set_request_context
 
 logger = logging.getLogger(__name__)
+
+# Generic message for unexpected errors (don't expose internal details to users)
+_GENERIC_ERROR_MESSAGE = "An unexpected error occurred. Please try again later."
+
+
+def _user_friendly_error(exc: BaseException) -> str:
+    """Convert an exception to a user-friendly error message.
+
+    Internal details (API errors, stack traces, etc.) are hidden from users.
+    The full exception is still logged server-side.
+
+    Args:
+        exc: The exception to convert.
+
+    Returns:
+        A user-friendly error message string.
+    """
+    match exc:
+        case openai.RateLimitError():
+            return "The service is currently experiencing high demand. Please try again shortly."
+        case openai.AuthenticationError():
+            return "Service configuration error. Please contact support."
+        case openai.APIConnectionError():
+            return "Unable to connect to AI service. Please try again later."
+        case openai.APIError():
+            return "AI service error. Please try again later."
+        case _:
+            return _GENERIC_ERROR_MESSAGE
 
 
 def _generate_request_id(length: int = 8) -> str:
@@ -80,11 +109,9 @@ def create_streaming_response[T: BaseModel](
         async def run_task() -> T:
             try:
                 return await atimer(evaluation_func(progress_cb))
-            except Exception as e:
+            except Exception:
                 logger.exception(f"{name} failed")
-                raise HTTPException(
-                    status_code=500, detail=f"{name} failed: {e}"
-                ) from e
+                raise
             finally:
                 await queue.put(_StreamStatus.DONE)
 
@@ -109,7 +136,7 @@ def create_streaming_response[T: BaseModel](
 
             # Task is done; surface its result or its error
             if exc := task.exception():
-                yield _sse_event("error", {"message": str(exc)})
+                yield _sse_event("error", {"message": _user_friendly_error(exc)})
                 logger.error(f"Evaluation failed: {exc}")
                 return
             else:
