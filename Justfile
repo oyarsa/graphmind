@@ -123,7 +123,7 @@ deploy:
     done
 
 # Bump version for both backend and frontend (ensures they're synchronized)
-version bump="major":
+bump bump:
     #!/usr/bin/env bash
     set -euo pipefail
 
