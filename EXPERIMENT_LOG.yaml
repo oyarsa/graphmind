@@ -2153,3 +2153,233 @@ experiments:
       Gemini search performs modestly on PeerRead (Pearson 0.139), similar to ORC.
       Better than GPT search (-0.049) but far below GPT Graph (0.538). High Acc±1
       (0.968) reflects conservative predictions clustering around the mean.
+
+  # === GPT SEARCH LEVEL TUNING (Feb 2) ===
+
+  - date: "2026-02-02"
+    name: "gpt_search_level_tuning"
+    type: ablation
+    description: "GPT-4o-mini-search with different search_context_size levels"
+    reason: >
+      Original GPT search experiments with search_context_size=low showed negative
+      correlation. Testing medium and high levels to see if more search context helps.
+    command: |
+      for level in low medium high; do
+        for seed in 42 43 44 45 46; do
+          uv run python -m paper.gpt.evaluate_paper_search run \
+            --papers output/venus5/split/dev_100_balanced.json.zst \
+            --output output/baselines/search/gpt-4o-mini-search-${level}_orc_seed${seed} \
+            --model gpt-4o-mini-search --limit 100 --eval-prompt simple \
+            --search-level $level --seed $seed
+        done
+      done
+    parameters:
+      dataset: "ORC and PeerRead"
+      model: "gpt-4o-mini-search"
+      search_levels: ["low", "medium", "high"]
+      seeds: [42, 43, 44, 45, 46]
+    metrics:
+      orc:
+        low: {pearson_mean: -0.077, pearson_stdev: 0.100}
+        medium: {pearson_mean: -0.050, pearson_stdev: 0.116}
+        high: {pearson_mean: 0.033, pearson_stdev: 0.080}
+      peerread:
+        low: {pearson_mean: -0.049, pearson_stdev: 0.075}
+        medium: {pearson_mean: -0.186, pearson_stdev: 0.094}
+        high: {pearson_mean: 0.005, pearson_stdev: 0.100}
+    conclusion: >
+      High search_context_size is best for GPT search, but still performs much worse
+      than Gemini search (0.114 ORC, 0.139 PeerRead) and GPT Graph (0.377 ORC, 0.538
+      PeerRead). Medium level actually hurts on PeerRead (-0.186). Key limitations:
+      GPT search models don't support temperature/seed configuration, and no reasoning
+      budget option is available. The pre-built knowledge graph approach significantly
+      outperforms live web search for novelty assessment.
+
+  - date: "2026-02-02"
+    name: "gpt_4o_search_full"
+    type: baseline
+    description: "GPT-4o-search (full model) with simple prompt"
+    reason: >
+      Testing full GPT-4o-search model instead of mini version to see if larger
+      model improves search-grounded novelty assessment.
+    command: |
+      for seed in 42 43 44 45 46; do
+        uv run python -m paper.gpt.evaluate_paper_search run \
+          --papers output/venus5/split/dev_100_balanced.json.zst \
+          --output output/baselines/search/gpt-4o-search_orc_seed${seed} \
+          --model gpt-4o-search --limit 100 --eval-prompt simple \
+          --search-level high --seed $seed
+      done
+    parameters:
+      dataset: "ORC and PeerRead"
+      model: "gpt-4o-search"
+      eval_prompt: "simple"
+      search_level: "high"
+      seeds: [42, 43, 44, 45, 46]
+    metrics:
+      orc:
+        pearson: {mean: 0.144, stdev: 0.070, values: [0.128, 0.197, 0.025, 0.203, 0.165]}
+        spearman: {mean: 0.129, stdev: 0.076}
+        mae: {mean: 0.918, stdev: 0.060}
+        acc_pm1: {mean: 0.804, stdev: 0.032}
+      peerread:
+        pearson: {mean: 0.143, stdev: 0.078, values: [0.109, 0.166, 0.187, 0.024, 0.231]}
+        spearman: {mean: 0.096, stdev: 0.078}
+        mae: {mean: 0.994, stdev: 0.039}
+        acc_pm1: {mean: 0.735, stdev: 0.030}
+    cost_per_run: 0.50
+    total_cost: 5.00
+    conclusion: >
+      GPT-4o-search (full) significantly outperforms mini version (0.144 vs 0.033 on ORC).
+      Now beats Gemini search (0.114 ORC, 0.139 PeerRead). Best search-grounded baseline,
+      but still far below GPT Graph (0.377 ORC, 0.538 PeerRead).
+
+  - date: "2026-02-02"
+    name: "search_attribution_prompt"
+    type: ablation
+    description: "Attribution prompt on search models"
+    reason: >
+      Testing if forcing models to cite sources improves search-grounded evaluation.
+    parameters:
+      models: ["gpt-4o-search", "gemini-2.0-flash"]
+      eval_prompt: "attribution"
+      seeds: [42, 43, 44, 45, 46]
+    metrics:
+      gpt_4o_search_orc: {pearson_mean: 0.003, pearson_stdev: 0.107}
+      gpt_4o_search_peerread: {pearson_mean: 0.133, pearson_stdev: 0.063}
+      gemini_orc: {pearson_mean: 0.048, pearson_stdev: 0.054}
+      gemini_peerread: {pearson_mean: 0.086, pearson_stdev: 0.065}
+    conclusion: >
+      Attribution prompt HURTS performance on both models. GPT-4o-search drops from
+      0.144 to 0.003 on ORC. Gemini drops from 0.114 to 0.048 on ORC. Forcing source
+      citation appears to distract from the novelty assessment task.
+
+  - date: "2026-02-03"
+    name: "gemini_basic_orc_peerread"
+    type: baseline
+    description: "Gemini-2.0-flash Basic (sans prompt, abstract-only)"
+    reason: >
+      Testing Gemini as a baseline LLM for abstract-only novelty evaluation,
+      comparable to GPT Basic.
+    command: |
+      for seed in 42 43 44 45 46; do
+        uv run paper gpt eval graph run \
+          --papers output/venus5/split/dev_100_balanced.json.zst \
+          --output output/baselines/gemini/gemini-2_0-flash_basic_orc_seed${seed} \
+          --model gemini-2.0-flash --eval-prompt sans --limit 100 --seed $seed
+      done
+    parameters:
+      datasets: ["ORC", "PeerRead"]
+      model: "gemini-2.0-flash"
+      eval_prompt: "sans"
+      seeds: [42, 43, 44, 45, 46]
+    metrics:
+      orc:
+        pearson: {mean: -0.004, stdev: 0.044}
+        spearman: {mean: -0.011, stdev: 0.044}
+        mae: {mean: 0.736, stdev: 0.011}
+        rmse: {mean: 0.976, stdev: 0.010}
+      peerread:
+        pearson: {mean: 0.068, stdev: 0.043}
+        spearman: {mean: 0.097, stdev: 0.051}
+        mae: {mean: 0.776, stdev: 0.012}
+        rmse: {mean: 0.904, stdev: 0.015}
+    conclusion: >
+      Gemini Basic shows near-zero correlation on ORC (-0.004) and weak correlation
+      on PeerRead (0.068). Worse than GPT Basic (0.048 ORC, 0.139 PeerRead).
+      Gemini without context appears to predict conservatively around the mean.
+
+  - date: "2026-02-03"
+    name: "gemini_graphmind_orc_peerread"
+    type: baseline
+    description: "Gemini-2.0-flash GraphMind (full-graph-structured prompt)"
+    reason: >
+      Testing Gemini with our full GraphMind pipeline including paper graph
+      and PETER-related papers.
+    command: |
+      for seed in 42 43 44 45 46; do
+        uv run paper gpt eval graph run \
+          --papers output/venus5/split/dev_100_balanced.json.zst \
+          --output output/baselines/gemini/gemini-2_0-flash_graph_orc_seed${seed} \
+          --model gemini-2.0-flash --eval-prompt full-graph-structured --limit 100 --seed $seed
+      done
+    parameters:
+      datasets: ["ORC", "PeerRead"]
+      model: "gemini-2.0-flash"
+      eval_prompt: "full-graph-structured"
+      seeds: [42, 43, 44, 45, 46]
+    metrics:
+      orc:
+        pearson: {mean: 0.355, stdev: 0.028}
+        spearman: {mean: 0.388, stdev: 0.022}
+        mae: {mean: 0.816, stdev: 0.017}
+        rmse: {mean: 1.016, stdev: 0.018}
+      peerread:
+        pearson: {mean: 0.725, stdev: 0.067}
+        spearman: {mean: 0.781, stdev: 0.069}
+        mae: {mean: 0.976, stdev: 0.034}
+        rmse: {mean: 1.073, stdev: 0.042}
+    conclusion: >
+      Gemini GraphMind is comparable to GPT GraphMind on ORC (0.355 vs 0.377) but
+      SIGNIFICANTLY better on PeerRead (0.725 vs 0.538, +35%). This is our best
+      result on PeerRead. Gemini benefits greatly from structured context.
+
+  - date: "2026-02-03"
+    name: "gemini_basic_tuning"
+    type: prompt_engineering
+    description: "Tuning Gemini Basic to fix negative correlation on ORC"
+    reason: >
+      Gemini Basic with original 'sans' prompt showed near-zero/negative correlation
+      on ORC (-0.004). Investigation revealed Gemini was predicting 86% as rating 3,
+      14% as rating 4 - overly conservative. The prompt contained "Be conservative in
+      your ratings" instruction which Gemini followed too literally.
+    experiments:
+      - name: "sans + demos"
+        result: "Pearson -0.155 (worse)"
+        note: "Demonstrations made it more conservative"
+      - name: "sans + temperature 0.5"
+        result: "Pearson -0.167 (worse)"
+        note: "Higher temperature didn't help distribution"
+      - name: "sans-balanced (new prompt)"
+        result: "Pearson 0.066 on 20 papers"
+        note: "Removed conservative instruction, added guidance to use full scale"
+    conclusion: >
+      Created 'sans-balanced' prompt variant that removes "Be conservative" instruction
+      and explicitly encourages using the full 1-5 scale. This fixed the negative
+      correlation issue.
+
+  - date: "2026-02-03"
+    name: "gemini_basic_balanced_final"
+    type: baseline
+    description: "Gemini-2.0-flash Basic with sans-balanced prompt (5 seeds)"
+    reason: >
+      Final Gemini Basic results using the tuned sans-balanced prompt to fix the
+      negative correlation issue on ORC.
+    command: |
+      for seed in 42 43 44 45 46; do
+        uv run paper gpt eval graph run \
+          --papers output/venus5/split/dev_100_balanced.json.zst \
+          --output output/baselines/gemini/gemini-2_0-flash_sans_balanced_orc_seed${seed} \
+          --model gemini-2.0-flash --eval-prompt sans-balanced --limit 100 --seed $seed
+      done
+    parameters:
+      datasets: ["ORC", "PeerRead"]
+      model: "gemini-2.0-flash"
+      eval_prompt: "sans-balanced"
+      seeds: [42, 43, 44, 45, 46]
+    metrics:
+      orc:
+        pearson: {mean: 0.041, stdev: 0.039}
+        spearman: {mean: 0.032, stdev: 0.030}
+        mae: {mean: 1.092, stdev: 0.019}
+        rmse: {mean: 1.352, stdev: 0.015}
+      peerread:
+        pearson: {mean: 0.099, stdev: 0.090}
+        spearman: {mean: 0.100, stdev: 0.072}
+        mae: {mean: 0.988, stdev: 0.032}
+        rmse: {mean: 1.171, stdev: 0.021}
+    conclusion: >
+      sans-balanced prompt fixes Gemini Basic on ORC (0.041 vs -0.004 with sans).
+      Now comparable to GPT Basic (0.048 ORC, 0.139 PeerRead). PeerRead also improved
+      (0.099 vs 0.068). Gemini still slightly below GPT on both datasets but now
+      positive correlation on both.
