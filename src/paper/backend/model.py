@@ -183,6 +183,7 @@ class HealthCheck(Model):
     status: Annotated[str, Field(description="Health status indicator.")]
     timestamp: Annotated[str, Field(description="ISO timestamp of the check.")]
     version: Annotated[str, Field(description="Project version.")]
+    memory_mb: Annotated[float, Field(description="Process memory usage in MB (RSS).")]
 
 
 class AbstractEvaluationResponse(Model):

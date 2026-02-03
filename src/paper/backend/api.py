@@ -8,6 +8,7 @@ import datetime as dt
 import logging
 import os
 
+import psutil
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -77,10 +78,12 @@ app.include_router(mind.router)
 async def health() -> HealthCheck:
     """Health check endpoint.
 
-    Returns HealthCheck response with status, timestamp, and version.
+    Returns HealthCheck response with status, timestamp, version, and memory usage.
     """
+    memory_mb = psutil.Process().memory_info().rss / 1024 / 1024
     return HealthCheck(
         status="ok",
         timestamp=dt.datetime.now(dt.UTC).isoformat(),
         version=VERSION,
+        memory_mb=round(memory_mb, 1),
     )
