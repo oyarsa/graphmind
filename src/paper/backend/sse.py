@@ -136,7 +136,11 @@ def create_streaming_response[T: BaseModel](
 
             # Task is done; surface its result or its error
             if exc := task.exception():
-                yield _sse_event("error", {"message": _user_friendly_error(exc)})
+                user_message = _user_friendly_error(exc)
+                yield _sse_event(
+                    "error",
+                    {"message": f"{user_message} (ref: {request_id})"},
+                )
                 logger.error(f"Evaluation failed: {exc}")
                 return
             else:
