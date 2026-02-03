@@ -297,9 +297,20 @@ async def get_top_k_semantic(
         logger.debug("No papers available for semantic search.")
         return []
 
-    sem_emb = await encoder.encode_multi(items)
+    # Filter out papers with empty items (OpenAI embeddings API rejects empty strings)
+    valid_pairs = [
+        (paper, item)
+        for paper, item in zip(papers, items, strict=True)
+        if not is_empty_string(item)
+    ]
+    if not valid_pairs:
+        logger.debug("No papers with valid items for semantic search.")
+        return []
+
+    papers_filtered, items_filtered = zip(*valid_pairs, strict=True)
+    sem_emb = await encoder.encode_multi(items_filtered)
     sims = emb.similarities(main_emb, sem_emb)
-    top_k = [(papers[i], float(sims[i])) for i in emb.top_k_indices(sims, k)]
+    top_k = [(papers_filtered[i], float(sims[i])) for i in emb.top_k_indices(sims, k)]
 
     related_papers: list[rp.PaperRelated] = []
     for paper, score in top_k:
