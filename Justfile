@@ -51,10 +51,6 @@ test:
 cov:
     uv run pytest --cov=paper --cov-report=html --quiet tests/
 
-# Run experiments (see experiments/Justfile)
-exp *args:
-    @just -f experiments/Justfile {{args}}
-
 # Show all files with type errors
 typefiles:
     uv run pyright . | grep -o '/.*\.py' | sort | uniq -c | sort -n
