@@ -33,7 +33,7 @@ app = typer.Typer(
 )
 console = Console()
 
-DEFAULT_LOG_PATH = Path("EXPERIMENT_LOG.yaml")
+DEFAULT_LOG_PATH = Path("labs/EXPERIMENT_LOG.yaml")
 DEFAULT_OUTPUT_DIR = Path("output")
 
 

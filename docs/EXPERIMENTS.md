@@ -63,7 +63,7 @@ Expected cost: ~$0.90-1.00 per run x 5 runs = ~$4.50-5.00 per experiment.
 
 ## Experiment Log Format
 
-Log experiments to `EXPERIMENT_LOG.yaml` using this format:
+Log experiments to `labs/EXPERIMENT_LOG.yaml` using this format:
 
 ```yaml
 - date: "YYYY-MM-DD"
@@ -94,7 +94,7 @@ New experiments are appended at the bottom.
 
 ## Ablation Results Summary (MAJOR_RESULTS.md)
 
-Update `MAJOR_RESULTS.md` when completing a full set of major experiments (ablation or
+Update `labs/MAJOR_RESULTS.md` when completing a full set of major experiments (ablation or
 baseline comparisons). Format:
 
 1. **Add new results at the TOP** (reverse chronological order)

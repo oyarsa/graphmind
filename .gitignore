@@ -177,3 +177,4 @@ docs/*
 .sprite
 .fleche
 .playwright-mcp/
+.ruff_cache

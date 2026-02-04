@@ -1,3 +1,4 @@
+# Used for paper-explorer backend (explore relationships between papers)
 version: "3.8"
 
 services:

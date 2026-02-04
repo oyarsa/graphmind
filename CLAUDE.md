@@ -5,7 +5,7 @@
 - **Run backend e2e tests** (`uv run pytest -m backend --runslow`) after major backend/API changes before declaring done
 - If you find yourself manually testing behaviours (curl, `call_sse.py`, etc.), consider adding tests in `tests/e2e/test_backend_evaluation.py`
 - **ALWAYS notify the user** when done, even without needing input
-- **Log ALL experiments** to `EXPERIMENT_LOG.yaml` including:
+- **Log ALL experiments** to `labs/EXPERIMENT_LOG.yaml` including:
   - GPT ablation experiments
   - Llama/SFT baseline experiments (record config, seeds, learning rate, epochs)
   - Any other baseline experiments (Novascore, Scimon, etc.)
@@ -15,7 +15,7 @@
   - `accuracy`, `acc_pm1` (accuracy_within_1) - accuracy metrics
   - `f1`, `precision`, `recall` - classification metrics
   - `cost_per_run` - if applicable
-- Update `MAJOR_RESULTS.md` for major results (see `docs/EXPERIMENTS.md` for format)
+- Update `labs/MAJOR_RESULTS.md` for major results (see `docs/EXPERIMENTS.md` for format)
 
 ## Commands
 - `just lint` - Main check: fix, fmt, spell, pre-commit, test, type
