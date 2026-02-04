@@ -173,6 +173,7 @@ docs/*
 !docs/EXPERIMENTS.md
 !docs/BASELINES.md
 !docs/SURVEY_INSTRUCTIONS.md
+!docs/CONTRIBUTING.md
 !frontend/public/data
 .sprite
 .fleche

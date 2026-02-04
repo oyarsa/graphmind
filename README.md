@@ -22,7 +22,7 @@ $ uv run pre-commit install
 > available. Without it, `just lint` and other development commands will fail.
 
 See [Development Environment](#development-environment) and
-[CONTRIBUTING](/CONTRIBUTING.md) for more information.
+[CONTRIBUTING](docs/CONTRIBUTING.md) for more information.
 
 [`pandoc`](https://pandoc.org/installing.html) is required to parse the LaTeX files for
 the ORC dataset.
@@ -116,7 +116,7 @@ We use the following tools for development:
   create a commit.
 
 Please check the individual tool documentation for more information. See also
-[CONTRIBUTING](/CONTRIBUTING.md) for in-depth information.
+[CONTRIBUTING](docs/CONTRIBUTING.md) for in-depth information.
 
 The project has rich documentation on every public item. You can use `pydoc` to get the
 documentation for an item:
