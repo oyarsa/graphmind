@@ -138,7 +138,7 @@ See [REST API](./src/paper/backend/README.md) for more information.
 This project is licensed under the AGPL v3 or later:
 
     graphmind: evaluating paper novelty and feasibility
-    Copyright (C) 2024-2025 The graphmind contributors
+    Copyright (C) 2024-2025 Italo Luis da Silva
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -153,5 +153,4 @@ This project is licensed under the AGPL v3 or later:
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-See the [LICENSE](LICENSE) file for the full license text. See the
-[CONTRIBUTORS](CONTRIBUTORS) file for a list of contributors.
+See the [LICENSE](LICENSE) file for the full license text.
