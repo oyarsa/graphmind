@@ -1,4 +1,4 @@
-# CLAUDE.md - Codebase Guidelines
+# Codebase Guidelines
 
 ## Workflow Rules
 - **ALWAYS run `just lint`** after code changes before considering the task complete
@@ -162,7 +162,7 @@ Create `.env` from `.env.example` with `OPENAI_API_KEY` and optionally `SEMANTIC
 - Prompts: `src/paper/gpt/prompts/`
 - Demos: `src/paper/gpt/demonstrations/`
 
-## Experiment Setup (for Claude)
+## Experiment Setup
 
 When the user asks to "initialise the repo for experiments" (with `cpu` or `cuda`), follow these steps:
 
