@@ -24,8 +24,18 @@ class NoveltyResult(Immutable):
     """Result of evaluating novelty given paper information and external evidence."""
 
     rating: Annotated[
-        int, Field("Novelty rating when 1 is not novel at all and 4 is very novel.")
+        int,
+        Field(
+            description="Novelty rating where 1 is not novel and 4 is very novel.",
+            ge=1,
+            le=4,
+        ),
     ]
+
+
+def _is_not_novel(label: int) -> bool:
+    """Return whether a 1-5 novelty label should be treated as not novel."""
+    return label < 4
 
 
 async def get_novelty_probability(
@@ -38,7 +48,7 @@ async def get_novelty_probability(
     We re-prompt the LLM to give N ratings and calculate the probability as the
     percentage.
 
-    If set to 0, we instead return 0 for 'not novel' papers and 1 for 'novel'.
+    If set to 0, returns 0 for not-novel labels (1-3) and 1 for novel labels (4-5).
 
     Args:
         client: LLM client to use to generate best of N results.
@@ -50,12 +60,14 @@ async def get_novelty_probability(
         the paper is novel.
     """
     if best_of_n == 0:
-        return output.map(lambda out: 0.0 if out.label == 0 else 1.0)
+        return output.map(lambda out: 0.0 if _is_not_novel(out.label) else 1.0)
 
     prob = await output.abind(lambda out: get_novelty_best_of_n(client, out, best_of_n))
 
     # "not novel" will have at most 40% prob, and "novel" will have at least 60%
-    return prob.map(lambda p: min(p, 0.4) if output.result.label == 0 else max(p, 0.6))
+    return prob.map(
+        lambda p: min(p, 0.4) if _is_not_novel(output.result.label) else max(p, 0.6)
+    )
 
 
 BEST_OF_SYSTEM_PROMPT = """You are an expert reviewer assessing a paper's novelty on a
@@ -101,7 +113,7 @@ async def get_novelty_best_of_n(
 
     We use another round of calls to the LLM with a custom prompt to ask it to review
     the evidence highlighted by the evaluation result, and generate a novelty rating
-    from 1-5. The ratings are then averaged to produce a probability.
+    from 1-4. The ratings are then averaged to produce a probability.
 
     Args:
         client: LLM client to use to generate best of N results.
@@ -110,8 +122,8 @@ async def get_novelty_best_of_n(
 
     Returns:
         Probability as a float between 0 and 1, calculated as the average of all
-        ratings divided by 5. For example, ratings [2, 3, 3, 4, 3] would yield
-        (2+3+3+4+3)/(5*5) = 15/25 = 0.6.
+        ratings divided by 4. For example, ratings [2, 3, 3, 4, 3] would yield
+        (2+3+3+4+3)/(5*4) = 15/20 = 0.75.
     """
     tasks = [
         client.run(
@@ -119,7 +131,7 @@ async def get_novelty_best_of_n(
             BEST_OF_SYSTEM_PROMPT,
             BEST_OF_USER_TEMPLATE.format(
                 rationale=output.rationale,
-                label_text="not novel" if output.label == 0 else "novel",
+                label_text="not novel" if _is_not_novel(output.label) else "novel",
             ),
             temperature=1,
             seed=_RNG.randint(1, 100),
