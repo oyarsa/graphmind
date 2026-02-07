@@ -26,6 +26,8 @@ import {
   createSideBySideComparison,
   createHierarchicalGraph,
   createExpandableEvidenceItem,
+  findRelatedPaperIndexByTitle,
+  getRelatedPaperFilterType,
 } from "./helpers";
 import { addFooter } from "../footer";
 import { buildPageUrl } from "./routes";
@@ -162,29 +164,6 @@ function createStructuredAnalysisDisplay(
   structured: StructuredEval,
   graphResult: GraphResultMulti | null,
 ): string {
-  /**
-   * Helper function to find the index of a related paper by title in the currently filtered papers
-   */
-  function findRelatedPaperIndex(paperTitle: string): number | null {
-    if (!graphResult) return null;
-
-    // Normalize the search title for comparison
-    const normalizedSearchTitle = paperTitle
-      .replace(/[^a-zA-Z0-9\s]/g, "")
-      .toLowerCase()
-      .trim();
-
-    // Find the index using normalized title matching
-    const index = graphResult.related.findIndex(
-      paper =>
-        paper.title
-          .replace(/[^a-zA-Z0-9\s]/g, "")
-          .toLowerCase()
-          .trim() === normalizedSearchTitle,
-    );
-    return index >= 0 ? index : null;
-  }
-
   return `
     <div class="space-y-4">
       <!-- Summary -->
@@ -235,7 +214,10 @@ function createStructuredAnalysisDisplay(
               .map((evidence, index) => {
                 const relatedPaperIndex =
                   typeof evidence === "object" && evidence.paper_title && graphResult
-                    ? findRelatedPaperIndex(evidence.paper_title)
+                    ? findRelatedPaperIndexByTitle(
+                        evidence.paper_title,
+                        graphResult.related,
+                      )
                     : null;
                 const relatedPaper =
                   relatedPaperIndex !== null && graphResult
@@ -275,7 +257,10 @@ function createStructuredAnalysisDisplay(
               .map((evidence, index) => {
                 const relatedPaperIndex =
                   typeof evidence === "object" && evidence.paper_title && graphResult
-                    ? findRelatedPaperIndex(evidence.paper_title)
+                    ? findRelatedPaperIndexByTitle(
+                        evidence.paper_title,
+                        graphResult.related,
+                      )
                     : null;
                 const relatedPaper =
                   relatedPaperIndex !== null && graphResult
@@ -374,13 +359,17 @@ function displayRelatedPapers(
   }
 
   // Group papers by relationship type
-  const backgroundPapers = relatedPapers.filter(p => p.background);
-  const targetPapers = relatedPapers.filter(p => p.target);
+  const backgroundPapers = relatedPapers.filter(
+    p => getRelatedPaperFilterType(p) === "background",
+  );
+  const targetPapers = relatedPapers.filter(
+    p => getRelatedPaperFilterType(p) === "target",
+  );
   const supportingPapers = relatedPapers.filter(
-    p => p.source === "citations" && p.polarity === "positive",
+    p => getRelatedPaperFilterType(p) === "supporting",
   );
   const contrastingPapers = relatedPapers.filter(
-    p => p.source === "citations" && p.polarity === "negative",
+    p => getRelatedPaperFilterType(p) === "contrasting",
   );
 
   // Update filter counts
@@ -459,22 +448,7 @@ function filterPapersByType(type: string, relatedPapers: RelatedPaper[]): void {
     const card = document.getElementById(`related-card-${index}`);
     if (!card) return;
 
-    let shouldShow = false;
-
-    switch (type) {
-      case "background":
-        shouldShow = !!paper.background;
-        break;
-      case "target":
-        shouldShow = !!paper.target;
-        break;
-      case "supporting":
-        shouldShow = paper.source === "citations" && paper.polarity === "positive";
-        break;
-      case "contrasting":
-        shouldShow = paper.source === "citations" && paper.polarity === "negative";
-        break;
-    }
+    const shouldShow = getRelatedPaperFilterType(paper) === type;
 
     card.style.display = shouldShow ? "block" : "none";
   });

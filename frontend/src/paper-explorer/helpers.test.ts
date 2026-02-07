@@ -3,6 +3,8 @@ import {
   createPaperTermsDisplay,
   getRelationshipStyle,
   getRelatedPaperFilterType,
+  normalizePaperTitle,
+  findRelatedPaperIndexByTitle,
   getScoreDisplay,
   formatTypeName,
   formatPaperCitation,
@@ -194,6 +196,47 @@ describe("getRelatedPaperFilterType", () => {
       polarity: "unknown" as "positive" | "negative",
     });
     expect(getRelatedPaperFilterType(paper)).toBeNull();
+  });
+});
+
+describe("normalizePaperTitle", () => {
+  it("normalizes punctuation and case", () => {
+    expect(normalizePaperTitle("Attention: Is All You Need!")).toBe(
+      "attention is all you need",
+    );
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(normalizePaperTitle("  Title With Space  ")).toBe("title with space");
+  });
+});
+
+describe("findRelatedPaperIndexByTitle", () => {
+  const relatedPapers = [
+    createTestRelatedPaper({
+      title: "Attention Is All You Need",
+      paper_id: "p1",
+      source: "semantic",
+      polarity: "positive",
+    }),
+    createTestRelatedPaper({
+      title: "Simple and Scalable Predictive Uncertainty Estimation",
+      paper_id: "p2",
+      source: "citations",
+      polarity: "negative",
+    }),
+  ];
+
+  it("matches title despite punctuation differences", () => {
+    expect(
+      findRelatedPaperIndexByTitle("Attention: Is All You Need", relatedPapers),
+    ).toBe(0);
+  });
+
+  it("returns null when no related paper matches", () => {
+    expect(
+      findRelatedPaperIndexByTitle("Completely Different Title", relatedPapers),
+    ).toBeNull();
   });
 });
 

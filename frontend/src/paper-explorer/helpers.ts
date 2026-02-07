@@ -207,6 +207,30 @@ export function getRelatedPaperFilterType(
 }
 
 /**
+ * Normalize a paper title for matching by removing punctuation and lowercasing.
+ */
+export function normalizePaperTitle(title: string): string {
+  return title
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Find a related paper index by title using normalized matching.
+ */
+export function findRelatedPaperIndexByTitle(
+  title: string,
+  relatedPapers: RelatedPaper[],
+): number | null {
+  const normalizedSearchTitle = normalizePaperTitle(title);
+  const index = relatedPapers.findIndex(
+    paper => normalizePaperTitle(paper.title) === normalizedSearchTitle,
+  );
+  return index >= 0 ? index : null;
+}
+
+/**
  * Calculate score percentage and color based on score value
  */
 export function getScoreDisplay(score: number) {

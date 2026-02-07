@@ -16,6 +16,7 @@ import {
   renderLatex,
   getRelationshipStyle,
   getRelatedPaperFilterType,
+  findRelatedPaperIndexByTitle,
   setupSectionToggle,
   formatScientificCitation,
   getScoreDisplay,
@@ -319,10 +320,11 @@ function createEvidenceItem(
   }
 
   // Handle EvidenceItem with paper information
-  const relatedPaper = relatedPapers.find(
-    paper => paper.title === evidence.paper_title,
-  );
-  const relatedPaperIndex = relatedPaper ? relatedPapers.indexOf(relatedPaper) : -1;
+  const relatedPaperIndex = evidence.paper_title
+    ? findRelatedPaperIndexByTitle(evidence.paper_title, relatedPapers)
+    : null;
+  const relatedPaper =
+    relatedPaperIndex !== null ? relatedPapers[relatedPaperIndex] : null;
 
   const displayText = relatedPaper
     ? formatScientificCitation(
@@ -333,7 +335,7 @@ function createEvidenceItem(
     : (evidence.paper_title ?? "Unknown Paper");
 
   const paperTitleElement =
-    relatedPaperIndex >= 0
+    relatedPaperIndex !== null
       ? `<a href="#related-papers"
            class="related-paper-link hover:underline cursor-pointer text-blue-800 dark:text-blue-200"
            data-paper-index="${relatedPaperIndex}">

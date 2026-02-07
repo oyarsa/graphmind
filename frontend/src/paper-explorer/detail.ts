@@ -25,6 +25,8 @@ import {
   createExpandableEvidenceItem,
   getScoreColor,
   createHierarchicalGraph,
+  normalizePaperTitle,
+  findRelatedPaperIndexByTitle,
 } from "./helpers";
 import { addFooter } from "../footer";
 import { parseStoredJson } from "./storage";
@@ -239,20 +241,6 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
 }
 
 /**
- * Helper function to find the index of a related paper by title in the currently filtered papers
- */
-/**
- * Normalize a paper title for matching by removing non-alphabetical characters
- * and converting to lowercase. This helps match titles that differ by punctuation.
- */
-function normalizeTitle(title: string): string {
-  return title
-    .replace(/[^a-zA-Z0-9\s]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-/**
  * Filter related papers to only include those that appear in the evidence lists.
  *
  * This ensures the Related Papers section only shows papers that are actually
@@ -269,32 +257,20 @@ function filterToEvidencePapers(
 
   for (const evidence of evaluation.supporting_evidence) {
     if (typeof evidence === "object" && evidence.paper_title) {
-      evidenceTitles.add(normalizeTitle(evidence.paper_title));
+      evidenceTitles.add(normalizePaperTitle(evidence.paper_title));
     }
   }
 
   for (const evidence of evaluation.contradictory_evidence) {
     if (typeof evidence === "object" && evidence.paper_title) {
-      evidenceTitles.add(normalizeTitle(evidence.paper_title));
+      evidenceTitles.add(normalizePaperTitle(evidence.paper_title));
     }
   }
 
   // Filter related papers to only those in evidence
-  return relatedPapers.filter(paper => evidenceTitles.has(normalizeTitle(paper.title)));
-}
-
-function findRelatedPaperIndex(
-  paperTitle: string,
-  relatedPapers: RelatedPaper[],
-): number | null {
-  // Normalize the search title for comparison
-  const normalizedSearchTitle = normalizeTitle(paperTitle);
-
-  // Find the index using normalized title matching
-  const index = relatedPapers.findIndex(
-    paper => normalizeTitle(paper.title) === normalizedSearchTitle,
+  return relatedPapers.filter(paper =>
+    evidenceTitles.has(normalizePaperTitle(paper.title)),
   );
-  return index >= 0 ? index : null;
 }
 
 function createStructuredEvaluationDisplay(
@@ -409,7 +385,7 @@ function createStructuredEvaluationDisplay(
               .map((evidence, index) => {
                 const relatedPaperIndex =
                   typeof evidence === "object" && evidence.paper_title
-                    ? findRelatedPaperIndex(evidence.paper_title, evidencePapers)
+                    ? findRelatedPaperIndexByTitle(evidence.paper_title, evidencePapers)
                     : null;
                 const relatedPaper =
                   relatedPaperIndex !== null ? evidencePapers[relatedPaperIndex] : null;
@@ -447,7 +423,7 @@ function createStructuredEvaluationDisplay(
               .map((evidence, index) => {
                 const relatedPaperIndex =
                   typeof evidence === "object" && evidence.paper_title
-                    ? findRelatedPaperIndex(evidence.paper_title, evidencePapers)
+                    ? findRelatedPaperIndexByTitle(evidence.paper_title, evidencePapers)
                     : null;
                 const relatedPaper =
                   relatedPaperIndex !== null ? evidencePapers[relatedPaperIndex] : null;
