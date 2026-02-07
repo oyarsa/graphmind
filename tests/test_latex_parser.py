@@ -148,6 +148,23 @@ class TestRemoveCommandWithBracedArgs:
         result = _remove_command_with_braced_args(text, pat)
         assert result == "before  after"
 
+    def test_multiline_brace_body(self) -> None:
+        pat = re.compile(r"\\newtcolorbox\{[^}]+\}(\[\d+\])?(\[[^\]]*\])?")
+        text = "before\n\\newtcolorbox{mybox}[2][]\n{ colback=red }\nafter"
+        result = _remove_command_with_braced_args(text, pat)
+        assert "newtcolorbox" not in result
+        assert "colback" not in result
+        assert "before" in result
+        assert "after" in result
+
+    def test_multiline_with_comment(self) -> None:
+        pat = re.compile(r"\\newcommand\*?\{[^}]+\}(\[\d+\])?")
+        text = "\\newcommand{\\foo}[1]\n% definition follows\n{body}\nrest"
+        result = _remove_command_with_braced_args(text, pat)
+        assert "\\foo" not in result
+        assert "body" not in result
+        assert "rest" in result
+
 
 class TestRemoveArxivStyling:
     """Tests for _remove_arxiv_styling with nested braces."""
@@ -176,6 +193,13 @@ class TestRemoveArxivStyling:
         )
         result = _remove_arxiv_styling(tex)
         assert "newtcolorbox" not in result
+        assert "OK" in result
+
+    def test_newtcolorbox_multiline_body(self) -> None:
+        tex = "\\newtcolorbox{mybox}[2][]\n{ colback=#2 }\nOK"
+        result = _remove_arxiv_styling(tex)
+        assert "newtcolorbox" not in result
+        assert "colback" not in result
         assert "OK" in result
 
     def test_tcolorbox_env_removal(self) -> None:

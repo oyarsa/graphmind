@@ -538,7 +538,8 @@ def _remove_command_with_braced_args(text: str, pattern: re.Pattern[str]) -> str
 
     ``pattern`` should match the command name and any bracket options but stop
     **before** the first ``{`` argument.  This helper then eats one or more
-    ``{...}`` groups that immediately follow.
+    ``{...}`` groups that follow, skipping any intermediate whitespace or
+    comments so that multiline declarations are handled correctly.
     """
     result: list[str] = []
     last_end = 0
@@ -546,14 +547,25 @@ def _remove_command_with_braced_args(text: str, pattern: re.Pattern[str]) -> str
     for m in pattern.finditer(text):
         result.append(text[last_end : m.start()])
 
-        # Skip brace groups after the match
+        # Skip brace groups after the match, tolerating whitespace/comments
+        # between them (common in multiline LaTeX declarations).
         pos = m.end()
 
-        while pos < len(text) and text[pos] == "{":
-            end = _match_braced_group(text, pos)
-            if end == -1:
+        while pos < len(text):
+            # Skip whitespace and full-line TeX comments between brace groups
+            ws_match = re.match(r"(?:\s|%[^\n]*\n)*", text[pos:])
+            if ws_match:
+                peek = pos + ws_match.end()
+            else:
+                peek = pos
+
+            if peek < len(text) and text[peek] == "{":
+                end = _match_braced_group(text, peek)
+                if end == -1:
+                    break
+                pos = end
+            else:
                 break
-            pos = end
 
         last_end = pos
 
