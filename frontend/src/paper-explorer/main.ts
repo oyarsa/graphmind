@@ -95,7 +95,11 @@ class PaperExplorer {
       this.allPapers = validatedData;
       this.filteredPapers = [...this.allPapers];
 
-      localStorage.setItem("papers-dataset", JSON.stringify(validatedData));
+      try {
+        localStorage.setItem("papers-dataset", JSON.stringify(validatedData));
+      } catch (error) {
+        console.warn("Failed to cache papers dataset in localStorage:", error);
+      }
 
       this.displayPapers(this.filteredPapers);
       this.setupSearchBar();
