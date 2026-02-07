@@ -211,6 +211,24 @@ class TestSanitiseForPandoc:
         result = _sanitise_for_pandoc(tex)
         assert result.count("{") == result.count("}")
 
+    def test_removes_def_with_body(self) -> None:
+        tex = (
+            "\\begin{document}\nbefore\n\\def\\add#1#2{#1 + #2}\nafter\n\\end{document}"
+        )
+        result = _sanitise_for_pandoc(tex)
+        assert "\\def" not in result
+        assert "#1 + #2" not in result
+        assert "before" in result
+        assert "after" in result
+        assert result.count("{") == result.count("}")
+
+    def test_removes_def_without_params(self) -> None:
+        tex = "\\begin{document}\n\\def\\myname{Alice}\nHello.\n\\end{document}"
+        result = _sanitise_for_pandoc(tex)
+        assert "\\def" not in result
+        assert "Alice" not in result
+        assert "Hello" in result
+
     def test_removes_algorithm_env(self) -> None:
         tex = (
             "\\begin{document}\nbefore\n"

@@ -655,7 +655,10 @@ def _sanitise_for_pandoc(latex_content: str) -> str:
         content,
         re.compile(r"\\(?:re)?newcommand\*?\{[^}]+\}(\[\d+\])?(\[[^\]]*\])?"),
     )
-    content = re.sub(r"\\def\\[a-zA-Z@]+#?\d?", "", content)
+    content = _remove_command_with_braced_args(
+        content,
+        re.compile(r"\\def\\[a-zA-Z@]+(#\d)*"),
+    )
 
     # Balance braces: drop orphan } that would make depth negative, then
     # append any missing closing braces at the end.
