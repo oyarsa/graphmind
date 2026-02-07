@@ -362,7 +362,7 @@ class PaperExplorer {
     );
 
     if (!defaultRadio || !multiRadio || !defaultLabel || !multiLabel) {
-      console.warn("ArXiv mode toggle elements not found");
+      // Multi-perspective mode toggle is currently disabled in search.html.
       return;
     }
 
