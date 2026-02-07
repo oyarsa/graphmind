@@ -273,10 +273,11 @@ async def get_related_papers(
     # Filter recommended papers by publication date if requested.
     #
     # Rules:
-    # - If both papers have month precision, compare by month.
-    # - If month precision is missing for either paper in the same year, compare by year
-    #   only.
-    # - Earlier years are always allowed, later years are always excluded.
+    # - Earlier years are always allowed; later years are always excluded.
+    # - For same-year papers, compare by month only when both sides provide month
+    #   precision.
+    # - If month precision is missing for either paper in the same year, we
+    #   conservatively exclude the candidate.
     if filter_by_date and paper_annotated.paper.year:
         logger.debug("Filtering by publication date")
         main_year = paper_annotated.paper.year
