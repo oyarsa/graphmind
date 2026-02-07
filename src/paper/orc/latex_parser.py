@@ -672,7 +672,7 @@ def _sanitise_for_pandoc(latex_content: str) -> str:
     )
     content = _remove_command_with_braced_args(
         content,
-        re.compile(r"\\def\\[a-zA-Z@]+(#\d)*"),
+        re.compile(r"\\def\s*\\[a-zA-Z@]+(\s*#\d)*"),
     )
 
     # Balance braces: drop orphan } that would make depth negative, then
