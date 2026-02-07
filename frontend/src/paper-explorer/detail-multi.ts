@@ -28,6 +28,7 @@ import {
   createExpandableEvidenceItem,
 } from "./helpers";
 import { addFooter } from "../footer";
+import { buildPageUrl } from "./routes";
 
 function createRelatedPaperCard(
   paper: RelatedPaper,
@@ -750,7 +751,7 @@ function setupRelatedPaperLinkHandlers(): void {
 async function initializeDetailMultiPage(): Promise<void> {
   // Multi-perspective feature is currently disabled - redirect to main search
   // To re-enable: remove this redirect and uncomment the toggle in search.html
-  window.location.href = "/graphmind/pages/search.html";
+  window.location.href = buildPageUrl("search.html");
   return;
 
   await waitForDOM();

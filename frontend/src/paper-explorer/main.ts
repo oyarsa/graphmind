@@ -52,6 +52,7 @@ import {
   showAbstractCompletionNotification,
   cacheAbstractEvaluation,
 } from "./abstract";
+import { buildPageUrl } from "./routes";
 
 class PaperExplorer {
   private allPapers: GraphResult[] = [];
@@ -144,8 +145,7 @@ class PaperExplorer {
     papers.forEach(graphResult => {
       const paper = graphResult.paper;
       const paperLink = document.createElement("a");
-      const encodedId = encodeURIComponent(paper.id);
-      paperLink.href = `/graphmind/pages/detail.html?id=${encodedId}`;
+      paperLink.href = buildPageUrl("detail.html", { id: paper.id });
       paperLink.className =
         "block rounded-lg bg-gray-100/50 dark:bg-gray-900/50 border border-gray-300" +
         " dark:border-gray-700 p-6 transition-all duration-200 hover:border-teal-500/50" +
@@ -598,12 +598,11 @@ class PaperExplorer {
   private handleArxivPaperSelection(item: PaperSearchItem): void {
     const cachedItem = item as CachedPaperSearchItem;
     if (cachedItem._isCached && cachedItem._cachedPaperId) {
-      const encodedId = encodeURIComponent(cachedItem._cachedPaperId);
       const detailPage =
-        this.currentArxivMode === "multi"
-          ? "/graphmind/pages/detail-multi.html"
-          : "/graphmind/pages/detail.html";
-      window.location.href = `${detailPage}?id=${encodedId}`;
+        this.currentArxivMode === "multi" ? "detail-multi.html" : "detail.html";
+      window.location.href = buildPageUrl(detailPage, {
+        id: cachedItem._cachedPaperId,
+      });
       return;
     }
 
@@ -620,12 +619,11 @@ class PaperExplorer {
 
     const cachedPaper = findCachedPaperByArxivId(item.arxiv_id, this.currentArxivMode);
     if (cachedPaper) {
-      const encodedId = encodeURIComponent(cachedPaper.paper.id);
       const detailPage =
-        this.currentArxivMode === "multi"
-          ? "/graphmind/pages/detail-multi.html"
-          : "/graphmind/pages/detail.html";
-      window.location.href = `${detailPage}?id=${encodedId}`;
+        this.currentArxivMode === "multi" ? "detail-multi.html" : "detail.html";
+      window.location.href = buildPageUrl(detailPage, {
+        id: cachedPaper.paper.id,
+      });
       return;
     }
 
@@ -784,12 +782,9 @@ class PaperExplorer {
 
       showCompletionNotification(params.title);
 
-      const encodedId = encodeURIComponent(paperId);
       const detailPage =
-        this.currentArxivMode === "multi"
-          ? "/graphmind/pages/detail-multi.html"
-          : "/graphmind/pages/detail.html";
-      window.location.href = `${detailPage}?id=${encodedId}`;
+        this.currentArxivMode === "multi" ? "detail-multi.html" : "detail.html";
+      window.location.href = buildPageUrl(detailPage, { id: paperId });
     } catch (error) {
       if (error instanceof Error && error.message.includes("cancelled by user")) {
         console.log("Evaluation cancelled by user");
@@ -855,7 +850,7 @@ class PaperExplorer {
       cacheAbstractEvaluation(result);
       showAbstractCompletionNotification(params.title);
 
-      window.location.href = `/graphmind/pages/abstract-detail.html?id=${result.id}`;
+      window.location.href = buildPageUrl("abstract-detail.html", { id: result.id });
     } catch (error) {
       if (error instanceof Error && error.message.includes("cancelled by user")) {
         console.log("Abstract evaluation cancelled by user");

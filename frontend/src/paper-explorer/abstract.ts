@@ -6,6 +6,7 @@ import { z } from "zod/v4";
 import { cleanKeyword } from "../util";
 import { renderLatex } from "./helpers";
 import { AbstractEvaluationResponse, AbstractEvaluationResponseSchema } from "./model";
+import { buildPageUrl } from "./routes";
 import { AbstractEvaluationParams } from "./services";
 import { parseStoredJson } from "./storage";
 
@@ -171,9 +172,10 @@ function createAbstractEvaluationCard(
       : rating === 3
         ? "text-yellow-600 dark:text-yellow-400"
         : "text-green-600 dark:text-green-400";
+  const detailUrl = buildPageUrl("abstract-detail.html", { id: evaluation.id });
 
   card.innerHTML = `
-    <div class="cursor-pointer" onclick="window.location.href='/graphmind/pages/abstract-detail.html?id=${evaluation.id}'">
+    <div class="cursor-pointer" onclick="window.location.href='${detailUrl}'">
       <h4 class="mb-2 line-clamp-2 font-semibold text-gray-900 dark:text-gray-100">
         ${renderLatex(evaluation.title)}
       </h4>
