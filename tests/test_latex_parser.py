@@ -301,9 +301,22 @@ class TestConvertLatexToMarkdown:
         assert mock_pandoc.call_count == 3  # type: ignore[union-attr]
 
     @patch("paper.orc.latex_parser._run_pandoc")
+    def test_falls_through_to_full_clean(self, mock_pandoc: object) -> None:
+        """When all lighter strategies fail, full-clean is tried."""
+        mock_pandoc.side_effect = [  # type: ignore[union-attr]
+            (None, "exit 64"),
+            (None, "exit 64"),
+            (None, "exit 64"),
+            ("# Full clean", ""),
+        ]
+        result = _convert_latex_to_markdown("\\section{Hello}", "test")
+        assert result == "# Full clean"
+        assert mock_pandoc.call_count == 4  # type: ignore[union-attr]
+
+    @patch("paper.orc.latex_parser._run_pandoc")
     def test_all_strategies_fail(self, mock_pandoc: object) -> None:
         """Returns None when every strategy fails."""
         mock_pandoc.return_value = (None, "exit 64")  # type: ignore[union-attr]
         result = _convert_latex_to_markdown("\\section{Hello}", "test")
         assert result is None
-        assert mock_pandoc.call_count == 3  # type: ignore[union-attr]
+        assert mock_pandoc.call_count == 4  # type: ignore[union-attr]

@@ -749,11 +749,14 @@ def _convert_latex_to_markdown(latex_content: str, title: str) -> str | None:
     2. **Style-cleaned** — arxiv/tcolorbox styling removed.
     3. **Sanitised** — preamble stripped, problematic environments removed,
        braces rebalanced.
+    4. **Full clean** — style-cleaned then sanitised (combines both transforms).
     """
+    style_cleaned = _remove_arxiv_styling(latex_content)
     strategies = [
         ("raw", latex_content),
-        ("style-cleaned", _remove_arxiv_styling(latex_content)),
+        ("style-cleaned", style_cleaned),
         ("sanitised", _sanitise_for_pandoc(latex_content)),
+        ("full-clean", _sanitise_for_pandoc(style_cleaned)),
     ]
 
     errors: list[str] = []
