@@ -694,8 +694,16 @@ def _sanitise_for_pandoc(latex_content: str) -> str:
     return "".join(balanced)
 
 
-def _run_pandoc(latex_content: str, tmp_dir: Path, title: str) -> str | None:
-    """Run pandoc on *latex_content*, returning the markdown or ``None``."""
+def _run_pandoc(
+    latex_content: str, tmp_dir: Path, title: str
+) -> tuple[str | None, str]:
+    """Run pandoc on *latex_content*.
+
+    Returns:
+        A ``(markdown, error_detail)`` pair.  *markdown* is the converted text
+        on success or ``None`` on failure.  *error_detail* is a short
+        diagnostic string (empty on success).
+    """
     latex_file = tmp_dir / "input.tex"
     markdown_file = tmp_dir / "output.md"
     latex_file.write_text(latex_content)
@@ -721,18 +729,14 @@ def _run_pandoc(latex_content: str, tmp_dir: Path, title: str) -> str | None:
             capture_output=True,
             text=True,
         )
-        return markdown_file.read_text(errors="ignore")
+        return markdown_file.read_text(errors="ignore"), ""
     except subprocess.TimeoutExpired:
-        logger.warning("Command timeout during pandoc conversion. Paper: %s", title)
-        return None
+        return None, "timeout"
     except subprocess.CalledProcessError as e:
-        logger.debug(
-            "Pandoc conversion failed. Paper: %s. Error: %s\nStderr: %s",
-            title,
-            e,
-            e.stderr,
-        )
-        return None
+        stderr = (e.stderr or "").strip()
+        # Keep only the first line to avoid flooding logs.
+        first_line = stderr.split("\n", 1)[0] if stderr else f"exit {e.returncode}"
+        return None, first_line
 
 
 def _convert_latex_to_markdown(latex_content: str, title: str) -> str | None:
@@ -752,18 +756,24 @@ def _convert_latex_to_markdown(latex_content: str, title: str) -> str | None:
         ("sanitised", _sanitise_for_pandoc(latex_content)),
     ]
 
+    errors: list[str] = []
+
     with tempfile.TemporaryDirectory() as tmp_dir_:
         tmp_dir = Path(tmp_dir_)
 
         for name, content in strategies:
             logger.debug("Pandoc strategy '%s': %s", name, title)
-            if result := _run_pandoc(content, tmp_dir, title):
+            result, err = _run_pandoc(content, tmp_dir, title)
+            if result:
                 if name != "raw":
                     logger.debug("Pandoc succeeded with '%s' strategy: %s", name, title)
                 return result
+            errors.append(f"{name}: {err}")
 
         logger.warning(
-            "Pandoc conversion failed after all strategies. Paper: %s", title
+            "Pandoc conversion failed after all strategies. Paper: %s. Errors: %s",
+            title,
+            "; ".join(errors),
         )
         return None
 
