@@ -2,7 +2,14 @@
  * Cache management for evaluated papers.
  */
 
-import { GraphResult, GraphResultMulti, PaperSearchResults } from "./model";
+import {
+  GraphResult,
+  GraphResultMulti,
+  GraphResultSchema,
+  GraphResultMultiSchema,
+  PaperSearchResults,
+} from "./model";
+import { parseStoredJson } from "./storage";
 
 /** Extended interface for cached papers */
 export interface CachedPaperSearchItem {
@@ -39,14 +46,10 @@ function getCachedPapersDefault(): GraphResult[] {
   const cachedPapers: GraphResult[] = [];
 
   for (const key of cacheKeys) {
-    try {
-      const cachedData = localStorage.getItem(key);
-      if (cachedData) {
-        const graphResult = JSON.parse(cachedData) as GraphResult;
-        cachedPapers.push(graphResult);
-      }
-    } catch (error) {
-      console.warn(`Failed to parse cached paper ${key}:`, error);
+    const cachedData = localStorage.getItem(key);
+    const graphResult = parseStoredJson(cachedData, GraphResultSchema, key);
+    if (graphResult) {
+      cachedPapers.push(graphResult);
     }
   }
 
@@ -64,14 +67,10 @@ function getCachedPapersMulti(): GraphResultMulti[] {
   const cachedPapers: GraphResultMulti[] = [];
 
   for (const key of cacheKeys) {
-    try {
-      const cachedData = localStorage.getItem(key);
-      if (cachedData) {
-        const graphResult = JSON.parse(cachedData) as GraphResultMulti;
-        cachedPapers.push(graphResult);
-      }
-    } catch (error) {
-      console.warn(`Failed to parse cached multi paper ${key}:`, error);
+    const cachedData = localStorage.getItem(key);
+    const graphResult = parseStoredJson(cachedData, GraphResultMultiSchema, key);
+    if (graphResult) {
+      cachedPapers.push(graphResult);
     }
   }
 
@@ -139,21 +138,22 @@ export function findCachedPaperByArxivId(
   );
 
   for (const key of cacheKeys) {
-    try {
-      const cachedData = localStorage.getItem(key);
-      if (cachedData) {
-        const graphResult = JSON.parse(cachedData) as GraphResult | GraphResultMulti;
-        console.log(`[Cache] Checking ${key}: arxiv_id=${graphResult.paper.arxiv_id}`);
+    const cachedData = localStorage.getItem(key);
+    const graphResult =
+      mode === "multi"
+        ? parseStoredJson(cachedData, GraphResultMultiSchema, key)
+        : parseStoredJson(cachedData, GraphResultSchema, key);
 
-        if (graphResult.paper.arxiv_id === arxivId) {
-          console.log(
-            `[Cache] HIT! Found ${modeText} paper ${arxivId} in cache with key ${key}`,
-          );
-          return graphResult;
-        }
-      }
-    } catch (e) {
-      console.warn(`[Cache] Invalid cache entry ${key}:`, e);
+    if (!graphResult) {
+      continue;
+    }
+
+    console.log(`[Cache] Checking ${key}: arxiv_id=${graphResult.paper.arxiv_id}`);
+    if (graphResult.paper.arxiv_id === arxivId) {
+      console.log(
+        `[Cache] HIT! Found ${modeText} paper ${arxivId} in cache with key ${key}`,
+      );
+      return graphResult;
     }
   }
 

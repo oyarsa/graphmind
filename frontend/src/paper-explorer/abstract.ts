@@ -2,10 +2,12 @@
  * Abstract evaluation functionality for the Paper Explorer.
  */
 
+import { z } from "zod/v4";
 import { cleanKeyword } from "../util";
 import { renderLatex } from "./helpers";
-import { AbstractEvaluationResponse } from "./model";
+import { AbstractEvaluationResponse, AbstractEvaluationResponseSchema } from "./model";
 import { AbstractEvaluationParams } from "./services";
+import { parseStoredJson } from "./storage";
 
 /**
  * Setup Abstract tab functionality including form submission and cache management.
@@ -113,9 +115,12 @@ export function loadPreviousAbstractEvaluations(): void {
   if (!container || !noResults) return;
 
   const evaluationsList = localStorage.getItem("abstract-evaluations-list");
-  const evaluationIds: string[] = evaluationsList
-    ? (JSON.parse(evaluationsList) as string[])
-    : [];
+  const evaluationIds =
+    parseStoredJson(
+      evaluationsList,
+      z.array(z.string()),
+      "abstract-evaluations-list",
+    ) ?? [];
 
   container.innerHTML = "";
 
@@ -131,14 +136,11 @@ export function loadPreviousAbstractEvaluations(): void {
   const evaluations: AbstractEvaluationResponse[] = [];
 
   for (const id of evaluationIds) {
-    try {
-      const cached = localStorage.getItem(`abstract-evaluation-cache-${id}`);
-      if (cached) {
-        const evaluation = JSON.parse(cached) as AbstractEvaluationResponse;
-        evaluations.push(evaluation);
-      }
-    } catch (error) {
-      console.warn(`Failed to load cached evaluation ${id}:`, error);
+    const key = `abstract-evaluation-cache-${id}`;
+    const cached = localStorage.getItem(key);
+    const evaluation = parseStoredJson(cached, AbstractEvaluationResponseSchema, key);
+    if (evaluation) {
+      evaluations.push(evaluation);
     }
   }
 
@@ -369,9 +371,9 @@ export function cacheAbstractEvaluation(result: AbstractEvaluationResponse): voi
   );
 
   const currentList = localStorage.getItem("abstract-evaluations-list");
-  const evaluationIds: string[] = currentList
-    ? (JSON.parse(currentList) as string[])
-    : [];
+  const evaluationIds =
+    parseStoredJson(currentList, z.array(z.string()), "abstract-evaluations-list") ??
+    [];
   if (!evaluationIds.includes(result.id)) {
     evaluationIds.push(result.id);
     localStorage.setItem("abstract-evaluations-list", JSON.stringify(evaluationIds));

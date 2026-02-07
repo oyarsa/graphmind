@@ -2,6 +2,9 @@
  * Evaluation settings management for the Paper Explorer.
  */
 
+import { z } from "zod/v4";
+import { parseStoredJson } from "./storage";
+
 /** Settings interface for evaluation parameters */
 export interface EvaluationSettings {
   llm_model: "gpt-4o" | "gpt-4o-mini" | "gemini-2.0-flash";
@@ -21,15 +24,25 @@ export const DEFAULT_SETTINGS: EvaluationSettings = {
 
 export const SETTINGS_STORAGE_KEY = "paper-explorer-evaluation-settings";
 
+const EvaluationSettingsSchema = z.object({
+  llm_model: z.enum(["gpt-4o", "gpt-4o-mini", "gemini-2.0-flash"]),
+  k_refs: z.number().int().min(10).max(50),
+  recommendations: z.number().int().min(20).max(50),
+  related: z.number().int().min(5).max(10),
+  filter_by_date: z.boolean(),
+});
+
+const PartialEvaluationSettingsSchema = EvaluationSettingsSchema.partial();
+
 export function loadSettings(): EvaluationSettings {
-  try {
-    const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as Partial<EvaluationSettings>;
-      return { ...DEFAULT_SETTINGS, ...parsed };
-    }
-  } catch (e) {
-    console.warn("Failed to load settings:", e);
+  const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
+  const parsed = parseStoredJson(
+    stored,
+    PartialEvaluationSettingsSchema,
+    SETTINGS_STORAGE_KEY,
+  );
+  if (parsed) {
+    return { ...DEFAULT_SETTINGS, ...parsed };
   }
   return { ...DEFAULT_SETTINGS };
 }

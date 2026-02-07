@@ -1,3 +1,4 @@
+import { z } from "zod/v4";
 import {
   retryWithBackoff,
   waitForDOM,
@@ -26,6 +27,7 @@ import {
   createHierarchicalGraph,
 } from "./helpers";
 import { addFooter } from "../footer";
+import { parseStoredJson } from "./storage";
 
 function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
   const { scorePercent } = getScoreDisplay(paper.score);
@@ -798,12 +800,20 @@ function loadPaperDetail(): void {
       );
       const storedPapers = localStorage.getItem("papers-dataset");
       if (storedPapers) {
-        const graphResults = JSON.parse(storedPapers) as GraphResult[];
-        graphResult = graphResults.find(gr => gr.paper.id === paperId) ?? null;
-        if (graphResult) {
-          console.log(`[Detail] Found paper ${paperId} in JSON dataset`);
+        const graphResults = parseStoredJson(
+          storedPapers,
+          z.array(GraphResultSchema),
+          "papers-dataset",
+        );
+        if (graphResults) {
+          graphResult = graphResults.find(gr => gr.paper.id === paperId) ?? null;
+          if (graphResult) {
+            console.log(`[Detail] Found paper ${paperId} in JSON dataset`);
+          } else {
+            console.log(`[Detail] Paper ${paperId} not found in JSON dataset either`);
+          }
         } else {
-          console.log(`[Detail] Paper ${paperId} not found in JSON dataset either`);
+          localStorage.removeItem("papers-dataset");
         }
       }
     }
