@@ -417,9 +417,9 @@ async def _annotate_paper_single(
                 background=abstract.background,
                 target=abstract.target,
             ),
-            prompt=Prompt(user=abstract_prompt_text, system=TERM_SYSTEM_PROMPT),
+            prompt=Prompt(user=abstract_prompt_text, system=ABS_SYSTEM_PROMPT),
         ),
-        cost=result_term.cost,
+        cost=result_term.cost + result_abstract.cost,
     )
 
 
