@@ -13,6 +13,7 @@ from typing import Any
 import openai
 import rich
 from fastapi import Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -167,7 +168,7 @@ def _sse_event(event: str | None, data: Any) -> str:
     Adding an `event:` field lets the client register addEventListener('progress', …) if
     it wants to.
     """
-    payload = json.dumps(data)
+    payload = json.dumps(jsonable_encoder(data))
     prefix = f"event: {event}\n" if event else ""
     return f"{prefix}data: {payload}\n\n"
 
