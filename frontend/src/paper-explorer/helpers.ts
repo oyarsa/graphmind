@@ -3,6 +3,12 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 import { RelatedPaper, Graph, Entity } from "./model";
 
+export type RelatedPaperFilterType =
+  | "background"
+  | "target"
+  | "supporting"
+  | "contrasting";
+
 /**
  * Formats a scientific citation from paper information.
  * @param authors - Array of author names (full names)
@@ -177,6 +183,27 @@ export function getRelationshipStyle(paper: RelatedPaper) {
       style: "rounded-md",
     };
   }
+}
+
+/**
+ * Classify a related paper into a filter bucket used by detail pages.
+ */
+export function getRelatedPaperFilterType(
+  paper: RelatedPaper,
+): RelatedPaperFilterType | null {
+  if (paper.source === "semantic" && paper.polarity === "negative") {
+    return "background";
+  }
+  if (paper.source === "semantic" && paper.polarity === "positive") {
+    return "target";
+  }
+  if (paper.source === "citations" && paper.polarity === "positive") {
+    return "supporting";
+  }
+  if (paper.source === "citations" && paper.polarity === "negative") {
+    return "contrasting";
+  }
+  return null;
 }
 
 /**

@@ -15,6 +15,7 @@ import {
 import {
   renderLatex,
   getRelationshipStyle,
+  getRelatedPaperFilterType,
   setupSectionToggle,
   formatScientificCitation,
   getScoreDisplay,
@@ -644,13 +645,13 @@ function setupRelatedPapersFiltering(relatedPapers: RelatedPaper[]): void {
   if (!filtersContainer) return;
 
   // Calculate counts for each relationship type
-  const countRelation = (src: string, pol: string) =>
-    relatedPapers.filter(p => p.source === src && p.polarity === pol).length;
+  const countByType = (type: string) =>
+    relatedPapers.filter(p => getRelatedPaperFilterType(p) === type).length;
   const counts = {
-    background: countRelation("semantic", "negative"),
-    target: countRelation("semantic", "positive"),
-    supporting: countRelation("citations", "positive"),
-    contrasting: countRelation("citations", "negative"),
+    background: countByType("background"),
+    target: countByType("target"),
+    supporting: countByType("supporting"),
+    contrasting: countByType("contrasting"),
   };
 
   // Track active filters
@@ -816,8 +817,8 @@ function renderFilteredRelatedPapers(
 
   // Filter papers based on their relationship type
   const filteredPapers = relatedPapers.filter(paper => {
-    const relationship = getRelationshipStyle(paper);
-    return activeFilters.has(relationship.type);
+    const filterType = getRelatedPaperFilterType(paper);
+    return filterType !== null && activeFilters.has(filterType);
   });
 
   if (filteredPapers.length === 0) {

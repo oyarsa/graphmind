@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   createPaperTermsDisplay,
   getRelationshipStyle,
+  getRelatedPaperFilterType,
   getScoreDisplay,
   formatTypeName,
   formatPaperCitation,
@@ -157,6 +158,42 @@ describe("getRelationshipStyle", () => {
 
     expect(result.type).toBe("citation");
     expect(result.label).toBe("Citation");
+  });
+});
+
+describe("getRelatedPaperFilterType", () => {
+  it("classifies semantic negative as background", () => {
+    const paper = createTestRelatedPaper({ source: "semantic", polarity: "negative" });
+    expect(getRelatedPaperFilterType(paper)).toBe("background");
+  });
+
+  it("classifies semantic positive as target", () => {
+    const paper = createTestRelatedPaper({ source: "semantic", polarity: "positive" });
+    expect(getRelatedPaperFilterType(paper)).toBe("target");
+  });
+
+  it("classifies citation positive as supporting", () => {
+    const paper = createTestRelatedPaper({
+      source: "citations",
+      polarity: "positive",
+    });
+    expect(getRelatedPaperFilterType(paper)).toBe("supporting");
+  });
+
+  it("classifies citation negative as contrasting", () => {
+    const paper = createTestRelatedPaper({
+      source: "citations",
+      polarity: "negative",
+    });
+    expect(getRelatedPaperFilterType(paper)).toBe("contrasting");
+  });
+
+  it("returns null for unknown combinations", () => {
+    const paper = createTestRelatedPaper({
+      source: "unknown" as "semantic" | "citations",
+      polarity: "unknown" as "positive" | "negative",
+    });
+    expect(getRelatedPaperFilterType(paper)).toBeNull();
   });
 });
 
