@@ -180,6 +180,20 @@ class Graph(Record):
         outgoing: defaultdict[str, list[Relationship]] = defaultdict(list)
 
         for relation in self.relationships:
+            relation_is_valid = True
+            if relation.source not in entities:
+                errors.append(
+                    f"Found edge with unknown source node: '{relation.source}'"
+                )
+                relation_is_valid = False
+            if relation.target not in entities:
+                errors.append(
+                    f"Found edge with unknown target node: '{relation.target}'"
+                )
+                relation_is_valid = False
+            if not relation_is_valid:
+                continue
+
             incoming[relation.target].append(relation)
             outgoing[relation.source].append(relation)
 
@@ -193,9 +207,10 @@ class Graph(Record):
                 )
 
         # Rule 2: Title node cannot have incoming edges
-        title = _get_nodes_of_type(self.entities, EntityType.TITLE)[0]
-        if incoming[title.label]:
-            errors.append("Title node should not have any incoming edges.")
+        titles = _get_nodes_of_type(self.entities, EntityType.TITLE)
+        if len(titles) == 1:
+            if incoming[titles[0].label]:
+                errors.append("Title node should not have any incoming edges.")
 
         # Rule 3: TLDR, Primary Area and Keyword nodes only have incoming edges from Title
         level_2 = [EntityType.TLDR, EntityType.PRIMARY_AREA, EntityType.KEYWORD]
@@ -208,6 +223,16 @@ class Graph(Record):
                         f"Found {len(inc_edges)} incoming edges to node type '{node_type}'."
                         f" Should be exactly 1. Node: '{node.label}'"
                     )
+
+                if not inc_edges:
+                    continue
+
+                if inc_edges[0].source not in entities:
+                    errors.append(
+                        "Incoming edge points from unknown node to"
+                        f" '{node_type}': '{inc_edges[0].source}'"
+                    )
+                    continue
 
                 inc_node = entities[inc_edges[0].source]
                 if inc_node.type is not EntityType.TITLE:
@@ -286,8 +311,11 @@ class Graph(Record):
                     )
 
         # Rule 8: No cycles
-        if self.to_digraph().has_cycle():
-            errors.append("Graph has cycles")
+        try:
+            if self.to_digraph().has_cycle():
+                errors.append("Graph has cycles")
+        except Exception as e:
+            errors.append(f"Could not determine whether graph has cycles: {e}")
 
         if errors:
             return errors
