@@ -386,7 +386,7 @@ def process_latex(
         # Keep raw content for conversion — preprocessing is applied inside the
         # fallback chain so that pandoc gets an unmodified first attempt.
         raw_content = consolidated_content
-        consolidated_content = _remove_arxiv_styling(consolidated_content)
+        consolidated_content = _strip_problematic_packages(consolidated_content)
 
         bib_files = _find_bib_files(tmpdir, consolidated_content)
         citationkey_to_reference = _extract_bibliography_from_bibfiles(
@@ -577,8 +577,11 @@ def _remove_command_with_braced_args(text: str, pattern: re.Pattern[str]) -> str
 _RE_NEWTCOLORBOX = re.compile(r"\\newtcolorbox\{[^}]+\}(\[\d+\])?(\[[^\]]*\])?")
 
 
-def _remove_arxiv_styling(latex_content: str) -> str:
-    """Remove custom arxiv styling directives and problematic LaTeX commands."""
+def _strip_problematic_packages(latex_content: str) -> str:
+    """Remove package imports and associated commands that break downstream processing.
+
+    Currently handles arxiv submission boilerplate and tcolorbox declarations.
+    """
     # Remove lines with \usepackage or \RequirePackage that reference 'arxiv'
     no_package = re.sub(
         r"^(\\(?:usepackage|RequirePackage)\s*(\[[^\]]*\])?\s*\{[^}]*arxiv[^}]*\}.*\n?)",
@@ -751,7 +754,7 @@ def _convert_latex_to_markdown(latex_content: str, title: str) -> str | None:
        braces rebalanced.
     4. **Full clean** — style-cleaned then sanitised (combines both transforms).
     """
-    style_cleaned = _remove_arxiv_styling(latex_content)
+    style_cleaned = _strip_problematic_packages(latex_content)
     strategies = [
         ("raw", latex_content),
         ("style-cleaned", style_cleaned),

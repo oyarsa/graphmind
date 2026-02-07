@@ -8,9 +8,9 @@ import pytest
 from paper.orc.latex_parser import (
     _convert_latex_to_markdown,
     _match_braced_group,
-    _remove_arxiv_styling,
     _remove_command_with_braced_args,
     _sanitise_for_pandoc,
+    _strip_problematic_packages,
     extract_title_from_bibitem_entry,
 )
 
@@ -166,12 +166,12 @@ class TestRemoveCommandWithBracedArgs:
         assert "rest" in result
 
 
-class TestRemoveArxivStyling:
-    """Tests for _remove_arxiv_styling with nested braces."""
+class TestStripProblematicPackages:
+    """Tests for _strip_problematic_packages."""
 
     def test_newtcolorbox_simple(self) -> None:
         tex = r"\newtcolorbox{mybox}{colback=red}" + "\nOK"
-        result = _remove_arxiv_styling(tex)
+        result = _strip_problematic_packages(tex)
         assert "newtcolorbox" not in result
         assert "OK" in result
 
@@ -180,7 +180,7 @@ class TestRemoveArxivStyling:
             r"\newtcolorbox{mybox}{colback=red,fonttitle={\bfseries}}"
             "\nOK"
         )
-        result = _remove_arxiv_styling(tex)
+        result = _strip_problematic_packages(tex)
         assert "newtcolorbox" not in result
         assert "OK" in result
         # Should not leave orphan braces
@@ -191,27 +191,27 @@ class TestRemoveArxivStyling:
             r"\newtcolorbox{mybox}[2][]{colback=#2,title={\textbf{#1}}}"
             "\nOK"
         )
-        result = _remove_arxiv_styling(tex)
+        result = _strip_problematic_packages(tex)
         assert "newtcolorbox" not in result
         assert "OK" in result
 
     def test_newtcolorbox_multiline_body(self) -> None:
         tex = "\\newtcolorbox{mybox}[2][]\n{ colback=#2 }\nOK"
-        result = _remove_arxiv_styling(tex)
+        result = _strip_problematic_packages(tex)
         assert "newtcolorbox" not in result
         assert "colback" not in result
         assert "OK" in result
 
     def test_tcolorbox_env_removal(self) -> None:
         tex = "before\n\\begin{tcolorbox}\ncontent\n\\end{tcolorbox}\nafter"
-        result = _remove_arxiv_styling(tex)
+        result = _strip_problematic_packages(tex)
         assert "tcolorbox" not in result
         assert "before" in result
         assert "after" in result
 
     def test_usepackage_arxiv_removal(self) -> None:
         tex = "\\usepackage{arxiv}\n\\begin{document}\nHello."
-        result = _remove_arxiv_styling(tex)
+        result = _strip_problematic_packages(tex)
         assert "arxiv" not in result
         assert "Hello" in result
 
