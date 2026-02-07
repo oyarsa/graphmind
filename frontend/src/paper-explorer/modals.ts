@@ -3,6 +3,7 @@
  */
 
 import { renderLatex } from "./helpers";
+import { escapeHtml } from "../util";
 import {
   DEFAULT_SETTINGS,
   applySettingsToForm,
@@ -114,7 +115,7 @@ export function showEvaluationError(
         Evaluation Failed
       </h3>
       <p class="mb-6 text-sm text-gray-600 dark:text-gray-400">
-        ${errorMessage}
+        ${escapeHtml(errorMessage)}
       </p>
 
       <div class="flex gap-3 justify-center">

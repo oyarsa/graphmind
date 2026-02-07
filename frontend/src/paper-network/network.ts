@@ -12,7 +12,7 @@ import {
   type RelatedPapersResponse,
   type SearchResult,
 } from "./model";
-import { requireElement, showDialog } from "../util";
+import { escapeHtml, requireElement, showDialog } from "../util";
 
 interface PaperTypeConfig {
   pool: Map<string, PaperNeighbour[]>;
@@ -266,15 +266,17 @@ export class PaperNetwork {
         result.authors.length > 3
           ? result.authors.slice(0, 3).join(", ") + " et al."
           : result.authors.join(", ");
+      const safeTitle = escapeHtml(result.title);
+      const safeAuthors = escapeHtml(authorsText);
 
       resultItem.innerHTML = `
                 <div class="text-sm font-semibold text-black dark:text-white mb-1.5
                             leading-snug">
-                  ${result.title}
+                  ${safeTitle}
                 </div>
                 <div class="flex gap-4 items-center mb-2">
                     <div class="text-xs text-gray-700 dark:text-gray-300 flex-1">
-                      ${authorsText}
+                      ${safeAuthors}
                     </div>
                     <div class="text-xs text-gray-600 dark:text-gray-400 font-semibold">
                       ${result.year}

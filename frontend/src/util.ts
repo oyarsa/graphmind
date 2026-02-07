@@ -22,6 +22,15 @@ export function assert(condition: unknown, message?: string): asserts condition 
 }
 
 /**
+ * Escape HTML special characters in untrusted text for safe template interpolation.
+ */
+export function escapeHtml(value: string): string {
+  const div = document.createElement("div");
+  div.textContent = value;
+  return div.innerHTML;
+}
+
+/**
  * Get an element by ID and assert that it exists.
  * This utility reduces boilerplate by combining getElementById with existence checking.
  *
@@ -85,7 +94,7 @@ export function showInitError(error: Error): void {
     <div class="flex min-h-screen items-center justify-center bg-black p-8">
       <div class="max-w-md text-center rounded-lg border border-red-500 bg-red-900/20 p-8">
         <h1 class="mb-4 text-3xl font-bold text-red-400">Failed to load application</h1>
-        <p class="mb-6 text-lg text-red-300">${error.message}</p>
+        <p class="mb-6 text-lg text-red-300">${escapeHtml(error.message)}</p>
         <button
           onclick="location.reload()"
           class="rounded-lg bg-gradient-to-br from-red-500 to-red-700 px-6 py-3 text-sm
