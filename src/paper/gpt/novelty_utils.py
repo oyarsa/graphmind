@@ -140,6 +140,14 @@ async def get_novelty_best_of_n(
     ]
     task_results = await asyncio.gather(*tasks)
     valid_results = gpt_sequence(r for r in task_results if gpt_is_valid(r))
+    if not valid_results.result:
+        fallback = 0.0 if _is_not_novel(output.label) else 1.0
+        logger.debug(
+            "No valid best-of-N results. Falling back to label bucket probability: %.1f",
+            fallback,
+        )
+        return valid_results.map(lambda _: fallback)
+
     return valid_results.map(
         lambda results: sum(clamp(r.rating, 1, 4) for r in results) / (4 * len(results))
     )

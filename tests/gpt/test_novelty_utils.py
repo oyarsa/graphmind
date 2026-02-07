@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import cast
 
@@ -30,6 +30,10 @@ def _structured(label: int) -> GPTStructuredRaw:
 class _StubClient:
     ratings: Sequence[int]
     user_prompts: list[str] = field(default_factory=list[str])
+    _ratings: Iterator[int] = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._ratings = iter(self.ratings)
 
     async def run(
         self,
@@ -42,7 +46,22 @@ class _StubClient:
     ) -> GPTResult[NoveltyResult]:
         del class_, system_prompt, max_tokens, temperature, seed
         self.user_prompts.append(user_prompt)
-        return GPTResult(result=NoveltyResult(rating=next(iter(self.ratings))), cost=0)
+        return GPTResult(result=NoveltyResult(rating=next(self._ratings)), cost=0)
+
+
+@dataclass
+class _InvalidStubClient:
+    async def run(
+        self,
+        class_: type[NoveltyResult],
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+        seed: int | None = None,
+    ) -> GPTResult[NoveltyResult | None]:
+        del class_, system_prompt, user_prompt, max_tokens, temperature, seed
+        return GPTResult(result=None, cost=0)
 
 
 def test_novelty_result_requires_rating() -> None:
@@ -114,3 +133,20 @@ async def test_best_of_n_prompt_uses_label_bucket_text() -> None:
 
     assert "leans toward being not novel" in low_client.user_prompts[0]
     assert "leans toward being novel" in high_client.user_prompts[0]
+
+
+@pytest.mark.asyncio
+async def test_best_of_n_falls_back_when_all_samples_are_invalid() -> None:
+    """When all best-of-N samples fail, fallback should use the label bucket."""
+    low_label_output = GPTResult(result=_structured(3), cost=0)
+    high_label_output = GPTResult(result=_structured(4), cost=0)
+
+    low_probability = await get_novelty_probability(
+        cast(LLMClient, _InvalidStubClient()), low_label_output, best_of_n=3
+    )
+    high_probability = await get_novelty_probability(
+        cast(LLMClient, _InvalidStubClient()), high_label_output, best_of_n=3
+    )
+
+    assert low_probability.result == 0.0
+    assert high_probability.result == 1.0
