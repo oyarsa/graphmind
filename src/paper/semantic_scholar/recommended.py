@@ -16,16 +16,15 @@ The output is two files:
 
 from __future__ import annotations
 
-import asyncio
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated, Any
 
 import aiohttp
-import backoff
 import typer
 
+from paper.semantic_scholar.http import fetch_json_with_retries
 from paper.semantic_scholar.model import (
     Paper,
     PaperRecommended,
@@ -362,15 +361,12 @@ async def fetch_paper_recommendations_from(
     return []
 
 
-@backoff.on_exception(
-    backoff.expo, (aiohttp.ClientError, asyncio.TimeoutError), max_tries=MAX_RETRIES
-)
 async def fetch_with_retries(
     session: aiohttp.ClientSession, *, params: dict[str, Any], url: str
 ) -> dict[str, Any]:
     """Execute an API request with automatic retrying on HTTP errors and timeouts.
 
-    Uses exponential backoff and jitter with set number of tries.
+    Uses exponential backoff with a fixed number of tries.
 
     Raises:
         aiohttp.ContentTypeError: If the response is not valid JSON.
@@ -378,12 +374,19 @@ async def fetch_with_retries(
             the server returns a 400 code or higher, or any other aiottp client error.
         asyncio.TimeoutError: If the request runs out time (see `REQUEST_TIMEOUT`).
     """
-    async with session.get(url, params=params) as response:
+
+    def validate_response(response: aiohttp.ClientResponse) -> None:
         # 400 and 404 carry error messages as JSON payload, so we handle them manually.
         if response.status > 400 and response.status != 404:
             response.raise_for_status()
 
-        return await response.json()
+    return await fetch_json_with_retries(
+        session,
+        params=params,
+        url=url,
+        max_tries=MAX_RETRIES,
+        validate_response=validate_response,
+    )
 
 
 if __name__ == "__main__":

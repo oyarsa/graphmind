@@ -9,7 +9,6 @@ similarity to the query. The year range can be like `2017-2022` or single values
 
 from __future__ import annotations
 
-import asyncio
 import tomllib
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
@@ -17,12 +16,12 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import aiohttp
-import backoff
 import typer
 from rich.console import Console
 from rich.table import Table
 from tqdm import tqdm
 
+from paper.semantic_scholar.http import fetch_json_with_retries
 from paper.semantic_scholar.info import S2_SEARCH_BASE_URL
 from paper.semantic_scholar.model import Paper, PaperArea
 from paper.types import Immutable
@@ -347,15 +346,12 @@ def _clean_query(query: str) -> str:
     return " ".join(query.split())
 
 
-@backoff.on_exception(
-    backoff.expo, (aiohttp.ClientError, asyncio.TimeoutError), max_tries=MAX_RETRIES
-)
 async def _fetch_with_retries(
     session: aiohttp.ClientSession, *, params: dict[str, Any], url: str
 ) -> dict[str, Any]:
     """Execute an API request with automatic retrying on HTTP errors and timeouts.
 
-    Uses exponential backoff and jitter with set number of tries.
+    Uses exponential backoff with a fixed number of tries.
 
     Raises:
         aiohttp.ContentTypeError: If the response is not valid JSON.
@@ -363,8 +359,9 @@ async def _fetch_with_retries(
             the server returns a 400 code or higher, or any other aiottp client error.
         asyncio.TimeoutError: If the request runs out time (see `REQUEST_TIMEOUT`).
     """
-    async with session.get(url, params=params) as response:
-        return await response.json()
+    return await fetch_json_with_retries(
+        session, params=params, url=url, max_tries=MAX_RETRIES
+    )
 
 
 def _merge_areas(areas: Sequence[AreaResult]) -> list[PaperArea]:
