@@ -1,6 +1,7 @@
 """Rate limiter for FastPI endpoints."""
 
 import functools
+import os
 import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
@@ -8,11 +9,19 @@ from typing import Concatenate
 
 from fastapi import HTTPException, Request
 
+_TRUST_PROXY_HEADERS_ENV = "XP_TRUST_PROXY_HEADERS"
+_MAX_PERIOD_SECONDS = 86_400
+
+
+def _trust_proxy_headers() -> bool:
+    """Whether to trust proxy forwarding headers for remote IP extraction."""
+    return os.getenv(_TRUST_PROXY_HEADERS_ENV, "0") == "1"
+
 
 def get_remote_address(request: Request) -> str:
     """Extract client IP address from request."""
     forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
+    if forwarded and _trust_proxy_headers():
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "127.0.0.1"
 
@@ -36,6 +45,7 @@ class RateLimiter:
     def __init__(self, key_func: Callable[[Request], str] | None = None) -> None:
         self.key_func = key_func or get_remote_address
         self._storage: dict[str, list[float]] = defaultdict(list)
+        self._requests_seen = 0
 
     def limit[**P, R](
         self, rule: str
@@ -67,20 +77,16 @@ class RateLimiter:
         Returns:
             True if the request is allowed, False if rate limited.
         """
-        count, period = rule.split("/")
-        count = int(count)
-
-        # Convert period to seconds
-        period_seconds = {
-            "second": 1,
-            "minute": 60,
-            "hour": 3600,
-            "day": 86400,
-        }[period]
+        count, period_seconds = _parse_rule(rule)
 
         # Include endpoint path in the key to separate limits per endpoint
         key = f"{self.key_func(request)}:{request.url.path}"
         current_time = time.time()
+        self._requests_seen += 1
+
+        # Occasional global sweep to avoid unbounded stale keys.
+        if self._requests_seen % 100 == 0:
+            self._sweep_stale_keys(current_time)
 
         # Clean old entries
         self._storage[key] = [
@@ -96,3 +102,55 @@ class RateLimiter:
         # Record new request if allowed
         self._storage[key].append(current_time)
         return True
+
+    def _sweep_stale_keys(self, current_time: float) -> None:
+        """Remove keys that are completely stale for the longest supported window."""
+        cutoff = current_time - _MAX_PERIOD_SECONDS
+        stale_keys = [
+            key
+            for key, timestamps in self._storage.items()
+            if all(timestamp < cutoff for timestamp in timestamps)
+        ]
+        for key in stale_keys:
+            self._storage.pop(key, None)
+
+
+def _parse_rule(rule: str) -> tuple[int, int]:
+    """Parse `rule` and return `(count, period_seconds)`."""
+    try:
+        count_text, period_text = rule.split("/", maxsplit=1)
+    except ValueError as e:
+        raise ValueError(
+            f"Invalid rate limit rule: {rule!r}. Expected format 'count/period'."
+        ) from e
+
+    try:
+        count = int(count_text)
+    except ValueError as e:
+        raise ValueError(
+            f"Invalid request count in rate limit rule: {count_text!r}."
+        ) from e
+
+    if count <= 0:
+        raise ValueError(
+            f"Invalid request count in rate limit rule: {count}. Must be positive."
+        )
+
+    period_seconds = {
+        "second": 1,
+        "seconds": 1,
+        "minute": 60,
+        "minutes": 60,
+        "hour": 3600,
+        "hours": 3600,
+        "day": 86_400,
+        "days": 86_400,
+    }.get(period_text.strip().casefold())
+
+    if period_seconds is None:
+        raise ValueError(
+            f"Invalid period in rate limit rule: {period_text!r}. "
+            "Expected one of: second/minute/hour/day (singular or plural)."
+        )
+
+    return count, period_seconds
