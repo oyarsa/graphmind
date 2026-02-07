@@ -125,65 +125,68 @@ async def fetch_paper_data(
     }
     headers = {"x-api-key": api_key}
 
-    async with limiter:
-        attempt = 0
-        delay = RETRY_DELAY
-        while attempt < MAX_RETRIES:
-            try:
-                async with session.get(
+    attempt = 0
+    delay = RETRY_DELAY
+    while attempt < MAX_RETRIES:
+        try:
+            async with (
+                limiter,
+                session.get(
                     S2_SEARCH_BASE_URL, params=params, headers=headers
-                ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        if data.get("data"):
-                            return data["data"][0] | {"title_query": paper_title}
-                        logger.debug(f"No results found for title: {paper_title}")
-                        return None
+                ) as response,
+            ):
+                if response.status == 200:
+                    data = await response.json()
+                    if data.get("data"):
+                        return data["data"][0] | {"title_query": paper_title}
+                    logger.debug(f"No results found for title: {paper_title}")
+                    return None
 
-                    if response.status == 429:
-                        if retry_after := response.headers.get("Retry-After"):
-                            wait_time = _parse_retry_after_seconds(retry_after)
-                            if wait_time is None:
-                                wait_time = delay
-                                wait_source = "Custom (invalid Retry-After)"
-                            else:
-                                wait_source = "Retry-After"
-                        else:
+                if response.status == 429:
+                    if retry_after := response.headers.get("Retry-After"):
+                        wait_time = _parse_retry_after_seconds(retry_after)
+                        if wait_time is None:
                             wait_time = delay
-                            wait_source = "Custom"
-                        logger.debug(
-                            f"Rate limited (429) when fetching '{paper_title}'. "
-                            f"Retrying after {wait_time} ({wait_source}) seconds..."
-                        )
-                        await asyncio.sleep(wait_time)
-                        delay *= BACKOFF_FACTOR  # Exponential backoff
+                            wait_source = "Custom (invalid Retry-After)"
+                        else:
+                            wait_source = "Retry-After"
                     else:
-                        error_text = await response.text()
-                        logger.warning(
-                            f"Error fetching data for '{paper_title}': HTTP {response.status} - {error_text}"
-                        )
-                        return None
-            except aiohttp.ClientError as e:
-                logger.debug(
-                    f"Network error fetching '{paper_title}': {e}. Retrying..."
-                    f" (Attempt {attempt + 1}/{MAX_RETRIES})"
-                )
-                await asyncio.sleep(delay)
-                delay *= BACKOFF_FACTOR
-            except TimeoutError:
-                logger.debug(
-                    f"Timeout error fetching '{paper_title}'. Retrying..."
-                    f" (Attempt {attempt + 1}/{MAX_RETRIES})"
-                )
-                await asyncio.sleep(delay)
-                delay *= BACKOFF_FACTOR
+                        wait_time = delay
+                        wait_source = "Custom"
+                    logger.debug(
+                        f"Rate limited (429) when fetching '{paper_title}'. "
+                        f"Retrying after {wait_time} ({wait_source}) seconds..."
+                    )
+                    await asyncio.sleep(wait_time)
+                    delay *= BACKOFF_FACTOR  # Exponential backoff
+                else:
+                    error_text = await response.text()
+                    logger.warning(
+                        f"Error fetching data for '{paper_title}': "
+                        f"HTTP {response.status} - {error_text}"
+                    )
+                    return None
+        except aiohttp.ClientError as e:
+            logger.debug(
+                f"Network error fetching '{paper_title}': {e}. Retrying..."
+                f" (Attempt {attempt + 1}/{MAX_RETRIES})"
+            )
+            await asyncio.sleep(delay)
+            delay *= BACKOFF_FACTOR
+        except TimeoutError:
+            logger.debug(
+                f"Timeout error fetching '{paper_title}'. Retrying..."
+                f" (Attempt {attempt + 1}/{MAX_RETRIES})"
+            )
+            await asyncio.sleep(delay)
+            delay *= BACKOFF_FACTOR
 
-            attempt += 1
+        attempt += 1
 
-        logger.warning(
-            f"Failed to fetch data for '{paper_title}' after {MAX_RETRIES} attempts."
-        )
-        return None
+    logger.warning(
+        f"Failed to fetch data for '{paper_title}' after {MAX_RETRIES} attempts."
+    )
+    return None
 
 
 MIN_TITLE_MATCH_RATIO = 80

@@ -314,10 +314,12 @@ async def _fetch_area_year_range(
     try:
         # Endpoint can only return up to 1000 relevance-ranked results
         while offset is not None and offset < 1000:
-            async with RATE_LIMITER:
-                result = await _fetch_with_retries(
-                    session, params=params | {"offset": offset}, url=S2_SEARCH_BASE_URL
-                )
+            result = await _fetch_with_retries(
+                session,
+                params=params | {"offset": offset},
+                url=S2_SEARCH_BASE_URL,
+                limiter=RATE_LIMITER,
+            )
 
             if error := result.get("error"):
                 print(f"Error: {error}")
@@ -347,7 +349,11 @@ def _clean_query(query: str) -> str:
 
 
 async def _fetch_with_retries(
-    session: aiohttp.ClientSession, *, params: dict[str, Any], url: str
+    session: aiohttp.ClientSession,
+    *,
+    params: dict[str, Any],
+    url: str,
+    limiter: AsyncLimiter | None = None,
 ) -> dict[str, Any]:
     """Execute an API request with automatic retrying on HTTP errors and timeouts.
 
@@ -360,7 +366,7 @@ async def _fetch_with_retries(
         asyncio.TimeoutError: If the request runs out time (see `REQUEST_TIMEOUT`).
     """
     return await fetch_json_with_retries(
-        session, params=params, url=url, max_tries=MAX_RETRIES
+        session, params=params, url=url, max_tries=MAX_RETRIES, limiter=limiter
     )
 
 

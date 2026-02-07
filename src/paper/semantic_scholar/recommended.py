@@ -344,8 +344,9 @@ async def fetch_paper_recommendations_from(
     url = f"{S2_RECOMMENDATIONS_BASE_URL}/{paper_id}"
 
     try:
-        async with limiter:
-            result = await fetch_with_retries(session, params=params, url=url)
+        result = await fetch_with_retries(
+            session, params=params, url=url, limiter=limiter
+        )
 
         if error := result.get("error"):
             print(f"Paper '{paper_title}' failed with error: {error}")
@@ -362,7 +363,11 @@ async def fetch_paper_recommendations_from(
 
 
 async def fetch_with_retries(
-    session: aiohttp.ClientSession, *, params: dict[str, Any], url: str
+    session: aiohttp.ClientSession,
+    *,
+    params: dict[str, Any],
+    url: str,
+    limiter: Limiter | None = None,
 ) -> dict[str, Any]:
     """Execute an API request with automatic retrying on HTTP errors and timeouts.
 
@@ -386,6 +391,7 @@ async def fetch_with_retries(
         url=url,
         max_tries=MAX_RETRIES,
         validate_response=validate_response,
+        limiter=limiter,
     )
 
 

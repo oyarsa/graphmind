@@ -51,6 +51,28 @@ class _FakeSession:
         return outcome
 
 
+class _TrackingLimiter:
+    """Async context manager that tracks acquisitions."""
+
+    def __init__(self) -> None:
+        self.active = 0
+        self.enter_calls = 0
+
+    async def __aenter__(self) -> Self:
+        self.enter_calls += 1
+        self.active += 1
+        return self
+
+    async def __aexit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        _exc: BaseException | None,
+        _tb: TracebackType | None,
+    ) -> bool:
+        self.active -= 1
+        return False
+
+
 def _patch_sleep(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     """Patch sleep to avoid real delays and capture the backoff schedule."""
     delays: list[float] = []
@@ -58,7 +80,11 @@ def _patch_sleep(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     async def _fake_sleep(delay: float) -> None:
         delays.append(delay)
 
-    monkeypatch.setattr(semantic_scholar_http.asyncio, "sleep", _fake_sleep)
+    monkeypatch.setattr(
+        semantic_scholar_http.asyncio,  # pyright: ignore[reportPrivateImportUsage]
+        "sleep",
+        _fake_sleep,
+    )
     return delays
 
 
@@ -99,6 +125,40 @@ async def test_fetch_json_with_retries_retries_on_client_error(
     assert result == {"ok": "recovered"}
     assert len(session.calls) == 2
     assert delays == [1.0]
+
+
+@pytest.mark.asyncio
+async def test_fetch_json_with_retries_releases_limiter_during_backoff(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Limiter should only be held during request attempts, not backoff sleeps."""
+    limiter = _TrackingLimiter()
+    session = _FakeSession([
+        aiohttp.ClientError("boom"),
+        _FakeResponse({"ok": "recovered"}),
+    ])
+    active_during_sleep: list[int] = []
+
+    async def _fake_sleep(_delay: float) -> None:
+        active_during_sleep.append(limiter.active)
+
+    monkeypatch.setattr(
+        semantic_scholar_http.asyncio,  # pyright: ignore[reportPrivateImportUsage]
+        "sleep",
+        _fake_sleep,
+    )
+
+    result = await fetch_json_with_retries(
+        cast(aiohttp.ClientSession, session),
+        params={"a": 1},
+        url="https://example.org",
+        max_tries=2,
+        limiter=limiter,
+    )
+
+    assert result == {"ok": "recovered"}
+    assert limiter.enter_calls == 2
+    assert active_during_sleep == [0]
 
 
 @pytest.mark.asyncio
