@@ -32,6 +32,8 @@ The output types are:
 import asyncio
 import logging
 from collections.abc import Sequence
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -60,6 +62,37 @@ BACKOFF_FACTOR = 2  # Exponential backoff factor
 S2_SEARCH_BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 
 logger = logging.getLogger("paper.semantic_scholar.info")
+
+
+def _parse_retry_after_seconds(
+    value: str | None, *, now: datetime | None = None
+) -> int | None:
+    """Parse a Retry-After header value into a non-negative number of seconds."""
+    if value is None:
+        return None
+
+    retry_after = value.strip()
+    if not retry_after:
+        return None
+
+    # Standard format: integer delta-seconds.
+    try:
+        return max(0, int(retry_after))
+    except ValueError:
+        pass
+
+    # Alternate standard format: HTTP date.
+    try:
+        retry_after_dt = parsedate_to_datetime(retry_after)
+    except (TypeError, ValueError):
+        return None
+
+    if retry_after_dt.tzinfo is None:
+        retry_after_dt = retry_after_dt.replace(tzinfo=UTC)
+
+    current_time = now if now is not None else datetime.now(UTC)
+    delta_seconds = int((retry_after_dt - current_time).total_seconds())
+    return max(0, delta_seconds)
 
 
 async def fetch_paper_data(
@@ -109,8 +142,12 @@ async def fetch_paper_data(
 
                     if response.status == 429:
                         if retry_after := response.headers.get("Retry-After"):
-                            wait_time = int(retry_after)
-                            wait_source = "Retry-After"
+                            wait_time = _parse_retry_after_seconds(retry_after)
+                            if wait_time is None:
+                                wait_time = delay
+                                wait_source = "Custom (invalid Retry-After)"
+                            else:
+                                wait_source = "Retry-After"
                         else:
                             wait_time = delay
                             wait_source = "Custom"

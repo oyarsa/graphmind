@@ -1,8 +1,10 @@
 """Tests for Semantic Scholar utility functions."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
-from paper.semantic_scholar.info import is_valid_title_match
+from paper.semantic_scholar.info import _parse_retry_after_seconds, is_valid_title_match
 
 
 class TestIsValidTitleMatch:
@@ -109,3 +111,32 @@ class TestIsValidTitleMatch:
         """Test title match validation with custom thresholds."""
         result = is_valid_title_match(searched, returned, min_ratio=min_ratio)
         assert result == expected
+
+
+class TestParseRetryAfterSeconds:
+    """Tests for Retry-After header parsing."""
+
+    def test_parses_delta_seconds(self) -> None:
+        """Integer Retry-After values should parse directly."""
+        assert _parse_retry_after_seconds("120") == 120
+
+    def test_parses_http_date(self) -> None:
+        """HTTP-date Retry-After should become a non-negative delay."""
+        now = datetime(2026, 2, 7, 12, 0, 0, tzinfo=UTC)
+        retry_after = (now + timedelta(seconds=90)).strftime(
+            "%a, %d %b %Y %H:%M:%S GMT"
+        )
+        assert _parse_retry_after_seconds(retry_after, now=now) == 90
+
+    def test_clamps_past_http_date_to_zero(self) -> None:
+        """Past date values should not produce negative wait times."""
+        now = datetime(2026, 2, 7, 12, 0, 0, tzinfo=UTC)
+        retry_after = (now - timedelta(seconds=30)).strftime(
+            "%a, %d %b %Y %H:%M:%S GMT"
+        )
+        assert _parse_retry_after_seconds(retry_after, now=now) == 0
+
+    @pytest.mark.parametrize("value", ["", " ", "not-a-date", None])
+    def test_returns_none_for_invalid_values(self, value: str | None) -> None:
+        """Invalid Retry-After values should return None."""
+        assert _parse_retry_after_seconds(value) is None
