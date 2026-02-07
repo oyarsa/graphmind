@@ -383,6 +383,9 @@ def process_latex(
             logger.debug("No content processed. Aborting.")
             return None
 
+        # Keep raw content for conversion — preprocessing is applied inside the
+        # fallback chain so that pandoc gets an unmodified first attempt.
+        raw_content = consolidated_content
         consolidated_content = _remove_arxiv_styling(consolidated_content)
 
         bib_files = _find_bib_files(tmpdir, consolidated_content)
@@ -427,7 +430,7 @@ def process_latex(
     ]
     logger.debug("References with contexts: %d", len(references))
 
-    markdown_content = _convert_latex_to_markdown(consolidated_content, title)
+    markdown_content = _convert_latex_to_markdown(raw_content, title)
     if markdown_content is None:
         logger.debug("Error converting LaTeX to Markdown. Aborting.")
         return None
@@ -718,25 +721,35 @@ def _run_pandoc(latex_content: str, tmp_dir: Path, title: str) -> str | None:
 
 
 def _convert_latex_to_markdown(latex_content: str, title: str) -> str | None:
-    """Convert LaTeX content to Markdown with pandoc.
+    """Convert LaTeX content to Markdown via pandoc with progressive fallbacks.
 
-    If the initial conversion fails (e.g. due to unmatched braces introduced by
-    preprocessing), a sanitised version of the content is tried as a fallback.
+    Strategies are tried in order of increasing aggressiveness so that minimal
+    mutation is applied to the source:
+
+    1. **Raw** — unmodified consolidated TeX.
+    2. **Style-cleaned** — arxiv/tcolorbox styling removed.
+    3. **Sanitised** — preamble stripped, problematic environments removed,
+       braces rebalanced.
     """
+    strategies = [
+        ("raw", latex_content),
+        ("style-cleaned", _remove_arxiv_styling(latex_content)),
+        ("sanitised", _sanitise_for_pandoc(latex_content)),
+    ]
+
     with tempfile.TemporaryDirectory() as tmp_dir_:
         tmp_dir = Path(tmp_dir_)
 
-        logger.debug("Converting LaTeX to Markdown with pandoc: %s", title)
-        if result := _run_pandoc(latex_content, tmp_dir, title):
-            return result
+        for name, content in strategies:
+            logger.debug("Pandoc strategy '%s': %s", name, title)
+            if result := _run_pandoc(content, tmp_dir, title):
+                if name != "raw":
+                    logger.debug("Pandoc succeeded with '%s' strategy: %s", name, title)
+                return result
 
-        # Fallback: aggressive sanitisation and retry
-        logger.debug("Retrying with sanitised content: %s", title)
-        sanitised = _sanitise_for_pandoc(latex_content)
-        if result := _run_pandoc(sanitised, tmp_dir, title):
-            return result
-
-        logger.warning("Pandoc conversion failed after retry. Paper: %s", title)
+        logger.warning(
+            "Pandoc conversion failed after all strategies. Paper: %s", title
+        )
         return None
 
 

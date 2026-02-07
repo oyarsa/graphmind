@@ -1,10 +1,12 @@
 """Tests for LaTeX parser functions."""
 
 import re
+from unittest.mock import patch
 
 import pytest
 
 from paper.orc.latex_parser import (
+    _convert_latex_to_markdown,
     _match_braced_group,
     _remove_arxiv_styling,
     _remove_command_with_braced_args,
@@ -219,3 +221,39 @@ class TestSanitiseForPandoc:
         assert "algorithm" not in result
         assert "before" in result
         assert "after" in result
+
+
+class TestConvertLatexToMarkdown:
+    """Tests for _convert_latex_to_markdown fallback chain."""
+
+    @patch("paper.orc.latex_parser._run_pandoc")
+    def test_raw_succeeds_no_fallback(self, mock_pandoc: object) -> None:
+        """When raw content works, no preprocessing is applied."""
+        mock_pandoc.return_value = "# Hello"  # type: ignore[union-attr]
+        result = _convert_latex_to_markdown("\\section{Hello}", "test")
+        assert result == "# Hello"
+        mock_pandoc.assert_called_once()  # type: ignore[union-attr]
+
+    @patch("paper.orc.latex_parser._run_pandoc")
+    def test_falls_through_to_style_cleaned(self, mock_pandoc: object) -> None:
+        """When raw fails, style-cleaned is tried next."""
+        mock_pandoc.side_effect = [None, "# Cleaned", "# Sanitised"]  # type: ignore[union-attr]
+        result = _convert_latex_to_markdown("\\section{Hello}", "test")
+        assert result == "# Cleaned"
+        assert mock_pandoc.call_count == 2  # type: ignore[union-attr]
+
+    @patch("paper.orc.latex_parser._run_pandoc")
+    def test_falls_through_to_sanitised(self, mock_pandoc: object) -> None:
+        """When raw and style-cleaned both fail, sanitised is tried."""
+        mock_pandoc.side_effect = [None, None, "# Last resort"]  # type: ignore[union-attr]
+        result = _convert_latex_to_markdown("\\section{Hello}", "test")
+        assert result == "# Last resort"
+        assert mock_pandoc.call_count == 3  # type: ignore[union-attr]
+
+    @patch("paper.orc.latex_parser._run_pandoc")
+    def test_all_strategies_fail(self, mock_pandoc: object) -> None:
+        """Returns None when every strategy fails."""
+        mock_pandoc.return_value = None  # type: ignore[union-attr]
+        result = _convert_latex_to_markdown("\\section{Hello}", "test")
+        assert result is None
+        assert mock_pandoc.call_count == 3  # type: ignore[union-attr]
