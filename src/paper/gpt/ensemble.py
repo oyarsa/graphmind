@@ -55,7 +55,7 @@ def select_best_rationale_tfidf(rationales: Sequence[str]) -> str:
 
     # If everything is literally the same text, just pick the first
     if len({norm[i] for i in non_empty}) == 1:
-        return rationales[0]
+        return rationales[non_empty[0]]
 
     try:
         vec = TfidfVectorizer(
