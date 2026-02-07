@@ -1,8 +1,16 @@
 """Tests for LaTeX parser functions."""
 
+import re
+
 import pytest
 
-from paper.orc.latex_parser import extract_title_from_bibitem_entry
+from paper.orc.latex_parser import (
+    _match_braced_group,
+    _remove_arxiv_styling,
+    _remove_command_with_braced_args,
+    _sanitise_for_pandoc,
+    extract_title_from_bibitem_entry,
+)
 
 
 class TestExtractTitleFromBibitemEntry:
@@ -95,3 +103,119 @@ class TestExtractTitleFromBibitemEntry:
         """Test title extraction from various bibitem formats."""
         result = extract_title_from_bibitem_entry(entry_text)
         assert result == expected_title
+
+
+class TestMatchBracedGroup:
+    """Tests for _match_braced_group."""
+
+    def test_simple(self) -> None:
+        assert _match_braced_group("{hello}", 0) == 7
+
+    def test_nested(self) -> None:
+        assert _match_braced_group("{a{b}c}", 0) == 7
+
+    def test_deeply_nested(self) -> None:
+        text = r"{a{\textbf{bold}}c}"
+        assert _match_braced_group(text, 0) == len(text)
+
+    def test_escaped_brace(self) -> None:
+        assert _match_braced_group(r"{a\}b}", 0) == 6
+
+    def test_unmatched(self) -> None:
+        assert _match_braced_group("{hello", 0) == -1
+
+    def test_not_a_brace(self) -> None:
+        assert _match_braced_group("hello", 0) == -1
+
+    def test_offset(self) -> None:
+        assert _match_braced_group("xx{hi}yy", 2) == 6
+
+
+class TestRemoveCommandWithBracedArgs:
+    """Tests for _remove_command_with_braced_args."""
+
+    def test_simple_newcommand(self) -> None:
+        pat = re.compile(r"\\newcommand\*?\{[^}]+\}(\[\d+\])?")
+        text = r"\newcommand{\foo}[1]{body with {nested}}"
+        result = _remove_command_with_braced_args(text, pat)
+        assert result == ""
+
+    def test_preserves_surrounding_text(self) -> None:
+        pat = re.compile(r"\\newcommand\*?\{[^}]+\}(\[\d+\])?")
+        text = r"before \newcommand{\foo}{body} after"
+        result = _remove_command_with_braced_args(text, pat)
+        assert result == "before  after"
+
+
+class TestRemoveArxivStyling:
+    """Tests for _remove_arxiv_styling with nested braces."""
+
+    def test_newtcolorbox_simple(self) -> None:
+        tex = r"\newtcolorbox{mybox}{colback=red}" + "\nOK"
+        result = _remove_arxiv_styling(tex)
+        assert "newtcolorbox" not in result
+        assert "OK" in result
+
+    def test_newtcolorbox_nested_braces(self) -> None:
+        tex = (
+            r"\newtcolorbox{mybox}{colback=red,fonttitle={\bfseries}}"
+            "\nOK"
+        )
+        result = _remove_arxiv_styling(tex)
+        assert "newtcolorbox" not in result
+        assert "OK" in result
+        # Should not leave orphan braces
+        assert result.count("{") == result.count("}")
+
+    def test_newtcolorbox_with_optional_args(self) -> None:
+        tex = (
+            r"\newtcolorbox{mybox}[2][]{colback=#2,title={\textbf{#1}}}"
+            "\nOK"
+        )
+        result = _remove_arxiv_styling(tex)
+        assert "newtcolorbox" not in result
+        assert "OK" in result
+
+    def test_tcolorbox_env_removal(self) -> None:
+        tex = "before\n\\begin{tcolorbox}\ncontent\n\\end{tcolorbox}\nafter"
+        result = _remove_arxiv_styling(tex)
+        assert "tcolorbox" not in result
+        assert "before" in result
+        assert "after" in result
+
+    def test_usepackage_arxiv_removal(self) -> None:
+        tex = "\\usepackage{arxiv}\n\\begin{document}\nHello."
+        result = _remove_arxiv_styling(tex)
+        assert "arxiv" not in result
+        assert "Hello" in result
+
+
+class TestSanitiseForPandoc:
+    """Tests for _sanitise_for_pandoc."""
+
+    def test_extracts_document_body(self) -> None:
+        tex = "\\documentclass{article}\n\\begin{document}\nHello.\n\\end{document}"
+        result = _sanitise_for_pandoc(tex)
+        assert "documentclass" not in result
+        assert "Hello" in result
+
+    def test_balances_missing_closing_braces(self) -> None:
+        tex = "\\begin{document}\n\\textbf{unclosed\n\\end{document}"
+        result = _sanitise_for_pandoc(tex)
+        assert result.count("{") == result.count("}")
+
+    def test_removes_orphan_closing_braces(self) -> None:
+        tex = "\\begin{document}\ntext\n}\nmore\n\\end{document}"
+        result = _sanitise_for_pandoc(tex)
+        assert result.count("{") == result.count("}")
+
+    def test_removes_algorithm_env(self) -> None:
+        tex = (
+            "\\begin{document}\nbefore\n"
+            "\\begin{algorithm}\ncode\n\\end{algorithm}\n"
+            "after\n\\end{document}"
+        )
+        result = _sanitise_for_pandoc(tex)
+        assert "algorithm" not in result
+        assert "before" in result
+        assert "after" in result

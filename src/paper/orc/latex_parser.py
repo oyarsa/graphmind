@@ -498,6 +498,70 @@ def _process_latex_file(
     return include_pattern.sub(include_replacer, content)
 
 
+def _match_braced_group(text: str, start: int) -> int:
+    """Find the end of a brace-balanced ``{...}`` group starting at ``start``.
+
+    Args:
+        text: The full text to search in.
+        start: Index of the opening ``{``.
+
+    Returns:
+        Index one past the matching closing ``}``, or ``-1`` if unmatched.
+    """
+    if start >= len(text) or text[start] != "{":
+        return -1
+
+    depth = 0
+    i = start
+
+    while i < len(text):
+        ch = text[i]
+        if ch == "\\" and i + 1 < len(text):
+            i += 2  # skip escaped characters
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+
+    return -1
+
+
+def _remove_command_with_braced_args(text: str, pattern: re.Pattern[str]) -> str:
+    """Remove LaTeX commands matched by *pattern*, consuming brace-balanced args.
+
+    ``pattern`` should match the command name and any bracket options but stop
+    **before** the first ``{`` argument.  This helper then eats one or more
+    ``{...}`` groups that immediately follow.
+    """
+    result: list[str] = []
+    last_end = 0
+
+    for m in pattern.finditer(text):
+        result.append(text[last_end : m.start()])
+
+        # Skip brace groups after the match
+        pos = m.end()
+
+        while pos < len(text) and text[pos] == "{":
+            end = _match_braced_group(text, pos)
+            if end == -1:
+                break
+            pos = end
+
+        last_end = pos
+
+    result.append(text[last_end:])
+    return "".join(result)
+
+
+# Regex that matches \newtcolorbox{name}[opts] — stops before the definition body.
+_RE_NEWTCOLORBOX = re.compile(r"\\newtcolorbox\{[^}]+\}(\[\d+\])?(\[[^\]]*\])?")
+
+
 def _remove_arxiv_styling(latex_content: str) -> str:
     """Remove custom arxiv styling directives and problematic LaTeX commands."""
     # Remove lines with \usepackage or \RequirePackage that reference 'arxiv'
@@ -524,12 +588,9 @@ def _remove_arxiv_styling(latex_content: str) -> str:
         flags=re.MULTILINE,
     )
 
-    # Remove \newtcolorbox declarations
-    no_newtcolorbox = re.sub(
-        r"\\newtcolorbox\{[^}]+\}(\[[^\]]*\])?\{[^}]+\}",
-        "",
-        no_tcolorbox_pkg,
-        flags=re.MULTILINE,
+    # Remove \newtcolorbox declarations (brace-safe)
+    no_newtcolorbox = _remove_command_with_braced_args(
+        no_tcolorbox_pkg, _RE_NEWTCOLORBOX
     )
 
     # Remove tcolorbox environments
@@ -552,51 +613,131 @@ def _remove_latex_comments(tex_string: str) -> str:
     )
 
 
+def _sanitise_for_pandoc(latex_content: str) -> str:
+    """Aggressively clean LaTeX for pandoc conversion.
+
+    Used as a fallback when the initial pandoc conversion fails.  Strips the preamble,
+    removes known-problematic environments, and rebalances braces.
+    """
+    # Extract document body (between \begin{document} and \end{document})
+    if body_match := re.search(
+        r"\\begin\{document\}(.*?)\\end\{document\}", latex_content, re.DOTALL
+    ):
+        content = body_match[1]
+    else:
+        content = latex_content
+
+    # Remove environments that pandoc can struggle with
+    problematic_envs = [
+        "tikzpicture",
+        "lstlisting",
+        "minted",
+        "verbatim",
+        "Verbatim",
+        "algorithm",
+        "algorithmic",
+        "pgfpicture",
+        "forest",
+    ]
+    for env in problematic_envs:
+        content = re.sub(
+            rf"\\begin\{{{env}\}}(\[[^\]]*\])?.*?\\end\{{{env}\}}",
+            "",
+            content,
+            flags=re.DOTALL,
+        )
+
+    # Remove \newcommand / \renewcommand / \def definitions (preamble leftovers)
+    content = _remove_command_with_braced_args(
+        content,
+        re.compile(r"\\(?:re)?newcommand\*?\{[^}]+\}(\[\d+\])?(\[[^\]]*\])?"),
+    )
+    content = re.sub(r"\\def\\[a-zA-Z@]+#?\d?", "", content)
+
+    # Balance braces: drop orphan } that would make depth negative, then
+    # append any missing closing braces at the end.
+    balanced: list[str] = []
+    depth = 0
+    for ch in content:
+        if ch == "{":
+            depth += 1
+            balanced.append(ch)
+        elif ch == "}":
+            if depth > 0:
+                depth -= 1
+                balanced.append(ch)
+            # else: skip the orphan closing brace
+        else:
+            balanced.append(ch)
+    # Append missing closing braces
+    if depth > 0:
+        balanced.append("}" * depth)
+
+    return "".join(balanced)
+
+
+def _run_pandoc(latex_content: str, tmp_dir: Path, title: str) -> str | None:
+    """Run pandoc on *latex_content*, returning the markdown or ``None``."""
+    latex_file = tmp_dir / "input.tex"
+    markdown_file = tmp_dir / "output.md"
+    latex_file.write_text(latex_content)
+
+    pandoc_cmd = [
+        "pandoc",
+        "--quiet",
+        "--wrap=none",
+        "-f",
+        "latex",
+        "-t",
+        "markdown",
+        "-o",
+        str(markdown_file),
+        str(latex_file),
+    ]
+
+    try:
+        subprocess.run(
+            pandoc_cmd,
+            check=True,
+            timeout=PANDOC_CMD_TIMEOUT,
+            capture_output=True,
+            text=True,
+        )
+        return markdown_file.read_text(errors="ignore")
+    except subprocess.TimeoutExpired:
+        logger.warning("Command timeout during pandoc conversion. Paper: %s", title)
+        return None
+    except subprocess.CalledProcessError as e:
+        logger.debug(
+            "Pandoc conversion failed. Paper: %s. Error: %s\nStderr: %s",
+            title,
+            e,
+            e.stderr,
+        )
+        return None
+
+
 def _convert_latex_to_markdown(latex_content: str, title: str) -> str | None:
-    """Convert LaTeX file to Markdown with pandoc."""
+    """Convert LaTeX content to Markdown with pandoc.
+
+    If the initial conversion fails (e.g. due to unmatched braces introduced by
+    preprocessing), a sanitised version of the content is tried as a fallback.
+    """
     with tempfile.TemporaryDirectory() as tmp_dir_:
         tmp_dir = Path(tmp_dir_)
-        latex_file = tmp_dir / "input.tex"
-        markdown_file = tmp_dir / "output.md"
-
-        latex_file.write_text(latex_content)
 
         logger.debug("Converting LaTeX to Markdown with pandoc: %s", title)
-        # Run pandoc to convert LaTeX to Markdown
-        pandoc_cmd = [
-            "pandoc",
-            "--quiet",
-            "--wrap=none",
-            "-f",
-            "latex",
-            "-t",
-            "markdown",
-            "-o",
-            str(markdown_file),
-            str(latex_file),
-        ]
+        if result := _run_pandoc(latex_content, tmp_dir, title):
+            return result
 
-        try:
-            subprocess.run(
-                pandoc_cmd,
-                check=True,
-                timeout=PANDOC_CMD_TIMEOUT,
-                capture_output=True,  # Capture stdout and stderr
-                text=True,  # Return output as string instead of bytes
-            )
-            return markdown_file.read_text(errors="ignore")
-        except subprocess.TimeoutExpired:
-            logger.warning("Command timeout during pandoc conversion. Paper: %s", title)
-            return None
-        except subprocess.CalledProcessError as e:
-            logger.warning(
-                "Error during pandoc conversion. Paper: %s. Error: %s\nStderr: %s\nStdout: %s",
-                title,
-                e,
-                e.stderr,
-                e.stdout,
-            )
-            return None
+        # Fallback: aggressive sanitisation and retry
+        logger.debug("Retrying with sanitised content: %s", title)
+        sanitised = _sanitise_for_pandoc(latex_content)
+        if result := _run_pandoc(sanitised, tmp_dir, title):
+            return result
+
+        logger.warning("Pandoc conversion failed after retry. Paper: %s", title)
+        return None
 
 
 def _find_bib_files(base_dir: Path, latex_content: str) -> list[Path]:
