@@ -86,6 +86,9 @@ class Timer:
         traceback: TracebackType | None,
     ) -> None:
         """Stop the timer when exiting the context."""
+        _ = exc_type
+        _ = exc_value
+        _ = traceback
         self.stop()
 
     @property
@@ -163,6 +166,9 @@ class ColoredFormatter(logging.Formatter):
         return f"{log_color}{formatted_message}{self.RESET}"
 
 
+_PAPER_STREAM_HANDLER_NAME = "paper_stream_handler"
+
+
 def _setup_logging(logger_name: str) -> None:
     """Initialise a logger printing colourful output to stderr.
 
@@ -179,8 +185,14 @@ def _setup_logging(logger_name: str) -> None:
     level = os.environ.get("LOG_LEVEL", "INFO").upper()
     logger.setLevel(level)
 
+    if any(
+        handler.get_name() == _PAPER_STREAM_HANDLER_NAME for handler in logger.handlers
+    ):
+        return
+
     # Create a stream handler
     handler = logging.StreamHandler(sys.stderr)
+    handler.set_name(_PAPER_STREAM_HANDLER_NAME)
 
     # Define the log format and date format
     fmt = "%(log_color)s%(asctime)s | %(levelname)s | %(name)s:%(lineno)d | %(request_id)s%(message)s%(reset)s"

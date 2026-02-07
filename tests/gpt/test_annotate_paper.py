@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 from paper.gpt.annotate_paper import (
@@ -12,16 +14,17 @@ from paper.gpt.annotate_paper import (
 from paper.gpt.model import PaperTermRelation, PaperTerms
 from paper.gpt.prompts import PromptTemplate
 from paper.gpt.result import GPTResult
+from paper.gpt.run_gpt import LLMClient
 from paper.semantic_scholar.model import Paper
 
 
 class _StubClient:
-    async def run(  # noqa: ANN201
+    async def run(
         self,
-        class_: type[PaperTerms] | type[GPTAbstractClassify],
+        class_: type[PaperTerms | GPTAbstractClassify],
         system_prompt: str,
         user_prompt: str,
-    ):
+    ) -> GPTResult[PaperTerms | GPTAbstractClassify]:
         del system_prompt, user_prompt
         if class_ is PaperTerms:
             return GPTResult(
@@ -68,7 +71,7 @@ async def test_annotate_paper_single_uses_both_costs_and_consistent_prompt() -> 
     )
 
     result = await _annotate_paper_single(
-        client=_StubClient(),
+        client=cast(LLMClient, _StubClient()),
         paper=paper,
         user_prompt_term=term_prompt,
         user_prompt_abstract=abstract_prompt,

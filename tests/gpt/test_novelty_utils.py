@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from typing import cast
 
 import pytest
 from pydantic import ValidationError
@@ -10,6 +12,7 @@ from pydantic import ValidationError
 from paper.gpt.evaluate_paper import GPTStructuredRaw
 from paper.gpt.novelty_utils import NoveltyResult, get_novelty_probability
 from paper.gpt.result import GPTResult
+from paper.gpt.run_gpt import LLMClient
 
 
 def _structured(label: int) -> GPTStructuredRaw:
@@ -23,12 +26,12 @@ def _structured(label: int) -> GPTStructuredRaw:
     )
 
 
+@dataclass
 class _StubClient:
-    def __init__(self, ratings: Sequence[int]) -> None:
-        self._ratings: Iterator[int] = iter(ratings)
-        self.user_prompts: list[str] = []
+    ratings: Sequence[int]
+    user_prompts: list[str] = field(default_factory=list[str])
 
-    async def run(  # noqa: ANN201
+    async def run(
         self,
         class_: type[NoveltyResult],
         system_prompt: str,
@@ -36,10 +39,10 @@ class _StubClient:
         max_tokens: int | None = None,
         temperature: float | None = None,
         seed: int | None = None,
-    ):
+    ) -> GPTResult[NoveltyResult]:
         del class_, system_prompt, max_tokens, temperature, seed
         self.user_prompts.append(user_prompt)
-        return GPTResult(result=NoveltyResult(rating=next(self._ratings)), cost=0)
+        return GPTResult(result=NoveltyResult(rating=next(iter(self.ratings))), cost=0)
 
 
 def test_novelty_result_requires_rating() -> None:
@@ -64,7 +67,9 @@ async def test_probability_without_best_of_n_maps_1_to_5_labels(
 ) -> None:
     """best_of_n=0 should map labels 1-3 to not-novel and 4-5 to novel."""
     output = GPTResult(result=_structured(label), cost=0)
-    probability = await get_novelty_probability(_StubClient([4]), output, best_of_n=0)
+    probability = await get_novelty_probability(
+        cast(LLMClient, _StubClient([4])), output, best_of_n=0
+    )
     assert probability.result == expected
 
 
@@ -74,7 +79,7 @@ async def test_probability_clamping_uses_not_novel_bucket_for_labels_below_4() -
     output = GPTResult(result=_structured(1), cost=0)
     # Raw best-of-N would be 1.0, but not-novel labels should cap at 0.4.
     probability = await get_novelty_probability(
-        _StubClient([4, 4, 4]), output, best_of_n=3
+        cast(LLMClient, _StubClient([4, 4, 4])), output, best_of_n=3
     )
     assert probability.result == 0.4
 
@@ -85,7 +90,7 @@ async def test_probability_clamping_uses_novel_bucket_for_labels_4_and_5() -> No
     output = GPTResult(result=_structured(5), cost=0)
     # Raw best-of-N would be 0.25, but novel labels should floor at 0.6.
     probability = await get_novelty_probability(
-        _StubClient([1, 1, 1]), output, best_of_n=3
+        cast(LLMClient, _StubClient([1, 1, 1])), output, best_of_n=3
     )
     assert probability.result == 0.6
 
@@ -97,10 +102,14 @@ async def test_best_of_n_prompt_uses_label_bucket_text() -> None:
     high_client = _StubClient([2])
 
     await get_novelty_probability(
-        low_client, GPTResult(result=_structured(3), cost=0), best_of_n=1
+        cast(LLMClient, low_client),
+        GPTResult(result=_structured(3), cost=0),
+        best_of_n=1,
     )
     await get_novelty_probability(
-        high_client, GPTResult(result=_structured(4), cost=0), best_of_n=1
+        cast(LLMClient, high_client),
+        GPTResult(result=_structured(4), cost=0),
+        best_of_n=1,
     )
 
     assert "leans toward being not novel" in low_client.user_prompts[0]

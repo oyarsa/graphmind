@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
-from typing import Any
+from types import TracebackType
+from typing import Any, Self, cast
 
 import aiohttp
 import pytest
@@ -20,14 +21,14 @@ class _FakeResponse:
         self._payload = payload
         self.status = status
 
-    async def __aenter__(self) -> _FakeResponse:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(
         self,
         _exc_type: type[BaseException] | None,
         _exc: BaseException | None,
-        _tb: object | None,
+        _tb: TracebackType | None,
     ) -> bool:
         return False
 
@@ -67,7 +68,10 @@ async def test_fetch_json_with_retries_returns_on_first_success() -> None:
     session = _FakeSession([_FakeResponse({"ok": True})])
 
     result = await fetch_json_with_retries(
-        session, params={"a": 1}, url="https://example.org", max_tries=3
+        cast(aiohttp.ClientSession, session),
+        params={"a": 1},
+        url="https://example.org",
+        max_tries=3,
     )
 
     assert result == {"ok": True}
@@ -80,12 +84,16 @@ async def test_fetch_json_with_retries_retries_on_client_error(
 ) -> None:
     """Retry on client errors and then return a successful response."""
     delays = _patch_sleep(monkeypatch)
-    session = _FakeSession(
-        [aiohttp.ClientError("boom"), _FakeResponse({"ok": "recovered"})]
-    )
+    session = _FakeSession([
+        aiohttp.ClientError("boom"),
+        _FakeResponse({"ok": "recovered"}),
+    ])
 
     result = await fetch_json_with_retries(
-        session, params={"a": 1}, url="https://example.org", max_tries=2
+        cast(aiohttp.ClientSession, session),
+        params={"a": 1},
+        url="https://example.org",
+        max_tries=2,
     )
 
     assert result == {"ok": "recovered"}
@@ -99,11 +107,14 @@ async def test_fetch_json_with_retries_raises_after_max_tries(
 ) -> None:
     """Raise the final retryable exception after exhausting retries."""
     delays = _patch_sleep(monkeypatch)
-    session = _FakeSession([asyncio.TimeoutError(), asyncio.TimeoutError()])
+    session = _FakeSession([TimeoutError(), TimeoutError()])
 
     with pytest.raises(asyncio.TimeoutError):
         await fetch_json_with_retries(
-            session, params={"a": 1}, url="https://example.org", max_tries=2
+            cast(aiohttp.ClientSession, session),
+            params={"a": 1},
+            url="https://example.org",
+            max_tries=2,
         )
 
     assert len(session.calls) == 2
@@ -116,9 +127,10 @@ async def test_fetch_json_with_retries_retries_when_validator_raises(
 ) -> None:
     """Retry when the response validator raises a retryable exception."""
     delays = _patch_sleep(monkeypatch)
-    session = _FakeSession(
-        [_FakeResponse({"ok": False}, status=500), _FakeResponse({"ok": True})]
-    )
+    session = _FakeSession([
+        _FakeResponse({"ok": False}, status=500),
+        _FakeResponse({"ok": True}),
+    ])
     validator_calls = 0
 
     def _validator(response: aiohttp.ClientResponse) -> None:
@@ -128,7 +140,7 @@ async def test_fetch_json_with_retries_retries_when_validator_raises(
             raise aiohttp.ClientError("server unavailable")
 
     result = await fetch_json_with_retries(
-        session,
+        cast(aiohttp.ClientSession, session),
         params={"a": 1},
         url="https://example.org",
         max_tries=2,
@@ -147,5 +159,8 @@ async def test_fetch_json_with_retries_rejects_non_positive_max_tries() -> None:
 
     with pytest.raises(ValueError, match="max_tries must be positive"):
         await fetch_json_with_retries(
-            session, params={}, url="https://example.org", max_tries=0
+            cast(aiohttp.ClientSession, session),
+            params={},
+            url="https://example.org",
+            max_tries=0,
         )

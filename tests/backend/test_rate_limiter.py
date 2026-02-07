@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import Any
+from typing import cast
 
 import pytest
+from fastapi import Request
 
 from paper.backend.rate_limiter import RateLimiter, _parse_rule, get_remote_address
 
@@ -15,14 +16,17 @@ def _request(
     path: str = "/mind/evaluate",
     client_host: str = "127.0.0.1",
     forwarded_for: str | None = None,
-) -> Any:
+) -> Request:
     headers: dict[str, str] = {}
     if forwarded_for is not None:
         headers["X-Forwarded-For"] = forwarded_for
-    return SimpleNamespace(
-        headers=headers,
-        client=SimpleNamespace(host=client_host),
-        url=SimpleNamespace(path=path),
+    return cast(
+        Request,
+        SimpleNamespace(
+            headers=headers,
+            client=SimpleNamespace(host=client_host),
+            url=SimpleNamespace(path=path),
+        ),
     )
 
 
@@ -32,6 +36,7 @@ def test_get_remote_address_ignores_forwarded_header_by_default(
     """Without trusted-proxy mode, use direct client address."""
     monkeypatch.delenv("XP_TRUST_PROXY_HEADERS", raising=False)
     request = _request(client_host="10.0.0.1", forwarded_for="203.0.113.9")
+
     assert get_remote_address(request) == "10.0.0.1"
 
 

@@ -37,7 +37,9 @@ def test_valid_status_handles_empty_incoming_edges_on_level2_nodes() -> None:
     )
 
     errors = graph.valid_status_all
-    assert any("Found 0 incoming edges to node type 'tldr'" in error for error in errors)
+    assert any(
+        "Found 0 incoming edges to node type 'tldr'" in error for error in errors
+    )
 
 
 def test_valid_status_reports_edges_with_unknown_nodes() -> None:

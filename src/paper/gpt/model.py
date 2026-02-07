@@ -208,9 +208,8 @@ class Graph(Record):
 
         # Rule 2: Title node cannot have incoming edges
         titles = _get_nodes_of_type(self.entities, EntityType.TITLE)
-        if len(titles) == 1:
-            if incoming[titles[0].label]:
-                errors.append("Title node should not have any incoming edges.")
+        if len(titles) == 1 and incoming[titles[0].label]:
+            errors.append("Title node should not have any incoming edges.")
 
         # Rule 3: TLDR, Primary Area and Keyword nodes only have incoming edges from Title
         level_2 = [EntityType.TLDR, EntityType.PRIMARY_AREA, EntityType.KEYWORD]
