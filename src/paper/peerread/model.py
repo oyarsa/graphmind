@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from datetime import date
 from enum import StrEnum
 from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Annotated, Self, override
@@ -129,6 +130,9 @@ class Paper(Record):
         str, Field(description="Conference where the paper was published")
     ]
     year: Annotated[int | None, Field(description="Paper publication year")] = None
+    publication_date: Annotated[
+        date | None, Field(description="Paper publication date")
+    ] = None
     arxiv_id: Annotated[str | None, Field(description="ID of the paper on arXiv")] = (
         None
     )
@@ -256,6 +260,7 @@ class Paper(Record):
             references=references,
             conference=conference,
             year=s2_paper.year,
+            publication_date=s2_paper.publication_date,
             arxiv_id=arxiv_id,
         )
 

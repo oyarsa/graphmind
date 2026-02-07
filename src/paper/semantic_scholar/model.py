@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import date, datetime
 from functools import cached_property
 from typing import Annotated, Self, override
 
@@ -13,6 +14,38 @@ from paper.peerread.model import clean_maintext, scale_recommendation
 from paper.types import Immutable
 from paper.util import fuzzy_partial_ratio, hashstr
 from paper.util.serde import Record
+
+
+def _parse_publication_date(value: object) -> date | None:
+    """Parse publication date values from S2 API payloads.
+
+    Supports ISO date strings and datetime strings. If month precision is not present
+    (for example year-only strings), returns None.
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, datetime):
+        return value.date()
+
+    if isinstance(value, date):
+        return value
+
+    if not isinstance(value, str):
+        return None
+
+    value = value.strip()
+    if not value:
+        return None
+
+    value_date = value.split("T", maxsplit=1)[0]
+    if len(value_date) != 10:
+        return None
+
+    try:
+        return date.fromisoformat(value_date)
+    except ValueError:
+        return None
 
 
 class Paper(Record):
@@ -35,6 +68,8 @@ class Paper(Record):
     abstract: str | None
     # The year the paper was published.
     year: int | None
+    # Full publication date from S2, when available.
+    publication_date: Annotated[date | None, Field(alias="publicationDate")] = None
     # The total number of papers this paper references.
     reference_count: Annotated[int | None, Field(alias="referenceCount")]
     # The total number of papers that reference this paper.
@@ -50,6 +85,12 @@ class Paper(Record):
     authors: Sequence[Author] | None
     # Publication venue name.
     venue: str | None = None
+
+    @field_validator("publication_date", mode="before")
+    @classmethod
+    def parse_publication_date(cls, value: object) -> date | None:
+        """Parse publication_date safely without failing model validation."""
+        return _parse_publication_date(value)
 
     @property
     def id(self) -> str:
@@ -111,6 +152,13 @@ class PaperFromPeerRead(Record):
     ]
     abstract: Annotated[str, Field(description="Abstract text")]
     year: Annotated[int | None, Field(description="Year the paper was published")]
+    publication_date: Annotated[
+        date | None,
+        Field(
+            alias="publicationDate",
+            description="Publication date from S2 API, when available",
+        ),
+    ] = None
     reference_count: Annotated[
         int,
         Field(
@@ -142,6 +190,12 @@ class PaperFromPeerRead(Record):
     def replace_none_abstract(cls, v: str | None) -> str:
         """Replace None abstract with empty string."""
         return v if v is not None else ""
+
+    @field_validator("publication_date", mode="before")
+    @classmethod
+    def parse_publication_date(cls, value: object) -> date | None:
+        """Parse publication_date safely without failing model validation."""
+        return _parse_publication_date(value)
 
     @property
     def id(self) -> str:
@@ -199,6 +253,9 @@ class PaperWithS2Refs(Record):
     ]
     rationale: Annotated[str, Field(description="Rationale for the novelty rating")]
     year: Annotated[int | None, Field(description="Paper publication year")] = None
+    publication_date: Annotated[
+        date | None, Field(description="Paper publication date")
+    ] = None
     arxiv_id: Annotated[str | None, Field(description="ID of the paper on arXiv")] = (
         None
     )
@@ -277,6 +334,7 @@ class PaperWithS2Refs(Record):
             originality_rating=peer.originality_rating,
             rationale=peer.rationale,
             year=peer.year,
+            publication_date=peer.publication_date,
             arxiv_id=peer.arxiv_id,
         )
 
@@ -300,6 +358,7 @@ class PeerReadPaperWithS2(pr.Paper):
             references=pr.references,
             conference=pr.conference,
             year=pr.year,
+            publication_date=pr.publication_date,
             s2=s2_result,
             fuzz_ratio=title_ratio(pr.title, s2_result.title),
         )

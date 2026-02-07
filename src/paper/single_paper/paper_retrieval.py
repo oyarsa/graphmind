@@ -58,6 +58,7 @@ S2_FIELDS_BASE = [
     "title",
     "authors",
     "year",
+    "publicationDate",
     "abstract",
     "referenceCount",
     "citationCount",

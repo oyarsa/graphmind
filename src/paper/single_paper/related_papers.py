@@ -28,8 +28,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date
 from typing import TYPE_CHECKING
 
 from paper import embedding as emb
@@ -52,6 +54,9 @@ if TYPE_CHECKING:
     from paper.types import Vector
 
 logger = logging.getLogger(__name__)
+_ARXIV_ID_WITH_MONTH_PATTERN = re.compile(
+    r"^(?P<yy>\d{2})(?P<mm>0[1-9]|1[0-2])\.\d{4,5}(?:v\d+)?$"
+)
 
 
 def is_empty_string(s: str | None) -> bool:
@@ -64,6 +69,89 @@ def is_empty_string(s: str | None) -> bool:
         True if the string is empty (None or empty after stripping).
     """
     return s is None or not s.strip()
+
+
+def _arxiv_year_month(arxiv_id: str | None) -> tuple[int, int] | None:
+    """Extract `(year, month)` from modern arXiv IDs when available.
+
+    Returns None for old-style IDs and invalid formats.
+    """
+    if arxiv_id is None:
+        return None
+
+    match = _ARXIV_ID_WITH_MONTH_PATTERN.fullmatch(arxiv_id.strip().casefold())
+    if match is None:
+        return None
+
+    return 2000 + int(match.group("yy")), int(match.group("mm"))
+
+
+def _year_month_from_publication_date(
+    publication_date: date | None, *, expected_year: int
+) -> tuple[int, int] | None:
+    """Get `(year, month)` only when date precision matches the expected year."""
+    if publication_date is None:
+        return None
+    if publication_date.year != expected_year:
+        return None
+    return publication_date.year, publication_date.month
+
+
+def _get_main_year_month(paper: s2.PaperWithS2Refs) -> tuple[int, int] | None:
+    """Extract month precision for the main paper from S2 date or arXiv ID."""
+    return _resolve_main_year_month(
+        main_year=paper.year,
+        publication_date=paper.publication_date,
+        arxiv_id=paper.arxiv_id,
+    )
+
+
+def _resolve_main_year_month(
+    *,
+    main_year: int | None,
+    publication_date: date | None,
+    arxiv_id: str | None,
+) -> tuple[int, int] | None:
+    """Resolve main paper month precision, preferring arXiv over S2 metadata."""
+    if main_year is None:
+        return None
+
+    # Prefer arXiv month because pre-print availability is what matters for novelty.
+    year_month = _arxiv_year_month(arxiv_id)
+    if year_month is not None and year_month[0] == main_year:
+        return year_month
+
+    return _year_month_from_publication_date(publication_date, expected_year=main_year)
+
+
+def _is_published_not_after_main(
+    *,
+    main_year: int,
+    main_year_month: tuple[int, int] | None,
+    candidate_year: int | None,
+    candidate_publication_date: date | None,
+) -> bool:
+    """Check if candidate paper is not newer than the main paper.
+
+    For same-year papers, month precision is required on both sides. If missing, we
+    conservatively exclude the candidate.
+    """
+    if candidate_year is None:
+        return False
+
+    if candidate_year < main_year:
+        return True
+
+    if candidate_year > main_year:
+        return False
+
+    candidate_year_month = _year_month_from_publication_date(
+        candidate_publication_date, expected_year=candidate_year
+    )
+    if main_year_month is not None and candidate_year_month is not None:
+        return candidate_year_month <= main_year_month
+
+    return False
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -181,20 +269,33 @@ async def get_related_papers(
         len(recommended_papers),
         len(filtered_recommended_papers),
     )
-    # Filter recommended papers by publication date if requested
-    # Use <= to include papers from the same year (avoids filtering all recent work)
+
+    # Filter recommended papers by publication date if requested.
+    #
+    # Rules:
+    # - If both papers have month precision, compare by month.
+    # - If month precision is missing for either paper in the same year, compare by year
+    #   only.
+    # - Earlier years are always allowed, later years are always excluded.
     if filter_by_date and paper_annotated.paper.year:
         logger.debug("Filtering by publication date")
         main_year = paper_annotated.paper.year
+        main_year_month = _get_main_year_month(paper_annotated.paper)
         filtered_by_date_recommended_papers = [
             paper
             for paper in filtered_recommended_papers
-            if paper.paper.year and paper.paper.year <= main_year
+            if _is_published_not_after_main(
+                main_year=main_year,
+                main_year_month=main_year_month,
+                candidate_year=paper.paper.year,
+                candidate_publication_date=paper.paper.publication_date,
+            )
         ]
         logger.debug(
-            "Date filtering: %d -> %d papers",
+            "Date filtering: %d -> %d papers (main month precision: %s)",
             len(filtered_recommended_papers),
             len(filtered_by_date_recommended_papers),
+            "yes" if main_year_month is not None else "no",
         )
         filtered_recommended_papers = filtered_by_date_recommended_papers
     else:
