@@ -132,11 +132,9 @@ export class PaperEvaluator {
     // Validate input parameters
     const validatedParams = EvaluationParamsSchema.parse(paperData);
 
-    const encodedId = encodeURIComponent(validatedParams.id);
-    const encodedTitle = encodeURIComponent(validatedParams.title);
     const params = new URLSearchParams({
-      id: encodedId,
-      title: encodedTitle,
+      id: validatedParams.id,
+      title: validatedParams.title,
       k_refs: validatedParams.k_refs.toString(),
       recommendations: validatedParams.recommendations.toString(),
       related: validatedParams.related.toString(),
@@ -588,11 +586,9 @@ export class PaperEvaluatorMulti {
     // Validate input parameters
     const validatedParams = EvaluationParamsSchema.parse(paperData);
 
-    const encodedId = encodeURIComponent(validatedParams.id);
-    const encodedTitle = encodeURIComponent(validatedParams.title);
     const params = new URLSearchParams({
-      id: encodedId,
-      title: encodedTitle,
+      id: validatedParams.id,
+      title: validatedParams.title,
       k_refs: validatedParams.k_refs.toString(),
       recommendations: validatedParams.recommendations.toString(),
       related: validatedParams.related.toString(),
