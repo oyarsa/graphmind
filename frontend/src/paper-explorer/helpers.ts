@@ -119,7 +119,7 @@ export function createPaperTermsDisplay(
             </h4>
           </div>
           <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${stripLatexCitations(primaryArea)}
+            ${renderLatex(primaryArea)}
           </p>
         </div>`;
     }
@@ -136,7 +136,7 @@ export function createPaperTermsDisplay(
             </h4>
           </div>
           <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${stripLatexCitations(background)}
+            ${renderLatex(background)}
           </p>
         </div>`;
     }
@@ -153,7 +153,7 @@ export function createPaperTermsDisplay(
             </h4>
           </div>
           <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            ${stripLatexCitations(target)}
+            ${renderLatex(target)}
           </p>
         </div>`;
     }
@@ -624,37 +624,36 @@ function createEvidenceComparisonContent(
 }
 
 /**
- * Strips raw LaTeX commands from text for display.
+ * Replace unresolved citation markers while preserving regular LaTeX content.
  *
- * Removes:
- * - Citation commands: ~\citep{...}, \cite{...}, \citep{...}, \citet{...}, etc.
- * - Malformed citations with space: ~\ cite{...}, \ citep{...}
- * - Footnotes: \footnote{...}, ~\ footnote{...}
- * - Other LaTeX commands: \textbf{...}, \emph{...}, etc.
- * - Standalone tildes (non-breaking space in LaTeX)
+ * - Citation commands are replaced with "[citation]" since the frontend cannot
+ *   resolve citation keys to bibliography entries.
+ * - Footnotes are removed because inline footnote rendering is not supported.
+ * - Malformed commands with whitespace after the backslash are supported.
+ * - Other LaTeX commands are intentionally left untouched so KaTeX can render
+ *   them when they appear inside math delimiters.
  *
  * @param text - Text potentially containing LaTeX commands
- * @returns Cleaned text suitable for display
+ * @returns Text with unresolved citation markers normalised
  */
-export function stripLatexCitations(text: string): string {
+export function stripCitationMarkers(text: string): string {
   if (!text) return "";
 
   return (
     text
       // Remove footnotes (including malformed with space after backslash)
-      .replace(/~?\s*\\\s*footnote\s*\{[^}]*\}/gi, "")
-      // Remove citation commands - match with or without closing brace
-      // Handles: ~\citep{...}, \cite{...}, \ cite{...}, ~\ citep{...}, etc.
-      .replace(/~?\s*\\\s*cite[a-z]*\s*\{[^}]*\}?/gi, "")
-      .replace(/~?\s*\\\s*parencite\s*\{[^}]*\}?/gi, "")
-      .replace(/~?\s*\\\s*textcite\s*\{[^}]*\}?/gi, "")
-      // Remove other common LaTeX commands with arguments
-      .replace(/\\\s*[a-zA-Z]+\s*(\[[^\]]*\])?\s*\{[^}]*\}/g, "")
+      .replace(/~?\s*\\\s*footnote\s*(\[[^\]]*\]\s*)?\{[^}]*\}?/gi, " ")
+      // Replace unresolved citation commands with a neutral placeholder
+      // Handles: ~\citep{...}, \cite{...}, \ cite{...}, \textcite{...}, etc.
+      .replace(
+        /~?\s*\\\s*(cite[a-z]*|parencite|textcite)\*?\s*(\[[^\]]*\]\s*)*\{[^}]*\}?/gi,
+        " [citation] ",
+      )
       // Remove standalone tildes (non-breaking space)
       .replace(/~/g, " ")
-      // Clean up any double spaces left behind
-      .replace(/\s+/g, " ")
-      .trim()
+      // Normalize repeated spaces, but keep segment boundaries intact
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/ ([,.;:!?])/g, "$1")
   );
 }
 
@@ -668,13 +667,10 @@ export function stripLatexCitations(text: string): string {
 export function renderLatex(text: string): string {
   if (!text) return "";
 
-  // Always strip LaTeX citations first - they should never appear in rendered text
-  text = stripLatexCitations(text);
-
-  const math_pattern = /(\$\$[\s\S]+?\$\$|\$[^\n$]+\$)/g;
+  const mathPattern = /(\$\$[\s\S]+?\$\$|\$[^\n$]+\$)/g;
 
   return text
-    .split(math_pattern)
+    .split(mathPattern)
     .map(segment => {
       const display = segment.startsWith("$$") && segment.endsWith("$$");
       const inline = !display && segment.startsWith("$") && segment.endsWith("$");
@@ -694,7 +690,8 @@ export function renderLatex(text: string): string {
         }
       }
 
-      return escapeHtml(segment); // plain text
+      // Strip unresolved citation markers only in non-math text segments.
+      return escapeHtml(stripCitationMarkers(segment));
     })
     .join("");
 }
