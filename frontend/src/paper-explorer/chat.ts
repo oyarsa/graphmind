@@ -23,6 +23,7 @@ interface ChatRequestBody {
 
 const CHAT_MIN_WIDTH_PX = 320;
 const CHAT_MIN_HEIGHT_PX = 384;
+const CHAT_MAX_MESSAGES = 20;
 
 /** Build chat context from a full detail page. Backend handles all truncation. */
 export function buildDetailPageContext(
@@ -235,6 +236,7 @@ export class PaperChatWidget {
   private isSending = false;
   private abortController: AbortController | null = null;
   private typingIndicator: HTMLDivElement | null = null;
+  private activeConversationToken = 0;
 
   constructor(private options: PaperChatWidgetOptions) {
     this.service = new PaperChatService(options.baseUrl);
@@ -378,7 +380,10 @@ export class PaperChatWidget {
     conversationId: string,
     getPageContext: () => Record<string, unknown>,
   ): void {
+    this.activeConversationToken += 1;
     this.cancelPending();
+    this.hideTypingIndicator();
+    this.setSending(false);
     this.getPageContext = getPageContext;
     const newKey = this.buildStorageKey(this.options.pageType, conversationId);
     if (newKey === this.conversationStorageKey) return;
@@ -394,11 +399,13 @@ export class PaperChatWidget {
 
     const text = this.input.value.trim();
     if (!text) return;
+    const requestToken = this.activeConversationToken;
 
     this.errorEl.classList.add("hidden");
     const userMessage: ChatMessage = { role: "user", content: text };
     this.messages.push(userMessage);
-    this.renderMessage(userMessage);
+    this.trimMessagesToLimit();
+    this.renderTranscript();
     this.persistConversation();
 
     this.input.value = "";
@@ -416,15 +423,22 @@ export class PaperChatWidget {
         },
         this.abortController.signal,
       );
+      if (requestToken !== this.activeConversationToken) {
+        return;
+      }
 
       const assistant: ChatMessage = {
         role: "assistant",
         content: response.assistant_message,
       };
       this.messages.push(assistant);
-      this.renderMessage(assistant);
+      this.trimMessagesToLimit();
+      this.renderTranscript();
       this.persistConversation();
     } catch (error) {
+      if (requestToken !== this.activeConversationToken) {
+        return;
+      }
       if (error instanceof DOMException && error.name === "AbortError") {
         // User cancelled — no error to show.
       } else {
@@ -435,6 +449,9 @@ export class PaperChatWidget {
         this.errorEl.classList.remove("hidden");
       }
     } finally {
+      if (requestToken !== this.activeConversationToken) {
+        return;
+      }
       this.hideTypingIndicator();
       this.abortController = null;
       this.setSending(false);
@@ -494,7 +511,7 @@ export class PaperChatWidget {
       bubble.textContent = message.content;
     } else {
       bubble.className =
-        "chat-md max-w-[85%] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";
+        "max-w-[85%] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";
       bubble.innerHTML = renderSimpleMarkdown(message.content);
     }
 
@@ -538,9 +555,10 @@ export class PaperChatWidget {
             content,
           };
           this.messages.push(message);
-          this.renderMessage(message);
         }
       }
+      this.trimMessagesToLimit();
+      this.renderTranscript();
     } catch {
       // Ignore invalid cached history.
     }
@@ -556,6 +574,19 @@ export class PaperChatWidget {
       // Ignore storage issues so chat remains usable.
     }
     this.input.focus();
+  }
+
+  private trimMessagesToLimit(): void {
+    if (this.messages.length > CHAT_MAX_MESSAGES) {
+      this.messages.splice(0, this.messages.length - CHAT_MAX_MESSAGES);
+    }
+  }
+
+  private renderTranscript(): void {
+    this.transcript.innerHTML = "";
+    for (const message of this.messages) {
+      this.renderMessage(message);
+    }
   }
 
   private initialiseResizeHandle(

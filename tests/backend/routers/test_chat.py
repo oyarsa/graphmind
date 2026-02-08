@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 
 from paper.backend.api import app
 from paper.backend.dependencies import LLMClientRegistry
+from paper.backend.model import ChatMessage, ChatRole
+from paper.backend.routers.mind import MAX_PROMPT_CHARS, _build_chat_user_prompt
 from paper.gpt.result import GPTResult
 
 CHAT_ENDPOINT = "/mind/chat"
@@ -182,3 +184,31 @@ def test_chat_llm_exception(client: TestClient) -> None:
     status, data = _post_chat(client)
     assert status == 502
     assert "failed" in str(data["detail"]).lower()
+
+
+def test_build_chat_prompt_keeps_latest_turns_within_budget() -> None:
+    """Prompt builder should preserve newest turns and remain within max length."""
+    context_json = '{"paper": {"title": "Demo"}}'
+    messages = [
+        ChatMessage(role=ChatRole.USER, content=f"Turn {i} " + ("x" * 600))
+        for i in range(1, 10)
+    ]
+    prompt = _build_chat_user_prompt(context_json, messages)
+
+    assert len(prompt) <= MAX_PROMPT_CHARS
+    assert "Turn 9" in prompt
+    assert "Respond to the latest user message." in prompt
+
+
+def test_build_chat_prompt_omits_older_turns_when_needed() -> None:
+    """Older transcript entries should be omitted once budget is exceeded."""
+    context_json = '{"paper": {"title": "Demo", "abstract": "' + ("a" * 11_900) + '"}}'
+    messages = [
+        ChatMessage(role=ChatRole.USER, content=f"Question {i}: " + ("q" * 1_400))
+        for i in range(1, 8)
+    ]
+    prompt = _build_chat_user_prompt(context_json, messages)
+
+    assert len(prompt) <= MAX_PROMPT_CHARS
+    assert "Question 1" not in prompt
+    assert "Question 7" in prompt

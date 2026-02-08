@@ -124,19 +124,52 @@ def _normalise_page_context(
 
 
 def _build_chat_user_prompt(context_json: str, messages: Sequence[ChatMessage]) -> str:
-    """Build a bounded user prompt from context and transcript."""
-    transcript_lines = [
-        f"{message.role.value.title()}: {message.content}" for message in messages
-    ]
-    transcript = "\n".join(transcript_lines)
-    prompt = (
-        "Page context (JSON):\n"
-        f"{context_json}\n\n"
-        "Conversation transcript:\n"
-        f"{transcript}\n\n"
-        "Respond to the latest user message."
+    """Build a bounded user prompt from context and latest transcript turns."""
+    prefix = "Page context (JSON):\n"
+    transcript_header = "\n\nConversation transcript:\n"
+    suffix = "\n\nRespond to the latest user message."
+
+    # Preserve page context and keep the newest turns that fit the remaining budget.
+    fixed_length = (
+        len(prefix) + len(context_json) + len(transcript_header) + len(suffix)
     )
-    return _truncate_text(prompt, MAX_PROMPT_CHARS)
+    transcript_budget = MAX_PROMPT_CHARS - fixed_length
+    if transcript_budget <= 0:
+        min_context_budget = max(
+            0, MAX_PROMPT_CHARS - len(prefix) - len(transcript_header) - len(suffix)
+        )
+        context_json = _truncate_text(context_json, min_context_budget)
+        fixed_length = (
+            len(prefix) + len(context_json) + len(transcript_header) + len(suffix)
+        )
+        transcript_budget = max(0, MAX_PROMPT_CHARS - fixed_length)
+
+    turns = [f"{message.role.value.title()}: {message.content}" for message in messages]
+    selected_rev: list[str] = []
+    used = 0
+    for turn in reversed(turns):
+        turn_len = len(turn) + (1 if selected_rev else 0)
+        if used + turn_len > transcript_budget:
+            break
+        selected_rev.append(turn)
+        used += turn_len
+
+    selected = list(reversed(selected_rev))
+    if not selected:
+        latest_turn = turns[-1]
+        if transcript_budget <= 0:
+            selected = [""]
+        else:
+            selected = [_truncate_text(latest_turn, transcript_budget)]
+
+    omission_marker = "[older turns omitted]"
+    if len(selected) < len(turns):
+        marker_len = len(omission_marker) + (1 if selected else 0)
+        if len("\n".join(selected)) + marker_len <= transcript_budget:
+            selected.insert(0, omission_marker)
+
+    transcript = "\n".join(selected)
+    return f"{prefix}{context_json}{transcript_header}{transcript}{suffix}"
 
 
 class PaperSearchItem(BaseModel):

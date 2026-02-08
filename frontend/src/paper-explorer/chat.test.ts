@@ -1,8 +1,10 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi, afterEach } from "vitest";
 
 import {
   buildAbstractDetailPageContext,
   buildDetailPageContext,
+  PaperChatWidget,
   PaperChatService,
   renderSimpleMarkdown,
 } from "./chat";
@@ -10,6 +12,8 @@ import type { AbstractEvaluationResponse, GraphResult } from "./model";
 
 afterEach(() => {
   vi.restoreAllMocks();
+  document.body.innerHTML = "";
+  localStorage.clear();
 });
 
 function makeGraphResult(): GraphResult {
@@ -175,6 +179,72 @@ describe("PaperChatService", () => {
         method: "POST",
       }),
     );
+  });
+});
+
+describe("PaperChatWidget", () => {
+  function createWidget(): PaperChatWidget {
+    return new PaperChatWidget({
+      baseUrl: "http://localhost:8000",
+      pageType: "detail",
+      conversationId: "paper-1",
+      getPageContext: () => ({ paper: { title: "Demo" } }),
+      getModel: () => "gpt-4o-mini",
+    });
+  }
+
+  it("sends at most 20 messages even when local history is larger", async () => {
+    const history = Array.from({ length: 20 }, (_, i) => ({
+      role: (i % 2 === 0 ? "user" : "assistant") as "user" | "assistant",
+      content: `history-${i}`,
+    }));
+    localStorage.setItem("paper-chat-history:detail:paper-1", JSON.stringify(history));
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ assistant_message: "ok" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const widget = createWidget();
+    const input = document.querySelector("textarea") as HTMLTextAreaElement;
+    input.value = "latest question";
+    await (widget as any).sendCurrentMessage();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(request.body as string) as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(body.messages).toHaveLength(20);
+    expect(body.messages.at(-1)?.content).toBe("latest question");
+  });
+
+  it("discards late responses after switching conversations", async () => {
+    let resolveFetch: ((value: unknown) => void) | null = null;
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveFetch = resolve;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const widget = createWidget();
+    const input = document.querySelector("textarea") as HTMLTextAreaElement;
+    input.value = "question for paper 1";
+    const pending = (widget as any).sendCurrentMessage();
+
+    widget.switchConversation("paper-2", () => ({ paper: { title: "Paper 2" } }));
+    resolveFetch?.({
+      ok: true,
+      json: () => Promise.resolve({ assistant_message: "stale response" }),
+    });
+    await pending;
+
+    const paper2History = localStorage.getItem("paper-chat-history:detail:paper-2");
+    expect(paper2History).toBeNull();
+    expect(document.body.textContent).not.toContain("stale response");
   });
 });
 
