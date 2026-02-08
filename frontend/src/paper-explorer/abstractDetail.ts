@@ -18,6 +18,10 @@ import {
   getScoreColor,
 } from "./helpers";
 import { addFooter } from "../footer";
+import { loadSettings } from "./settings";
+import { buildAbstractDetailPageContext, PaperChatWidget } from "./chat";
+
+let abstractChatWidget: PaperChatWidget | null = null;
 
 /**
  * Load and display abstract evaluation details
@@ -82,6 +86,19 @@ function loadAbstractDetail(): void {
     // Show content and hide loading
     if (loadingEl) loadingEl.style.display = "none";
     if (contentEl) contentEl.classList.remove("hidden");
+
+    const pageContext = buildAbstractDetailPageContext(evaluation);
+    if (abstractChatWidget) {
+      abstractChatWidget.updateContext(() => pageContext);
+    } else {
+      const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+      abstractChatWidget = new PaperChatWidget({
+        baseUrl: apiUrl,
+        pageType: "abstract-detail",
+        getPageContext: () => pageContext,
+        getModel: () => loadSettings().llm_model,
+      });
+    }
   } catch (error) {
     console.error("Error loading abstract evaluation details:", error);
     if (loadingEl) loadingEl.style.display = "none";

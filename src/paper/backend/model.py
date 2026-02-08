@@ -4,11 +4,11 @@ Defines all data models used throughout the application including papers,
 relationships, search results, and API response types.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from enum import StrEnum
-from typing import Annotated, NewType
+from typing import Annotated, Any, NewType
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from paper import gpt
 from paper.gpt.evaluate_paper import EvidenceItem
@@ -214,6 +214,81 @@ class AbstractEvaluationResponse(Model):
     def id(self) -> str:
         """Generate a unique ID for the evaluation based on title and abstract."""
         return hashstr(self.title + self.abstract)
+
+
+class ChatRole(StrEnum):
+    """Allowed roles in a chat transcript."""
+
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+class ChatPageType(StrEnum):
+    """Supported page types that can provide chat context."""
+
+    DETAIL = "detail"
+    ABSTRACT_DETAIL = "abstract-detail"
+
+
+class ChatMessage(Model):
+    """Single chat message in the request transcript."""
+
+    role: Annotated[ChatRole, Field(description="Message role.")]
+    content: Annotated[
+        str,
+        Field(
+            description="Message content as plain text.",
+            min_length=1,
+            max_length=2000,
+        ),
+    ]
+
+
+class ChatRequest(Model):
+    """Request body for `/mind/chat`."""
+
+    messages: Annotated[
+        Sequence[ChatMessage],
+        Field(description="Chat transcript including the latest user turn."),
+    ]
+    page_context: Annotated[
+        Mapping[str, Any],
+        Field(description="Structured page context used for the chat response."),
+    ]
+    llm_model: Annotated[
+        str,
+        Field(
+            description="LLM model identifier.",
+            pattern=r"^(gpt-4o|gpt-4o-mini|gemini-2\.0-flash)$",
+        ),
+    ] = "gpt-4o-mini"
+    page_type: Annotated[ChatPageType, Field(description="Origin page type.")]
+
+    @model_validator(mode="after")
+    def validate_transcript(self) -> "ChatRequest":
+        """Validate transcript constraints for chat requests."""
+        if len(self.messages) == 0:
+            msg = "messages must contain at least one message"
+            raise ValueError(msg)
+        if len(self.messages) > 20:
+            msg = "messages cannot exceed 20 entries"
+            raise ValueError(msg)
+        if self.messages[-1].role != ChatRole.USER:
+            msg = "last message must have role 'user'"
+            raise ValueError(msg)
+        return self
+
+
+class ChatResponse(Model):
+    """Response body for `/mind/chat`."""
+
+    assistant_message: Annotated[
+        str,
+        Field(description="Assistant response text for the latest user turn."),
+    ]
+    cost: Annotated[float | None, Field(description="Model cost for this reply.")] = (
+        None
+    )
 
 
 # Configuration constants for paper evaluation

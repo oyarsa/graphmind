@@ -1,0 +1,307 @@
+import type { AbstractEvaluationResponse, GraphResult, RelatedPaper } from "./model";
+
+export type ChatRole = "user" | "assistant";
+
+export interface ChatMessage {
+  role: ChatRole;
+  content: string;
+}
+
+export type ChatPageType = "detail" | "abstract-detail";
+
+interface ChatResponse {
+  assistant_message: string;
+  cost?: number;
+}
+
+interface ChatRequestBody {
+  messages: ChatMessage[];
+  page_context: Record<string, unknown>;
+  llm_model: "gpt-4o" | "gpt-4o-mini" | "gemini-2.0-flash";
+  page_type: ChatPageType;
+}
+
+const MAX_SUMMARY_CHARS = 450;
+const MAX_ABSTRACT_CHARS = 1200;
+const MAX_EVIDENCE_ITEMS = 5;
+const MAX_RELATED_ITEMS = 8;
+
+function truncate(text: string | null | undefined, maxChars: number): string {
+  if (!text) return "";
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars)}...`;
+}
+
+function mapRelatedPapers(related: RelatedPaper[]): Record<string, unknown>[] {
+  return related.slice(0, MAX_RELATED_ITEMS).map(paper => ({
+    title: truncate(paper.title, 200),
+    summary: truncate(paper.summary, MAX_SUMMARY_CHARS),
+    source: paper.source,
+    score: paper.score,
+    year: paper.year,
+  }));
+}
+
+function mapEvidence(
+  evidence: (string | { text: string; paper_title?: string | null })[],
+): Record<string, unknown>[] {
+  return evidence.slice(0, MAX_EVIDENCE_ITEMS).map(item => {
+    if (typeof item === "string") {
+      return { text: truncate(item, MAX_SUMMARY_CHARS) };
+    }
+    return {
+      text: truncate(item.text, MAX_SUMMARY_CHARS),
+      paper_title: item.paper_title ? truncate(item.paper_title, 200) : null,
+    };
+  });
+}
+
+export function buildDetailPageContext(
+  graphResult: GraphResult,
+): Record<string, unknown> {
+  const keywords = graphResult.graph.entities
+    .filter(entity => entity.type === "keyword")
+    .map(entity => entity.label)
+    .slice(0, 10);
+
+  const evaluation = graphResult.paper.structured_evaluation;
+
+  return {
+    paper: {
+      title: truncate(graphResult.paper.title, 300),
+      abstract: truncate(graphResult.paper.abstract, MAX_ABSTRACT_CHARS),
+      year: graphResult.paper.year,
+      conference: graphResult.paper.conference,
+      arxiv_id: graphResult.paper.arxiv_id,
+    },
+    keywords,
+    evaluation: evaluation
+      ? {
+          label: evaluation.label,
+          paper_summary: truncate(evaluation.paper_summary, MAX_SUMMARY_CHARS),
+          conclusion: truncate(evaluation.conclusion, MAX_SUMMARY_CHARS),
+          key_comparisons: evaluation.key_comparisons
+            .slice(0, 5)
+            .map(item => truncate(item, MAX_SUMMARY_CHARS)),
+          supporting_evidence: mapEvidence(evaluation.supporting_evidence),
+          contradictory_evidence: mapEvidence(evaluation.contradictory_evidence),
+        }
+      : null,
+    related_papers: mapRelatedPapers(graphResult.related),
+  };
+}
+
+export function buildAbstractDetailPageContext(
+  evaluation: AbstractEvaluationResponse,
+): Record<string, unknown> {
+  return {
+    paper: {
+      title: truncate(evaluation.title, 300),
+      abstract: truncate(evaluation.abstract, MAX_ABSTRACT_CHARS),
+    },
+    keywords: evaluation.keywords.slice(0, 10).map(keyword => truncate(keyword, 100)),
+    evaluation: {
+      label: evaluation.label,
+      paper_summary: truncate(evaluation.paper_summary, MAX_SUMMARY_CHARS),
+      conclusion: truncate(evaluation.conclusion, MAX_SUMMARY_CHARS),
+      key_comparisons: evaluation.key_comparisons
+        .slice(0, 5)
+        .map(item => truncate(item, MAX_SUMMARY_CHARS)),
+      supporting_evidence: evaluation.supporting_evidence
+        .slice(0, MAX_EVIDENCE_ITEMS)
+        .map(item => ({
+          text: truncate(item.text, MAX_SUMMARY_CHARS),
+          paper_title: item.paper_title ? truncate(item.paper_title, 200) : null,
+        })),
+      contradictory_evidence: evaluation.contradictory_evidence
+        .slice(0, MAX_EVIDENCE_ITEMS)
+        .map(item => ({
+          text: truncate(item.text, MAX_SUMMARY_CHARS),
+          paper_title: item.paper_title ? truncate(item.paper_title, 200) : null,
+        })),
+    },
+    related_papers: mapRelatedPapers(evaluation.related),
+  };
+}
+
+export class PaperChatService {
+  constructor(private baseUrl: string) {}
+
+  async sendMessage(request: ChatRequestBody): Promise<ChatResponse> {
+    const response = await fetch(`${this.baseUrl}/mind/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `Chat request failed: ${response.status}`);
+    }
+
+    return (await response.json()) as ChatResponse;
+  }
+}
+
+interface PaperChatWidgetOptions {
+  baseUrl: string;
+  pageType: ChatPageType;
+  getPageContext: () => Record<string, unknown>;
+  getModel: () => "gpt-4o" | "gpt-4o-mini" | "gemini-2.0-flash";
+}
+
+export class PaperChatWidget {
+  private readonly service: PaperChatService;
+  private readonly messages: ChatMessage[] = [];
+  private readonly panel: HTMLDivElement;
+  private readonly transcript: HTMLDivElement;
+  private readonly input: HTMLTextAreaElement;
+  private readonly sendButton: HTMLButtonElement;
+  private readonly errorEl: HTMLDivElement;
+  private getPageContext: () => Record<string, unknown>;
+  private isSending = false;
+
+  constructor(private options: PaperChatWidgetOptions) {
+    this.service = new PaperChatService(options.baseUrl);
+    this.getPageContext = options.getPageContext;
+
+    const existing = document.getElementById("paper-chat-widget-root");
+    existing?.remove();
+
+    const root = document.createElement("div");
+    root.id = "paper-chat-widget-root";
+    root.className = "fixed right-4 bottom-4 z-50";
+
+    const fab = document.createElement("button");
+    fab.type = "button";
+    fab.className =
+      "rounded-full bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600";
+    fab.textContent = "Paper chat";
+
+    this.panel = document.createElement("div");
+    this.panel.className =
+      "mt-3 hidden h-[28rem] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-gray-300 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900";
+
+    const header = document.createElement("div");
+    header.className =
+      "border-b border-gray-200 px-4 py-3 text-sm font-semibold text-gray-900 dark:border-gray-700 dark:text-gray-100";
+    header.textContent = "Read-only paper chat";
+
+    const disclaimer = document.createElement("div");
+    disclaimer.className =
+      "border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300";
+    disclaimer.textContent =
+      "Chat can discuss the current paper only. It cannot change this page.";
+
+    this.transcript = document.createElement("div");
+    this.transcript.className = "flex-1 space-y-3 overflow-y-auto px-4 py-3";
+
+    this.errorEl = document.createElement("div");
+    this.errorEl.className = "hidden px-4 pb-2 text-xs text-red-600 dark:text-red-400";
+
+    const inputWrap = document.createElement("div");
+    inputWrap.className = "border-t border-gray-200 px-3 py-3 dark:border-gray-700";
+
+    this.input = document.createElement("textarea");
+    this.input.rows = 2;
+    this.input.maxLength = 2000;
+    this.input.placeholder = "Ask about this paper...";
+    this.input.className =
+      "w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-teal-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";
+
+    this.sendButton = document.createElement("button");
+    this.sendButton.type = "button";
+    this.sendButton.className =
+      "mt-2 w-full rounded-md bg-teal-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-teal-500 dark:hover:bg-teal-600";
+    this.sendButton.textContent = "Send";
+
+    inputWrap.append(this.input, this.sendButton);
+    this.panel.append(header, disclaimer, this.transcript, this.errorEl, inputWrap);
+    root.append(fab, this.panel);
+    document.body.append(root);
+
+    fab.addEventListener("click", () => {
+      this.panel.classList.toggle("hidden");
+      if (!this.panel.classList.contains("hidden")) {
+        this.input.focus();
+      }
+    });
+
+    this.sendButton.addEventListener("click", () => {
+      void this.sendCurrentMessage();
+    });
+
+    this.input.addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        void this.sendCurrentMessage();
+      }
+    });
+  }
+
+  updateContext(getPageContext: () => Record<string, unknown>): void {
+    this.getPageContext = getPageContext;
+  }
+
+  private async sendCurrentMessage(): Promise<void> {
+    if (this.isSending) return;
+
+    const text = this.input.value.trim();
+    if (!text) return;
+
+    this.errorEl.classList.add("hidden");
+    const userMessage: ChatMessage = { role: "user", content: text };
+    this.messages.push(userMessage);
+    this.renderMessage(userMessage);
+
+    this.input.value = "";
+    this.setSending(true);
+
+    try {
+      const response = await this.service.sendMessage({
+        messages: this.messages,
+        page_context: this.getPageContext(),
+        llm_model: this.options.getModel(),
+        page_type: this.options.pageType,
+      });
+
+      const assistant: ChatMessage = {
+        role: "assistant",
+        content: response.assistant_message,
+      };
+      this.messages.push(assistant);
+      this.renderMessage(assistant);
+    } catch (error) {
+      this.errorEl.textContent =
+        error instanceof Error
+          ? `Chat failed: ${error.message}`
+          : "Chat failed. Please try again.";
+      this.errorEl.classList.remove("hidden");
+    } finally {
+      this.setSending(false);
+    }
+  }
+
+  private setSending(sending: boolean): void {
+    this.isSending = sending;
+    this.sendButton.disabled = sending;
+    this.input.disabled = sending;
+    this.sendButton.textContent = sending ? "Sending..." : "Send";
+  }
+
+  private renderMessage(message: ChatMessage): void {
+    const row = document.createElement("div");
+    row.className = message.role === "user" ? "flex justify-end" : "flex justify-start";
+
+    const bubble = document.createElement("div");
+    bubble.className =
+      message.role === "user"
+        ? "max-w-[85%] rounded-lg bg-teal-600 px-3 py-2 text-sm text-white"
+        : "max-w-[85%] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";
+    bubble.textContent = message.content;
+
+    row.append(bubble);
+    this.transcript.append(row);
+    this.transcript.scrollTop = this.transcript.scrollHeight;
+  }
+}

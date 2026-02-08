@@ -4,11 +4,13 @@ Provides endpoints for searching arXiv papers and performing comprehensive
 paper evaluation using LLM-based analysis and recommendations.
 """
 
+import json
 import logging
+import secrets
 import urllib.parse
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
@@ -26,6 +28,10 @@ from paper.backend.model import (
     MULTI_STRUCT_PROMPT,
     MULTI_SUMM_PROMPT,
     AbstractEvaluationResponse,
+    ChatMessage,
+    ChatPageType,
+    ChatRequest,
+    ChatResponse,
 )
 from paper.backend.rate_limiter import RateLimiter
 from paper.util import atimer, measure_memory
@@ -35,6 +41,110 @@ router = APIRouter(prefix="/mind", tags=["mind"])
 logger = logging.getLogger(__name__)
 
 EVAL_RATE_LIMIT = "10/minute"
+CHAT_RATE_LIMIT = "30/minute"
+MAX_CONTEXT_TEXT_CHARS = 12_000
+MAX_PROMPT_CHARS = 18_000
+MAX_JSON_DEPTH = 4
+MAX_LIST_ITEMS = 12
+MAX_KEY_CHARS = 64
+MAX_SCALAR_CHARS = 800
+
+CHAT_SYSTEM_PROMPT = (
+    "You are a read-only paper discussion assistant for the GraphMind detail pages. "
+    "Answer only questions about the provided paper context and conversation history. "
+    "Do not invent missing facts. If information is unavailable in the context, say so "
+    "clearly. You cannot perform UI actions, change settings, navigate pages, or mutate "
+    "application state."
+)
+
+
+def _truncate_text(text: str, max_chars: int) -> str:
+    """Truncate text to a bounded size with explicit suffix."""
+    if len(text) <= max_chars:
+        return text
+    return f"{text[:max_chars]}… [truncated]"
+
+
+def _sanitise_json(value: Any, depth: int = 0) -> Any:
+    """Normalise semi-trusted JSON values into bounded prompt-safe data."""
+    if depth >= MAX_JSON_DEPTH:
+        return "[truncated-depth]"
+
+    if value is None or isinstance(value, bool | int | float):
+        return value
+
+    if isinstance(value, str):
+        return _truncate_text(value, MAX_SCALAR_CHARS)
+
+    if isinstance(value, list):
+        value_list = cast(list[Any], value)
+        return [_sanitise_json(item, depth + 1) for item in value_list[:MAX_LIST_ITEMS]]
+
+    if isinstance(value, dict):
+        value_dict = cast(dict[str, Any], value)
+
+        return {
+            _truncate_text(key, MAX_KEY_CHARS): _sanitise_json(nested, depth + 1)
+            for key, nested in list(value_dict.items())[:MAX_LIST_ITEMS]
+        }
+
+    return _truncate_text(str(value), MAX_SCALAR_CHARS)
+
+
+def _normalise_page_context(
+    page_type: ChatPageType,
+    page_context: Mapping[str, Any],
+) -> str:
+    """Validate expected top-level shape and serialise bounded context JSON."""
+    expected_keys = {
+        ChatPageType.DETAIL: ("paper", "evaluation", "keywords", "related_papers"),
+        ChatPageType.ABSTRACT_DETAIL: (
+            "paper",
+            "evaluation",
+            "keywords",
+            "related_papers",
+        ),
+    }[page_type]
+
+    if not any(key in page_context for key in expected_keys):
+        msg = (
+            "page_context must include at least one expected key: "
+            f"{', '.join(expected_keys)}"
+        )
+        raise HTTPException(status_code=422, detail=msg)
+
+    normalised = {
+        key: _sanitise_json(page_context[key])
+        for key in expected_keys
+        if key in page_context
+    }
+
+    extras = {
+        key: _sanitise_json(value)
+        for key, value in page_context.items()
+        if key not in expected_keys
+    }
+    if extras:
+        normalised["extras"] = extras
+
+    payload = json.dumps(normalised, ensure_ascii=False)
+    return _truncate_text(payload, MAX_CONTEXT_TEXT_CHARS)
+
+
+def _build_chat_user_prompt(context_json: str, messages: Sequence[ChatMessage]) -> str:
+    """Build a bounded user prompt from context and transcript."""
+    transcript_lines = [
+        f"{message.role.value.title()}: {message.content}" for message in messages
+    ]
+    transcript = "\n".join(transcript_lines)
+    prompt = (
+        "Page context (JSON):\n"
+        f"{context_json}\n\n"
+        "Conversation transcript:\n"
+        f"{transcript}\n\n"
+        "Respond to the latest user message."
+    )
+    return _truncate_text(prompt, MAX_PROMPT_CHARS)
 
 
 class PaperSearchItem(BaseModel):
@@ -364,4 +474,51 @@ async def evaluate_multi(
         request=request,
         evaluation_func=go,
         name="evaluation",
+    )
+
+
+@router.post("/chat", summary="Read-only paper chat")
+@rate_limiter.limit(CHAT_RATE_LIMIT)
+async def chat(
+    request: Request,
+    chat_request: ChatRequest,
+    llm_registry: LLMRegistryDep,
+) -> ChatResponse:
+    """Generate a read-only chat response grounded in provided page context."""
+    request_id = secrets.token_urlsafe(6)
+    logger.info("(%s) Processing /mind/chat request", request_id)
+
+    try:
+        context_json = _normalise_page_context(
+            page_type=chat_request.page_type,
+            page_context=chat_request.page_context,
+        )
+        user_prompt = _build_chat_user_prompt(context_json, chat_request.messages)
+        client = llm_registry.get_client(chat_request.llm_model)
+
+        chat_result = await atimer(
+            client.plain(
+                system_prompt=CHAT_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+            )
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("(%s) /mind/chat failed", request_id)
+        raise HTTPException(
+            status_code=502,
+            detail="Chat request failed. Please try again shortly.",
+        ) from exc
+
+    if not chat_result.result:
+        logger.error("(%s) /mind/chat returned no content", request_id)
+        raise HTTPException(
+            status_code=502,
+            detail="Chat request returned an empty response. Please retry.",
+        )
+
+    return ChatResponse(
+        assistant_message=chat_result.result,
+        cost=chat_result.cost,
     )

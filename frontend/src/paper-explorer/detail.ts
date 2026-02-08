@@ -27,6 +27,10 @@ import {
 } from "./helpers";
 import { addFooter } from "../footer";
 import { parseStoredJson } from "./storage";
+import { loadSettings } from "./settings";
+import { buildDetailPageContext, PaperChatWidget } from "./chat";
+
+let detailChatWidget: PaperChatWidget | null = null;
 
 function createRelatedPaperCard(
   paper: RelatedPaper,
@@ -979,6 +983,19 @@ function loadPaperDetail(): void {
     // Show content and hide loading
     if (loadingEl) loadingEl.style.display = "none";
     if (contentEl) contentEl.classList.remove("hidden");
+
+    const pageContext = buildDetailPageContext(graphResult);
+    if (detailChatWidget) {
+      detailChatWidget.updateContext(() => pageContext);
+    } else {
+      const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+      detailChatWidget = new PaperChatWidget({
+        baseUrl: apiUrl,
+        pageType: "detail",
+        getPageContext: () => pageContext,
+        getModel: () => loadSettings().llm_model,
+      });
+    }
   } catch (error) {
     console.error("Error loading paper details:", error);
     if (loadingEl) loadingEl.style.display = "none";
