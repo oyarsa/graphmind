@@ -272,6 +272,29 @@ class TestSanitiseForPandoc:
         assert "Alice" not in result
         assert "Hello" in result
 
+    def test_removes_gdef(self) -> None:
+        tex = "\\begin{document}\n\\gdef\\foo{bar}\nHello.\n\\end{document}"
+        result = _sanitise_for_pandoc(tex)
+        assert "\\gdef" not in result
+        assert "bar" not in result
+        assert "Hello" in result
+
+    def test_removes_global_def(self) -> None:
+        tex = "\\begin{document}\n\\global\\def \\foo #1 {#1}\nHello.\n\\end{document}"
+        result = _sanitise_for_pandoc(tex)
+        assert "\\global" not in result
+        assert "\\def" not in result
+        assert "Hello" in result
+        assert result.count("{") == result.count("}")
+
+    def test_removes_long_gdef(self) -> None:
+        tex = "\\begin{document}\n\\long\\gdef \\foo #1 {#1}\nHello.\n\\end{document}"
+        result = _sanitise_for_pandoc(tex)
+        assert "\\long" not in result
+        assert "\\gdef" not in result
+        assert "Hello" in result
+        assert result.count("{") == result.count("}")
+
     def test_removes_algorithm_env(self) -> None:
         tex = (
             "\\begin{document}\nbefore\n"
@@ -339,3 +362,56 @@ class TestConvertLatexToMarkdown:
         result = _convert_latex_to_markdown("\\section{Hello}", "test")
         assert result is None
         assert mock_pandoc.call_count == 4  # type: ignore[union-attr]
+
+    @pytest.mark.parametrize(
+        ("name", "tex"),
+        [
+            (
+                "gdef-spaced",
+                "\\begin{document}\n\\gdef \\foo #1 {#1}\nText\n\\end{document}",
+            ),
+            (
+                "gdef-spaced-two-params",
+                "\\begin{document}\n\\gdef \\foo #1 #2 {#1 #2}\nText\n\\end{document}",
+            ),
+            (
+                "gdef-newline-body",
+                "\\begin{document}\n\\gdef \\foo #1\n{#1}\nText\n\\end{document}",
+            ),
+            (
+                "gdef-newline-params",
+                "\\begin{document}\n\\gdef \\foo\n#1 {#1}\nText\n\\end{document}",
+            ),
+            (
+                "global-def-spaced",
+                "\\begin{document}\n\\global\\def \\foo #1 {#1}\nText\n\\end{document}",
+            ),
+            (
+                "global-def-multispace",
+                "\\begin{document}\n\\global   \\def   \\foo   #1   {#1}\nText\n\\end{document}",
+            ),
+            (
+                "global-def-newline-body",
+                "\\begin{document}\n\\global\\def \\foo #1\n{#1}\nText\n\\end{document}",
+            ),
+            (
+                "long-gdef-spaced",
+                "\\begin{document}\n\\long\\gdef \\foo #1 {#1}\nText\n\\end{document}",
+            ),
+        ],
+        ids=[
+            "gdef_spaced",
+            "gdef_spaced_two_params",
+            "gdef_newline_body",
+            "gdef_newline_params",
+            "global_def_spaced",
+            "global_def_multispace",
+            "global_def_newline_body",
+            "long_gdef_spaced",
+        ],
+    )
+    def test_breaking_cases_def_family_variants(self, name: str, tex: str) -> None:
+        """Known def-family variants should still yield usable markdown."""
+        result = _convert_latex_to_markdown(tex, name)
+        assert result is not None
+        assert "Text" in result
