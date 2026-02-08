@@ -7,6 +7,8 @@ import {
 } from "./model";
 import {
   renderLatex,
+  renderLatexWithCitationFootnotes,
+  citationReferenceFromRelatedPaper,
   getRelationshipStyle,
   getRelatedPaperFilterType,
   findRelatedPaperIndexByTitle,
@@ -96,7 +98,9 @@ function displayAbstractEvaluation(evaluation: AbstractEvaluationResponse): void
   const abstractEl = document.getElementById("paper-abstract");
 
   if (titleEl) titleEl.innerHTML = renderLatex(evaluation.title);
-  if (abstractEl) abstractEl.innerHTML = renderLatex(evaluation.abstract);
+  if (abstractEl) {
+    abstractEl.innerHTML = renderLatexWithCitationFootnotes(evaluation.abstract);
+  }
 
   // Keywords
   displayKeywords(evaluation.keywords);
@@ -306,7 +310,7 @@ function createEvidenceItem(
       <li class="flex items-start gap-2">
         <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
         <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-          ${renderLatex(evidence)}
+          ${renderLatexWithCitationFootnotes(evidence)}
         </span>
       </li>
     `;
@@ -346,7 +350,12 @@ function createEvidenceItem(
       <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
       <div class="flex-1">
         <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-          <span class="font-medium">${paperTitleElement}</span> ${renderLatex(evidence.text)}
+          <span class="font-medium">${paperTitleElement}</span> ${renderLatexWithCitationFootnotes(
+            evidence.text,
+            relatedPaper
+              ? { fallbackReference: citationReferenceFromRelatedPaper(relatedPaper) }
+              : {},
+          )}
           ${
             hasExpandableContent
               ? `

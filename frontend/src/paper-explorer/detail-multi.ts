@@ -21,6 +21,9 @@ import {
   getScoreDisplay,
   setupSectionToggle,
   renderLatex,
+  renderLatexWithCitationFootnotes,
+  buildCitationIndexFromReferences,
+  RenderLatexOptions,
   getArxivUrl,
   formatConferenceName,
   createSideBySideComparison,
@@ -163,6 +166,7 @@ function displayMultiPerspectiveEvaluation(evaluation: MultiEvaluationResult): v
 function createStructuredAnalysisDisplay(
   structured: StructuredEval,
   graphResult: GraphResultMulti | null,
+  latexOptions: RenderLatexOptions,
 ): string {
   return `
     <div class="space-y-4">
@@ -230,6 +234,7 @@ function createStructuredAnalysisDisplay(
                   relatedPaper,
                   relatedPaperIndex,
                   "bg-green-500",
+                  latexOptions,
                 );
               })
               .join("")}
@@ -273,6 +278,7 @@ function createStructuredAnalysisDisplay(
                   relatedPaper,
                   relatedPaperIndex,
                   "bg-red-500",
+                  latexOptions,
                 );
               })
               .join("")}
@@ -525,8 +531,13 @@ function loadAndDisplayPaper(): Promise<void> {
       if (loading) loading.style.display = "none";
       if (content) content.classList.remove("hidden");
 
+      const citationIndex = buildCitationIndexFromReferences(
+        graphResult.paper.references,
+      );
+      const latexOptions: RenderLatexOptions = { citationIndex };
+
       // Display paper information
-      displayPaperInfo(graphResult);
+      displayPaperInfo(graphResult, latexOptions);
 
       // Display multi-perspective evaluation
       displayMultiPerspectiveEvaluation(graphResult.paper.evaluation);
@@ -542,6 +553,7 @@ function loadAndDisplayPaper(): Promise<void> {
           structuredAnalysisContainer.innerHTML = createStructuredAnalysisDisplay(
             graphResult.paper.evaluation.structured,
             graphResult,
+            latexOptions,
           );
           setupSectionToggle("structured-analysis");
         } else {
@@ -592,7 +604,10 @@ function loadAndDisplayPaper(): Promise<void> {
   });
 }
 
-function displayPaperInfo(graphResult: GraphResultMulti): void {
+function displayPaperInfo(
+  graphResult: GraphResultMulti,
+  latexOptions: RenderLatexOptions,
+): void {
   const paper = graphResult.paper;
 
   // Title and authors
@@ -642,7 +657,12 @@ function displayPaperInfo(graphResult: GraphResultMulti): void {
 
   // Abstract
   const abstractEl = document.getElementById("paper-abstract");
-  if (abstractEl) abstractEl.innerHTML = renderLatex(paper.abstract);
+  if (abstractEl) {
+    abstractEl.innerHTML = renderLatexWithCitationFootnotes(
+      paper.abstract,
+      latexOptions,
+    );
+  }
 
   // Keywords (extract from graph entities)
   const keywordsEl = document.getElementById("paper-keywords");

@@ -160,6 +160,11 @@ export const PaperSchema = z.object({
   rationale_true: z.string(),
   /** Sections of the paper's main text. */
   sections: z.array(PaperSectionSchema),
+  /** Bibliography references with citation keys (optional for cached legacy data). */
+  references: z
+    .array(z.lazy(() => S2ReferenceSchema))
+    .nullish()
+    .default([]),
   /** Title of the paper. */
   title: z.string().min(1, "Title cannot be empty"),
   /** Model's predicted novelty label. */
@@ -190,6 +195,47 @@ export const RelatedPaperSourceSchema = z.enum(["semantic", "citations"]);
 export const CitationContextSchema = z.object({
   sentence: z.string(),
   polarity: ContextPolaritySchema.nullable(),
+});
+
+/**
+ * Author object used in S2 reference payloads from backend.
+ */
+export const S2AuthorSchema = z.object({
+  name: z.string(),
+});
+
+/**
+ * Reference entry from the evaluated paper bibliography.
+ *
+ * Supports both backend payload shapes:
+ * - Legacy snake_case fields (paper_id, citation_count, etc.)
+ * - OpenAPI camelCase fields (paperId, citationCount, etc.)
+ */
+export const S2ReferenceSchema = z.object({
+  title: z.string(),
+  year: z.number().nullish(),
+  url: z.string().nullish(),
+  citation_key: z.string().nullish().default(""),
+  contexts: z.array(CitationContextSchema).nullish(),
+  // Optional metadata - allow both alias styles for compatibility.
+  paper_id: z.string().nullish(),
+  paperId: z.string().nullish(),
+  corpus_id: z.number().nullish(),
+  corpusId: z.number().nullish(),
+  reference_count: z.number().nullish(),
+  referenceCount: z.number().nullish(),
+  citation_count: z.number().nullish(),
+  citationCount: z.number().nullish(),
+  influential_citation_count: z.number().nullish(),
+  influentialCitationCount: z.number().nullish(),
+  authors: z
+    .array(z.union([z.string(), S2AuthorSchema]))
+    .nullish()
+    .transform(
+      authors =>
+        authors?.map(author => (typeof author === "string" ? author : author.name)) ??
+        null,
+    ),
 });
 
 /**
@@ -490,6 +536,7 @@ export type EvidenceItem = z.infer<typeof EvidenceItemSchema>;
 export type StructuredEval = z.infer<typeof StructuredEvalSchema>;
 export type Paper = z.infer<typeof PaperSchema>;
 export type ContextPolarity = z.infer<typeof ContextPolaritySchema>;
+export type S2Reference = z.infer<typeof S2ReferenceSchema>;
 export type RelatedPaperSource = z.infer<typeof RelatedPaperSourceSchema>;
 export type CitationContext = z.infer<typeof CitationContextSchema>;
 export type RelatedPaper = z.infer<typeof RelatedPaperSchema>;

@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { RelatedPaper, Graph, Entity } from "./model";
+import { RelatedPaper, Graph, Entity, S2Reference } from "./model";
 
 export type RelatedPaperFilterType =
   | "background"
@@ -24,6 +24,120 @@ function truncateForTitlePreview(value: string, maxLength: number): string {
   }
 
   return `${value.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+export interface CitationReference {
+  key?: string | null;
+  title: string;
+  authors?: string[] | null;
+  year?: number | null;
+  url?: string | null;
+  arxiv_id?: string | null;
+}
+
+export interface ResolvedCitation {
+  index: number;
+  key: string;
+  reference: CitationReference | null;
+}
+
+export interface RenderLatexOptions {
+  citationIndex?: Map<string, CitationReference>;
+  fallbackReference?: CitationReference | null;
+}
+
+function normalizeCitationKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+export function buildCitationIndexFromReferences(
+  references: S2Reference[] | null | undefined,
+): Map<string, CitationReference> {
+  const index = new Map<string, CitationReference>();
+  if (!references) return index;
+
+  for (const reference of references) {
+    if (!reference.citation_key) continue;
+    const normalizedKey = normalizeCitationKey(reference.citation_key);
+    if (!normalizedKey) continue;
+
+    index.set(normalizedKey, {
+      key: reference.citation_key,
+      title: reference.title,
+      authors: reference.authors,
+      year: reference.year,
+      url: reference.url,
+    });
+  }
+
+  return index;
+}
+
+export function citationReferenceFromRelatedPaper(paper: {
+  title: string;
+  authors?: string[] | null;
+  year?: number | null;
+  url?: string | null;
+  arxiv_id?: string | null;
+}): CitationReference {
+  return {
+    title: paper.title,
+    authors: paper.authors ?? null,
+    year: paper.year ?? null,
+    url: paper.url ?? null,
+    arxiv_id: paper.arxiv_id ?? null,
+  };
+}
+
+function renderCitationList(citations: ResolvedCitation[]): string {
+  if (citations.length === 0) return "";
+
+  return `
+    <div class="mt-3 rounded-lg border border-gray-200 bg-gray-50/80 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+      <div class="mb-2 text-xs font-semibold tracking-wide text-gray-600 uppercase dark:text-gray-300">
+        References
+      </div>
+      <div class="space-y-1 text-xs text-gray-700 dark:text-gray-300">
+        ${citations
+          .map(citation => {
+            if (!citation.reference) {
+              return `
+                <div>
+                  <span class="font-semibold">[${citation.index}]</span>
+                  <span class="ml-1">Unresolved citation key: ${escapeHtml(citation.key)}</span>
+                </div>
+              `;
+            }
+
+            const label = formatScientificCitation(
+              citation.reference.authors,
+              citation.reference.year,
+              citation.reference.title,
+            );
+            const titleLabel =
+              label.trim() !== citation.reference.title.trim()
+                ? ` · ${citation.reference.title}`
+                : "";
+            const refText = `${label}${titleLabel}`;
+            const refUrl =
+              citation.reference.url ?? getArxivUrl(citation.reference.arxiv_id);
+            const escapedText = escapeHtml(refText);
+
+            return `
+              <div>
+                <span class="font-semibold">[${citation.index}]</span>
+                ${
+                  refUrl
+                    ? `<a href="${escapeHtml(refUrl)}" target="_blank" rel="noopener noreferrer" class="ml-1 text-blue-600 hover:text-blue-800 underline dark:text-blue-400 dark:hover:text-blue-300">${escapedText}</a>`
+                    : `<span class="ml-1">${escapedText}</span>`
+                }
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+    </div>
+  `;
 }
 
 /**
@@ -412,6 +526,8 @@ interface RelatedPaperForEvidence {
   title: string;
   authors?: string[] | null;
   year?: number | null;
+  url?: string | null;
+  arxiv_id?: string | null;
 }
 
 /**
@@ -432,6 +548,7 @@ export function createExpandableEvidenceItem(
   relatedPaper: RelatedPaperForEvidence | null,
   relatedPaperIndex: number | null,
   bulletColor: string,
+  options: RenderLatexOptions = {},
 ): string {
   // Determine the icon based on source type
   const source =
@@ -440,11 +557,13 @@ export function createExpandableEvidenceItem(
 
   // Handle string evidence (no source info, use bullet)
   if (typeof evidence === "string") {
+    const rendered = renderLatexWithCitations(evidence, options);
     return `
       <li class="flex items-start gap-2">
         <span class="mt-1.5 block h-1.5 w-1.5 flex-shrink-0 rounded-full ${bulletColor}"></span>
         <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-          ${renderLatex(evidence)}
+          ${rendered.html}
+          ${renderCitationList(rendered.citations)}
         </span>
       </li>
     `;
@@ -495,13 +614,20 @@ export function createExpandableEvidenceItem(
       relatedPaper.contexts.length > 0;
 
     const hasExpandableContent = hasSemanticContent || hasCitationContent;
+    const renderedEvidence = renderLatexWithCitations(evidence.text, {
+      ...options,
+      fallbackReference: relatedPaper
+        ? citationReferenceFromRelatedPaper(relatedPaper)
+        : null,
+    });
 
     return `
       <li class="flex items-start gap-2">
         <span class="mt-1.5 flex-shrink-0 text-gray-500 dark:text-gray-400">${sourceIcon}</span>
         <div class="flex-1">
           <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            <span class="font-medium">${citationLinkElement}:</span> ${renderLatex(evidence.text)}
+            <span class="font-medium">${citationLinkElement}:</span> ${renderedEvidence.html}
+            ${renderCitationList(renderedEvidence.citations)}
             ${
               hasExpandableContent
                 ? `
@@ -522,7 +648,7 @@ export function createExpandableEvidenceItem(
             hasExpandableContent
               ? `
             <div class="evidence-details hidden mt-3 pl-4 border-l-2 border-gray-200 dark:border-gray-700" id="evidence-details-${evidenceIndex}">
-              ${createEvidenceComparisonContent(relatedPaper)}
+              ${createEvidenceComparisonContent(relatedPaper, options)}
             </div>
           `
               : ""
@@ -536,11 +662,18 @@ export function createExpandableEvidenceItem(
   const fallbackIcon = source
     ? sourceIcon
     : `<span class="block h-1.5 w-1.5 rounded-full ${bulletColor}"></span>`;
+  const renderedFallback = renderLatexWithCitations(evidence.text, {
+    ...options,
+    fallbackReference: relatedPaper
+      ? citationReferenceFromRelatedPaper(relatedPaper)
+      : null,
+  });
   return `
     <li class="flex items-start gap-2">
       <span class="mt-1.5 flex-shrink-0 text-gray-500 dark:text-gray-400">${fallbackIcon}</span>
       <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-        ${renderLatex(evidence.text)}
+        ${renderedFallback.html}
+        ${renderCitationList(renderedFallback.citations)}
       </span>
     </li>
   `;
@@ -551,6 +684,7 @@ export function createExpandableEvidenceItem(
  */
 function createEvidenceComparisonContent(
   relatedPaper: RelatedPaperForEvidence,
+  options: RenderLatexOptions = {},
 ): string {
   if (relatedPaper.source === "semantic") {
     // For semantic papers, show the related paper's background/target text
@@ -585,6 +719,7 @@ function createEvidenceComparisonContent(
     }
   } else if (relatedPaper.contexts) {
     // For citation papers, show citation contexts
+    const fallbackReference = citationReferenceFromRelatedPaper(relatedPaper);
     return `
       <div class="mb-4">
         <div class="mb-3 flex items-center gap-2">
@@ -594,26 +729,31 @@ function createEvidenceComparisonContent(
         </div>
         <div class="space-y-2">
           ${relatedPaper.contexts
-            .map(
-              context => `
-            <div class="flex items-start gap-2">
-              ${
-                context.polarity
-                  ? `<span class="mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      context.polarity === "positive"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                    }">
-                      ${context.polarity === "positive" ? "+" : "-"}
-                    </span>`
-                  : ""
-              }
-              <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 flex-1">
-                ${renderLatex(context.sentence)}
-              </span>
-            </div>
-          `,
-            )
+            .map(context => {
+              const rendered = renderLatexWithCitations(context.sentence, {
+                ...options,
+                fallbackReference,
+              });
+              return `
+                <div class="flex items-start gap-2">
+                  ${
+                    context.polarity
+                      ? `<span class="mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          context.polarity === "positive"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                        }">
+                          ${context.polarity === "positive" ? "+" : "-"}
+                        </span>`
+                      : ""
+                  }
+                  <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 flex-1">
+                    ${rendered.html}
+                    ${renderCitationList(rendered.citations)}
+                  </span>
+                </div>
+              `;
+            })
             .join("")}
         </div>
       </div>
@@ -624,17 +764,16 @@ function createEvidenceComparisonContent(
 }
 
 /**
- * Replace unresolved citation markers while preserving regular LaTeX content.
+ * Remove citation/footnote commands while preserving regular LaTeX content.
  *
- * - Citation commands are replaced with "[citation]" since the frontend cannot
- *   resolve citation keys to bibliography entries.
+ * - Citation commands are removed.
  * - Footnotes are removed because inline footnote rendering is not supported.
  * - Malformed commands with whitespace after the backslash are supported.
  * - Other LaTeX commands are intentionally left untouched so KaTeX can render
  *   them when they appear inside math delimiters.
  *
  * @param text - Text potentially containing LaTeX commands
- * @returns Text with unresolved citation markers normalised
+ * @returns Text with citation markers removed
  */
 export function stripCitationMarkers(text: string): string {
   if (!text) return "";
@@ -643,11 +782,11 @@ export function stripCitationMarkers(text: string): string {
     text
       // Remove footnotes (including malformed with space after backslash)
       .replace(/~?\s*\\\s*footnote\s*(\[[^\]]*\]\s*)?\{[^}]*\}?/gi, " ")
-      // Replace unresolved citation commands with a neutral placeholder
+      // Remove citation commands
       // Handles: ~\citep{...}, \cite{...}, \ cite{...}, \textcite{...}, etc.
       .replace(
         /~?\s*\\\s*(cite[a-z]*|parencite|textcite)\*?\s*(\[[^\]]*\]\s*)*\{[^}]*\}?/gi,
-        " [citation] ",
+        " ",
       )
       // Remove standalone tildes (non-breaking space)
       .replace(/~/g, " ")
@@ -655,6 +794,120 @@ export function stripCitationMarkers(text: string): string {
       .replace(/[ \t]{2,}/g, " ")
       .replace(/ ([,.;:!?])/g, "$1")
   );
+}
+
+function parseBalancedBraceContent(
+  input: string,
+  openBraceIndex: number,
+): { content: string; endExclusive: number } | null {
+  let depth = 0;
+
+  for (let i = openBraceIndex; i < input.length; i += 1) {
+    const char = input[i];
+    if (char === "{") {
+      depth += 1;
+      continue;
+    }
+    if (char !== "}") continue;
+
+    depth -= 1;
+    if (depth === 0) {
+      return {
+        content: input.slice(openBraceIndex + 1, i),
+        endExclusive: i + 1,
+      };
+    }
+  }
+
+  return null;
+}
+
+function renderTextLatexCommands(input: string): string {
+  const commandPattern = /\\(texttt|textit|emph|textbf)\{/g;
+  let cursor = 0;
+  let output = "";
+
+  while (cursor < input.length) {
+    commandPattern.lastIndex = cursor;
+    const match = commandPattern.exec(input);
+    if (!match) {
+      output += escapeHtml(input.slice(cursor));
+      break;
+    }
+
+    const commandStart = match.index;
+    const command = match[1];
+    const openBraceIndex = commandPattern.lastIndex - 1;
+
+    output += escapeHtml(input.slice(cursor, commandStart));
+
+    const parsed = parseBalancedBraceContent(input, openBraceIndex);
+    if (!parsed) {
+      output += escapeHtml(input.slice(commandStart, commandPattern.lastIndex));
+      cursor = commandPattern.lastIndex;
+      continue;
+    }
+
+    const renderedInner = renderTextLatexCommands(parsed.content);
+    if (command === "texttt") {
+      output += `<code class="rounded bg-gray-100 px-1 py-0.5 text-[0.95em] dark:bg-gray-800">${renderedInner}</code>`;
+    } else if (command === "textbf") {
+      output += `<strong>${renderedInner}</strong>`;
+    } else {
+      output += `<em>${renderedInner}</em>`;
+    }
+
+    cursor = parsed.endExclusive;
+  }
+
+  return output;
+}
+
+function escapeUnescapedUnderscores(value: string): string {
+  return value.replace(/(^|[^\\])_/g, "$1\\_");
+}
+
+function normalizeMathBody(input: string): string {
+  return input.replace(/\\texttt\{([^}]*)\}/g, (_, content: string) => {
+    return `\\texttt{${escapeUnescapedUnderscores(content)}}`;
+  });
+}
+
+export function renderLatexWithCitations(
+  text: string,
+  _options: RenderLatexOptions = {},
+): { html: string; citations: ResolvedCitation[] } {
+  if (!text) return { html: "", citations: [] };
+
+  const mathPattern = /(\$\$[\s\S]+?\$\$|\$[^\n$]+\$)/g;
+
+  const html = text
+    .split(mathPattern)
+    .map(segment => {
+      const display = segment.startsWith("$$") && segment.endsWith("$$");
+      const inline = !display && segment.startsWith("$") && segment.endsWith("$");
+
+      if (display || inline) {
+        const body = display ? segment.slice(2, -2) : segment.slice(1, -1);
+        const normalizedBody = normalizeMathBody(body);
+        try {
+          return katex.renderToString(normalizedBody, {
+            displayMode: display,
+            throwOnError: false,
+            errorColor: "#cc0000",
+            output: "html",
+          });
+        } catch (err) {
+          console.error("KaTeX error:", err);
+          return escapeHtml(segment);
+        }
+      }
+
+      return renderTextLatexCommands(stripCitationMarkers(segment));
+    })
+    .join("");
+
+  return { html, citations: [] };
 }
 
 /**
@@ -665,35 +918,15 @@ export function stripCitationMarkers(text: string): string {
  * • All non-math text is HTML-escaped to prevent XSS.
  */
 export function renderLatex(text: string): string {
-  if (!text) return "";
+  return renderLatexWithCitations(text).html;
+}
 
-  const mathPattern = /(\$\$[\s\S]+?\$\$|\$[^\n$]+\$)/g;
-
-  return text
-    .split(mathPattern)
-    .map(segment => {
-      const display = segment.startsWith("$$") && segment.endsWith("$$");
-      const inline = !display && segment.startsWith("$") && segment.endsWith("$");
-
-      if (display || inline) {
-        const body = display ? segment.slice(2, -2) : segment.slice(1, -1);
-        try {
-          return katex.renderToString(body, {
-            displayMode: display,
-            throwOnError: false,
-            errorColor: "#cc0000",
-            output: "html",
-          });
-        } catch (err) {
-          console.error("KaTeX error:", err);
-          return escapeHtml(segment); // fall back to raw, safely escaped
-        }
-      }
-
-      // Strip unresolved citation markers only in non-math text segments.
-      return escapeHtml(stripCitationMarkers(segment));
-    })
-    .join("");
+export function renderLatexWithCitationFootnotes(
+  text: string,
+  options: RenderLatexOptions = {},
+): string {
+  const rendered = renderLatexWithCitations(text, options);
+  return rendered.html;
 }
 
 /**

@@ -11,6 +11,7 @@ import {
   formatPaperCitation,
   stripCitationMarkers,
   renderLatex,
+  renderLatexWithCitations,
 } from "./helpers";
 import { RelatedPaper } from "./model";
 
@@ -480,44 +481,40 @@ describe("stripCitationMarkers", () => {
     expect(stripCitationMarkers("")).toBe("");
   });
 
-  it("should replace ~\\citep{} commands with placeholders", () => {
+  it("should remove ~\\citep{} commands", () => {
     const input = "This is some text~\\citep{ref2020} with a citation.";
     expect(stripCitationMarkers(input).trim()).toBe(
-      "This is some text [citation] with a citation.",
+      "This is some text with a citation.",
     );
   });
 
-  it("should replace \\citep{} commands without tilde", () => {
+  it("should remove \\citep{} commands without tilde", () => {
     const input = "This is some text\\citep{ref2020} with a citation.";
     expect(stripCitationMarkers(input).trim()).toBe(
-      "This is some text [citation] with a citation.",
+      "This is some text with a citation.",
     );
   });
 
-  it("should replace ~\\cite{} commands", () => {
+  it("should remove ~\\cite{} commands", () => {
     const input = "As shown in~\\cite{smith2021}, the results are clear.";
     expect(stripCitationMarkers(input).trim()).toBe(
-      "As shown in [citation], the results are clear.",
+      "As shown in, the results are clear.",
     );
   });
 
-  it("should replace \\citet{} commands", () => {
+  it("should remove \\citet{} commands", () => {
     const input = "According to \\citet{jones2022}, this works.";
-    expect(stripCitationMarkers(input).trim()).toBe(
-      "According to [citation], this works.",
-    );
+    expect(stripCitationMarkers(input).trim()).toBe("According to, this works.");
   });
 
   it("should handle multiple citations", () => {
     const input = "Some text~\\citep{ref1} and more~\\cite{ref2} with \\citet{ref3}.";
-    expect(stripCitationMarkers(input).trim()).toBe(
-      "Some text [citation] and more [citation] with [citation].",
-    );
+    expect(stripCitationMarkers(input).trim()).toBe("Some text and more with.");
   });
 
   it("should handle citations with multiple references", () => {
     const input = "This is cited~\\citep{DBLP:conf/emnlp/QiZWZYLHLB23,DBLP:ref2}.";
-    expect(stripCitationMarkers(input).trim()).toBe("This is cited [citation].");
+    expect(stripCitationMarkers(input).trim()).toBe("This is cited.");
   });
 
   it("should preserve text without citations", () => {
@@ -529,22 +526,18 @@ describe("stripCitationMarkers", () => {
 
   it("should clean up double spaces after replacement", () => {
     const input = "Text  ~\\citep{ref}  with  spaces.";
-    expect(stripCitationMarkers(input).trim()).toBe("Text [citation] with spaces.");
+    expect(stripCitationMarkers(input).trim()).toBe("Text with spaces.");
   });
 
   // Tests for malformed LaTeX (space after backslash)
   it("should replace malformed citations with space after backslash", () => {
     const input = "compared to the baseline, PAIE~\\ cite{PAIE}.";
-    expect(stripCitationMarkers(input).trim()).toBe(
-      "compared to the baseline, PAIE [citation].",
-    );
+    expect(stripCitationMarkers(input).trim()).toBe("compared to the baseline, PAIE.");
   });
 
   it("should replace malformed citep with space after backslash", () => {
     const input = "as shown~\\ citep{ref2020} in the paper.";
-    expect(stripCitationMarkers(input).trim()).toBe(
-      "as shown [citation] in the paper.",
-    );
+    expect(stripCitationMarkers(input).trim()).toBe("as shown in the paper.");
   });
 
   // Tests for footnotes
@@ -586,7 +579,7 @@ describe("stripCitationMarkers", () => {
       "The CsEAE model achieved improvements of 2.1% compared to PAIE~\\ cite{PAIE}. " +
       "For LLMs, performance is comparable to SLMs~\\ footnote{Code at github.com}.";
     expect(stripCitationMarkers(input).trim()).toBe(
-      "The CsEAE model achieved improvements of 2.1% compared to PAIE [citation]. " +
+      "The CsEAE model achieved improvements of 2.1% compared to PAIE. " +
         "For LLMs, performance is comparable to SLMs.",
     );
   });
@@ -597,7 +590,7 @@ describe("stripCitationMarkers", () => {
       "applications for instruction tuning~\\citep{Castricato2022,Shulev2024}";
     expect(stripCitationMarkers(input).trim()).toBe(
       "Reinforcement Learning through Human Feedback (PPO) has seen " +
-        "applications for instruction tuning [citation]",
+        "applications for instruction tuning",
     );
   });
 });
@@ -609,15 +602,15 @@ describe("renderLatex", () => {
     const output = renderLatex(input);
 
     expect(output).toContain("katex");
+    expect(output).not.toContain("katex-error");
     expect(output).not.toContain("katex-display");
     expect(output).not.toContain("$$");
   });
 
-  it("should replace citation markers outside math while rendering math", () => {
+  it("should remove citation markers outside math while rendering math", () => {
     const input = "As shown in~\\citep{ref2020}, use $\\texttt{dev}$ split.";
     const output = renderLatex(input);
 
-    expect(output).toContain("[citation]");
     expect(output).toContain("katex");
     expect(output).not.toContain("\\citep");
   });
@@ -633,5 +626,24 @@ describe("renderLatex", () => {
     expect(output).not.toContain("katex-display");
     expect(textOnly).not.toContain("evaluationframeworkhasnotbeendeveloped");
     expect(textOnly).not.toContain("$$ script");
+  });
+
+  it("should render prose text commands like \\\\texttt outside math delimiters", () => {
+    const input =
+      "Use the \\texttt{trec_eval} script with a \\textit{standardized} setup.";
+    const output = renderLatex(input);
+
+    expect(output).toContain("<code");
+    expect(output).toContain("trec_eval");
+    expect(output).toContain("<em>standardized</em>");
+    expect(output).not.toContain("\\texttt");
+    expect(output).not.toContain("\\textit");
+  });
+
+  it("should not collect citation metadata after citation removal", () => {
+    const rendered = renderLatexWithCitations("As shown by \\citep{smith2020}.");
+
+    expect(rendered.html).not.toContain("\\citep");
+    expect(rendered.citations).toEqual([]);
   });
 });

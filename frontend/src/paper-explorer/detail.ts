@@ -13,6 +13,10 @@ import {
   getScoreDisplay,
   setupSectionToggle,
   renderLatex,
+  renderLatexWithCitationFootnotes,
+  citationReferenceFromRelatedPaper,
+  buildCitationIndexFromReferences,
+  RenderLatexOptions,
   getArxivUrl,
   formatConferenceName,
   createExpandableEvidenceItem,
@@ -24,7 +28,11 @@ import {
 import { addFooter } from "../footer";
 import { parseStoredJson } from "./storage";
 
-function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
+function createRelatedPaperCard(
+  paper: RelatedPaper,
+  index: number,
+  latexOptions: RenderLatexOptions,
+): string {
   const { scorePercent } = getScoreDisplay(paper.score);
   const relationship = getRelationshipStyle(paper);
 
@@ -166,23 +174,26 @@ function createRelatedPaperCard(paper: RelatedPaper, index: number): string {
           ${paper.contexts
             .map(
               context => `
-            <div class="flex items-start gap-2">
-              ${
-                context.polarity
-                  ? `<span class="mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      context.polarity === "positive"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                    }">
-                      ${context.polarity === "positive" ? "+" : "-"}
-                    </span>`
-                  : ""
-              }
-              <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 flex-1">
-                ${renderLatex(context.sentence)}
-              </span>
-            </div>
-          `,
+                <div class="flex items-start gap-2">
+                  ${
+                    context.polarity
+                      ? `<span class="mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          context.polarity === "positive"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                        }">
+                          ${context.polarity === "positive" ? "+" : "-"}
+                        </span>`
+                      : ""
+                  }
+                  <span class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 flex-1">
+                    ${renderLatexWithCitationFootnotes(context.sentence, {
+                      ...latexOptions,
+                      fallbackReference: citationReferenceFromRelatedPaper(paper),
+                    })}
+                  </span>
+                </div>
+              `,
             )
             .join("")}
         </div>
@@ -269,6 +280,7 @@ function filterToEvidencePapers(
 function createStructuredEvaluationDisplay(
   evaluation: StructuredEval,
   evidencePapers: RelatedPaper[],
+  latexOptions: RenderLatexOptions,
 ): string {
   // Note: renderEvidence function moved to createExpandableEvidenceItem helper
 
@@ -389,6 +401,7 @@ function createStructuredEvaluationDisplay(
                   relatedPaper,
                   relatedPaperIndex,
                   "bg-green-500",
+                  latexOptions,
                 );
               })
               .join("")}
@@ -427,6 +440,7 @@ function createStructuredEvaluationDisplay(
                   relatedPaper,
                   relatedPaperIndex,
                   "bg-red-500",
+                  latexOptions,
                 );
               })
               .join("")}
@@ -454,7 +468,10 @@ function createHierarchicalGraphWrapper(graph: Graph): void {
 /**
  * Render related papers
  */
-function renderRelatedPapers(relatedPapers: RelatedPaper[]): void {
+function renderRelatedPapers(
+  relatedPapers: RelatedPaper[],
+  latexOptions: RenderLatexOptions,
+): void {
   const relatedPapersContainer = document.getElementById("related-papers-content");
   if (!relatedPapersContainer) return;
 
@@ -469,7 +486,9 @@ function renderRelatedPapers(relatedPapers: RelatedPaper[]): void {
 
   // Render all papers
   relatedPapersContainer.innerHTML = relatedPapers
-    .map((relatedPaper, index) => createRelatedPaperCard(relatedPaper, index))
+    .map((relatedPaper, index) =>
+      createRelatedPaperCard(relatedPaper, index, latexOptions),
+    )
     .join("");
 
   // Add click event listeners for expansion
@@ -792,6 +811,8 @@ function loadPaperDetail(): void {
     }
 
     const paper = graphResult.paper;
+    const citationIndex = buildCitationIndexFromReferences(paper.references);
+    const latexOptions: RenderLatexOptions = { citationIndex };
 
     document.title = `${paper.title} - Paper Explorer`;
 
@@ -809,7 +830,12 @@ function loadPaperDetail(): void {
     if (authorsEl) authorsEl.textContent = paper.authors.join(", ");
     if (yearEl) yearEl.textContent = paper.year.toString();
     if (conferenceEl) conferenceEl.textContent = formatConferenceName(paper.conference);
-    if (abstractEl) abstractEl.innerHTML = renderLatex(paper.abstract);
+    if (abstractEl) {
+      abstractEl.innerHTML = renderLatexWithCitationFootnotes(
+        paper.abstract,
+        latexOptions,
+      );
+    }
     // Handle Decision field - hide entire container when approval is null
     const decisionContainer = document.getElementById("decision-container");
     if (approvalEl && decisionContainer) {
@@ -919,6 +945,7 @@ function loadPaperDetail(): void {
         structuredEvalContainer.innerHTML = createStructuredEvaluationDisplay(
           paper.structured_evaluation,
           evidencePapers,
+          latexOptions,
         );
         setupSectionToggle("structured-evaluation");
       } else {
@@ -936,7 +963,7 @@ function loadPaperDetail(): void {
     );
     if (relatedPapersContentContainer) {
       if (evidencePapers.length > 0) {
-        renderRelatedPapers(evidencePapers);
+        renderRelatedPapers(evidencePapers, latexOptions);
       } else {
         relatedPapersContentContainer.innerHTML = `
           <div class="text-gray-600 dark:text-gray-500 text-sm">
