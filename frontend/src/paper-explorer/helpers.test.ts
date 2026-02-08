@@ -382,7 +382,7 @@ describe("formatPaperCitation", () => {
 });
 
 describe("createExpandableEvidenceItem", () => {
-  it("adds the full paper name to citation-key hover text", () => {
+  it("adds full paper name to browser title tooltip", () => {
     const result = createExpandableEvidenceItem(
       {
         text: "Evidence sentence",
@@ -403,9 +403,10 @@ describe("createExpandableEvidenceItem", () => {
 
     expect(result).toContain('data-paper-index="2"');
     expect(result).toContain('title="A Very Long And Descriptive Paper Title"');
+    expect(result).not.toContain('role="tooltip"');
   });
 
-  it("shows a compact title preview next to citation keys", () => {
+  it("shows citation key and compact title as a single link", () => {
     const result = createExpandableEvidenceItem(
       {
         text: "Evidence sentence",
@@ -426,7 +427,10 @@ describe("createExpandableEvidenceItem", () => {
 
     expect(result).toContain("Smith et al. (2024)");
     expect(result).toContain("· Full Paper Title");
-    expect(result).toContain("font-normal text-gray-500");
+    expect(result).toContain("Full Paper Title");
+    expect(result).toContain(
+      "related-paper-link underline text-blue-600 dark:text-blue-400",
+    );
   });
 
   it("hides title preview when citation key already equals title", () => {
@@ -448,10 +452,10 @@ describe("createExpandableEvidenceItem", () => {
       "bg-green-500",
     );
 
-    expect(result).not.toContain("font-normal text-gray-500");
+    expect(result).not.toContain("· Exact Title");
   });
 
-  it("escapes paper names in hover text attributes", () => {
+  it("escapes paper names in tooltip and aria attributes", () => {
     const result = createExpandableEvidenceItem(
       {
         text: "Evidence sentence",
@@ -464,6 +468,7 @@ describe("createExpandableEvidenceItem", () => {
       "bg-green-500",
     );
 
+    expect(result).toContain("Quoted &quot;Paper&quot; &lt;Title&gt;");
     expect(result).toContain('title="Quoted &quot;Paper&quot; &lt;Title&gt;"');
     expect(result).toContain('aria-label="Quoted &quot;Paper&quot; &lt;Title&gt;');
   });
