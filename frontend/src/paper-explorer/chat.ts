@@ -92,6 +92,103 @@ export function buildAbstractDetailPageContext(
   };
 }
 
+const HTML_ESCAPE_MAP: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#x27;",
+};
+
+function escapeHtmlPure(text: string): string {
+  return text.replace(/[&<>"']/g, ch => HTML_ESCAPE_MAP[ch]);
+}
+
+/**
+ * Minimal markdown renderer for assistant chat bubbles.
+ * Handles: **bold**, *italic*, `inline code`, ```code blocks```, and bullet lists.
+ * Input is HTML-escaped first to prevent XSS.
+ */
+export function renderSimpleMarkdown(text: string): string {
+  const escaped = escapeHtmlPure(text);
+  const lines = escaped.split("\n");
+  const result: string[] = [];
+  let inCodeBlock = false;
+  let codeLines: string[] = [];
+  let inList = false;
+
+  for (const line of lines) {
+    if (line.startsWith("```")) {
+      if (inCodeBlock) {
+        result.push(
+          `<pre class="my-1 rounded bg-gray-200 p-2 text-xs dark:bg-gray-700"><code>${codeLines.join("\n")}</code></pre>`,
+        );
+        codeLines = [];
+        inCodeBlock = false;
+      } else {
+        if (inList) {
+          result.push("</ul>");
+          inList = false;
+        }
+        inCodeBlock = true;
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeLines.push(line);
+      continue;
+    }
+
+    const isBullet = /^[-*]\s/.test(line);
+    if (isBullet) {
+      if (!inList) {
+        result.push('<ul class="my-1 list-disc pl-4">');
+        inList = true;
+      }
+      result.push(`<li>${applyInlineMarkdown(line.replace(/^[-*]\s/, ""))}</li>`);
+      continue;
+    }
+
+    if (inList) {
+      result.push("</ul>");
+      inList = false;
+    }
+
+    if (line.trim() === "") {
+      result.push("<br>");
+    } else {
+      result.push(`<p class="my-0.5">${applyInlineMarkdown(line)}</p>`);
+    }
+  }
+
+  if (inCodeBlock) {
+    result.push(
+      `<pre class="my-1 rounded bg-gray-200 p-2 text-xs dark:bg-gray-700"><code>${codeLines.join("\n")}</code></pre>`,
+    );
+  }
+  if (inList) {
+    result.push("</ul>");
+  }
+
+  return result.join("");
+}
+
+function applyInlineMarkdown(text: string): string {
+  return (
+    text
+      // inline code (must come before bold/italic to avoid conflicts)
+      .replace(
+        /`([^`]+)`/g,
+        '<code class="rounded bg-gray-200 px-1 text-xs dark:bg-gray-700">$1</code>',
+      )
+      // bold
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      // italic
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+  );
+}
+
 export class PaperChatService {
   constructor(private baseUrl: string) {}
 
@@ -137,6 +234,7 @@ export class PaperChatWidget {
   private getPageContext: () => Record<string, unknown>;
   private isSending = false;
   private abortController: AbortController | null = null;
+  private typingIndicator: HTMLDivElement | null = null;
 
   constructor(private options: PaperChatWidgetOptions) {
     this.service = new PaperChatService(options.baseUrl);
@@ -306,6 +404,7 @@ export class PaperChatWidget {
     this.input.value = "";
     this.abortController = new AbortController();
     this.setSending(true);
+    this.showTypingIndicator();
 
     try {
       const response = await this.service.sendMessage(
@@ -336,6 +435,7 @@ export class PaperChatWidget {
         this.errorEl.classList.remove("hidden");
       }
     } finally {
+      this.hideTypingIndicator();
       this.abortController = null;
       this.setSending(false);
     }
@@ -345,6 +445,33 @@ export class PaperChatWidget {
     if (this.abortController) {
       this.abortController.abort();
       this.abortController = null;
+    }
+  }
+
+  private showTypingIndicator(): void {
+    this.hideTypingIndicator();
+    const row = document.createElement("div");
+    row.className = "flex justify-start";
+    const bubble = document.createElement("div");
+    bubble.className =
+      "flex items-center gap-1 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 dark:border-gray-600 dark:bg-gray-800";
+    for (let i = 0; i < 3; i++) {
+      const dot = document.createElement("span");
+      dot.className =
+        "inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 dark:bg-gray-500";
+      dot.style.animationDelay = `${i * 0.15}s`;
+      bubble.append(dot);
+    }
+    row.append(bubble);
+    this.typingIndicator = row;
+    this.transcript.append(row);
+    this.transcript.scrollTop = this.transcript.scrollHeight;
+  }
+
+  private hideTypingIndicator(): void {
+    if (this.typingIndicator) {
+      this.typingIndicator.remove();
+      this.typingIndicator = null;
     }
   }
 
@@ -361,11 +488,15 @@ export class PaperChatWidget {
     row.className = message.role === "user" ? "flex justify-end" : "flex justify-start";
 
     const bubble = document.createElement("div");
-    bubble.className =
-      message.role === "user"
-        ? "max-w-[85%] rounded-lg bg-teal-600 px-3 py-2 text-sm text-white"
-        : "max-w-[85%] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";
-    bubble.textContent = message.content;
+    if (message.role === "user") {
+      bubble.className =
+        "max-w-[85%] rounded-lg bg-teal-600 px-3 py-2 text-sm text-white";
+      bubble.textContent = message.content;
+    } else {
+      bubble.className =
+        "chat-md max-w-[85%] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";
+      bubble.innerHTML = renderSimpleMarkdown(message.content);
+    }
 
     row.append(bubble);
     this.transcript.append(row);

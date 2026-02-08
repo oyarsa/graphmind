@@ -4,6 +4,7 @@ import {
   buildAbstractDetailPageContext,
   buildDetailPageContext,
   PaperChatService,
+  renderSimpleMarkdown,
 } from "./chat";
 import type { AbstractEvaluationResponse, GraphResult } from "./model";
 
@@ -174,5 +175,40 @@ describe("PaperChatService", () => {
         method: "POST",
       }),
     );
+  });
+});
+
+describe("renderSimpleMarkdown", () => {
+  it("renders bold and italic", () => {
+    expect(renderSimpleMarkdown("**bold** and *italic*")).toContain(
+      "<strong>bold</strong>",
+    );
+    expect(renderSimpleMarkdown("**bold** and *italic*")).toContain("<em>italic</em>");
+  });
+
+  it("renders inline code", () => {
+    const html = renderSimpleMarkdown("use `foo()` here");
+    expect(html).toContain("<code");
+    expect(html).toContain("foo()");
+  });
+
+  it("renders code blocks", () => {
+    const html = renderSimpleMarkdown("```\nprint('hi')\n```");
+    expect(html).toContain("<pre");
+    expect(html).toContain("print(&#x27;hi&#x27;)");
+  });
+
+  it("renders bullet lists", () => {
+    const html = renderSimpleMarkdown("- one\n- two");
+    expect(html).toContain("<ul");
+    expect(html).toContain("<li>");
+    expect(html).toContain("one");
+    expect(html).toContain("two");
+  });
+
+  it("escapes HTML to prevent XSS", () => {
+    const html = renderSimpleMarkdown('<script>alert("xss")</script>');
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
   });
 });
