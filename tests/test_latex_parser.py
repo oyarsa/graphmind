@@ -8,6 +8,7 @@ import pytest
 from paper.orc.latex_parser import (
     _convert_latex_to_markdown,
     _match_braced_group,
+    _rebalance_braces,
     _remove_command_with_braced_args,
     _sanitise_for_pandoc,
     _strip_problematic_packages,
@@ -131,6 +132,44 @@ class TestMatchBracedGroup:
 
     def test_offset(self) -> None:
         assert _match_braced_group("xx{hi}yy", 2) == 6
+
+
+class TestRebalanceBraces:
+    """Tests for _rebalance_braces."""
+
+    def test_already_balanced(self) -> None:
+        assert _rebalance_braces("{hello}") == "{hello}"
+
+    def test_appends_missing_closing(self) -> None:
+        result = _rebalance_braces("{hello")
+        assert result == "{hello}"
+        assert result.count("{") == result.count("}")
+
+    def test_drops_orphan_closing(self) -> None:
+        result = _rebalance_braces("text } more")
+        assert "}" not in result
+        assert "text" in result
+        assert "more" in result
+
+    def test_nested_unclosed(self) -> None:
+        result = _rebalance_braces("{a{b}")
+        assert result.count("{") == result.count("}")
+
+    def test_escaped_braces_ignored(self) -> None:
+        result = _rebalance_braces(r"\{a, b\}")
+        assert result == r"\{a, b\}"
+        assert result.count("{") == result.count("}")
+
+    def test_mixed_escaped_and_real(self) -> None:
+        result = _rebalance_braces(r"{\textbf{set \{a\}}}")
+        assert result.count("{") == result.count("}")
+        assert r"\{a\}" in result
+
+    def test_empty(self) -> None:
+        assert _rebalance_braces("") == ""
+
+    def test_no_braces(self) -> None:
+        assert _rebalance_braces("plain text") == "plain text"
 
 
 class TestRemoveCommandWithBracedArgs:

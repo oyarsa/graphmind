@@ -8,6 +8,7 @@ import subprocess
 import tarfile
 import tempfile
 from collections import defaultdict
+from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 from typing import Annotated
@@ -386,19 +387,18 @@ def process_latex(
         # Keep raw content for conversion — preprocessing is applied inside the
         # fallback chain so that pandoc gets an unmodified first attempt.
         raw_content = consolidated_content
-        consolidated_content = _strip_problematic_packages(consolidated_content)
+        style_cleaned = _strip_problematic_packages(consolidated_content)
 
-        bib_files = _find_bib_files(tmpdir, consolidated_content)
+        bib_files = _find_bib_files(tmpdir, style_cleaned)
         citationkey_to_reference = _extract_bibliography_from_bibfiles(
             bib_files, tmpdir
         )
-        if not citationkey_to_reference:
-            logger.debug("No references from bib files. Trying bib items.")
-            citationkey_to_reference = _extract_bibliography_from_bibitems(
-                consolidated_content
-            )
 
-    citation_contexts = _extract_citations_and_contexts(splitter, consolidated_content)
+    if not citationkey_to_reference:
+        logger.debug("No references from bib files. Trying bib items.")
+        citationkey_to_reference = _extract_bibliography_from_bibitems(style_cleaned)
+
+    citation_contexts = _extract_citations_and_contexts(splitter, style_cleaned)
 
     # Match citations to references and populate contexts
     for citation_key, contexts in citation_contexts.items():
@@ -430,7 +430,7 @@ def process_latex(
     ]
     logger.debug("References with contexts: %d", len(references))
 
-    markdown_content = _convert_latex_to_markdown(raw_content, title)
+    markdown_content = _convert_latex_to_markdown(raw_content, style_cleaned, title)
     if markdown_content is None:
         logger.debug("Error converting LaTeX to Markdown. Aborting.")
         return None
@@ -533,6 +533,42 @@ def _match_braced_group(text: str, start: int) -> int:
     return -1
 
 
+def _rebalance_braces(content: str) -> str:
+    r"""Drop orphan ``}`` and append missing ``}`` so that braces are balanced.
+
+    Escaped braces (``\{`` and ``\}``) are passed through without affecting
+    the depth counter.
+    """
+    balanced: list[str] = []
+    depth = 0
+    i = 0
+
+    while i < len(content):
+        ch = content[i]
+
+        # Skip escaped characters
+        if ch == "\\" and i + 1 < len(content):
+            balanced.append(content[i : i + 2])
+            i += 2
+            continue
+        if ch == "{":
+            depth += 1
+            balanced.append(ch)
+        elif ch == "}":
+            if depth > 0:
+                depth -= 1
+                balanced.append(ch)
+        else:
+            # skip the orphan closing brace
+            balanced.append(ch)
+        i += 1
+
+    if depth > 0:
+        balanced.append("}" * depth)
+
+    return "".join(balanced)
+
+
 def _remove_command_with_braced_args(text: str, pattern: re.Pattern[str]) -> str:
     """Remove LaTeX commands matched by *pattern*, consuming brace-balanced args.
 
@@ -576,46 +612,42 @@ def _remove_command_with_braced_args(text: str, pattern: re.Pattern[str]) -> str
 # Regex that matches \newtcolorbox{name}[opts] — stops before the definition body.
 _RE_NEWTCOLORBOX = re.compile(r"\\newtcolorbox\{[^}]+\}(\[\d+\])?(\[[^\]]*\])?")
 
+# Matches the \def family of TeX primitives (\def, \gdef, \edef, \xdef) with
+# optional prefix modifiers (\long, \global, \outer) and parameter tokens (#1 #2 …).
+# Stops before the opening brace of the definition body so that
+# _remove_command_with_braced_args can consume it.
+_RE_DEF_FAMILY = re.compile(
+    r"(?:\\(?:long|global|outer)\s*)*\\[gex]?def\s*\\[a-zA-Z@]+(\s*#\d)*"
+)
+
 
 def _strip_problematic_packages(latex_content: str) -> str:
     """Remove package imports and associated commands that break downstream processing.
 
     Currently handles arxiv submission boilerplate and tcolorbox declarations.
     """
-    # Remove lines with \usepackage or \RequirePackage that reference 'arxiv'
-    no_package = re.sub(
+    # Line-level regex removals (package imports and includes).
+    _line_patterns = [
+        # \usepackage / \RequirePackage referencing 'arxiv'
         r"^(\\(?:usepackage|RequirePackage)\s*(\[[^\]]*\])?\s*\{[^}]*arxiv[^}]*\}.*\n?)",
-        "",
-        latex_content,
-        flags=re.MULTILINE,
-    )
-
-    # Remove lines that explicitly include arxiv.sty
-    no_arxiv = re.sub(
+        # \input / \include of arxiv.sty
         r"^(\\(?:input|include)\s*\{[^}]*arxiv\.sty[^}]*\}.*\n?)",
-        "",
-        no_package,
-        flags=re.MULTILINE,
-    )
-
-    # Remove tcolorbox package
-    no_tcolorbox_pkg = re.sub(
+        # \usepackage / \RequirePackage referencing 'tcolorbox'
         r"^(\\(?:usepackage|RequirePackage)\s*(\[[^\]]*\])?\s*\{[^}]*tcolorbox[^}]*\}.*\n?)",
-        "",
-        no_arxiv,
-        flags=re.MULTILINE,
-    )
+    ]
+
+    content = latex_content
+    for pat in _line_patterns:
+        content = re.sub(pat, "", content, flags=re.MULTILINE)
 
     # Remove \newtcolorbox declarations (brace-safe)
-    no_newtcolorbox = _remove_command_with_braced_args(
-        no_tcolorbox_pkg, _RE_NEWTCOLORBOX
-    )
+    content = _remove_command_with_braced_args(content, _RE_NEWTCOLORBOX)
 
     # Remove tcolorbox environments
     return re.sub(
         r"\\begin\{tcolorbox\}(\[[^\]]*\])?.*?\\end\{tcolorbox\}",
         "",
-        no_newtcolorbox,
+        content,
         flags=re.DOTALL,
     )
 
@@ -670,42 +702,9 @@ def _sanitise_for_pandoc(latex_content: str) -> str:
         content,
         re.compile(r"\\(?:re)?newcommand\*?\{[^}]+\}(\[\d+\])?(\[[^\]]*\])?"),
     )
-    content = _remove_command_with_braced_args(
-        content,
-        re.compile(
-            r"(?:\\(?:long|global|outer)\s*)*\\[gex]?def\s*\\[a-zA-Z@]+(\s*#\d)*"
-        ),
-    )
+    content = _remove_command_with_braced_args(content, _RE_DEF_FAMILY)
 
-    # Balance braces: drop orphan } that would make depth negative, then
-    # append any missing closing braces at the end.  Use index-based
-    # iteration so escaped braces (\{ and \}) are passed through without
-    # affecting the depth counter.
-    balanced: list[str] = []
-    depth = 0
-    i = 0
-    while i < len(content):
-        ch = content[i]
-        if ch == "\\" and i + 1 < len(content):
-            balanced.append(content[i : i + 2])
-            i += 2
-            continue
-        if ch == "{":
-            depth += 1
-            balanced.append(ch)
-        elif ch == "}":
-            if depth > 0:
-                depth -= 1
-                balanced.append(ch)
-            # else: skip the orphan closing brace
-        else:
-            balanced.append(ch)
-        i += 1
-    # Append missing closing braces
-    if depth > 0:
-        balanced.append("}" * depth)
-
-    return "".join(balanced)
+    return _rebalance_braces(content)
 
 
 def _run_pandoc(
@@ -753,7 +752,11 @@ def _run_pandoc(
         return None, first_line
 
 
-def _convert_latex_to_markdown(latex_content: str, title: str) -> str | None:
+def _convert_latex_to_markdown(
+    latex_content: str,
+    style_cleaned: str,
+    title: str,
+) -> str | None:
     """Convert LaTeX content to Markdown via pandoc with progressive fallbacks.
 
     Strategies are tried in order of increasing aggressiveness so that minimal
@@ -764,13 +767,17 @@ def _convert_latex_to_markdown(latex_content: str, title: str) -> str | None:
     3. **Sanitised** — preamble stripped, problematic environments removed,
        braces rebalanced.
     4. **Full clean** — style-cleaned then sanitised (combines both transforms).
+
+    Later strategies are computed lazily — only when earlier ones fail.
     """
-    style_cleaned = _strip_problematic_packages(latex_content)
-    strategies = [
-        ("raw", latex_content),
-        ("style-cleaned", style_cleaned),
-        ("sanitised", _sanitise_for_pandoc(latex_content)),
-        ("full-clean", _sanitise_for_pandoc(style_cleaned)),
+    strategies: list[tuple[str, Callable[[], str]]] = [
+        ("raw", lambda: latex_content),
+        ("style-cleaned", lambda: style_cleaned),
+        ("sanitised", lambda: _sanitise_for_pandoc(latex_content)),
+        (
+            "full-clean",
+            lambda: _sanitise_for_pandoc(style_cleaned),
+        ),
     ]
 
     errors: list[str] = []
@@ -780,11 +787,13 @@ def _convert_latex_to_markdown(latex_content: str, title: str) -> str | None:
 
         for name, content in strategies:
             logger.debug("Pandoc strategy '%s': %s", name, title)
-            result, err = _run_pandoc(content, tmp_dir, title)
+            result, err = _run_pandoc(content(), tmp_dir, title)
+
             if result:
                 if name != "raw":
                     logger.debug("Pandoc succeeded with '%s' strategy: %s", name, title)
                 return result
+
             errors.append(f"{name}: {err}")
 
         logger.warning(
