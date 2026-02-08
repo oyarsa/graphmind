@@ -1,4 +1,4 @@
-import type { AbstractEvaluationResponse, GraphResult, RelatedPaper } from "./model";
+import type { AbstractEvaluationResponse, GraphResult } from "./model";
 
 export type ChatRole = "user" | "assistant";
 
@@ -21,108 +21,74 @@ interface ChatRequestBody {
   page_type: ChatPageType;
 }
 
-const MAX_SUMMARY_CHARS = 450;
-const MAX_ABSTRACT_CHARS = 1200;
-const MAX_EVIDENCE_ITEMS = 5;
-const MAX_RELATED_ITEMS = 8;
 const CHAT_MIN_WIDTH_PX = 320;
 const CHAT_MIN_HEIGHT_PX = 384;
 
-function truncate(text: string | null | undefined, maxChars: number): string {
-  if (!text) return "";
-  if (text.length <= maxChars) return text;
-  return `${text.slice(0, maxChars)}...`;
-}
-
-function mapRelatedPapers(related: RelatedPaper[]): Record<string, unknown>[] {
-  return related.slice(0, MAX_RELATED_ITEMS).map(paper => ({
-    title: truncate(paper.title, 200),
-    summary: truncate(paper.summary, MAX_SUMMARY_CHARS),
-    source: paper.source,
-    score: paper.score,
-    year: paper.year,
-  }));
-}
-
-function mapEvidence(
-  evidence: (string | { text: string; paper_title?: string | null })[],
-): Record<string, unknown>[] {
-  return evidence.slice(0, MAX_EVIDENCE_ITEMS).map(item => {
-    if (typeof item === "string") {
-      return { text: truncate(item, MAX_SUMMARY_CHARS) };
-    }
-    return {
-      text: truncate(item.text, MAX_SUMMARY_CHARS),
-      paper_title: item.paper_title ? truncate(item.paper_title, 200) : null,
-    };
-  });
-}
-
+/** Build chat context from a full detail page. Backend handles all truncation. */
 export function buildDetailPageContext(
   graphResult: GraphResult,
 ): Record<string, unknown> {
-  const keywords = graphResult.graph.entities
+  const { paper, graph, related } = graphResult;
+  const keywords = graph.entities
     .filter(entity => entity.type === "keyword")
-    .map(entity => entity.label)
-    .slice(0, 10);
+    .map(entity => entity.label);
 
-  const evaluation = graphResult.paper.structured_evaluation;
+  const evaluation = paper.structured_evaluation;
 
   return {
     paper: {
-      title: truncate(graphResult.paper.title, 300),
-      abstract: truncate(graphResult.paper.abstract, MAX_ABSTRACT_CHARS),
-      year: graphResult.paper.year,
-      conference: graphResult.paper.conference,
-      arxiv_id: graphResult.paper.arxiv_id,
+      title: paper.title,
+      abstract: paper.abstract,
+      year: paper.year,
+      conference: paper.conference,
+      arxiv_id: paper.arxiv_id,
     },
     keywords,
     evaluation: evaluation
       ? {
           label: evaluation.label,
-          paper_summary: truncate(evaluation.paper_summary, MAX_SUMMARY_CHARS),
-          conclusion: truncate(evaluation.conclusion, MAX_SUMMARY_CHARS),
-          key_comparisons: evaluation.key_comparisons
-            .slice(0, 5)
-            .map(item => truncate(item, MAX_SUMMARY_CHARS)),
-          supporting_evidence: mapEvidence(evaluation.supporting_evidence),
-          contradictory_evidence: mapEvidence(evaluation.contradictory_evidence),
+          paper_summary: evaluation.paper_summary,
+          conclusion: evaluation.conclusion,
+          key_comparisons: evaluation.key_comparisons,
+          supporting_evidence: evaluation.supporting_evidence,
+          contradictory_evidence: evaluation.contradictory_evidence,
         }
       : null,
-    related_papers: mapRelatedPapers(graphResult.related),
+    related_papers: related.map(rp => ({
+      title: rp.title,
+      summary: rp.summary,
+      source: rp.source,
+      score: rp.score,
+      year: rp.year,
+    })),
   };
 }
 
+/** Build chat context from an abstract evaluation page. Backend handles all truncation. */
 export function buildAbstractDetailPageContext(
   evaluation: AbstractEvaluationResponse,
 ): Record<string, unknown> {
   return {
     paper: {
-      title: truncate(evaluation.title, 300),
-      abstract: truncate(evaluation.abstract, MAX_ABSTRACT_CHARS),
+      title: evaluation.title,
+      abstract: evaluation.abstract,
     },
-    keywords: evaluation.keywords.slice(0, 10).map(keyword => truncate(keyword, 100)),
+    keywords: evaluation.keywords,
     evaluation: {
       label: evaluation.label,
-      paper_summary: truncate(evaluation.paper_summary, MAX_SUMMARY_CHARS),
-      conclusion: truncate(evaluation.conclusion, MAX_SUMMARY_CHARS),
-      key_comparisons: evaluation.key_comparisons
-        .slice(0, 5)
-        .map(item => truncate(item, MAX_SUMMARY_CHARS)),
-      supporting_evidence: evaluation.supporting_evidence
-        .slice(0, MAX_EVIDENCE_ITEMS)
-        .map(item => ({
-          text: truncate(item.text, MAX_SUMMARY_CHARS),
-          paper_title: item.paper_title ? truncate(item.paper_title, 200) : null,
-        })),
-      contradictory_evidence: evaluation.contradictory_evidence
-        .slice(0, MAX_EVIDENCE_ITEMS)
-        .map(item => ({
-          text: truncate(item.text, MAX_SUMMARY_CHARS),
-          paper_title: item.paper_title ? truncate(item.paper_title, 200) : null,
-        })),
+      paper_summary: evaluation.paper_summary,
+      conclusion: evaluation.conclusion,
+      key_comparisons: evaluation.key_comparisons,
+      supporting_evidence: evaluation.supporting_evidence,
+      contradictory_evidence: evaluation.contradictory_evidence,
     },
-    related_papers: mapRelatedPapers(evaluation.related),
+    related_papers: evaluation.related.map(rp => ({
+      title: rp.title,
+      summary: rp.summary,
+      source: rp.source,
+      score: rp.score,
+      year: rp.year,
+    })),
   };
 }
 

@@ -122,28 +122,29 @@ function makeAbstractEvaluation(): AbstractEvaluationResponse {
 }
 
 describe("chat context builders", () => {
-  it("builds bounded detail context", () => {
+  it("builds detail context with expected shape", () => {
     const context = buildDetailPageContext(makeGraphResult()) as {
-      paper: { abstract: string };
-      evaluation: { paper_summary: string };
+      paper: { abstract: string; title: string };
+      evaluation: { paper_summary: string; label: number };
       keywords: string[];
       related_papers: unknown[];
     };
 
-    expect(context.paper.abstract.length).toBeLessThanOrEqual(1203);
-    expect(context.evaluation.paper_summary.length).toBeLessThanOrEqual(453);
+    expect(context.paper.title).toBe("Demo Paper");
+    expect(context.paper.abstract).toBe("A".repeat(1400));
+    expect(context.evaluation.label).toBe(4);
     expect(context.keywords).toEqual(["Keyword A"]);
-    expect(context.related_papers.length).toBe(1);
+    expect(context.related_papers).toHaveLength(1);
   });
 
-  it("builds abstract detail context", () => {
+  it("builds abstract detail context with expected shape", () => {
     const context = buildAbstractDetailPageContext(makeAbstractEvaluation()) as {
       paper: { title: string };
       evaluation: { label: number };
       keywords: string[];
     };
 
-    expect(context.paper.title).toContain("Abstract demo");
+    expect(context.paper.title).toBe("Abstract demo");
     expect(context.evaluation.label).toBe(3);
     expect(context.keywords).toEqual(["k1", "k2"]);
   });
