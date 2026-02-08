@@ -1,1 +1,1 @@
-frontend/CLAUDE.md
+CLAUDE.md
