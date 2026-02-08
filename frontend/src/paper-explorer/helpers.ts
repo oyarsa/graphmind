@@ -468,9 +468,7 @@ export function createExpandableEvidenceItem(
     const showTitlePreview = displayText.trim() !== fullPaperTitle.trim();
     const titlePreviewText = truncateForTitlePreview(fullPaperTitle, 56);
     const titlePreviewElement = showTitlePreview
-      ? `<span class="font-normal text-gray-500 dark:text-gray-400">
-               · ${escapeHtml(titlePreviewText)}
-             </span>`
+      ? `<span class="font-normal text-gray-500 dark:text-gray-400"> · ${escapeHtml(titlePreviewText)}</span>`
       : "";
 
     const citationLinkElement =
@@ -480,14 +478,12 @@ export function createExpandableEvidenceItem(
              data-paper-index="${relatedPaperIndex}"
              title="${paperTitleTooltip}"
              aria-label="${citationAriaLabel}">
-             ${renderLatex(displayText)}${titlePreviewElement}
-           </a>`
+             ${renderLatex(displayText)}${titlePreviewElement}</a>`
         : `<a href="#related-papers"
              class="related-paper-link underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer"
              title="${paperTitleTooltip}"
              aria-label="${citationAriaLabel}">
-             ${renderLatex(displayText)}${titlePreviewElement}
-           </a>`;
+             ${renderLatex(displayText)}${titlePreviewElement}</a>`;
 
     const hasSemanticContent =
       relatedPaper?.source === "semantic" &&
