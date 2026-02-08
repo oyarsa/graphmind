@@ -25,9 +25,9 @@
     <!-- Theme Toggle Button -->
     <button
       id="themeToggle"
-      class="fixed top-4 right-4 z-50 rounded-lg bg-gray-200 p-3 shadow-lg
-        transition-all duration-200 hover:bg-gray-300 dark:bg-gray-800
-        dark:hover:bg-gray-700"
+      class="fixed top-2 right-2 z-50 rounded-lg bg-gray-200 p-2 shadow-lg
+        transition-all duration-200 hover:bg-gray-300 sm:top-4 sm:right-4 sm:p-3
+        dark:bg-gray-800 dark:hover:bg-gray-700"
       title="Toggle theme"
     >
       <!-- Sun icon (from heroicons) for light mode -->
@@ -97,22 +97,26 @@
     </div>
 
     <!-- Main Content -->
-    <div id="paper-content" class="hidden flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <div id="paper-content" class="hidden flex-1 px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
       <div class="mx-auto max-w-6xl">
         <!-- Header -->
         <div class="mb-8">
-          <div class="mb-4 flex items-center justify-between">
+          <div
+            class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center
+              sm:justify-between"
+          >
             <h1
-              class="bg-gradient-to-r from-teal-600 to-blue-600 bg-clip-text text-3xl
-                font-bold text-transparent dark:from-teal-400 dark:to-blue-400"
+              class="bg-gradient-to-r from-teal-600 to-blue-600 bg-clip-text text-2xl
+                font-bold text-transparent sm:text-3xl dark:from-teal-400
+                dark:to-blue-400"
             >
               Abstract
             </h1>
             <div class="flex gap-2">
               <a
                 href="/graphmind/pages/search.html"
-                class="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700
-                  dark:text-teal-400 dark:hover:text-teal-300"
+                class="inline-flex items-center gap-2 text-sm text-teal-600
+                  hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
               >
                 <svg
                   class="h-4 w-4"
@@ -134,7 +138,7 @@
 
           <h1
             id="paper-title"
-            class="mb-4 text-3xl font-bold text-gray-900 dark:text-white"
+            class="mb-4 text-2xl font-bold text-gray-900 sm:text-3xl dark:text-white"
           >
             <!-- Title will be inserted here -->
           </h1>
@@ -189,7 +193,7 @@
           >
             <div class="flex items-center gap-2">
               <div class="h-6 w-1.5 rounded-full bg-orange-500"></div>
-              <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+              <h3 class="text-lg font-bold text-gray-900 sm:text-xl dark:text-gray-100">
                 Novelty Assessment
               </h3>
               <svg
@@ -223,7 +227,7 @@
           >
             <div class="flex items-center gap-2">
               <div class="h-6 w-1.5 rounded-full bg-teal-500"></div>
-              <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+              <h3 class="text-lg font-bold text-gray-900 sm:text-xl dark:text-gray-100">
                 Related Papers
               </h3>
               <span

@@ -182,13 +182,13 @@ function createAbstractEvaluationCard(
       <p class="mb-3 line-clamp-3 text-sm text-gray-600 dark:text-gray-400">
         ${evaluation.abstract.substring(0, 150)}${evaluation.abstract.length > 150 ? "..." : ""}
       </p>
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-2">
           <span class="text-xs font-medium ${noveltyColor}">
             Novelty: ${ratingDisplay}
           </span>
         </div>
-        <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
+        <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
           <span>${evaluation.keywords.length} keywords</span>
           <span>•</span>
           <span>${evaluation.related.length} related</span>
@@ -234,7 +234,7 @@ export function showAbstractEvaluationModal(title: string): void {
     "fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm";
 
   modal.innerHTML = `
-    <div class="mx-4 w-96 rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+    <div class="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
       <div class="text-center">
         <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
           Evaluating Abstract

@@ -1,13 +1,6 @@
 import { z } from "zod/v4";
 
-import {
-  retryWithBackoff,
-  waitForDOM,
-  showInitError,
-  isMobileDevice,
-  showMobileMessage,
-  cleanKeyword,
-} from "../util";
+import { retryWithBackoff, waitForDOM, showInitError, cleanKeyword } from "../util";
 import { GraphResult, PaperSearchResults, PaperSearchItem } from "./model";
 import { renderLatex, getArxivUrl, formatConferenceName } from "./helpers";
 import {
@@ -148,7 +141,7 @@ class PaperExplorer {
       paperLink.href = buildPageUrl("detail.html", { id: paper.id });
       paperLink.className =
         "block rounded-lg bg-gray-100/50 dark:bg-gray-900/50 border border-gray-300" +
-        " dark:border-gray-700 p-6 transition-all duration-200 hover:border-teal-500/50" +
+        " dark:border-gray-700 p-4 sm:p-6 transition-all duration-200 hover:border-teal-500/50" +
         " hover:-translate-y-1 no-underline";
 
       const keywords = graphResult.graph.entities
@@ -190,9 +183,9 @@ class PaperExplorer {
             : ""
         }
 
-        <div class="flex justify-between items-center text-xs text-gray-600
+        <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600
                     dark:text-gray-400">
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <span>${formatConferenceName(paper.conference)} (${paper.year})</span>
             ${
               paper.arxiv_id
@@ -320,11 +313,11 @@ class PaperExplorer {
       return;
 
     const activeClasses =
-      "tab-button active cursor-pointer rounded-md bg-white px-4 py-2 text-sm font-semibold" +
-      " text-teal-600 shadow-sm transition-all duration-200 dark:bg-gray-700 dark:text-teal-400";
+      "tab-button active cursor-pointer whitespace-nowrap rounded-md bg-white px-3 py-2 text-xs font-semibold" +
+      " text-teal-600 shadow-sm transition-all duration-200 dark:bg-gray-700 dark:text-teal-400 sm:px-4 sm:text-sm";
     const inactiveClasses =
-      "tab-button cursor-pointer rounded-md px-4 py-2 text-sm font-semibold text-gray-600" +
-      " transition-all duration-200 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200";
+      "tab-button cursor-pointer whitespace-nowrap rounded-md px-3 py-2 text-xs font-semibold text-gray-600" +
+      " transition-all duration-200 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 sm:px-4 sm:text-sm";
 
     jsonTab.className = inactiveClasses;
     arxivTab.className = inactiveClasses;
@@ -486,7 +479,7 @@ class PaperExplorer {
       const paperDiv = document.createElement("div");
       paperDiv.className =
         "block rounded-lg bg-gray-100/50 dark:bg-gray-900/50 border border-gray-300" +
-        " dark:border-gray-700 p-6 transition-all duration-200 hover:border-teal-500/50" +
+        " dark:border-gray-700 p-4 sm:p-6 transition-all duration-200 hover:border-teal-500/50" +
         " hover:-translate-y-1 cursor-pointer";
 
       paperDiv.innerHTML = `
@@ -503,9 +496,9 @@ class PaperExplorer {
           ${renderLatex(item.abstract)}
         </p>
 
-        <div class="flex justify-between items-center text-xs text-gray-600
+        <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600
                     dark:text-gray-400">
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <span>${item.year ?? "N/A"}</span>
             <a href="${getArxivUrl(item.arxiv_id)}" target="_blank"
                rel="noopener noreferrer"
@@ -869,11 +862,6 @@ class PaperExplorer {
  */
 async function initialiseApp(): Promise<void> {
   await waitForDOM();
-
-  if (isMobileDevice()) {
-    showMobileMessage();
-    return;
-  }
 
   const jsonPath = import.meta.env.VITE_XP_DATA_PATH as string | undefined;
   const apiUrl = import.meta.env.VITE_API_URL as string | undefined;

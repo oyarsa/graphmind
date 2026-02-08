@@ -1,11 +1,4 @@
-import {
-  retryWithBackoff,
-  waitForDOM,
-  showInitError,
-  isMobileDevice,
-  showMobileMessage,
-  cleanKeyword,
-} from "../util";
+import { retryWithBackoff, waitForDOM, showInitError, cleanKeyword } from "../util";
 import {
   AbstractEvaluationResponse,
   AbstractEvaluationResponseSchema,
@@ -1053,11 +1046,6 @@ function resetSectionStates(): void {
  */
 async function initializeApp(): Promise<void> {
   await waitForDOM();
-
-  if (isMobileDevice()) {
-    showMobileMessage();
-    return;
-  }
 
   // Handle bfcache restoration - reset sections to expanded state
   window.addEventListener("pageshow", event => {

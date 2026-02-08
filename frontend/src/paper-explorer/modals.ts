@@ -24,7 +24,7 @@ export function showEvaluationModal(title: string): void {
     "fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm";
 
   modal.innerHTML = `
-    <div class="mx-4 w-96 rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+    <div class="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
       <div class="text-center">
         <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
           Evaluating Paper
@@ -118,7 +118,7 @@ export function showEvaluationError(
         ${escapeHtml(errorMessage)}
       </p>
 
-      <div class="flex gap-3 justify-center">
+      <div class="flex flex-col justify-center gap-3 sm:flex-row">
         <button id="retry-evaluation"
                 class="px-4 py-2 text-sm bg-teal-600 hover:bg-teal-700 text-white
                        rounded-lg transition-colors">

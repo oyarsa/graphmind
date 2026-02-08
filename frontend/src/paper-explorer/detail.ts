@@ -1,12 +1,5 @@
 import { z } from "zod/v4";
-import {
-  retryWithBackoff,
-  waitForDOM,
-  showInitError,
-  isMobileDevice,
-  showMobileMessage,
-  cleanKeyword,
-} from "../util";
+import { retryWithBackoff, waitForDOM, showInitError, cleanKeyword } from "../util";
 import {
   GraphResult,
   GraphResultSchema,
@@ -991,11 +984,6 @@ function resetSectionStates(): void {
  */
 async function initialiseApp(): Promise<void> {
   await waitForDOM();
-
-  if (isMobileDevice()) {
-    showMobileMessage();
-    return;
-  }
 
   // Setup event delegation for related paper links
   setupRelatedPaperLinkHandlers();

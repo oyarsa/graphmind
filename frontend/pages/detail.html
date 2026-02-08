@@ -22,21 +22,25 @@
     class="m-0 flex min-h-screen flex-col bg-white p-0 font-sans text-black
       dark:bg-black dark:text-white"
   >
-    <div class="relative flex-1 p-8">
-      <header class="mb-8">
+    <div class="relative flex-1 px-3 py-4 sm:p-8">
+      <header class="mb-6 sm:mb-8">
         <div class="mx-auto max-w-6xl">
-          <div class="mb-4 flex items-center justify-between">
+          <div
+            class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center
+              sm:justify-between"
+          >
             <h1
-              class="bg-gradient-to-r from-teal-600 to-blue-600 bg-clip-text text-3xl
-                font-bold text-transparent dark:from-teal-400 dark:to-blue-400"
+              class="bg-gradient-to-r from-teal-600 to-blue-600 bg-clip-text text-2xl
+                font-bold text-transparent sm:text-3xl dark:from-teal-400
+                dark:to-blue-400"
             >
               Paper Detail
             </h1>
             <div class="flex gap-2">
               <a
                 href="/graphmind/pages/search.html"
-                class="inline-flex items-center gap-2 text-teal-600 hover:text-teal-700
-                  dark:text-teal-400 dark:hover:text-teal-300"
+                class="inline-flex items-center gap-2 text-sm text-teal-600
+                  hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
               >
                 <svg
                   class="h-4 w-4"
@@ -109,19 +113,20 @@
         <div class="mx-auto max-w-6xl">
           <div
             id="paper-detail-top"
-            class="rounded-lg border border-gray-300 bg-gray-100/50 p-8
+            class="rounded-lg border border-gray-300 bg-gray-100/50 p-4 sm:p-8
               dark:border-gray-700 dark:bg-gray-900/50"
           >
             <h2
               id="paper-title"
-              class="mb-4 text-2xl leading-tight font-bold text-black dark:text-white"
+              class="mb-4 text-xl leading-tight font-bold text-black sm:text-2xl
+                dark:text-white"
             ></h2>
 
             <div class="mb-6">
               <div class="mb-2 text-sm text-gray-600 dark:text-gray-400">Authors</div>
               <div
                 id="paper-authors"
-                class="text-lg text-gray-700 dark:text-gray-300"
+                class="text-base text-gray-700 sm:text-lg dark:text-gray-300"
               ></div>
             </div>
 
@@ -135,7 +140,7 @@
                 </div>
                 <div
                   id="paper-year"
-                  class="text-lg font-semibold text-black dark:text-white"
+                  class="text-base font-semibold text-black sm:text-lg dark:text-white"
                 ></div>
               </div>
               <div>
@@ -147,7 +152,7 @@
                 </div>
                 <div
                   id="paper-conference"
-                  class="text-lg font-semibold text-black dark:text-white"
+                  class="text-base font-semibold text-black sm:text-lg dark:text-white"
                 ></div>
               </div>
               <div id="decision-container">
@@ -157,7 +162,10 @@
                 >
                   Decision
                 </div>
-                <div id="paper-approval" class="text-lg font-semibold"></div>
+                <div
+                  id="paper-approval"
+                  class="text-base font-semibold sm:text-lg"
+                ></div>
               </div>
               <div>
                 <div
@@ -168,7 +176,7 @@
                 </div>
                 <div
                   id="paper-rating"
-                  class="text-lg font-semibold text-black dark:text-white"
+                  class="text-base font-semibold text-black sm:text-lg dark:text-white"
                 ></div>
               </div>
               <div>
@@ -180,7 +188,7 @@
                 </div>
                 <div
                   id="paper-arxiv"
-                  class="text-lg font-semibold text-black dark:text-white"
+                  class="text-base font-semibold text-black sm:text-lg dark:text-white"
                 ></div>
               </div>
             </div>
@@ -201,7 +209,7 @@
         </div>
 
         <!-- Graph section (dynamic width) -->
-        <div class="my-8 px-8">
+        <div class="my-6 px-0 sm:my-8 sm:px-8">
           <div data-section="paper-graph" class="mx-auto max-w-6xl">
             <div
               id="paper-graph-header"
@@ -211,7 +219,9 @@
             >
               <div class="flex items-center gap-2">
                 <div class="h-6 w-1.5 rounded-full bg-blue-500"></div>
-                <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+                <h3
+                  class="text-lg font-bold text-gray-900 sm:text-xl dark:text-gray-100"
+                >
                   Paper Structure Graph
                 </h3>
                 <svg
@@ -258,7 +268,10 @@
               >
                 <div class="flex items-center gap-2">
                   <div class="h-6 w-1.5 rounded-full bg-orange-500"></div>
-                  <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  <h3
+                    class="text-lg font-bold text-gray-900 sm:text-xl
+                      dark:text-gray-100"
+                  >
                     Novelty Assessment
                   </h3>
                   <svg
@@ -289,7 +302,10 @@
               >
                 <div class="flex items-center gap-2">
                   <div class="h-6 w-1.5 rounded-full bg-teal-500"></div>
-                  <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  <h3
+                    class="text-lg font-bold text-gray-900 sm:text-xl
+                      dark:text-gray-100"
+                  >
                     Related Papers
                   </h3>
                   <svg
