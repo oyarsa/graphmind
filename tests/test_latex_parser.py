@@ -235,6 +235,12 @@ class TestSanitiseForPandoc:
         result = _sanitise_for_pandoc(tex)
         assert result.count("{") == result.count("}")
 
+    def test_escaped_braces_not_counted(self) -> None:
+        tex = "\\begin{document}\nThe set \\{a, b\\} is finite.\n\\end{document}"
+        result = _sanitise_for_pandoc(tex)
+        assert "\\{a, b\\}" in result
+        assert result.count("{") == result.count("}")
+
     def test_removes_def_with_body(self) -> None:
         tex = (
             "\\begin{document}\nbefore\n\\def\\add#1#2{#1 + #2}\nafter\n\\end{document}"

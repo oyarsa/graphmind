@@ -678,10 +678,18 @@ def _sanitise_for_pandoc(latex_content: str) -> str:
     )
 
     # Balance braces: drop orphan } that would make depth negative, then
-    # append any missing closing braces at the end.
+    # append any missing closing braces at the end.  Use index-based
+    # iteration so escaped braces (\{ and \}) are passed through without
+    # affecting the depth counter.
     balanced: list[str] = []
     depth = 0
-    for ch in content:
+    i = 0
+    while i < len(content):
+        ch = content[i]
+        if ch == "\\" and i + 1 < len(content):
+            balanced.append(content[i : i + 2])
+            i += 2
+            continue
         if ch == "{":
             depth += 1
             balanced.append(ch)
@@ -692,6 +700,7 @@ def _sanitise_for_pandoc(latex_content: str) -> str:
             # else: skip the orphan closing brace
         else:
             balanced.append(ch)
+        i += 1
     # Append missing closing braces
     if depth > 0:
         balanced.append("}" * depth)
