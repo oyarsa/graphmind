@@ -405,6 +405,52 @@ describe("createExpandableEvidenceItem", () => {
     expect(result).toContain('title="A Very Long And Descriptive Paper Title"');
   });
 
+  it("shows a compact title preview next to citation keys", () => {
+    const result = createExpandableEvidenceItem(
+      {
+        text: "Evidence sentence",
+        paper_title: "Some paper title",
+        source: "citations",
+      },
+      "supporting-2",
+      {
+        source: "citations",
+        polarity: "positive",
+        title: "Full Paper Title",
+        authors: ["Alice Smith", "Bob Jones"],
+        year: 2024,
+      },
+      1,
+      "bg-green-500",
+    );
+
+    expect(result).toContain("Smith et al. (2024)");
+    expect(result).toContain("· Full Paper Title");
+    expect(result).toContain("font-normal text-gray-500");
+  });
+
+  it("hides title preview when citation key already equals title", () => {
+    const result = createExpandableEvidenceItem(
+      {
+        text: "Evidence sentence",
+        paper_title: "Exact Title",
+        source: "citations",
+      },
+      "supporting-3",
+      {
+        source: "citations",
+        polarity: "positive",
+        title: "Exact Title",
+        authors: null,
+        year: null,
+      },
+      1,
+      "bg-green-500",
+    );
+
+    expect(result).not.toContain("font-normal text-gray-500");
+  });
+
   it("escapes paper names in hover text attributes", () => {
     const result = createExpandableEvidenceItem(
       {
@@ -419,6 +465,7 @@ describe("createExpandableEvidenceItem", () => {
     );
 
     expect(result).toContain('title="Quoted &quot;Paper&quot; &lt;Title&gt;"');
+    expect(result).toContain('aria-label="Quoted &quot;Paper&quot; &lt;Title&gt;');
   });
 });
 

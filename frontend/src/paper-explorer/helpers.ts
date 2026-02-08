@@ -18,6 +18,14 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+function truncateForTitlePreview(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
 /**
  * Formats a scientific citation from paper information.
  * @param authors - Array of author names (full names)
@@ -452,19 +460,33 @@ export function createExpandableEvidenceItem(
           evidence.paper_title,
         )
       : evidence.paper_title;
-    const paperTitleTooltip = escapeHtml(relatedPaper?.title ?? evidence.paper_title);
+    const fullPaperTitle = relatedPaper?.title ?? evidence.paper_title;
+    const paperTitleTooltip = escapeHtml(fullPaperTitle);
+    const citationAriaLabel = escapeHtml(
+      `${displayText}. Paper title: ${fullPaperTitle}`,
+    );
+    const showTitlePreview = displayText.trim() !== fullPaperTitle.trim();
+    const titlePreviewText = truncateForTitlePreview(fullPaperTitle, 56);
+    const titlePreviewElement = showTitlePreview
+      ? `<span class="ml-1 font-normal text-gray-500 dark:text-gray-400"
+               title="${paperTitleTooltip}">
+               · ${escapeHtml(titlePreviewText)}
+             </span>`
+      : "";
 
-    const paperTitleElement =
+    const citationKeyElement =
       relatedPaperIndex !== null
         ? `<a href="#related-papers"
              class="related-paper-link underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer"
              data-paper-index="${relatedPaperIndex}"
-             title="${paperTitleTooltip}">
-             ${renderLatex(displayText)}</a>:`
+             title="${paperTitleTooltip}"
+             aria-label="${citationAriaLabel}">
+             ${renderLatex(displayText)}</a>`
         : `<a href="#related-papers"
              class="related-paper-link underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer"
-             title="${paperTitleTooltip}">
-             ${renderLatex(displayText)}</a>:`;
+             title="${paperTitleTooltip}"
+             aria-label="${citationAriaLabel}">
+             ${renderLatex(displayText)}</a>`;
 
     const hasSemanticContent =
       relatedPaper?.source === "semantic" &&
@@ -482,7 +504,7 @@ export function createExpandableEvidenceItem(
         <span class="mt-1.5 flex-shrink-0 text-gray-500 dark:text-gray-400">${sourceIcon}</span>
         <div class="flex-1">
           <div class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-            <span class="font-medium">${paperTitleElement}</span> ${renderLatex(evidence.text)}
+            <span class="font-medium">${citationKeyElement}${titlePreviewElement}:</span> ${renderLatex(evidence.text)}
             ${
               hasExpandableContent
                 ? `
