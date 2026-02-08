@@ -1,4 +1,6 @@
 import type { AbstractEvaluationResponse, GraphResult } from "./model";
+import DOMPurify from "dompurify";
+import { marked } from "marked";
 
 export type ChatRole = "user" | "assistant";
 
@@ -93,101 +95,16 @@ export function buildAbstractDetailPageContext(
   };
 }
 
-const HTML_ESCAPE_MAP: Record<string, string> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#x27;",
-};
-
-function escapeHtmlPure(text: string): string {
-  return text.replace(/[&<>"']/g, ch => HTML_ESCAPE_MAP[ch]);
-}
-
 /**
- * Minimal markdown renderer for assistant chat bubbles.
- * Handles: **bold**, *italic*, `inline code`, ```code blocks```, and bullet lists.
- * Input is HTML-escaped first to prevent XSS.
+ * Render assistant markdown with a maintained parser and HTML sanitiser.
  */
 export function renderSimpleMarkdown(text: string): string {
-  const escaped = escapeHtmlPure(text);
-  const lines = escaped.split("\n");
-  const result: string[] = [];
-  let inCodeBlock = false;
-  let codeLines: string[] = [];
-  let inList = false;
-
-  for (const line of lines) {
-    if (line.startsWith("```")) {
-      if (inCodeBlock) {
-        result.push(
-          `<pre class="my-1 rounded bg-gray-200 p-2 text-xs dark:bg-gray-700"><code>${codeLines.join("\n")}</code></pre>`,
-        );
-        codeLines = [];
-        inCodeBlock = false;
-      } else {
-        if (inList) {
-          result.push("</ul>");
-          inList = false;
-        }
-        inCodeBlock = true;
-      }
-      continue;
-    }
-
-    if (inCodeBlock) {
-      codeLines.push(line);
-      continue;
-    }
-
-    const isBullet = /^[-*]\s/.test(line);
-    if (isBullet) {
-      if (!inList) {
-        result.push('<ul class="my-1 list-disc pl-4">');
-        inList = true;
-      }
-      result.push(`<li>${applyInlineMarkdown(line.replace(/^[-*]\s/, ""))}</li>`);
-      continue;
-    }
-
-    if (inList) {
-      result.push("</ul>");
-      inList = false;
-    }
-
-    if (line.trim() === "") {
-      result.push("<br>");
-    } else {
-      result.push(`<p class="my-0.5">${applyInlineMarkdown(line)}</p>`);
-    }
-  }
-
-  if (inCodeBlock) {
-    result.push(
-      `<pre class="my-1 rounded bg-gray-200 p-2 text-xs dark:bg-gray-700"><code>${codeLines.join("\n")}</code></pre>`,
-    );
-  }
-  if (inList) {
-    result.push("</ul>");
-  }
-
-  return result.join("");
-}
-
-function applyInlineMarkdown(text: string): string {
-  return (
-    text
-      // inline code (must come before bold/italic to avoid conflicts)
-      .replace(
-        /`([^`]+)`/g,
-        '<code class="rounded bg-gray-200 px-1 text-xs dark:bg-gray-700">$1</code>',
-      )
-      // bold
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      // italic
-      .replace(/\*(.+?)\*/g, "<em>$1</em>")
-  );
+  const html = marked.parse(text, {
+    gfm: true,
+    breaks: true,
+    async: false,
+  }) as string;
+  return DOMPurify.sanitize(html);
 }
 
 export class PaperChatService {

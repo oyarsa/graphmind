@@ -265,7 +265,7 @@ describe("renderSimpleMarkdown", () => {
   it("renders code blocks", () => {
     const html = renderSimpleMarkdown("```\nprint('hi')\n```");
     expect(html).toContain("<pre");
-    expect(html).toContain("print(&#x27;hi&#x27;)");
+    expect(html).toContain("print('hi')");
   });
 
   it("renders bullet lists", () => {
@@ -279,6 +279,6 @@ describe("renderSimpleMarkdown", () => {
   it("escapes HTML to prevent XSS", () => {
     const html = renderSimpleMarkdown('<script>alert("xss")</script>');
     expect(html).not.toContain("<script>");
-    expect(html).toContain("&lt;script&gt;");
+    expect(html).toBe("");
   });
 });
