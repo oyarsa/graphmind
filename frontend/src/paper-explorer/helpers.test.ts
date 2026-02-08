@@ -5,6 +5,7 @@ import {
   getRelatedPaperFilterType,
   normalizePaperTitle,
   findRelatedPaperIndexByTitle,
+  createExpandableEvidenceItem,
   getScoreDisplay,
   formatTypeName,
   formatPaperCitation,
@@ -377,6 +378,47 @@ describe("formatPaperCitation", () => {
 
     const result = formatPaperCitation(paper);
     expect(result).toBe("This is exactly 20c");
+  });
+});
+
+describe("createExpandableEvidenceItem", () => {
+  it("adds the full paper name to citation-key hover text", () => {
+    const result = createExpandableEvidenceItem(
+      {
+        text: "Evidence sentence",
+        paper_title: "Short display title",
+        source: "citations",
+      },
+      "supporting-0",
+      {
+        source: "citations",
+        polarity: "positive",
+        title: "A Very Long And Descriptive Paper Title",
+        authors: ["Alice Smith", "Bob Jones"],
+        year: 2024,
+      },
+      2,
+      "bg-green-500",
+    );
+
+    expect(result).toContain('data-paper-index="2"');
+    expect(result).toContain('title="A Very Long And Descriptive Paper Title"');
+  });
+
+  it("escapes paper names in hover text attributes", () => {
+    const result = createExpandableEvidenceItem(
+      {
+        text: "Evidence sentence",
+        paper_title: 'Quoted "Paper" <Title>',
+        source: "citations",
+      },
+      "supporting-1",
+      null,
+      null,
+      "bg-green-500",
+    );
+
+    expect(result).toContain('title="Quoted &quot;Paper&quot; &lt;Title&gt;"');
   });
 });
 

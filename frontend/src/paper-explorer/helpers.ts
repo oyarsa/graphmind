@@ -9,6 +9,15 @@ export type RelatedPaperFilterType =
   | "supporting"
   | "contrasting";
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /**
  * Formats a scientific citation from paper information.
  * @param authors - Array of author names (full names)
@@ -443,15 +452,18 @@ export function createExpandableEvidenceItem(
           evidence.paper_title,
         )
       : evidence.paper_title;
+    const paperTitleTooltip = escapeHtml(relatedPaper?.title ?? evidence.paper_title);
 
     const paperTitleElement =
       relatedPaperIndex !== null
         ? `<a href="#related-papers"
              class="related-paper-link underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer"
-             data-paper-index="${relatedPaperIndex}">
+             data-paper-index="${relatedPaperIndex}"
+             title="${paperTitleTooltip}">
              ${renderLatex(displayText)}</a>:`
         : `<a href="#related-papers"
-             class="related-paper-link underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer">
+             class="related-paper-link underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer"
+             title="${paperTitleTooltip}">
              ${renderLatex(displayText)}</a>:`;
 
     const hasSemanticContent =
@@ -639,12 +651,6 @@ export function renderLatex(text: string): string {
 
   // Always strip LaTeX citations first - they should never appear in rendered text
   text = stripLatexCitations(text);
-
-  const escapeHtml = (str: string): string => {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
-  };
 
   const math_pattern = /(\$\$[\s\S]+?\$\$|\$[^\n$]+\$)/g;
 
