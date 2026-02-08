@@ -119,14 +119,6 @@ def _normalise_page_context(
         if key in page_context
     }
 
-    extras = {
-        key: _sanitise_json(value)
-        for key, value in page_context.items()
-        if key not in expected_keys
-    }
-    if extras:
-        normalised["extras"] = extras
-
     payload = json.dumps(normalised, ensure_ascii=False)
     return _truncate_text(payload, MAX_CONTEXT_TEXT_CHARS)
 
