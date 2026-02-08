@@ -52,6 +52,9 @@ class PaperExplorer {
   private filteredPapers: GraphResult[] = [];
   private lastSelectedArxivItem: PaperSearchItem | null = null;
   private currentArxivMode: ArxivMode = "default";
+  private currentArxivSearchAbortController: AbortController | null = null;
+  private arxivSearchRequestSeq = 0;
+  private activeArxivSearchRequestSeq = 0;
 
   constructor(
     private jsonDataset: JsonPaperDataset,
@@ -426,6 +429,13 @@ class PaperExplorer {
   private async searchArxivPapers(query: string): Promise<void> {
     if (!query.trim()) return;
 
+    const requestSeq = ++this.arxivSearchRequestSeq;
+    this.activeArxivSearchRequestSeq = requestSeq;
+
+    this.currentArxivSearchAbortController?.abort();
+    const abortController = new AbortController();
+    this.currentArxivSearchAbortController = abortController;
+
     const loading = document.getElementById("arxiv-loading");
     const errorEl = document.getElementById("arxiv-error");
     const errorMessage = document.getElementById("arxiv-error-message");
@@ -435,12 +445,22 @@ class PaperExplorer {
     try {
       if (errorEl) errorEl.classList.add("hidden");
       if (loading) loading.classList.remove("hidden");
-      if (papersContainer) papersContainer.classList.add("hidden");
 
       if (!this.arxivService) {
         throw new Error("ArXiv service not available");
       }
-      const results = await this.arxivService.searchPapers(query);
+      const results = await this.arxivService.searchPapers(
+        query,
+        undefined,
+        abortController.signal,
+      );
+
+      if (
+        requestSeq !== this.activeArxivSearchRequestSeq ||
+        abortController.signal.aborted
+      ) {
+        return;
+      }
 
       if (loading) loading.classList.add("hidden");
       if (papersContainer) papersContainer.classList.remove("hidden");
@@ -451,12 +471,22 @@ class PaperExplorer {
         resultCount.textContent = `Found ${results.total} papers for "${results.query}"`;
       }
     } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
+      if (requestSeq !== this.activeArxivSearchRequestSeq) {
+        return;
+      }
       console.error("Error searching arXiv:", error);
       if (loading) loading.classList.add("hidden");
       if (errorEl) errorEl.classList.remove("hidden");
       if (errorMessage) {
         errorMessage.textContent =
           error instanceof Error ? error.message : "Unknown error";
+      }
+    } finally {
+      if (this.currentArxivSearchAbortController === abortController) {
+        this.currentArxivSearchAbortController = null;
       }
     }
   }

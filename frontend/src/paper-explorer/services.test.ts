@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type EvaluationParams } from "./model";
-import { PaperEvaluator, PaperEvaluatorMulti } from "./services";
+import { ArxivPaperService, PaperEvaluator, PaperEvaluatorMulti } from "./services";
 
 class MockEventSource {
   static createdUrls: string[] = [];
@@ -97,5 +97,73 @@ describe("SSE evaluation URL encoding", () => {
 
     evaluator.stopEvaluation();
     await expect(result).rejects.toThrow("Evaluation cancelled by user");
+  });
+});
+
+describe("ArxivPaperService.searchPapers", () => {
+  it("passes AbortSignal to fetch", async () => {
+    const service = new ArxivPaperService("http://localhost:8000");
+    const controller = new AbortController();
+
+    const fetchMock = vi
+      .fn<[RequestInfo | URL, RequestInit?], Promise<Response>>()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            query: "attention",
+            total: 1,
+            items: [
+              {
+                title: "Attention Is All You Need",
+                arxiv_id: "1706.03762",
+                abstract: "An abstract.",
+                year: 2017,
+                authors: ["A. Author"],
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      );
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      await service.searchPapers("attention", 12, controller.signal);
+      expect(fetchMock).toHaveBeenCalledOnce();
+      const [, options] = fetchMock.mock.calls[0];
+      expect(options?.signal).toBe(controller.signal);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("propagates AbortError from fetch", async () => {
+    const service = new ArxivPaperService("http://localhost:8000");
+    const controller = new AbortController();
+    const abortError = Object.assign(new Error("The operation was aborted"), {
+      name: "AbortError",
+    });
+
+    const fetchMock = vi
+      .fn<[RequestInfo | URL, RequestInit?], Promise<Response>>()
+      .mockRejectedValue(abortError);
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      await expect(
+        service.searchPapers("attention", 12, controller.signal),
+      ).rejects.toMatchObject({
+        name: "AbortError",
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

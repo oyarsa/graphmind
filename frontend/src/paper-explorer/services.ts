@@ -63,10 +63,17 @@ export class JsonPaperDataset {
 export class ArxivPaperService {
   constructor(private baseUrl: string) {}
 
-  async searchPapers(query: string, limit = 12): Promise<PaperSearchResults> {
+  async searchPapers(
+    query: string,
+    limit = 12,
+    signal?: AbortSignal,
+  ): Promise<PaperSearchResults> {
     const encodedQuery = encodeURIComponent(query);
     const response = await fetch(
       `${this.baseUrl}/mind/search?q=${encodedQuery}&limit=${limit}`,
+      {
+        signal,
+      },
     );
 
     if (!response.ok) {
