@@ -216,3 +216,23 @@ export function cleanKeyword(keyword: string): string {
     .replace(/\s+keyword$/i, "")
     .trim();
 }
+
+/**
+ * Fire a best-effort health request to wake the backend server.
+ *
+ * @param baseUrl Backend base URL.
+ */
+export function warmBackend(baseUrl: string | undefined): void {
+  if (!baseUrl) {
+    return;
+  }
+
+  const healthUrl = new URL("/health", baseUrl).toString();
+  void fetch(healthUrl, {
+    method: "GET",
+    cache: "no-store",
+    keepalive: true,
+  }).catch((error: unknown) => {
+    console.debug(`Backend warm-up failed for ${healthUrl}:`, error);
+  });
+}

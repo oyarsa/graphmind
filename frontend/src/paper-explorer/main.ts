@@ -1,6 +1,12 @@
 import { z } from "zod/v4";
 
-import { retryWithBackoff, waitForDOM, showInitError, cleanKeyword } from "../util";
+import {
+  retryWithBackoff,
+  waitForDOM,
+  showInitError,
+  cleanKeyword,
+  warmBackend,
+} from "../util";
 import { GraphResult, PaperSearchResults, PaperSearchItem } from "./model";
 import { renderLatex, getArxivUrl, formatConferenceName } from "./helpers";
 import {
@@ -891,10 +897,11 @@ class PaperExplorer {
  * Initialise the Paper Explorer application.
  */
 async function initialiseApp(): Promise<void> {
-  await waitForDOM();
-
   const jsonPath = import.meta.env.VITE_XP_DATA_PATH as string | undefined;
   const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+
+  warmBackend(apiUrl);
+  await waitForDOM();
 
   if (!jsonPath) {
     throw new Error("VITE_XP_DATA_PATH environment variable is required");

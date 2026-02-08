@@ -1,4 +1,10 @@
-import { retryWithBackoff, waitForDOM, showInitError, cleanKeyword } from "../util";
+import {
+  retryWithBackoff,
+  waitForDOM,
+  showInitError,
+  cleanKeyword,
+  warmBackend,
+} from "../util";
 import {
   AbstractEvaluationResponse,
   AbstractEvaluationResponseSchema,
@@ -1072,6 +1078,9 @@ function resetSectionStates(): void {
  * Initialize the Abstract Detail application.
  */
 async function initializeApp(): Promise<void> {
+  const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+  warmBackend(apiUrl);
+
   await waitForDOM();
 
   // Handle bfcache restoration - reset sections to expanded state

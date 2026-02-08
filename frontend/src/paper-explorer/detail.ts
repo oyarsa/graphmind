@@ -1,5 +1,11 @@
 import { z } from "zod/v4";
-import { retryWithBackoff, waitForDOM, showInitError, cleanKeyword } from "../util";
+import {
+  retryWithBackoff,
+  waitForDOM,
+  showInitError,
+  cleanKeyword,
+  warmBackend,
+} from "../util";
 import {
   GraphResult,
   GraphResultSchema,
@@ -1028,6 +1034,9 @@ function resetSectionStates(): void {
  * Initialise the Paper Detail application.
  */
 async function initialiseApp(): Promise<void> {
+  const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+  warmBackend(apiUrl);
+
   await waitForDOM();
 
   // Setup event delegation for related paper links
