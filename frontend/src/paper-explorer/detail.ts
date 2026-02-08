@@ -992,6 +992,7 @@ function loadPaperDetail(): void {
       detailChatWidget = new PaperChatWidget({
         baseUrl: apiUrl,
         pageType: "detail",
+        conversationId: paper.id,
         getPageContext: () => pageContext,
         getModel: () => loadSettings().llm_model,
       });

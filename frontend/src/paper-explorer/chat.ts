@@ -25,6 +25,8 @@ const MAX_SUMMARY_CHARS = 450;
 const MAX_ABSTRACT_CHARS = 1200;
 const MAX_EVIDENCE_ITEMS = 5;
 const MAX_RELATED_ITEMS = 8;
+const CHAT_MIN_WIDTH_PX = 320;
+const CHAT_MIN_HEIGHT_PX = 384;
 
 function truncate(text: string | null | undefined, maxChars: number): string {
   if (!text) return "";
@@ -146,6 +148,7 @@ export class PaperChatService {
 interface PaperChatWidgetOptions {
   baseUrl: string;
   pageType: ChatPageType;
+  conversationId: string;
   getPageContext: () => Record<string, unknown>;
   getModel: () => "gpt-4o" | "gpt-4o-mini" | "gemini-2.0-flash";
 }
@@ -153,16 +156,22 @@ interface PaperChatWidgetOptions {
 export class PaperChatWidget {
   private readonly service: PaperChatService;
   private readonly messages: ChatMessage[] = [];
+  private readonly conversationStorageKey: string;
   private readonly panel: HTMLDivElement;
   private readonly transcript: HTMLDivElement;
   private readonly input: HTMLTextAreaElement;
   private readonly sendButton: HTMLButtonElement;
+  private readonly clearButton: HTMLButtonElement;
   private readonly errorEl: HTMLDivElement;
   private getPageContext: () => Record<string, unknown>;
   private isSending = false;
 
   constructor(private options: PaperChatWidgetOptions) {
     this.service = new PaperChatService(options.baseUrl);
+    this.conversationStorageKey = this.buildStorageKey(
+      options.pageType,
+      options.conversationId,
+    );
     this.getPageContext = options.getPageContext;
 
     const existing = document.getElementById("paper-chat-widget-root");
@@ -180,12 +189,43 @@ export class PaperChatWidget {
 
     this.panel = document.createElement("div");
     this.panel.className =
-      "mt-3 hidden h-[28rem] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-gray-300 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900";
+      "relative mt-3 hidden h-[34rem] w-[min(32rem,calc(100vw-2rem))] min-h-[24rem] min-w-[20rem] max-h-[80vh] max-w-[90vw] overflow-hidden flex flex-col rounded-xl border border-gray-300 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900";
+
+    const resizeCornerHandle = document.createElement("div");
+    resizeCornerHandle.className =
+      "group absolute top-0 left-0 z-20 h-5 w-5 cursor-nwse-resize touch-none";
+    resizeCornerHandle.title = "Resize chat";
+    const resizeCornerGrip = document.createElement("div");
+    resizeCornerGrip.className =
+      "h-full w-full bg-[linear-gradient(135deg,rgba(0,0,0,0.12)_50%,transparent_50%)] opacity-70 transition-opacity group-hover:opacity-100 dark:bg-[linear-gradient(135deg,rgba(255,255,255,0.18)_50%,transparent_50%)]";
+    resizeCornerHandle.append(resizeCornerGrip);
+    this.panel.append(resizeCornerHandle);
+
+    const resizeTopHandle = document.createElement("div");
+    resizeTopHandle.className =
+      "absolute top-0 left-5 right-0 z-10 h-2 cursor-ns-resize touch-none";
+    resizeTopHandle.title = "Resize chat height";
+    this.panel.append(resizeTopHandle);
+
+    const resizeLeftHandle = document.createElement("div");
+    resizeLeftHandle.className =
+      "absolute top-5 bottom-0 left-0 z-10 w-2 cursor-ew-resize touch-none";
+    resizeLeftHandle.title = "Resize chat width";
+    this.panel.append(resizeLeftHandle);
 
     const header = document.createElement("div");
     header.className =
-      "border-b border-gray-200 px-4 py-3 text-sm font-semibold text-gray-900 dark:border-gray-700 dark:text-gray-100";
-    header.textContent = "Read-only paper chat";
+      "flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700";
+
+    const title = document.createElement("div");
+    title.className = "text-sm font-semibold text-gray-900 dark:text-gray-100";
+    title.textContent = "Read-only paper chat";
+
+    this.clearButton = document.createElement("button");
+    this.clearButton.type = "button";
+    this.clearButton.className =
+      "rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800";
+    this.clearButton.textContent = "Clear";
 
     const disclaimer = document.createElement("div");
     disclaimer.className =
@@ -216,6 +256,7 @@ export class PaperChatWidget {
     this.sendButton.textContent = "Send";
 
     inputWrap.append(this.input, this.sendButton);
+    header.append(title, this.clearButton);
     this.panel.append(header, disclaimer, this.transcript, this.errorEl, inputWrap);
     root.append(fab, this.panel);
     document.body.append(root);
@@ -237,6 +278,15 @@ export class PaperChatWidget {
         void this.sendCurrentMessage();
       }
     });
+
+    this.clearButton.addEventListener("click", () => {
+      this.clearConversation();
+    });
+
+    this.initialiseResizeHandle(resizeCornerHandle, "corner");
+    this.initialiseResizeHandle(resizeTopHandle, "top");
+    this.initialiseResizeHandle(resizeLeftHandle, "left");
+    this.restoreConversation();
   }
 
   updateContext(getPageContext: () => Record<string, unknown>): void {
@@ -253,6 +303,7 @@ export class PaperChatWidget {
     const userMessage: ChatMessage = { role: "user", content: text };
     this.messages.push(userMessage);
     this.renderMessage(userMessage);
+    this.persistConversation();
 
     this.input.value = "";
     this.setSending(true);
@@ -271,6 +322,7 @@ export class PaperChatWidget {
       };
       this.messages.push(assistant);
       this.renderMessage(assistant);
+      this.persistConversation();
     } catch (error) {
       this.errorEl.textContent =
         error instanceof Error
@@ -286,6 +338,7 @@ export class PaperChatWidget {
     this.isSending = sending;
     this.sendButton.disabled = sending;
     this.input.disabled = sending;
+    this.clearButton.disabled = sending;
     this.sendButton.textContent = sending ? "Sending..." : "Send";
   }
 
@@ -303,5 +356,106 @@ export class PaperChatWidget {
     row.append(bubble);
     this.transcript.append(row);
     this.transcript.scrollTop = this.transcript.scrollHeight;
+  }
+
+  private buildStorageKey(pageType: ChatPageType, conversationId: string): string {
+    return `paper-chat-history:${pageType}:${conversationId}`;
+  }
+
+  private persistConversation(): void {
+    try {
+      localStorage.setItem(this.conversationStorageKey, JSON.stringify(this.messages));
+    } catch {
+      // Ignore storage issues so chat remains usable.
+    }
+  }
+
+  private restoreConversation(): void {
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(this.conversationStorageKey);
+    } catch {
+      return;
+    }
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) return;
+      for (const item of parsed) {
+        if (typeof item !== "object" || item === null) continue;
+        const record = item as Record<string, unknown>;
+        const role = record.role;
+        const content = record.content;
+        if ((role === "user" || role === "assistant") && typeof content === "string") {
+          const message: ChatMessage = {
+            role,
+            content,
+          };
+          this.messages.push(message);
+          this.renderMessage(message);
+        }
+      }
+    } catch {
+      // Ignore invalid cached history.
+    }
+  }
+
+  private clearConversation(): void {
+    this.messages.length = 0;
+    this.transcript.innerHTML = "";
+    this.errorEl.classList.add("hidden");
+    try {
+      localStorage.removeItem(this.conversationStorageKey);
+    } catch {
+      // Ignore storage issues so chat remains usable.
+    }
+    this.input.focus();
+  }
+
+  private initialiseResizeHandle(
+    handle: HTMLDivElement,
+    direction: "corner" | "top" | "left",
+  ): void {
+    handle.addEventListener("pointerdown", event => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startWidth = this.panel.offsetWidth;
+      const startHeight = this.panel.offsetHeight;
+
+      const onPointerMove = (moveEvent: PointerEvent): void => {
+        const deltaX = moveEvent.clientX - startX;
+        const deltaY = moveEvent.clientY - startY;
+        const maxWidth = Math.max(CHAT_MIN_WIDTH_PX, window.innerWidth * 0.9);
+        const maxHeight = Math.max(CHAT_MIN_HEIGHT_PX, window.innerHeight * 0.8);
+        if (direction === "corner" || direction === "left") {
+          const width = this.clamp(startWidth - deltaX, CHAT_MIN_WIDTH_PX, maxWidth);
+          this.panel.style.width = `${width}px`;
+        }
+        if (direction === "corner" || direction === "top") {
+          const height = this.clamp(
+            startHeight - deltaY,
+            CHAT_MIN_HEIGHT_PX,
+            maxHeight,
+          );
+          this.panel.style.height = `${height}px`;
+        }
+      };
+
+      const onPointerUp = (): void => {
+        document.removeEventListener("pointermove", onPointerMove);
+        document.removeEventListener("pointerup", onPointerUp);
+      };
+
+      document.addEventListener("pointermove", onPointerMove);
+      document.addEventListener("pointerup", onPointerUp);
+    });
+  }
+
+  private clamp(value: number, min: number, max: number): number {
+    return Math.min(Math.max(value, min), max);
   }
 }

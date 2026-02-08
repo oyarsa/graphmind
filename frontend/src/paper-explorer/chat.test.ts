@@ -37,6 +37,7 @@ function makeGraphResult(): GraphResult {
       rationale_pred: "Rationale",
       rationale_true: "Human rationale",
       sections: [],
+      references: null,
       approval: true,
       structured_evaluation: {
         paper_summary: "S".repeat(500),

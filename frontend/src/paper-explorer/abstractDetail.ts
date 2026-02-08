@@ -95,6 +95,7 @@ function loadAbstractDetail(): void {
       abstractChatWidget = new PaperChatWidget({
         baseUrl: apiUrl,
         pageType: "abstract-detail",
+        conversationId: evaluation.id,
         getPageContext: () => pageContext,
         getModel: () => loadSettings().llm_model,
       });
