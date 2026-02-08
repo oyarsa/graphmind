@@ -162,6 +162,7 @@ export class PaperChatWidget {
   private readonly input: HTMLTextAreaElement;
   private readonly sendButton: HTMLButtonElement;
   private readonly clearButton: HTMLButtonElement;
+  private readonly closeButton: HTMLButtonElement;
   private readonly errorEl: HTMLDivElement;
   private getPageContext: () => Record<string, unknown>;
   private isSending = false;
@@ -219,7 +220,10 @@ export class PaperChatWidget {
 
     const title = document.createElement("div");
     title.className = "text-sm font-semibold text-gray-900 dark:text-gray-100";
-    title.textContent = "Read-only paper chat";
+    title.textContent = "Paper chat";
+
+    const headerActions = document.createElement("div");
+    headerActions.className = "flex items-center gap-2";
 
     this.clearButton = document.createElement("button");
     this.clearButton.type = "button";
@@ -227,11 +231,12 @@ export class PaperChatWidget {
       "rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800";
     this.clearButton.textContent = "Clear";
 
-    const disclaimer = document.createElement("div");
-    disclaimer.className =
-      "border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300";
-    disclaimer.textContent =
-      "Chat can discuss the current paper only. It cannot change this page.";
+    this.closeButton = document.createElement("button");
+    this.closeButton.type = "button";
+    this.closeButton.className =
+      "rounded border border-red-700 bg-red-600 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-red-700 dark:border-red-600 dark:bg-red-500 dark:hover:bg-red-600";
+    this.closeButton.textContent = "X";
+    this.closeButton.title = "Close chat";
 
     this.transcript = document.createElement("div");
     this.transcript.className = "flex-1 space-y-3 overflow-y-auto px-4 py-3";
@@ -256,13 +261,15 @@ export class PaperChatWidget {
     this.sendButton.textContent = "Send";
 
     inputWrap.append(this.input, this.sendButton);
-    header.append(title, this.clearButton);
-    this.panel.append(header, disclaimer, this.transcript, this.errorEl, inputWrap);
+    headerActions.append(this.clearButton, this.closeButton);
+    header.append(title, headerActions);
+    this.panel.append(header, this.transcript, this.errorEl, inputWrap);
     root.append(fab, this.panel);
     document.body.append(root);
 
     fab.addEventListener("click", () => {
       this.panel.classList.toggle("hidden");
+      fab.classList.toggle("hidden", !this.panel.classList.contains("hidden"));
       if (!this.panel.classList.contains("hidden")) {
         this.input.focus();
       }
@@ -281,6 +288,11 @@ export class PaperChatWidget {
 
     this.clearButton.addEventListener("click", () => {
       this.clearConversation();
+    });
+
+    this.closeButton.addEventListener("click", () => {
+      this.panel.classList.add("hidden");
+      fab.classList.remove("hidden");
     });
 
     this.initialiseResizeHandle(resizeCornerHandle, "corner");
