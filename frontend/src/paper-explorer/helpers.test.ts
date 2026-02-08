@@ -9,7 +9,8 @@ import {
   getScoreDisplay,
   formatTypeName,
   formatPaperCitation,
-  stripLatexCitations,
+  stripCitationMarkers,
+  renderLatex,
 } from "./helpers";
 import { RelatedPaper } from "./model";
 
@@ -474,95 +475,109 @@ describe("createExpandableEvidenceItem", () => {
   });
 });
 
-describe("stripLatexCitations", () => {
+describe("stripCitationMarkers", () => {
   it("should return empty string for empty input", () => {
-    expect(stripLatexCitations("")).toBe("");
+    expect(stripCitationMarkers("")).toBe("");
   });
 
-  it("should remove ~\\citep{} commands", () => {
+  it("should replace ~\\citep{} commands with placeholders", () => {
     const input = "This is some text~\\citep{ref2020} with a citation.";
-    expect(stripLatexCitations(input)).toBe("This is some text with a citation.");
+    expect(stripCitationMarkers(input).trim()).toBe(
+      "This is some text [citation] with a citation.",
+    );
   });
 
-  it("should remove \\citep{} commands without tilde", () => {
+  it("should replace \\citep{} commands without tilde", () => {
     const input = "This is some text\\citep{ref2020} with a citation.";
-    expect(stripLatexCitations(input)).toBe("This is some text with a citation.");
+    expect(stripCitationMarkers(input).trim()).toBe(
+      "This is some text [citation] with a citation.",
+    );
   });
 
-  it("should remove ~\\cite{} commands", () => {
+  it("should replace ~\\cite{} commands", () => {
     const input = "As shown in~\\cite{smith2021}, the results are clear.";
-    expect(stripLatexCitations(input)).toBe("As shown in, the results are clear.");
+    expect(stripCitationMarkers(input).trim()).toBe(
+      "As shown in [citation], the results are clear.",
+    );
   });
 
-  it("should remove \\citet{} commands", () => {
+  it("should replace \\citet{} commands", () => {
     const input = "According to \\citet{jones2022}, this works.";
-    expect(stripLatexCitations(input)).toBe("According to, this works.");
+    expect(stripCitationMarkers(input).trim()).toBe(
+      "According to [citation], this works.",
+    );
   });
 
   it("should handle multiple citations", () => {
     const input = "Some text~\\citep{ref1} and more~\\cite{ref2} with \\citet{ref3}.";
-    expect(stripLatexCitations(input)).toBe("Some text and more with.");
+    expect(stripCitationMarkers(input).trim()).toBe(
+      "Some text [citation] and more [citation] with [citation].",
+    );
   });
 
   it("should handle citations with multiple references", () => {
     const input = "This is cited~\\citep{DBLP:conf/emnlp/QiZWZYLHLB23,DBLP:ref2}.";
-    expect(stripLatexCitations(input)).toBe("This is cited.");
+    expect(stripCitationMarkers(input).trim()).toBe("This is cited [citation].");
   });
 
   it("should preserve text without citations", () => {
     const input = "This is plain text without any citations.";
-    expect(stripLatexCitations(input)).toBe(
+    expect(stripCitationMarkers(input).trim()).toBe(
       "This is plain text without any citations.",
     );
   });
 
-  it("should clean up double spaces after removal", () => {
+  it("should clean up double spaces after replacement", () => {
     const input = "Text  ~\\citep{ref}  with  spaces.";
-    expect(stripLatexCitations(input)).toBe("Text with spaces.");
+    expect(stripCitationMarkers(input).trim()).toBe("Text [citation] with spaces.");
   });
 
   // Tests for malformed LaTeX (space after backslash)
-  it("should remove malformed citations with space after backslash", () => {
+  it("should replace malformed citations with space after backslash", () => {
     const input = "compared to the baseline, PAIE~\\ cite{PAIE}.";
-    expect(stripLatexCitations(input)).toBe("compared to the baseline, PAIE.");
+    expect(stripCitationMarkers(input).trim()).toBe(
+      "compared to the baseline, PAIE [citation].",
+    );
   });
 
-  it("should remove malformed citep with space after backslash", () => {
+  it("should replace malformed citep with space after backslash", () => {
     const input = "as shown~\\ citep{ref2020} in the paper.";
-    expect(stripLatexCitations(input)).toBe("as shown in the paper.");
+    expect(stripCitationMarkers(input).trim()).toBe(
+      "as shown [citation] in the paper.",
+    );
   });
 
   // Tests for footnotes
   it("should remove \\footnote{} commands", () => {
     const input = "This is important\\footnote{See appendix for details}.";
-    expect(stripLatexCitations(input)).toBe("This is important.");
+    expect(stripCitationMarkers(input).trim()).toBe("This is important.");
   });
 
   it("should remove ~\\footnote{} commands with tilde", () => {
     const input = "SLMs~\\footnote{All code is available at https://github.com}.";
-    expect(stripLatexCitations(input)).toBe("SLMs.");
+    expect(stripCitationMarkers(input).trim()).toBe("SLMs.");
   });
 
   it("should remove malformed footnotes with space after backslash", () => {
     const input = "performance~\\ footnote{All code is available}.";
-    expect(stripLatexCitations(input)).toBe("performance.");
+    expect(stripCitationMarkers(input).trim()).toBe("performance.");
   });
 
-  // Tests for other LaTeX commands
-  it("should remove \\textbf{} commands", () => {
+  // Other LaTeX commands are preserved for KaTeX to handle
+  it("should preserve \\textbf{} commands", () => {
     const input = "This is \\textbf{bold} text.";
-    expect(stripLatexCitations(input)).toBe("This is text.");
+    expect(stripCitationMarkers(input).trim()).toBe("This is \\textbf{bold} text.");
   });
 
-  it("should remove \\emph{} commands", () => {
+  it("should preserve \\emph{} commands", () => {
     const input = "This is \\emph{emphasised} text.";
-    expect(stripLatexCitations(input)).toBe("This is text.");
+    expect(stripCitationMarkers(input).trim()).toBe("This is \\emph{emphasised} text.");
   });
 
   // Tests for standalone tildes
   it("should replace standalone tildes with spaces", () => {
     const input = "Figure~1 shows the results.";
-    expect(stripLatexCitations(input)).toBe("Figure 1 shows the results.");
+    expect(stripCitationMarkers(input).trim()).toBe("Figure 1 shows the results.");
   });
 
   // Real-world examples from the user
@@ -570,8 +585,8 @@ describe("stripLatexCitations", () => {
     const input =
       "The CsEAE model achieved improvements of 2.1% compared to PAIE~\\ cite{PAIE}. " +
       "For LLMs, performance is comparable to SLMs~\\ footnote{Code at github.com}.";
-    expect(stripLatexCitations(input)).toBe(
-      "The CsEAE model achieved improvements of 2.1% compared to PAIE. " +
+    expect(stripCitationMarkers(input).trim()).toBe(
+      "The CsEAE model achieved improvements of 2.1% compared to PAIE [citation]. " +
         "For LLMs, performance is comparable to SLMs.",
     );
   });
@@ -580,9 +595,43 @@ describe("stripLatexCitations", () => {
     const input =
       "Reinforcement Learning through Human Feedback (PPO) has seen " +
       "applications for instruction tuning~\\citep{Castricato2022,Shulev2024}";
-    expect(stripLatexCitations(input)).toBe(
+    expect(stripCitationMarkers(input).trim()).toBe(
       "Reinforcement Learning through Human Feedback (PPO) has seen " +
-        "applications for instruction tuning",
+        "applications for instruction tuning [citation]",
     );
+  });
+});
+
+describe("renderLatex", () => {
+  it("should preserve inline LaTeX commands inside math delimiters", () => {
+    const input =
+      "Use $\\textit{standardized}$ evaluation and $\\texttt{trec_eval}$ script.";
+    const output = renderLatex(input);
+
+    expect(output).toContain("katex");
+    expect(output).not.toContain("katex-display");
+    expect(output).not.toContain("$$");
+  });
+
+  it("should replace citation markers outside math while rendering math", () => {
+    const input = "As shown in~\\citep{ref2020}, use $\\texttt{dev}$ split.";
+    const output = renderLatex(input);
+
+    expect(output).toContain("[citation]");
+    expect(output).toContain("katex");
+    expect(output).not.toContain("\\citep");
+  });
+
+  it("should not create accidental display math from stripped commands", () => {
+    const input =
+      "Although representational retrieval models are strong, a $\\textit{standardized}$ " +
+      "evaluation framework has not been developed. We use the $\\texttt{dev}$ set and " +
+      "the $\\texttt{trec_eval}$ script.";
+    const output = renderLatex(input);
+    const textOnly = output.replace(/<[^>]+>/g, "");
+
+    expect(output).not.toContain("katex-display");
+    expect(textOnly).not.toContain("evaluationframeworkhasnotbeendeveloped");
+    expect(textOnly).not.toContain("$$ script");
   });
 });
