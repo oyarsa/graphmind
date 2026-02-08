@@ -95,7 +95,7 @@ function loadAbstractDetail(): void {
 
     const pageContext = buildAbstractDetailPageContext(evaluation);
     if (abstractChatWidget) {
-      abstractChatWidget.updateContext(() => pageContext);
+      abstractChatWidget.switchConversation(evaluation.id, () => pageContext);
     } else {
       const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
       abstractChatWidget = new PaperChatWidget({

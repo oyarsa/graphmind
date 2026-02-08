@@ -129,11 +129,15 @@ export function buildAbstractDetailPageContext(
 export class PaperChatService {
   constructor(private baseUrl: string) {}
 
-  async sendMessage(request: ChatRequestBody): Promise<ChatResponse> {
+  async sendMessage(
+    request: ChatRequestBody,
+    signal?: AbortSignal,
+  ): Promise<ChatResponse> {
     const response = await fetch(`${this.baseUrl}/mind/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
+      signal,
     });
 
     if (!response.ok) {
@@ -156,7 +160,7 @@ interface PaperChatWidgetOptions {
 export class PaperChatWidget {
   private readonly service: PaperChatService;
   private readonly messages: ChatMessage[] = [];
-  private readonly conversationStorageKey: string;
+  private conversationStorageKey: string;
   private readonly panel: HTMLDivElement;
   private readonly transcript: HTMLDivElement;
   private readonly input: HTMLTextAreaElement;
@@ -166,6 +170,7 @@ export class PaperChatWidget {
   private readonly errorEl: HTMLDivElement;
   private getPageContext: () => Record<string, unknown>;
   private isSending = false;
+  private abortController: AbortController | null = null;
 
   constructor(private options: PaperChatWidgetOptions) {
     this.service = new PaperChatService(options.baseUrl);
@@ -276,7 +281,11 @@ export class PaperChatWidget {
     });
 
     this.sendButton.addEventListener("click", () => {
-      void this.sendCurrentMessage();
+      if (this.isSending) {
+        this.cancelPending();
+      } else {
+        void this.sendCurrentMessage();
+      }
     });
 
     this.input.addEventListener("keydown", event => {
@@ -301,8 +310,19 @@ export class PaperChatWidget {
     this.restoreConversation();
   }
 
-  updateContext(getPageContext: () => Record<string, unknown>): void {
+  switchConversation(
+    conversationId: string,
+    getPageContext: () => Record<string, unknown>,
+  ): void {
+    this.cancelPending();
     this.getPageContext = getPageContext;
+    const newKey = this.buildStorageKey(this.options.pageType, conversationId);
+    if (newKey === this.conversationStorageKey) return;
+    this.conversationStorageKey = newKey;
+    this.messages.length = 0;
+    this.transcript.innerHTML = "";
+    this.errorEl.classList.add("hidden");
+    this.restoreConversation();
   }
 
   private async sendCurrentMessage(): Promise<void> {
@@ -318,15 +338,19 @@ export class PaperChatWidget {
     this.persistConversation();
 
     this.input.value = "";
+    this.abortController = new AbortController();
     this.setSending(true);
 
     try {
-      const response = await this.service.sendMessage({
-        messages: this.messages,
-        page_context: this.getPageContext(),
-        llm_model: this.options.getModel(),
-        page_type: this.options.pageType,
-      });
+      const response = await this.service.sendMessage(
+        {
+          messages: this.messages,
+          page_context: this.getPageContext(),
+          llm_model: this.options.getModel(),
+          page_type: this.options.pageType,
+        },
+        this.abortController.signal,
+      );
 
       const assistant: ChatMessage = {
         role: "assistant",
@@ -336,22 +360,34 @@ export class PaperChatWidget {
       this.renderMessage(assistant);
       this.persistConversation();
     } catch (error) {
-      this.errorEl.textContent =
-        error instanceof Error
-          ? `Chat failed: ${error.message}`
-          : "Chat failed. Please try again.";
-      this.errorEl.classList.remove("hidden");
+      if (error instanceof DOMException && error.name === "AbortError") {
+        // User cancelled — no error to show.
+      } else {
+        this.errorEl.textContent =
+          error instanceof Error
+            ? `Chat failed: ${error.message}`
+            : "Chat failed. Please try again.";
+        this.errorEl.classList.remove("hidden");
+      }
     } finally {
+      this.abortController = null;
       this.setSending(false);
+    }
+  }
+
+  private cancelPending(): void {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
     }
   }
 
   private setSending(sending: boolean): void {
     this.isSending = sending;
-    this.sendButton.disabled = sending;
+    this.sendButton.disabled = false;
     this.input.disabled = sending;
     this.clearButton.disabled = sending;
-    this.sendButton.textContent = sending ? "Sending..." : "Send";
+    this.sendButton.textContent = sending ? "Cancel" : "Send";
   }
 
   private renderMessage(message: ChatMessage): void {

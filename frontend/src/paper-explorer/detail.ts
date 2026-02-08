@@ -992,7 +992,7 @@ function loadPaperDetail(): void {
 
     const pageContext = buildDetailPageContext(graphResult);
     if (detailChatWidget) {
-      detailChatWidget.updateContext(() => pageContext);
+      detailChatWidget.switchConversation(paper.id, () => pageContext);
     } else {
       const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
       detailChatWidget = new PaperChatWidget({
