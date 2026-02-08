@@ -379,26 +379,23 @@ def process_latex(
             logger.debug("Could not find main file")
             return None
 
-        consolidated_content = _process_latex_file(main_tex, tmpdir)
-        if not consolidated_content:
+        latex_raw = _process_latex_file(main_tex, tmpdir)
+        if not latex_raw:
             logger.debug("No content processed. Aborting.")
             return None
 
-        # Keep raw content for conversion — preprocessing is applied inside the
-        # fallback chain so that pandoc gets an unmodified first attempt.
-        raw_content = consolidated_content
-        style_cleaned = _strip_problematic_packages(consolidated_content)
+        latex_stripped = _strip_problematic_packages(latex_raw)
 
-        bib_files = _find_bib_files(tmpdir, style_cleaned)
+        bib_files = _find_bib_files(tmpdir, latex_stripped)
         citationkey_to_reference = _extract_bibliography_from_bibfiles(
             bib_files, tmpdir
         )
 
     if not citationkey_to_reference:
         logger.debug("No references from bib files. Trying bib items.")
-        citationkey_to_reference = _extract_bibliography_from_bibitems(style_cleaned)
+        citationkey_to_reference = _extract_bibliography_from_bibitems(latex_stripped)
 
-    citation_contexts = _extract_citations_and_contexts(splitter, style_cleaned)
+    citation_contexts = _extract_citations_and_contexts(splitter, latex_stripped)
 
     # Match citations to references and populate contexts
     for citation_key, contexts in citation_contexts.items():
@@ -430,7 +427,7 @@ def process_latex(
     ]
     logger.debug("References with contexts: %d", len(references))
 
-    markdown_content = _convert_latex_to_markdown(raw_content, style_cleaned, title)
+    markdown_content = _convert_latex_to_markdown(latex_raw, latex_stripped, title)
     if markdown_content is None:
         logger.debug("Error converting LaTeX to Markdown. Aborting.")
         return None
@@ -753,8 +750,8 @@ def _run_pandoc(
 
 
 def _convert_latex_to_markdown(
-    latex_content: str,
-    style_cleaned: str,
+    latex_raw: str,
+    latex_stripped: str,
     title: str,
 ) -> str | None:
     """Convert LaTeX content to Markdown via pandoc with progressive fallbacks.
@@ -763,20 +760,20 @@ def _convert_latex_to_markdown(
     mutation is applied to the source:
 
     1. **Raw** — unmodified consolidated TeX.
-    2. **Style-cleaned** — arxiv/tcolorbox styling removed.
+    2. **Stripped** — problematic packages removed.
     3. **Sanitised** — preamble stripped, problematic environments removed,
        braces rebalanced.
-    4. **Full clean** — style-cleaned then sanitised (combines both transforms).
+    4. **Full clean** — stripped then sanitised (combines both transforms).
 
     Later strategies are computed lazily — only when earlier ones fail.
     """
     strategies: list[tuple[str, Callable[[], str]]] = [
-        ("raw", lambda: latex_content),
-        ("style-cleaned", lambda: style_cleaned),
-        ("sanitised", lambda: _sanitise_for_pandoc(latex_content)),
+        ("raw", lambda: latex_raw),
+        ("stripped", lambda: latex_stripped),
+        ("sanitised", lambda: _sanitise_for_pandoc(latex_raw)),
         (
             "full-clean",
-            lambda: _sanitise_for_pandoc(style_cleaned),
+            lambda: _sanitise_for_pandoc(latex_stripped),
         ),
     ]
 

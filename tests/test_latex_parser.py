@@ -359,31 +359,37 @@ class TestConvertLatexToMarkdown:
     def test_raw_succeeds_no_fallback(self, mock_pandoc: object) -> None:
         """When raw content works, no preprocessing is applied."""
         mock_pandoc.return_value = ("# Hello", "")  # type: ignore[union-attr]
-        result = _convert_latex_to_markdown("\\section{Hello}", "test")
+        result = _convert_latex_to_markdown(
+            "\\section{Hello}", "\\section{Hello}", "test"
+        )
         assert result == "# Hello"
         mock_pandoc.assert_called_once()  # type: ignore[union-attr]
 
     @patch("paper.orc.latex_parser._run_pandoc")
-    def test_falls_through_to_style_cleaned(self, mock_pandoc: object) -> None:
-        """When raw fails, style-cleaned is tried next."""
+    def test_falls_through_to_stripped(self, mock_pandoc: object) -> None:
+        """When raw fails, stripped is tried next."""
         mock_pandoc.side_effect = [  # type: ignore[union-attr]
             (None, "exit 64"),
             ("# Cleaned", ""),
             ("# Sanitised", ""),
         ]
-        result = _convert_latex_to_markdown("\\section{Hello}", "test")
+        result = _convert_latex_to_markdown(
+            "\\section{Hello}", "\\section{Hello}", "test"
+        )
         assert result == "# Cleaned"
         assert mock_pandoc.call_count == 2  # type: ignore[union-attr]
 
     @patch("paper.orc.latex_parser._run_pandoc")
     def test_falls_through_to_sanitised(self, mock_pandoc: object) -> None:
-        """When raw and style-cleaned both fail, sanitised is tried."""
+        """When raw and stripped both fail, sanitised is tried."""
         mock_pandoc.side_effect = [  # type: ignore[union-attr]
             (None, "exit 64"),
             (None, "exit 64"),
             ("# Last resort", ""),
         ]
-        result = _convert_latex_to_markdown("\\section{Hello}", "test")
+        result = _convert_latex_to_markdown(
+            "\\section{Hello}", "\\section{Hello}", "test"
+        )
         assert result == "# Last resort"
         assert mock_pandoc.call_count == 3  # type: ignore[union-attr]
 
@@ -396,7 +402,9 @@ class TestConvertLatexToMarkdown:
             (None, "exit 64"),
             ("# Full clean", ""),
         ]
-        result = _convert_latex_to_markdown("\\section{Hello}", "test")
+        result = _convert_latex_to_markdown(
+            "\\section{Hello}", "\\section{Hello}", "test"
+        )
         assert result == "# Full clean"
         assert mock_pandoc.call_count == 4  # type: ignore[union-attr]
 
@@ -404,7 +412,9 @@ class TestConvertLatexToMarkdown:
     def test_all_strategies_fail(self, mock_pandoc: object) -> None:
         """Returns None when every strategy fails."""
         mock_pandoc.return_value = (None, "exit 64")  # type: ignore[union-attr]
-        result = _convert_latex_to_markdown("\\section{Hello}", "test")
+        result = _convert_latex_to_markdown(
+            "\\section{Hello}", "\\section{Hello}", "test"
+        )
         assert result is None
         assert mock_pandoc.call_count == 4  # type: ignore[union-attr]
 
@@ -457,6 +467,6 @@ class TestConvertLatexToMarkdown:
     )
     def test_breaking_cases_def_family_variants(self, name: str, tex: str) -> None:
         """Known def-family variants should still yield usable markdown."""
-        result = _convert_latex_to_markdown(tex, name)
+        result = _convert_latex_to_markdown(tex, tex, name)
         assert result is not None
         assert "Text" in result
