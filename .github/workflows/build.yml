@@ -26,6 +26,9 @@ jobs:
         with:
           python-version-file: ".python-version"
 
+      - name: Set up pandoc
+        uses: pandoc/actions/setup@v1
+
       - name: Install dependencies
         run: uv sync --dev --extra cpu --extra baselines
 
