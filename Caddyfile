@@ -1,5 +1,5 @@
 graphmind.maleldil.com {
-    handle /stats* {
+    handle_path /stats/* {
         basicauth {
             {$NETDATA_USER} {$NETDATA_HASH}
         }
