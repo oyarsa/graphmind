@@ -1,5 +1,43 @@
 # Experiment Documentation
 
+## Initial Setup
+
+When initialising the repo for experiments (with `cpu` or `cuda`):
+
+1. **Install dependencies** (cpu and cuda extras are mutually exclusive):
+   ```bash
+   uv sync --extra baselines --extra cuda   # For GPU hosts
+   uv sync --extra baselines --extra cpu    # For CPU-only hosts
+   ```
+
+2. **Check for experiment data** - verify these paths exist:
+   - `output/venus5/split/dev_100_balanced.json.zst` (ORC test data)
+   - `output/new_peerread/peter_summarised/balanced_68.json.zst` (PeerRead test data)
+   - `output/baselines/llama_data/` (Llama train/dev/test)
+   - `output/baselines/orc_acu_query_t05/` (Novascore ORC queries)
+   - `output/baselines/peerread_acu_query_t05/` (Novascore PeerRead queries)
+
+3. **If data is missing**, tell the user:
+   > The experiment data (~44 MB tarball) is not included in the repo.
+   > Please obtain `experiment_data.tar.gz` and extract it in the repo root:
+   > ```bash
+   > tar -xzf experiment_data.tar.gz
+   > ```
+   > To create this tarball from a host that has the data: `bash tmp/create_data_tarball.sh`
+
+4. **Create `.env`** from `.env.example` with `OPENAI_API_KEY` (required for GPT experiments)
+
+5. **Verify setup**:
+   ```bash
+   just lint                    # Should pass
+   uv run paper --help          # Should show CLI help
+   ```
+
+6. **For CUDA hosts**, verify GPU access:
+   ```bash
+   uv run python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
+   ```
+
 ## Validating Prompt Changes
 
 After modifying prompt templates in `src/paper/gpt/prompts/`, run test experiments with
@@ -116,175 +154,6 @@ cat output/eval_<dataset>/ablation_<config>/run_0/params.json | grep paper_file
 # Extract hash from: "file.json.zst (12345678)"
 ```
 
-## Remote Jobs with fleche
+## Remote Jobs with Fleche
 
-`fleche` is a utility for running jobs on remote Slurm clusters via SSH. Configuration
-is in `fleche.toml`.
-
-### Quick Start
-
-```bash
-# Validate configuration
-fleche check
-
-# Preview what would be submitted (recommended first)
-fleche run <job> --dry-run
-
-# Submit a job (streams output by default)
-fleche run <job>
-
-# Submit without streaming (returns immediately)
-fleche run <job> --bg
-```
-
-### Available Jobs
-
-| Job | Description | Command |
-|-----|-------------|---------|
-| `cuda_check` | Test CUDA/GPU availability | `fleche run cuda_check` |
-| `train` | Train Llama SFT model | `fleche run train --env DATASET=orc` |
-| `infer` | Run inference | `fleche run infer --env DATASET=orc` |
-
-### Running Llama Experiments
-
-**Train on ORC:**
-```bash
-fleche run train --env DATASET=orc --env CONFIG=llama_basic \
-  --tag dataset=orc --tag config=llama_basic
-```
-
-**Train on PeerRead:**
-```bash
-fleche run train --env DATASET=peerread --env CONFIG=llama_peerread \
-  --tag dataset=peerread --tag config=llama_peerread
-```
-
-**Run inference after training:**
-```bash
-fleche run infer --env DATASET=orc --env CONFIG=llama_basic \
-  --tag dataset=orc --tag type=inference
-```
-
-Jobs share a workspace, so the trained model from `train` is automatically available
-to `infer` without needing to download and re-upload.
-
-### Tagging Jobs
-
-Use tags to organise and filter experiments:
-
-```bash
-# Add tags when submitting
-fleche run train --env DATASET=orc --tag experiment=ablation --tag model=llama
-
-# Filter status by tag
-fleche status --tag experiment=ablation
-fleche status --tag dataset=orc --filter running
-
-# View logs from most recent job with specific tag
-fleche logs --tag experiment=ablation
-
-# Download outputs from most recent job with tag
-fleche download --tag config=llama_basic
-
-# Cancel all jobs with a specific tag
-fleche cancel --all --tag experiment=test
-
-# Clean old jobs with a specific tag
-fleche clean --all --tag experiment=test
-```
-
-### Monitoring and Results
-
-```bash
-# Check job status
-fleche status
-
-# Show last N jobs
-fleche status -n 20
-
-# Filter by status (running, pending, completed, failed, cancelled)
-fleche status --filter running
-fleche status --filter failed --filter completed  # multiple filters
-
-# Filter by job ID (regex, substring match by default)
-fleche status --name 'cyft'          # match job with suffix "cyft"
-fleche status --name '032109'        # match jobs from that timestamp
-fleche status --name '^train-'       # match "train-" but not "train_gen-"
-
-# List all unique tags
-fleche tags
-
-# View logs (defaults to most recent job)
-fleche logs
-
-# View logs for specific job
-fleche logs <job-id>
-
-# Show only the last N lines
-fleche logs -n 50
-
-# Show only stdout or stderr
-fleche logs --stdout
-fleche logs --stderr
-
-# Stream logs in real-time (Ctrl+C to disconnect, job keeps running)
-fleche logs --follow
-
-# Download results after completion (defaults to most recent job)
-fleche download
-
-# Re-run a previous job with same settings
-fleche rerun <job-id>
-
-# Wait for a job to complete (useful in scripts)
-fleche wait <job-id>
-fleche wait <job-id> --notify  # send terminal alert when done
-
-# Check cluster health
-fleche ping
-
-# Cancel a running job (defaults to most recent active)
-fleche cancel
-
-# Cancel all running/pending jobs
-fleche cancel --all
-```
-
-### Maintenance
-
-```bash
-# Clean old completed/failed jobs periodically to keep history tidy
-fleche clean --older-than 2h -y
-
-# Clean all completed jobs with a specific tag
-fleche clean --all --tag experiment=test
-
-# Clean a specific job
-fleche clean <job-id>
-```
-
-### Quick Commands Without Slurm
-
-For quick tests or non-GPU work, use `exec` to bypass the Slurm queue:
-
-```bash
-fleche exec "ls -la"
-fleche exec "python test.py"
-```
-
-### File Sync
-
-- Project code syncs automatically to shared workspace (respects `.gitignore`)
-- Input data specified in `inputs` is copied to workspace
-- Jobs share workspace, so outputs from one job are available to subsequent jobs
-- Use `fleche download` to pull outputs to local machine
-
-### Tips
-
-- Use `--dry-run` to preview the sbatch script before submitting
-- Ctrl+C during streaming disconnects but doesn't cancel the job
-- Job IDs look like `train-20260114-153042-847-x7k2` (short suffix `x7k2` works too)
-- Use `fleche exec` for quick tests without Slurm queue wait
-- Run `fleche guide` for full documentation
-- **`--filter` vs `--tag` vs `--name`**: `--filter` is for job STATUS, `--tag` is for your custom tags, `--name` is regex on job ID
-- Clean old jobs periodically with `fleche clean --older-than 2h -y`
+See `docs/FLECHE.md` for the full fleche reference (all commands, flags, and examples).
