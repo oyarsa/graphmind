@@ -49,7 +49,7 @@ jobs:
       - name: Build
         working-directory: ./frontend
         env:
-          VITE_API_URL: https://graphmind.fly.dev
+          VITE_API_URL: https://graphmind.maleldil.com
           VITE_XP_DATA_PATH: data/library.json.gz
         run: npm run build
 
