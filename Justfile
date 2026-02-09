@@ -84,47 +84,25 @@ _deploy-workflow workflow:
     run_id=$(gh run list --workflow "{{workflow}}" --limit 1 --json databaseId --jq '.[0].databaseId')
     gh run watch "$run_id"
 
-# Deploy backend to Fly.io (manual trigger)
-deploy-backend: (_deploy-workflow "Fly Deploy")
+# Deploy backend via graphmind-api
+deploy-backend:
+    ssh graphmind-api '/opt/graphmind/scripts/deploy_api.sh'
 
 # Deploy frontend to GitHub Pages (manual trigger)
 deploy-frontend: (_deploy-workflow "Deploy to GitHub Pages")
 
-# Deploy both backend and frontend, then watch progress
+# Deploy both backend and frontend
 deploy:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    workflow_status() {
-        gh run list --workflow="$1" --limit=1 --json status --jq '.[0].status'
-    }
+    just deploy-backend 2>&1 | awk '{print "[backend] " $0; fflush()}' &
+    backend_pid=$!
+    just deploy-frontend 2>&1 | awk '{print "[frontend] " $0; fflush()}' &
+    frontend_pid=$!
 
-    echo "Triggering deployments..."
-    gh workflow run "Fly Deploy"
-    gh workflow run "Deploy to GitHub Pages"
-
-    echo "Waiting for workflows to start..."
-    sleep 3
-    echo ""
-    echo "Watching runs (Ctrl+C to stop watching, deployments will continue)..."
-
-    # Watch runs until both complete
-    while true; do
-        fly_status=$(workflow_status "Fly Deploy")
-        pages_status=$(workflow_status "Deploy to GitHub Pages")
-
-        echo "Backend (Fly): $fly_status | Frontend (Pages): $pages_status"
-
-        if [[ "$fly_status" != "in_progress" && "$fly_status" != "queued" && \
-              "$pages_status" != "in_progress" && "$pages_status" != "queued" ]]; then
-            echo ""
-            echo "Both deployments finished!"
-            gh run list --workflow="Fly Deploy" --limit=1
-            gh run list --workflow="Deploy to GitHub Pages" --limit=1
-            break
-        fi
-        sleep 5
-    done
+    wait "$backend_pid"
+    wait "$frontend_pid"
 
 # Bump version for both backend and frontend (ensures they're synchronized)
 bump bump:
