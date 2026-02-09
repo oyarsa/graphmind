@@ -86,7 +86,7 @@ _deploy-workflow workflow:
 
 # Deploy backend via graphmind-api
 deploy-backend:
-    ssh $BACKEND_DEPLOY_HOST '/opt/graphmind/scripts/deploy_api.sh'
+    ssh $BACKEND_DEPLOY_HOST '/opt/graphmind/deployment/deploy_api.sh'
 
 # Deploy frontend to GitHub Pages (manual trigger)
 deploy-frontend: (_deploy-workflow "Deploy to GitHub Pages")
@@ -115,7 +115,12 @@ deploy:
 
 # Follow remote backend logs
 api-logs tail="20":
-    ssh -t $BACKEND_DEPLOY_HOST 'cd /opt/graphmind && docker compose logs graphmind -f --tail {{tail}}'
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh -t $BACKEND_DEPLOY_HOST \
+        'cd /opt/graphmind &&
+         docker compose -f deployment/docker-compose.yml \
+             logs graphmind -f --tail {{tail}}'
 
 # Bump version for both backend and frontend (ensures they're synchronized)
 bump bump:
