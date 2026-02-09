@@ -2,7 +2,9 @@
 
 import asyncio
 import itertools
-from collections.abc import Sequence
+from collections.abc import Coroutine, Sequence
+from contextlib import suppress
+from typing import Any
 
 import backoff
 import numpy as np
@@ -89,6 +91,10 @@ class OpenAIEncoder:
         """Return the embedding dimensions for the configured model."""
         return EMBEDDING_DIMENSIONS[self._model]
 
+    async def close(self) -> None:
+        """Close the underlying HTTP client."""
+        await self._client.close()
+
     @backoff.on_exception(backoff.expo, openai.RateLimitError, max_tries=5)
     async def encode(self, text: str) -> Vector:
         """Encode a single text string as a vector.
@@ -153,3 +159,71 @@ class OpenAIEncoder:
             results = list(await asyncio.gather(*tasks))
 
         return np.vstack(results)
+
+
+class OpenAIEncoderSync:
+    """Synchronous wrapper around `OpenAIEncoder`.
+
+    Uses a dedicated event loop and runs embedding coroutines on it.
+    """
+
+    def __init__(self, model: str = "text-embedding-3-small") -> None:
+        self._encoder = OpenAIEncoder(model=model)
+        self._model = model
+        self._loop = asyncio.new_event_loop()
+
+    def _run[T](self, coro: Coroutine[Any, Any, T]) -> T:
+        """Run a coroutine on the internal event loop."""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return self._loop.run_until_complete(coro)
+        raise RuntimeError(
+            "OpenAIEncoderSync cannot be used from an async context. "
+            "Use OpenAIEncoder instead."
+        )
+
+    @property
+    def model_name(self) -> str:
+        """Model name configured for embeddings."""
+        return self._model
+
+    @property
+    def dimensions(self) -> int:
+        """Return the embedding dimensions for the configured model."""
+        return self._encoder.dimensions
+
+    def encode(self, text: str) -> Vector:
+        """Encode a single text string as a vector."""
+        return self._run(self._encoder.encode(text))
+
+    def encode_multi(self, texts: Sequence[str]) -> Matrix:
+        """Encode multiple texts as a matrix."""
+        return self._run(self._encoder.encode_multi(texts))
+
+    def batch_encode(
+        self, texts: Sequence[str], batch_size: int = 128, *, progress: bool = False
+    ) -> Matrix:
+        """Encode texts in batches and stack into a single matrix."""
+        return self._run(
+            self._encoder.batch_encode(texts, batch_size, progress=progress)
+        )
+
+    def close(self) -> None:
+        """Close the async client and the internal event loop."""
+        if not self._loop.is_closed():
+            self._loop.run_until_complete(self._encoder.close())
+            self._loop.close()
+
+    def __enter__(self) -> "OpenAIEncoderSync":
+        """Enter the context manager."""
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        """Close the encoder on context exit."""
+        self.close()
+
+    def __del__(self) -> None:
+        """Best-effort cleanup."""
+        with suppress(Exception):
+            self.close()
