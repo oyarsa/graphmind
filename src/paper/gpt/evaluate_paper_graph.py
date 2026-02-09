@@ -503,17 +503,7 @@ async def evaluate_papers(
         rng,
     )
 
-    eval_prompt = GRAPH_EVAL_USER_PROMPTS[eval_prompt_key]
-    if not eval_prompt.system:
-        raise ValueError(
-            f"Eval prompt {eval_prompt.name!r} does not have a system prompt."
-        )
-
-    graph_prompt = GRAPH_EXTRACT_USER_PROMPTS[graph_prompt_key]
-    if not graph_prompt.system:
-        raise ValueError(
-            f"Graph prompt {graph_prompt.name!r} does not have a system prompt."
-        )
+    eval_prompt, graph_prompt = get_prompts(eval_prompt_key, graph_prompt_key)
 
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
     save_prompt_templates(output_dir, eval_prompt, demonstrations_key, demo_prompt_key)
@@ -898,6 +888,47 @@ def format_graph_template(
         main_text=main_text,
         primary_areas=", ".join(PRIMARY_AREAS),
     )
+
+
+def get_prompts(
+    eval_prompt_key: str,
+    graph_prompt_key: str,
+    *,
+    require_eval_type: str | None = None,
+) -> tuple[PromptTemplate, PromptTemplate]:
+    """Retrieve and validate evaluation and graph extraction prompts.
+
+    Both must have system prompts. Optionally checks the eval prompt type_name.
+
+    Args:
+        eval_prompt_key: Key for evaluation prompt template.
+        graph_prompt_key: Key for graph extraction prompt template.
+        require_eval_type: If set, require eval prompt type_name to match.
+
+    Returns:
+        Tuple of (eval_prompt, graph_prompt).
+
+    Raises:
+        ValueError: If prompts are missing system prompts or type check fails.
+    """
+    eval_prompt = GRAPH_EVAL_USER_PROMPTS[eval_prompt_key]
+    if not eval_prompt.system:
+        raise ValueError(
+            f"Eval prompt {eval_prompt.name!r} does not have a system prompt."
+        )
+    if require_eval_type and eval_prompt.type_name != require_eval_type:
+        raise ValueError(
+            f"Eval prompt {eval_prompt.name!r} has type {eval_prompt.type_name!r},"
+            f" expected {require_eval_type!r}."
+        )
+
+    graph_prompt = GRAPH_EXTRACT_USER_PROMPTS[graph_prompt_key]
+    if not graph_prompt.system:
+        raise ValueError(
+            f"Graph prompt {graph_prompt.name!r} does not have a system prompt."
+        )
+
+    return eval_prompt, graph_prompt
 
 
 def format_eval_template(

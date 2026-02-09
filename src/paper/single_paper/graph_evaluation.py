@@ -27,11 +27,10 @@ from paper.gpt.evaluate_paper_graph import (
     format_eval_template,
     format_graph_template,
     get_demonstrations,
+    get_prompts,
 )
 from paper.gpt.graph_types.excerpts import GPTExcerpt
 from paper.gpt.novelty_utils import get_novelty_probability
-from paper.gpt.prompts.evaluate_graph import GRAPH_EVAL_USER_PROMPTS
-from paper.gpt.prompts.extract_graph import GRAPH_EXTRACT_USER_PROMPTS
 from paper.gpt.run_gpt import GPTResult, LLMClient
 from paper.types import Immutable, PaperSource
 from paper.util import atimer
@@ -105,34 +104,6 @@ class EvaluationResult(Immutable):
     def from_(cls, result: GPTResult[gpt.GraphResult]) -> Self:
         """Create EvaluationResult rom GPTResult+GraphResult."""
         return cls(result=result.result, cost=result.cost)
-
-
-def get_prompts(
-    eval_prompt_key: str, graph_prompt_key: str
-) -> tuple[gpt.PromptTemplate, gpt.PromptTemplate]:
-    """Retrieve evaluation and graph extraction prompts.
-
-    Both must have system prompts. The eval prompt must have type GPTStructured.
-
-    Args:
-        eval_prompt_key: Key for evaluation prompt template.
-        graph_prompt_key: Key for graph extraction prompt template.
-
-    Returns:
-        Tuple of (eval_prompt, graph_prompt).
-
-    Raises:
-        ValueError: If prompts are invalid.
-    """
-    eval_prompt = GRAPH_EVAL_USER_PROMPTS[eval_prompt_key]
-    if not eval_prompt.system or eval_prompt.type_name != "GPTStructured":
-        raise ValueError(f"Eval prompt {eval_prompt.name!r} is not valid.")
-
-    graph_prompt = GRAPH_EXTRACT_USER_PROMPTS[graph_prompt_key]
-    if not graph_prompt.system:
-        raise ValueError(f"Graph prompt {graph_prompt.name!r} is not valid.")
-
-    return eval_prompt, graph_prompt
 
 
 async def extract_graph_from_paper(
@@ -304,7 +275,9 @@ async def evaluate_paper_with_graph(
     Returns:
         GraphResult with novelty evaluation wrapped in GPTResult.
     """
-    eval_prompt, graph_prompt = get_prompts(eval_prompt_key, graph_prompt_key)
+    eval_prompt, graph_prompt = get_prompts(
+        eval_prompt_key, graph_prompt_key, require_eval_type="GPTStructured"
+    )
     demonstrations = get_demonstrations(demonstrations_key, demo_prompt_key)
 
     if callback:
