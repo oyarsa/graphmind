@@ -21,7 +21,6 @@ from paper.gpt.evaluate_paper import (
     EvidenceItem,
     GPTStructured,
     GPTStructuredRaw,
-    fix_evaluated_rating,
 )
 from paper.gpt.evaluate_paper_graph import (
     format_eval_template,
@@ -29,6 +28,7 @@ from paper.gpt.evaluate_paper_graph import (
     get_demonstrations,
     get_prompts,
 )
+from paper.gpt.extract_graph import construct_graph_result
 from paper.gpt.graph_types.excerpts import GPTExcerpt
 from paper.gpt.novelty_utils import get_novelty_probability
 from paper.gpt.run_gpt import GPTResult, LLMClient
@@ -227,28 +227,6 @@ async def evaluate_paper_graph_novelty(
         )
     )
     return distributed.lift(prob, lambda e, p: e.with_prob(p))
-
-
-def construct_graph_result(
-    paper: gpt.PaperWithRelatedSummary, graph: gpt.Graph, evaluation: GPTStructured
-) -> gpt.GraphResult:
-    """Construct the final graph result from components.
-
-    Args:
-        paper: Paper with related papers and summaries.
-        graph: Extracted graph representation.
-        evaluation: Novelty evaluation result.
-
-    Returns:
-        Complete GraphResult.
-    """
-    result = gpt.PaperResult.from_s2peer(
-        paper=paper.paper.paper,
-        y_pred=fix_evaluated_rating(evaluation).label,
-        rationale_pred=evaluation.rationale,
-        structured_evaluation=evaluation,
-    )
-    return gpt.GraphResult.from_annotated(annotated=paper, graph=graph, result=result)
 
 
 async def evaluate_paper_with_graph(

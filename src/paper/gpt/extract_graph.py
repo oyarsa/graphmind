@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Self
 
 from paper import hierarchical_graph
-from paper.gpt.evaluate_paper import PaperResult
+from paper.gpt.evaluate_paper import GPTStructured, PaperResult, fix_evaluated_rating
 from paper.gpt.model import (
     Graph,
     PaperRelatedSummarised,
@@ -78,6 +78,28 @@ class ExtractedGraph(Immutable, PaperProxy[PaperWithRelatedSummary]):
 
     graph: Graph
     paper: PaperWithRelatedSummary
+
+
+def construct_graph_result(
+    paper: PaperWithRelatedSummary, graph: Graph, evaluation: GPTStructured
+) -> GraphResult:
+    """Construct the final graph result from components.
+
+    Args:
+        paper: Paper with related papers and summaries.
+        graph: Extracted graph representation.
+        evaluation: Novelty evaluation result.
+
+    Returns:
+        Complete GraphResult.
+    """
+    result = PaperResult.from_s2peer(
+        paper=paper.paper.paper,
+        y_pred=fix_evaluated_rating(evaluation).label,
+        rationale_pred=evaluation.rationale,
+        structured_evaluation=evaluation,
+    )
+    return GraphResult.from_annotated(annotated=paper, graph=graph, result=result)
 
 
 def save_graphs(
