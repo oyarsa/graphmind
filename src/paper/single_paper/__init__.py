@@ -16,7 +16,8 @@ Core pipeline functions:
 from paper.embedding import DEFAULT_SENTENCE_MODEL
 from paper.single_paper.abstract_evaluation import abstract_evaluation
 from paper.single_paper.cli import main
-from paper.single_paper.graph_evaluation import EvaluationResult, ProgressCallback
+from paper.gpt.extract_graph import EvaluationResult
+from paper.single_paper.graph_evaluation import ProgressCallback
 from paper.single_paper.graph_evaluation_multi import (
     EvaluationResultMulti,
     process_paper_from_selection_multi,

@@ -21,10 +21,8 @@ from paper.single_paper.annotation_extraction import (
     extract_main_paper_annotations,
     extract_recommended_annotations,
 )
-from paper.single_paper.graph_evaluation import (
-    EvaluationResult,
-    evaluate_paper_with_graph,
-)
+from paper.gpt.extract_graph import EvaluationResult
+from paper.single_paper.graph_evaluation import evaluate_paper_with_graph
 from paper.single_paper.paper_retrieval import (
     REQUEST_TIMEOUT,
     ProgressCallback,

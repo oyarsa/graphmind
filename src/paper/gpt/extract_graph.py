@@ -9,7 +9,9 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Self
+from typing import Annotated, Self
+
+from pydantic import Field
 
 from paper import hierarchical_graph
 from paper.gpt.evaluate_paper import GPTStructured, PaperResult, fix_evaluated_rating
@@ -102,6 +104,18 @@ def construct_graph_result(
         structured_evaluation=evaluation,
     )
     return GraphResult.from_annotated(annotated=paper, graph=graph, result=result)
+
+
+class EvaluationResult(Immutable):
+    """Evaluation result with cost."""
+
+    result: Annotated[GraphResult, Field(description="Evaluated graph result.")]
+    cost: Annotated[float, Field(description="Total cost of using the LLM API.")]
+
+    @classmethod
+    def from_(cls, result: GPTResult[GraphResult]) -> Self:
+        """Create EvaluationResult from GPTResult+GraphResult."""
+        return cls(result=result.result, cost=result.cost)
 
 
 async def extract_graph_core(

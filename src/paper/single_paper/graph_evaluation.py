@@ -8,12 +8,10 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Sequence
-from typing import TYPE_CHECKING, Annotated, Self
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from paper.semantic_scholar.model import S2Reference
-
-from pydantic import Field
 
 from paper import gpt
 from paper.backend.model import BEST_OF_N
@@ -28,11 +26,15 @@ from paper.gpt.evaluate_paper_graph import (
     get_demonstrations,
     get_prompts,
 )
-from paper.gpt.extract_graph import construct_graph_result, extract_graph_core
+from paper.gpt.extract_graph import (
+    EvaluationResult,
+    construct_graph_result,
+    extract_graph_core,
+)
 from paper.gpt.graph_types.excerpts import GPTExcerpt
 from paper.gpt.novelty_utils import get_novelty_probability
 from paper.gpt.run_gpt import GPTResult, LLMClient
-from paper.types import Immutable, PaperSource
+from paper.types import PaperSource
 from paper.util import atimer
 from paper.util.serde import replace_fields
 
@@ -92,18 +94,6 @@ def format_bibliography(references: Sequence[S2Reference]) -> str:
         lines.append(f"[{ref.citation_key}] {ref.title}. {authors_str}, {year_str}.")
 
     return "\n".join(lines)
-
-
-class EvaluationResult(Immutable):
-    """Evaluation result with cost."""
-
-    result: Annotated[gpt.GraphResult, Field(description="Evaluated graph result.")]
-    cost: Annotated[float, Field(description="Total cost of using the LLM API.")]
-
-    @classmethod
-    def from_(cls, result: GPTResult[gpt.GraphResult]) -> Self:
-        """Create EvaluationResult rom GPTResult+GraphResult."""
-        return cls(result=result.result, cost=result.cost)
 
 
 async def extract_graph_from_paper(
