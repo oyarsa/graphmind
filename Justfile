@@ -98,7 +98,16 @@ deploy:
 
     just deploy-backend 2>&1 | awk '{print "\033[36m[backend]\033[0m " $0; fflush()}' &
     backend_pid=$!
-    just deploy-frontend 2>&1 | awk '{print "\033[33m[frontend]\033[0m " $0; fflush()}' &
+
+    (
+        printf '\033[33m[frontend]\033[0m Deploying to GitHub Pages...\n'
+        if just deploy-frontend > /dev/null 2>&1; then
+            printf '\033[33m[frontend]\033[0m Deployment succeeded\n'
+        else
+            printf '\033[33m[frontend]\033[0m Deployment failed!\n'
+            exit 1
+        fi
+    ) &
     frontend_pid=$!
 
     wait "$backend_pid"
