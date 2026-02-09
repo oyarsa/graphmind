@@ -113,6 +113,10 @@ deploy:
     wait "$backend_pid"
     wait "$frontend_pid"
 
+# Follow remote backend logs
+api-logs tail="20":
+    ssh -t graphmind-api 'cd /opt/graphmind && docker compose logs -f --tail {{tail}}'
+
 # Bump version for both backend and frontend (ensures they're synchronized)
 bump bump:
     #!/usr/bin/env bash
