@@ -1,0 +1,3 @@
+graphmind.maleldil.com {
+    reverse_proxy graphmind:8000
+}

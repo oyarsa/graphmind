@@ -1,20 +1,26 @@
-# Used for paper-explorer backend (explore relationships between papers)
-version: "3.8"
-
 services:
-  postgres:
-    image: pgvector/pgvector:pg16
-    container_name: postgres-vector
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: dev
-      POSTGRES_DB: explorer
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./src/backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+  graphmind:
+    build: .
     restart: unless-stopped
+    environment:
+      TIMERS: "1"
+      LOG_LEVEL: "debug"
+      ALLOWED_ORIGINS: "https://graphmind.maleldil.com"
+      API_ENV: "production"
+    env_file:
+      - .env
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
 
 volumes:
-  postgres_data:
+  caddy_data:
