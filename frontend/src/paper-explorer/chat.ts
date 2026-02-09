@@ -103,8 +103,8 @@ export function renderSimpleMarkdown(text: string): string {
     gfm: true,
     breaks: true,
     async: false,
-  }) as string;
-  return DOMPurify.sanitize(html);
+  });
+  return DOMPurify.sanitize(typeof html === "string" ? html : "");
 }
 
 export class PaperChatService {
@@ -366,12 +366,11 @@ export class PaperChatWidget {
         this.errorEl.classList.remove("hidden");
       }
     } finally {
-      if (requestToken !== this.activeConversationToken) {
-        return;
+      if (requestToken === this.activeConversationToken) {
+        this.hideTypingIndicator();
+        this.abortController = null;
+        this.setSending(false);
       }
-      this.hideTypingIndicator();
-      this.abortController = null;
-      this.setSending(false);
     }
   }
 

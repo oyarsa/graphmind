@@ -6,6 +6,7 @@ import {
   buildDetailPageContext,
   PaperChatWidget,
   PaperChatService,
+  type ChatMessage,
   renderSimpleMarkdown,
 } from "./chat";
 import type { AbstractEvaluationResponse, GraphResult } from "./model";
@@ -183,6 +184,31 @@ describe("PaperChatService", () => {
 });
 
 describe("PaperChatWidget", () => {
+  interface MockChatResponse {
+    ok: boolean;
+    json: () => Promise<{ assistant_message: string }>;
+  }
+
+  interface MessageRequestBody {
+    messages: { role: string; content: string }[];
+  }
+
+  function sendCurrentMessage(widget: PaperChatWidget): Promise<void> {
+    return (
+      widget as unknown as {
+        sendCurrentMessage: () => Promise<void>;
+      }
+    ).sendCurrentMessage();
+  }
+
+  function getChatInput(): HTMLTextAreaElement {
+    const input = document.querySelector<HTMLTextAreaElement>("textarea");
+    if (!input) {
+      throw new Error("Chat input textarea not found");
+    }
+    return input;
+  }
+
   function createWidget(): PaperChatWidget {
     return new PaperChatWidget({
       baseUrl: "http://localhost:8000",
@@ -194,49 +220,56 @@ describe("PaperChatWidget", () => {
   }
 
   it("sends at most 20 messages even when local history is larger", async () => {
-    const history = Array.from({ length: 20 }, (_, i) => ({
-      role: (i % 2 === 0 ? "user" : "assistant") as "user" | "assistant",
+    const history: ChatMessage[] = Array.from({ length: 20 }, (_, i) => ({
+      role: i % 2 === 0 ? "user" : "assistant",
       content: `history-${i}`,
     }));
     localStorage.setItem("paper-chat-history:detail:paper-1", JSON.stringify(history));
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ assistant_message: "ok" }),
-    });
+    const fetchMock = vi
+      .fn<[RequestInfo | URL, RequestInit?], Promise<MockChatResponse>>()
+      .mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ assistant_message: "ok" }),
+      });
     vi.stubGlobal("fetch", fetchMock);
 
     const widget = createWidget();
-    const input = document.querySelector("textarea") as HTMLTextAreaElement;
+    const input = getChatInput();
     input.value = "latest question";
-    await (widget as any).sendCurrentMessage();
+    await sendCurrentMessage(widget);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(request.body as string) as {
-      messages: Array<{ role: string; content: string }>;
-    };
+    const [, request] = fetchMock.mock.calls[0] ?? [];
+    if (!request?.body || typeof request.body !== "string") {
+      throw new Error("Expected request body to be a JSON string");
+    }
+    const body = JSON.parse(request.body) as MessageRequestBody;
     expect(body.messages).toHaveLength(20);
-    expect(body.messages.at(-1)?.content).toBe("latest question");
+    expect(body.messages[body.messages.length - 1]?.content).toBe("latest question");
   });
 
   it("discards late responses after switching conversations", async () => {
-    let resolveFetch: ((value: unknown) => void) | null = null;
-    const fetchMock = vi.fn().mockImplementation(
-      () =>
-        new Promise(resolve => {
-          resolveFetch = resolve;
-        }),
-    );
+    let resolveFetch: (value: MockChatResponse) => void = () => {
+      throw new Error("Fetch resolver not initialised");
+    };
+    const fetchMock = vi
+      .fn<[RequestInfo | URL, RequestInit?], Promise<MockChatResponse>>()
+      .mockImplementation(
+        () =>
+          new Promise<MockChatResponse>(resolve => {
+            resolveFetch = resolve;
+          }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const widget = createWidget();
-    const input = document.querySelector("textarea") as HTMLTextAreaElement;
+    const input = getChatInput();
     input.value = "question for paper 1";
-    const pending = (widget as any).sendCurrentMessage();
+    const pending = sendCurrentMessage(widget);
 
     widget.switchConversation("paper-2", () => ({ paper: { title: "Paper 2" } }));
-    resolveFetch?.({
+    resolveFetch({
       ok: true,
       json: () => Promise.resolve({ assistant_message: "stale response" }),
     });
