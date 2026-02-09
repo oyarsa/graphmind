@@ -25,14 +25,14 @@ services:
   netdata:
     image: netdata/netdata
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:19999:19999"
     cap_add:
       - SYS_PTRACE
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    expose:
-      - "19999"
 
 volumes:
   caddy_data:

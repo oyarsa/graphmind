@@ -1,12 +1,4 @@
 graphmind.maleldil.com {
-    handle_path /stats/* {
-        basicauth {
-            {$NETDATA_USER} {$NETDATA_HASH}
-        }
-        uri strip_prefix /stats
-        reverse_proxy netdata:19999
-    }
-
     handle {
         reverse_proxy graphmind:8000
     }
