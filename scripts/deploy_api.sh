@@ -1,6 +1,6 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 cd /opt/graphmind
-git pull
-docker compose up -d --build
-docker image prune -f
+git pull --quiet 1>/dev/null
+docker compose up -d --build 1>/dev/null
+docker image prune -f 1>/dev/null
