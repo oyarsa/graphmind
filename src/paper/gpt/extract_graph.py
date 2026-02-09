@@ -9,13 +9,12 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Annotated, Self
+from typing import TYPE_CHECKING, Annotated, Self
 
 from pydantic import Field
 
 from paper import hierarchical_graph
 from paper.gpt.evaluate_paper import GPTStructured, PaperResult, fix_evaluated_rating
-from paper.gpt.graph_types.base import GPTGraphBase
 from paper.gpt.model import (
     Graph,
     PaperRelatedSummarised,
@@ -24,9 +23,12 @@ from paper.gpt.model import (
     Prompt,
     PromptResult,
 )
-from paper.gpt.run_gpt import GPTResult, LLMClient
 from paper.types import Immutable, PaperProxy
 from paper.util.serde import save_data
+
+if TYPE_CHECKING:
+    from paper.gpt.graph_types.base import GPTGraphBase
+    from paper.gpt.run_gpt import GPTResult, LLMClient
 
 logger = logging.getLogger(__name__)
 

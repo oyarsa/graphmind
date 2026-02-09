@@ -11,9 +11,9 @@ from collections.abc import Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from paper import gpt
     from paper.semantic_scholar.model import S2Reference
 
-from paper import gpt
 from paper.backend.model import BEST_OF_N
 from paper.gpt.evaluate_paper import (
     EvidenceItem,
@@ -27,7 +27,6 @@ from paper.gpt.evaluate_paper_graph import (
     get_prompts,
 )
 from paper.gpt.extract_graph import (
-    EvaluationResult,
     construct_graph_result,
     extract_graph_core,
 )
@@ -113,7 +112,12 @@ async def extract_graph_from_paper(
         graph_prompt, paper, bibliography=format_bibliography(paper.paper.references)
     )
     return await extract_graph_core(
-        client, GPTExcerpt, graph_prompt.system, prompt_text, paper.title, paper.abstract
+        client,
+        GPTExcerpt,
+        graph_prompt.system,
+        prompt_text,
+        paper.title,
+        paper.abstract,
     )
 
 

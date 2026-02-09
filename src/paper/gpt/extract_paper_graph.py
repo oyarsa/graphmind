@@ -20,13 +20,12 @@ from typing import Annotated
 import typer
 from tqdm import tqdm
 
+from paper.gpt.evaluate_paper_graph import format_graph_template
 from paper.gpt.extract_graph import ExtractedGraph
 from paper.gpt.graph_types import get_graph_type
-from paper.gpt.evaluate_paper_graph import format_graph_template
 from paper.gpt.model import (
     Graph,
     PaperWithRelatedSummary,
-    PeerReadAnnotated,
     Prompt,
     PromptResult,
 )

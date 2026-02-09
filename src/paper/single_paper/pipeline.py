@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from paper import gpt
 from paper import peerread as pr
 from paper.embedding import DEFAULT_SENTENCE_MODEL as DEFAULT_SENTENCE_MODEL
+from paper.gpt.extract_graph import EvaluationResult
 from paper.gpt.run_gpt import GPTResult, LLMClient
 from paper.orc.arxiv_api import arxiv_id_from_url
 from paper.single_paper.annotation_extraction import (
@@ -21,7 +22,6 @@ from paper.single_paper.annotation_extraction import (
     extract_main_paper_annotations,
     extract_recommended_annotations,
 )
-from paper.gpt.extract_graph import EvaluationResult
 from paper.single_paper.graph_evaluation import evaluate_paper_with_graph
 from paper.single_paper.paper_retrieval import (
     REQUEST_TIMEOUT,
