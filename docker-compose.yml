@@ -5,7 +5,7 @@ services:
     environment:
       TIMERS: "1"
       LOG_LEVEL: "debug"
-      ALLOWED_ORIGINS: "https://graphmind.maleldil.com"
+      ALLOWED_ORIGINS: "https://oyarsa.github.io"
       API_ENV: "production"
     env_file:
       - .env
