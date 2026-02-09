@@ -19,6 +19,8 @@ export default defineConfig({
   plugins: [tailwindcss()],
   define: {
     VERSION: JSON.stringify(packageJson.version),
+    // API docs URL for the footer; can be overridden via environment variable
+    API_DOCS_URL: JSON.stringify(process.env.API_DOCS_URL || "https://graphmind.maleldil.com/docs"),
   },
   build: {
     rollupOptions: {
