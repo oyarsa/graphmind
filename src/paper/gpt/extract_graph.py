@@ -13,6 +13,7 @@ from typing import Self
 
 from paper import hierarchical_graph
 from paper.gpt.evaluate_paper import GPTStructured, PaperResult, fix_evaluated_rating
+from paper.gpt.graph_types.base import GPTGraphBase
 from paper.gpt.model import (
     Graph,
     PaperRelatedSummarised,
@@ -21,6 +22,7 @@ from paper.gpt.model import (
     Prompt,
     PromptResult,
 )
+from paper.gpt.run_gpt import GPTResult, LLMClient
 from paper.types import Immutable, PaperProxy
 from paper.util.serde import save_data
 
@@ -100,6 +102,39 @@ def construct_graph_result(
         structured_evaluation=evaluation,
     )
     return GraphResult.from_annotated(annotated=paper, graph=graph, result=result)
+
+
+async def extract_graph_core(
+    client: LLMClient,
+    graph_type: type[GPTGraphBase],
+    system_prompt: str,
+    user_prompt: str,
+    title: str,
+    abstract: str,
+) -> GPTResult[Graph]:
+    """Run LLM graph extraction, map to Graph, and warn if empty.
+
+    This is the shared core used by both the single-paper live path and the
+    batch experiment path.
+
+    Args:
+        client: LLM client for API calls.
+        graph_type: Pydantic graph output type (e.g. GPTExcerpt).
+        system_prompt: System prompt for graph extraction.
+        user_prompt: Formatted user prompt for graph extraction.
+        title: Paper title (used for the Graph metadata).
+        abstract: Paper abstract (used for the Graph metadata).
+
+    Returns:
+        GPTResult containing the extracted Graph.
+    """
+    result = await client.run(graph_type, system_prompt, user_prompt)
+    graph = result.map(
+        lambda r: r.to_graph(title=title, abstract=abstract) if r else Graph.empty()
+    )
+    if graph.result.is_empty():
+        logger.warning(f"Paper '{title}': invalid Graph")
+    return graph
 
 
 def save_graphs(

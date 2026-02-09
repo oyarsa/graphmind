@@ -28,7 +28,7 @@ from paper.gpt.evaluate_paper_graph import (
     get_demonstrations,
     get_prompts,
 )
-from paper.gpt.extract_graph import construct_graph_result
+from paper.gpt.extract_graph import construct_graph_result, extract_graph_core
 from paper.gpt.graph_types.excerpts import GPTExcerpt
 from paper.gpt.novelty_utils import get_novelty_probability
 from paper.gpt.run_gpt import GPTResult, LLMClient
@@ -119,20 +119,12 @@ async def extract_graph_from_paper(
     Returns:
         Extracted graph wrapped in GPTResult.
     """
-    result = await client.run(
-        GPTExcerpt,
-        graph_prompt.system,
-        format_graph_template(
-            graph_prompt, paper, bibliography=format_bibliography(paper.paper.references)
-        ),
+    prompt_text = format_graph_template(
+        graph_prompt, paper, bibliography=format_bibliography(paper.paper.references)
     )
-    graph = result.map(
-        lambda r: r.to_graph(paper.title, paper.abstract) if r else gpt.Graph.empty()
+    return await extract_graph_core(
+        client, GPTExcerpt, graph_prompt.system, prompt_text, paper.title, paper.abstract
     )
-    if graph.result.is_empty():
-        logger.warning(f"Paper '{paper.title}': invalid Graph")
-
-    return graph
 
 
 def calculate_evidence_distribution(

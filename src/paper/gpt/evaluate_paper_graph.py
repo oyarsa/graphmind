@@ -44,7 +44,7 @@ from paper.gpt.experiment import (
     print_experiment_summary,
     run_experiment,
 )
-from paper.gpt.extract_graph import GraphResult
+from paper.gpt.extract_graph import GraphResult, extract_graph_core
 from paper.gpt.graph_cache import (
     compute_cache_key,
     load_cached_graphs,
@@ -769,21 +769,14 @@ async def extract_graph(
             return gpt_unit(cached_graphs[paper_id])
 
         graph_prompt_text = format_graph_template(graph_prompt, paper.paper)
-        graph_system_prompt = graph_prompt.system
-        graph_result = await client.run(
+        return await extract_graph_core(
+            client,
             get_graph_type(graph_prompt.type_name),
-            graph_system_prompt,
+            graph_prompt.system,
             graph_prompt_text,
+            paper.title,
+            paper.abstract,
         )
-        graph = graph_result.map(
-            lambda r: r.to_graph(title=paper.title, abstract=paper.abstract)
-            if r
-            else Graph.empty()
-        )
-
-        if graph.result.is_empty():
-            logger.warning(f"Paper '{paper.title}': invalid Graph")
-        return graph
     else:
         return gpt_unit(Graph.empty())
 
