@@ -1,3 +1,13 @@
 graphmind.maleldil.com {
-    reverse_proxy graphmind:8000
+    handle /stats* {
+        basicauth {
+            {$NETDATA_USER} {$NETDATA_HASH}
+        }
+        uri strip_prefix /stats
+        reverse_proxy host.docker.internal:19999
+    }
+
+    handle {
+        reverse_proxy graphmind:8000
+    }
 }
