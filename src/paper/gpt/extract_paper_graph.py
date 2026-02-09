@@ -22,6 +22,7 @@ from tqdm import tqdm
 
 from paper.gpt.extract_graph import ExtractedGraph
 from paper.gpt.graph_types import get_graph_type
+from paper.gpt.evaluate_paper_graph import format_graph_template
 from paper.gpt.model import (
     Graph,
     PaperWithRelatedSummary,
@@ -31,7 +32,6 @@ from paper.gpt.model import (
 )
 from paper.gpt.prompts import PromptTemplate, print_prompts
 from paper.gpt.prompts.extract_graph import GRAPH_EXTRACT_USER_PROMPTS
-from paper.gpt.prompts.primary_areas import PRIMARY_AREAS
 from paper.gpt.run_gpt import (
     GPTResult,
     LLMClient,
@@ -289,16 +289,6 @@ async def _extract_graph(
             prompt=Prompt(system=prompt.system, user=prompt_text),
         ),
         cost=result.cost,
-    )
-
-
-def format_graph_template(prompt: PromptTemplate, paper: PeerReadAnnotated) -> str:
-    """Format graph extraction template using annotated paper."""
-    return prompt.template.format(
-        title=paper.title,
-        abstract=paper.abstract,
-        main_text=paper.paper.main_text,
-        primary_areas=", ".join(PRIMARY_AREAS),
     )
 
 

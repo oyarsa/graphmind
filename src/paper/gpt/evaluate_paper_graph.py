@@ -879,12 +879,23 @@ async def evaluate_paper(
     return result, graph.result
 
 
-def format_graph_template(prompt: PromptTemplate, paper: PeerReadAnnotated) -> str:
-    """Format graph extraction template using annotated paper."""
+def format_graph_template(
+    prompt: PromptTemplate, paper: PeerReadAnnotated, *, bibliography: str = ""
+) -> str:
+    """Format graph extraction template using annotated paper.
+
+    Args:
+        prompt: Graph extraction prompt template.
+        paper: Annotated paper data.
+        bibliography: Optional bibliography text to append to the main text.
+    """
+    main_text = paper.paper.main_text
+    if bibliography:
+        main_text = f"{main_text}\n\nBibliography:\n{bibliography}"
     return prompt.template.format(
         title=paper.title,
         abstract=paper.abstract,
-        main_text=paper.paper.main_text,
+        main_text=main_text,
         primary_areas=", ".join(PRIMARY_AREAS),
     )
 

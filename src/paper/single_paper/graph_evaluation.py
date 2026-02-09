@@ -24,8 +24,8 @@ from paper.gpt.evaluate_paper import (
     fix_evaluated_rating,
 )
 from paper.gpt.evaluate_paper_graph import (
-    PRIMARY_AREAS,
     format_eval_template,
+    format_graph_template,
     get_demonstrations,
 )
 from paper.gpt.graph_types.excerpts import GPTExcerpt
@@ -95,35 +95,6 @@ def format_bibliography(references: Sequence[S2Reference]) -> str:
     return "\n".join(lines)
 
 
-def format_graph_template_with_bibliography(
-    prompt: gpt.PromptTemplate, paper: gpt.PeerReadAnnotated
-) -> str:
-    """Format graph extraction template with bibliography context.
-
-    Extends the main text with a bibliography section so GPT can resolve
-    citation keys to actual paper names and authors.
-
-    Args:
-        prompt: Graph extraction prompt template.
-        paper: Annotated paper data.
-
-    Returns:
-        Formatted prompt string with bibliography included.
-    """
-    main_text = paper.paper.main_text
-
-    # Add bibliography if references have citation keys
-    if bibliography := format_bibliography(paper.paper.references):
-        main_text = f"{main_text}\n\nBibliography:\n{bibliography}"
-
-    return prompt.template.format(
-        title=paper.title,
-        abstract=paper.abstract,
-        main_text=main_text,
-        primary_areas=", ".join(PRIMARY_AREAS),
-    )
-
-
 class EvaluationResult(Immutable):
     """Evaluation result with cost."""
 
@@ -180,7 +151,9 @@ async def extract_graph_from_paper(
     result = await client.run(
         GPTExcerpt,
         graph_prompt.system,
-        format_graph_template_with_bibliography(graph_prompt, paper),
+        format_graph_template(
+            graph_prompt, paper, bibliography=format_bibliography(paper.paper.references)
+        ),
     )
     graph = result.map(
         lambda r: r.to_graph(paper.title, paper.abstract) if r else gpt.Graph.empty()
