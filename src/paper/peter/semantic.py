@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Self
 
 from paper import embedding as emb
 from paper import semantic_scholar as s2
+from paper.gpt.openai_encoder import OpenAIEncoderSync
 from paper.types import Immutable, Matrix
 from paper.util.serde import Record
 
@@ -36,7 +37,7 @@ class _Components:
     @classmethod
     def from_node_paper(
         cls,
-        encoder: emb.Encoder,
+        encoder: OpenAIEncoderSync,
         node_to_paper: Mapping[str, _PaperRelated],
         *,
         progress: bool = False,
@@ -81,7 +82,7 @@ class Graph:
     - Background: context, problem and motivation.
     """
 
-    _encoder: emb.Encoder
+    _encoder: OpenAIEncoderSync
     """Text encoder used to convert backgrounds and targets to vectors."""
     _targets: _Components
     """Target nodes: methods and objectives."""
@@ -89,7 +90,11 @@ class Graph:
     """Background nodes: context, problem and motivation."""
 
     def __init__(
-        self, *, encoder: emb.Encoder, targets: _Components, backgrounds: _Components
+        self,
+        *,
+        encoder: OpenAIEncoderSync,
+        targets: _Components,
+        backgrounds: _Components,
     ) -> None:
         self._encoder = encoder
         self._backgrounds = backgrounds
@@ -98,7 +103,7 @@ class Graph:
     @classmethod
     def from_papers(
         cls,
-        encoder: emb.Encoder,
+        encoder: OpenAIEncoderSync,
         papers: Iterable[gpt.PaperAnnotated],
         *,
         progress: bool = False,
@@ -303,7 +308,7 @@ class GraphData(Immutable):
     encoder_model: str
     """Name of the encoder model used to generate the embeddings."""
 
-    def to_graph(self, encoder: emb.Encoder | None = None) -> Graph:
+    def to_graph(self, encoder: OpenAIEncoderSync | None = None) -> Graph:
         """Initialise Semantic graph from serialised object.
 
         Raises:
@@ -311,7 +316,7 @@ class GraphData(Immutable):
             graph.
         """
         if encoder is None:
-            encoder = emb.Encoder(self.encoder_model)
+            encoder = OpenAIEncoderSync(self.encoder_model)
         if encoder.model_name != self.encoder_model:
             raise ValueError(
                 f"Incompatible encoder model. Expected '{self.encoder_model}', got"

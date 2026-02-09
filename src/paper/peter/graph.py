@@ -6,12 +6,11 @@ import gc
 import logging
 from collections.abc import Iterable
 from pathlib import Path
-from typing import ClassVar, Self
+from typing import TYPE_CHECKING, ClassVar, Self
 
 import orjson
 
-from paper import embedding as emb
-from paper import gpt
+from paper.gpt.openai_encoder import OpenAIEncoderSync
 from paper.peerread import ContextPolarity
 from paper.peter import citations, semantic
 from paper.related_papers import PaperRelated, QueryResult
@@ -25,6 +24,9 @@ from paper.util.serde import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from paper import gpt
 
 
 class Graph:
@@ -97,7 +99,7 @@ class Graph:
     @classmethod
     def build(
         cls,
-        encoder: emb.Encoder,
+        encoder: OpenAIEncoderSync,
         papers_ann: Iterable[gpt.PaperAnnotated],
         papers_context: Iterable[citations.PaperWithContextClassfied],
         output_dir: Path,
@@ -173,7 +175,7 @@ class Graph:
         citation_graph = load_data_single(citation_file, citations.Graph)
 
         semantic_data = load_data_single(semantic_file, semantic.GraphData)
-        semantic_graph = semantic_data.to_graph(emb.Encoder(encoder_model))
+        semantic_graph = semantic_data.to_graph(OpenAIEncoderSync(encoder_model))
 
         return cls(
             citation=citation_graph,

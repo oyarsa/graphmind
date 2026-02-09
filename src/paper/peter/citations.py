@@ -11,6 +11,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Self
 
+import numpy as np
 from tqdm import tqdm
 
 from paper import embedding as emb
@@ -21,6 +22,7 @@ from paper.util.serde import Record
 
 if TYPE_CHECKING:
     from paper.gpt.classify_contexts import PaperWithContextClassfied
+    from paper.gpt.openai_encoder import OpenAIEncoderSync
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +41,7 @@ class Graph(Immutable):
     @classmethod
     def from_papers(
         cls,
-        encoder: emb.Encoder,
+        encoder: OpenAIEncoderSync,
         papers: Iterable[PaperWithContextClassfied],
         progress: bool = False,
     ) -> Self:
@@ -58,18 +60,36 @@ class Graph(Immutable):
             defaultdict(dict)
         )
 
+        logger.debug("Preparing papers and titles for embedding.")
+        papers_list = list(papers)
+
+        peer_titles = [_clean_title(p.title) for p in papers_list]
+        ref_titles_per_paper = [
+            [_clean_title(r.title_peer) for r in p.references] for p in papers_list
+        ]
+        all_titles = list({
+            title for titles in [peer_titles, *ref_titles_per_paper] for title in titles
+        })
+        title_to_embedding = dict(
+            zip(all_titles, encoder.batch_encode(all_titles, progress=progress))
+        )
+
         logger.debug("Processing papers.")
         if progress:
-            papers = tqdm(papers)
+            iterator = tqdm(
+                zip(papers_list, peer_titles, ref_titles_per_paper, strict=False)
+            )
+        else:
+            iterator = zip(papers_list, peer_titles, ref_titles_per_paper, strict=False)
 
-        for peer_paper in papers:
+        for peer_paper, peer_title, ref_titles in iterator:
             title_to_id[peer_paper.title] = peer_paper.id
-            peer_embedding = encoder.encode(_clean_title(peer_paper.title))
-
-            s2_embeddings = encoder.encode_multi([
-                _clean_title(r.title_peer) for r in peer_paper.references
-            ])
-            s2_similarities = emb.similarities(peer_embedding, s2_embeddings)
+            if ref_titles:
+                peer_embedding = title_to_embedding[peer_title]
+                s2_embeddings = np.vstack([title_to_embedding[t] for t in ref_titles])
+                s2_similarities = emb.similarities(peer_embedding, s2_embeddings)
+            else:
+                s2_similarities = np.array([], dtype=np.float32)
 
             for polarity in ContextPolarity:
                 id_polarity_to_cited[peer_paper.id][polarity] = [
