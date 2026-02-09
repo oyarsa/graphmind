@@ -96,9 +96,9 @@ deploy:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    just deploy-backend 2>&1 | awk '{print "[backend] " $0; fflush()}' &
+    just deploy-backend 2>&1 | awk '{print "\033[36m[backend]\033[0m " $0; fflush()}' &
     backend_pid=$!
-    just deploy-frontend 2>&1 | awk '{print "[frontend] " $0; fflush()}' &
+    just deploy-frontend 2>&1 | awk '{print "\033[33m[frontend]\033[0m " $0; fflush()}' &
     frontend_pid=$!
 
     wait "$backend_pid"
