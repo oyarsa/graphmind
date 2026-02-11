@@ -204,6 +204,18 @@ def _setup_logging(logger_name: str) -> None:
     logger.addHandler(handler)
 
 
+def setup_uvicorn_logging() -> None:
+    """Reconfigure uvicorn's loggers to use the project's coloured format.
+
+    Must be called *after* uvicorn has started (e.g. inside the FastAPI lifespan),
+    because uvicorn replaces its logger handlers during startup.
+    """
+    for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+        logger = logging.getLogger(name)
+        logger.handlers.clear()
+        _setup_logging(name)
+
+
 def read_resource(package: str, filename: str) -> str:
     """Read text from resource file.
 

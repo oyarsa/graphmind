@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI, Request
 from paper.backend.db import DatabaseManager
 from paper.gpt.openai_encoder import OpenAIEncoder
 from paper.gpt.run_gpt import LLMClient
-from paper.util import dotenv, rate_limiter
+from paper.util import dotenv, rate_limiter, setup_uvicorn_logging
 
 ENABLE_NETWORK = os.getenv("XP_ENABLE_NETWORK", "0") == "1"
 
@@ -30,6 +30,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Yields:
         None during application runtime.
     """
+    setup_uvicorn_logging()
     dotenv.load_dotenv()
     app.state.limiter = rate_limiter.get_limiter(use_semaphore=False)
     app.state.llm_registry = LLMClientRegistry()
