@@ -4,6 +4,7 @@ services:
       context: ..
       dockerfile: deployment/Dockerfile
     restart: unless-stopped
+    tty: true
     environment:
       TIMERS: "1"
       LOG_LEVEL: "debug"
