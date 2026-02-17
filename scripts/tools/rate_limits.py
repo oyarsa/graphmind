@@ -59,8 +59,9 @@ async def _main() -> None:
         "o1-preview",
         "o1-mini",
         "gpt-5",
-        "gpt-5.2",
+        "gpt-5-nano",
         "gpt-5-mini",
+        "gpt-5.2",
     ]
 
     async with aiohttp.ClientSession() as session:
@@ -77,10 +78,19 @@ async def _main() -> None:
             print()
 
 
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    add_completion=False,
+    rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False,
+)
+
+
+@app.command(help=__doc__)
 def main() -> None:
     """Check rate limits (requests and tokens per minute) for multiple OpenAI models."""
     asyncio.run(_main())
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    app()
