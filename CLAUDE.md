@@ -29,6 +29,7 @@
 
 ## Version Control
 - Use **jujutsu** (`jj`), not git
+- Do NOT add `Co-Authored-By` lines to commits
 - `jj commit -m "<message>"` to commit (no staging needed)
 - Only commit when requested
 - First line of commit messages <= 69 chars
