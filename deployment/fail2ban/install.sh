@@ -44,7 +44,7 @@ systemctl restart fail2ban
 # 6. Verify — wait for the socket to appear
 echo ""
 echo "Waiting for fail2ban to start..."
-for i in $(seq 1 10); do
+for _ in $(seq 1 10); do
     if [ -S /var/run/fail2ban/fail2ban.sock ]; then
         break
     fi
