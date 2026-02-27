@@ -41,7 +41,15 @@ echo "Restarting fail2ban..."
 systemctl enable fail2ban
 systemctl restart fail2ban
 
-# 6. Verify
+# 6. Verify — wait for the socket to appear
 echo ""
+echo "Waiting for fail2ban to start..."
+for i in $(seq 1 10); do
+    if [ -S /var/run/fail2ban/fail2ban.sock ]; then
+        break
+    fi
+    sleep 1
+done
+
 echo "=== Status ==="
 fail2ban-client status caddy-status
