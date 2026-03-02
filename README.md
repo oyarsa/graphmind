@@ -138,7 +138,7 @@ See [REST API](./src/paper/backend/README.md) for more information.
 This project is licensed under the AGPL v3 or later:
 
     graphmind: evaluating paper novelty and feasibility
-    Copyright (C) 2024-2025 Italo Luis da Silva
+    Copyright (C) Italo Luis da Silva
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
