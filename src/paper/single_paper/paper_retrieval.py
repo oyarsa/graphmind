@@ -445,8 +445,10 @@ async def fetch_s2_recommendations(
         )
         recent_papers, all_cs_papers = await asyncio.gather(recent_task, all_cs_task)
 
-    # Deduplicate by paper_id, preferring recent pool order
-    seen: set[str] = set()
+    # Deduplicate by paper_id, preferring recent pool order.
+    # Exclude the main paper itself — the S2 recommendations API can occasionally
+    # return the query paper in its results.
+    seen: set[str] = {paper_id}
     combined: list[s2.Paper] = []
     for rec_paper in recent_papers + all_cs_papers:
         if rec_paper.paper_id not in seen:
