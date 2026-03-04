@@ -17,6 +17,12 @@ class RateLimit:
     tokens: int
 
 
+EMBEDDING_MODELS = frozenset({
+    "text-embedding-3-small",
+    "text-embedding-3-large",
+})
+
+
 async def fetch_rate_limits(
     session: aiohttp.ClientSession,
     model: str,
@@ -27,15 +33,16 @@ async def fetch_rate_limits(
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
     }
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": "Hello"}],
-    }
+
+    if model in EMBEDDING_MODELS:
+        url = "https://api.openai.com/v1/embeddings"
+        payload = {"model": model, "input": "hello"}
+    else:
+        url = "https://api.openai.com/v1/chat/completions"
+        payload = {"model": model, "messages": [{"role": "user", "content": "Hello"}]}
 
     try:
-        async with session.post(
-            "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
-        ) as response:
+        async with session.post(url, headers=headers, json=payload) as response:
             # Even if the model is invalid, we should still get rate limit headers
             requests = response.headers.get("x-ratelimit-limit-requests")
             tokens = response.headers.get("x-ratelimit-limit-tokens")
@@ -62,6 +69,8 @@ async def _main() -> None:
         "gpt-5-nano",
         "gpt-5-mini",
         "gpt-5.2",
+        "text-embedding-3-small",
+        "text-embedding-3-large",
     ]
 
     async with aiohttp.ClientSession() as session:
