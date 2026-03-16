@@ -8,8 +8,10 @@ Configuration is in `fleche.toml`. Run `fleche guide` for full built-in document
 - **Check `fleche.toml` first** for available jobs
 - Most commands default to most recent job if no job-id given
 - Short ID suffix works (e.g., `x7k2` instead of full `train-20260115-153042-847-x7k2`)
+- Numeric index aliases from `fleche status` work anywhere a job ID is accepted (e.g., `fleche logs 1`)
 - Config supports `${VAR}` substitution from env vars, `.env` file, and `${PROJECT}` built-in
 - **`--filter` vs `--tag` vs `--name`**: `--filter` is for job STATUS, `--tag` is for your custom tags, `--name` is regex on job ID
+- Use `--json` flag on supported commands for machine-readable output
 
 ## Available Jobs
 
@@ -35,9 +37,12 @@ fleche run <job> --dry-run                    # Preview sbatch script without su
 fleche run <job> --host local                 # Run locally instead of on remote Slurm cluster
 fleche run <job> --after <job-id>             # Run after another job completes (dependency)
 fleche run <job> --retry 3                    # Auto-retry on failure with exponential backoff
+fleche run <job> --exec                       # Bypass Slurm, run directly via SSH for this run
+fleche run <job> --ntfy my-topic              # Push notifications via ntfy.sh on state changes
 fleche run "command" --gpus 1 --time 1:00:00  # Adhoc Slurm command (no job definition)
 fleche rerun <job-id>                         # Re-run previous job with same settings
 fleche exec <cmd>                             # Run directly via SSH, no Slurm (quick tests)
+fleche exec <cmd> --no-sync                   # Skip project sync (code already on remote)
 fleche exec <cmd> --host local                # Run command locally without SSH
 ```
 
@@ -54,7 +59,7 @@ fleche logs [job-id]                    # View logs (--raw to strip ANSI, --foll
   -n 50                                 #   Show only last N lines
   --stdout / --stderr                   #   Show only one stream
   --note 'pattern'                      #   Filter by note content (case-insensitive regex)
-fleche wait [job-id]                    # Wait for completion (--notify for alerts)
+fleche wait [job-id]                    # Wait for completion (--notify for alerts, --ntfy for push)
 fleche stats [job-id]                   # Show resource usage (elapsed time, CPU time, max memory)
 fleche note <job-id> [text]             # View or set job note
 fleche ping                             # Check Slurm cluster health
@@ -63,6 +68,8 @@ fleche check --remote                   # Validate config against remote server 
 fleche doctor                           # Comprehensive troubleshooting diagnostics
 fleche compare <a> <b>                  # Compare two job configurations side-by-side
 fleche tags                             # List unique tags across all jobs
+fleche jobs                             # List available jobs from configuration
+fleche proxy -- <cmd>                   # Route traffic through SSH SOCKS tunnel to remote host
 ```
 
 ## Results
@@ -83,10 +90,16 @@ fleche download --filter "*.json" --filter "*.json.zst" --filter "*.log" --filte
 
 ```bash
 fleche cancel [job-id]                  # Cancel job (--all for all active, --tag to filter)
-fleche clean --older-than 2h -y         # Clean old jobs periodically
-fleche clean --workspace                # Also delete shared workspace (use with caution)
-fleche clean --archive <job-id>         # Archive job (hide without deleting)
-fleche clean --unarchive <job-id>       # Restore archived job
+fleche cancel --dry-run                 # Preview what would be cancelled
+fleche clean [job-id]                   # Archive job (default: hides without deleting)
+fleche clean --all                      # Archive all finished jobs
+fleche clean --all --filter failed      # Archive only failed jobs
+fleche clean --older-than 2h -y         # Archive old jobs periodically
+fleche clean --delete [job-id]          # Permanently delete job and remote files
+fleche clean --delete --archived --all  # Delete all archived jobs
+fleche clean --delete --workspace       # Also delete shared workspace (use with caution)
+fleche clean --unarchive [job-id]       # Restore archived job
+fleche clean --dry-run                  # Preview what would be done
 ```
 
 ## Running Llama Experiments
@@ -148,10 +161,31 @@ fleche clean --all --tag experiment=test
 - Jobs share workspace, so outputs from one job are available to subsequent jobs
 - Use `fleche download` to pull outputs to local machine
 
+## JSON Output
+
+Use `--json` for machine-readable output (useful for scripting or AI agents):
+
+```bash
+fleche status --json                   # List jobs as JSON
+fleche status --json <job-id>          # Detailed status as JSON
+fleche jobs --json                     # Available job definitions
+fleche tags --json                     # All tags
+fleche stats --json                    # Resource stats
+fleche wait --json                     # Wait and get final status as JSON
+fleche cancel --dry-run --json         # Preview cancellation as JSON
+fleche clean --all --dry-run --json    # Preview cleanup as JSON
+```
+
 ## Tips
 
 - Use `--dry-run` to preview the sbatch script before submitting
 - Ctrl+C during streaming disconnects but doesn't cancel the job
 - Job IDs look like `train-20260114-153042-847-x7k2` (short suffix `x7k2` works too)
+- Use numeric indices from `fleche status` for quick access (e.g., `fleche logs 1`)
 - Use `fleche exec` for quick tests without Slurm queue wait
+- Use `exec = true` in job config for jobs that should always bypass Slurm
+- Use `dotenv = ".env"` in config to forward `.env` variables as exports in sbatch scripts
+- Use `--ntfy <topic>` to get push notifications on your phone via ntfy.sh
+- Use `fleche proxy` to route traffic through the cluster's network
+- Use `fleche jobs` to see what jobs are available in the project
 - Clean old jobs periodically with `fleche clean --older-than 2h -y`
