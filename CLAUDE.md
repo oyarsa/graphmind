@@ -43,4 +43,4 @@
 - **API Server**: `docs/API.md` - endpoints, test cases, response structure
 - **Experiments**: `docs/EXPERIMENTS.md` - setup, ablation configs, log format, fleche jobs
 - **Baselines**: `docs/BASELINES.md` - SFT/Llama fine-tuning setup
-- **Fleche**: `docs/FLECHE.md` - remote job submission, all commands and flags
+- **Fleche**: use `/fleche` skill for general reference; check `fleche.toml` for project-specific jobs
