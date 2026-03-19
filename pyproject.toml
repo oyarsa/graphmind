@@ -41,7 +41,7 @@ dev = [
     "icecream>=2.1.3",
     "ipython>=8.27.0",
     "jupyterlab>=4.2.5",
-    "pdoc>=15.0.1",
+    "pdoc>=16.0.0",
     "pre-commit>=3.8.0",
     "pyright==1.1.403",
     "pytest>=8.3.4",
@@ -166,6 +166,7 @@ torch = [
   { index = "pytorch-cpu", extra = "cpu" },
   { index = "pytorch-cu124", extra = "cuda" },
 ]
+pdoc = { git = "https://github.com/oyarsa/pdoc", tag = "v16.1.0" }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
