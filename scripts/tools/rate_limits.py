@@ -71,6 +71,9 @@ async def _main() -> None:
         "gpt-5.2",
         "text-embedding-3-small",
         "text-embedding-3-large",
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.4-nano",
     ]
 
     async with aiohttp.ClientSession() as session:
