@@ -759,6 +759,39 @@ Full paper text:
 """,
 )
 
+SC4ANM = PromptTemplate(
+    name="sc4anm",
+    type_name="GPTStructured",
+    system="""\
+You are a scientific paper reviewer. Based on the following sections \
+of an academic paper, predict its novelty score.""",
+    template=f"""\
+The following data contains key sections (Introduction, Results, Discussion) \
+of a scientific paper. These are the sections most relevant to assessing the \
+paper's novelty.
+
+Novelty is defined as: How original is the approach? Does this paper break \
+new ground in topic, methodology, or content? How exciting and innovative is \
+the research it describes?
+
+Based solely on the paper's section content, evaluate its novelty. You do not \
+have access to related papers, so base your assessment purely on how the paper \
+presents its contributions.
+
+{RATIONALE_NO_RELATED_BALANCED}
+
+#####
+{{demonstrations}}
+
+-Data-
+Title: {{title}}
+
+{{ird_sections}}
+
+#####
+""",
+)
+
 GRAPH_EVAL_USER_PROMPTS = {
     "full-graph": FULL_GRAPH,
     "only-graph": ONLY_GRAPH,
@@ -779,4 +812,5 @@ GRAPH_EVAL_USER_PROMPTS = {
     "simple-basic": SIMPLE_BASIC,
     "full-text": FULL_TEXT,
     "full-text-only": FULL_TEXT_ONLY,
+    "sc4anm": SC4ANM,
 }

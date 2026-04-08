@@ -25,6 +25,7 @@ from typing import Annotated
 import typer
 
 from paper import peerread as pr
+from paper.baselines.sc4anm import classify_sections, format_ird_sections
 from paper.evaluation_metrics import (
     calculate_paper_metrics,
     display_regular_negative_macro_metrics,
@@ -844,7 +845,7 @@ async def evaluate_paper(
     graph = await extract_graph(client, eval_prompt, graph_prompt, paper, cached_graphs)
 
     # Prepare evaluation prompt
-    eval_prompt_text = format_eval_template(
+    eval_prompt_text = build_eval_prompt_text(
         eval_prompt,
         paper,
         graph.result,
@@ -960,6 +961,48 @@ def get_prompts(
     return eval_prompt, graph_prompt
 
 
+def build_eval_prompt_text(
+    prompt: PromptTemplate,
+    paper: PaperWithRelatedSummary,
+    graph: Graph,
+    demonstrations: str,
+    method: LinearisationMethod = LinearisationMethod.TOPO,
+    sources: set[PaperSource] | None = None,
+    *,
+    use_abstracts: bool = False,
+) -> str:
+    """Build the final user prompt text for a paper evaluation.
+
+    Most prompts use ``format_eval_template``, which populates a shared set of
+    template variables (title, abstract, graph, related papers, etc.).  Some
+    baselines need a different formatter because they use different template
+    variables:
+
+    * **sc4anm** — uses ``format_sc4anm_template``, which classifies the
+      paper's sections into IMRaD categories and populates ``{ird_sections}``
+      with the Introduction + Results + Discussion text (truncated to 2 000
+      tokens each).  It does not use graph, related-paper, or abstract
+      variables.
+
+    Args:
+        prompt: Evaluation prompt template.
+        paper: Paper with related papers and summaries.
+        graph: Extracted paper graph.
+        demonstrations: Text of demonstrations for few-shot prompting.
+        method: How to convert graph to text.
+        sources: Which related paper sources to include.
+        use_abstracts: If True, use raw abstracts instead of GPT summaries for
+            related papers.
+    """
+    if prompt.name == "sc4anm":
+        return format_sc4anm_template(prompt, paper, demonstrations)
+
+    return format_eval_template(
+        prompt, paper, graph, demonstrations, method, sources,
+        use_abstracts=use_abstracts,
+    )
+
+
 def format_eval_template(
     prompt: PromptTemplate,
     paper: PaperWithRelatedSummary,
@@ -1001,6 +1044,29 @@ def format_eval_template(
         graph=graph.to_text(method),
         approval=paper.paper.paper.approval,
         main_text=paper.paper.paper.main_text(),
+    )
+
+
+def format_sc4anm_template(
+    prompt: PromptTemplate,
+    paper: PaperWithRelatedSummary,
+    demonstrations: str,
+) -> str:
+    """Format SC4ANM evaluation template using IMRaD section extraction.
+
+    Classifies paper sections into IMRaD categories by heading matching,
+    then formats the Introduction + Results + Discussion combination with
+    per-section token truncation.
+
+    Args:
+        prompt: SC4ANM evaluation prompt template (expects ``{ird_sections}``).
+        paper: Paper with parsed sections.
+        demonstrations: Text of demonstrations for few-shot prompting.
+    """
+    return prompt.template.format(
+        title=paper.title,
+        demonstrations=demonstrations,
+        ird_sections=format_ird_sections(classify_sections(paper.paper.paper.sections)),
     )
 
 
