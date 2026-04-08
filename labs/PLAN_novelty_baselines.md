@@ -30,12 +30,21 @@
 - [x] 4.3 Full paper content (ORC 100) — Pearson -0.010 ± 0.117
 - [x] 4.4 Full paper content (PeerRead 68) — Pearson -0.001 ± 0.119
 
+All four baselines produce near-zero or negative correlation. Raw abstracts are worse than
+GPT summaries. Full paper text is the most expensive with no benefit.
+
 ### Finetuned model evaluation (novelty-only)
-- [ ] 5.1-5.4 Existing checkpoints (Llama/Qwen basic+graph)
-- [ ] 5.5-5.8 New checkpoints (Llama/Qwen full-text+related)
+- [x] 5.0 Prepare novelty-only data for SFT inference (basic + graph-enriched)
+- [ ] 5.1-5.4 Existing checkpoints (Llama/Qwen basic+graph) — BLOCKED: fleche in use by Phase 2
+- [ ] 5.5-5.8 New checkpoints (Llama/Qwen full-text+related) — BLOCKED: Phase 2 training
 
 ### CSAbstruct
-- [ ] 6.1 Download + evaluate abstract splitting quality
+- [x] 6.0 Download CSAbstruct dev set (295 entries)
+- [x] 6.1 Build evaluation script
+- [x] 6.2 Run LLM classification on 291 abstracts (4 used as demos)
+- [x] 6.3 Compute text-overlap metrics — ROUGE-L: 0.702 bg / 0.840 tgt, BERTScore: 0.869 / 0.963
+- [x] 6.4 Compute sentence-level metrics — Accuracy: 84.5%, F1: 0.785 bg / 0.878 tgt
+- [x] 6.5 Log results
 
 ### TBD (not yet requested)
 - [ ] 3.3-3.6 Basic Prompting (Llama, Qwen, GPT-4o-mini, Gemini)
@@ -194,10 +203,75 @@ Evaluate all existing + new checkpoints (from Phase 2) on the novelty-only 87-pa
 | 5.7 | Qwen full-text (new, from 2.1)          | full paper text                       |
 | 5.8 | Qwen full-text+related (new, from 2.2)  | full paper text + retrieved abstracts |
 
+### Data (ready)
+
+- `output/baselines/llama_data/novelty_test.json.zst` — basic models input
+- `output/baselines/llama_data/novelty_test_graph_enriched.json.zst` — graph models
+  input (87 graphs from cache, zero API cost)
+
+### Blockers
+
+- **5.1-5.4 (existing checkpoints)**: Fleche is in use by Phase 2 training. Can run
+  as soon as the training jobs finish.
+- **5.5-5.8 (new checkpoints)**: Need Phase 2 training to complete first.
+
+### Inference commands (existing checkpoints, 5 seeds each)
+
+```bash
+# 5.1 Llama basic (seeds 42-46)
+for seed in 42 43 44 45 46; do
+  fleche run infer_gen --env DATASET=novelty \
+    --env CONFIG=llama_orc_gen_seed${seed}
+done
+
+# 5.2 Llama graph (seeds 42-46)
+for seed in 42 43 44 45 46; do
+  fleche run infer_gen_graph --env DATASET=novelty \
+    --env CONFIG=llama_gen_graph_seed${seed}
+done
+
+# 5.3 Qwen basic (seeds 42-46)
+for seed in 42 43 44 45 46; do
+  fleche run infer_gen --env DATASET=novelty \
+    --env CONFIG=qwen_gen_basic_orc_seed${seed}
+done
+
+# 5.4 Qwen graph (seeds 43-46)
+for seed in 43 44 45 46; do
+  fleche run infer_gen_graph --env DATASET=novelty \
+    --env CONFIG=qwen3_32b_graph_a100_lr1e4_seed${seed}
+done
+```
+
+**Note**: The exact fleche env vars may need adjusting to match the model directory
+naming conventions.
+
 ## Phase 6: CSAbstruct evaluation
 
-Download 295 dev entries, run abstract background/target classification, compare against
-gold labels. Measures quality of our abstract splitting approach.
+Evaluate our LLM-based abstract background/target classification against CSAbstruct
+gold labels. Data: 295 dev entries (already downloaded to `output/csabstruct_dev.json`).
+
+### Steps
+
+1. **Run LLM classification**: For each of the 295 abstracts, call the abstract
+   classification pipeline (`annotate_paper.py`) to produce predicted `background`
+   and `target` text blocks.
+
+2. **Compute text-overlap metrics**: Compare predicted vs gold text blocks using:
+   - ROUGE-1, ROUGE-2, ROUGE-L (n-gram overlap)
+   - BERTScore (semantic similarity)
+
+3. **Compute sentence-level metrics**: Split predicted and gold text blocks back
+   into sentences, then compute:
+   - Exact sentence match accuracy (% of sentences in the correct bucket)
+   - Sentence-level F1 (precision/recall for background vs target classification)
+
+### Notes
+
+- Gold labels map CSAbstruct categories to binary: `background` stays as-is,
+  everything else (`objective`, `method`, `result`, `other`) becomes `target`.
+- Our classifier outputs two continuous text blocks, not sentence-level labels,
+  so sentence matching requires re-segmentation.
 
 ## Estimated costs
 

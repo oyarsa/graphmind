@@ -219,12 +219,18 @@ def format_input_for_mode(
     negative_papers = [
         p for p in item.related if p.polarity is pr.ContextPolarity.NEGATIVE
     ]
-    positive = "\n\n".join(
-        f"Title: {p.title}\nAbstract: {p.abstract}" for p in positive_papers
-    ) or "(No supporting papers)"
-    negative = "\n\n".join(
-        f"Title: {p.title}\nAbstract: {p.abstract}" for p in negative_papers
-    ) or "(No contrasting papers)"
+    positive = (
+        "\n\n".join(
+            f"Title: {p.title}\nAbstract: {p.abstract}" for p in positive_papers
+        )
+        or "(No supporting papers)"
+    )
+    negative = (
+        "\n\n".join(
+            f"Title: {p.title}\nAbstract: {p.abstract}" for p in negative_papers
+        )
+        or "(No contrasting papers)"
+    )
 
     return template.format(
         title=paper.title, main_text=main_text, positive=positive, negative=negative

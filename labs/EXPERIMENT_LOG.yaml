@@ -2707,3 +2707,51 @@ experiments:
     conclusion: >
       Full paper text produces zero correlation on PeerRead (-0.001). Consistent
       with ORC results — raw text without graph structure provides no signal.
+
+  # === PHASE 6: CSABSTRUCT ABSTRACT SPLITTING EVALUATION (Apr 8) ===
+
+  - date: "2026-04-08"
+    name: "csabstruct_eval"
+    type: evaluation
+    description: "CSAbstruct abstract background/target classification evaluation"
+    reason: >
+      Evaluate our LLM-based abstract classification (background vs target) against
+      CSAbstruct gold labels. Measures quality of the abstract splitting step used
+      in the annotation pipeline.
+    command: |
+      uv run paper tools csabstruct evaluate \
+        output/csabstruct_dev.json \
+        --output output/eval_csabstruct \
+        --model gpt-4o-mini --n-demos 4 --batch-size 50 --seed 42
+    parameters:
+      dataset: "CSAbstruct dev (291 eval + 4 demos)"
+      model: "gpt-4o-mini"
+      prompt: "simple"
+      n_demos: 4
+      runs: 1
+    metrics:
+      text_overlap_background:
+        rouge1: 0.708
+        rouge2: 0.691
+        rouge_l: 0.702
+        bertscore_f1: 0.869
+      text_overlap_target:
+        rouge1: 0.844
+        rouge2: 0.833
+        rouge_l: 0.840
+        bertscore_f1: 0.963
+      sentence_level:
+        accuracy: 0.845
+        macro_f1: 0.832
+        background_f1: 0.785
+        background_precision: 0.737
+        background_recall: 0.841
+        target_f1: 0.878
+        target_precision: 0.912
+        target_recall: 0.846
+    conclusion: >
+      Abstract classification achieves 84.5% sentence-level accuracy against CSAbstruct
+      gold labels. Target classification is stronger (F1 0.878) than background (F1 0.785),
+      with high BERTScore (0.963 target, 0.869 background). The model tends to over-assign
+      sentences to background (precision 0.737 for background vs 0.912 for target),
+      but overall the splitting quality is solid.

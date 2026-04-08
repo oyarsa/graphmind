@@ -6,6 +6,38 @@ This file contains summary tables comparing different configurations across data
 
 ---
 
+2026-04-08 CSAbstruct Abstract Splitting Evaluation
+----------------------------------------------------
+
+Evaluated our LLM-based abstract background/target classification against CSAbstruct
+gold labels (291 abstracts from dev split, 4 used as few-shot demos).
+
+### Text Overlap Metrics
+
+| Segment | ROUGE-1 | ROUGE-2 | ROUGE-L | BERTScore F1 |
+|---------|---------|---------|---------|--------------|
+| Background | 0.708 | 0.691 | 0.702 | 0.869 |
+| Target | 0.844 | 0.833 | 0.840 | 0.963 |
+
+### Sentence-Level Metrics
+
+| Metric | Background | Target | Overall |
+|--------|-----------|--------|---------|
+| Precision | 0.737 | 0.912 | |
+| Recall | 0.841 | 0.846 | |
+| F1 | 0.785 | 0.878 | |
+| **Macro F1** | | | **0.832** |
+| **Accuracy** | | | **0.845** |
+
+### Key Findings
+
+- 84.5% sentence-level accuracy — solid for a zero-shot-ish (4-shot) classifier.
+- Target classification is stronger than background (F1 0.878 vs 0.785).
+- The model tends to over-assign sentences to background (low background precision 0.737).
+- BERTScore is very high for target (0.963), confirming semantic fidelity.
+
+---
+
 2026-04-08 New Baselines on Main Datasets + Novelty-Only Evaluation
 -------------------------------------------------------------------
 

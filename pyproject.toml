@@ -187,4 +187,6 @@ baselines = [
     "peft>=0.15.1",
     "bitsandbytes>=0.45.3 ; sys_platform == 'linux' and platform_machine == 'x86_64'",
     "annoy>=1.17.3",
+    "rouge-score>=0.1.2",
+    "bert-score>=0.3.13",
 ]
