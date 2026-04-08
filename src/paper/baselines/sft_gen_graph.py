@@ -710,10 +710,22 @@ def train(
     save_model(trained_model, tokeniser, output_dir, config)
     logger.debug("Saving model: end")
 
+    # Free training model and reload fresh with quantisation for evaluation.
+    # The post-training model may have lost quantisation during LoRA merge,
+    # causing OOM during generate().
+    del trained_model, trainer
+    torch.cuda.empty_cache()
+
+    logger.debug("Reloading model for evaluation: start")
+    eval_model, eval_tokeniser = setup_model_and_tokeniser(
+        config, output_dir / "final_model"
+    )
+    logger.debug("Reloading model for evaluation: done")
+
     logger.debug("Evaluating: start")
     evaluated = evaluate_model(
-        trained_model,
-        tokeniser,
+        eval_model,
+        eval_tokeniser,
         test_dataset,
         test_data,
         output_dir,
