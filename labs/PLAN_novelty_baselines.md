@@ -20,7 +20,7 @@
 - [x] 3.2 SciMON — Pearson 0.287 ± 0.013 (82/87 papers)
 - [x] 3.11 GraphMind GPT-4o-mini — Pearson 0.508 ± 0.036
 - [x] 3.12 GraphMind Gemini — Pearson 0.497 ± 0.027
-- [x] 3.14 Abs. + Related G. — Pearson 0.045 ± 0.093
+- [x] 3.14 Abs. + Related G. — Pearson 0.021 ± 0.054 (rerun with v6 prompt)
 - [x] 3.18 GraphMind (same as 3.11)
 - [x] 3.19 Full paper content — Pearson 0.061 ± 0.096
 

@@ -2521,31 +2521,34 @@ experiments:
     type: ablation
     description: "Abs + Related on novelty-only subset"
     reason: >
-      Ablation: abstract + related papers without graph summary.
+      Ablation: abstract + related papers without graph summary. Uses the same
+      `related` (v6) prompt as the paper's ORC result (Pearson 0.091).
     command: |
       uv run paper gpt eval graph experiment \
         --papers output/venus5/split/novelty_only_87_balanced.json.zst \
-        --output output/eval_novelty/abs_related \
-        --model gpt-4o-mini --eval-prompt related-structured \
-        --limit 87 --seed 42 --runs 5
+        --output output/eval_novelty/abs_related_v6 \
+        --model gpt-4o-mini --eval-prompt related \
+        --demos orc_balanced_4 --seed 42 --n-evaluations 1 \
+        --limit 87 --runs 5
     parameters:
       dataset: "ORC novelty_only_87_balanced"
       model: "gpt-4o-mini"
-      eval_prompt: "related-structured"
-      sources: "citations, semantic"
-      demos: null
+      eval_prompt: "related"
+      sources: null
+      demos: "orc_balanced_4"
       runs: 5
     metrics:
-      pearson: {mean: 0.045, stdev: 0.093, min: -0.055, max: 0.180}
-      spearman: {mean: 0.037, stdev: 0.094, min: -0.056, max: 0.179}
-      mae: {mean: 0.943, stdev: ~}
-      accuracy: {mean: 0.274, stdev: ~}
-      f1: {mean: 0.226, stdev: ~}
-      cost_per_run: 0.112
-    total_cost: 0.56
+      pearson: {mean: 0.021, stdev: 0.054, min: -0.056, max: 0.071}
+      spearman: {mean: 0.015, stdev: 0.041, min: -0.049, max: 0.054}
+      mae: {mean: 0.749, stdev: ~}
+      accuracy: {mean: 0.267, stdev: ~}
+      f1: {mean: 0.148, stdev: ~}
+      cost_per_run: 0.156
+    total_cost: 0.78
     conclusion: >
-      Abs + Related achieves near-zero correlation (0.045) on novelty-only. Without
-      the graph summary, related papers alone provide almost no signal.
+      Abs + Related achieves near-zero correlation (0.021) on novelty-only, worse
+      than the full ORC result (0.091). Without the graph summary, related papers
+      alone provide almost no signal.
 
   - date: "2026-04-08"
     name: "novelty_full_text"
@@ -2578,6 +2581,67 @@ experiments:
       Full paper text achieves near-zero Pearson (0.061) despite being the most
       expensive baseline ($0.44/run). Raw text without graph extraction does not
       help — the structured graph representation is essential.
+
+  - date: "2026-04-08"
+    name: "novelty_full_text_only"
+    type: evaluation
+    description: "Full paper content only (no related papers) on novelty-only"
+    reason: >
+      Test full paper text without any related papers for novelty assessment.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/novelty_only_87_balanced.json.zst \
+        --output output/eval_novelty/full_text_only \
+        --model gpt-4o-mini --eval-prompt full-text-only \
+        --limit 87 --seed 42 --runs 5
+    parameters:
+      dataset: "ORC novelty_only_87_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-text-only"
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.010, stdev: 0.083, min: -0.117, max: 0.101}
+      spearman: {mean: 0.014, stdev: 0.099, min: -0.141, max: 0.122}
+      mae: {mean: 1.841, stdev: ~}
+      accuracy: {mean: 0.092, stdev: ~}
+      f1: {mean: 0.093, stdev: ~}
+      cost_per_run: 0.266
+    total_cost: 1.33
+    conclusion: >
+      Full paper text without related papers: Pearson 0.010. No signal from raw
+      text alone.
+
+  - date: "2026-04-08"
+    name: "novelty_full_text_raw_abstracts"
+    type: evaluation
+    description: "Full paper content + raw abstracts on novelty-only"
+    reason: >
+      Test full paper text with retrieved papers' raw abstracts (not GPT summaries).
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/novelty_only_87_balanced.json.zst \
+        --output output/eval_novelty/full_text_raw_abstracts \
+        --model gpt-4o-mini --eval-prompt full-text --raw-abstracts \
+        --limit 87 --seed 42 --runs 5
+    parameters:
+      dataset: "ORC novelty_only_87_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-text"
+      raw_abstracts: true
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: -0.027, stdev: 0.053, min: -0.092, max: 0.047}
+      spearman: {mean: -0.003, stdev: 0.046, min: -0.076, max: 0.041}
+      mae: {mean: 1.324, stdev: ~}
+      accuracy: {mean: 0.239, stdev: ~}
+      f1: {mean: 0.097, stdev: ~}
+      cost_per_run: 0.345
+    total_cost: 1.73
+    conclusion: >
+      Full paper text + raw abstracts: Pearson -0.027. Adding raw abstracts to
+      full text makes it slightly worse. All full-text variants are noise.
 
   # === PHASE 4: NEW BASELINES ON MAIN DATASETS (Apr 8) ===
 
@@ -2707,6 +2771,108 @@ experiments:
     conclusion: >
       Full paper text produces zero correlation on PeerRead (-0.001). Consistent
       with ORC results — raw text without graph structure provides no signal.
+
+  - date: "2026-04-08"
+    name: "full_text_only_orc"
+    type: evaluation
+    description: "Full paper content only, no related papers (ORC)"
+    reason: >
+      Isolate the full text signal without any related paper context.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_main/full_text_only_orc \
+        --model gpt-4o-mini --eval-prompt full-text-only \
+        --limit 100 --seed 42 --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-text-only"
+      runs: 5
+    metrics:
+      pearson: {mean: -0.005, stdev: 0.048}
+      spearman: {mean: 0.024, stdev: 0.048}
+      cost_per_run: 0.335
+    total_cost: 1.68
+    conclusion: >
+      No signal from full text alone on ORC.
+
+  - date: "2026-04-08"
+    name: "full_text_only_peerread"
+    type: evaluation
+    description: "Full paper content only, no related papers (PeerRead)"
+    reason: >
+      Same as above on PeerRead.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_main/full_text_only_peerread \
+        --model gpt-4o-mini --eval-prompt full-text-only \
+        --limit 68 --seed 42 --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-text-only"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.062, stdev: 0.069}
+      spearman: {mean: 0.115, stdev: 0.047}
+      cost_per_run: 0.084
+    total_cost: 0.42
+    conclusion: >
+      Slightly positive but within noise on PeerRead.
+
+  - date: "2026-04-08"
+    name: "full_text_raw_abstracts_orc"
+    type: evaluation
+    description: "Full paper content + raw abstracts (ORC)"
+    reason: >
+      Test full text with raw related paper abstracts instead of summaries.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_main/full_text_raw_abstracts_orc \
+        --model gpt-4o-mini --eval-prompt full-text --raw-abstracts \
+        --limit 100 --seed 42 --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-text"
+      raw_abstracts: true
+      runs: 5
+    metrics:
+      pearson: {mean: -0.011, stdev: 0.103}
+      spearman: {mean: -0.018, stdev: 0.109}
+      cost_per_run: 0.441
+    total_cost: 2.21
+    conclusion: >
+      No signal. Full text + raw abstracts on ORC.
+
+  - date: "2026-04-08"
+    name: "full_text_raw_abstracts_peerread"
+    type: evaluation
+    description: "Full paper content + raw abstracts (PeerRead)"
+    reason: >
+      Same as above on PeerRead.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_main/full_text_raw_abstracts_peerread \
+        --model gpt-4o-mini --eval-prompt full-text --raw-abstracts \
+        --limit 68 --seed 42 --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-text"
+      raw_abstracts: true
+      runs: 5
+    metrics:
+      pearson: {mean: 0.004, stdev: 0.169}
+      spearman: {mean: 0.008, stdev: 0.157}
+      cost_per_run: 0.117
+    total_cost: 0.59
+    conclusion: >
+      No signal. High variance (0.169) with mean near zero on PeerRead.
 
   # === PHASE 6: CSABSTRUCT ABSTRACT SPLITTING EVALUATION (Apr 8) ===
 

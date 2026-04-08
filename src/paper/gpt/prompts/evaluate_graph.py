@@ -730,6 +730,35 @@ Contrasting papers:
 """,
 )
 
+FULL_TEXT_ONLY = PromptTemplate(
+    name="full-text-only",
+    type_name="GPTStructured",
+    system="""\
+Given the full text of a scientific paper, provide a structured novelty evaluation \
+on a 1-5 scale. No related papers are available.
+""",
+    template=f"""
+The following data contains the full text of a scientific paper.
+
+Based solely on the paper's content, evaluate how novel the described approach and
+contributions appear to be. You do not have access to related papers, so base your
+assessment purely on how the paper presents its contributions.
+
+{RATIONALE_NO_RELATED_BALANCED}
+
+#####
+{{demonstrations}}
+
+-Data-
+Title: {{title}}
+
+Full paper text:
+{{main_text}}
+
+#####
+""",
+)
+
 GRAPH_EVAL_USER_PROMPTS = {
     "full-graph": FULL_GRAPH,
     "only-graph": ONLY_GRAPH,
@@ -749,4 +778,5 @@ GRAPH_EVAL_USER_PROMPTS = {
     "debug-random": DEBUG_RANDOM,
     "simple-basic": SIMPLE_BASIC,
     "full-text": FULL_TEXT,
+    "full-text-only": FULL_TEXT_ONLY,
 }

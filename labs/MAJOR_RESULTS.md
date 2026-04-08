@@ -46,29 +46,27 @@ gold labels (291 abstracts from dev split, 4 used as few-shot demos).
 Two new baselines tested: raw abstracts (instead of GPT summaries) for related papers,
 and full paper text (replacing graph and abstract entirely).
 
-#### ORC Dataset (n=100)
+#### Full-Text Variants (Pearson, all datasets)
 
-| Method | Pearson | Spearman | MAE | Cost/run |
-|--------|---------|----------|-----|----------|
-| Full Paper Content | -0.010 ± 0.117 | -0.013 ± 0.109 | 1.476 | $0.426 |
-| Raw Abstracts | 0.024 ± 0.077 | 0.027 ± 0.077 | 1.048 | $0.136 |
-| Abs + Related (summaries) | 0.038 ± ~ | ~ | ~ | ~ |
-| **GPT Graph** | **0.377 ± 0.034** | **0.383 ± 0.042** | **0.860** | **$~** |
+| Variant | ORC (n=100) | Novelty-only (n=87) | PeerRead (n=68) |
+|---------|-------------|---------------------|-----------------|
+| Full Text Only | -0.005 ± 0.048 | 0.010 ± 0.083 | 0.062 ± 0.069 |
+| Full Text + Raw Abstracts | -0.011 ± 0.103 | -0.027 ± 0.053 | 0.004 ± 0.169 |
+| Full Text + Summaries | -0.010 ± 0.117 | 0.061 ± 0.096 | -0.001 ± 0.119 |
+| *GraphMind (reference)* | *0.377 ± 0.034* | *0.508 ± 0.036* | *0.538 ± 0.062* |
 
-#### PeerRead Dataset (n=68)
+#### Other New Baselines (Pearson)
 
-| Method | Pearson | Spearman | MAE | Cost/run |
-|--------|---------|----------|-----|----------|
-| Raw Abstracts | 0.001 ± 0.095 | 0.002 ± 0.093 | 0.974 | $0.051 |
-| Full Paper Content | -0.001 ± 0.119 | 0.023 ± 0.114 | 1.606 | $0.123 |
-| **GPT Graph** | **0.538 ± 0.062** | **0.526 ± 0.063** | **1.112** | **$~** |
+| Variant | ORC (n=100) | PeerRead (n=68) |
+|---------|-------------|-----------------|
+| Raw Abstracts (related only) | 0.024 ± 0.077 | 0.001 ± 0.095 |
 
 #### Key Findings
 
-- Raw abstracts and full paper text both produce near-zero correlation on both datasets.
-- GPT-generated summaries add significant value over raw abstracts for related papers.
-- Full paper text is the most expensive baseline with no benefit — graph extraction is
-  essential for distilling novelty-relevant information from the raw text.
+- All full-text variants produce near-zero correlation across all three datasets.
+- Adding related papers (raw abstracts or summaries) to full text does not help.
+- Raw abstracts perform worse than GPT summaries for related papers.
+- Graph extraction is essential — full text at 2-4x the cost provides no benefit.
 
 ---
 
@@ -83,8 +81,10 @@ drawn from ORC dev+test, ICLR 2022-2023 only. Rating 1 dropped (only 2 papers).
 
 | Method | Pearson | Spearman | Acc ±1 | MAE | Cost/run |
 |--------|---------|----------|--------|-----|----------|
-| Abs + Related | 0.045 ± 0.093 | 0.037 ± 0.094 | ~ | 0.943 | $0.112 |
-| Full Paper Content | 0.061 ± 0.096 | 0.142 ± 0.093 | ~ | 1.274 | $0.441 |
+| Abs + Related | 0.021 ± 0.054 | 0.015 ± 0.041 | ~ | 0.749 | $0.156 |
+| Full Text + Raw Abstracts | -0.027 ± 0.053 | -0.003 ± 0.046 | ~ | 1.324 | $0.345 |
+| Full Text Only | 0.010 ± 0.083 | 0.014 ± 0.099 | ~ | 1.841 | $0.266 |
+| Full Text + Summaries | 0.061 ± 0.096 | 0.142 ± 0.093 | ~ | 1.274 | $0.441 |
 | NovaSCORE | 0.158 | 0.155 | 0.793 | 1.023 | $0.000 |
 | SciMON | 0.287 ± 0.013 | 0.294 ± 0.013 | ~ | 0.642 | $0.070 |
 | **Gemini Graph** | **0.497 ± 0.027** | **0.507 ± 0.025** | **~** | **0.609** | **$0.192** |
