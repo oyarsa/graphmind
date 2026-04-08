@@ -217,6 +217,13 @@ def run(
             help="Force graph regeneration, ignoring any existing cache.",
         ),
     ] = False,
+    raw_abstracts: Annotated[
+        bool,
+        typer.Option(
+            "--raw-abstracts",
+            help="Use raw abstracts instead of GPT summaries for related papers.",
+        ),
+    ] = False,
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers."""
     asyncio.run(
@@ -240,6 +247,7 @@ def run(
             set(sources),
             cache_dir,
             no_cache,
+            use_abstracts=raw_abstracts,
         )
     )
 
@@ -356,6 +364,13 @@ def experiment(
             help="Force graph regeneration, ignoring any existing cache.",
         ),
     ] = False,
+    raw_abstracts: Annotated[
+        bool,
+        typer.Option(
+            "--raw-abstracts",
+            help="Use raw abstracts instead of GPT summaries for related papers.",
+        ),
+    ] = False,
 ) -> None:
     """Run graph evaluation experiment multiple times and aggregate metrics."""
     cmd = build_eval_command(
@@ -376,6 +391,7 @@ def experiment(
         temperature=temperature,
         cache_dir=cache_dir,
         no_cache=no_cache,
+        raw_abstracts=raw_abstracts,
     )
 
     results = run_experiment(cmd, output_dir, runs)
@@ -442,6 +458,8 @@ async def evaluate_papers(
     sources: set[PaperSource],
     cache_dir: Path,
     no_cache: bool,
+    *,
+    use_abstracts: bool = False,
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers.
 
@@ -477,6 +495,8 @@ async def evaluate_papers(
         sources: What kinds of related paper sources to use.
         cache_dir: Directory for graph extraction cache.
         no_cache: If True, ignore cache and regenerate graphs.
+        use_abstracts: If True, use raw abstracts instead of GPT summaries for
+            related papers.
 
     Returns:
         None. The output is saved to `output_dir`.
@@ -540,6 +560,7 @@ async def evaluate_papers(
             batch_size,
             sources,
             cached_graphs,
+            use_abstracts=use_abstracts,
         )
 
     # Save newly extracted graphs to cache
@@ -593,6 +614,8 @@ async def _evaluate_papers(
     batch_size: int,
     sources: set[PaperSource],
     cached_graphs: dict[str, Graph],
+    *,
+    use_abstracts: bool = False,
 ) -> tuple[GPTResult[Sequence[PromptResult[GraphResult]]], dict[str, Graph]]:
     """Evaluate paper novelty using a paper graph and PETER-related papers.
 
@@ -610,6 +633,8 @@ async def _evaluate_papers(
         batch_size: Number of items per batch.
         sources: What kinds of related paper sources to use.
         cached_graphs: Dictionary of paper ID to cached Graph objects.
+        use_abstracts: If True, use raw abstracts instead of GPT summaries for
+            related papers.
 
     Returns:
         Tuple of (evaluation results, newly extracted graphs).
@@ -630,6 +655,7 @@ async def _evaluate_papers(
             eval_temperature,
             sources,
             cached_graphs,
+            use_abstracts=use_abstracts,
         )
         # Track newly extracted graphs (not from cache)
         if graph and not graph.is_empty() and graph.id not in cached_graphs:
@@ -792,6 +818,8 @@ async def evaluate_paper(
     eval_temperature: float,
     sources: set[PaperSource],
     cached_graphs: dict[str, Graph],
+    *,
+    use_abstracts: bool = False,
 ) -> tuple[GPTResult[PromptResult[GraphResult]], Graph]:
     """Evaluate a single paper's novelty using graph extraction and related papers.
 
@@ -806,6 +834,8 @@ async def evaluate_paper(
         eval_temperature: Temperature for evaluation rounds.
         sources: Which related paper sources to include.
         cached_graphs: Dictionary of paper ID to cached Graph objects.
+        use_abstracts: If True, use raw abstracts instead of GPT summaries for
+            related papers.
 
     Returns:
         Tuple of (GraphResult with evaluation wrapped in PromptResult and GPTResult, Graph).
@@ -815,7 +845,13 @@ async def evaluate_paper(
 
     # Prepare evaluation prompt
     eval_prompt_text = format_eval_template(
-        eval_prompt, paper, graph.result, demonstrations, linearisation_method, sources
+        eval_prompt,
+        paper,
+        graph.result,
+        demonstrations,
+        linearisation_method,
+        sources,
+        use_abstracts=use_abstracts,
     )
 
     if eval_prompt.type_name == "GPTStructured":
@@ -931,8 +967,21 @@ def format_eval_template(
     demonstrations: str,
     method: LinearisationMethod = LinearisationMethod.TOPO,
     sources: set[PaperSource] | None = None,
+    *,
+    use_abstracts: bool = False,
 ) -> str:
-    """Format evaluation template using the paper graph and PETER-queried related papers."""
+    """Format evaluation template using the paper graph and PETER-queried related papers.
+
+    Args:
+        prompt: Evaluation prompt template.
+        paper: Paper with related papers and summaries.
+        graph: Extracted paper graph.
+        demonstrations: Text of demonstrations for few-shot prompting.
+        method: How to convert graph to text.
+        sources: Which related paper sources to include.
+        use_abstracts: If True, use raw abstracts instead of GPT summaries for
+            related papers.
+    """
     if sources is None:
         sources = set(PaperSource)
 
@@ -942,20 +991,34 @@ def format_eval_template(
         abstract=paper.abstract,
         demonstrations=demonstrations,
         positive=format_related(
-            p for p in related if p.polarity is pr.ContextPolarity.POSITIVE
+            (p for p in related if p.polarity is pr.ContextPolarity.POSITIVE),
+            use_abstracts=use_abstracts,
         ),
         negative=format_related(
-            p for p in related if p.polarity is pr.ContextPolarity.NEGATIVE
+            (p for p in related if p.polarity is pr.ContextPolarity.NEGATIVE),
+            use_abstracts=use_abstracts,
         ),
         graph=graph.to_text(method),
         approval=paper.paper.paper.approval,
+        main_text=paper.paper.paper.main_text(),
     )
 
 
-def format_related(related: Iterable[PaperRelatedSummarised]) -> str:
-    """Build prompt from related papers IDs, titles, sources, and summaries."""
+def format_related(
+    related: Iterable[PaperRelatedSummarised],
+    *,
+    use_abstracts: bool = False,
+) -> str:
+    """Build prompt from related papers IDs, titles, sources, and summaries.
+
+    Args:
+        related: Related papers to format.
+        use_abstracts: If True, use the paper's raw abstract instead of the
+            GPT-generated summary.
+    """
+    label = "Abstract" if use_abstracts else "Summary"
     return "\n\n".join(
-        f"ID: {paper.paper_id}\nTitle: {paper.title}\nSource: {paper.source.value}\nSummary: {paper.summary}\n"
+        f"ID: {paper.paper_id}\nTitle: {paper.title}\nSource: {paper.source.value}\n{label}: {paper.abstract if use_abstracts else paper.summary}\n"
         for paper in related
     )
 

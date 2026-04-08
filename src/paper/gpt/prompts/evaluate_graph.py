@@ -695,6 +695,41 @@ Contrasting papers:
 """,
 )
 
+FULL_TEXT = PromptTemplate(
+    name="full-text",
+    type_name="GPTStructured",
+    system="""\
+Given the full text of a scientific paper and a selection of related papers, provide \
+a structured novelty evaluation on a 1-5 scale.
+""",
+    template=f"""
+The following data contains the full text of a scientific paper and some related papers.
+
+{RELATED_INTRO}
+
+{RELATED_WITH_IDS}
+
+{EVAL_SCALE_BALANCED}
+
+#####
+{{demonstrations}}
+
+-Data-
+Title: {{title}}
+
+Full paper text:
+{{main_text}}
+
+Supporting papers:
+{{positive}}
+
+Contrasting papers:
+{{negative}}
+
+#####
+""",
+)
+
 GRAPH_EVAL_USER_PROMPTS = {
     "full-graph": FULL_GRAPH,
     "only-graph": ONLY_GRAPH,
@@ -713,4 +748,5 @@ GRAPH_EVAL_USER_PROMPTS = {
     "full-graph-balanced": FULL_GRAPH_BALANCED,
     "debug-random": DEBUG_RANDOM,
     "simple-basic": SIMPLE_BASIC,
+    "full-text": FULL_TEXT,
 }
