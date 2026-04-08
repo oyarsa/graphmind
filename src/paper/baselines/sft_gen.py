@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import random
 import re
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, cast
 
@@ -32,6 +33,7 @@ from transformers.training_args import TrainingArguments
 from transformers.utils.quantization_config import BitsAndBytesConfig
 
 from paper import gpt
+from paper import peerread as pr
 from paper.baselines.sft_utils import LoraConfig, cuda_available, suppress_hf_warnings
 from paper.evaluation_metrics import (
     calculate_metrics,
@@ -102,6 +104,17 @@ class GenerationConfig(Immutable):
     top_p: float = 0.9
 
 
+class InputMode(StrEnum):
+    """Input formatting mode for SFT training."""
+
+    BASIC = "basic"
+    """Title + abstract only."""
+    FULL_TEXT = "full-text"
+    """Full paper text (all sections)."""
+    FULL_TEXT_ABSTRACTS = "full-text-abstracts"
+    """Full paper text + retrieved papers' raw abstracts."""
+
+
 class AppConfig(Immutable):
     """Main application configuration."""
 
@@ -109,6 +122,7 @@ class AppConfig(Immutable):
     lora: LoraConfig | None = None
     training: TrainingConfig
     generation: GenerationConfig = GenerationConfig()
+    input_mode: InputMode = InputMode.BASIC
 
 
 app = typer.Typer(
@@ -125,7 +139,7 @@ app = typer.Typer(
 # Data preprocessing
 # =============================================================================
 
-INPUT_TEMPLATE = """\
+INPUT_TEMPLATE_BASIC = """\
 Title: {title}
 Abstract: {abstract}
 
@@ -133,6 +147,35 @@ Based on the paper above, give a rating from 1-5 (1=not novel, 5=highly novel), 
 then provide a brief explanation of your rating.
 
 """
+
+INPUT_TEMPLATE_FULL_TEXT = """\
+Title: {title}
+
+{main_text}
+
+Based on the paper above, give a rating from 1-5 (1=not novel, 5=highly novel), \
+then provide a brief explanation of your rating.
+
+"""
+
+INPUT_TEMPLATE_FULL_TEXT_ABSTRACTS = """\
+Title: {title}
+
+{main_text}
+
+## Supporting Related Work
+{positive}
+
+## Contrasting Related Work
+{negative}
+
+Based on the paper and related work above, give a rating from 1-5 (1=not novel, \
+5=highly novel), then provide a brief explanation of your rating.
+
+"""
+
+# Keep INPUT_TEMPLATE as alias for backwards compatibility with existing code
+INPUT_TEMPLATE = INPUT_TEMPLATE_BASIC
 
 OUTPUT_TEMPLATE = """\
 Rating: {rating}
@@ -142,10 +185,55 @@ Rating: {rating}
 FULL_TEMPLATE = """\
 {input}{output}"""
 
+INPUT_TEMPLATES: dict[InputMode, str] = {
+    InputMode.BASIC: INPUT_TEMPLATE_BASIC,
+    InputMode.FULL_TEXT: INPUT_TEMPLATE_FULL_TEXT,
+    InputMode.FULL_TEXT_ABSTRACTS: INPUT_TEMPLATE_FULL_TEXT_ABSTRACTS,
+}
+
+
+def format_input_for_mode(
+    mode: InputMode,
+    item: gpt.PaperWithRelatedSummary,
+) -> str:
+    """Format the input prompt based on the input mode.
+
+    Args:
+        mode: Which input formatting to use.
+        item: Paper with related papers data.
+    """
+    paper = item.paper.paper
+    template = INPUT_TEMPLATES[mode]
+
+    if mode is InputMode.BASIC:
+        return template.format(title=paper.title, abstract=paper.abstract)
+
+    main_text = paper.main_text()
+    if mode is InputMode.FULL_TEXT:
+        return template.format(title=paper.title, main_text=main_text)
+
+    # FULL_TEXT_ABSTRACTS: include related papers' raw abstracts
+    positive_papers = [
+        p for p in item.related if p.polarity is pr.ContextPolarity.POSITIVE
+    ]
+    negative_papers = [
+        p for p in item.related if p.polarity is pr.ContextPolarity.NEGATIVE
+    ]
+    positive = "\n\n".join(
+        f"Title: {p.title}\nAbstract: {p.abstract}" for p in positive_papers
+    ) or "(No supporting papers)"
+    negative = "\n\n".join(
+        f"Title: {p.title}\nAbstract: {p.abstract}" for p in negative_papers
+    ) or "(No contrasting papers)"
+
+    return template.format(
+        title=paper.title, main_text=main_text, positive=positive, negative=negative
+    )
+
 
 def format_input(title: str, abstract: str) -> str:
-    """Format the input prompt for the model."""
-    return INPUT_TEMPLATE.format(title=title, abstract=abstract)
+    """Format the input prompt for the model (basic mode)."""
+    return INPUT_TEMPLATE_BASIC.format(title=title, abstract=abstract)
 
 
 def format_output(rationale: str, rating: int) -> str:
@@ -156,16 +244,24 @@ def format_output(rationale: str, rating: int) -> str:
 def format_training_example(
     title: str, abstract: str, rationale: str, rating: int
 ) -> str:
-    """Format a complete training example (input + output)."""
+    """Format a complete training example (input + output) for basic mode."""
     input_text = format_input(title, abstract)
     output_text = format_output(rationale, rating)
     return FULL_TEMPLATE.format(input=input_text, output=output_text)
 
 
-def preprocess_dataset(dataset: list[gpt.PaperWithRelatedSummary]) -> Dataset:
+def preprocess_dataset(
+    dataset: list[gpt.PaperWithRelatedSummary],
+    input_mode: InputMode = InputMode.BASIC,
+) -> Dataset:
     """Convert raw dataset into HuggingFace dataset format for generative training.
 
     Each example contains the full text (input + output) for causal LM training.
+
+    Args:
+        dataset: Papers with related papers data.
+        input_mode: Which input formatting to use (basic, full-text, or
+            full-text-abstracts).
     """
     texts = []
     labels = []  # Store labels separately for evaluation
@@ -180,12 +276,9 @@ def preprocess_dataset(dataset: list[gpt.PaperWithRelatedSummary]) -> Dataset:
             logger.warning("Skipping paper without rationale: %s", paper.title[:50])
             continue
 
-        text = format_training_example(
-            title=paper.title,
-            abstract=paper.abstract,
-            rationale=rationale,
-            rating=rating,
-        )
+        input_text = format_input_for_mode(input_mode, item)
+        output_text = format_output(rationale, rating)
+        text = FULL_TEMPLATE.format(input=input_text, output=output_text)
         texts.append(text)
         labels.append(rating)
 
@@ -455,7 +548,7 @@ def evaluate_model(
         true_rating = paper.originality_rating
 
         # Format input (without the output part)
-        input_text = format_input(paper.title, paper.abstract)
+        input_text = format_input_for_mode(config.input_mode, item)
 
         # Tokenise and generate
         inputs = tokeniser(input_text, return_tensors="pt").to(device)
@@ -540,16 +633,23 @@ def load_dataset_from_file(
     file: Path,
     n: int | None,
     rng: random.Random,
+    input_mode: InputMode = InputMode.BASIC,
 ) -> tuple[Dataset, list[gpt.PaperWithRelatedSummary]]:
     """Load JSON file and prepare dataset for generative training.
 
     Returns both the HuggingFace Dataset and the original data (for evaluation).
+
+    Args:
+        file: Path to the JSON file with paper data.
+        n: Number of items to sample. None for all.
+        rng: Random number generator for sampling.
+        input_mode: Input formatting mode.
     """
     data = gpt.PromptResult.unwrap(
         load_data(file, gpt.PromptResult[gpt.PaperWithRelatedSummary])
     )
     sampled = sample(data, n, rng)
-    dataset = preprocess_dataset(sampled)
+    dataset = preprocess_dataset(sampled, input_mode)
     return dataset, sampled
 
 
@@ -625,10 +725,11 @@ def train(
         num_dev = num_examples
         num_test = num_examples
 
-    logger.debug("Loading datasets: start")
-    train_dataset, _ = load_dataset_from_file(train_file, num_train, rng)
-    dev_dataset, _ = load_dataset_from_file(dev_file, num_dev, rng)
-    test_dataset, test_data = load_dataset_from_file(test_file, num_test, rng)
+    logger.debug("Loading datasets (input_mode=%s): start", config.input_mode.value)
+    mode = config.input_mode
+    train_dataset, _ = load_dataset_from_file(train_file, num_train, rng, mode)
+    dev_dataset, _ = load_dataset_from_file(dev_file, num_dev, rng, mode)
+    test_dataset, test_data = load_dataset_from_file(test_file, num_test, rng, mode)
     logger.debug("Loading datasets: done")
 
     logger.debug("Setting seed for reproducibility")
@@ -741,7 +842,9 @@ def infer(
 
     model, tokeniser = setup_model_and_tokeniser(config, model_path)
 
-    dataset, original_data = load_dataset_from_file(input_file, num_examples, rng)
+    dataset, original_data = load_dataset_from_file(
+        input_file, num_examples, rng, config.input_mode
+    )
 
     logger.info("Running inference on %d examples...", len(original_data))
     evaluated = evaluate_model(

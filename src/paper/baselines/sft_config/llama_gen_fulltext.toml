@@ -1,0 +1,31 @@
+# Llama Gen Full-Text - generative SFT with full paper text
+# Input: full paper text (all sections), truncated to max_length
+# Requires A100 80GB GPU with gradient checkpointing
+
+input_mode = "full-text"
+
+[model]
+name = "meta-llama/Llama-3.1-8B-Instruct"
+quantisation_enabled = true
+
+[lora]
+r = 8
+alpha = 16
+dropout = 0.1
+target_modules = ["q_proj", "k_proj", "v_proj"]
+
+[training]
+batch_size = 1  # Reduced for long sequences
+learning_rate = 1e-4
+num_epochs = 3
+warmup_steps = 50
+weight_decay = 0.01
+max_length = 8192  # median paper ~16K tokens, this captures ~40% of content
+logging_steps = 10
+max_new_tokens = 256
+
+[generation]
+max_new_tokens = 256
+temperature = 0.1
+do_sample = true
+top_p = 0.9
