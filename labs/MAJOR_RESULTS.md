@@ -6,6 +6,84 @@ This file contains summary tables comparing different configurations across data
 
 ---
 
+2026-04-08 New Baselines on Main Datasets + Novelty-Only Evaluation
+-------------------------------------------------------------------
+
+### New Baselines on Main Datasets
+
+Two new baselines tested: raw abstracts (instead of GPT summaries) for related papers,
+and full paper text (replacing graph and abstract entirely).
+
+#### ORC Dataset (n=100)
+
+| Method | Pearson | Spearman | MAE | Cost/run |
+|--------|---------|----------|-----|----------|
+| Full Paper Content | -0.010 ± 0.117 | -0.013 ± 0.109 | 1.476 | $0.426 |
+| Raw Abstracts | 0.024 ± 0.077 | 0.027 ± 0.077 | 1.048 | $0.136 |
+| Abs + Related (summaries) | 0.038 ± ~ | ~ | ~ | ~ |
+| **GPT Graph** | **0.377 ± 0.034** | **0.383 ± 0.042** | **0.860** | **$~** |
+
+#### PeerRead Dataset (n=68)
+
+| Method | Pearson | Spearman | MAE | Cost/run |
+|--------|---------|----------|-----|----------|
+| Raw Abstracts | 0.001 ± 0.095 | 0.002 ± 0.093 | 0.974 | $0.051 |
+| Full Paper Content | -0.001 ± 0.119 | 0.023 ± 0.114 | 1.606 | $0.123 |
+| **GPT Graph** | **0.538 ± 0.062** | **0.526 ± 0.063** | **1.112** | **$~** |
+
+#### Key Findings
+
+- Raw abstracts and full paper text both produce near-zero correlation on both datasets.
+- GPT-generated summaries add significant value over raw abstracts for related papers.
+- Full paper text is the most expensive baseline with no benefit — graph extraction is
+  essential for distilling novelty-relevant information from the raw text.
+
+---
+
+2026-04-08 Novelty-Only Subset Evaluation (ICLR 2022-2023)
+-----------------------------------------------------------
+
+Evaluation on papers using `technical_novelty_and_significance` / `empirical_novelty_and_significance`
+ratings instead of the broader `contribution` field. Subset: 87 papers balanced on ratings 2-4 (29/class),
+drawn from ORC dev+test, ICLR 2022-2023 only. Rating 1 dropped (only 2 papers).
+
+### Novelty-Only Dataset (n=87, except SciMON n=82)
+
+| Method | Pearson | Spearman | Acc ±1 | MAE | Cost/run |
+|--------|---------|----------|--------|-----|----------|
+| Abs + Related | 0.045 ± 0.093 | 0.037 ± 0.094 | ~ | 0.943 | $0.112 |
+| Full Paper Content | 0.061 ± 0.096 | 0.142 ± 0.093 | ~ | 1.274 | $0.441 |
+| NovaSCORE | 0.158 | 0.155 | 0.793 | 1.023 | $0.000 |
+| SciMON | 0.287 ± 0.013 | 0.294 ± 0.013 | ~ | 0.642 | $0.070 |
+| **Gemini Graph** | **0.497 ± 0.027** | **0.507 ± 0.025** | **~** | **0.609** | **$0.192** |
+| **GPT Graph** | **0.508 ± 0.036** | **0.503 ± 0.033** | **~** | **0.685** | **$0.233** |
+
+### Key Findings
+
+- GraphMind substantially outperforms all baselines on novelty-only (0.50+ Pearson).
+- Both GPT and Gemini achieve higher correlation on novelty-only than on the full ORC set
+  (0.508/0.497 vs 0.377/0.355), suggesting technical novelty ratings are more predictable
+  than the broader contribution field.
+- SciMON also improves on novelty-only (0.287 vs 0.160 on full ORC).
+- Full paper content (0.061) and Abs + Related (0.045) are essentially noise — the
+  structured graph representation is essential.
+- Full paper content costs 2x more than GraphMind with no benefit.
+
+### Configuration Details
+
+- **Dataset**: `output/venus5/split/novelty_only_87_balanced.json.zst`
+  - Source: ORC dev+test, ICLR 2022-2023, ratings 2-4, balanced at 29/class
+  - Rating 1 dropped (only 2 papers in dev+test)
+  - Dev-only was too small (7 rating-4 papers), so dev+test combined
+- **GPT Graph**: `full-graph-structured`, gpt-4o-mini, seeds 42-46, no demos
+- **Gemini Graph**: `full-graph-structured`, gemini-2.0-flash, seeds 42-46, no demos
+- **SciMON**: gpt-4o-mini, demos orc_balanced_4, 82/87 papers with pre-built data
+- **NovaSCORE**: sim_threshold=0.60, deterministic
+- **Abs + Related**: `related-structured`, gpt-4o-mini, no demos
+- **Full Paper Content**: `full-text` (new prompt), gpt-4o-mini, no demos
+
+---
+
 2026-02-02 Complete Baseline Comparison with Search Baselines
 -------------------------------------------------------------
 

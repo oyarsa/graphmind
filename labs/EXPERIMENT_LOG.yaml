@@ -2383,3 +2383,327 @@ experiments:
       Now comparable to GPT Basic (0.048 ORC, 0.139 PeerRead). PeerRead also improved
       (0.099 vs 0.068). Gemini still slightly below GPT on both datasets but now
       positive correlation on both.
+
+  # === NOVELTY-ONLY SUBSET EXPERIMENTS (Apr 8) ===
+  # Evaluating on ICLR 2022-2023 papers (technical_novelty_and_significance field)
+  # Balanced subset: 87 papers (29 per class, ratings 2-4, dev+test combined)
+
+  - date: "2026-04-08"
+    name: "novelty_graphmind_gpt4omini"
+    type: evaluation
+    description: "GraphMind GPT-4o-mini on novelty-only subset"
+    reason: >
+      Evaluate GraphMind on ICLR 2022-2023 papers that use technical/empirical novelty
+      ratings instead of the broader contribution field.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/novelty_only_87_balanced.json.zst \
+        --output output/eval_novelty/graphmind_gpt4omini \
+        --model gpt-4o-mini --eval-prompt full-graph-structured \
+        --limit 87 --seed 42 --runs 5
+    parameters:
+      dataset: "ORC novelty_only_87_balanced (ICLR 2022-2023, ratings 2-4)"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-graph-structured"
+      sources: "citations, semantic"
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.508, stdev: 0.036, min: 0.475, max: 0.559}
+      spearman: {mean: 0.503, stdev: 0.033, min: 0.478, max: 0.540}
+      mae: {mean: 0.685, stdev: ~}
+      accuracy: {mean: 0.409, stdev: ~}
+      f1: {mean: 0.309, stdev: ~}
+      cost_per_run: 0.233
+    total_cost: 1.17
+    conclusion: >
+      GraphMind GPT-4o-mini achieves 0.508 Pearson on novelty-only, much higher than
+      the full ORC set (0.377). Technical novelty ratings may be more predictable than
+      the broader contribution field.
+
+  - date: "2026-04-08"
+    name: "novelty_graphmind_gemini"
+    type: evaluation
+    description: "GraphMind Gemini on novelty-only subset"
+    reason: >
+      Compare Gemini with GPT-4o-mini on the novelty-only subset.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/novelty_only_87_balanced.json.zst \
+        --output output/eval_novelty/graphmind_gemini \
+        --model gemini-2.0-flash --eval-prompt full-graph-structured \
+        --limit 87 --seed 42 --runs 5
+    parameters:
+      dataset: "ORC novelty_only_87_balanced (ICLR 2022-2023, ratings 2-4)"
+      model: "gemini-2.0-flash"
+      eval_prompt: "full-graph-structured"
+      sources: "citations, semantic"
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.497, stdev: 0.027, min: 0.465, max: 0.536}
+      spearman: {mean: 0.507, stdev: 0.025, min: 0.477, max: 0.541}
+      mae: {mean: 0.609, stdev: ~}
+      accuracy: {mean: 0.435, stdev: ~}
+      f1: {mean: 0.444, stdev: ~}
+      cost_per_run: 0.192
+    total_cost: 0.96
+    conclusion: >
+      Gemini achieves 0.497 Pearson, comparable to GPT-4o-mini (0.508). Both models
+      benefit substantially from the novelty-only subset vs the full ORC set.
+
+  - date: "2026-04-08"
+    name: "novelty_scimon"
+    type: baseline
+    description: "SciMON on novelty-only subset"
+    reason: >
+      Evaluate SciMON baseline on novelty-only. 82/87 papers had SciMON graph data.
+    command: |
+      uv run paper gpt eval scimon experiment \
+        --papers output/baselines/novelty_scimon_82.json.zst \
+        --output output/eval_novelty/scimon \
+        --model gpt-4o-mini --limit 82 --runs 5 \
+        --demos orc_balanced_4 --seed 42
+    parameters:
+      dataset: "ORC novelty_only (82/87 papers with SciMON data)"
+      model: "gpt-4o-mini"
+      method: "scimon"
+      demos: "orc_balanced_4"
+      runs: 5
+    metrics:
+      pearson: {mean: 0.287, stdev: 0.013, min: 0.271, max: 0.301}
+      spearman: {mean: 0.294, stdev: 0.013, min: 0.282, max: 0.310}
+      mae: {mean: 0.642, stdev: ~}
+      accuracy: {mean: 0.381, stdev: ~}
+      f1: {mean: 0.321, stdev: ~}
+      cost_per_run: 0.070
+    total_cost: 0.35
+    conclusion: >
+      SciMON achieves 0.287 Pearson on novelty-only, significantly better than on
+      the full ORC set (0.160). Only 82/87 papers had pre-built SciMON graph data.
+
+  - date: "2026-04-08"
+    name: "novelty_novascore"
+    type: baseline
+    description: "NovaSCORE on novelty-only subset"
+    reason: >
+      Evaluate NovaSCORE baseline on novelty-only. Deterministic, no LLM cost.
+    command: |
+      uv run paper baselines nova query \
+        --db output/venus5/output/acu-db \
+        --input output/baselines/novelty_acu_87.json.zst \
+        --output output/baselines/novelty_acu_query_t05 \
+        --threshold 0.5 --limit 0
+
+      uv run paper baselines nova evaluate \
+        --results output/baselines/novelty_acu_query_t05/result.jsonl \
+        --output output/eval_novelty/novascore_t060 \
+        --limit 0 --sim-threshold 0.60 --save
+    parameters:
+      dataset: "ORC novelty_only_87_balanced"
+      method: "novascore"
+      sim_threshold: 0.60
+      runs: 1
+    metrics:
+      pearson: {mean: 0.158}
+      spearman: {mean: 0.155}
+      mae: {mean: 1.023}
+      accuracy: {mean: 0.230}
+      f1: {mean: 0.156}
+      cost_per_run: 0
+    total_cost: 0.0
+    conclusion: >
+      NovaSCORE achieves 0.158 Pearson on novelty-only, similar to the full ORC set
+      (0.189). Deterministic method with no API cost.
+
+  - date: "2026-04-08"
+    name: "novelty_abs_related"
+    type: ablation
+    description: "Abs + Related on novelty-only subset"
+    reason: >
+      Ablation: abstract + related papers without graph summary.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/novelty_only_87_balanced.json.zst \
+        --output output/eval_novelty/abs_related \
+        --model gpt-4o-mini --eval-prompt related-structured \
+        --limit 87 --seed 42 --runs 5
+    parameters:
+      dataset: "ORC novelty_only_87_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related-structured"
+      sources: "citations, semantic"
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.045, stdev: 0.093, min: -0.055, max: 0.180}
+      spearman: {mean: 0.037, stdev: 0.094, min: -0.056, max: 0.179}
+      mae: {mean: 0.943, stdev: ~}
+      accuracy: {mean: 0.274, stdev: ~}
+      f1: {mean: 0.226, stdev: ~}
+      cost_per_run: 0.112
+    total_cost: 0.56
+    conclusion: >
+      Abs + Related achieves near-zero correlation (0.045) on novelty-only. Without
+      the graph summary, related papers alone provide almost no signal.
+
+  - date: "2026-04-08"
+    name: "novelty_full_text"
+    type: evaluation
+    description: "Full paper content on novelty-only subset"
+    reason: >
+      New baseline: full paper text replaces graph and abstract entirely.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/novelty_only_87_balanced.json.zst \
+        --output output/eval_novelty/full_text \
+        --model gpt-4o-mini --eval-prompt full-text \
+        --limit 87 --seed 42 --runs 5
+    parameters:
+      dataset: "ORC novelty_only_87_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-text"
+      sources: "citations, semantic"
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.061, stdev: 0.096, min: -0.097, max: 0.136}
+      spearman: {mean: 0.142, stdev: 0.093, min: 0.054, max: 0.300}
+      mae: {mean: 1.274, stdev: ~}
+      accuracy: {mean: 0.241, stdev: ~}
+      f1: {mean: 0.110, stdev: ~}
+      cost_per_run: 0.441
+    total_cost: 2.21
+    conclusion: >
+      Full paper text achieves near-zero Pearson (0.061) despite being the most
+      expensive baseline ($0.44/run). Raw text without graph extraction does not
+      help — the structured graph representation is essential.
+
+  # === PHASE 4: NEW BASELINES ON MAIN DATASETS (Apr 8) ===
+
+  - date: "2026-04-08"
+    name: "raw_abstracts_orc"
+    type: evaluation
+    description: "Raw abstracts baseline (ORC)"
+    reason: >
+      Test whether using raw paper abstracts instead of GPT-generated summaries
+      for related papers improves evaluation.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_main/raw_abstracts_orc \
+        --model gpt-4o-mini --eval-prompt related-structured --raw-abstracts \
+        --limit 100 --seed 42 --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "related-structured"
+      sources: "citations, semantic"
+      raw_abstracts: true
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.024, stdev: 0.077, min: -0.043, max: 0.155}
+      spearman: {mean: 0.027, stdev: 0.077, min: -0.037, max: 0.161}
+      mae: {mean: 1.048, stdev: ~}
+      accuracy: {mean: 0.230, stdev: ~}
+      f1: {mean: 0.146, stdev: ~}
+      cost_per_run: 0.136
+    total_cost: 0.68
+    conclusion: >
+      Raw abstracts (0.024) perform worse than GPT summaries for related papers
+      (Abs+Related with summaries: 0.038). The summarisation step adds value by
+      distilling relevant information.
+
+  - date: "2026-04-08"
+    name: "raw_abstracts_peerread"
+    type: evaluation
+    description: "Raw abstracts baseline (PeerRead)"
+    reason: >
+      Same raw-abstracts baseline on PeerRead for comparison.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_main/raw_abstracts_peerread \
+        --model gpt-4o-mini --eval-prompt related-structured --raw-abstracts \
+        --limit 68 --seed 42 --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "related-structured"
+      raw_abstracts: true
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: 0.001, stdev: 0.095, min: -0.108, max: 0.125}
+      spearman: {mean: 0.002, stdev: 0.093, min: -0.109, max: 0.127}
+      mae: {mean: 0.974, stdev: ~}
+      accuracy: {mean: 0.209, stdev: ~}
+      f1: {mean: 0.125, stdev: ~}
+      cost_per_run: 0.051
+    total_cost: 0.26
+    conclusion: >
+      Raw abstracts produce zero correlation on PeerRead (0.001). Confirms that
+      GPT summaries are essential for the related papers signal.
+
+  - date: "2026-04-08"
+    name: "full_text_orc"
+    type: evaluation
+    description: "Full paper content baseline (ORC)"
+    reason: >
+      Test whether passing the full paper text (replacing graph and abstract)
+      provides a useful signal for novelty assessment.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/venus5/split/dev_100_balanced.json.zst \
+        --output output/eval_main/full_text_orc \
+        --model gpt-4o-mini --eval-prompt full-text \
+        --limit 100 --seed 42 --runs 5
+    parameters:
+      dataset: "ORC dev_100_balanced"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-text"
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: -0.010, stdev: 0.117, min: -0.112, max: 0.127}
+      spearman: {mean: -0.013, stdev: 0.109, min: -0.117, max: 0.107}
+      mae: {mean: 1.476, stdev: ~}
+      accuracy: {mean: 0.118, stdev: ~}
+      f1: {mean: 0.052, stdev: ~}
+      cost_per_run: 0.426
+    total_cost: 2.13
+    conclusion: >
+      Full paper text produces negative correlation (-0.010) on ORC at 4x the cost
+      of GraphMind. The unstructured full text overwhelms the model — graph extraction
+      is essential for distilling novelty-relevant information.
+
+  - date: "2026-04-08"
+    name: "full_text_peerread"
+    type: evaluation
+    description: "Full paper content baseline (PeerRead)"
+    reason: >
+      Same full-text baseline on PeerRead.
+    command: |
+      uv run paper gpt eval graph experiment \
+        --papers output/new_peerread/peter_summarised/balanced_68.json.zst \
+        --output output/eval_main/full_text_peerread \
+        --model gpt-4o-mini --eval-prompt full-text \
+        --limit 68 --seed 42 --runs 5
+    parameters:
+      dataset: "PeerRead balanced_68"
+      model: "gpt-4o-mini"
+      eval_prompt: "full-text"
+      demos: null
+      runs: 5
+    metrics:
+      pearson: {mean: -0.001, stdev: 0.119, min: -0.140, max: 0.165}
+      spearman: {mean: 0.023, stdev: 0.114, min: -0.130, max: 0.177}
+      mae: {mean: 1.606, stdev: ~}
+      accuracy: {mean: 0.091, stdev: ~}
+      f1: {mean: 0.047, stdev: ~}
+      cost_per_run: 0.123
+    total_cost: 0.61
+    conclusion: >
+      Full paper text produces zero correlation on PeerRead (-0.001). Consistent
+      with ORC results — raw text without graph structure provides no signal.
