@@ -770,10 +770,6 @@ The following data contains key sections (Introduction, Results, Discussion) \
 of a scientific paper. These are the sections most relevant to assessing the \
 paper's novelty.
 
-Novelty is defined as: How original is the approach? Does this paper break \
-new ground in topic, methodology, or content? How exciting and innovative is \
-the research it describes?
-
 Based solely on the paper's section content, evaluate its novelty. You do not \
 have access to related papers, so base your assessment purely on how the paper \
 presents its contributions.
@@ -785,6 +781,7 @@ presents its contributions.
 
 -Data-
 Title: {{title}}
+Abstract: {{abstract}}
 
 {{ird_sections}}
 

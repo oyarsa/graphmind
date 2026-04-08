@@ -999,14 +999,19 @@ def build_eval_prompt_text(
         use_abstracts: If True, use raw abstracts instead of GPT summaries for
             related papers.
     """
-    if prompt.name == "sc4anm":
+    if prompt.name.startswith("sc4anm"):
         return format_sc4anm_template(prompt, paper, demonstrations)
 
-    if prompt.name == "rag-novelty":
+    if prompt.name.startswith("rag-novelty"):
         return format_rag_novelty_template(prompt, paper, demonstrations)
 
     return format_eval_template(
-        prompt, paper, graph, demonstrations, method, sources,
+        prompt,
+        paper,
+        graph,
+        demonstrations,
+        method,
+        sources,
         use_abstracts=use_abstracts,
     )
 
@@ -1064,7 +1069,7 @@ def format_sc4anm_template(
 
     Classifies paper sections into IMRaD categories by heading matching,
     then formats the Introduction + Results + Discussion combination with
-    per-section token truncation.
+    per-section token truncation (500 tokens each).
 
     Args:
         prompt: SC4ANM evaluation prompt template (expects ``{ird_sections}``).
@@ -1073,6 +1078,7 @@ def format_sc4anm_template(
     """
     return prompt.template.format(
         title=paper.title,
+        abstract=paper.abstract,
         demonstrations=demonstrations,
         ird_sections=format_ird_sections(classify_sections(paper.paper.paper.sections)),
     )

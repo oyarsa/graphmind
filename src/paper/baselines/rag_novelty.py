@@ -25,13 +25,14 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from paper.gpt.model import PaperRelatedSummarised
 
+
 def format_retrieved_papers(
     papers: Sequence[PaperRelatedSummarised],
 ) -> str:
     """Format retrieved papers as a numbered list with title, year, and abstract.
 
     Args:
-        papers: Related papers to format (already selected and sorted).
+        papers: Related papers to format (already sorted by score).
 
     Returns:
         Formatted string for template substitution.

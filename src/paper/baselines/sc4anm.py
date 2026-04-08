@@ -58,8 +58,10 @@ _IMRAD_PATTERNS = {
     "discussion": _DISCUSSION,
 }
 
-# Default per-section token budget, following SC4ANM §4
-DEFAULT_MAX_SECTION_TOKENS = 2000
+# Per-section token budget. SC4ANM §4 uses 2000, but empirical testing showed
+# that shorter truncation (500 tokens) reduces the model's tendency to
+# over-predict novelty from self-promotional section text.
+DEFAULT_MAX_SECTION_TOKENS = 500
 
 _SECTION_NOT_AVAILABLE = "[Section not available]"
 
