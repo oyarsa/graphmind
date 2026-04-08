@@ -1,0 +1,29 @@
+# Qwen3-32B Gen Full-Text (short) - reduced max_length to fit on A100 40GB/A40
+
+input_mode = "full-text"
+
+[model]
+name = "Qwen/Qwen3-32B"
+quantisation_enabled = true
+
+[lora]
+r = 8
+alpha = 16
+dropout = 0.1
+target_modules = ["q_proj", "k_proj", "v_proj"]
+
+[training]
+batch_size = 1  # Minimal for large model + long sequences
+learning_rate = 2e-5  # Lower LR for larger model
+num_epochs = 3
+warmup_steps = 50
+weight_decay = 0.01
+max_length = 2000  # same as graph config that worked on A100 40GB
+logging_steps = 10
+max_new_tokens = 256
+
+[generation]
+max_new_tokens = 256
+temperature = 0.1
+do_sample = true
+top_p = 0.9
