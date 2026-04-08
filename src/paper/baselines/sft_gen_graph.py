@@ -493,8 +493,13 @@ def evaluate_model(
             negative=item.negative_related,
         )
 
-        # Tokenise and generate
-        inputs = tokeniser(input_text, return_tensors="pt").to(device)
+        # Tokenise and generate (truncate to max_length to avoid OOM)
+        inputs = tokeniser(
+            input_text,
+            return_tensors="pt",
+            truncation=True,
+            max_length=config.training.max_length,
+        ).to(device)
 
         with torch.no_grad():
             # Cast to Any because PreTrainedModel.generate isn't properly typed
