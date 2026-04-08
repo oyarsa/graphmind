@@ -144,6 +144,23 @@ inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/llama_gen_graph_${DATASET}_${CONFIG}_infer/"]
 env = { DATASET = "orc", CONFIG = "llama_gen_graph" }
 
+# Full-text Generative SFT Inference
+# fleche run infer_gen_fulltext --env CONFIG=llama_gen_fulltext
+[jobs.infer_gen_fulltext]
+command = """
+echo "Hello from $HOSTNAME"
+
+uv run --extra cuda --extra baselines \
+    paper baselines sft-gen infer \
+    --model output/baselines/${CONFIG}_${DATASET}/final_model \
+    --input output/baselines/llama_data/${DATASET}_test.json.zst \
+    --output output/baselines/${CONFIG}_${DATASET}_infer \
+    ${NUM_EXAMPLES:+--num-examples $NUM_EXAMPLES}
+"""
+inputs = ["output/baselines/llama_data/"]
+outputs = ["output/baselines/${CONFIG}_${DATASET}_infer/"]
+env = { DATASET = "orc", CONFIG = "llama_gen_fulltext" }
+
 # Full-text Generative SFT Training (requires A100 80GB for long sequences)
 # fleche run train_gen_fulltext --env CONFIG=llama_gen_fulltext
 # fleche run train_gen_fulltext --env CONFIG=qwen_gen_fulltext
