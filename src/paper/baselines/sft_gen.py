@@ -783,11 +783,18 @@ def train(
     save_model(trained_model, tokeniser, output_dir, config)
     logger.debug("Saving model: end")
 
-    # Free training model and reload fresh with quantisation for evaluation.
-    # The post-training model may have lost quantisation during LoRA merge,
-    # causing OOM during generate().
+    # Free training model completely before reloading for evaluation.
+    # The post-training LoRA model loses quantisation, causing OOM during generate().
+    # We must aggressively free GPU memory: move to CPU, delete all references, run
+    # garbage collection, and reset CUDA state.
+    trained_model.cpu()
     del trained_model, trainer
+    import gc
+
+    gc.collect()
     torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats()
+    logger.debug("Freed training model GPU memory")
 
     logger.debug("Reloading model for evaluation: start")
     eval_model, eval_tokeniser = setup_model_and_tokeniser(
