@@ -984,6 +984,11 @@ def build_eval_prompt_text(
       tokens each).  It does not use graph, related-paper, or abstract
       variables.
 
+    * **rag-novelty** — uses ``format_rag_novelty_template``, which selects
+      the top-5 related papers by similarity score (flattened across sources),
+      formats them as a numbered list, and computes the average publication
+      year for the date-averaging heuristic.
+
     Args:
         prompt: Evaluation prompt template.
         paper: Paper with related papers and summaries.
@@ -996,6 +1001,9 @@ def build_eval_prompt_text(
     """
     if prompt.name == "sc4anm":
         return format_sc4anm_template(prompt, paper, demonstrations)
+
+    if prompt.name == "rag-novelty":
+        return format_rag_novelty_template(prompt, paper, demonstrations)
 
     return format_eval_template(
         prompt, paper, graph, demonstrations, method, sources,
@@ -1067,6 +1075,35 @@ def format_sc4anm_template(
         title=paper.title,
         demonstrations=demonstrations,
         ird_sections=format_ird_sections(classify_sections(paper.paper.paper.sections)),
+    )
+
+
+def format_rag_novelty_template(
+    prompt: PromptTemplate,
+    paper: PaperWithRelatedSummary,
+    demonstrations: str,
+) -> str:
+    """Format RAG-Novelty evaluation template with top-K retrieved papers.
+
+    Selects the top-5 related papers by similarity score (flattened across
+    citation and semantic sources), formats them as a numbered list, and
+    computes the average publication year for the date-averaging heuristic.
+
+    Args:
+        prompt: RAG-Novelty prompt template (expects ``{retrieved_papers}``
+            and ``{year_context}``).
+        paper: Paper with PETER-collected related papers.
+        demonstrations: Text of demonstrations for few-shot prompting.
+    """
+    from paper.baselines.rag_novelty import format_rag_novelty_context
+
+    papers_text, year_context = format_rag_novelty_context(paper.related)
+    return prompt.template.format(
+        title=paper.title,
+        abstract=paper.abstract,
+        demonstrations=demonstrations,
+        retrieved_papers=papers_text,
+        year_context=year_context,
     )
 
 

@@ -10,10 +10,13 @@
 - [x] 2.0 Create SFT input modes and configs for full-text and full-text+abstracts
 
 ### Finetuning (GPU required)
-- [ ] 2.1 Finetune Llama with full paper text
-- [ ] 2.2 Finetune Llama with full paper text + retrieved abstracts
-- [ ] 2.3 Finetune Qwen with full paper text
-- [ ] 2.4 Finetune Qwen with full paper text + retrieved abstracts
+- [x] 2.1 Llama fulltext (8192) — Pearson -0.150, degenerate (93% predict 3)
+- [x] 2.2 Llama fulltext+abstracts (8192) — Pearson N/A, degenerate (100% predict 3)
+- [x] 2.3 Qwen fulltext_short (2000) — Pearson N/A, degenerate (100% predict 3)
+- [ ] 2.4 Qwen fulltext (8192) — training on A100 80GB, epoch ~2
+- [ ] 2.5 Qwen fulltext (4096) — running on A100 80GB
+- [ ] 2.6 Qwen fulltext+abstracts (4096) — running on A100 80GB
+- [ ] 2.7 Qwen fulltext+abstracts (8192) — pending
 
 ### Novelty-only experiments
 - [x] 3.1 NovaSCORE — Pearson 0.158

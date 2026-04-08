@@ -792,6 +792,39 @@ Title: {{title}}
 """,
 )
 
+RAG_NOVELTY = PromptTemplate(
+    name="rag-novelty",
+    type_name="GPTStructured",
+    system="""\
+You are a scientific paper reviewer assessing the novelty of a research paper. \
+You have been provided with several related papers retrieved from the \
+literature to help inform your assessment.""",
+    template=f"""\
+The following data contains a target paper and related papers retrieved by \
+similarity to the target paper's abstract. Use the related papers to inform \
+your novelty assessment.
+
+{EVAL_SCALE_BALANCED}
+
+After forming your initial assessment, reflect on whether you may be over- or \
+under-estimating novelty given the evidence from the related papers.
+
+{{year_context}}
+
+#####
+{{demonstrations}}
+
+-Data-
+Title: {{title}}
+Abstract: {{abstract}}
+
+Retrieved Related Papers:
+{{retrieved_papers}}
+
+#####
+""",
+)
+
 GRAPH_EVAL_USER_PROMPTS = {
     "full-graph": FULL_GRAPH,
     "only-graph": ONLY_GRAPH,
@@ -813,4 +846,5 @@ GRAPH_EVAL_USER_PROMPTS = {
     "full-text": FULL_TEXT,
     "full-text-only": FULL_TEXT_ONLY,
     "sc4anm": SC4ANM,
+    "rag-novelty": RAG_NOVELTY,
 }

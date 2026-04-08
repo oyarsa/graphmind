@@ -2921,3 +2921,131 @@ experiments:
       with high BERTScore (0.963 target, 0.869 background). The model tends to over-assign
       sentences to background (precision 0.737 for background vs 0.912 for target),
       but overall the splitting quality is solid.
+
+  # === FULL-TEXT SFT FINETUNING (Apr 8) ===
+
+  - date: "2026-04-08"
+    name: "llama_gen_fulltext_orc"
+    type: baseline
+    description: "Llama-3.1-8B Gen Full-Text on ORC"
+    reason: >
+      Testing whether full paper text (instead of title+abstract) improves novelty
+      prediction for finetuned models. New input mode added to sft_gen.py.
+    command: |
+      fleche run train_gen_fulltext --env CONFIG=llama_gen_fulltext \
+        --partition interruptible_gpu --time 4:00:00 --constraint '(a100|h100|h200)'
+      # Evaluation via infer due to OOM during post-training eval:
+      fleche run infer_gen_fulltext --env CONFIG=llama_gen_fulltext \
+        --partition gpu --time 1:00:00 --constraint '(a100|h100|h200)'
+    parameters:
+      dataset: "ORC orc_train/dev/test"
+      model: "meta-llama/Llama-3.1-8B-Instruct"
+      method: "sft-gen"
+      config: "llama_gen_fulltext.toml"
+      input_mode: "full-text"
+      learning_rate: 1e-4
+      num_epochs: 3
+      batch_size: 1
+      lora_r: 8
+      lora_alpha: 16
+      quantisation: "4-bit"
+      max_length: 8192
+      max_new_tokens: 256
+      seed: 0
+      gpu: "A100 40GB"
+    metrics:
+      pearson: -0.150
+      spearman: -0.171
+      mae: 0.72
+      rmse: 1.04
+      accuracy: 0.93
+      exact_accuracy: 0.40
+      f1: 0.119
+    total_cost: 0.0
+    conclusion: >
+      Model predicts rating 3 for 93/100 papers. Full-text input at max_length=8192
+      (heavy truncation of median 16K-token papers) does not help Llama learn the task.
+      Most outputs fail to parse the "Rating: N" format, defaulting to 3.
+
+  - date: "2026-04-08"
+    name: "llama_gen_fulltext_abstracts_orc"
+    type: baseline
+    description: "Llama-3.1-8B Gen Full-Text + Retrieved Abstracts on ORC"
+    reason: >
+      Testing whether adding retrieved papers' raw abstracts to full paper text
+      improves novelty prediction.
+    command: |
+      fleche run train_gen_fulltext --env CONFIG=llama_gen_fulltext_abstracts \
+        --partition interruptible_gpu --time 4:00:00 --constraint '(a100|h100|h200)'
+      fleche run infer_gen_fulltext --env CONFIG=llama_gen_fulltext_abstracts \
+        --partition gpu --time 1:00:00 --constraint '(a100|h100|h200)'
+    parameters:
+      dataset: "ORC orc_train/dev/test"
+      model: "meta-llama/Llama-3.1-8B-Instruct"
+      method: "sft-gen"
+      config: "llama_gen_fulltext_abstracts.toml"
+      input_mode: "full-text-abstracts"
+      learning_rate: 1e-4
+      num_epochs: 3
+      batch_size: 1
+      lora_r: 8
+      lora_alpha: 16
+      quantisation: "4-bit"
+      max_length: 8192
+      max_new_tokens: 256
+      seed: 0
+      gpu: "A100 40GB"
+    metrics:
+      pearson: N/A
+      spearman: N/A
+      mae: 0.62
+      rmse: 0.82
+      accuracy: 0.97
+      exact_accuracy: 0.41
+      f1: 0.145
+    total_cost: 0.0
+    conclusion: >
+      Completely degenerate: predicts rating 3 for 100/100 papers. Pearson/Spearman
+      undefined (zero variance). Adding retrieved abstracts to full text makes results
+      worse, not better.
+
+  - date: "2026-04-08"
+    name: "qwen_gen_fulltext_short_orc"
+    type: baseline
+    description: "Qwen3-32B Gen Full-Text (short, max_length=2000) on ORC"
+    reason: >
+      Qwen 32B cannot fit on A100 40GB. Testing with max_length=2000 (same as
+      the graph config that previously worked) on A100 80GB.
+    command: |
+      fleche run train_gen_fulltext --env CONFIG=qwen_gen_fulltext_short \
+        --partition interruptible_gpu --time 4:00:00 \
+        --constraint '(a100_80g|h100|h200)' --memory 64G
+    parameters:
+      dataset: "ORC orc_train/dev/test"
+      model: "Qwen/Qwen3-32B"
+      method: "sft-gen"
+      config: "qwen_gen_fulltext_short.toml"
+      input_mode: "full-text"
+      learning_rate: 2e-5
+      num_epochs: 3
+      batch_size: 1
+      lora_r: 8
+      lora_alpha: 16
+      quantisation: "4-bit"
+      max_length: 2000
+      max_new_tokens: 256
+      seed: 0
+      gpu: "A100 80GB"
+    metrics:
+      pearson: N/A
+      spearman: N/A
+      mae: 0.62
+      rmse: 0.82
+      accuracy: 0.97
+      exact_accuracy: 0.41
+      f1: 0.145
+    total_cost: 0.0
+    conclusion: >
+      Completely degenerate: predicts rating 3 for 100/100 papers, identical to
+      Llama fulltext+abstracts. Qwen 32B at max_length=2000 with full-text input
+      also fails to learn the output format.
