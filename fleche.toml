@@ -144,6 +144,30 @@ inputs = ["output/baselines/llama_data/"]
 outputs = ["output/baselines/llama_gen_graph_${DATASET}_${CONFIG}_infer/"]
 env = { DATASET = "orc", CONFIG = "llama_gen_graph" }
 
+# Full-text Generative SFT Training (requires A100 80GB for long sequences)
+# fleche run train_gen_fulltext --env CONFIG=llama_gen_fulltext
+# fleche run train_gen_fulltext --env CONFIG=qwen_gen_fulltext
+[jobs.train_gen_fulltext]
+command = """
+echo "Hello from $HOSTNAME"
+
+uv run --extra cuda --extra baselines \
+    paper baselines sft-gen train \
+    --train output/baselines/llama_data/${DATASET}_train.json.zst \
+    --dev output/baselines/llama_data/${DATASET}_dev.json.zst \
+    --test output/baselines/llama_data/${DATASET}_test.json.zst \
+    --output output/baselines/${CONFIG}_${DATASET}${SEED:+_seed${SEED}} \
+    --config src/paper/baselines/sft_config/${CONFIG}.toml \
+    ${NUM_EXAMPLES:+--num-examples $NUM_EXAMPLES} \
+    ${SEED:+--seed $SEED}
+"""
+inputs = ["output/baselines/llama_data/"]
+outputs = ["output/baselines/${CONFIG}_${DATASET}${SEED:+_seed${SEED}}/"]
+env = { DATASET = "orc", CONFIG = "llama_gen_fulltext" }
+
+[jobs.train_gen_fulltext.slurm]
+constraint = "a100"
+
 # ==============================================================================
 # GPT Ablation Experiments (run locally)
 # ==============================================================================
