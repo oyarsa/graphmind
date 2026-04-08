@@ -14,7 +14,7 @@ from heapq import heappop, heappush
 from itertools import count
 from pathlib import Path
 from types import TracebackType
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 import tiktoken
 from google.genai.types import GenerateContentResponse  # type: ignore
@@ -161,7 +161,7 @@ class ChatRateLimiter:
             raise ValueError("Either messages or contents need to be passed to limiter")
 
         estimated_tokens = _count_tokens(messages, **kwargs)
-        request_id = uuid.uuid4().int
+        request_id = cast(int, uuid.uuid4().int)
 
         # Wait until there's capacity
         while True:
