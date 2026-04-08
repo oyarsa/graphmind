@@ -484,7 +484,11 @@ def save_model(
     final_dir = output_dir / "final_model"
     model.save_pretrained(final_dir)
     tokeniser.save_pretrained(final_dir)
-    (final_dir / "config.toml").write_text(toml.dumps(config.model_dump()))
+    config_dict = config.model_dump()
+    # StrEnum values are serialised as char arrays by toml.dumps; convert to str.
+    if "input_mode" in config_dict:
+        config_dict["input_mode"] = str(config_dict["input_mode"])
+    (final_dir / "config.toml").write_text(toml.dumps(config_dict))
 
     logger.info("Model, tokeniser, and configuration saved to %s", final_dir)
 
