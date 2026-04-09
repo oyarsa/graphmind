@@ -74,6 +74,7 @@ from paper.gpt.run_gpt import (
     gpt_unit,
     init_remaining_items,
 )
+from paper.gpt.tokenizer import truncate_text
 from paper.types import PaperSource
 from paper.util import (
     Timer,
@@ -225,6 +226,13 @@ def run(
             help="Use raw abstracts instead of GPT summaries for related papers.",
         ),
     ] = False,
+    max_main_text_tokens: Annotated[
+        int | None,
+        typer.Option(
+            help="Truncate the paper's main text to this many tokens. "
+            "Useful for giving full-text variants the same token budget as GraphMind.",
+        ),
+    ] = None,
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers."""
     asyncio.run(
@@ -249,6 +257,7 @@ def run(
             cache_dir,
             no_cache,
             use_abstracts=raw_abstracts,
+            max_main_text_tokens=max_main_text_tokens,
         )
     )
 
@@ -372,6 +381,13 @@ def experiment(
             help="Use raw abstracts instead of GPT summaries for related papers.",
         ),
     ] = False,
+    max_main_text_tokens: Annotated[
+        int | None,
+        typer.Option(
+            help="Truncate the paper's main text to this many tokens. "
+            "Useful for giving full-text variants the same token budget as GraphMind.",
+        ),
+    ] = None,
 ) -> None:
     """Run graph evaluation experiment multiple times and aggregate metrics."""
     cmd = build_eval_command(
@@ -393,6 +409,7 @@ def experiment(
         cache_dir=cache_dir,
         no_cache=no_cache,
         raw_abstracts=raw_abstracts,
+        max_main_text_tokens=max_main_text_tokens,
     )
 
     results = run_experiment(cmd, output_dir, runs)
@@ -461,6 +478,7 @@ async def evaluate_papers(
     no_cache: bool,
     *,
     use_abstracts: bool = False,
+    max_main_text_tokens: int | None = None,
 ) -> None:
     """Evaluate paper novelty with a paper graph and summarised PETER related papers.
 
@@ -498,6 +516,8 @@ async def evaluate_papers(
         no_cache: If True, ignore cache and regenerate graphs.
         use_abstracts: If True, use raw abstracts instead of GPT summaries for
             related papers.
+        max_main_text_tokens: If set, truncate the paper's main text to this many
+            tokens before inserting it into the prompt.
 
     Returns:
         None. The output is saved to `output_dir`.
@@ -562,6 +582,7 @@ async def evaluate_papers(
             sources,
             cached_graphs,
             use_abstracts=use_abstracts,
+            max_main_text_tokens=max_main_text_tokens,
         )
 
     # Save newly extracted graphs to cache
@@ -617,6 +638,7 @@ async def _evaluate_papers(
     cached_graphs: dict[str, Graph],
     *,
     use_abstracts: bool = False,
+    max_main_text_tokens: int | None = None,
 ) -> tuple[GPTResult[Sequence[PromptResult[GraphResult]]], dict[str, Graph]]:
     """Evaluate paper novelty using a paper graph and PETER-related papers.
 
@@ -636,6 +658,8 @@ async def _evaluate_papers(
         cached_graphs: Dictionary of paper ID to cached Graph objects.
         use_abstracts: If True, use raw abstracts instead of GPT summaries for
             related papers.
+        max_main_text_tokens: If set, truncate the paper's main text to this many
+            tokens before inserting it into the prompt.
 
     Returns:
         Tuple of (evaluation results, newly extracted graphs).
@@ -657,6 +681,7 @@ async def _evaluate_papers(
             sources,
             cached_graphs,
             use_abstracts=use_abstracts,
+            max_main_text_tokens=max_main_text_tokens,
         )
         # Track newly extracted graphs (not from cache)
         if graph and not graph.is_empty() and graph.id not in cached_graphs:
@@ -821,6 +846,7 @@ async def evaluate_paper(
     cached_graphs: dict[str, Graph],
     *,
     use_abstracts: bool = False,
+    max_main_text_tokens: int | None = None,
 ) -> tuple[GPTResult[PromptResult[GraphResult]], Graph]:
     """Evaluate a single paper's novelty using graph extraction and related papers.
 
@@ -837,6 +863,8 @@ async def evaluate_paper(
         cached_graphs: Dictionary of paper ID to cached Graph objects.
         use_abstracts: If True, use raw abstracts instead of GPT summaries for
             related papers.
+        max_main_text_tokens: If set, truncate the paper's main text to this many
+            tokens before inserting it into the prompt.
 
     Returns:
         Tuple of (GraphResult with evaluation wrapped in PromptResult and GPTResult, Graph).
@@ -853,6 +881,7 @@ async def evaluate_paper(
         linearisation_method,
         sources,
         use_abstracts=use_abstracts,
+        max_main_text_tokens=max_main_text_tokens,
     )
 
     if eval_prompt.type_name == "GPTStructured":
@@ -970,6 +999,7 @@ def build_eval_prompt_text(
     sources: set[PaperSource] | None = None,
     *,
     use_abstracts: bool = False,
+    max_main_text_tokens: int | None = None,
 ) -> str:
     """Build the final user prompt text for a paper evaluation.
 
@@ -998,6 +1028,8 @@ def build_eval_prompt_text(
         sources: Which related paper sources to include.
         use_abstracts: If True, use raw abstracts instead of GPT summaries for
             related papers.
+        max_main_text_tokens: If set, truncate the paper's main text to this many
+            tokens before inserting it into the prompt.
     """
     if prompt.name.startswith("sc4anm"):
         return format_sc4anm_template(prompt, paper, demonstrations)
@@ -1013,6 +1045,7 @@ def build_eval_prompt_text(
         method,
         sources,
         use_abstracts=use_abstracts,
+        max_main_text_tokens=max_main_text_tokens,
     )
 
 
@@ -1025,6 +1058,7 @@ def format_eval_template(
     sources: set[PaperSource] | None = None,
     *,
     use_abstracts: bool = False,
+    max_main_text_tokens: int | None = None,
 ) -> str:
     """Format evaluation template using the paper graph and PETER-queried related papers.
 
@@ -1037,9 +1071,15 @@ def format_eval_template(
         sources: Which related paper sources to include.
         use_abstracts: If True, use raw abstracts instead of GPT summaries for
             related papers.
+        max_main_text_tokens: If set, truncate the paper's main text to this many
+            tokens before inserting it into the prompt.
     """
     if sources is None:
         sources = set(PaperSource)
+
+    main_text = paper.paper.paper.main_text()
+    if max_main_text_tokens is not None:
+        main_text = truncate_text(main_text, max_main_text_tokens)
 
     related = [p for p in paper.related if p.source in sources]
     return prompt.template.format(
@@ -1056,7 +1096,7 @@ def format_eval_template(
         ),
         graph=graph.to_text(method),
         approval=paper.paper.paper.approval,
-        main_text=paper.paper.paper.main_text(),
+        main_text=main_text,
     )
 
 

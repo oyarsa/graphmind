@@ -319,6 +319,7 @@ def build_eval_command(
     cache_dir: Path | None = None,
     no_cache: bool = False,
     raw_abstracts: bool = False,
+    max_main_text_tokens: int | None = None,
     # Scimon-specific
     user_prompt: str | None = None,
 ) -> list[str]:
@@ -343,6 +344,7 @@ def build_eval_command(
         cache_dir: Directory for graph extraction cache (graph only).
         no_cache: Force graph regeneration (graph only).
         raw_abstracts: Use raw abstracts instead of GPT summaries (graph only).
+        max_main_text_tokens: Truncate paper main text to this many tokens (graph only).
         user_prompt: User prompt (scimon only).
 
     Returns:
@@ -395,6 +397,8 @@ def build_eval_command(
             cmd.append("--no-cache")
         if raw_abstracts:
             cmd.append("--raw-abstracts")
+        if max_main_text_tokens is not None:
+            cmd.extend(["--max-main-text-tokens", str(max_main_text_tokens)])
 
     elif eval_type == "scimon":
         if user_prompt:
