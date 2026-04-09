@@ -3049,3 +3049,45 @@ experiments:
       Completely degenerate: predicts rating 3 for 100/100 papers, identical to
       Llama fulltext+abstracts. Qwen 32B at max_length=2000 with full-text input
       also fails to learn the output format.
+
+  - date: "2026-04-08"
+    name: "qwen_gen_fulltext_abstracts_8192_orc"
+    type: baseline
+    description: "Qwen3-32B Gen Full-Text + Retrieved Abstracts (max_length=8192) on ORC"
+    reason: >
+      Testing Qwen 32B with full paper text and retrieved abstracts at full 8192
+      token length. Required A100 80GB + 64GB system RAM.
+    command: |
+      fleche run train_gen_fulltext --env CONFIG=qwen_gen_fulltext_abstracts \
+        --partition interruptible_gpu --time 8:00:00 \
+        --constraint '(a100_80g|h100|h200)' --memory 64G
+    parameters:
+      dataset: "ORC orc_train/dev/test"
+      model: "Qwen/Qwen3-32B"
+      method: "sft-gen"
+      config: "qwen_gen_fulltext_abstracts.toml"
+      input_mode: "full-text-abstracts"
+      learning_rate: 2e-5
+      num_epochs: 3
+      batch_size: 1
+      lora_r: 8
+      lora_alpha: 16
+      quantisation: "4-bit"
+      max_length: 8192
+      max_new_tokens: 256
+      seed: 0
+      gpu: "A100 80GB"
+    metrics:
+      pearson: 0.175
+      spearman: 0.160
+      mae: 0.61
+      rmse: 0.82
+      accuracy: 0.97
+      exact_accuracy: 0.42
+      f1: 0.178
+    total_cost: 0.0
+    conclusion: >
+      First non-degenerate full-text SFT result. Pearson 0.175 is comparable to
+      Qwen basic (0.173 +/- 0.072) but not an improvement. Full paper text plus
+      retrieved abstracts does not outperform title+abstract for Qwen 32B.
+      Single seed only.
