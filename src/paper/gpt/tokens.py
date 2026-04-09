@@ -36,6 +36,12 @@ from paper.gpt.run_gpt import MODEL_SYNONYMS, MODELS_ALLOWED
 from paper.util import cli, describe, display_params, setup_logging
 from paper.util.serde import load_data
 
+_GRAPH_VARIANTS = (
+    "full-graph-structured",
+    "full-text-only",
+    "full-text",
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -188,6 +194,130 @@ def scimon_(
     tokeniser = tiktoken.encoding_for_model(model)
     tokens = [len(tokeniser.encode(prompt)) for prompt in prompts]
     logger.info("Token stats:\n%s\n", describe(tokens))
+
+
+@app.command(
+    name="graph",
+    help="Estimate tokens for graph-based evaluation variants",
+    no_args_is_help=True,
+)
+def graph(
+    input_file: Annotated[
+        Path, typer.Argument(help="Input dataset JSON file (PaperWithRelatedSummary)")
+    ],
+    cache_dir: Annotated[
+        Path,
+        typer.Option("--cache-dir", help="Graph cache directory."),
+    ] = Path("output/.cache/graphs"),
+    model: Annotated[
+        str, typer.Option("--model", "-m", help="Which model's tokeniser to use.")
+    ] = "gpt-4o-mini",
+    seed: Annotated[
+        int, typer.Option("--seed", help="Seed used for cache lookup.")
+    ] = 42,
+    cache_key: Annotated[
+        str | None,
+        typer.Option(
+            "--cache-key", help="Explicit graph cache key (subdirectory name)."
+        ),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        typer.Option("--limit", "-n", help="Limit on the number of papers to process."),
+    ] = None,
+) -> None:
+    """Estimate tokens for graph-based evaluation variants on a dataset.
+
+    Computes token statistics for:
+    - full-graph-structured (GraphMind best variant)
+    - full-text-only (full paper text, no related papers)
+    - full-text with use_abstracts=False (full text + related summaries)
+    - full-text with use_abstracts=True (full text + related raw abstracts)
+    """
+    from paper.gpt.evaluate_paper_graph import format_eval_template
+    from paper.gpt.graph_cache import compute_cache_key, load_cached_graphs
+    from paper.gpt.model import (
+        Graph,
+        LinearisationMethod,
+        PaperWithRelatedSummary,
+        PromptResult,
+    )
+
+    logger.info(display_params())
+
+    model = MODEL_SYNONYMS.get(model, model)
+    if model not in MODELS_ALLOWED:
+        raise SystemExit(f"Invalid model: {model!r}. Must be one of: {MODELS_ALLOWED}.")
+
+    wrapped = load_data(input_file, PromptResult[PaperWithRelatedSummary])[:limit]
+    papers = PromptResult.unwrap(wrapped)
+    tokeniser = tiktoken.encoding_for_model(model)
+
+    # Load cached graphs
+    if cache_key is None:
+        cache_key = compute_cache_key(
+            model=model,
+            temperature=0.0,
+            graph_prompt_key="excerpts",
+            seed=seed,
+            input_file=input_file,
+        )
+    cache_path = cache_dir / cache_key
+    cached = load_cached_graphs(cache_path)
+    if cached is None:
+        raise SystemExit(
+            f"No cached graphs at {cache_path}. Run graph extraction first."
+        )
+    logger.info("Loaded %d cached graphs from %s", len(cached), cache_path)
+
+    # Map papers to their graphs
+    empty_graph = Graph(title="", abstract="", entities=[], relationships=[])
+    paper_graphs: list[tuple[PaperWithRelatedSummary, Graph]] = []
+    missing = 0
+    for paper in papers:
+        graph_id = Graph(
+            title=paper.title, abstract=paper.abstract, entities=[], relationships=[]
+        ).id
+        g = cached.get(graph_id)
+        if g is None:
+            missing += 1
+            g = empty_graph
+        paper_graphs.append((paper, g))
+
+    if missing:
+        logger.warning("%d papers had no cached graph (using empty graph)", missing)
+
+    # Define variants: (label, prompt_key, use_abstracts, max_main_text_tokens)
+    variants: list[tuple[str, str, bool, int | None]] = [
+        ("GraphMind (full-graph-structured)", "full-graph-structured", False, None),
+        ("Full text only", "full-text-only", False, None),
+        ("Full text + summaries", "full-text", False, None),
+        ("Full text + raw abstracts", "full-text", True, None),
+        ("Full text only (truncated)", "full-text-only", False, 4800),
+        ("Full text + summaries (truncated)", "full-text", False, 4800),
+        ("Full text + raw abstracts (truncated)", "full-text", True, 4800),
+    ]
+
+    for label, prompt_key, use_abstracts, max_main_text_tokens in variants:
+        prompt = GRAPH_EVAL_USER_PROMPTS[prompt_key]
+        tokens: list[int] = []
+        for paper, g in paper_graphs:
+            text = format_eval_template(
+                prompt,
+                paper,
+                g,
+                demonstrations="",
+                method=LinearisationMethod.TOPO,
+                use_abstracts=use_abstracts,
+                max_main_text_tokens=max_main_text_tokens,
+            )
+            system_tokens = len(tokeniser.encode(prompt.system or ""))
+            user_tokens = len(tokeniser.encode(text))
+            total = system_tokens + user_tokens
+
+            tokens.append(total)
+
+        logger.info("=== %s ===\n%s\n", label, describe(tokens))
 
 
 @app.callback()
