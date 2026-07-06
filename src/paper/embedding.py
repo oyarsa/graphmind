@@ -1,10 +1,12 @@
 """Tools to generate embeddings from text using SentenceTransformers."""
 
+import asyncio
 import base64
 import itertools
 import logging
 import math
 import os
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Self, cast
 
@@ -17,6 +19,30 @@ from paper.types import Immutable, Matrix, Vector
 logger = logging.getLogger(__name__)
 
 DEFAULT_SENTENCE_MODEL = "all-MiniLM-L6-v2"
+
+
+class TextEncoder(ABC):
+    """Async text-to-vector encoder used by the novelty pipeline.
+
+    Implementations: `paper.gpt.openai_encoder.OpenAIEncoder` (OpenAI embedding
+    API) and `LocalEncoder` (a local SentenceTransformers model). The pipeline
+    depends on this interface so the embedding backend can be swapped without
+    changing pipeline code.
+    """
+
+    @abstractmethod
+    async def encode(self, text: str) -> Vector:
+        """Encode a single text string into a vector."""
+
+    @abstractmethod
+    async def encode_multi(self, texts: Sequence[str]) -> Matrix:
+        """Encode multiple texts into a matrix (one row per text)."""
+
+    @abstractmethod
+    async def batch_encode(
+        self, texts: Sequence[str], batch_size: int = 128, *, progress: bool = False
+    ) -> Matrix:
+        """Encode texts in batches, stacking the results into a single matrix."""
 
 
 class Encoder:
@@ -71,6 +97,36 @@ class Encoder:
             batches = tqdm(batches, total=batch_num, desc="Batch text encoding")
 
         return np.vstack([self.encode_multi(batch) for batch in batches])
+
+
+class LocalEncoder(TextEncoder):
+    """Async `TextEncoder` backed by a local SentenceTransformers model.
+
+    Wraps the synchronous `Encoder`, running its (CPU/GPU-bound) calls in a
+    worker thread so they don't block the event loop. Needs no API key — useful
+    for running the pipeline without depending on the OpenAI embedding API.
+    """
+
+    def __init__(
+        self, model_name: str = DEFAULT_SENTENCE_MODEL, device: str | None = None
+    ) -> None:
+        self._encoder = Encoder(model_name, device)
+
+    async def encode(self, text: str) -> Vector:
+        """Encode a single text string into a vector."""
+        return await asyncio.to_thread(self._encoder.encode, text)
+
+    async def encode_multi(self, texts: Sequence[str]) -> Matrix:
+        """Encode multiple texts into a matrix (one row per text)."""
+        return await asyncio.to_thread(self._encoder.encode_multi, list(texts))
+
+    async def batch_encode(
+        self, texts: Sequence[str], batch_size: int = 128, *, progress: bool = False
+    ) -> Matrix:
+        """Encode texts in batches, stacking the results into a single matrix."""
+        return await asyncio.to_thread(
+            self._encoder.batch_encode, list(texts), batch_size, progress=progress
+        )
 
 
 def similarities(vector: Vector, matrix: Matrix) -> npt.NDArray[np.float32]:

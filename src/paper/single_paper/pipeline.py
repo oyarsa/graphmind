@@ -39,7 +39,7 @@ from paper.util import atimer, ensure_envvar
 from paper.util.cli import die
 
 if TYPE_CHECKING:
-    from paper.gpt.openai_encoder import OpenAIEncoder
+    from paper.embedding import TextEncoder
     from paper.util.rate_limiter import Limiter
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ async def annotate_paper_pipeline(
     limiter: Limiter,
     s2_api_key: str,
     client: LLMClient,
-    encoder: OpenAIEncoder,
+    encoder: TextEncoder,
     *,
     top_k_refs: int = 20,
     num_recommendations: int = 30,
@@ -226,7 +226,7 @@ async def process_paper_from_query(
     num_recommendations: int,
     num_related: int,
     llm_model: str,
-    encoder: OpenAIEncoder,
+    encoder: TextEncoder,
     seed: int,
     limiter: Limiter,
     eval_prompt_key: str,
@@ -333,7 +333,7 @@ async def process_paper_from_selection(
     num_recommendations: int,
     num_related: int,
     limiter: Limiter,
-    encoder: OpenAIEncoder,
+    encoder: TextEncoder,
     eval_prompt_key: str,
     graph_prompt_key: str,
     demonstrations_key: str,

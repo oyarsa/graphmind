@@ -13,9 +13,11 @@ from __future__ import annotations
 import asyncio
 import dataclasses as dc
 from collections.abc import Sequence
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from paper.embedding import DEFAULT_SENTENCE_MODEL, LocalEncoder, TextEncoder
 from paper.gpt.openai_encoder import OpenAIEncoder
 from paper.single_paper.pipeline import QueryType, process_paper_from_query
 from paper.single_paper.s2_store import CachingS2Store, LiveS2Store, S2Store
@@ -24,6 +26,35 @@ from paper.util.rate_limiter import get_limiter
 
 if TYPE_CHECKING:
     from paper.gpt.extract_graph import EvaluationResult
+
+DEFAULT_OPENAI_ENCODER_MODEL = "text-embedding-3-small"
+
+
+class EmbeddingProvider(StrEnum):
+    """Which embedding backend to use for semantic similarity."""
+
+    OPENAI = "openai"
+    """OpenAI embedding API (needs OPENAI_API_KEY)."""
+    LOCAL = "local"
+    """Local SentenceTransformers model (no API key, needs the `cpu`/`cuda` extra)."""
+
+
+def build_encoder(provider: EmbeddingProvider, model: str | None) -> TextEncoder:
+    """Build the embedding encoder for a provider.
+
+    Args:
+        provider: Which embedding backend to use.
+        model: Model name, or None to use the provider's default (an OpenAI
+            embedding model, or a SentenceTransformers model for local).
+
+    Returns:
+        A ready-to-use encoder.
+    """
+    match EmbeddingProvider(provider):
+        case EmbeddingProvider.OPENAI:
+            return OpenAIEncoder(model=model or DEFAULT_OPENAI_ENCODER_MODEL)
+        case EmbeddingProvider.LOCAL:
+            return LocalEncoder(model or DEFAULT_SENTENCE_MODEL)
 
 
 @dc.dataclass(frozen=True)
@@ -34,7 +65,9 @@ class PaperEvaluationConfig:
     num_recommendations: int = 30
     num_related: int = 2
     llm_model: str = "gpt-4o-mini"
-    encoder_model: str = "text-embedding-3-small"
+    provider: EmbeddingProvider = EmbeddingProvider.OPENAI
+    encoder_model: str | None = None
+    """Embedding model name. If None, uses the `provider`'s default model."""
     seed: int = 0
     eval_prompt_key: str = "full-graph-structured"
     graph_prompt_key: str = "full"
@@ -88,7 +121,7 @@ async def evaluate_paper(
         RuntimeError: If LaTeX parsing fails or other processing errors occur.
     """
     limiter = get_limiter(1, 1)
-    encoder = OpenAIEncoder(model=config.encoder_model)
+    encoder = build_encoder(config.provider, config.encoder_model)
     return await process_paper_from_query(
         title,
         QueryType.TITLE,
@@ -133,7 +166,7 @@ async def evaluate_papers(
     """
     s2_api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
     limiter = get_limiter(1, 1)
-    encoder = OpenAIEncoder(model=config.encoder_model)
+    encoder = build_encoder(config.provider, config.encoder_model)
     store = CachingS2Store(LiveS2Store(s2_api_key, limiter), cache_path)
     semaphore = asyncio.Semaphore(concurrency)
 

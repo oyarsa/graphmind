@@ -39,8 +39,8 @@ from paper.util import ensure_envvar
 if TYPE_CHECKING:
     from paper import related_papers as rp
     from paper import semantic_scholar as s2
+    from paper.embedding import TextEncoder
     from paper.gpt.model import PaperRelatedSummarised
-    from paper.gpt.openai_encoder import OpenAIEncoder
     from paper.gpt.prompts import PromptTemplate
     from paper.gpt.run_gpt import LLMClient
     from paper.single_paper.paper_retrieval import ProgressCallback
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 async def abstract_evaluation(
     client: LLMClient,
     limiter: Limiter,
-    encoder: OpenAIEncoder,
+    encoder: TextEncoder,
     num_recommendations: int,
     num_semantic: int,
     title: str,
@@ -228,7 +228,7 @@ async def extract_background_target_related(
 
 
 async def retrieve_semantic_papers(
-    encoder: OpenAIEncoder,
+    encoder: TextEncoder,
     background: str,
     target: str,
     related: Sequence[gpt.PaperAnnotated],

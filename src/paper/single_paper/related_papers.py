@@ -49,8 +49,8 @@ from paper.gpt.summarise_related_peter import (
 from paper.single_paper.summary_cleaning import clean_summary
 
 if TYPE_CHECKING:
+    from paper.embedding import TextEncoder
     from paper.gpt.classify_contexts import S2ReferenceClassified
-    from paper.gpt.openai_encoder import OpenAIEncoder
     from paper.types import Vector
 
 logger = logging.getLogger(__name__)
@@ -206,7 +206,7 @@ async def get_related_papers(
     paper_with_contexts: gpt.PaperWithContextClassfied,
     recommended_papers: Sequence[gpt.PaperAnnotated],
     num_related: int,
-    encoder: OpenAIEncoder,
+    encoder: TextEncoder,
     *,
     filter_by_date: bool = False,
 ) -> list[rp.PaperRelated]:
@@ -372,7 +372,7 @@ def deduplicated(
 
 
 async def get_top_k_semantic(
-    encoder: OpenAIEncoder,
+    encoder: TextEncoder,
     k: int,
     main_emb: Vector,
     papers: Sequence[gpt.PaperAnnotated],
@@ -443,7 +443,7 @@ async def get_top_k_semantic(
 
 
 async def get_top_k_reference_by_polarity(
-    encoder: OpenAIEncoder,
+    encoder: TextEncoder,
     title_emb: Vector,
     references: Sequence[S2ReferenceClassified],
     k: int,

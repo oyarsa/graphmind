@@ -10,6 +10,7 @@ import backoff
 import numpy as np
 import openai
 
+from paper.embedding import TextEncoder
 from paper.types import Matrix, Vector
 from paper.util import ensure_envvar
 from paper.util import progress as prog
@@ -51,7 +52,7 @@ def _get_embedding_rate_limiter(model: str) -> ChatRateLimiter:
     return ChatRateLimiter(request_limit=request_limit, token_limit=token_limit)
 
 
-class OpenAIEncoder:
+class OpenAIEncoder(TextEncoder):
     """Async OpenAI-based text encoder."""
 
     def __init__(self, model: str = "text-embedding-3-small") -> None:

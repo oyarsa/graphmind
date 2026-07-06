@@ -16,6 +16,7 @@ import typer
 from pydantic import TypeAdapter
 
 from paper.single_paper.api import (
+    EmbeddingProvider,
     EvaluationError,
     PaperEvaluationConfig,
     evaluate_papers,
@@ -103,9 +104,14 @@ def batch_main(
     llm_model: Annotated[
         str, typer.Option(help="GPT/Gemini model to use for API calls")
     ] = "gpt-4o-mini",
+    provider: Annotated[
+        EmbeddingProvider,
+        typer.Option(help="Embedding backend: OpenAI API or local model"),
+    ] = EmbeddingProvider.OPENAI,
     encoder_model: Annotated[
-        str, typer.Option(help="OpenAI embedding model for similarity")
-    ] = "text-embedding-3-small",
+        str | None,
+        typer.Option(help="Embedding model for similarity (default: provider's own)"),
+    ] = None,
     seed: Annotated[int, typer.Option(help="Random seed for GPT API calls")] = 0,
     eval_prompt: Annotated[
         str, typer.Option(help="User prompt for paper evaluation")
@@ -134,6 +140,7 @@ def batch_main(
         num_recommendations=num_recommendations,
         num_related=num_related,
         llm_model=llm_model,
+        provider=provider,
         encoder_model=encoder_model,
         seed=seed,
         eval_prompt_key=eval_prompt,

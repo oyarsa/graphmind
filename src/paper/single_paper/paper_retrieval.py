@@ -32,7 +32,7 @@ from paper.single_paper.s2_store import S2_FIELDS_BASE, S2Store
 from paper.util import atimer
 
 if TYPE_CHECKING:
-    from paper.gpt.openai_encoder import OpenAIEncoder
+    from paper.embedding import TextEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -277,7 +277,7 @@ async def _filter_paper_result(result: arxiv.Result) -> bool:
 
 
 async def get_top_k_titles_async(
-    encoder: OpenAIEncoder, paper: pr.Paper, k: int
+    encoder: TextEncoder, paper: pr.Paper, k: int
 ) -> list[str]:
     """Get top `k` reference titles from `paper` using async encoder.
 
@@ -297,7 +297,7 @@ async def get_top_k_titles_async(
 
 
 async def enhance_with_s2_references(
-    paper: pr.Paper, top_k: int, encoder: OpenAIEncoder, store: S2Store
+    paper: pr.Paper, top_k: int, encoder: TextEncoder, store: S2Store
 ) -> s2.PaperWithS2Refs:
     """Enhance paper with S2 reference information for top-k similar references."""
     # Get top-k reference titles by semantic similarity

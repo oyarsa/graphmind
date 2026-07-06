@@ -40,7 +40,7 @@ from paper.util import atimer, ensure_envvar
 from paper.util.serde import replace_fields
 
 if TYPE_CHECKING:
-    from paper.gpt.openai_encoder import OpenAIEncoder
+    from paper.embedding import TextEncoder
     from paper.util.rate_limiter import Limiter
 
 logger = logging.getLogger(__name__)
@@ -849,7 +849,7 @@ async def process_paper_from_selection_multi(
     num_recommendations: int,
     num_related: int,
     limiter: Limiter,
-    encoder: OpenAIEncoder,
+    encoder: TextEncoder,
     eval_prompt_key: str,
     graph_prompt_key: str,
     summ_prompt_key: str,

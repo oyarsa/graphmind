@@ -22,9 +22,11 @@ from paper.embedding import DEFAULT_SENTENCE_MODEL
 from paper.gpt.extract_graph import EvaluationResult
 from paper.single_paper.abstract_evaluation import abstract_evaluation
 from paper.single_paper.api import (
+    EmbeddingProvider,
     EvaluationError,
     PaperEvaluation,
     PaperEvaluationConfig,
+    build_encoder,
     evaluate_paper,
     evaluate_papers,
 )
@@ -47,6 +49,7 @@ from paper.single_paper.s2_store import fetch_s2_paper_info
 __all__ = (
     "DEFAULT_SENTENCE_MODEL",
     "ArxivRateLimitError",
+    "EmbeddingProvider",
     "EvaluationError",
     "EvaluationResult",
     "EvaluationResultMulti",
@@ -56,6 +59,7 @@ __all__ = (
     "abstract_evaluation",
     "arxiv_id_from_url",
     "batch_main",
+    "build_encoder",
     "evaluate_paper",
     "evaluate_papers",
     "fetch_s2_paper_info",

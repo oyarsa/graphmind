@@ -117,6 +117,46 @@ the CLI's batch command), and a `concurrency` limit.
 > importable module path) wasn't renamed along with it — `import
 > paper.single_paper` is correct, not `import graphmind.single_paper`.
 
+## Embedding provider (OpenAI vs local)
+
+Semantic similarity between paper/reference titles is computed with an
+embedding model. By default this uses the OpenAI embedding API, but you can
+switch to a local [SentenceTransformers](https://www.sbert.net/) model
+instead — no OpenAI key needed for the embedding step, and no per-call cost.
+
+CLI:
+
+```console
+$ uv run graphmind single "Attention Is All You Need" --provider local
+$ uv run graphmind single-batch titles.json -o out/ --provider local
+```
+
+Library:
+
+```python
+from paper.single_paper import (
+    EmbeddingProvider,
+    PaperEvaluationConfig,
+    evaluate_paper,
+)
+
+config = PaperEvaluationConfig(provider=EmbeddingProvider.LOCAL)
+result = await evaluate_paper("Attention Is All You Need", config)
+```
+
+Pass `--encoder-model` (CLI) or `encoder_model=` (library) to pick a specific
+model; the default is `all-MiniLM-L6-v2` for local and
+`text-embedding-3-small` for OpenAI. The local model runs on GPU automatically
+if one is available (CUDA/MPS) — install the `cuda` extra instead of `cpu`
+for CUDA. GPU only helps throughput for large batches; a single paper or small
+batch runs fine on CPU.
+
+> [!NOTE]
+> The LLM used for the actual evaluation is separate from the embedding
+> provider and still follows `--llm-model`/`llm_model`. To run with no OpenAI
+> key at all, combine `--provider local` with a non-OpenAI `--llm-model` (e.g.
+> a Gemini model, which uses `GEMINI_API_KEY`).
+
 ## Troubleshooting
 
 - **"Paper not found on Semantic Scholar" despite a valid, freshly-set API

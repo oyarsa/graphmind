@@ -24,10 +24,10 @@ from rich.table import Table
 from paper import gpt
 from paper import peerread as pr
 from paper import related_papers as rp
-from paper.gpt.openai_encoder import OpenAIEncoder
 from paper.orc.arxiv_api import ArxivResult, arxiv_id_from_url
 from paper.orc.download import parse_arxiv_latex
 from paper.orc.latex_parser import SentenceSplitter
+from paper.single_paper.api import EmbeddingProvider, build_encoder
 from paper.single_paper.paper_retrieval import search_arxiv_papers
 from paper.single_paper.pipeline import QueryType, process_paper_from_query
 from paper.single_paper.s2_store import fetch_s2_paper_info
@@ -142,7 +142,8 @@ async def process_paper(
     num_recommendations: int,
     num_related: int,
     llm_model: str,
-    encoder_model: str,
+    provider: EmbeddingProvider,
+    encoder_model: str | None,
     seed: int,
     detail: bool,
     eval_prompt: str,
@@ -166,7 +167,9 @@ async def process_paper(
         num_related: Number of related papers to return for each type
             (citations/semantic, positive/negative).
         llm_model: GPT/Gemini model to use for all LLM API calls.
-        encoder_model: OpenAI embedding model for semantic similarity computations.
+        provider: Embedding backend (OpenAI API or local SentenceTransformers).
+        encoder_model: Embedding model for semantic similarity computations. If
+            None, uses the provider's default model.
         seed: Random seed for GPT API calls to ensure reproducibility.
         detail: Show detailed paper information.
         eval_prompt: User prompt for paper evaluation.
@@ -186,7 +189,7 @@ async def process_paper(
     """
 
     limiter = get_limiter(1, 1)  # 1 request per second for Semantic Scholar
-    encoder = OpenAIEncoder(model=encoder_model)
+    encoder = build_encoder(provider, encoder_model)
 
     result = await atimer(
         process_paper_from_query(
@@ -250,9 +253,14 @@ def main(
     llm_model: Annotated[
         str, typer.Option(help="GPT/Gemini model to use for API calls")
     ] = "gpt-4o-mini",
+    provider: Annotated[
+        EmbeddingProvider,
+        typer.Option(help="Embedding backend: OpenAI API or local model"),
+    ] = EmbeddingProvider.OPENAI,
     encoder_model: Annotated[
-        str, typer.Option(help="OpenAI embedding model for similarity")
-    ] = "text-embedding-3-small",
+        str | None,
+        typer.Option(help="Embedding model for similarity (default: provider's own)"),
+    ] = None,
     seed: Annotated[int, typer.Option(help="Random seed for GPT API calls")] = 0,
     detail: Annotated[
         bool, typer.Option(help="Show detailed paper information.")
@@ -290,6 +298,7 @@ def main(
         num_recommendations,
         num_related,
         llm_model,
+        provider,
         encoder_model,
         seed,
         detail,
