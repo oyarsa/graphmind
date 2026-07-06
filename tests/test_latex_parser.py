@@ -506,17 +506,29 @@ class TestPandocExecutable:
     def test_conversion_works_without_system_pandoc(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        """Proves we don't silently depend on a system-installed pandoc.
+        """Proves conversion works with no system pandoc, i.e. via the bundled one.
 
-        With PATH stripped entirely, a bare "pandoc" subprocess call would be
-        unresolvable — if this test passes, conversion is genuinely using the
-        bundled pypandoc binary, not something found on the system PATH.
+        pypandoc picks the highest-versioned pandoc among the bundled binary and
+        anything on PATH, caching bare ``"pandoc"`` when a system install wins.
+        So we reset that cache and strip PATH entirely: discovery must then fall
+        back to the bundled (pypandoc-binary) executable by absolute path. If
+        `_run_pandoc` ever regressed to a bare "pandoc" call, it would fail here
+        because empty PATH makes bare "pandoc" unresolvable.
+
+        The cache reset is what makes this deterministic regardless of whether
+        the host (e.g. CI) happens to have a system pandoc installed.
         """
-        monkeypatch.setenv("PATH", "")
+        import pypandoc  # type: ignore
 
-        markdown, error = _run_pandoc(
-            "\\section{Hello} This is \\textbf{bold} text.", tmp_path, "test"
-        )
+        pypandoc.clean_pandocpath_cache()
+        monkeypatch.setenv("PATH", "")
+        try:
+            markdown, error = _run_pandoc(
+                "\\section{Hello} This is \\textbf{bold} text.", tmp_path, "test"
+            )
+        finally:
+            pypandoc.clean_pandocpath_cache()
+
         assert error == ""
         assert markdown is not None
         assert "Hello" in markdown
