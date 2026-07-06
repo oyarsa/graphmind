@@ -24,7 +24,8 @@ this feature).
 
 ## CLI usage
 
-Install dependencies and the `graphmind` command:
+Working from a clone of the repository, install dependencies and the
+`graphmind` command:
 
 ```console
 $ just sync          # or: uv sync --extra cpu --extra baselines
@@ -38,6 +39,12 @@ $ uv run graphmind single "Attention Is All You Need"
 
 See `uv run graphmind single --help` for all options (model choice, number
 of references/recommendations, output file, etc.).
+
+> [!NOTE]
+> Installing the package (via `uv add` or `pip install`, see
+> [Library usage](#library-usage)) also puts the `graphmind` command on your
+> PATH — run it directly as `graphmind single "..."`, without the `uv run`
+> prefix.
 
 Evaluate a batch of papers from a JSON file listing their titles:
 
@@ -59,25 +66,42 @@ to multiple titles are only fetched once. See `uv run graphmind single-batch
 ## Library usage
 
 This package isn't published on PyPI (the name `paper` there belongs to an
-unrelated project), so install it directly from the git repository:
+unrelated project), so install it directly from the git repository. Both `uv`
+and plain `pip` work.
+
+### With uv (recommended)
 
 ```console
 $ uv add "graphmind[cpu] @ git+https://github.com/oyarsa/graphmind.git"
 ```
 
-> [!IMPORTANT]
-> Use `uv`, and include the `cpu` (or `cuda`) extra, even though the library
-> API itself doesn't need PyTorch. `sentence-transformers` is a core
-> dependency (used elsewhere in the package) and pulls in `torch` regardless
-> of which extra you pick — but *which* `torch` build gets resolved depends
-> on the extra. This project pins CPU/CUDA-specific wheels via `uv`-only
-> configuration (`[tool.uv.sources]`), which plain `pip` can't see: `pip
-> install "graphmind[cpu] @ ..."` will still silently resolve a generic
-> (often CUDA-bundled) `torch` build from PyPI, wasting a large, unnecessary
-> download if you don't have a GPU. Only `uv add "graphmind[cpu] @ ..."`
-> actually resolves the properly-sized CPU-only wheel. The `baselines` extra
-> is never needed for library use — nothing in `evaluate_paper`/
-> `evaluate_papers` touches it.
+Use the `cpu` extra (or `cuda` if you have an NVIDIA GPU). `sentence-transformers`
+is a core dependency and pulls in `torch` regardless, and the extra selects the
+right `torch` build: this project routes CPU/CUDA-specific wheels via
+`[tool.uv.sources]`, so `uv` resolves the lean, correctly-sized wheel.
+
+### With pip
+
+```console
+$ pip install "git+https://github.com/oyarsa/graphmind.git"
+```
+
+This works and the library runs fine. The one caveat is `torch`: the CPU/CUDA
+wheel selection is `uv`-only configuration that `pip` can't read, so `pip` (even
+with `[cpu]`) resolves whatever generic `torch` PyPI offers — often a large,
+CUDA-bundled build. It still runs correctly on a CPU-only machine (it just falls
+back to CPU), only the download is bigger than necessary. To get the lean
+CPU-only build under `pip`, install `torch` from the PyTorch CPU index *first*,
+then the package (pip sees `torch` already satisfied and won't re-pull it):
+
+```console
+$ pip install torch --index-url https://download.pytorch.org/whl/cpu
+$ pip install "git+https://github.com/oyarsa/graphmind.git"
+```
+
+> [!NOTE]
+> The `baselines` extra is never needed for library use — nothing in
+> `evaluate_paper`/`evaluate_papers` touches it.
 
 Then, from `paper.single_paper` (the distributed package is named
 `graphmind`, but the importable module is still `paper` — see note below):
