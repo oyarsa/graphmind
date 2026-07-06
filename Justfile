@@ -3,6 +3,17 @@ set dotenv-load := true
 _default:
     @just --list
 
+# Sync dependencies for CPU-only PyTorch/SentenceTransformers/etc. (default)
+sync: sync-cpu
+
+# Sync dependencies for CPU-only PyTorch/SentenceTransformers/etc.
+sync-cpu:
+    uv sync --extra cpu --extra baselines
+
+# Sync dependencies for CUDA (x86-64 Linux only)
+sync-cuda:
+    uv sync --extra cuda --extra baselines
+
 # Run ruff check with autofix
 fix:
     uv run ruff check . --fix

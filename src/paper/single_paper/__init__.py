@@ -4,8 +4,13 @@ This module provides functionality to process a single paper through the complet
 pipeline, including S2 reference enhancement, GPT annotations, context classification,
 related paper discovery, and summarisation.
 
-Main entry point:
-    main: CLI command for processing papers
+Library entry points (recommended for programmatic/library use):
+    evaluate_paper: Evaluate one paper's novelty from its arXiv title
+    evaluate_papers: Evaluate many papers concurrently, sharing one S2 cache
+
+CLI entry point:
+    main: CLI command for processing a single paper
+    batch_main: CLI command for processing a JSON list of titles
 
 Core pipeline functions:
     annotate_paper_pipeline: Complete PETER pipeline processing
@@ -16,6 +21,14 @@ Core pipeline functions:
 from paper.embedding import DEFAULT_SENTENCE_MODEL
 from paper.gpt.extract_graph import EvaluationResult
 from paper.single_paper.abstract_evaluation import abstract_evaluation
+from paper.single_paper.api import (
+    EvaluationError,
+    PaperEvaluation,
+    PaperEvaluationConfig,
+    evaluate_paper,
+    evaluate_papers,
+)
+from paper.single_paper.batch import batch_main
 from paper.single_paper.cli import main
 from paper.single_paper.graph_evaluation import ProgressCallback
 from paper.single_paper.graph_evaluation_multi import (
@@ -25,20 +38,26 @@ from paper.single_paper.graph_evaluation_multi import (
 from paper.single_paper.paper_retrieval import (
     ArxivRateLimitError,
     arxiv_id_from_url,
-    fetch_s2_paper_info,
     search_arxiv_papers,
     search_arxiv_papers_filtered,
 )
 from paper.single_paper.pipeline import process_paper_from_selection
+from paper.single_paper.s2_store import fetch_s2_paper_info
 
 __all__ = (
     "DEFAULT_SENTENCE_MODEL",
     "ArxivRateLimitError",
+    "EvaluationError",
     "EvaluationResult",
     "EvaluationResultMulti",
+    "PaperEvaluation",
+    "PaperEvaluationConfig",
     "ProgressCallback",
     "abstract_evaluation",
     "arxiv_id_from_url",
+    "batch_main",
+    "evaluate_paper",
+    "evaluate_papers",
     "fetch_s2_paper_info",
     "main",
     "process_paper_from_selection",

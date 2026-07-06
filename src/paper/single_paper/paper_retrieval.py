@@ -13,7 +13,6 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
-import aiohttp
 import arxiv  # type: ignore
 
 from paper import embedding as emb
@@ -29,17 +28,11 @@ from paper.orc.arxiv_api import (
 )
 from paper.orc.download import parse_arxiv_latex
 from paper.orc.latex_parser import SentenceSplitter
-from paper.semantic_scholar.info import (
-    fetch_paper_data,
-    fetch_paper_info,
-    fetch_papers_from_s2,
-)
-from paper.semantic_scholar.recommended import fetch_paper_recommendations
+from paper.single_paper.s2_store import S2_FIELDS_BASE, S2Store
 from paper.util import atimer
 
 if TYPE_CHECKING:
     from paper.gpt.openai_encoder import OpenAIEncoder
-    from paper.util.rate_limiter import Limiter
 
 logger = logging.getLogger(__name__)
 
@@ -50,34 +43,12 @@ class ArxivRateLimitError(Exception):
     """Raised when arXiv API returns a rate limit error (HTTP 429)."""
 
 
-# Base S2 fields common to all queries
-S2_FIELDS_BASE = [
-    "paperId",
-    "corpusId",
-    "url",
-    "title",
-    "authors",
-    "year",
-    "publicationDate",
-    "abstract",
-    "referenceCount",
-    "citationCount",
-    "influentialCitationCount",
-]
-
-# Full fields including venue and tldr
-S2_FIELDS = [*S2_FIELDS_BASE, "tldr", "venue"]
-
-REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
-
-
-async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr.Paper:
+async def get_paper_from_title(title: str, store: S2Store) -> pr.Paper:
     """Get a single processed Paper from a title using Semantic Scholar and arXiv.
 
     Args:
         title: Paper title to search for.
-        limiter: "Limiter" for the requests.
-        api_key: Semantic Scholar API key.
+        store: Semantic Scholar data access.
 
     Returns:
         Paper object with S2 metadata and parsed arXiv sections/references.
@@ -91,7 +62,7 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr
     """
     # Run S2 and arXiv queries in parallel
     s2_paper, arxiv_result = await asyncio.gather(
-        atimer(fetch_s2_paper_info(api_key, title, limiter), 3),
+        atimer(store.paper_by_title(title), 3),
         atimer(get_arxiv_from_title(title), 3),
     )
 
@@ -118,8 +89,7 @@ async def get_paper_from_title(title: str, limiter: Limiter, api_key: str) -> pr
 
 async def get_paper_from_arxiv_id(
     arxiv_id: str,
-    limiter: Limiter,
-    api_key: str,
+    store: S2Store,
     *,
     callback: ProgressCallback | None = None,
 ) -> pr.Paper:
@@ -127,8 +97,7 @@ async def get_paper_from_arxiv_id(
 
     Args:
         arxiv_id: ID of the paper on arXiv.
-        limiter: "Limiter" for the requests.
-        api_key: Semantic Scholar API key.
+        store: Semantic Scholar data access.
         callback: Optional callback function to call with phase names after completion.
 
     Returns:
@@ -155,9 +124,7 @@ async def get_paper_from_arxiv_id(
         await callback("Fetching Semantic Scholar data and parsing arXiv paper")
 
     s2_paper, (sections, references) = await asyncio.gather(
-        atimer(
-            fetch_s2_paper_info(api_key, arxiv_result.arxiv_title, limiter=limiter), 3
-        ),
+        atimer(store.paper_by_title(arxiv_result.arxiv_title), 3),
         atimer(
             asyncio.to_thread(parse_arxiv_latex, arxiv_result, SentenceSplitter()), 3
         ),
@@ -183,10 +150,10 @@ async def get_arxiv_from_title(openreview_title: str) -> ArxivResult | None:
     """Get ArxivResult for a single OpenReview paper title if it exists on arXiv."""
     client = arxiv.Client()
 
-    query = f'ti:"{openreview_title}"'
-
     try:
-        result = next(await asyncio.to_thread(arxiv_search, client, query, 1))
+        result = next(
+            await asyncio.to_thread(arxiv_search, client, openreview_title, 1)
+        )
         if similar_titles(openreview_title, result.title):
             return ArxivResult(
                 id=arxiv_id_from_url(result.entry_id),
@@ -216,40 +183,6 @@ async def get_arxiv_from_id(arxiv_id: str) -> ArxivResult | None:
         logger.warning(f"Error searching for '{arxiv_id}' on arXiv: {e}")
 
     return None
-
-
-async def fetch_s2_paper_info(
-    api_key: str, title: str, limiter: Limiter
-) -> s2.PaperFromPeerRead | None:
-    """Fetch paper information from the Semantic Scholar API.
-
-    If the paper retrieved from S2 does not have the same (normalised) title as `title`,
-    returns None too. This is because the S2 API will happily return somethines else
-    with a different title if the original was not found.
-
-    Args:
-        api_key: Semantic Scholar API key.
-        title: Paper title to search for.
-        limiter: "Limiter" for the API requests.
-
-    Returns:
-        Paper found or None for failed/not found papers.
-    """
-    async with aiohttp.ClientSession(
-        timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT)
-    ) as session:
-        info = await fetch_paper_info(session, api_key, title, S2_FIELDS, limiter)
-        if info is None:
-            return None
-        if _normalise_title(info.title) != _normalise_title(title):
-            logger.debug("Invalid title. Original: '%s'. Got: '%s'", title, info.title)
-            return None
-        return info
-
-
-def _normalise_title(title: str) -> str:
-    """Remove non-alpha characters from title."""
-    return "".join(c for c in title if c.isalpha()).casefold()
 
 
 async def search_arxiv_papers(
@@ -364,7 +297,7 @@ async def get_top_k_titles_async(
 
 
 async def enhance_with_s2_references(
-    paper: pr.Paper, top_k: int, encoder: OpenAIEncoder, api_key: str, limiter: Limiter
+    paper: pr.Paper, top_k: int, encoder: OpenAIEncoder, store: S2Store
 ) -> s2.PaperWithS2Refs:
     """Enhance paper with S2 reference information for top-k similar references."""
     # Get top-k reference titles by semantic similarity
@@ -376,9 +309,7 @@ async def enhance_with_s2_references(
         return s2.PaperWithS2Refs.from_peer(paper, [])
 
     # Fetch S2 data for the top references
-    s2_results = await fetch_papers_from_s2(
-        api_key, top_ref_titles, [*S2_FIELDS_BASE, "tldr"], limiter=limiter
-    )
+    s2_results = await store.papers_by_titles(top_ref_titles, [*S2_FIELDS_BASE, "tldr"])
 
     # Create S2Reference objects by matching with original references
     s2_papers_from_query = {
@@ -400,19 +331,13 @@ async def enhance_with_s2_references(
 async def fetch_s2_recommendations(
     paper: pr.Paper,
     num_recommendations: int,
-    api_key: str,
-    limiter: Limiter,
+    store: S2Store,
     request_timeout: float,
 ) -> list[s2.Paper]:
     """Fetch recommended papers from S2 API for the given paper."""
 
     # First, we need to get the S2 paper ID by searching for this paper
-    async with aiohttp.ClientSession(
-        timeout=aiohttp.ClientTimeout(REQUEST_TIMEOUT),
-    ) as session:
-        data = await fetch_paper_data(
-            session, api_key, paper.title, ["paperId"], limiter
-        )
+    data = await store.search(paper.title, ["paperId"])
 
     paper_id = (data or {}).get("paperId")
     if not paper_id:
@@ -422,28 +347,24 @@ async def fetch_s2_recommendations(
         return []
 
     # Query both pools and union results to get recent papers + older CS papers
-    async with aiohttp.ClientSession(
-        timeout=aiohttp.ClientTimeout(request_timeout), headers={"x-api-key": api_key}
-    ) as session:
-        recent_task = fetch_paper_recommendations(
-            session,
+    recent_papers, all_cs_papers = await asyncio.gather(
+        store.recommendations(
             paper.title,
             paper_id,
             S2_FIELDS_BASE,
             num_recommendations,
-            limiter,
             from_="recent",
-        )
-        all_cs_task = fetch_paper_recommendations(
-            session,
+            request_timeout=request_timeout,
+        ),
+        store.recommendations(
             paper.title,
             paper_id,
             S2_FIELDS_BASE,
             num_recommendations,
-            limiter,
             from_="all-cs",
-        )
-        recent_papers, all_cs_papers = await asyncio.gather(recent_task, all_cs_task)
+            request_timeout=request_timeout,
+        ),
+    )
 
     # Deduplicate by paper_id, preferring recent pool order.
     # Exclude the main paper itself — the S2 recommendations API can occasionally

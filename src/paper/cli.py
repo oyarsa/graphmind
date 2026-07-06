@@ -29,11 +29,12 @@ app.add_typer(tools.app, name="tools")
 
 app.command(no_args_is_help=True, name="construct")(construct_dataset.main)
 app.command(no_args_is_help=False, name="single")(single_paper.main)
+app.command(no_args_is_help=True, name="single-batch")(single_paper.batch_main)
 
 
 def _version_callback(value: bool) -> None:
     if value:
-        print(f"paper {VERSION}")
+        print(f"graphmind {VERSION}")
         raise typer.Exit
 
 

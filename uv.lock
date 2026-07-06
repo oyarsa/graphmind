@@ -1,15 +1,15 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
-    "extra != 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda'",
-    "sys_platform != 'darwin' and extra == 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda'",
-    "sys_platform == 'darwin' and extra == 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda'",
-    "extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda'",
+    "extra != 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda'",
+    "sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda'",
+    "sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda'",
+    "extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda'",
 ]
 conflicts = [[
-    { package = "paper", extra = "cpu" },
-    { package = "paper", extra = "cuda" },
+    { package = "graphmind", extra = "cpu" },
+    { package = "graphmind", extra = "cuda" },
 ]]
 
 [[package]]
@@ -32,10 +32,10 @@ dependencies = [
     { name = "psutil" },
     { name = "pyyaml" },
     { name = "safetensors" },
-    { name = "torch", version = "2.6.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "torch", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" }, marker = "extra == 'extra-5-paper-cuda'" },
-    { name = "torch", version = "2.7.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
+    { name = "torch", version = "2.6.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "torch", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" }, marker = "extra == 'extra-9-graphmind-cuda'" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/bd/c2/b9e33ad13232606dded4c546e654fb06a15f1dbcbd95d81c9f9dd3ccc771/accelerate-1.8.1.tar.gz", hash = "sha256:f60df931671bc4e75077b852990469d4991ce8bd3a58e72375c3c95132034db9", size = 380872, upload-time = "2025-06-20T15:36:14.618Z" }
 wheels = [
@@ -136,7 +136,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
     { name = "sniffio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/95/7d/4c1bd541d4dffa1b52bd83fb8527089e097a106fc90b467a7313b105f840/anyio-4.9.0.tar.gz", hash = "sha256:673c0c244e15788651a4ff38710fea9675823028a6f08a5eda409e0c9840a028", size = 190949, upload-time = "2025-03-17T00:02:54.77Z" }
 wheels = [
@@ -288,10 +288,10 @@ dependencies = [
     { name = "packaging" },
     { name = "pandas" },
     { name = "requests" },
-    { name = "torch", version = "2.6.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "torch", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" }, marker = "extra == 'extra-5-paper-cuda'" },
-    { name = "torch", version = "2.7.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
+    { name = "torch", version = "2.6.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "torch", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" }, marker = "extra == 'extra-9-graphmind-cuda'" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
     { name = "tqdm" },
     { name = "transformers" },
 ]
@@ -305,10 +305,11 @@ name = "bitsandbytes"
 version = "0.46.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "numpy", marker = "sys_platform != 'darwin' or extra != 'extra-5-paper-cpu' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "torch", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" }, marker = "extra == 'extra-5-paper-cuda'" },
-    { name = "torch", version = "2.7.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
+    { name = "numpy" },
+    { name = "torch", version = "2.6.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "torch", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" }, marker = "extra == 'extra-9-graphmind-cuda'" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d2/b2/9dadb4f8dca3948e35c1ebfee75ca82353e41468b41ff785430595f8e6f0/bitsandbytes-0.46.1-py3-none-manylinux_2_24_aarch64.whl", hash = "sha256:21b349f776d04c6c1380405961081de29c84f49640b79d3d199b6d719818da84", size = 30713241, upload-time = "2025-07-02T19:44:21.857Z" },
@@ -433,7 +434,7 @@ name = "click"
 version = "8.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/60/6c/8ca2efa64cf75a977a0d7fac081354553ebe483345c734fb6b6515d96bbc/click-8.2.1.tar.gz", hash = "sha256:27c491cc05d968d271d5a1db13e3b5a184636d9d930f148c50b038f0d0646202", size = 286342, upload-time = "2025-05-20T23:19:49.832Z" }
 wheels = [
@@ -915,6 +916,131 @@ wheels = [
 ]
 
 [[package]]
+name = "graphmind"
+version = "0.35.0"
+source = { editable = "." }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "arxiv" },
+    { name = "backoff" },
+    { name = "beartype" },
+    { name = "fastapi", extra = ["standard"] },
+    { name = "google-genai" },
+    { name = "matplotlib" },
+    { name = "networkx" },
+    { name = "nltk" },
+    { name = "numpy" },
+    { name = "openai" },
+    { name = "openreview-py" },
+    { name = "orjson" },
+    { name = "psutil" },
+    { name = "psycopg", extra = ["binary", "pool"] },
+    { name = "pydantic" },
+    { name = "pypandoc-binary" },
+    { name = "rich" },
+    { name = "scikit-learn" },
+    { name = "scipy-stubs" },
+    { name = "semanticscholar" },
+    { name = "sentence-transformers" },
+    { name = "thefuzz" },
+    { name = "tiktoken" },
+    { name = "toml" },
+    { name = "tqdm" },
+    { name = "typer" },
+    { name = "zstandard" },
+]
+
+[package.optional-dependencies]
+baselines = [
+    { name = "annoy" },
+    { name = "bert-score" },
+    { name = "bitsandbytes", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "datasets" },
+    { name = "peft" },
+    { name = "rouge-score" },
+    { name = "transformers" },
+]
+cpu = [
+    { name = "torch", version = "2.6.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+]
+cuda = [
+    { name = "torch", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" } },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "codespell" },
+    { name = "icecream" },
+    { name = "ipython" },
+    { name = "jupyterlab" },
+    { name = "pdoc" },
+    { name = "pre-commit" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiohttp", specifier = ">=3.10.5" },
+    { name = "annoy", marker = "extra == 'baselines'", specifier = ">=1.17.3" },
+    { name = "arxiv", specifier = ">=2.1.3" },
+    { name = "backoff", specifier = ">=2.2.1" },
+    { name = "beartype", specifier = ">=0.20.2" },
+    { name = "bert-score", marker = "extra == 'baselines'", specifier = ">=0.3.13" },
+    { name = "bitsandbytes", marker = "platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'baselines'", specifier = ">=0.45.3" },
+    { name = "datasets", marker = "extra == 'baselines'", specifier = ">=3.5.0" },
+    { name = "fastapi", extras = ["standard"], specifier = ">=0.115.13" },
+    { name = "google-genai", specifier = ">=1.10.0" },
+    { name = "matplotlib", specifier = ">=3.9.2" },
+    { name = "networkx", specifier = ">=3.3" },
+    { name = "nltk", specifier = ">=3.9.1" },
+    { name = "numpy", specifier = ">=2.1.3" },
+    { name = "openai", specifier = ">=1.72.0" },
+    { name = "openreview-py", specifier = ">=1.46.3" },
+    { name = "orjson", specifier = ">=3.10.18" },
+    { name = "peft", marker = "extra == 'baselines'", specifier = ">=0.15.1" },
+    { name = "psutil", specifier = ">=6.1.0" },
+    { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2.9" },
+    { name = "pydantic", specifier = ">=2.11.4" },
+    { name = "pypandoc-binary", specifier = ">=1.17" },
+    { name = "rich", specifier = ">=13.9.2" },
+    { name = "rouge-score", marker = "extra == 'baselines'", specifier = ">=0.1.2" },
+    { name = "scikit-learn", specifier = ">=1.7.0" },
+    { name = "scipy-stubs", specifier = ">=1.15.2.1" },
+    { name = "semanticscholar", specifier = ">=0.10.0" },
+    { name = "sentence-transformers", specifier = ">=3.3.0" },
+    { name = "thefuzz", specifier = ">=0.22.1" },
+    { name = "tiktoken", specifier = ">=0.8.0" },
+    { name = "toml", specifier = ">=0.10.2" },
+    { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.5.1,<2.7", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "graphmind", extra = "cpu" } },
+    { name = "torch", marker = "extra == 'cuda'", specifier = ">=2.5.1,<2.7", index = "https://download.pytorch.org/whl/cu124", conflict = { package = "graphmind", extra = "cuda" } },
+    { name = "tqdm", specifier = ">=4.66.5" },
+    { name = "transformers", marker = "extra == 'baselines'", specifier = ">=4.46.2" },
+    { name = "typer", specifier = ">=0.12.5" },
+    { name = "zstandard", specifier = ">=0.23.0" },
+]
+provides-extras = ["cpu", "cuda", "baselines"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "codespell", specifier = ">=2.4.1" },
+    { name = "icecream", specifier = ">=2.1.3" },
+    { name = "ipython", specifier = ">=8.27.0" },
+    { name = "jupyterlab", specifier = ">=4.2.5" },
+    { name = "pdoc", git = "https://github.com/oyarsa/pdoc?tag=v16.1.0" },
+    { name = "pre-commit", specifier = ">=3.8.0" },
+    { name = "pyright", specifier = "==1.1.406" },
+    { name = "pytest", specifier = ">=8.3.4" },
+    { name = "pytest-asyncio", specifier = ">=1.0.0" },
+    { name = "pytest-cov", specifier = ">=6.1.1" },
+    { name = "ruff", specifier = ">=0.12.7,<0.13" },
+]
+
+[[package]]
 name = "h11"
 version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -995,7 +1121,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
     { name = "fsspec" },
-    { name = "hf-xet", marker = "platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "hf-xet", marker = "platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
     { name = "packaging" },
     { name = "pyyaml" },
     { name = "requests" },
@@ -1054,7 +1180,7 @@ name = "ipykernel"
 version = "6.29.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "appnope", marker = "sys_platform == 'darwin' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "appnope", marker = "sys_platform == 'darwin' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
     { name = "comm" },
     { name = "debugpy" },
     { name = "ipython" },
@@ -1078,12 +1204,12 @@ name = "ipython"
 version = "9.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
     { name = "decorator" },
     { name = "ipython-pygments-lexers" },
     { name = "jedi" },
     { name = "matplotlib-inline" },
-    { name = "pexpect", marker = "(sys_platform != 'emscripten' and sys_platform != 'win32') or (sys_platform == 'emscripten' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform == 'win32' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "pexpect", marker = "(sys_platform != 'emscripten' and sys_platform != 'win32') or (sys_platform == 'emscripten' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform == 'win32' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
     { name = "prompt-toolkit" },
     { name = "pygments" },
     { name = "stack-data" },
@@ -1278,7 +1404,7 @@ version = "5.8.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "platformdirs" },
-    { name = "pywin32", marker = "(platform_python_implementation != 'PyPy' and sys_platform == 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'win32' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "pywin32", marker = "(platform_python_implementation != 'PyPy' and sys_platform == 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'win32' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
     { name = "traitlets" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/99/1b/72906d554acfeb588332eaaa6f61577705e9ec752ddb486f302dafa292d9/jupyter_core-5.8.1.tar.gz", hash = "sha256:0a5f9706f70e64786b75acba995988915ebd4601c8a52e534a40b51c95f59941", size = 88923, upload-time = "2025-05-27T07:38:16.655Z" }
@@ -1334,7 +1460,7 @@ dependencies = [
     { name = "overrides" },
     { name = "packaging" },
     { name = "prometheus-client" },
-    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin') or (os_name == 'nt' and extra != 'extra-5-paper-cpu') or (os_name != 'nt' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform == 'darwin' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin') or (os_name == 'nt' and extra != 'extra-9-graphmind-cpu') or (os_name != 'nt' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
     { name = "pyzmq" },
     { name = "send2trash" },
     { name = "terminado" },
@@ -1352,7 +1478,7 @@ name = "jupyter-server-terminals"
 version = "0.5.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin') or (os_name == 'nt' and extra != 'extra-5-paper-cpu') or (os_name != 'nt' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform == 'darwin' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin') or (os_name == 'nt' and extra != 'extra-9-graphmind-cpu') or (os_name != 'nt' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
     { name = "terminado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fc/d5/562469734f476159e99a55426d697cbf8e7eb5efe89fb0e0b4f83a3d3459/jupyter_server_terminals-0.5.3.tar.gz", hash = "sha256:5ae0295167220e9ace0edcfdb212afd2b01ee8d179fe6f23c899590e9b8a5269", size = 31430, upload-time = "2024-03-12T14:37:03.049Z" }
@@ -1915,7 +2041,7 @@ name = "nvidia-cudnn-cu12"
 version = "9.1.0.70"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", version = "12.4.5.8", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-5-paper-cuda'" },
+    { name = "nvidia-cublas-cu12", version = "12.4.5.8", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-graphmind-cuda'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9f/fd/713452cd72343f682b1c7b9321e23829f00b842ceaedcda96e742ea0b0b3/nvidia_cudnn_cu12-9.1.0.70-py3-none-manylinux2014_x86_64.whl", hash = "sha256:165764f44ef8c61fcdfdfdbe769d687e06374059fbb388b6c89ecb0e28793a6f", size = 664752741, upload-time = "2024-04-22T15:24:15.253Z" },
@@ -1927,7 +2053,7 @@ name = "nvidia-cudnn-cu12"
 version = "9.5.1.17"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", version = "12.6.4.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
+    { name = "nvidia-cublas-cu12", version = "12.6.4.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/99/93/a201a12d3ec1caa8c6ac34c1c2f9eeb696b886f0c36ff23c638b46603bd0/nvidia_cudnn_cu12-9.5.1.17-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:9fd4584468533c61873e5fda8ca41bac3a38bcb2d12350830c69b0a96a7e4def", size = 570523509, upload-time = "2024-10-25T19:53:03.148Z" },
@@ -1940,7 +2066,7 @@ name = "nvidia-cufft-cu12"
 version = "11.2.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-5-paper-cuda'" },
+    { name = "nvidia-nvjitlink-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-graphmind-cuda'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7a/8a/0e728f749baca3fbeffad762738276e5df60851958be7783af121a7221e7/nvidia_cufft_cu12-11.2.1.3-py3-none-manylinux2014_aarch64.whl", hash = "sha256:5dad8008fc7f92f5ddfa2101430917ce2ffacd86824914c82e28990ad7f00399", size = 211422548, upload-time = "2024-06-18T19:33:39.396Z" },
@@ -1953,7 +2079,7 @@ name = "nvidia-cufft-cu12"
 version = "11.3.0.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
+    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1f/37/c50d2b2f2c07e146776389e3080f4faf70bcc4fa6e19d65bb54ca174ebc3/nvidia_cufft_cu12-11.3.0.4-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:d16079550df460376455cba121db6564089176d9bac9e4f360493ca4741b22a6", size = 200164144, upload-time = "2024-11-20T17:40:58.288Z" },
@@ -1999,9 +2125,9 @@ name = "nvidia-cusolver-cu12"
 version = "11.6.1.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", version = "12.4.5.8", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-5-paper-cuda'" },
-    { name = "nvidia-cusparse-cu12", version = "12.3.1.170", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-5-paper-cuda'" },
-    { name = "nvidia-nvjitlink-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-5-paper-cuda'" },
+    { name = "nvidia-cublas-cu12", version = "12.4.5.8", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-graphmind-cuda'" },
+    { name = "nvidia-cusparse-cu12", version = "12.3.1.170", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-graphmind-cuda'" },
+    { name = "nvidia-nvjitlink-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-graphmind-cuda'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/46/6b/a5c33cf16af09166845345275c34ad2190944bcc6026797a39f8e0a282e0/nvidia_cusolver_cu12-11.6.1.9-py3-none-manylinux2014_aarch64.whl", hash = "sha256:d338f155f174f90724bbde3758b7ac375a70ce8e706d70b018dd3375545fc84e", size = 127634111, upload-time = "2024-06-18T19:35:01.793Z" },
@@ -2014,9 +2140,9 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", version = "12.6.4.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
-    { name = "nvidia-cusparse-cu12", version = "12.5.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
-    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
+    { name = "nvidia-cublas-cu12", version = "12.6.4.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cusparse-cu12", version = "12.5.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/93/17/dbe1aa865e4fdc7b6d4d0dd308fdd5aaab60f939abfc0ea1954eac4fb113/nvidia_cusolver_cu12-11.7.1.2-py3-none-manylinux2014_aarch64.whl", hash = "sha256:0ce237ef60acde1efc457335a2ddadfd7610b892d94efee7b776c64bb1cac9e0", size = 157833628, upload-time = "2024-10-01T17:05:05.591Z" },
@@ -2031,7 +2157,7 @@ name = "nvidia-cusparse-cu12"
 version = "12.3.1.170"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-5-paper-cuda'" },
+    { name = "nvidia-nvjitlink-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-graphmind-cuda'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/96/a9/c0d2f83a53d40a4a41be14cea6a0bf9e668ffcf8b004bd65633f433050c0/nvidia_cusparse_cu12-12.3.1.170-py3-none-manylinux2014_aarch64.whl", hash = "sha256:9d32f62896231ebe0480efd8a7f702e143c98cfaa0e8a76df3386c1ba2b54df3", size = 207381987, upload-time = "2024-06-18T19:35:32.989Z" },
@@ -2044,7 +2170,7 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
+    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/eb/eb/6681efd0aa7df96b4f8067b3ce7246833dd36830bb4cec8896182773db7d/nvidia_cusparse_cu12-12.5.4.2-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:d25b62fb18751758fe3c93a4a08eff08effedfe4edf1c6bb5afd0890fe88f887", size = 216451147, upload-time = "2024-11-20T17:44:18.055Z" },
@@ -2176,7 +2302,7 @@ name = "optype"
 version = "0.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/11/11/5bc1ad8e4dd339783daec5299c9162eaa80ad072aaa1256561b336152981/optype-0.10.0.tar.gz", hash = "sha256:2b89a1b8b48f9d6dd8c4dd4f59e22557185c81823c6e2bfc43c4819776d5a7ca", size = 95630, upload-time = "2025-05-28T22:43:18.799Z" }
 wheels = [
@@ -2283,129 +2409,6 @@ wheels = [
 ]
 
 [[package]]
-name = "paper"
-version = "0.35.0"
-source = { editable = "." }
-dependencies = [
-    { name = "aiohttp" },
-    { name = "arxiv" },
-    { name = "backoff" },
-    { name = "beartype" },
-    { name = "fastapi", extra = ["standard"] },
-    { name = "google-genai" },
-    { name = "matplotlib" },
-    { name = "networkx" },
-    { name = "nltk" },
-    { name = "numpy" },
-    { name = "openai" },
-    { name = "openreview-py" },
-    { name = "orjson" },
-    { name = "psutil" },
-    { name = "psycopg", extra = ["binary", "pool"] },
-    { name = "pydantic" },
-    { name = "rich" },
-    { name = "scikit-learn" },
-    { name = "scipy-stubs" },
-    { name = "semanticscholar" },
-    { name = "sentence-transformers" },
-    { name = "thefuzz" },
-    { name = "tiktoken" },
-    { name = "toml" },
-    { name = "tqdm" },
-    { name = "typer" },
-    { name = "zstandard" },
-]
-
-[package.optional-dependencies]
-baselines = [
-    { name = "annoy" },
-    { name = "bert-score" },
-    { name = "bitsandbytes", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "datasets" },
-    { name = "peft" },
-    { name = "rouge-score" },
-    { name = "transformers" },
-]
-cpu = [
-    { name = "torch", version = "2.6.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-]
-cuda = [
-    { name = "torch", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" } },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "codespell" },
-    { name = "icecream" },
-    { name = "ipython" },
-    { name = "jupyterlab" },
-    { name = "pdoc" },
-    { name = "pre-commit" },
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiohttp", specifier = ">=3.10.5" },
-    { name = "annoy", marker = "extra == 'baselines'", specifier = ">=1.17.3" },
-    { name = "arxiv", specifier = ">=2.1.3" },
-    { name = "backoff", specifier = ">=2.2.1" },
-    { name = "beartype", specifier = ">=0.20.2" },
-    { name = "bert-score", marker = "extra == 'baselines'", specifier = ">=0.3.13" },
-    { name = "bitsandbytes", marker = "platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'baselines'", specifier = ">=0.45.3" },
-    { name = "datasets", marker = "extra == 'baselines'", specifier = ">=3.5.0" },
-    { name = "fastapi", extras = ["standard"], specifier = ">=0.115.13" },
-    { name = "google-genai", specifier = ">=1.10.0" },
-    { name = "matplotlib", specifier = ">=3.9.2" },
-    { name = "networkx", specifier = ">=3.3" },
-    { name = "nltk", specifier = ">=3.9.1" },
-    { name = "numpy", specifier = ">=2.1.3" },
-    { name = "openai", specifier = ">=1.72.0" },
-    { name = "openreview-py", specifier = ">=1.46.3" },
-    { name = "orjson", specifier = ">=3.10.18" },
-    { name = "peft", marker = "extra == 'baselines'", specifier = ">=0.15.1" },
-    { name = "psutil", specifier = ">=6.1.0" },
-    { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2.9" },
-    { name = "pydantic", specifier = ">=2.11.4" },
-    { name = "rich", specifier = ">=13.9.2" },
-    { name = "rouge-score", marker = "extra == 'baselines'", specifier = ">=0.1.2" },
-    { name = "scikit-learn", specifier = ">=1.7.0" },
-    { name = "scipy-stubs", specifier = ">=1.15.2.1" },
-    { name = "semanticscholar", specifier = ">=0.10.0" },
-    { name = "sentence-transformers", specifier = ">=3.3.0" },
-    { name = "thefuzz", specifier = ">=0.22.1" },
-    { name = "tiktoken", specifier = ">=0.8.0" },
-    { name = "toml", specifier = ">=0.10.2" },
-    { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.5.1,<2.7", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "paper", extra = "cpu" } },
-    { name = "torch", marker = "extra == 'cuda'", specifier = ">=2.5.1,<2.7", index = "https://download.pytorch.org/whl/cu124", conflict = { package = "paper", extra = "cuda" } },
-    { name = "tqdm", specifier = ">=4.66.5" },
-    { name = "transformers", marker = "extra == 'baselines'", specifier = ">=4.46.2" },
-    { name = "typer", specifier = ">=0.12.5" },
-    { name = "zstandard", specifier = ">=0.23.0" },
-]
-provides-extras = ["cpu", "cuda", "baselines"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "codespell", specifier = ">=2.4.1" },
-    { name = "icecream", specifier = ">=2.1.3" },
-    { name = "ipython", specifier = ">=8.27.0" },
-    { name = "jupyterlab", specifier = ">=4.2.5" },
-    { name = "pdoc", git = "https://github.com/oyarsa/pdoc?tag=v16.1.0" },
-    { name = "pre-commit", specifier = ">=3.8.0" },
-    { name = "pyright", specifier = "==1.1.406" },
-    { name = "pytest", specifier = ">=8.3.4" },
-    { name = "pytest-asyncio", specifier = ">=1.0.0" },
-    { name = "pytest-cov", specifier = ">=6.1.1" },
-    { name = "ruff", specifier = ">=0.12.7,<0.13" },
-]
-
-[[package]]
 name = "parso"
 version = "0.8.4"
 source = { registry = "https://pypi.org/simple" }
@@ -2437,10 +2440,10 @@ dependencies = [
     { name = "psutil" },
     { name = "pyyaml" },
     { name = "safetensors" },
-    { name = "torch", version = "2.6.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "torch", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" }, marker = "extra == 'extra-5-paper-cuda'" },
-    { name = "torch", version = "2.7.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
+    { name = "torch", version = "2.6.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "torch", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" }, marker = "extra == 'extra-9-graphmind-cuda'" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
     { name = "tqdm" },
     { name = "transformers" },
 ]
@@ -2659,8 +2662,8 @@ name = "psycopg"
 version = "3.2.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "tzdata", marker = "sys_platform == 'win32' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "tzdata", marker = "sys_platform == 'win32' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/27/4a/93a6ab570a8d1a4ad171a1f4256e205ce48d828781312c0bbaff36380ecb/psycopg-3.2.9.tar.gz", hash = "sha256:2fbb46fcd17bc81f993f28c47f1ebea38d66ae97cc2dbc3cad73b37cefbff700", size = 158122, upload-time = "2025-05-13T16:11:15.533Z" }
 wheels = [
@@ -2669,7 +2672,7 @@ wheels = [
 
 [package.optional-dependencies]
 binary = [
-    { name = "psycopg-binary", marker = "implementation_name != 'pypy' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "psycopg-binary", marker = "implementation_name != 'pypy' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
 ]
 pool = [
     { name = "psycopg-pool" },
@@ -2911,6 +2914,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/5d/ab/34ec41718af73c00119d0351b7a2531d2ebddb51833a36448fc7b862be60/pylatexenc-2.10.tar.gz", hash = "sha256:3dd8fd84eb46dc30bee1e23eaab8d8fb5a7f507347b23e5f38ad9675c84f40d3", size = 162597, upload-time = "2021-04-06T07:56:07.854Z" }
 
 [[package]]
+name = "pypandoc-binary"
+version = "1.17"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/85/681a54111f0948821a5cf87ce30a88bb0a3f6848af5112c912abac4a2b77/pypandoc_binary-1.17-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:734726dc618ef276343e272e1a6b4567e59c2ef9ef41d5533042deac3b0531f1", size = 25553945, upload-time = "2026-03-14T22:38:47.91Z" },
+    { url = "https://files.pythonhosted.org/packages/15/58/8fd107c68522957868c1e785fbea7595608df118e440e424d189668294df/pypandoc_binary-1.17-py3-none-macosx_11_0_arm64.whl", hash = "sha256:fcfd28f347ed998dda28823fc6bc24f9310e7fdf3ddceaf925bf0563a100ab5b", size = 25553944, upload-time = "2026-03-14T22:38:50.74Z" },
+    { url = "https://files.pythonhosted.org/packages/f4/27/ac1078239aae14b94c51975b7f46ad8e099e47d7ae26c175a5486b1c0099/pypandoc_binary-1.17-py3-none-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:d6b620b21c9374e3e48aabd518492bf0776b148442ee28816f6aaf52da3d4387", size = 34460960, upload-time = "2026-03-14T22:38:53.391Z" },
+    { url = "https://files.pythonhosted.org/packages/8d/7f/1e5612b52900ebe590862dabeadf546f739b27527dcd8bfd632f8adac1be/pypandoc_binary-1.17-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:9ada156cb980cd54fd6534231788e668c00dbb591cbd24f0be0bd86812eb8788", size = 36867598, upload-time = "2026-03-14T22:38:56.351Z" },
+    { url = "https://files.pythonhosted.org/packages/3b/31/a5a867159c4080e5d368f4a53540a727501a2f31affc297dc8e0fced96a7/pypandoc_binary-1.17-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:2f439dcd211183bb3460253ca4511101df6e1acf4a01f45f5617e1fa2ad24279", size = 36867584, upload-time = "2026-03-14T22:38:59.087Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/2d/6a51cd4e54bdf132c19416801077c34bd40ba182e85d843360d36ae03a2d/pypandoc_binary-1.17-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:f6e6d3e4cfafbe23189a08db3d41f8def260bacd6e7e382bceadab7ba1f17da6", size = 34460949, upload-time = "2026-03-14T22:39:01.71Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/b9/f47b77ba75ed5d47ec85fcc2ecfbf7f78e3a73347f3a09836634d930de98/pypandoc_binary-1.17-py3-none-win_amd64.whl", hash = "sha256:76fae066cd2d7e78fb97f0ec8e9e36f437b07187b689b0b415ca18216f8f898a", size = 40891661, upload-time = "2026-03-14T22:39:04.782Z" },
+]
+
+[[package]]
 name = "pyparsing"
 version = "3.2.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2937,7 +2954,7 @@ name = "pytest"
 version = "8.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
@@ -3077,7 +3094,7 @@ name = "pyzmq"
 version = "27.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi", marker = "implementation_name == 'pypy' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "cffi", marker = "implementation_name == 'pypy' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f1/06/50a4e9648b3e8b992bef8eb632e457307553a89d294103213cfd47b3da69/pyzmq-27.0.0.tar.gz", hash = "sha256:b1f08eeb9ce1510e6939b6e5dcd46a17765e2333daae78ecf4606808442e52cf", size = 280478, upload-time = "2025-06-13T14:09:07.087Z" }
 wheels = [
@@ -3147,7 +3164,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "rpds-py" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2f/db/98b5c277be99dd18bfd91dd04e1b759cad18d1a338188c936e92f921c7e2/referencing-0.36.2.tar.gz", hash = "sha256:df2e89862cd09deabbdba16944cc3f10feb6b3e6f18e902f7cc25609a34775aa", size = 74744, upload-time = "2025-01-25T08:48:16.138Z" }
 wheels = [
@@ -3512,10 +3529,10 @@ dependencies = [
     { name = "pillow" },
     { name = "scikit-learn" },
     { name = "scipy" },
-    { name = "torch", version = "2.6.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "torch", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" }, marker = "extra == 'extra-5-paper-cuda'" },
-    { name = "torch", version = "2.7.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
+    { name = "torch", version = "2.6.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "torch", version = "2.6.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "torch", version = "2.6.0+cu124", source = { registry = "https://download.pytorch.org/whl/cu124" }, marker = "extra == 'extra-9-graphmind-cuda'" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
     { name = "tqdm" },
     { name = "transformers" },
     { name = "typing-extensions" },
@@ -3607,12 +3624,12 @@ name = "sympy"
 version = "1.13.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "extra != 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda'",
-    "sys_platform != 'darwin' and extra == 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda'",
-    "sys_platform == 'darwin' and extra == 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda'",
+    "extra != 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda'",
+    "sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda'",
+    "sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda'",
 ]
 dependencies = [
-    { name = "mpmath", marker = "extra == 'extra-5-paper-cpu' or extra == 'extra-5-paper-cuda'" },
+    { name = "mpmath", marker = "extra == 'extra-9-graphmind-cpu' or extra == 'extra-9-graphmind-cuda'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ca/99/5a5b6f19ff9f083671ddf7b9632028436167cd3d33e11015754e41b249a4/sympy-1.13.1.tar.gz", hash = "sha256:9cebf7e04ff162015ce31c9c6c9144daa34a93bd082f54fd8f12deca4f47515f", size = 7533040, upload-time = "2024-07-19T09:26:51.238Z" }
 wheels = [
@@ -3624,7 +3641,7 @@ name = "sympy"
 version = "1.14.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "mpmath", marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
+    { name = "mpmath", marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/83/d3/803453b36afefb7c2bb238361cd4ae6125a569b4db67cd9e79846ba2d68c/sympy-1.14.0.tar.gz", hash = "sha256:d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517", size = 7793921, upload-time = "2025-04-27T18:05:01.611Z" }
 wheels = [
@@ -3645,8 +3662,8 @@ name = "terminado"
 version = "0.18.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess", marker = "os_name != 'nt' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin') or (os_name == 'nt' and extra != 'extra-5-paper-cpu') or (os_name != 'nt' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform == 'darwin' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "ptyprocess", marker = "os_name != 'nt' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin') or (os_name == 'nt' and extra != 'extra-9-graphmind-cpu') or (os_name != 'nt' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
     { name = "tornado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8a/11/965c6fd8e5cc254f1fe142d547387da17a8ebfd75a3455f637c663fb38a0/terminado-0.18.1.tar.gz", hash = "sha256:de09f2c4b85de4765f7714688fff57d3e75bad1f909b589fde880460c753fd2e", size = 32701, upload-time = "2024-03-12T14:34:39.026Z" }
@@ -3763,17 +3780,17 @@ resolution-markers = [
     "sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "filelock", marker = "(sys_platform == 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "fsspec", marker = "(sys_platform == 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "jinja2", marker = "(sys_platform == 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "networkx", marker = "(sys_platform == 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "setuptools", marker = "(sys_platform == 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "sympy", version = "1.13.1", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "typing-extensions", marker = "(sys_platform == 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "filelock", marker = "(sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "fsspec", marker = "(sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "jinja2", marker = "(sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "networkx", marker = "(sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "setuptools", marker = "(sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "sympy", version = "1.13.1", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "typing-extensions", marker = "(sys_platform == 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0-cp312-none-macosx_11_0_arm64.whl", hash = "sha256:9a610afe216a85a8b9bc9f8365ed561535c93e804c2a317ef7fabcc5deda0989" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0-cp313-none-macosx_11_0_arm64.whl", hash = "sha256:ff96f4038f8af9f7ec4231710ed4549da1bdebad95923953a25045dcf6fd87e2" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0-cp312-none-macosx_11_0_arm64.whl", hash = "sha256:9a610afe216a85a8b9bc9f8365ed561535c93e804c2a317ef7fabcc5deda0989", upload-time = "2025-01-30T00:39:50Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0-cp313-none-macosx_11_0_arm64.whl", hash = "sha256:ff96f4038f8af9f7ec4231710ed4549da1bdebad95923953a25045dcf6fd87e2", upload-time = "2025-01-30T00:39:52Z" },
 ]
 
 [[package]]
@@ -3784,23 +3801,23 @@ resolution-markers = [
     "sys_platform != 'darwin'",
 ]
 dependencies = [
-    { name = "filelock", marker = "(sys_platform != 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "fsspec", marker = "(sys_platform != 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "jinja2", marker = "(sys_platform != 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "networkx", marker = "(sys_platform != 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "setuptools", marker = "(sys_platform != 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "sympy", version = "1.13.1", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "typing-extensions", marker = "(sys_platform != 'darwin' and extra == 'extra-5-paper-cpu') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "filelock", marker = "(sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "fsspec", marker = "(sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "jinja2", marker = "(sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "networkx", marker = "(sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "setuptools", marker = "(sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "sympy", version = "1.13.1", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "typing-extensions", marker = "(sys_platform != 'darwin' and extra == 'extra-9-graphmind-cpu') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp312-cp312-linux_x86_64.whl", hash = "sha256:59e78aa0c690f70734e42670036d6b541930b8eabbaa18d94e090abf14cc4d91" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:318290e8924353c61b125cdc8768d15208704e279e7757c113b9620740deca98" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp312-cp312-win_amd64.whl", hash = "sha256:4027d982eb2781c93825ab9527f17fbbb12dbabf422298e4b954be60016f87d8" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp313-cp313-linux_x86_64.whl", hash = "sha256:e70ee2e37ad27a90201d101a41c2e10df7cf15a9ebd17c084f54cf2518c57bdf" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:b5e7e8d561b263b5ad8049736281cd12c78e51e7bc1a913fd4098fd0e0b96347" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp313-cp313-win_amd64.whl", hash = "sha256:b436a6c62d086dc5b32f5721b59f0ca8ad3bf9de09ee9b5b83dbf1e7a7e22c60" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp313-cp313t-linux_x86_64.whl", hash = "sha256:fb34d6cc4e6e20e66d74852c3d84e0301dc5e1a7c822076ef288886f978390f0" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:7cac05af909ee1c5c2915e8f3efaa1ea015e7e414be0ff53071402b9e4f3c7df" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp312-cp312-linux_x86_64.whl", hash = "sha256:59e78aa0c690f70734e42670036d6b541930b8eabbaa18d94e090abf14cc4d91", upload-time = "2025-01-30T00:38:31Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:318290e8924353c61b125cdc8768d15208704e279e7757c113b9620740deca98", upload-time = "2025-01-30T00:38:38Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp312-cp312-win_amd64.whl", hash = "sha256:4027d982eb2781c93825ab9527f17fbbb12dbabf422298e4b954be60016f87d8", upload-time = "2025-01-30T00:38:42Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp313-cp313-linux_x86_64.whl", hash = "sha256:e70ee2e37ad27a90201d101a41c2e10df7cf15a9ebd17c084f54cf2518c57bdf", upload-time = "2025-01-30T00:38:51Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:b5e7e8d561b263b5ad8049736281cd12c78e51e7bc1a913fd4098fd0e0b96347", upload-time = "2025-01-30T00:38:59Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp313-cp313-win_amd64.whl", hash = "sha256:b436a6c62d086dc5b32f5721b59f0ca8ad3bf9de09ee9b5b83dbf1e7a7e22c60", upload-time = "2025-01-30T00:39:03Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp313-cp313t-linux_x86_64.whl", hash = "sha256:fb34d6cc4e6e20e66d74852c3d84e0301dc5e1a7c822076ef288886f978390f0", upload-time = "2025-01-30T00:39:13Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:7cac05af909ee1c5c2915e8f3efaa1ea015e7e414be0ff53071402b9e4f3c7df", upload-time = "2025-01-30T00:39:20Z" },
 ]
 
 [[package]]
@@ -3808,34 +3825,34 @@ name = "torch"
 version = "2.6.0+cu124"
 source = { registry = "https://download.pytorch.org/whl/cu124" }
 dependencies = [
-    { name = "filelock", marker = "extra == 'extra-5-paper-cuda'" },
-    { name = "fsspec", marker = "extra == 'extra-5-paper-cuda'" },
-    { name = "jinja2", marker = "extra == 'extra-5-paper-cuda'" },
-    { name = "networkx", marker = "extra == 'extra-5-paper-cuda'" },
-    { name = "nvidia-cublas-cu12", version = "12.4.5.8", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cuda-cupti-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cuda-nvrtc-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cuda-runtime-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cudnn-cu12", version = "9.1.0.70", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cufft-cu12", version = "11.2.1.3", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-curand-cu12", version = "10.3.5.147", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cusolver-cu12", version = "11.6.1.9", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cusparse-cu12", version = "12.3.1.170", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cusparselt-cu12", version = "0.6.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-nccl-cu12", version = "2.21.5", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-nvjitlink-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-nvtx-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "setuptools", marker = "extra == 'extra-5-paper-cuda'" },
-    { name = "sympy", version = "1.13.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-5-paper-cuda'" },
-    { name = "triton", version = "3.2.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-5-paper-cuda') or (platform_machine != 'x86_64' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform != 'linux' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "typing-extensions", marker = "extra == 'extra-5-paper-cuda'" },
+    { name = "filelock", marker = "extra == 'extra-9-graphmind-cuda'" },
+    { name = "fsspec", marker = "extra == 'extra-9-graphmind-cuda'" },
+    { name = "jinja2", marker = "extra == 'extra-9-graphmind-cuda'" },
+    { name = "networkx", marker = "extra == 'extra-9-graphmind-cuda'" },
+    { name = "nvidia-cublas-cu12", version = "12.4.5.8", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cuda-cupti-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cuda-nvrtc-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cuda-runtime-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cudnn-cu12", version = "9.1.0.70", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cufft-cu12", version = "11.2.1.3", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-curand-cu12", version = "10.3.5.147", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cusolver-cu12", version = "11.6.1.9", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cusparse-cu12", version = "12.3.1.170", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cusparselt-cu12", version = "0.6.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-nccl-cu12", version = "2.21.5", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-nvjitlink-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-nvtx-cu12", version = "12.4.127", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "setuptools", marker = "extra == 'extra-9-graphmind-cuda'" },
+    { name = "sympy", version = "1.13.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-graphmind-cuda'" },
+    { name = "triton", version = "3.2.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-9-graphmind-cuda') or (platform_machine != 'x86_64' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform != 'linux' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "typing-extensions", marker = "extra == 'extra-9-graphmind-cuda'" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp312-cp312-linux_x86_64.whl", hash = "sha256:a393b506844035c0dac2f30ea8478c343b8e95a429f06f3b3cadfc7f53adb597" },
-    { url = "https://download-r2.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp312-cp312-win_amd64.whl", hash = "sha256:3313061c1fec4c7310cf47944e84513dcd27b6173b72a349bb7ca68d0ee6e9c0" },
-    { url = "https://download-r2.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp313-cp313-linux_x86_64.whl", hash = "sha256:0f3bc53c988ce9568cd876a2a5316761e84a8704135ec8068f5f81b4417979cb" },
-    { url = "https://download-r2.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp313-cp313-win_amd64.whl", hash = "sha256:519330eef09534acad8110b6f423d2fe58c1d8e9ada999ed077a637a0021f908" },
-    { url = "https://download-r2.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp313-cp313t-linux_x86_64.whl", hash = "sha256:35cba404c0d742406cdcba1609085874bc60facdfbc50e910c47a92405fef44c" },
+    { url = "https://download-r2.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp312-cp312-linux_x86_64.whl", hash = "sha256:a393b506844035c0dac2f30ea8478c343b8e95a429f06f3b3cadfc7f53adb597", upload-time = "2025-01-30T00:57:08Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp312-cp312-win_amd64.whl", hash = "sha256:3313061c1fec4c7310cf47944e84513dcd27b6173b72a349bb7ca68d0ee6e9c0", upload-time = "2025-01-30T00:57:40Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp313-cp313-linux_x86_64.whl", hash = "sha256:0f3bc53c988ce9568cd876a2a5316761e84a8704135ec8068f5f81b4417979cb", upload-time = "2025-01-30T00:59:14Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp313-cp313-win_amd64.whl", hash = "sha256:519330eef09534acad8110b6f423d2fe58c1d8e9ada999ed077a637a0021f908", upload-time = "2025-01-30T00:59:45Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp313-cp313t-linux_x86_64.whl", hash = "sha256:35cba404c0d742406cdcba1609085874bc60facdfbc50e910c47a92405fef44c", upload-time = "2025-01-30T01:01:25Z" },
 ]
 
 [[package]]
@@ -3843,28 +3860,28 @@ name = "torch"
 version = "2.7.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "filelock", marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
-    { name = "fsspec", marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
-    { name = "jinja2", marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
-    { name = "networkx", marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
-    { name = "nvidia-cublas-cu12", version = "12.6.4.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cuda-cupti-cu12", version = "12.6.80", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cuda-nvrtc-cu12", version = "12.6.77", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cuda-runtime-cu12", version = "12.6.77", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cudnn-cu12", version = "9.5.1.17", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cufft-cu12", version = "11.3.0.4", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cufile-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-curand-cu12", version = "10.3.7.77", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cusolver-cu12", version = "11.7.1.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cusparse-cu12", version = "12.5.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-cusparselt-cu12", version = "0.6.3", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-nccl-cu12", version = "2.26.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "nvidia-nvtx-cu12", version = "12.6.77", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "setuptools", marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
-    { name = "sympy", version = "1.14.0", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
-    { name = "triton", version = "3.3.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda') or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
-    { name = "typing-extensions", marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
+    { name = "filelock", marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
+    { name = "fsspec", marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
+    { name = "jinja2", marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
+    { name = "networkx", marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cublas-cu12", version = "12.6.4.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cuda-cupti-cu12", version = "12.6.80", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cuda-nvrtc-cu12", version = "12.6.77", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cuda-runtime-cu12", version = "12.6.77", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cudnn-cu12", version = "9.5.1.17", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cufft-cu12", version = "11.3.0.4", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cufile-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-curand-cu12", version = "10.3.7.77", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cusolver-cu12", version = "11.7.1.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cusparse-cu12", version = "12.5.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-cusparselt-cu12", version = "0.6.3", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-nccl-cu12", version = "2.26.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "nvidia-nvtx-cu12", version = "12.6.77", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "setuptools", marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
+    { name = "sympy", version = "1.14.0", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
+    { name = "triton", version = "3.3.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda') or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
+    { name = "typing-extensions", marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/87/93/fb505a5022a2e908d81fe9a5e0aa84c86c0d5f408173be71c6018836f34e/torch-2.7.1-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:27ea1e518df4c9de73af7e8a720770f3628e7f667280bce2be7a16292697e3fa", size = 98948276, upload-time = "2025-06-04T17:39:12.852Z" },
@@ -3905,7 +3922,7 @@ name = "tqdm"
 version = "4.67.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737, upload-time = "2024-11-24T20:12:22.481Z" }
 wheels = [
@@ -3956,7 +3973,7 @@ name = "triton"
 version = "3.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "setuptools", marker = "(extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (extra != 'extra-5-paper-cpu' and extra != 'extra-5-paper-cuda')" },
+    { name = "setuptools", marker = "(extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (extra != 'extra-9-graphmind-cpu' and extra != 'extra-9-graphmind-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/24/5f/950fb373bf9c01ad4eb5a8cd5eaf32cdf9e238c02f9293557a2129b9c4ac/triton-3.3.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9999e83aba21e1a78c1f36f21bce621b77bcaa530277a50484a7cb4a822f6e43", size = 155669138, upload-time = "2025-05-29T23:39:51.771Z" },
@@ -4051,11 +4068,11 @@ wheels = [
 
 [package.optional-dependencies]
 standard = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
     { name = "httptools" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "uvloop", marker = "(platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform == 'cygwin' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda') or (sys_platform == 'win32' and extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "uvloop", marker = "(platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform == 'cygwin' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda') or (sys_platform == 'win32' and extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
     { name = "watchfiles" },
     { name = "websockets" },
 ]
@@ -4378,7 +4395,7 @@ name = "zstandard"
 version = "0.23.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi", marker = "platform_python_implementation == 'PyPy' or (extra == 'extra-5-paper-cpu' and extra == 'extra-5-paper-cuda')" },
+    { name = "cffi", marker = "platform_python_implementation == 'PyPy' or (extra == 'extra-9-graphmind-cpu' and extra == 'extra-9-graphmind-cuda')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ed/f6/2ac0287b442160a89d726b17a9184a4c615bb5237db763791a7fd16d9df1/zstandard-0.23.0.tar.gz", hash = "sha256:b2d8c62d08e7255f68f7a740bae85b3c9b8e5466baa9cbf7f57f1cde0ac6bc09", size = 681701, upload-time = "2024-07-15T00:18:06.141Z" }
 wheels = [

@@ -191,14 +191,33 @@ def parse_all(
         parse(latex_dir, venue_dir / "parsed", max_items, num_workers, clean)
 
 
-def _check_pandoc() -> None:
-    """Check if pandoc is installed and available in PATH."""
+def _pandoc_executable() -> str:
+    """Path to the pandoc executable.
+
+    Resolves via `pypandoc` (a required dependency that bundles its own
+    pandoc binary), falling back to bare "pandoc" (via PATH) only if pypandoc
+    somehow can't find any pandoc at all — should not happen in practice.
+    """
     try:
-        subprocess.run(["pandoc", "--version"], check=True, capture_output=True)
+        import pypandoc  # type: ignore
+
+        return pypandoc.get_pandoc_path()
+    except OSError:
+        return "pandoc"
+
+
+def _check_pandoc() -> None:
+    """Check if pandoc is available (bundled via pypandoc, or on PATH)."""
+    try:
+        subprocess.run(
+            [_pandoc_executable(), "--version"], check=True, capture_output=True
+        )
     except (subprocess.CalledProcessError, FileNotFoundError):
         die(
-            "pandoc is not installed but required for LaTeX parsing. "
-            "Please install it from https://pandoc.org/installing.html"
+            "pandoc could not be found. It should be bundled automatically via "
+            "the pypandoc-binary dependency — check your installation "
+            "(`uv sync`), or install pandoc manually from "
+            "https://pandoc.org/installing.html as a fallback."
         )
 
 
@@ -719,7 +738,7 @@ def _run_pandoc(
     latex_file.write_text(latex_content)
 
     pandoc_cmd = [
-        "pandoc",
+        _pandoc_executable(),
         "--quiet",
         "--wrap=none",
         "-f",
@@ -852,7 +871,7 @@ def _extract_bibliography_from_bibfiles(
 
             logger.debug("Parsing bibtex data with pandoc: %s", bib_path)
             pandoc_cmd = [
-                "pandoc",
+                _pandoc_executable(),
                 "--quiet",
                 "-f",
                 "bibtex",

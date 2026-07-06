@@ -28,8 +28,9 @@ from paper.gpt.openai_encoder import OpenAIEncoder
 from paper.orc.arxiv_api import ArxivResult, arxiv_id_from_url
 from paper.orc.download import parse_arxiv_latex
 from paper.orc.latex_parser import SentenceSplitter
-from paper.single_paper.paper_retrieval import fetch_s2_paper_info, search_arxiv_papers
+from paper.single_paper.paper_retrieval import search_arxiv_papers
 from paper.single_paper.pipeline import QueryType, process_paper_from_query
+from paper.single_paper.s2_store import fetch_s2_paper_info
 from paper.util import arun_safe, atimer, dotenv, seqcat, setup_logging
 from paper.util.rate_limiter import get_limiter
 from paper.util.serde import save_data

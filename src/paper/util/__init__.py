@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-VERSION = metadata.version("paper")
+VERSION = metadata.version("graphmind")
 
 
 def fuzzy_ratio(s1: str, s2: str) -> int:

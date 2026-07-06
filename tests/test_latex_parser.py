@@ -1,6 +1,7 @@
 """Tests for LaTeX parser functions."""
 
 import re
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -8,8 +9,10 @@ import pytest
 from paper.orc.latex_parser import (
     _convert_latex_to_markdown,
     _match_braced_group,
+    _pandoc_executable,
     _rebalance_braces,
     _remove_command_with_braced_args,
+    _run_pandoc,
     _sanitise_for_pandoc,
     _strip_problematic_packages,
     extract_title_from_bibitem_entry,
@@ -470,3 +473,51 @@ class TestConvertLatexToMarkdown:
         result = _convert_latex_to_markdown(tex, tex, name)
         assert result is not None
         assert "Text" in result
+
+
+class TestPandocExecutable:
+    """Tests for _pandoc_executable.
+
+    Guards against silently falling back to a system-installed pandoc
+    instead of the bundled pypandoc-binary one.
+    """
+
+    def test_uses_pypandoc_path_when_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Delegates to pypandoc's resolved path, not a hardcoded string."""
+        import pypandoc  # type: ignore
+
+        monkeypatch.setattr(pypandoc, "get_pandoc_path", lambda: "/fake/bundled/pandoc")
+        assert _pandoc_executable() == "/fake/bundled/pandoc"
+
+    def test_falls_back_to_bare_pandoc_if_not_found(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Falls back to PATH-resolved "pandoc" only if pypandoc can't find any."""
+        import pypandoc  # type: ignore
+
+        def raise_not_found() -> str:
+            raise OSError("No pandoc was found")
+
+        monkeypatch.setattr(pypandoc, "get_pandoc_path", raise_not_found)
+        assert _pandoc_executable() == "pandoc"
+
+    def test_conversion_works_without_system_pandoc(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Proves we don't silently depend on a system-installed pandoc.
+
+        With PATH stripped entirely, a bare "pandoc" subprocess call would be
+        unresolvable — if this test passes, conversion is genuinely using the
+        bundled pypandoc binary, not something found on the system PATH.
+        """
+        monkeypatch.setenv("PATH", "")
+
+        markdown, error = _run_pandoc(
+            "\\section{Hello} This is \\textbf{bold} text.", tmp_path, "test"
+        )
+        assert error == ""
+        assert markdown is not None
+        assert "Hello" in markdown
+        assert "bold" in markdown

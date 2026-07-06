@@ -22,7 +22,7 @@ import aiohttp
 import backoff
 
 from paper import semantic_scholar as s2
-from paper.single_paper.paper_retrieval import S2_FIELDS_BASE
+from paper.single_paper.s2_store import S2_FIELDS_BASE
 
 if TYPE_CHECKING:
     from paper.util.rate_limiter import Limiter

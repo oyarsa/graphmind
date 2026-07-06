@@ -24,7 +24,6 @@ from paper.single_paper.annotation_extraction import (
 )
 from paper.single_paper.graph_evaluation import evaluate_paper_with_graph
 from paper.single_paper.paper_retrieval import (
-    REQUEST_TIMEOUT,
     ProgressCallback,
     enhance_with_s2_references,
     fetch_s2_recommendations,
@@ -35,6 +34,7 @@ from paper.single_paper.related_papers import (
     generate_related_paper_summaries,
     get_related_papers,
 )
+from paper.single_paper.s2_store import REQUEST_TIMEOUT, LiveS2Store, S2Store
 from paper.util import atimer, ensure_envvar
 from paper.util.cli import die
 
@@ -63,6 +63,7 @@ async def annotate_paper_pipeline(
     request_timeout: float = REQUEST_TIMEOUT,
     filter_by_date: bool = False,
     callback: ProgressCallback | None = None,
+    store: S2Store | None = None,
 ) -> GPTResult[gpt.PaperWithRelatedSummary]:
     """Annotate a single paper through the complete pipeline to get related papers.
 
@@ -95,6 +96,8 @@ async def annotate_paper_pipeline(
         client: LLM client for GPT API calls.
         encoder: Embedding encoder for semantic similarity computations.
         callback: Optional callback function to call with phase names after completion.
+        store: Semantic Scholar data access. Defaults to a live, uncached lookup
+            using `s2_api_key`/`limiter`.
 
     Returns:
         Complete paper with related papers and their summaries wrapped in GPTResult.
@@ -105,6 +108,7 @@ async def annotate_paper_pipeline(
     Requires:
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
+    store = store or LiveS2Store(s2_api_key, limiter)
 
     logger.debug("Processing paper: %s", paper.title)
 
@@ -115,12 +119,12 @@ async def annotate_paper_pipeline(
     logger.debug("Fetching S2 data for recommendations and references in parallel")
     paper_with_s2_refs, recommended_papers = await asyncio.gather(
         atimer(
-            enhance_with_s2_references(paper, top_k_refs, encoder, s2_api_key, limiter),
+            enhance_with_s2_references(paper, top_k_refs, encoder, store),
             3,
         ),
         atimer(
             fetch_s2_recommendations(
-                paper, num_recommendations, s2_api_key, limiter, request_timeout
+                paper, num_recommendations, store, request_timeout
             ),
             3,
         ),
@@ -230,6 +234,7 @@ async def process_paper_from_query(
     demonstrations_key: str,
     demo_prompt_key: str,
     interactive: bool = False,
+    store: S2Store | None = None,
 ) -> EvaluationResult:
     """Process a paper by query (title or arXiv ID/URL) through the PETER pipeline.
 
@@ -259,6 +264,7 @@ async def process_paper_from_query(
         demonstrations_key: Key for demonstrations file.
         demo_prompt_key: Key for demonstration prompt template.
         interactive: If True, enables interactive paper selection for title searches.
+        store: Semantic Scholar data access. Defaults to a live, uncached lookup.
 
     Returns:
         EvaluationResult with novelty evaluation and cost.
@@ -273,20 +279,19 @@ async def process_paper_from_query(
     """
     s2_api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
     client = LLMClient.new_env(llm_model, seed)
+    store = store or LiveS2Store(s2_api_key, limiter)
 
     match type_:
         case QueryType.TITLE:
             logger.debug("Searching by title: %s", query)
-            paper = await atimer(get_paper_from_title(query, limiter, s2_api_key), 2)
+            paper = await atimer(get_paper_from_title(query, store), 2)
         case QueryType.ID:
             if interactive:
                 die("Interactive mode is only supported for title search")
 
             arxiv_id = arxiv_id_from_url(query)
             logger.debug("Searching by arXiv ID: %s", arxiv_id)
-            paper = await atimer(
-                get_paper_from_arxiv_id(arxiv_id, limiter, s2_api_key), 2
-            )
+            paper = await atimer(get_paper_from_arxiv_id(arxiv_id, store), 2)
 
     # Process paper through PETER pipeline
     paper_result = await atimer(
@@ -299,6 +304,7 @@ async def process_paper_from_query(
             top_k_refs=top_k_refs,
             num_recommendations=num_recommendations,
             num_related=num_related,
+            store=store,
         ),
         2,
     )
@@ -335,6 +341,7 @@ async def process_paper_from_selection(
     *,
     filter_by_date: bool = False,
     callback: ProgressCallback | None = None,
+    store: S2Store | None = None,
 ) -> EvaluationResult:
     """Process a paper from pre-selected title and arXiv ID through the PETER pipeline.
 
@@ -371,6 +378,7 @@ async def process_paper_from_selection(
         filter_by_date: If True, filter recommended papers to only include those
             published before the main paper.
         callback: Optional callback function to call with phase names during processing.
+        store: Semantic Scholar data access. Defaults to a live, uncached lookup.
 
     Returns:
         EvaluationResult with novelty evaluation and cost.
@@ -384,12 +392,11 @@ async def process_paper_from_selection(
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
     s2_api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
+    store = store or LiveS2Store(s2_api_key, limiter)
 
     logger.debug("Processing paper: %s (arXiv:%s)", title, arxiv_id)
 
-    paper = await atimer(
-        get_paper_from_arxiv_id(arxiv_id, limiter, s2_api_key, callback=callback), 2
-    )
+    paper = await atimer(get_paper_from_arxiv_id(arxiv_id, store, callback=callback), 2)
 
     paper_annotated = await atimer(
         annotate_paper_pipeline(
@@ -403,6 +410,7 @@ async def process_paper_from_selection(
             num_related=num_related,
             filter_by_date=filter_by_date,
             callback=callback,
+            store=store,
         ),
         2,
     )

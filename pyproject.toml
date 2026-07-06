@@ -1,5 +1,5 @@
 [project]
-name = "paper"
+name = "graphmind"
 version = "0.35.0"
 description = "Add your description here"
 readme = "README.md"
@@ -33,6 +33,7 @@ dependencies = [
     "psycopg[binary,pool]>=3.2.9",
     "psutil>=6.1.0",
     "scikit-learn>=1.7.0",
+    "pypandoc-binary>=1.17",
 ]
 
 [dependency-groups]
@@ -51,7 +52,7 @@ dev = [
 ]
 
 [project.scripts]
-paper = "paper.cli:app"
+graphmind = "paper.cli:app"
 
 [tool.ruff.format]
 preview = true
@@ -152,6 +153,11 @@ exclude = [
     ".codex",
     "experiments"
 ]
+
+[tool.hatch.build.targets.wheel]
+# The distributed package name ("graphmind") differs from the importable
+# module path (src/paper), so hatchling can't auto-detect this from the name.
+packages = ["src/paper"]
 
 [tool.uv]
 conflicts = [

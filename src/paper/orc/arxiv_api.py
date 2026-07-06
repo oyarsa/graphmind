@@ -176,11 +176,23 @@ def get_arxiv(openreview_titles: list[str], batch_size: int) -> dict[str, ArxivR
 
 @backoff.on_exception(backoff.expo, Exception, max_tries=5, logger=logger)
 def arxiv_search(
-    client: arxiv.Client, query: str, max_results: int
+    client: arxiv.Client, query: str, max_results: int, *, wrap_title: bool = True
 ) -> Iterator[arxiv.Result]:
-    """Query up to `max_results` matches of `query` on arXiv with retries."""
-    logger.info("Querying n=%d query='%s'", max_results, query)
-    return client.results(arxiv.Search(query=f'ti:"{query}"', max_results=max_results))
+    """Query up to `max_results` matches of `query` on arXiv with retries.
+
+    Args:
+        client: arXiv API client.
+        query: Bare title to search for, or a full arXiv query expression if
+            `wrap_title` is False.
+        max_results: Maximum number of results to return.
+        wrap_title: If True (default), wraps `query` as a `ti:"..."` title-field
+            search. Set to False when `query` is already a complete arXiv query
+            expression (e.g. a multi-title OR search) that shouldn't be wrapped
+            again.
+    """
+    search_query = f'ti:"{query}"' if wrap_title else query
+    logger.info("Querying n=%d query='%s'", max_results, search_query)
+    return client.results(arxiv.Search(query=search_query, max_results=max_results))
 
 
 @backoff.on_exception(backoff.expo, Exception, max_tries=5, logger=logger)
@@ -201,7 +213,9 @@ def _batch_search_arxiv(
     openreview_titles_norm = [normalise_title(t) for t in openreview_titles]
 
     try:
-        for result in arxiv_search(client, query, len(openreview_titles)):
+        for result in arxiv_search(
+            client, query, len(openreview_titles), wrap_title=False
+        ):
             arxiv_title = result.title
             for i, openreview_title in enumerate(openreview_titles_norm):
                 if similar_titles(openreview_title, arxiv_title):

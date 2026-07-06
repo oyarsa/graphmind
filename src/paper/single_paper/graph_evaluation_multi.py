@@ -34,6 +34,7 @@ from paper.gpt.prompts.summarise_perspectives import PERSPECTIVE_SUMMARY_PROMPTS
 from paper.gpt.run_gpt import GPTResult, LLMClient, gpt_sequence, gpt_unit
 from paper.single_paper.paper_retrieval import get_paper_from_arxiv_id
 from paper.single_paper.pipeline import annotate_paper_pipeline
+from paper.single_paper.s2_store import LiveS2Store, S2Store
 from paper.types import Immutable, PaperProxy, PaperSource
 from paper.util import atimer, ensure_envvar
 from paper.util.serde import replace_fields
@@ -860,6 +861,7 @@ async def process_paper_from_selection_multi(
     perspectives: Sequence[str] | None = None,
     filter_by_date: bool = False,
     callback: ProgressCallback | None = None,
+    store: S2Store | None = None,
 ) -> EvaluationResultMulti:
     """Process a paper from pre-selected title and arXiv ID using multiple perspectives.
 
@@ -903,6 +905,7 @@ async def process_paper_from_selection_multi(
         filter_by_date: If True, filter recommended papers to only include those
             published before the main paper.
         callback: Optional callback function to call with phase names during processing.
+        store: Semantic Scholar data access. Defaults to a live, uncached lookup.
 
     Returns:
         EvaluationResult with novelty evaluation and cost.
@@ -916,12 +919,11 @@ async def process_paper_from_selection_multi(
         SEMANTIC_SCHOLAR_API_KEY and OPENAI_API_KEY/GEMINI_API_KEY environment variables.
     """
     s2_api_key = ensure_envvar("SEMANTIC_SCHOLAR_API_KEY")
+    store = store or LiveS2Store(s2_api_key, limiter)
 
     logger.debug("Processing paper: %s (arXiv:%s)", title, arxiv_id)
 
-    paper = await atimer(
-        get_paper_from_arxiv_id(arxiv_id, limiter, s2_api_key, callback=callback), 2
-    )
+    paper = await atimer(get_paper_from_arxiv_id(arxiv_id, store, callback=callback), 2)
 
     paper_annotated = await atimer(
         annotate_paper_pipeline(
@@ -935,6 +937,7 @@ async def process_paper_from_selection_multi(
             num_related=num_related,
             filter_by_date=filter_by_date,
             callback=callback,
+            store=store,
         ),
         2,
     )

@@ -24,14 +24,18 @@ $ uv run pre-commit install
 See [Development Environment](#development-environment) and
 [CONTRIBUTING](docs/CONTRIBUTING.md) for more information.
 
-[`pandoc`](https://pandoc.org/installing.html) is required to parse the LaTeX files for
-the ORC dataset.
+LaTeX parsing (for the ORC dataset and for single-paper novelty evaluation) needs
+`pandoc`, which is installed automatically as a Python dependency (via
+`pypandoc-binary`) — no separate system install required.
 
 After this setup, you're reading to process the datasets. See [Datasets](#datasets)
 below.
 
 Docker and Docker Compose are required for the REST API. See [REST
 API](./src/paper/backend/README.md) for more information.
+
+To evaluate a single paper's novelty (or a batch of them) from the CLI or as a
+library, see [Standalone novelty evaluation](docs/STANDALONE.md).
 
 ## Datasets
 
