@@ -12,7 +12,12 @@ graphmind.maleldil.com {
         path /.aws/* /.docker/* /.kube/* /config.json /credentials
         path /actuator/* /api/v1/pods /server-status /debug/*
     }
-    respond @scanners 403
+    # Must be a `handle`, not a bare `respond`: Caddy's directive order runs the
+    # catch-all `handle` first, so a bare `respond` never fires. Sibling `handle`
+    # blocks are exclusive and evaluated in written order.
+    handle @scanners {
+        respond 403
+    }
 
     handle {
         reverse_proxy graphmind:8000
