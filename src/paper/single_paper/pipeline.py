@@ -343,7 +343,7 @@ async def process_paper_from_selection(
     callback: ProgressCallback | None = None,
     store: S2Store | None = None,
 ) -> EvaluationResult:
-    """Process a paper from pre-selected title and arXiv ID through the PETER pipeline.
+    """Process a paper from preselected title and arXiv ID through the PETER pipeline.
 
     This function is designed for API usage where the user has already selected a paper
     from search results and has both the title and arXiv ID available. It provides the

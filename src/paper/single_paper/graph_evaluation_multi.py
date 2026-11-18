@@ -863,7 +863,7 @@ async def process_paper_from_selection_multi(
     callback: ProgressCallback | None = None,
     store: S2Store | None = None,
 ) -> EvaluationResultMulti:
-    """Process a paper from pre-selected title and arXiv ID using multiple perspectives.
+    """Process a paper from preselected title and arXiv ID using multiple perspectives.
 
     This function is designed for API usage where the user has already selected a paper
     from search results and has both the title and arXiv ID available. It provides the

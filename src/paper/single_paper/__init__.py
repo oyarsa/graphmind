@@ -15,7 +15,7 @@ CLI entry point:
 Core pipeline functions:
     annotate_paper_pipeline: Complete PETER pipeline processing
     process_paper_from_query: End-to-end processing from title/ID
-    process_paper_from_selection: Processing from pre-selected paper
+    process_paper_from_selection: Processing from preselected paper
 """
 
 from paper.embedding import DEFAULT_SENTENCE_MODEL
