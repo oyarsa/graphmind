@@ -8,7 +8,7 @@ graphmind.maleldil.com {
     }
 
     @scanners {
-        path /.env /.git/* /wp-admin/* /wp-login* /phpMyAdmin*
+        path /.env* /.git/* /wp-admin/* /wp-login* /phpMyAdmin*
         path /.aws/* /.docker/* /.kube/* /config.json /credentials
         path /actuator/* /api/v1/pods /server-status /debug/*
     }
