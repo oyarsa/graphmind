@@ -27,7 +27,7 @@ UI from freezing during long-running paper evaluations.
 ### LLM Model Options
 - `"gpt-4o"`
 - `"gpt-4o-mini"`
-- `"gemini-2.0-flash"`
+- `"gemini-3.8-flash"`
 
 ## Event Types
 
@@ -198,7 +198,7 @@ The `/mind/evaluate-abstract` endpoint provides abstract paper evaluation using 
 | `abstract`        | string  | ✅       | -                     | -         | Paper abstract                           |
 | `recommendations` | integer | ❌       | 20                    | 5-50      | Number of related papers to retrieve     |
 | `related`         | integer | ❌       | 3                     | 1-10      | Number of semantic papers per type       |
-| `llm_model`       | string  | ❌       | "gemini-2.0-flash"    | See above | LLM model to use                         |
+| `llm_model`       | string  | ❌       | "gemini-3.8-flash"    | See above | LLM model to use                         |
 
 ### Event Types
 

@@ -7,7 +7,7 @@ import { parseStoredJson } from "./storage";
 
 /** Settings interface for evaluation parameters */
 export interface EvaluationSettings {
-  llm_model: "gpt-4o" | "gpt-4o-mini" | "gemini-2.0-flash";
+  llm_model: "gpt-4o" | "gpt-4o-mini" | "gemini-3.8-flash";
   k_refs: number;
   recommendations: number;
   related: number;
@@ -25,7 +25,7 @@ export const DEFAULT_SETTINGS: EvaluationSettings = {
 export const SETTINGS_STORAGE_KEY = "paper-explorer-evaluation-settings";
 
 const EvaluationSettingsSchema = z.object({
-  llm_model: z.enum(["gpt-4o", "gpt-4o-mini", "gemini-2.0-flash"]),
+  llm_model: z.enum(["gpt-4o", "gpt-4o-mini", "gemini-3.8-flash"]),
   k_refs: z.number().int().min(10).max(50),
   recommendations: z.number().int().min(20).max(50),
   related: z.number().int().min(5).max(10),

@@ -55,6 +55,7 @@ MODEL_SYNONYMS: Mapping[str, str] = {
     "gemini-2.0-flash": "gemini-2.0-flash-001",
     "gemini-2.5-flash": "gemini-2.5-flash-preview-04-17",
     "gemini-2.5-pro": "gemini-2.5-pro-preview-03-25",
+    "gemini-3.8-flash": "gemini-3.8-flash",
     "gpt-4.1-nano": "gpt-4.1-nano-2025-04-14",
     "gpt-4.1-mini": "gpt-4.1-mini-2025-04-14",
     "gpt-4.1": "gpt-4.1-2025-04-14",
@@ -76,6 +77,9 @@ MODEL_COSTS: Mapping[str, tuple[float, float]] = {
     "gemini-2.0-flash-001": (0.10, 0.40),
     "gemini-2.5-pro-preview-03-25": (1.25, 2.5),
     "gemini-2.5-flash-preview-04-17": (0.15, 0.60),
+    # Price through 2026-12-31. From 2027-01-01: (1.50, 7.50). Output includes
+    # thinking tokens.
+    "gemini-3.8-flash": (0.75, 3.75),
     "gpt-4.1-nano-2025-04-14": (0.10, 0.40),
     "gpt-4.1-mini-2025-04-14": (0.40, 1.60),
     "gpt-4.1-2025-04-14": (2, 8),
@@ -114,6 +118,11 @@ MODEL_SEARCH_COSTS: Mapping[str, Mapping[SearchLevel, float]] = {
         SearchLevel.LOW: 0.035,  # $35 per 1000 grounded queries
         SearchLevel.MEDIUM: 0.035,  # Same for all context sizes
         SearchLevel.HIGH: 0.035,  # Same for all context sizes
+    },
+    "gemini-3.8-flash": {
+        SearchLevel.LOW: 0.035,  # Assumed same as other Gemini models
+        SearchLevel.MEDIUM: 0.035,
+        SearchLevel.HIGH: 0.035,
     },
 }
 """Cost in $ per 1000 search/grounding calls, by context size level.

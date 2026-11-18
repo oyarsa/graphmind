@@ -446,7 +446,7 @@ export const EvaluationParamsSchema = z.object({
   related: z.number().min(5).max(10).optional().default(5),
   /** LLM model to use */
   llm_model: z
-    .enum(["gpt-4o", "gpt-4o-mini", "gemini-2.0-flash"])
+    .enum(["gpt-4o", "gpt-4o-mini", "gemini-3.8-flash"])
     .optional()
     .default("gpt-4o-mini"),
   /** Filter recommended papers to only include those published before the main paper */

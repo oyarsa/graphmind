@@ -151,7 +151,7 @@ Once the server is running, visit:
 - `k_refs` - Number of references to analyse (1-10, default: 2)
 - `recommendations` - Number of recommended papers (5-50, default: 30)
 - `related` - Number of related papers per type (1-10, default: 2)
-- `llm_model` - LLM model to use (`gpt-4o`, `gpt-4o-mini`, `gemini-2.0-flash`)
+- `llm_model` - LLM model to use (`gpt-4o`, `gpt-4o-mini`, `gemini-3.8-flash`)
 - `seed` - Random seed for reproducible results (default: 0)
 
 ### Relationship Types

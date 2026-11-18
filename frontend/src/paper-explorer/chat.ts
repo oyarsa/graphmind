@@ -19,7 +19,7 @@ interface ChatResponse {
 interface ChatRequestBody {
   messages: ChatMessage[];
   page_context: Record<string, unknown>;
-  llm_model: "gpt-4o" | "gpt-4o-mini" | "gemini-2.0-flash";
+  llm_model: "gpt-4o" | "gpt-4o-mini" | "gemini-3.8-flash";
   page_type: ChatPageType;
 }
 
@@ -135,7 +135,7 @@ interface PaperChatWidgetOptions {
   pageType: ChatPageType;
   conversationId: string;
   getPageContext: () => Record<string, unknown>;
-  getModel: () => "gpt-4o" | "gpt-4o-mini" | "gemini-2.0-flash";
+  getModel: () => "gpt-4o" | "gpt-4o-mini" | "gemini-3.8-flash";
 }
 
 export class PaperChatWidget {

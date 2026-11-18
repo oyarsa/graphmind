@@ -239,7 +239,7 @@ class LLMModel(StrEnum):
 
     GPT4o = "gpt-4o"
     GPT4oMini = "gpt-4o-mini"
-    Gemini2Flash = "gemini-2.0-flash"
+    Gemini38Flash = "gemini-3.8-flash"
 
 
 # This endpoint, like `evaluation_partial_options` below, is necessary to add the
@@ -273,7 +273,7 @@ async def evaluate(
     ] = 5,
     llm_model: Annotated[
         LLMModel, Query(description="LLM model to use.")
-    ] = LLMModel.Gemini2Flash,
+    ] = LLMModel.Gemini38Flash,
     filter_by_date: Annotated[
         bool,
         Query(
@@ -347,7 +347,7 @@ async def evaluate_abstract(
     ] = 20,
     llm_model: Annotated[
         LLMModel, Query(description="LLM model to use.")
-    ] = LLMModel.Gemini2Flash,
+    ] = LLMModel.Gemini38Flash,
     related: Annotated[
         int,
         Query(
@@ -439,7 +439,7 @@ async def evaluate_multi(
     ] = 5,
     llm_model: Annotated[
         LLMModel, Query(description="LLM model to use.")
-    ] = LLMModel.Gemini2Flash,
+    ] = LLMModel.Gemini38Flash,
     filter_by_date: Annotated[
         bool,
         Query(

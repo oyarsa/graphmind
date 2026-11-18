@@ -67,6 +67,8 @@ def get_rate_limiter(tier: int, model: str) -> ChatRateLimiter:
                 "gemini-2.5-pro": (150, 2_000_000),
                 "gemini-2.0-flash": (2_000, 4_000_000),
                 "gemini-2.5-flash": (1_000, 1_000_000),
+                # Also limited to 10K requests per day, which isn't enforced here.
+                "gemini-3.8-flash": (1_000, 2_000_000),
                 "gpt-4o-mini": (5_000, 4_000_000),
                 "gpt-4o": (5_000, 800_000),
             }

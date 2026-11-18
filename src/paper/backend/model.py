@@ -259,7 +259,7 @@ class ChatRequest(Model):
         str,
         Field(
             description="LLM model identifier.",
-            pattern=r"^(gpt-4o|gpt-4o-mini|gemini-2\.0-flash)$",
+            pattern=r"^(gpt-4o|gpt-4o-mini|gemini-3\.8-flash)$",
         ),
     ] = "gpt-4o-mini"
     page_type: Annotated[ChatPageType, Field(description="Origin page type.")]
