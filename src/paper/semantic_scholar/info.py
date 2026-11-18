@@ -102,6 +102,7 @@ async def fetch_paper_data(
     fields: Sequence[str],
     limiter: Limiter,
     limit: int = 1,
+    max_retries: int = MAX_RETRIES,
 ) -> dict[str, Any] | None:
     """Fetch raw paper data from the API with retry logic.
 
@@ -113,6 +114,7 @@ async def fetch_paper_data(
         limiter: Limiter to control the number of concurrent requests.
         limit: Maximum number of results to return. Defaults to 1, i.e. the best title
             match.
+        max_retries: Maximum number of attempts for rate-limit/network errors.
 
     Returns:
         A dictionary with the paper data if found, or None if not found or an error
@@ -125,9 +127,11 @@ async def fetch_paper_data(
     }
     headers = {"x-api-key": api_key}
 
-    attempt = 0
     delay = RETRY_DELAY
-    while attempt < MAX_RETRIES:
+    for attempt in range(1, max_retries + 1):
+        # Backoff sleeps happen outside the limiter and response contexts, so a
+        # waiting request doesn't hold a limiter slot or an open connection.
+        wait_time: float = delay
         try:
             async with (
                 limiter,
@@ -142,49 +146,41 @@ async def fetch_paper_data(
                     logger.debug(f"No results found for title: {paper_title}")
                     return None
 
-                if response.status == 429:
-                    if retry_after := response.headers.get("Retry-After"):
-                        wait_time = _parse_retry_after_seconds(retry_after)
-                        if wait_time is None:
-                            wait_time = delay
-                            wait_source = "Custom (invalid Retry-After)"
-                        else:
-                            wait_source = "Retry-After"
-                    else:
-                        wait_time = delay
-                        wait_source = "Custom"
-                    logger.debug(
-                        f"Rate limited (429) when fetching '{paper_title}'. "
-                        f"Retrying after {wait_time} ({wait_source}) seconds..."
-                    )
-                    await asyncio.sleep(wait_time)
-                    delay *= BACKOFF_FACTOR  # Exponential backoff
-                else:
+                if response.status != 429:
                     error_text = await response.text()
                     logger.warning(
                         f"Error fetching data for '{paper_title}': "
                         f"HTTP {response.status} - {error_text}"
                     )
                     return None
+
+                retry_after = response.headers.get("Retry-After")
+                parsed = (
+                    _parse_retry_after_seconds(retry_after) if retry_after else None
+                )
+                if parsed is not None:
+                    wait_time = parsed
+                logger.debug(
+                    f"Rate limited (429) when fetching '{paper_title}'"
+                    f" (attempt {attempt}/{max_retries})."
+                )
         except aiohttp.ClientError as e:
             logger.debug(
-                f"Network error fetching '{paper_title}': {e}. Retrying..."
-                f" (Attempt {attempt + 1}/{MAX_RETRIES})"
+                f"Network error fetching '{paper_title}': {e}"
+                f" (attempt {attempt}/{max_retries})."
             )
-            await asyncio.sleep(delay)
-            delay *= BACKOFF_FACTOR
         except TimeoutError:
             logger.debug(
-                f"Timeout error fetching '{paper_title}'. Retrying..."
-                f" (Attempt {attempt + 1}/{MAX_RETRIES})"
+                f"Timeout error fetching '{paper_title}'"
+                f" (attempt {attempt}/{max_retries})."
             )
-            await asyncio.sleep(delay)
-            delay *= BACKOFF_FACTOR
 
-        attempt += 1
+        if attempt < max_retries:
+            await asyncio.sleep(wait_time)
+            delay *= BACKOFF_FACTOR  # Exponential backoff
 
     logger.warning(
-        f"Failed to fetch data for '{paper_title}' after {MAX_RETRIES} attempts."
+        f"Failed to fetch data for '{paper_title}' after {max_retries} attempts."
     )
     return None
 
@@ -218,6 +214,7 @@ async def fetch_paper_info(
     paper_title: str,
     fields: Sequence[str],
     limiter: Limiter,
+    max_retries: int = MAX_RETRIES,
 ) -> PaperFromPeerRead | None:
     """Fetch paper information for a given title. Takes only the best title match.
 
@@ -226,7 +223,9 @@ async def fetch_paper_info(
 
     * See `MIN_TITLE_MATCH_RATIO`.
     """
-    raw_data = await fetch_paper_data(session, api_key, paper_title, fields, limiter)
+    raw_data = await fetch_paper_data(
+        session, api_key, paper_title, fields, limiter, max_retries=max_retries
+    )
     if raw_data is None:
         return None
 
@@ -255,6 +254,7 @@ async def fetch_papers_from_s2(
     *,
     desc: str | None = None,
     limiter: Limiter | None = None,
+    max_retries: int = MAX_RETRIES,
 ) -> list[PaperFromPeerRead | None]:
     """Fetch paper information for multiple titles in parallel.
 
@@ -265,6 +265,8 @@ async def fetch_papers_from_s2(
         desc: If provided, used as the description for a progress bar.
         limiter: If provided, Semaphore/rate limiter for the requests. If not, creates
             a semaphore with MAX_CONCURRENT_REQUESTS.
+        max_retries: Maximum number of attempts per title for rate-limit/network
+            errors.
 
     Returns:
         List of papers found (includes None for failed/not found papers).
@@ -275,7 +277,9 @@ async def fetch_papers_from_s2(
     ) as session:
         limiter = limiter or asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
         tasks = [
-            fetch_paper_info(session, api_key, title, fields, limiter)
+            fetch_paper_info(
+                session, api_key, title, fields, limiter, max_retries=max_retries
+            )
             for title in titles
         ]
         if desc:

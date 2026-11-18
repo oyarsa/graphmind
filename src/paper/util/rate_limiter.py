@@ -220,7 +220,8 @@ def get_limiter(
         max_concurrent_requests: When using a semaphore, the maximum number of requests
             (async tasks) that can execute simultaneously. The rest will wait until
             there's room available.
-        requests_per_second: Number of requests per second that can be made.
+        requests_per_second: Number of requests per second that can be made. Can be
+            fractional (e.g. 0.8 means one request every 1.25 seconds).
         use_semaphore: Which one to use. If None, will check the USE_SEMAPHORE env var.
             If USE_SEMAPHORE is 1, use a Semaphore. Otherwise, use a rate limiter.
 
@@ -232,7 +233,8 @@ def get_limiter(
 
     if use_semaphore:
         return asyncio.Semaphore(max_concurrent_requests)
-    return AsyncLimiter(requests_per_second, 1)
+    # Capacity 1 per (1 / rate) seconds: no bursts, and fractional rates work.
+    return AsyncLimiter(1, 1 / requests_per_second)
 
 
 # The AsyncLimiter code is derived from aiolimiter.

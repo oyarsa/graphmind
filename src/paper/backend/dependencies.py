@@ -15,6 +15,10 @@ from paper.util import dotenv, rate_limiter, setup_uvicorn_logging
 ENABLE_NETWORK = os.getenv("XP_ENABLE_NETWORK", "0") == "1"
 
 
+S2_REQUESTS_PER_SECOND = 0.8
+"""Rate for Semantic Scholar requests, kept under the key's 1 request/second."""
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application lifespan events.
@@ -32,7 +36,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     setup_uvicorn_logging()
     dotenv.load_dotenv()
-    app.state.limiter = rate_limiter.get_limiter(use_semaphore=False)
+    # Shared across all requests. Stay a little under S2's 1 request/second key
+    # limit: running right at the limit triggers frequent 429s.
+    app.state.limiter = rate_limiter.get_limiter(
+        requests_per_second=S2_REQUESTS_PER_SECOND, use_semaphore=False
+    )
     app.state.llm_registry = LLMClientRegistry()
     app.state.encoder = OpenAIEncoder()
 

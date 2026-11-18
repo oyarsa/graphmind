@@ -90,6 +90,10 @@ class CitationContext(BaseModel):
         return cls(sentence=sentence[:256], polarity=polarity)
 
 
+UNKNOWN_REFERENCE_TITLE = "Unknown Reference"
+"""Placeholder title for a citation whose bibliography entry couldn't be found."""
+
+
 class PaperReference(Immutable):
     """Paper metadata with its contexts."""
 
@@ -136,6 +140,10 @@ class Paper(Record):
     arxiv_id: Annotated[str | None, Field(description="ID of the paper on arXiv")] = (
         None
     )
+    s2_paper_id: Annotated[
+        str | None,
+        Field(description="Semantic Scholar paper ID, if retrieved from S2"),
+    ] = None
 
     @computed_field
     @property
@@ -262,6 +270,7 @@ class Paper(Record):
             year=s2_paper.year,
             publication_date=s2_paper.publication_date,
             arxiv_id=arxiv_id,
+            s2_paper_id=s2_paper.paper_id,
         )
 
     def __str__(self) -> str:

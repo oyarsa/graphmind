@@ -282,12 +282,18 @@ async def get_top_k_titles_async(
     """Get top `k` reference titles from `paper` using async encoder.
 
     References are sorted by cosine similarity between the reference and main paper
-    titles.
+    titles. Placeholder titles (citations without a bibliography entry), blank titles
+    and duplicates are skipped, so they don't take up slots or S2 requests.
     """
-    if not paper.references:
+    ref_titles = list(
+        dict.fromkeys(
+            title
+            for r in paper.references
+            if (title := r.title.strip()) and title != pr.UNKNOWN_REFERENCE_TITLE
+        )
+    )
+    if not ref_titles:
         return []
-
-    ref_titles = [r.title for r in paper.references]
 
     references_emb = await encoder.batch_encode(ref_titles)
     title_emb = await encoder.encode(paper.title)
@@ -336,10 +342,11 @@ async def fetch_s2_recommendations(
 ) -> list[s2.Paper]:
     """Fetch recommended papers from S2 API for the given paper."""
 
-    # First, we need to get the S2 paper ID by searching for this paper
-    data = await store.search(paper.title, ["paperId"])
-
-    paper_id = (data or {}).get("paperId")
+    # Reuse the S2 paper ID from the initial lookup if we have it; otherwise search
+    paper_id = paper.s2_paper_id
+    if not paper_id:
+        data = await store.search(paper.title, ["paperId"])
+        paper_id = (data or {}).get("paperId")
     if not paper_id:
         logger.warning(
             "Paper '%s' not found on S2 - cannot fetch recommendations", paper.title

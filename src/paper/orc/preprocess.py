@@ -195,7 +195,7 @@ def _process_references(references: list[dict[str, Any]]) -> list[pr.PaperRefere
     output: list[pr.PaperReference] = []
 
     for ref in references:
-        if ref["title"] == "Unknown Reference":
+        if ref["title"] == pr.UNKNOWN_REFERENCE_TITLE:
             continue
 
         output.append(

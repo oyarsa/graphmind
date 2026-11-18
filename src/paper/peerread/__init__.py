@@ -1,5 +1,6 @@
 """Process our input dataset, PeerRead from AllenAI."""
 
+from paper.peerread.model import UNKNOWN_REFERENCE_TITLE as UNKNOWN_REFERENCE_TITLE
 from paper.peerread.model import CitationContext as CitationContext
 from paper.peerread.model import ContextPolarity as ContextPolarity
 from paper.peerread.model import Paper as Paper

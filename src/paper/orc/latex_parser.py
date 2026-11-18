@@ -18,7 +18,12 @@ import orjson
 import typer
 from tqdm import tqdm
 
-from paper.peerread.model import CitationContext, PaperReference, PaperSection
+from paper.peerread.model import (
+    UNKNOWN_REFERENCE_TITLE,
+    CitationContext,
+    PaperReference,
+    PaperSection,
+)
 from paper.util import Timer, setup_logging
 from paper.util.cli import die
 from paper.util.serde import save_data
@@ -432,7 +437,7 @@ def process_latex(
             # If we found a citation but no corresponding reference,
             # add it to the references with placeholder data
             citationkey_to_reference[citation_key] = Reference(
-                title="Unknown Reference",
+                title=UNKNOWN_REFERENCE_TITLE,
                 year=None,
                 authors=[],
                 citation_key=citation_key,

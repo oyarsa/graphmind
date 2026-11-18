@@ -49,6 +49,9 @@ S2_FIELDS_BASE = [
 S2_FIELDS = [*S2_FIELDS_BASE, "tldr", "venue"]
 
 REQUEST_TIMEOUT = 60  # 1 minute timeout for each request
+REFERENCE_MAX_RETRIES = 3
+"""Attempts per reference lookup. Fewer than the main paper: a missing reference
+only slightly degrades the evaluation, so long backoffs aren't worth it."""
 
 
 def _normalise_title(title: str) -> str:
@@ -143,7 +146,11 @@ class LiveS2Store(S2Store):
     ) -> list[s2.PaperFromPeerRead | None]:
         """Batch title lookup."""
         return await fetch_papers_from_s2(
-            self._api_key, titles, fields, limiter=self._limiter
+            self._api_key,
+            titles,
+            fields,
+            limiter=self._limiter,
+            max_retries=REFERENCE_MAX_RETRIES,
         )
 
     async def recommendations(
